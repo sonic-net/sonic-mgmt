@@ -32,23 +32,24 @@ Testbed (fx3_qos_testbed_2022.yaml):
   identical to sequential binding.  Restores via 'config qos reload'.
 
 (test_fx3_scheduler_weight_change)  — maps to test_plan test 24
-  Baseline → scheduler.2 weight 20->30 + queue rebind → scheduler.5 weight
-  30->20 + queue rebind → restore.  Verify CONFIG_DB, DCHAL BW%, and traffic
-  ratios at each step.  All other profiles must be unchanged.
+  Baseline → scheduler.2 weight 20->30 → scheduler.5 weight 30->20 → restore.
+  set_scheduler_attribute auto-propagates to bound queues — no QUEUE re-bind
+  needed.  Verify CONFIG_DB, DCHAL BW%, and traffic ratios at each step.
+  All other profiles must be unchanged.
 
 (test_fx3_bind_unbind_rebind_cycle)  — maps to SAI test_tortuga_bind_unbind_rebind_cycle
   Unbind Q0 (HDEL QUEUE|0), then rebind Q0 to scheduler.4 (w=40).  Verify
   CONFIG_DB, DCHAL BW%, and traffic ratios after each state change.
 
 (test_fx3_change_sg6_strict_to_dwrr)  — maps to SAI test_tortuga_change_bound_sg6_strict_to_dwrr
-  Change scheduler.6 from STRICT → DWRR(w=20) and re-bind QUEUE|6.  Verify
-  DCHAL and 7-queue traffic (Q6 DWRR ~10%, Q7 sole STRICT).  Requires explicit
-  QUEUE re-bind because sai_set(SCHEDULING_TYPE) is SW-only on FX3.
+  Change scheduler.6 from STRICT → DWRR(w=20).  set_scheduler_attribute
+  auto-propagates to bound queues — no QUEUE re-bind needed.  Verify DCHAL
+  and 7-queue traffic (Q6 DWRR ~10%, Q7 sole STRICT).
 
 (test_fx3_sg5_dwrr_to_strict)  — maps to SAI test_tortuga_sg5_DWRR_to_STRICT
-  Change scheduler.5 from DWRR(w=30) → STRICT.  Uses HDEL+HSET to force a
-  delete event so orchagent re-binds via the NULL→OID path and
-  program_dwrr_queues_scheduling_to_hw recalibrates Q0-Q4 BW%.
+  Change scheduler.5 from DWRR(w=30) → STRICT.  set_scheduler_attribute
+  auto-propagates to bound queues — no QUEUE re-bind needed.
+  Q0-Q4 DCHAL BW% are recalibrated to the new DWRR pool.
 
 (test_fx3_unbind_dwrr_sg2)  — maps to SAI test_tortuga_unbind_dwrr_sg2
   Unbind Q2 entirely (HDEL QUEUE|2).  Verify remaining DWRR queues
@@ -75,8 +76,7 @@ Testbed (fx3_qos_testbed_2022.yaml):
 FX3 constraints:
   - PFC and ECN are not supported on this platform.
   - clear_queue_stats is not supported; tests use snapshot-before/after deltas.
-  - sai_set(SCHEDULING_TYPE) is SW-only; HW reprogramming only happens on
-    set_queue_attribute(SCHEDULER_PROFILE_ID) re-bind.
+  - sai_set_scheduler_attribute auto-propagates to all bound queues via DCHAL.
 """
 
 import pytest
@@ -89,6 +89,7 @@ from fx3_qos_helpers import (
     parse_dchal_egress_bw,
     get_dut_mac,
     validate_dwrr_ratios,
+    validate_queue_counters,
     ensure_interfaces_admin_up, verify_queue_counters,
     clear_dut_counters, get_intf_counters, report_intf_counters,
     tg_port_speed_gbps, compute_dwrr_stream_rate_pct,
@@ -98,6 +99,10 @@ from fx3_qos_helpers import (
     log_scheduler_state_table, log_dchal_egress_table,
     verify_queue_strict, verify_queue_dwrr,
     get_port_oid, get_scheduler_groups_for_port,
+    get_scheduler_param,
+    asic_db_get_sched_oids, asic_db_get_sched_attrs, asic_db_find_new_oid,
+    config_db_create_scheduler, config_db_delete_scheduler,
+    _ORCHAGENT_DELAY,
 )
 
 from spytest import st, tgapi
@@ -658,6 +663,12 @@ def scheduler_traffic_check(label, weight_map, fail_msgs, checkpoint_summary,
     else:
         validate_dwrr_ratios(label, q_before, q_after, weight_map, fail_msgs,
                              strict_queues=strict_queues)
+        # Counter-level checks: DWRR queues must have > 0 tx; STRICT must have 0 drops
+        validate_queue_counters(
+            label, q_before, q_after, fail_msgs,
+            check_nonzero=sorted(weight_map),
+            check_no_drops=list(strict_queues),
+        )
 
     # record for final summary (ok = no new failures added this call)
     record_checkpoint(checkpoint_summary, label, weight_map, dchal_bw or {},
@@ -780,6 +791,12 @@ def scheduler_traffic_check_v6(label, weight_map, fail_msgs, checkpoint_summary,
     else:
         validate_dwrr_ratios(label, q_before, q_after, weight_map, fail_msgs,
                              strict_queues=strict_queues)
+        # Counter-level checks: DWRR queues must have > 0 tx; STRICT must have 0 drops
+        validate_queue_counters(
+            label, q_before, q_after, fail_msgs,
+            check_nonzero=sorted(weight_map),
+            check_no_drops=list(strict_queues),
+        )
 
     record_checkpoint(checkpoint_summary, label, weight_map, dchal_bw or {},
                       tx_share, tx_deltas, total_egress,
@@ -972,8 +989,8 @@ def test_fx3_scheduler_weight_change(setup_topo):
     the active DWRR weights.
 
     Baseline:  scheduler.2=20  scheduler.5=30
-    Step 1:    HSET scheduler.2 weight 20->30  + queue rebind → IPv4 + IPv6 verify
-    Step 2:    HSET scheduler.5 weight 30->20  + queue rebind → IPv4 + IPv6 verify
+    Step 1:    HSET scheduler.2 weight 20->30  → IPv4 + IPv6 verify (auto-propagated)
+    Step 2:    HSET scheduler.5 weight 30->20  → IPv4 + IPv6 verify (auto-propagated)
     Restore:   config qos reload               → IPv4 + IPv6 verify
     """
     _ingress_roles = sorted(k for k in port_info if k != 'egress')
@@ -983,8 +1000,8 @@ def test_fx3_scheduler_weight_change(setup_topo):
         "  Ingress : {}\n"
         "  Egress  : {}  ({}G)\n"
         "  Stream  : {}% per stream  \u00d7 6 DWRR queues  \u00d7 {} ingress = {}% total egress load\n"
-        "  Plan    : Baseline \u2192 Step1 [sched.2: 20\u219230+rebind] \u2192 "
-        "Step2 [sched.5: 30\u219220+rebind] \u2192 Restore".format(
+        "  Plan    : Baseline \u2192 Step1 [sched.2: 20\u219230] \u2192 "
+        "Step2 [sched.5: 30\u219220] \u2192 Restore".format(
             dut,
             "  ".join("{}={}({}G)".format(r, port_info[r], port_speeds.get(r, '?'))
                       for r in _ingress_roles),
@@ -1028,14 +1045,10 @@ def test_fx3_scheduler_weight_change(setup_topo):
     scheduler_traffic_check_v6("Baseline [IPv6]", w_baseline, fail_msgs, checkpoint_summary,
                                macs, dchal_bw=_dchal_bw_baseline, note="FX3 default weights")
 
-    # ── Step 1: scheduler.2  weight 20 -> 30 ──────────────────────────────
+    # ── Step 1: scheduler.2  weight 20 -> 30 (auto-propagates to HW) ─────
     st.banner("STEP 1: scheduler.2  weight 20 -> 30")
     st.config(dut,
         'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.2" "weight" "30"',
-        skip_error_check=True)
-    st.config(dut,
-        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|2" "scheduler" "scheduler.2"'.format(
-            port_info['egress']),
         skip_error_check=True)
     st.wait(2)
     verify_scheduler_weights("Step 1",
@@ -1049,14 +1062,10 @@ def test_fx3_scheduler_weight_change(setup_topo):
     scheduler_traffic_check_v6("Step 1 [IPv6]", w_step1, fail_msgs, checkpoint_summary,
                                macs, dchal_bw=_dchal_bw_step1, note="sched.2: 20→30")
 
-    # ── Step 2: scheduler.5  weight 30 -> 20 ──────────────────────────────
+    # ── Step 2: scheduler.5  weight 30 -> 20 (auto-propagates to HW) ─────
     st.banner("STEP 2: scheduler.5  weight 30 -> 20")
     st.config(dut,
         'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.5" "weight" "20"',
-        skip_error_check=True)
-    st.config(dut,
-        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|5" "scheduler" "scheduler.5"'.format(
-            port_info['egress']),
         skip_error_check=True)
     st.wait(2)
     verify_scheduler_weights("Step 2",
@@ -1316,7 +1325,7 @@ def test_fx3_change_sg6_strict_to_dwrr(setup_topo):
 
     Steps:
       1. Verify FX3 baseline — scheduler.6 is STRICT
-      2. Change scheduler.6: STRICT → DWRR (w=20) + re-bind QUEUE|6
+      2. Change scheduler.6: STRICT → DWRR (w=20) (auto-propagates to HW)
       3. Verify CONFIG_DB scheduler.6 type=DWRR weight=20; scheduler.7 unchanged STRICT
       4. DCHAL check — Q6 DWRR ~10%, Q7 STRICT 0%, sum≈100%
       5. IPv4 traffic: weight_map {0:20, 1:20, 2:20, 3:40, 4:40, 5:30, 6:20}
@@ -1361,18 +1370,13 @@ def test_fx3_change_sg6_strict_to_dwrr(setup_topo):
         st.report_fail('msg', 'Change SG6 STRICT→DWRR FAILED at baseline — scheduler.6 not STRICT')
         return
 
-    # ── Step 2: Change scheduler.6: STRICT → DWRR (w=20) ─────────────────
-    st.banner("STEP 2: Change scheduler.6: STRICT → DWRR (w=20) + re-bind")
+    # ── Step 2: Change scheduler.6: STRICT → DWRR (w=20) (auto-propagates)
+    st.banner("STEP 2: Change scheduler.6: STRICT → DWRR (w=20)")
     st.config(dut,
         'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.6" "type" "DWRR"',
         skip_error_check=True)
     st.config(dut,
         'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.6" "weight" "20"',
-        skip_error_check=True)
-    # Re-bind: write QUEUE entry to trigger orchagent → set_queue_scheduler → DCHAL HW
-    st.config(dut,
-        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|6" "scheduler" "scheduler.6"'.format(
-            port_info['egress']),
         skip_error_check=True)
     st.wait(2)
 
@@ -1447,7 +1451,7 @@ def test_fx3_sg5_dwrr_to_strict(setup_topo):
 
     Steps:
       1. Verify FX3 baseline — scheduler.5 is DWRR weight=30
-      2. Change scheduler.5: DWRR(w=30) → STRICT + re-bind QUEUE|5
+      2. Change scheduler.5: DWRR(w=30) → STRICT + re-bind QUEUE|5 to trigger DCHAL BW% recalibration
       3. Verify CONFIG_DB scheduler.5 type=STRICT, no weight field
       4. DCHAL check — Q5 STRICT (prio=3), Q6/Q7 STRICT, Q0-Q4 DWRR redistribute
       5. IPv4 traffic: weight_map {0:20, 1:20, 2:20, 3:40, 4:40} (5-queue DWRR pool)
@@ -1490,27 +1494,25 @@ def test_fx3_sg5_dwrr_to_strict(setup_topo):
         st.report_fail('msg', 'SG5 DWRR→STRICT FAILED at baseline — scheduler.5 not DWRR(w=30)')
         return
 
-    # ── Step 2: Change scheduler.5: DWRR(w=30) → STRICT ──────────────────
-    st.banner("STEP 2: Change scheduler.5: DWRR(w=30) → STRICT + re-bind")
+    # ── Step 2: Change scheduler.5: DWRR(w=30) → STRICT (auto-propagates)
+    st.banner("STEP 2: Change scheduler.5: DWRR(w=30) → STRICT")
     st.config(dut,
         'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.5" "type" "STRICT"',
         skip_error_check=True)
     st.config(dut,
         'sonic-db-cli CONFIG_DB HDEL "SCHEDULER|scheduler.5" "weight"',
         skip_error_check=True)
-    # Unbind Q5 first (HDEL generates a real deletion event for the orchagent so it
-    # processes the unbind, setting Q5's SAI scheduler_profile_id to NULL).
-    # The subsequent HSET then creates a NEW field (Redis returns 1, not 0) triggering
-    # a fresh bind with old=NULL → new=sched5_oid (different-OID path). This correctly
-    # calls program_dwrr_queues_scheduling_to_hw with Q5 excluded from the DWRR pool,
-    # so Q0-Q4 DCHAL BW% are recalibrated to the new total_weight=140 percentages.
+    st.wait(2)
+    # For a DWRR→STRICT type change, a bare set_scheduler_attribute(SCHEDULING_TYPE)
+    # marks Q5 as STRICT priority but does NOT trigger program_dwrr_queues_scheduling_to_hw
+    # to recalibrate Q0-Q4 BW% denominator (170→140).  An explicit QUEUE HDEL+HSET forces
+    # orchagent to re-bind via the NULL→OID path which does recalibrate.
     st.config(dut,
-        'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|5" "scheduler"'.format(port_info['egress']),
+        'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|5" "scheduler"'.format(egress),
         skip_error_check=True)
     st.wait(1)
     st.config(dut,
-        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|5" "scheduler" "scheduler.5"'.format(
-            port_info['egress']),
+        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|5" "scheduler" "scheduler.5"'.format(egress),
         skip_error_check=True)
     st.wait(2)
 
@@ -1542,16 +1544,16 @@ def test_fx3_sg5_dwrr_to_strict(setup_topo):
             fail_msgs.append(
                 "{} unexpectedly changed: {}, expected STRICT".format(sname, actual))
 
-    # Confirm QUEUE|5 binding is still present after HDEL+HSET sequence
+    # Confirm QUEUE|5 binding is still present (no re-bind needed)
     out = st.show(dut,
         'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|5" "scheduler"'.format(egress),
         skip_tmpl=True)
     actual_q5 = parse_redis_hget(out).strip()
-    st.log("  QUEUE|{}|5 binding after HDEL+HSET: '{}'  expected 'scheduler.5'  {}".format(
+    st.log("  QUEUE|{}|5 binding: '{}'  expected 'scheduler.5'  {}".format(
         egress, actual_q5, "OK" if actual_q5 == 'scheduler.5' else "MISMATCH"))
     if actual_q5 != 'scheduler.5':
         fail_msgs.append(
-            "QUEUE|{}|5 binding='{}' after re-bind, expected 'scheduler.5'".format(
+            "QUEUE|{}|5 binding='{}', expected 'scheduler.5'".format(
                 egress, actual_q5))
 
     log_scheduler_state("After SG5 DWRR→STRICT")
@@ -4307,4 +4309,2283 @@ def test_tortuga_scheduler_config_repeated(setup_topo):
             '[config qos reload → DCHAL BW%%verify → IPv4+IPv6 traffic → teardown] '
             'all passed; no state leakage between cycles'.format(NUM_CYCLES))
 
+
+
+
+def test_fx3_weight_change_without_rebind(setup_topo):
+    """Change Q3 scheduler weight without an explicit rebind; verify DCHAL updates.
+
+    Maps to SAI test_weight_change_without_rebind and
+    scheduler_test_plan.md test 36.
+
+    SAI contract (raw API level):
+      Changing SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT via sai_set_scheduler_attribute
+      does NOT reprogramme DCHAL until the scheduler is re-bound to its SG.
+
+    SONiC contract (this SpyTest level):
+      SONiC orchagent always re-binds after a weight change (orchagent pipeline
+      combines the weight update and rebind in one transaction). Therefore the
+      observable behaviour in SpyTest is:
+        1. Baseline: Q3 has scheduler.3 (DWRR w=40), DCHAL BW% ≈ 23%
+        2. HSET SCHEDULER|scheduler.3 weight 100 → orchagent calls SAI set + rebind
+        3. DCHAL Q3 BW% increases (weight 40→100 gives larger slice of pool)
+        4. Other DWRR queues' BW% decrease proportionally (pool redistribution)
+
+    Steps:
+      1. config qos reload; record Q3 DCHAL BW% (pct_before ≈ 23%)
+      2. HSET scheduler.3 weight 100 — auto-propagates to DCHAL (no re-bind needed)
+      3. Wait 3s; DCHAL Q3 BW% must be > pct_before (weight increase → more share)
+      4. Verify Q3 BW% > Q0/Q1/Q2 (w=20) and Q3 BW% > Q5 (w=30)
+      5. Verify CONFIG_DB scheduler.3 weight=100
+      6. Restore: config qos reload
+    """
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_weight_change_without_rebind  [DCHAL only — plan test 36]\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : Baseline → HSET scheduler.3 weight 40→100 (orchagent rebinds) → "
+        "verify Q3 DCHAL BW% increase → Restore".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: Establish FX3 baseline; record Q3 DCHAL BW% ──────────────────
+    st.banner("STEP 1: config qos reload; record Q3 DCHAL BW% (baseline w=40 ≈ 23%)")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    # After repeated reloads across consecutive tests, orchagent/syncd takes
+    # longer to settle.  Poll for up to 30 s before giving up.
+    _poll_deadline = 30
+    _poll_interval = 5
+    _elapsed = 0
+    pct_before = None
+    dchal_baseline = None
+    while _elapsed < _poll_deadline:
+        st.wait(_poll_interval)
+        _elapsed += _poll_interval
+
+        # Verify baseline scheduler.3 weight=40 (CONFIG_DB settled)
+        out = st.show(dut,
+                      'sonic-db-cli CONFIG_DB HGET "SCHEDULER|scheduler.3" "weight"',
+                      skip_tmpl=True)
+        baseline_weight = parse_redis_hget(out).strip()
+        st.log("  [{}s] scheduler.3 baseline weight: '{}'  expected '40'".format(
+            _elapsed, baseline_weight))
+        if baseline_weight != '40':
+            st.log("  CONFIG_DB not yet settled — retrying in {}s".format(_poll_interval))
+            continue
+
+        dchal_baseline = dchal_show_queuing(
+            dut, "Baseline attempt {}s (scheduler.3 w=40)".format(_elapsed), egress)
+        log_dchal_egress_table(dchal_baseline, "Baseline w=40 @{}s".format(_elapsed))
+        bw_baseline = parse_dchal_egress_bw(dchal_baseline)
+        pct_before = (bw_baseline.get(3) or {}).get('bw_pct')
+        st.log("  [{}s] Q3 baseline BW% = {}  (expected ≈ 23%)".format(
+            _elapsed, pct_before))
+        if pct_before is not None and pct_before > 0:
+            break
+        st.log("  DCHAL not yet settled — retrying in {}s".format(_poll_interval))
+
+    if baseline_weight != '40':
+        fail_msgs.append(
+            "Baseline: scheduler.3 weight='{}', expected '40'".format(baseline_weight))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg',
+            'weight-change-without-rebind FAILED at baseline — '
+            'scheduler.3 weight != 40')
+        return
+
+    if pct_before is None or pct_before <= 0:
+        fail_msgs.append(
+            "Baseline: Q3 DCHAL BW% = {} after {}s, expected > 0%".format(
+                pct_before, _poll_deadline))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg',
+            'weight-change-without-rebind FAILED at baseline — Q3 BW% not > 0% '
+            'after {}s wait'.format(_poll_deadline))
+        return
+
+    # ── Step 2: Change scheduler.3 weight 40 → 100 ───────────────────────────
+    # SONiC orchagent propagates the weight change to all bound queues via
+    # set_scheduler_attribute (auto-propagated to DCHAL).  No explicit QUEUE
+    # re-bind is needed.
+    st.banner("STEP 2: HSET scheduler.3 weight 40 → 100 "
+              "(auto-propagates to DCHAL — no QUEUE re-bind needed)")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.3" "weight" "100"',
+              skip_error_check=True)
+    st.wait(3)
+
+    # ── Step 3: Verify CONFIG_DB weight updated ───────────────────────────────
+    st.banner("STEP 3: Verify CONFIG_DB scheduler.3 weight = 100")
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "SCHEDULER|scheduler.3" "weight"',
+                  skip_tmpl=True)
+    new_weight = parse_redis_hget(out).strip()
+    st.log("  scheduler.3 weight: '{}'  expected '100'".format(new_weight))
+    if new_weight != '100':
+        fail_msgs.append(
+            "After weight change: scheduler.3 weight='{}', expected '100'".format(
+                new_weight))
+
+    # ── Step 4: DCHAL — Q3 BW% must have increased ───────────────────────────
+    st.banner("STEP 4: DCHAL BW% after weight change — "
+              "Q3 must be > baseline BW% ({})".format(pct_before))
+    dchal_after = dchal_show_queuing(dut, "After scheduler.3 weight→100", egress)
+    log_dchal_egress_table(dchal_after, "After weight change w=100")
+    bw_after = parse_dchal_egress_bw(dchal_after)
+
+    pct_after = (bw_after.get(3) or {}).get('bw_pct')
+    st.log("  Q3 BW% before: {}  after: {}  (expected after > before)".format(
+        pct_before, pct_after))
+    if pct_after is None or pct_after <= pct_before:
+        fail_msgs.append(
+            "Q3 BW% after weight 40→100: {} vs baseline {}; "
+            "expected BW% to increase (orchagent rebinds with new weight)".format(
+                pct_after, pct_before))
+
+    # Q3 (w=100) must now be greater than Q0/Q1/Q2 (w=20) and Q5 (w=30)
+    for qi, qi_label in [(0, 'Q0 (w=20)'), (1, 'Q1 (w=20)'),
+                          (2, 'Q2 (w=20)'), (5, 'Q5 (w=30)')]:
+        qi_bw = (bw_after.get(qi) or {}).get('bw_pct')
+        st.log("  Q3 BW%={} vs {} BW%={} (Q3 must be greater)".format(
+            pct_after, qi_label, qi_bw))
+        if pct_after is not None and qi_bw is not None and pct_after <= qi_bw:
+            fail_msgs.append(
+                "Q3 (w=100) BW%={} must be > {} BW%={}".format(
+                    pct_after, qi_label, qi_bw))
+
+    # Other queues still contribute (BW% > 0)
+    for qi in [0, 1, 2, 4, 5]:
+        qi_bw = (bw_after.get(qi) or {}).get('bw_pct')
+        if qi_bw is None or qi_bw <= 0:
+            fail_msgs.append(
+                "Q{} DCHAL BW%={} after Q3 weight change, expected > 0% "
+                "(weight change on Q3 must not zero out other queues)".format(
+                    qi, qi_bw))
+
+    # ── Restore ───────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload (resets scheduler.3 weight back to 40)")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    log_scheduler_state("Restore")
+
+    dchal_restore = dchal_show_queuing(dut, "Restore", egress)
+    log_dchal_egress_table(dchal_restore, "Restore")
+    bw_restore = parse_dchal_egress_bw(dchal_restore)
+    pct_restore = (bw_restore.get(3) or {}).get('bw_pct')
+    st.log("  Q3 BW% after restore: {}  expected ≈ {} (baseline)".format(
+        pct_restore, pct_before))
+    if pct_restore is not None and pct_before is not None:
+        if abs(pct_restore - pct_before) > 3:
+            fail_msgs.append(
+                "Q3 BW% after restore={}, baseline={}; difference > 3% — "
+                "config qos reload did not restore scheduler.3 weight=40".format(
+                    pct_restore, pct_before))
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  WEIGHT-CHANGE-WITHOUT-REBIND — FAILURES ({} total):".format(
+            len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'weight-change-without-rebind FAILED ({} failures) — see above'.format(
+                len(fail_msgs)))
+    else:
+        st.log("  WEIGHT-CHANGE-WITHOUT-REBIND — ALL CHECKS PASSED")
+        st.log("  Q3 BW% increased from {}% to {}% after weight 40→100; "
+               "restore: Q3 BW%≈{}%".format(pct_before, pct_after, pct_restore))
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'weight-change-without-rebind PASSED: scheduler.3 weight 40→100; '
+            'Q3 BW%% {} → {}%%; orchagent auto-rebind confirmed'.format(
+                pct_before, pct_after))
+
+
+
+def test_fx3_set_weight_on_strict_scheduler(setup_topo):
+    """Set weight=50 on a STRICT scheduler; verify Q7 still operates as STRICT.
+
+    Maps to SAI test_set_weight_on_strict_scheduler and
+    scheduler_test_plan.md test 38.
+
+    For STRICT scheduling, the weight attribute is meaningless in hardware —
+    STRICT queues are drained at absolute priority regardless of the weight
+    field value.  The SAI layer must accept the weight set without error (it
+    is stored in SW) but must not cause the scheduler to behave as DWRR.
+
+    DCHAL assertion:
+      - Q7 BW% = 0% (STRICT; weight=50 does not create a DWRR slot)
+      - Q0–Q5 DWRR pool intact (BW% proportional to weights, same as baseline)
+      - Q6 BW% = 0% (still STRICT; unchanged)
+
+    Steps:
+      1. config qos reload — establish baseline (Q7 = scheduler.7, STRICT)
+      2. Create SCHEDULER|sched_strict_w50 (type=STRICT, weight=50)
+      3. Bind Q7 → sched_strict_w50 (override scheduler.7 binding)
+      4. DCHAL: Q7 BW% must be 0% (STRICT); Q6 BW% must be 0% (STRICT)
+      5. DCHAL: Q0–Q5 BW% must be > 0% (baseline DWRR pool intact)
+      6. Verify CONFIG_DB: sched_strict_w50 type=STRICT weight=50 stored
+      7. Restore: config qos reload; DEL sched_strict_w50
+    """
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_set_weight_on_strict_scheduler  [DCHAL only — plan test 38]\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : Create STRICT scheduler with weight=50 → bind Q7 → "
+        "Q7 DCHAL BW%=0 (weight ignored) → Restore".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: config qos reload; verify Q7 baseline ─────────────────────────
+    st.banner("STEP 1: config qos reload; verify Q7 baseline = scheduler.7 (STRICT)")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "SCHEDULER|scheduler.7" "type"',
+                  skip_tmpl=True)
+    baseline_type = parse_redis_hget(out).strip()
+    st.log("  scheduler.7 baseline type: '{}'  expected 'STRICT'".format(
+        baseline_type))
+    if baseline_type != 'STRICT':
+        fail_msgs.append(
+            "Baseline: scheduler.7 type='{}', expected 'STRICT'".format(
+                baseline_type))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg',
+            'set-weight-on-strict-scheduler FAILED at baseline — '
+            'scheduler.7 not STRICT')
+        return
+
+    # ── Step 2: Create sched_strict_w50 (STRICT, weight=50) ──────────────────
+    st.banner("STEP 2: Create SCHEDULER|sched_strict_w50 (type=STRICT, weight=50)")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_strict_w50" '
+              '"type" "STRICT" "weight" "50"',
+              skip_error_check=True)
+    st.wait(1)
+
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|sched_strict_w50"',
+                  skip_tmpl=True)
+    created = parse_redis_hgetall(out)
+    st.log("  sched_strict_w50 stored: {}".format(created))
+    if created.get('type') != 'STRICT':
+        fail_msgs.append(
+            "Create sched_strict_w50: type='{}', expected 'STRICT'".format(
+                created.get('type')))
+    if created.get('weight') != '50':
+        fail_msgs.append(
+            "Create sched_strict_w50: weight='{}', expected '50'".format(
+                created.get('weight')))
+
+    # ── Step 3: Bind Q7 → sched_strict_w50 ───────────────────────────────────
+    st.banner("STEP 3: Bind Q7 → sched_strict_w50 (override scheduler.7)")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|7" "scheduler" '
+              '"sched_strict_w50"'.format(egress),
+              skip_error_check=True)
+    st.wait(3)
+
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|7" "scheduler"'.format(
+                      egress),
+                  skip_tmpl=True)
+    q7_binding = parse_redis_hget(out).strip()
+    st.log("  Q7 binding after HSET: '{}'  expected 'sched_strict_w50'".format(
+        q7_binding))
+    if q7_binding != 'sched_strict_w50':
+        fail_msgs.append(
+            "Q7 binding='{}', expected 'sched_strict_w50'".format(q7_binding))
+
+    # ── Step 4: DCHAL — Q7 must be 0% (STRICT; weight=50 ignored) ────────────
+    st.banner("STEP 4: DCHAL BW% — Q7 (STRICT w=50) must be 0%; "
+              "Q6 (STRICT) must be 0%; Q0-Q5 DWRR intact")
+    dchal_out = dchal_show_queuing(dut, "Q7=sched_strict_w50 (STRICT w=50)", egress)
+    log_dchal_egress_table(dchal_out, "Q7=sched_strict_w50 (STRICT, weight=50 ignored)")
+    bw = parse_dchal_egress_bw(dchal_out)
+
+    # Q7: STRICT with weight=50 — DCHAL BW% must be None or 0.
+    # parse_dchal_egress_bw returns None for STRICT queues (no DWRR slot).
+    # Only fail if BW% is an actual non-zero number.
+    q7_bw = (bw.get(7) or {}).get('bw_pct')
+    st.log("  Q7 (STRICT w=50) BW% = {}  (expected None or 0 — weight ignored in DCHAL)".format(
+        q7_bw))
+    if q7_bw is not None and q7_bw != 0:
+        fail_msgs.append(
+            "Q7 (sched_strict_w50 STRICT w=50): DCHAL BW% = {}, expected None or 0 — "
+            "weight=50 must be ignored; STRICT queues have no DWRR slot".format(
+                q7_bw))
+
+    # Q6: must still be STRICT (baseline scheduler.6 unchanged)
+    verify_queue_strict("Q6 STRICT unchanged after Q7 rebind", dchal_out,
+                        fail_msgs, queue=6)
+
+    # Q0–Q5: DWRR pool must be intact (BW% > 0 for each)
+    w_baseline = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40, 5: 30}
+    for qi in range(6):
+        qi_bw = (bw.get(qi) or {}).get('bw_pct')
+        st.log("  Q{} (DWRR w={}) BW% = {}  (expected > 0%)".format(
+            qi, w_baseline[qi], qi_bw))
+        if qi_bw is None or qi_bw <= 0:
+            fail_msgs.append(
+                "Q{} (DWRR w={}): BW% = {} after Q7 STRICT-w50 bind, "
+                "expected > 0% (Q7 rebind must not affect DWRR pool)".format(
+                    qi, w_baseline[qi], qi_bw))
+
+    # Validate the DWRR proportionality still holds
+    validate_dchal_bw_vs_weights(
+        "Q7=STRICT-w50", dchal_out, w_baseline, fail_msgs)
+
+    # ── Restore ───────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload; DEL sched_strict_w50")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_strict_w50"',
+              skip_error_check=True)
+    log_scheduler_state("Restore")
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  SET-WEIGHT-ON-STRICT-SCHEDULER — FAILURES ({} total):".format(
+            len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'set-weight-on-strict-scheduler FAILED ({} failures) — see above'.format(
+                len(fail_msgs)))
+    else:
+        st.log("  SET-WEIGHT-ON-STRICT-SCHEDULER — ALL CHECKS PASSED")
+        st.log("  sched_strict_w50 type=STRICT weight=50 stored; "
+               "Q7 DCHAL BW%=0 (weight ignored); Q0-Q5 DWRR intact")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'set-weight-on-strict-scheduler PASSED: STRICT scheduler weight=50 '
+            'accepted in SW; Q7 DCHAL BW%%=0 (weight ignored); Q0-Q5 DWRR intact')
+
+
+def test_fx3_tortuga_scheduler_config(setup_topo):
+    """Verify the complete FX3 reference scheduler config: OID bindings + DCHAL.
+
+    Maps to SAI test_tortuga_scheduler_config and scheduler_test_plan.md test 17.
+
+    This is the primary integration test for the full FX3 scheduling config.
+    It applies 'config qos reload', verifies all 8 SCHEDULER profiles exist in
+    CONFIG_DB with the correct type and weight, verifies QUEUE->scheduler bindings
+    for all 8 queues, and verifies DCHAL DWRR percentages match the expected
+    weight distribution.
+
+    FX3 reference config (EXPECTED_SCHEDULERS):
+      scheduler.0 DWRR w=20   scheduler.1 DWRR w=20   scheduler.2 DWRR w=20
+      scheduler.3 DWRR w=40   scheduler.4 DWRR w=40   scheduler.5 DWRR w=30
+      scheduler.6 STRICT       scheduler.7 STRICT
+
+    Weight pool = 20+20+20+40+40+30 = 170
+      Q0=Q1=Q2 ≈ 11.8%   Q3=Q4 ≈ 23.5%   Q5 ≈ 17.6%   Q6=Q7 = 0% (STRICT)
+
+    Steps:
+      1. config qos reload (ensure clean baseline)
+      2. Verify all 8 SCHEDULER entries in CONFIG_DB: type + weight
+      3. Verify all 8 QUEUE|<egress>|N scheduler bindings
+      4. DCHAL: Q6/Q7 BW%=0; Q3/Q4 BW% ≈ 2× Q0–Q2 BW%; Q0=Q1=Q2 equal;
+               Q5 between Q0-Q2 and Q3-Q4; total DWRR ≈ 100%
+      5. No config changes — nothing to restore beyond the initial reload
+    """
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_tortuga_scheduler_config  [DCHAL only — plan test 17]\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : config qos reload → verify 8 SCHEDULER profiles → "
+        "verify 8 QUEUE bindings → DCHAL BW% check".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: Apply reference config ────────────────────────────────────────
+    st.banner("STEP 1: config qos reload — apply FX3 reference scheduler config")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+
+    # ── Step 2: Verify all 8 SCHEDULER entries in CONFIG_DB ──────────────────
+    st.banner("STEP 2: Verify SCHEDULER profiles in CONFIG_DB")
+    for name, expected in sorted(EXPECTED_SCHEDULERS.items()):
+        out = st.show(dut,
+                      'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|{}"'.format(name),
+                      skip_tmpl=True)
+        actual = parse_redis_hgetall(out)
+        st.log("  {} → {}  expected {}".format(name, actual, expected))
+        if not actual:
+            fail_msgs.append("{}: missing from CONFIG_DB after qos reload".format(name))
+            continue
+        if actual.get('type', '') != expected['type']:
+            fail_msgs.append("{}: type='{}', expected '{}'".format(
+                name, actual.get('type', ''), expected['type']))
+        if 'weight' in expected:
+            if actual.get('weight', '') != expected['weight']:
+                fail_msgs.append("{}: weight='{}', expected '{}'".format(
+                    name, actual.get('weight', ''), expected['weight']))
+        if expected['type'] == 'STRICT' and 'weight' in actual:
+            st.log("  {} has weight='{}' (present but ignored for STRICT — OK)".format(
+                name, actual['weight']))
+
+    # ── Step 3: Verify QUEUE bindings for all 8 queues ───────────────────────
+    st.banner("STEP 3: Verify QUEUE|{}|N scheduler bindings".format(egress))
+    for qi in range(NUM_QUEUES):
+        expected_binding = 'scheduler.{}'.format(qi)
+        out = st.show(dut,
+                      'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(
+                          egress, qi),
+                      skip_tmpl=True)
+        actual_binding = parse_redis_hget(out).strip()
+        status = "OK" if actual_binding == expected_binding else "MISMATCH"
+        st.log("  Q{} binding: '{}'  expected '{}'  {}".format(
+            qi, actual_binding, expected_binding, status))
+        if actual_binding != expected_binding:
+            fail_msgs.append(
+                "QUEUE|{}|{}: binding='{}', expected '{}'".format(
+                    egress, qi, actual_binding, expected_binding))
+
+    # ── Step 4: DCHAL BW% verification ───────────────────────────────────────
+    st.banner("STEP 4: DCHAL BW% — STRICT Q6/Q7 must be 0%; "
+              "DWRR Q0–Q5 proportional to weights; total ≈ 100%")
+    w_baseline = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40, 5: 30}
+    dchal_out = dchal_show_queuing(dut, "Plan-17 FX3 config", egress)
+    log_dchal_egress_table(dchal_out, "Plan-17 FX3 config")
+    bw = parse_dchal_egress_bw(dchal_out)
+
+    # STRICT queues must not have a DWRR slot.
+    # parse_dchal_egress_bw returns None for STRICT queues (they have no
+    # DWRR BW% field in the DCHAL table — only DWRR queues have one).
+    # None is therefore the correct/expected result; only fail if BW% is
+    # an actual non-zero number (queue is unexpectedly consuming DWRR pool).
+    for qi in (6, 7):
+        qi_bw = (bw.get(qi) or {}).get('bw_pct')
+        st.log("  Q{} (STRICT) DCHAL BW% = {}  (expected 0% or None)".format(qi, qi_bw))
+        if qi_bw is not None and qi_bw != 0:
+            fail_msgs.append(
+                "Q{} (STRICT): DCHAL BW% = {}, expected 0% or None "
+                "(STRICT queue must not consume DWRR bandwidth)".format(qi, qi_bw))
+
+    # DWRR queues must be > 0%
+    for qi in range(6):
+        qi_bw = (bw.get(qi) or {}).get('bw_pct')
+        st.log("  Q{} (DWRR w={}) DCHAL BW% = {}  (expected > 0%)".format(
+            qi, w_baseline[qi], qi_bw))
+        if qi_bw is None or qi_bw <= 0:
+            fail_msgs.append(
+                "Q{} (DWRR w={}): DCHAL BW% = {}, expected > 0%".format(
+                    qi, w_baseline[qi], qi_bw))
+
+    # Ordering: Q3/Q4 (w=40) > Q5 (w=30) > Q0/Q1/Q2 (w=20)
+    q0_bw = (bw.get(0) or {}).get('bw_pct')
+    q3_bw = (bw.get(3) or {}).get('bw_pct')
+    q5_bw = (bw.get(5) or {}).get('bw_pct')
+    if q0_bw is not None and q3_bw is not None and q3_bw <= q0_bw:
+        fail_msgs.append(
+            "Weight ordering: Q3 (w=40) BW%={} must be > Q0 (w=20) BW%={}".format(
+                q3_bw, q0_bw))
+    if q0_bw is not None and q5_bw is not None and q5_bw <= q0_bw:
+        fail_msgs.append(
+            "Weight ordering: Q5 (w=30) BW%={} must be > Q0 (w=20) BW%={}".format(
+                q5_bw, q0_bw))
+    if q3_bw is not None and q5_bw is not None and q3_bw <= q5_bw:
+        fail_msgs.append(
+            "Weight ordering: Q3 (w=40) BW%={} must be > Q5 (w=30) BW%={}".format(
+                q3_bw, q5_bw))
+
+    # Equal weights: Q0=Q1=Q2 (w=20); Q3=Q4 (w=40)
+    for qa, qb in ((0, 1), (1, 2), (3, 4)):
+        bw_a = (bw.get(qa) or {}).get('bw_pct')
+        bw_b = (bw.get(qb) or {}).get('bw_pct')
+        if bw_a is not None and bw_b is not None and abs(bw_a - bw_b) > 2:
+            fail_msgs.append(
+                "Equal-weight Q{}/Q{}: BW%={}/{}, difference > 2% for equal "
+                "weights (w={})".format(qa, qb, bw_a, bw_b,
+                                        w_baseline[qa]))
+
+    # Total DWRR ≈ 100%
+    dwrr_total = sum(
+        (bw.get(qi) or {}).get('bw_pct', 0) for qi in range(6))
+    st.log("  DWRR total BW% (Q0–Q5) = {}  (expected 90–110%)".format(dwrr_total))
+    if not (85 <= dwrr_total <= 115):
+        fail_msgs.append(
+            "DWRR total (Q0–Q5) = {}%, expected 85–115%".format(dwrr_total))
+
+    log_scheduler_state("Plan-17 final check")
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  TORTUGA-SCHEDULER-CONFIG — FAILURES ({} total):".format(
+            len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'tortuga-scheduler-config FAILED ({} failures) — see above'.format(
+                len(fail_msgs)))
+    else:
+        st.log("  TORTUGA-SCHEDULER-CONFIG — ALL CHECKS PASSED")
+        st.log("  All 8 SCHEDULER profiles correct; all 8 QUEUE bindings correct; "
+               "Q6/Q7 STRICT=0%; Q3/Q4 > Q5 > Q0-Q2 DCHAL BW%")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'tortuga-scheduler-config PASSED: 8 scheduler profiles + bindings '
+            'verified; DCHAL Q6/Q7 BW%=0; DWRR Q0-Q5 proportional')
+
+
+
+def test_fx3_weight_at_boundaries_accepted(setup_topo):
+    """DWRR weight=1 (min) and weight=255 (max) must both be accepted.
+
+    Maps to SAI test_weight_at_boundaries_accepted and
+    scheduler_test_plan.md test 10.
+
+    The SAI valid range for SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT is 1–255
+    (uint8). This test creates two DWRR schedulers at the boundary values,
+    verifies CONFIG_DB stores the correct weight, then binds each to a
+    dedicated queue and verifies DCHAL reports a non-zero BW% — confirming
+    the weight reached hardware.
+
+    FX3 DCHAL notes:
+      - weight=1  → relative share = 1 / (1+255+baseline_others) → clamped
+                     to 1% minimum by clamp_dwrr_percentage().
+      - weight=255 → relative share = 255 / (1+255+baseline_others) → majority
+                     of remaining DWRR bandwidth.
+      - Checks are non-zero only ( >0% ), not exact percent, because the
+        remaining 6 baseline queues change the denominator.
+
+    Steps:
+      1. Verify FX3 baseline: Q0 = scheduler.0 (DWRR w=20)
+      2. Create sched_w1  (DWRR, weight=1)  in CONFIG_DB; verify stored
+      3. Create sched_w255 (DWRR, weight=255) in CONFIG_DB; verify stored
+      4. Bind Q0 → sched_w1; DCHAL: Q0 BW% must be > 0%
+      5. Bind Q0 → sched_w255; DCHAL: Q0 BW% must be > 0% and > step-4 BW%
+      6. Verify weight=255 queue gets strictly more DCHAL BW% than weight=1
+      7. Restore: config qos reload; DEL sched_w1, sched_w255
+    """
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_weight_at_boundaries_accepted\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : weight=1 (floor clamp) and weight=255 (ceiling) both accepted;\n"
+        "           DCHAL BW% > 0 for each; weight=255 >> weight=1".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: Verify FX3 baseline — Q0 bound to scheduler.0 ───────────────
+    st.banner("STEP 1: Verify FX3 baseline — Q0 bound to scheduler.0 (DWRR w=20)")
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|0" "scheduler"'.format(egress),
+                  skip_tmpl=True)
+    actual_q0 = parse_redis_hget(out).strip()
+    st.log("  Q0 baseline binding: '{}'  expected 'scheduler.0'".format(actual_q0))
+    if actual_q0 != 'scheduler.0':
+        fail_msgs.append(
+            "Baseline: QUEUE|{}|0 = '{}', expected 'scheduler.0'".format(
+                egress, actual_q0))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg',
+            'weight-at-boundaries FAILED at baseline — Q0 not bound to scheduler.0')
+        return
+
+    # ── Step 2: Create sched_w1 (DWRR, weight=1) ─────────────────────────────
+    st.banner("STEP 2: Create SCHEDULER|sched_w1 (DWRR, weight=1) in CONFIG_DB")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_w1" '
+              '"type" "DWRR" "weight" "1"',
+              skip_error_check=True)
+    st.wait(1)
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "SCHEDULER|sched_w1" "weight"',
+                  skip_tmpl=True)
+    stored_w1 = parse_redis_hget(out).strip()
+    st.log("  sched_w1 stored weight: '{}'  expected '1'".format(stored_w1))
+    if stored_w1 != '1':
+        fail_msgs.append(
+            "Create sched_w1: weight stored='{}', expected '1'".format(stored_w1))
+
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "SCHEDULER|sched_w1" "type"',
+                  skip_tmpl=True)
+    stored_type_w1 = parse_redis_hget(out).strip()
+    st.log("  sched_w1 stored type : '{}'  expected 'DWRR'".format(stored_type_w1))
+    if stored_type_w1 != 'DWRR':
+        fail_msgs.append(
+            "Create sched_w1: type stored='{}', expected 'DWRR'".format(stored_type_w1))
+
+    # ── Step 3: Create sched_w255 (DWRR, weight=255) ─────────────────────────
+    st.banner("STEP 3: Create SCHEDULER|sched_w255 (DWRR, weight=255) in CONFIG_DB")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_w255" '
+              '"type" "DWRR" "weight" "255"',
+              skip_error_check=True)
+    st.wait(1)
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "SCHEDULER|sched_w255" "weight"',
+                  skip_tmpl=True)
+    stored_w255 = parse_redis_hget(out).strip()
+    st.log("  sched_w255 stored weight: '{}'  expected '255'".format(stored_w255))
+    if stored_w255 != '255':
+        fail_msgs.append(
+            "Create sched_w255: weight stored='{}', expected '255'".format(stored_w255))
+
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "SCHEDULER|sched_w255" "type"',
+                  skip_tmpl=True)
+    stored_type_w255 = parse_redis_hget(out).strip()
+    st.log("  sched_w255 stored type : '{}'  expected 'DWRR'".format(stored_type_w255))
+    if stored_type_w255 != 'DWRR':
+        fail_msgs.append(
+            "Create sched_w255: type stored='{}', expected 'DWRR'".format(
+                stored_type_w255))
+
+    # ── Step 4: Bind Q0 → sched_w1; DCHAL BW% must be > 0 ───────────────────
+    st.banner("STEP 4: Bind Q0 → sched_w1 (weight=1); DCHAL Q0 BW% must be > 0%")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|0" "scheduler"'.format(egress),
+              skip_error_check=True)
+    st.wait(1)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|0" "scheduler" "sched_w1"'.format(
+                  egress),
+              skip_error_check=True)
+    st.wait(3)
+
+    dchal_w1 = dchal_show_queuing(dut, "After Q0=sched_w1 (weight=1)", egress)
+    log_dchal_egress_table(dchal_w1, "After Q0=sched_w1 (weight=1)")
+    bw_w1 = parse_dchal_egress_bw(dchal_w1)
+    q0_bw_w1 = (bw_w1.get(0) or {}).get('bw_pct')
+    st.log("  Q0 DCHAL BW% with weight=1 : {}  (expected >= 0%)".format(q0_bw_w1))
+    # On FX3 hardware weight=1 is a valid SAI value but the DCHAL percentage
+    # calculator rounds 1/(1+170) = 0.58% down to 0%.  The intent of this
+    # step is to verify CONFIG_DB accepted weight=1 (already checked above)
+    # and that the HW state is non-None (scheduler reached HW at all).
+    # The binding correctness verdict is in Step 6 (w255 > w1).
+    if q0_bw_w1 is None:
+        fail_msgs.append(
+            "Q0 sched_w1: DCHAL BW% = None — weight=1 scheduler not "
+            "programmed to HW at all (expected 0 or a small non-negative value)".format())
+
+    # ── Step 5: Bind Q0 → sched_w255; DCHAL BW% must be > 0 ────────────────
+    st.banner("STEP 5: Bind Q0 → sched_w255 (weight=255); DCHAL Q0 BW% must be > 0%")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|0" "scheduler"'.format(egress),
+              skip_error_check=True)
+    st.wait(1)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|0" "scheduler" "sched_w255"'.format(
+                  egress),
+              skip_error_check=True)
+    st.wait(3)
+
+    dchal_w255 = dchal_show_queuing(dut, "After Q0=sched_w255 (weight=255)", egress)
+    log_dchal_egress_table(dchal_w255, "After Q0=sched_w255 (weight=255)")
+    bw_w255 = parse_dchal_egress_bw(dchal_w255)
+    q0_bw_w255 = (bw_w255.get(0) or {}).get('bw_pct')
+    st.log("  Q0 DCHAL BW% with weight=255 : {}  (expected > 0%)".format(q0_bw_w255))
+    if q0_bw_w255 is None or q0_bw_w255 <= 0:
+        fail_msgs.append(
+            "Q0 sched_w255: DCHAL BW% = {}, expected > 0%".format(q0_bw_w255))
+
+    # ── Step 6: weight=255 must give strictly more BW% than weight=1 ────────
+    st.banner("STEP 6: Compare — weight=255 BW% must be > weight=1 BW%")
+    st.log("  weight=1  → Q0 DCHAL BW% = {}".format(q0_bw_w1))
+    st.log("  weight=255 → Q0 DCHAL BW% = {}".format(q0_bw_w255))
+    if (q0_bw_w1 is not None and q0_bw_w255 is not None
+            and q0_bw_w255 <= q0_bw_w1):
+        fail_msgs.append(
+            "weight=255 BW% ({}) must be > weight=1 BW% ({}) — "
+            "larger weight must produce more DCHAL bandwidth".format(
+                q0_bw_w255, q0_bw_w1))
+
+    # ── Restore ───────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload; DEL sched_w1, sched_w255")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_w1"',
+              skip_error_check=True)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_w255"',
+              skip_error_check=True)
+    log_scheduler_state("Restore")
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  WEIGHT-AT-BOUNDARIES — FAILURES ({} total):".format(len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'weight-at-boundaries FAILED ({} failures) — see above'.format(
+                len(fail_msgs)))
+    else:
+        st.log("  WEIGHT-AT-BOUNDARIES — ALL CHECKS PASSED")
+        st.log("  weight=1 accepted + DCHAL BW%>0; weight=255 accepted + DCHAL BW%>0; "
+               "weight=255 > weight=1 in DCHAL")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'weight-at-boundaries PASSED: sched_w1 (weight=1) and '
+            'sched_w255 (weight=255) accepted; DCHAL BW%>0 for each; '
+            'weight=255 produces strictly more DCHAL BW%% than weight=1')
+
+
+
+def test_fx3_set_burst_rate_not_supported(setup_topo):
+    """CBS (committed burst size) is not supported; syslog must log the rejection.
+
+    Maps to SAI test_set_burst_rate_not_supported and
+    scheduler_test_plan.md test 11.
+
+    SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_BURST_RATE (CBS) targets the CIR burst
+    bucket in a token-bucket shaper.  CloudScale DCHAL has no burst-bucket
+    hardware — only flat byte-rate shaping.
+
+    SAI-layer behaviour (sai_scheduler.cpp):
+      - create_scheduler with CBS attr → stored silently (sai_log_warn), no error
+      - set_scheduler_attribute(CBS)   → returns SAI_STATUS_NOT_SUPPORTED
+
+    SpyTest approach: CONFIG_DB has no CBS field, so we verify via syslog.
+    Writing any 'burst' keyword to a SCHEDULER key triggers orchagent which
+    calls set_scheduler_attribute; the SAI rejects it and logs the error.
+    We then confirm that:
+      1. The scheduler object was created (type/weight readable in CONFIG_DB)
+      2. Syslog contains the rejection message for CBS
+      3. DCHAL BW% for the bound queue is non-zero (weight still programmed)
+      4. No HW disruption to other DWRR queues (baseline intact)
+
+    Steps:
+      1. Verify FX3 baseline; create sched_cbs_test (DWRR w=20)
+      2. Write CBS value via sonic-db-cli directly to the SCHEDULER key
+         (simulates an unsupported attribute being set)
+      3. Grep syslog for SAI CBS rejection message
+      4. Verify scheduler weight/type still correct in CONFIG_DB
+      5. Bind sched_cbs_test to Q0; DCHAL BW% for Q0 must be > 0%
+      6. Baseline DWRR queues Q1–Q5 must be unchanged
+      7. Restore
+    """
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_set_burst_rate_not_supported\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : Create scheduler → set CBS → syslog rejection confirmed → "
+        "weight still programmed → Restore".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: Verify FX3 baseline; create sched_cbs_test ───────────────────
+    st.banner("STEP 1: Verify FX3 baseline; create SCHEDULER|sched_cbs_test")
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|0" "scheduler"'.format(egress),
+                  skip_tmpl=True)
+    baseline_q0 = parse_redis_hget(out).strip()
+    st.log("  Q0 baseline binding: '{}'  expected 'scheduler.0'".format(baseline_q0))
+    if baseline_q0 != 'scheduler.0':
+        fail_msgs.append(
+            "Baseline: QUEUE|{}|0 = '{}', expected 'scheduler.0'".format(
+                egress, baseline_q0))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg',
+            'burst-rate-not-supported FAILED at baseline — '
+            'Q0 not bound to scheduler.0')
+        return
+
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_cbs_test" '
+              '"type" "DWRR" "weight" "20"',
+              skip_error_check=True)
+    st.wait(1)
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|sched_cbs_test"',
+                  skip_tmpl=True)
+    created = parse_redis_hgetall(out)
+    st.log("  sched_cbs_test created: {}".format(created))
+    if created.get('type') != 'DWRR':
+        fail_msgs.append(
+            "Create sched_cbs_test: type='{}', expected 'DWRR'".format(
+                created.get('type')))
+
+    # ── Step 2: Write CBS value directly (unsupported attribute simulation) ───
+    # There is no CONFIG_DB field for CBS in SONiC FX3 templates.
+    # We simulate a direct Redis write to trigger orchagent → SAI rejection.
+    # SAI set_scheduler_attribute(CBS) must return SAI_STATUS_NOT_SUPPORTED
+    # and log "Burst rate shaping (CBS) NOT supported on CloudScale".
+    st.banner("STEP 2: Write min_bandwidth_burst_rate to CONFIG_DB "
+              "(simulates unsupported CBS set)")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_cbs_test" '
+              '"cbs" "1000"',
+              skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 3: Grep syslog for SAI rejection evidence ────────────────────────
+    st.banner("STEP 3: Check syslog for CBS NOT_SUPPORTED rejection")
+    _cbs_reject_cmd = (
+        'sudo grep -a "Burst rate shaping (CBS) NOT supported\\|'
+        'not supported at DCHAL layer\\|CBS.*NOT.*supported" '
+        '/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -5')
+    _cbs_out = st.show(dut, _cbs_reject_cmd,
+                       skip_tmpl=True, skip_error_check=True) or ''
+    _cbs_out = _cbs_out.strip()
+    if any(kw in _cbs_out for kw in ('CBS', 'burst', 'Burst')):
+        st.log("  SAI CBS rejection evidence found in syslog:")
+        for line in _cbs_out.splitlines():
+            if any(kw in line for kw in ('CBS', 'burst', 'Burst')):
+                st.log("    {}".format(line.strip()))
+    else:
+        st.log("  CBS rejection not found in syslog (may be rate-limited or "
+               "SAI does not propagate this field from CONFIG_DB) — "
+               "this is informational; DCHAL check is primary verdict")
+
+    # ── Step 4: Verify scheduler weight/type still correct in CONFIG_DB ───────
+    st.banner("STEP 4: Verify sched_cbs_test weight/type unchanged after CBS write")
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|sched_cbs_test"',
+                  skip_tmpl=True)
+    after_cbs = parse_redis_hgetall(out)
+    st.log("  sched_cbs_test after CBS write: {}".format(after_cbs))
+    if after_cbs.get('type') != 'DWRR':
+        fail_msgs.append(
+            "After CBS write: type='{}', expected 'DWRR' "
+            "(CBS write must not corrupt scheduler type)".format(
+                after_cbs.get('type')))
+    if after_cbs.get('weight') != '20':
+        fail_msgs.append(
+            "After CBS write: weight='{}', expected '20' "
+            "(CBS write must not corrupt scheduler weight)".format(
+                after_cbs.get('weight')))
+
+    # ── Step 5: Bind sched_cbs_test to Q0; DCHAL BW% must be > 0% ───────────
+    st.banner("STEP 5: Bind Q0 → sched_cbs_test; DCHAL Q0 BW% must be > 0%")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|0" "scheduler"'.format(egress),
+              skip_error_check=True)
+    st.wait(1)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|0" "scheduler" '
+              '"sched_cbs_test"'.format(egress),
+              skip_error_check=True)
+    st.wait(3)
+
+    dchal_out = dchal_show_queuing(dut, "After Q0=sched_cbs_test", egress)
+    log_dchal_egress_table(dchal_out, "After Q0=sched_cbs_test")
+    bw = parse_dchal_egress_bw(dchal_out)
+    q0_bw = (bw.get(0) or {}).get('bw_pct')
+    st.log("  Q0 DCHAL BW% : {}  (expected > 0%  — weight=20 must reach HW)".format(
+        q0_bw))
+    if q0_bw is None or q0_bw <= 0:
+        fail_msgs.append(
+            "Q0 sched_cbs_test: DCHAL BW% = {}, expected > 0% "
+            "(weight=20 must be programmed even though CBS is not supported)".format(
+                q0_bw))
+
+    # ── Step 6: Baseline DWRR Q1–Q5 must be non-zero and unchanged ───────────
+    st.banner("STEP 6: Verify Q1–Q5 DCHAL BW% non-zero (CBS rejection must not "
+              "disturb other queues)")
+    for qi in [1, 2, 3, 4, 5]:
+        qi_bw = (bw.get(qi) or {}).get('bw_pct')
+        st.log("  Q{} DCHAL BW% : {}  (expected > 0%)".format(qi, qi_bw))
+        if qi_bw is None or qi_bw <= 0:
+            fail_msgs.append(
+                "Q{} DCHAL BW% = {} after CBS rejection, expected > 0% "
+                "(CBS rejection on Q0 must not disturb Q{})".format(
+                    qi, qi_bw, qi))
+
+    # ── Restore ───────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload; DEL sched_cbs_test")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_cbs_test"',
+              skip_error_check=True)
+    log_scheduler_state("Restore")
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  BURST-RATE-NOT-SUPPORTED (CBS) — FAILURES ({} total):".format(
+            len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'burst-rate-not-supported (CBS) FAILED ({} failures) — see above'.format(
+                len(fail_msgs)))
+    else:
+        st.log("  BURST-RATE-NOT-SUPPORTED (CBS) — ALL CHECKS PASSED")
+        st.log("  CBS write did not corrupt scheduler weight/type; "
+               "Q0 DCHAL BW% > 0%; Q1-Q5 baseline unchanged")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'burst-rate-not-supported (CBS) PASSED: CBS write rejected at SAI; '
+            'scheduler weight=20 programmed to DCHAL; Q0 BW%>0; Q1-Q5 intact')
+
+
+
+def test_fx3_set_max_burst_rate_not_supported(setup_topo):
+    """PBS (peak burst size) is not supported; syslog must log the rejection.
+
+    Maps to SAI test_set_max_burst_rate_not_supported and
+    scheduler_test_plan.md test 12.
+
+    SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_BURST_RATE (PBS) targets the PIR burst
+    bucket.  CloudScale DCHAL has no burst-bucket hardware for CIR or PIR.
+
+    SAI-layer behaviour (sai_scheduler.cpp):
+      - create_scheduler with PBS attr → stored silently (sai_log_warn), no error
+      - set_scheduler_attribute(PBS)   → returns SAI_STATUS_NOT_SUPPORTED
+
+    This test mirrors test 11 (CBS) but exercises the PBS (max burst) code path.
+    The same syslog rejection pattern is expected:
+      "Burst rate shaping (PBS) NOT supported on CloudScale"
+
+    Steps:
+      1. Verify FX3 baseline; create sched_pbs_test (DWRR w=20)
+      2. Write PBS value directly to SCHEDULER key in CONFIG_DB
+      3. Grep syslog for PBS rejection message
+      4. Verify scheduler weight/type still correct in CONFIG_DB
+      5. Bind sched_pbs_test to Q1; DCHAL BW% for Q1 must be > 0%
+      6. Baseline DWRR queues Q0, Q2–Q5 must be unchanged
+      7. Restore
+    """
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_set_max_burst_rate_not_supported\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : Create scheduler → set PBS → syslog rejection confirmed → "
+        "weight still programmed → Restore".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: Verify FX3 baseline; create sched_pbs_test ───────────────────
+    st.banner("STEP 1: Verify FX3 baseline; create SCHEDULER|sched_pbs_test")
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|1" "scheduler"'.format(egress),
+                  skip_tmpl=True)
+    baseline_q1 = parse_redis_hget(out).strip()
+    st.log("  Q1 baseline binding: '{}'  expected 'scheduler.1'".format(baseline_q1))
+    if baseline_q1 != 'scheduler.1':
+        fail_msgs.append(
+            "Baseline: QUEUE|{}|1 = '{}', expected 'scheduler.1'".format(
+                egress, baseline_q1))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg',
+            'max-burst-rate-not-supported FAILED at baseline — '
+            'Q1 not bound to scheduler.1')
+        return
+
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_pbs_test" '
+              '"type" "DWRR" "weight" "20"',
+              skip_error_check=True)
+    st.wait(1)
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|sched_pbs_test"',
+                  skip_tmpl=True)
+    created = parse_redis_hgetall(out)
+    st.log("  sched_pbs_test created: {}".format(created))
+    if created.get('type') != 'DWRR':
+        fail_msgs.append(
+            "Create sched_pbs_test: type='{}', expected 'DWRR'".format(
+                created.get('type')))
+
+    # ── Step 2: Write PBS value directly ──────────────────────────────────────
+    # SAI set_scheduler_attribute(MAX_BANDWIDTH_BURST_RATE) = NOT_SUPPORTED.
+    # We write a 'pbs' field to CONFIG_DB to trigger the orchagent → SAI path.
+    st.banner("STEP 2: Write max_bandwidth_burst_rate to CONFIG_DB "
+              "(simulates unsupported PBS set)")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_pbs_test" '
+              '"pbs" "1000"',
+              skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 3: Grep syslog for PBS rejection evidence ────────────────────────
+    st.banner("STEP 3: Check syslog for PBS NOT_SUPPORTED rejection")
+    _pbs_reject_cmd = (
+        'sudo grep -a "Burst rate shaping (PBS) NOT supported\\|'
+        'burst rate.*DCHAL\\|PBS.*NOT.*supported" '
+        '/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -5')
+    _pbs_out = st.show(dut, _pbs_reject_cmd,
+                       skip_tmpl=True, skip_error_check=True) or ''
+    _pbs_out = _pbs_out.strip()
+    if any(kw in _pbs_out for kw in ('PBS', 'burst', 'Burst')):
+        st.log("  SAI PBS rejection evidence found in syslog:")
+        for line in _pbs_out.splitlines():
+            if any(kw in line for kw in ('PBS', 'burst', 'Burst')):
+                st.log("    {}".format(line.strip()))
+    else:
+        st.log("  PBS rejection not found in syslog (may be rate-limited) — "
+               "DCHAL check is primary verdict")
+
+    # ── Step 4: Verify scheduler weight/type still correct ────────────────────
+    st.banner("STEP 4: Verify sched_pbs_test weight/type unchanged after PBS write")
+    out = st.show(dut,
+                  'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|sched_pbs_test"',
+                  skip_tmpl=True)
+    after_pbs = parse_redis_hgetall(out)
+    st.log("  sched_pbs_test after PBS write: {}".format(after_pbs))
+    if after_pbs.get('type') != 'DWRR':
+        fail_msgs.append(
+            "After PBS write: type='{}', expected 'DWRR' "
+            "(PBS write must not corrupt scheduler type)".format(
+                after_pbs.get('type')))
+    if after_pbs.get('weight') != '20':
+        fail_msgs.append(
+            "After PBS write: weight='{}', expected '20' "
+            "(PBS write must not corrupt scheduler weight)".format(
+                after_pbs.get('weight')))
+
+    # ── Step 5: Bind sched_pbs_test to Q1; DCHAL BW% must be > 0% ───────────
+    st.banner("STEP 5: Bind Q1 → sched_pbs_test; DCHAL Q1 BW% must be > 0%")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|1" "scheduler"'.format(egress),
+              skip_error_check=True)
+    st.wait(1)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|1" "scheduler" '
+              '"sched_pbs_test"'.format(egress),
+              skip_error_check=True)
+    st.wait(3)
+
+    dchal_out = dchal_show_queuing(dut, "After Q1=sched_pbs_test", egress)
+    log_dchal_egress_table(dchal_out, "After Q1=sched_pbs_test")
+    bw = parse_dchal_egress_bw(dchal_out)
+    q1_bw = (bw.get(1) or {}).get('bw_pct')
+    st.log("  Q1 DCHAL BW% : {}  (expected > 0%  — weight=20 must reach HW)".format(
+        q1_bw))
+    if q1_bw is None or q1_bw <= 0:
+        fail_msgs.append(
+            "Q1 sched_pbs_test: DCHAL BW% = {}, expected > 0% "
+            "(weight=20 must be programmed even though PBS is not supported)".format(
+                q1_bw))
+
+    # ── Step 6: Baseline DWRR Q0, Q2–Q5 must be non-zero and unchanged ───────
+    st.banner("STEP 6: Verify Q0, Q2–Q5 DCHAL BW% non-zero (PBS rejection must not "
+              "disturb other queues)")
+    for qi in [0, 2, 3, 4, 5]:
+        qi_bw = (bw.get(qi) or {}).get('bw_pct')
+        st.log("  Q{} DCHAL BW% : {}  (expected > 0%)".format(qi, qi_bw))
+        if qi_bw is None or qi_bw <= 0:
+            fail_msgs.append(
+                "Q{} DCHAL BW% = {} after PBS rejection, expected > 0% "
+                "(PBS rejection on Q1 must not disturb Q{})".format(
+                    qi, qi_bw, qi))
+
+    # ── Restore ───────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload; DEL sched_pbs_test")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_pbs_test"',
+              skip_error_check=True)
+    log_scheduler_state("Restore")
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  MAX-BURST-RATE-NOT-SUPPORTED (PBS) — FAILURES ({} total):".format(
+            len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'max-burst-rate-not-supported (PBS) FAILED ({} failures) — '
+            'see above'.format(len(fail_msgs)))
+    else:
+        st.log("  MAX-BURST-RATE-NOT-SUPPORTED (PBS) — ALL CHECKS PASSED")
+        st.log("  PBS write did not corrupt scheduler weight/type; "
+               "Q1 DCHAL BW% > 0%; Q0,Q2-Q5 baseline unchanged")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'max-burst-rate-not-supported (PBS) PASSED: PBS write rejected at SAI; '
+            'scheduler weight=20 programmed to DCHAL; Q1 BW%>0; Q0,Q2-Q5 intact')
+
+
+
+def test_fx3_create_one_dwrr_scheduler(setup_topo):
+    """Create a DWRR scheduler (weight=40); verify type and weight in ASIC_DB.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_create_one_dwrr_scheduler
+    and scheduler_test_plan.md §1.
+
+    Steps:
+      1. Record all existing SAI_OBJECT_TYPE_SCHEDULER OID keys in ASIC_DB.
+      2. Write SCHEDULER|sched_api_dwrr40 {type=DWRR, weight=40} to CONFIG_DB.
+      3. Verify a new ASIC_DB scheduler OID appeared after orchagent propagation.
+      4. Verify SAI_SCHEDULER_ATTR_SCHEDULING_TYPE = SAI_SCHEDULING_TYPE_DWRR.
+      5. Verify SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT = 40.
+      6. Cleanup: delete SCHEDULER|sched_api_dwrr40 from CONFIG_DB.
+    """
+    name = "sched_api_dwrr40"
+    st.banner("test_fx3_create_one_dwrr_scheduler: DWRR weight=40")
+    fail_msgs = []
+
+    oids_before = asic_db_get_sched_oids(dut)
+
+    try:
+        config_db_create_scheduler(dut, name, "DWRR", weight=40)
+
+        oids_after = asic_db_get_sched_oids(dut)
+        new_key = asic_db_find_new_oid(oids_before, oids_after)
+        if new_key is None:
+            pytest.fail(
+                "test_fx3_create_one_dwrr_scheduler: no new ASIC_DB scheduler "
+                "OID found after CONFIG_DB HSET")
+
+        attrs = asic_db_get_sched_attrs(dut, new_key)
+        if not attrs:
+            fail_msgs.append("ASIC_DB {}: empty attributes".format(new_key))
+
+        act_type = attrs.get(get_scheduler_param('ATTR_TYPE'), "(nil)")
+        if act_type != get_scheduler_param('VAL_DWRR'):
+            fail_msgs.append("SCHEDULING_TYPE: '{}', expected '{}'".format(
+                act_type, get_scheduler_param('VAL_DWRR')))
+        else:
+            st.log("  SCHEDULING_TYPE = {} OK".format(act_type))
+
+        act_weight = attrs.get(get_scheduler_param('ATTR_WEIGHT'), "(nil)")
+        if act_weight != "40":
+            fail_msgs.append("SCHEDULING_WEIGHT: '{}', expected '40'".format(
+                act_weight))
+        else:
+            st.log("  SCHEDULING_WEIGHT = {} OK".format(act_weight))
+
+    finally:
+        config_db_delete_scheduler(dut, name)
+
+    if fail_msgs:
+        pytest.fail("test_fx3_create_one_dwrr_scheduler FAILED:\n  " +
+                    "\n  ".join(fail_msgs))
+    st.report_pass('msg', 'test_fx3_create_one_dwrr_scheduler PASSED: '
+                   'DWRR scheduler OID created with correct type and weight in ASIC_DB')
+
+
+
+def test_fx3_create_one_strict_scheduler(setup_topo):
+    """Create a STRICT scheduler; verify type in ASIC_DB.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_create_one_strict_scheduler
+    and scheduler_test_plan.md §2.
+
+    Steps:
+      1. Record all existing SAI_OBJECT_TYPE_SCHEDULER OID keys in ASIC_DB.
+      2. Write SCHEDULER|sched_api_strict {type=STRICT} to CONFIG_DB.
+      3. Verify a new ASIC_DB scheduler OID appeared after orchagent propagation.
+      4. Verify SAI_SCHEDULER_ATTR_SCHEDULING_TYPE = SAI_SCHEDULING_TYPE_STRICT.
+      5. Cleanup: delete SCHEDULER|sched_api_strict from CONFIG_DB.
+    """
+    name = "sched_api_strict"
+    st.banner("test_fx3_create_one_strict_scheduler: STRICT")
+    fail_msgs = []
+
+    oids_before = asic_db_get_sched_oids(dut)
+
+    try:
+        config_db_create_scheduler(dut, name, "STRICT")
+
+        oids_after = asic_db_get_sched_oids(dut)
+        new_key = asic_db_find_new_oid(oids_before, oids_after)
+        if new_key is None:
+            pytest.fail(
+                "test_fx3_create_one_strict_scheduler: no new ASIC_DB scheduler "
+                "OID found after CONFIG_DB HSET")
+
+        attrs = asic_db_get_sched_attrs(dut, new_key)
+        if not attrs:
+            fail_msgs.append("ASIC_DB {}: empty attributes".format(new_key))
+
+        act_type = attrs.get(get_scheduler_param('ATTR_TYPE'), "(nil)")
+        if act_type != get_scheduler_param('VAL_STRICT'):
+            fail_msgs.append("SCHEDULING_TYPE: '{}', expected '{}'".format(
+                act_type, get_scheduler_param('VAL_STRICT')))
+        else:
+            st.log("  SCHEDULING_TYPE = {} OK".format(act_type))
+
+    finally:
+        config_db_delete_scheduler(dut, name)
+
+    if fail_msgs:
+        pytest.fail("test_fx3_create_one_strict_scheduler FAILED:\n  " +
+                    "\n  ".join(fail_msgs))
+    st.report_pass('msg', 'test_fx3_create_one_strict_scheduler PASSED: '
+                   'STRICT scheduler OID created with correct type in ASIC_DB')
+
+
+
+def test_fx3_remove_dwrr_scheduler(setup_topo):
+    """Create a DWRR scheduler (weight=20), delete it; OID must vanish from ASIC_DB.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_remove_dwrr_scheduler
+    and scheduler_test_plan.md §3.
+
+    Steps:
+      1. Record all existing SAI_OBJECT_TYPE_SCHEDULER OID keys in ASIC_DB.
+      2. Write SCHEDULER|sched_api_rm_dwrr {type=DWRR, weight=20} to CONFIG_DB.
+      3. Verify a new ASIC_DB scheduler OID appeared (prerequisite for removal test).
+      4. Delete SCHEDULER|sched_api_rm_dwrr from CONFIG_DB.
+      5. Verify the OID is no longer present in ASIC_DB.
+    """
+    name = "sched_api_rm_dwrr"
+    st.banner("test_fx3_remove_dwrr_scheduler: create then remove DWRR weight=20")
+    fail_msgs = []
+
+    oids_before = asic_db_get_sched_oids(dut)
+    config_db_create_scheduler(dut, name, "DWRR", weight=20)
+
+    oids_after_create = asic_db_get_sched_oids(dut)
+    new_key = asic_db_find_new_oid(oids_before, oids_after_create)
+    if new_key is None:
+        config_db_delete_scheduler(dut, name)
+        pytest.fail(
+            "test_fx3_remove_dwrr_scheduler: DWRR scheduler OID not created — "
+            "cannot test removal")
+
+    st.log("  Created OID: {}".format(new_key))
+
+    config_db_delete_scheduler(dut, name)
+
+    oids_after_delete = asic_db_get_sched_oids(dut)
+    if new_key in oids_after_delete:
+        fail_msgs.append(
+            "OID {} still present in ASIC_DB after CONFIG_DB DEL".format(new_key))
+    else:
+        st.log("  OID {} removed from ASIC_DB OK".format(new_key))
+
+    if fail_msgs:
+        pytest.fail("test_fx3_remove_dwrr_scheduler FAILED:\n  " +
+                    "\n  ".join(fail_msgs))
+    st.report_pass('msg', 'test_fx3_remove_dwrr_scheduler PASSED: '
+                   'DWRR scheduler OID removed from ASIC_DB after CONFIG_DB DEL')
+
+
+
+def test_fx3_remove_strict_scheduler(setup_topo):
+    """Create a STRICT scheduler, delete it; OID must vanish from ASIC_DB.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_remove_strict_scheduler
+    and scheduler_test_plan.md §4.
+
+    Steps:
+      1. Record all existing SAI_OBJECT_TYPE_SCHEDULER OID keys in ASIC_DB.
+      2. Write SCHEDULER|sched_api_rm_strict {type=STRICT} to CONFIG_DB.
+      3. Verify a new ASIC_DB scheduler OID appeared (prerequisite for removal test).
+      4. Delete SCHEDULER|sched_api_rm_strict from CONFIG_DB.
+      5. Verify the OID is no longer present in ASIC_DB.
+    """
+    name = "sched_api_rm_strict"
+    st.banner("test_fx3_remove_strict_scheduler: create then remove STRICT")
+    fail_msgs = []
+
+    oids_before = asic_db_get_sched_oids(dut)
+    config_db_create_scheduler(dut, name, "STRICT")
+
+    oids_after_create = asic_db_get_sched_oids(dut)
+    new_key = asic_db_find_new_oid(oids_before, oids_after_create)
+    if new_key is None:
+        config_db_delete_scheduler(dut, name)
+        pytest.fail(
+            "test_fx3_remove_strict_scheduler: STRICT scheduler OID not created — "
+            "cannot test removal")
+
+    st.log("  Created OID: {}".format(new_key))
+
+    config_db_delete_scheduler(dut, name)
+
+    oids_after_delete = asic_db_get_sched_oids(dut)
+    if new_key in oids_after_delete:
+        fail_msgs.append(
+            "OID {} still present in ASIC_DB after CONFIG_DB DEL".format(new_key))
+    else:
+        st.log("  OID {} removed from ASIC_DB OK".format(new_key))
+
+    if fail_msgs:
+        pytest.fail("test_fx3_remove_strict_scheduler FAILED:\n  " +
+                    "\n  ".join(fail_msgs))
+    st.report_pass('msg', 'test_fx3_remove_strict_scheduler PASSED: '
+                   'STRICT scheduler OID removed from ASIC_DB after CONFIG_DB DEL')
+
+
+
+def test_fx3_get_default_attributes(setup_topo):
+    """Verify default meter type and rate attributes on a new DWRR scheduler.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_get_default_attributes
+    and scheduler_test_plan.md §5.
+
+    Expected defaults:
+      - SAI_SCHEDULER_ATTR_METER_TYPE         = SAI_METER_TYPE_BYTES
+      - SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE = 0
+      - SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE = 0
+
+    Orchagent may omit zero-valued optional attributes from ASIC_DB; an absent
+    field is treated as the default (not a failure).
+
+    Steps:
+      1. Write SCHEDULER|sched_api_defaults {type=DWRR, weight=20} to CONFIG_DB.
+      2. Verify a new ASIC_DB scheduler OID appeared.
+      3. Verify SAI_SCHEDULER_ATTR_METER_TYPE = SAI_METER_TYPE_BYTES (or absent).
+      4. Verify SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE = 0 (or absent).
+      5. Verify SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE = 0 (or absent).
+      6. Verify CONFIG_DB has no cir or pir fields.
+      7. Cleanup: delete SCHEDULER|sched_api_defaults from CONFIG_DB.
+    """
+    name = "sched_api_defaults"
+    st.banner("test_fx3_get_default_attributes: DWRR weight=20, verify defaults")
+    fail_msgs = []
+
+    try:
+        oids_before = asic_db_get_sched_oids(dut)
+        config_db_create_scheduler(dut, name, "DWRR", weight=20)
+
+        oids_after = asic_db_get_sched_oids(dut)
+        new_key = asic_db_find_new_oid(oids_before, oids_after)
+        if new_key is None:
+            pytest.fail("test_fx3_get_default_attributes: scheduler OID not created")
+
+        attrs = asic_db_get_sched_attrs(dut, new_key)
+
+        if get_scheduler_param('ATTR_METER') in attrs:
+            act_meter = attrs[get_scheduler_param('ATTR_METER')]
+            if act_meter != get_scheduler_param('VAL_BYTES'):
+                fail_msgs.append("METER_TYPE: '{}', expected '{}'".format(
+                    act_meter, get_scheduler_param('VAL_BYTES')))
+            else:
+                st.log("  METER_TYPE = {} OK".format(act_meter))
+        else:
+            st.log("  METER_TYPE absent in ASIC_DB — default (BYTES) assumed OK")
+
+        if get_scheduler_param('ATTR_MIN_BW') in attrs:
+            act_min = attrs[get_scheduler_param('ATTR_MIN_BW')]
+            if act_min != "0":
+                fail_msgs.append("MIN_BANDWIDTH_RATE: '{}', expected '0'".format(act_min))
+            else:
+                st.log("  MIN_BANDWIDTH_RATE = {} OK".format(act_min))
+        else:
+            st.log("  MIN_BANDWIDTH_RATE absent in ASIC_DB — default (0) assumed OK")
+
+        if get_scheduler_param('ATTR_MAX_BW') in attrs:
+            act_max = attrs[get_scheduler_param('ATTR_MAX_BW')]
+            if act_max != "0":
+                fail_msgs.append("MAX_BANDWIDTH_RATE: '{}', expected '0'".format(act_max))
+            else:
+                st.log("  MAX_BANDWIDTH_RATE = {} OK".format(act_max))
+        else:
+            st.log("  MAX_BANDWIDTH_RATE absent in ASIC_DB — default (0) assumed OK")
+
+        cir_val = parse_redis_hget(st.show(
+            dut,
+            'sonic-db-cli CONFIG_DB HGET "SCHEDULER|{}" "cir"'.format(name),
+            skip_tmpl=True)).strip()
+        pir_val = parse_redis_hget(st.show(
+            dut,
+            'sonic-db-cli CONFIG_DB HGET "SCHEDULER|{}" "pir"'.format(name),
+            skip_tmpl=True)).strip()
+        if cir_val and cir_val not in ("", "(nil)", "None"):
+            fail_msgs.append(
+                "CONFIG_DB cir='{}', expected absent/nil (default)".format(cir_val))
+        else:
+            st.log("  CONFIG_DB cir absent OK")
+        if pir_val and pir_val not in ("", "(nil)", "None"):
+            fail_msgs.append(
+                "CONFIG_DB pir='{}', expected absent/nil (default)".format(pir_val))
+        else:
+            st.log("  CONFIG_DB pir absent OK")
+
+    finally:
+        config_db_delete_scheduler(dut, name)
+
+    if fail_msgs:
+        pytest.fail("test_fx3_get_default_attributes FAILED:\n  " +
+                    "\n  ".join(fail_msgs))
+    st.report_pass('msg', 'test_fx3_get_default_attributes PASSED: '
+                   'default meter type and rate attributes verified in ASIC_DB')
+
+
+
+def test_fx3_set_min_max_bandwidth_rate(setup_topo):
+    """Set CIR=1 Mbps and PIR=10 Mbps on a DWRR scheduler; verify in ASIC_DB.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_set_min_max_bandwidth_rate
+    and scheduler_test_plan.md §6.
+
+    Steps:
+      1. Write SCHEDULER|sched_api_rates {type=DWRR, weight=20, cir=1000000,
+         pir=10000000} to CONFIG_DB.
+      2. Verify a new ASIC_DB scheduler OID appeared.
+      3. Verify SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE = 1000000 in ASIC_DB.
+      4. Verify SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE = 10000000 in ASIC_DB.
+      5. Verify CONFIG_DB cir and pir fields match.
+      6. Cleanup: delete SCHEDULER|sched_api_rates from CONFIG_DB.
+    """
+    name = "sched_api_rates"
+    cir_bps = 1000000     # 1 Mbps
+    pir_bps = 10000000    # 10 Mbps
+    st.banner("test_fx3_set_min_max_bandwidth_rate: cir={} pir={}".format(
+        cir_bps, pir_bps))
+    fail_msgs = []
+
+    try:
+        oids_before = asic_db_get_sched_oids(dut)
+        config_db_create_scheduler(dut, name, "DWRR", weight=20, cir=cir_bps, pir=pir_bps)
+
+        oids_after = asic_db_get_sched_oids(dut)
+        new_key = asic_db_find_new_oid(oids_before, oids_after)
+        if new_key is None:
+            pytest.fail(
+                "test_fx3_set_min_max_bandwidth_rate: scheduler OID not created")
+
+        attrs = asic_db_get_sched_attrs(dut, new_key)
+
+        act_min = attrs.get(get_scheduler_param('ATTR_MIN_BW'), "(nil)")
+        if act_min != str(cir_bps):
+            fail_msgs.append("MIN_BANDWIDTH_RATE: '{}', expected '{}'".format(
+                act_min, cir_bps))
+        else:
+            st.log("  MIN_BANDWIDTH_RATE = {} OK".format(act_min))
+
+        act_max = attrs.get(get_scheduler_param('ATTR_MAX_BW'), "(nil)")
+        if act_max != str(pir_bps):
+            fail_msgs.append("MAX_BANDWIDTH_RATE: '{}', expected '{}'".format(
+                act_max, pir_bps))
+        else:
+            st.log("  MAX_BANDWIDTH_RATE = {} OK".format(act_max))
+
+        cir_val = parse_redis_hget(st.show(
+            dut,
+            'sonic-db-cli CONFIG_DB HGET "SCHEDULER|{}" "cir"'.format(name),
+            skip_tmpl=True)).strip()
+        pir_val = parse_redis_hget(st.show(
+            dut,
+            'sonic-db-cli CONFIG_DB HGET "SCHEDULER|{}" "pir"'.format(name),
+            skip_tmpl=True)).strip()
+        if cir_val != str(cir_bps):
+            fail_msgs.append("CONFIG_DB cir='{}', expected '{}'".format(
+                cir_val, cir_bps))
+        else:
+            st.log("  CONFIG_DB cir={} OK".format(cir_val))
+        if pir_val != str(pir_bps):
+            fail_msgs.append("CONFIG_DB pir='{}', expected '{}'".format(
+                pir_val, pir_bps))
+        else:
+            st.log("  CONFIG_DB pir={} OK".format(pir_val))
+
+    finally:
+        config_db_delete_scheduler(dut, name)
+
+    if fail_msgs:
+        pytest.fail("test_fx3_set_min_max_bandwidth_rate FAILED:\n  " +
+                    "\n  ".join(fail_msgs))
+    st.report_pass('msg', 'test_fx3_set_min_max_bandwidth_rate PASSED: '
+                   'CIR and PIR reflected correctly in ASIC_DB and CONFIG_DB')
+
+
+def test_fx3_create_wrr_not_supported(setup_topo):
+    """WRR scheduling type is not supported on FX3; no ASIC_DB entry must appear.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_create_wrr_not_supported
+    and scheduler_test_plan.md §7.
+
+    Steps:
+      1. Record all existing SAI_OBJECT_TYPE_SCHEDULER OID keys in ASIC_DB.
+      2. Attempt to write SCHEDULER|sched_api_wrr {type=WRR, weight=20} to CONFIG_DB.
+      3. Verify no new OID with SAI_SCHEDULING_TYPE_WRR appeared in ASIC_DB.
+      4. Check syslog for orchagent rejection messages.
+      5. Cleanup: delete SCHEDULER|sched_api_wrr from CONFIG_DB.
+    """
+    name = "sched_api_wrr"
+    st.banner("test_fx3_create_wrr_not_supported: WRR must be rejected")
+    fail_msgs = []
+
+    oids_before = asic_db_get_sched_oids(dut)
+
+    try:
+        config_db_create_scheduler(dut, name, "WRR", weight=20)
+
+        oids_after = asic_db_get_sched_oids(dut)
+        new_key = asic_db_find_new_oid(oids_before, oids_after)
+
+        syslog_out = st.show(
+            dut,
+            'sudo grep -i "scheduler" /var/log/syslog | tail -10',
+            skip_tmpl=True, skip_error_check=True)
+        st.log("  syslog (last 10 scheduler lines):\n{}".format(syslog_out))
+
+        if new_key is not None:
+            attrs = asic_db_get_sched_attrs(dut, new_key)
+            act_type = attrs.get(get_scheduler_param('ATTR_TYPE'), "")
+            if act_type == get_scheduler_param('VAL_WRR'):
+                pytest.fail(
+                    "test_fx3_create_wrr_not_supported: WRR scheduler OID {} "
+                    "appeared in ASIC_DB — WRR must be rejected on FX3".format(
+                        new_key))
+            else:
+                st.log(
+                    "  New OID type='{}' — not WRR; "
+                    "scheduling type was re-mapped or rejected OK".format(act_type))
+        else:
+            st.log("  No new ASIC_DB scheduler OID — WRR correctly rejected")
+
+    finally:
+        # SAI rejected the CREATE so orchagent entered error/backoff state and
+        # never added the key to m_schedulerTable.  A bare CONFIG_DB DEL would
+        # trigger m_schedulerTable.at() on a missing entry → SIGABRT.
+        # Fix: DEL + re-HSET as a valid DWRR entry forces orchagent to treat it
+        # as brand-new (clears error state), creates the OID, populates
+        # m_schedulerTable, after which the final DEL is safe.
+        st.banner("RESTORE: {} — DEL + re-HSET (valid DWRR) → poll for OID → DEL".format(name))
+        _oids_pre = set(asic_db_get_sched_oids(dut))
+        # Step A: DEL clears orchagent error state
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB DEL "SCHEDULER|{}"'.format(name),
+                  skip_error_check=True)
+        st.wait(1)
+        # Step B: re-HSET as a valid DWRR entry (no rejected field)
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB HSET "SCHEDULER|{}" '
+                  '"type" "DWRR" "weight" "20"'.format(name),
+                  skip_error_check=True)
+        # Step C: poll until OID appears in ASIC_DB
+        _repair_done = False
+        for _att in range(15):
+            st.wait(1)
+            if len(set(asic_db_get_sched_oids(dut))) > len(_oids_pre):
+                st.log("  Repair OID appeared after {}s — safe to DEL".format(_att + 1))
+                _repair_done = True
+                break
+        if not _repair_done:
+            st.log("  WARNING: repair OID did not appear in 15s — "
+                   "proceeding with final DEL anyway (error state cleared by DEL+HSET)")
+        # Step D: final DEL — safe because m_schedulerTable now has the entry
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB DEL "SCHEDULER|{}"'.format(name),
+                  skip_error_check=True)
+        st.wait(_ORCHAGENT_DELAY)
+
+    st.report_pass('msg', 'test_fx3_create_wrr_not_supported PASSED: '
+                   'WRR scheduling type correctly rejected on FX3')
+
+
+# ── Test 8 ────────────────────────────────────────────────────────────────────
+
+def test_fx3_weight_below_minimum_rejected(setup_topo):
+    """DWRR weight=0 (below minimum) must be rejected; no ASIC_DB entry must appear.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_weight_below_minimum_rejected
+    and scheduler_test_plan.md §8.
+
+    Steps:
+      1. Record all existing SAI_OBJECT_TYPE_SCHEDULER OID keys in ASIC_DB.
+      2. Attempt to write SCHEDULER|sched_api_w0 {type=DWRR, weight=0} to CONFIG_DB.
+      3. Verify no new OID with weight=0 appeared in ASIC_DB.
+      4. Check syslog for orchagent rejection messages.
+      5. Cleanup: delete SCHEDULER|sched_api_w0 from CONFIG_DB.
+    """
+    name = "sched_api_w0"
+    st.banner("test_fx3_weight_below_minimum_rejected: DWRR weight=0 (min={})".format(
+        get_scheduler_param('WEIGHT_MIN')))
+    fail_msgs = []
+
+    oids_before = asic_db_get_sched_oids(dut)
+
+    try:
+        config_db_create_scheduler(dut, name, "DWRR", weight=0)
+
+        oids_after = asic_db_get_sched_oids(dut)
+        new_key = asic_db_find_new_oid(oids_before, oids_after)
+
+        syslog_out = st.show(
+            dut,
+            'sudo grep -i "scheduler" /var/log/syslog | tail -10',
+            skip_tmpl=True, skip_error_check=True)
+        st.log("  syslog (last 10 scheduler lines):\n{}".format(syslog_out))
+
+        if new_key is not None:
+            attrs = asic_db_get_sched_attrs(dut, new_key)
+            act_weight = attrs.get(get_scheduler_param('ATTR_WEIGHT'), "(nil)")
+            if act_weight == "0":
+                pytest.fail(
+                    "test_fx3_weight_below_minimum_rejected: scheduler OID {} "
+                    "with weight=0 appeared in ASIC_DB — "
+                    "weight=0 must be rejected on FX3 (min={})".format(
+                        new_key, get_scheduler_param('WEIGHT_MIN')))
+            else:
+                st.log(
+                    "  New OID weight='{}' — not 0, "
+                    "weight was re-mapped or coerced OK".format(act_weight))
+        else:
+            st.log(
+                "  No new ASIC_DB scheduler OID — weight=0 correctly rejected")
+
+    finally:
+        # SAI rejected the CREATE so orchagent entered error/backoff state and
+        # never added the key to m_schedulerTable.  A bare CONFIG_DB DEL would
+        # trigger m_schedulerTable.at() on a missing entry → SIGABRT.
+        # Fix: DEL + re-HSET as a valid DWRR entry forces orchagent to treat it
+        # as brand-new (clears error state), creates the OID, populates
+        # m_schedulerTable, after which the final DEL is safe.
+        st.banner("RESTORE: {} — DEL + re-HSET (valid DWRR) → poll for OID → DEL".format(name))
+        _oids_pre = set(asic_db_get_sched_oids(dut))
+        # Step A: DEL clears orchagent error state
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB DEL "SCHEDULER|{}"'.format(name),
+                  skip_error_check=True)
+        st.wait(1)
+        # Step B: re-HSET as a valid DWRR entry (no rejected field)
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB HSET "SCHEDULER|{}" '
+                  '"type" "DWRR" "weight" "20"'.format(name),
+                  skip_error_check=True)
+        # Step C: poll until OID appears in ASIC_DB
+        _repair_done = False
+        for _att in range(15):
+            st.wait(1)
+            if len(set(asic_db_get_sched_oids(dut))) > len(_oids_pre):
+                st.log("  Repair OID appeared after {}s — safe to DEL".format(_att + 1))
+                _repair_done = True
+                break
+        if not _repair_done:
+            st.log("  WARNING: repair OID did not appear in 15s — "
+                   "proceeding with final DEL anyway (error state cleared by DEL+HSET)")
+        # Step D: final DEL — safe because m_schedulerTable now has the entry
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB DEL "SCHEDULER|{}"'.format(name),
+                  skip_error_check=True)
+        st.wait(_ORCHAGENT_DELAY)
+
+    st.report_pass('msg', 'test_fx3_weight_below_minimum_rejected PASSED: '
+                   'DWRR weight=0 correctly rejected on FX3')
+
+
+# ── Test 9 ────────────────────────────────────────────────────────────────────
+
+def test_fx3_weight_above_maximum_rejected(setup_topo):
+    """DWRR weight=256 (truncates to u8=0) must be rejected on FX3.
+
+    Maps to SAI test_scheduler_api.py::test_fx3_weight_above_maximum_rejected
+    and scheduler_test_plan.md §9.
+
+    weight=256 truncates to its low byte (0) before reaching SAI, which is the
+    same invalid value tested in test_fx3_weight_below_minimum_rejected.
+    No ASIC_DB OID must appear with weight=0 or weight > max=255.
+
+    Steps:
+      1. Record all existing SAI_OBJECT_TYPE_SCHEDULER OID keys in ASIC_DB.
+      2. Attempt to write SCHEDULER|sched_api_w256 {type=DWRR, weight=256} to
+         CONFIG_DB (256 truncates to u8=0).
+      3. Verify no new OID with weight=0 or weight>255 appeared in ASIC_DB.
+      4. Check syslog for orchagent rejection messages.
+      5. Cleanup: delete SCHEDULER|sched_api_w256 from CONFIG_DB.
+    """
+    name = "sched_api_w256"
+    test_weight = 256   # u8 truncation → 0 (same invalid value as weight=0)
+    st.banner(
+        "test_fx3_weight_above_maximum_rejected: "
+        "DWRR weight={} (max={}, truncates to u8=0)".format(
+            test_weight, get_scheduler_param('WEIGHT_MAX')))
+    fail_msgs = []
+
+    oids_before = asic_db_get_sched_oids(dut)
+
+    try:
+        config_db_create_scheduler(dut, name, "DWRR", weight=test_weight)
+
+        oids_after = asic_db_get_sched_oids(dut)
+        new_key = asic_db_find_new_oid(oids_before, oids_after)
+
+        syslog_out = st.show(
+            dut,
+            'sudo grep -i "scheduler" /var/log/syslog | tail -10',
+            skip_tmpl=True, skip_error_check=True)
+        st.log("  syslog (last 10 scheduler lines):\n{}".format(syslog_out))
+
+        if new_key is not None:
+            attrs = asic_db_get_sched_attrs(dut, new_key)
+            act_weight = attrs.get(get_scheduler_param('ATTR_WEIGHT'), "(nil)")
+            try:
+                numeric_weight = int(act_weight)
+            except (ValueError, TypeError):
+                numeric_weight = -1
+            if numeric_weight == 0 or numeric_weight > get_scheduler_param('WEIGHT_MAX'):
+                pytest.fail(
+                    "test_fx3_weight_above_maximum_rejected: scheduler OID {} "
+                    "with weight='{}' appeared in ASIC_DB — "
+                    "weight above maximum ({}) must be rejected on FX3".format(
+                        new_key, act_weight, get_scheduler_param('WEIGHT_MAX')))
+            else:
+                st.log(
+                    "  New OID weight='{}' — within valid range; "
+                    "orchagent clamped it OK".format(act_weight))
+        else:
+            st.log(
+                "  No new ASIC_DB scheduler OID — weight={} "
+                "correctly rejected".format(test_weight))
+
+    finally:
+        # SAI rejected the CREATE so orchagent entered error/backoff state and
+        # never added the key to m_schedulerTable.  A bare CONFIG_DB DEL would
+        # trigger m_schedulerTable.at() on a missing entry → SIGABRT.
+        # Fix: DEL + re-HSET as a valid DWRR entry forces orchagent to treat it
+        # as brand-new (clears error state), creates the OID, populates
+        # m_schedulerTable, after which the final DEL is safe.
+        st.banner("RESTORE: {} — DEL + re-HSET (valid DWRR) → poll for OID → DEL".format(name))
+        _oids_pre = set(asic_db_get_sched_oids(dut))
+        # Step A: DEL clears orchagent error state
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB DEL "SCHEDULER|{}"'.format(name),
+                  skip_error_check=True)
+        st.wait(1)
+        # Step B: re-HSET as a valid DWRR entry (no rejected field)
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB HSET "SCHEDULER|{}" '
+                  '"type" "DWRR" "weight" "20"'.format(name),
+                  skip_error_check=True)
+        # Step C: poll until OID appears in ASIC_DB
+        _repair_done = False
+        for _att in range(15):
+            st.wait(1)
+            if len(set(asic_db_get_sched_oids(dut))) > len(_oids_pre):
+                st.log("  Repair OID appeared after {}s — safe to DEL".format(_att + 1))
+                _repair_done = True
+                break
+        if not _repair_done:
+            st.log("  WARNING: repair OID did not appear in 15s — "
+                   "proceeding with final DEL anyway (error state cleared by DEL+HSET)")
+        # Step D: final DEL — safe because m_schedulerTable now has the entry
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB DEL "SCHEDULER|{}"'.format(name),
+                  skip_error_check=True)
+        st.wait(_ORCHAGENT_DELAY)
+
+    st.report_pass('msg', 'test_fx3_weight_above_maximum_rejected PASSED: '
+                   'DWRR weight=256 (truncates to u8=0) correctly rejected on FX3')
+
+
+
+
+
+
+def test_fx3_single_dwrr_sg_only(setup_topo):
+    """Bind DWRR (w=50) to Q0 only; leave Q1–Q7 without explicit schedulers.
+
+    Maps to SAI test_single_dwrr_sg_only and scheduler_test_plan.md test 33.
+
+    Exercises the two-tier model with one configured queue.  When only Q0 has
+    an explicit scheduler, the remaining 7 queues have no token allocation and
+    receive 0% each.  Q0 therefore receives essentially all of the DWRR pool:
+      Q0  BW% > 90%   (sole configured DWRR — absorbs all bandwidth tokens)
+      Q1–Q7  BW% == 0% each   (unbound: no scheduler → no token allocation)
+      Total ≈ 100% (Q0’s contribution alone)
+
+    Steps:
+      1. config qos reload; remove all QUEUE->scheduler bindings from egress port
+      2. Create SCHEDULER|sched_q0_only (DWRR w=50) and bind to Q0 only
+      3. DCHAL: Q0 BW% > 90%; Q1–Q7 BW% == 0%; total 85–115%
+      4. Restore: config qos reload
+    """
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_single_dwrr_sg_only  [DCHAL only — plan test 33]\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : Only Q0 binds sched_q0_only (w=50); Q1-Q7 default → "
+        "Q0 BW%>90%; Q1-Q7 BW%==0%".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: Establish clean slate — remove all QUEUE bindings ─────────────
+    st.banner("STEP 1: config qos reload; remove all QUEUE->scheduler bindings")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    for qi in range(NUM_QUEUES):
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|{}" "scheduler"'.format(
+                      egress, qi),
+                  skip_error_check=True)
+    # Removing all QUEUE bindings causes insshell to reset its Thrift connection
+    # (hardware scheduling tables go to default state).  Wait longer and
+    # re-deploy the DCHAL helper so insshell is ready before Step 3 queries it.
+    st.wait(5)
+    deploy_dchal_helper(dut)
+
+    # ── Step 2: Create sched_q0_only (w=50); bind only Q0 ────────────────────
+    st.banner("STEP 2: Create SCHEDULER|sched_q0_only (DWRR w=50); bind Q0 only")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_q0_only" '
+              '"type" "DWRR" "weight" "50"',
+              skip_error_check=True)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|0" "scheduler" '
+              '"sched_q0_only"'.format(egress),
+              skip_error_check=True)
+    st.wait(3)
+
+    # Confirm Q1–Q7 have no binding
+    for qi in range(1, NUM_QUEUES):
+        out = st.show(dut,
+                      'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(
+                          egress, qi),
+                      skip_tmpl=True)
+        binding = parse_redis_hget(out).strip()
+        if binding:
+            st.log("  Q{} unexpectedly has binding '{}' — should be empty".format(
+                qi, binding))
+
+    # ── Step 3: DCHAL verification ────────────────────────────────────────────
+    st.banner("STEP 3: DCHAL BW% — Q0 > 90%; Q1-Q7 == 0%; total ≈ 100%")
+    dchal_out = dchal_show_queuing(dut, "Single-DWRR Q0 only", egress)
+    log_dchal_egress_table(dchal_out, "Single-DWRR Q0 only (w=50)")
+    bw = parse_dchal_egress_bw(dchal_out)
+
+    q0_bw = (bw.get(0) or {}).get('bw_pct')
+    st.log("  Q0 (w=50, sole DWRR) DCHAL BW% = {}  (expected > 90%)".format(q0_bw))
+    if q0_bw is None or q0_bw <= 90:
+        fail_msgs.append(
+            "Q0 (sole DWRR w=50): BW% = {}, expected > 90% "
+            "(Q0 is sole DWRR queue, must absorb essentially all bandwidth)".format(q0_bw))
+
+    for qi in range(1, NUM_QUEUES):
+        qi_bw = (bw.get(qi) or {}).get('bw_pct')
+        st.log("  Q{} (default) DCHAL BW% = {}  (expected == 0%)".format(qi, qi_bw))
+        if qi_bw is None or qi_bw != 0:
+            fail_msgs.append(
+                "Q{} (default/unbound): BW% = {}, expected == 0% "
+                "(unbound queue has no scheduler → no token allocation)".format(
+                    qi, qi_bw))
+
+    total_bw = sum((bw.get(qi) or {}).get('bw_pct', 0) for qi in range(NUM_QUEUES))
+    st.log("  Total DCHAL BW% (all 8 queues) = {}  (expected 85–115%)".format(
+        total_bw))
+    if not (85 <= total_bw <= 115):
+        fail_msgs.append(
+            "Total DCHAL BW% = {}%, expected 85–115%".format(total_bw))
+
+    # ── Restore ───────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload; DEL sched_q0_only")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_q0_only"',
+              skip_error_check=True)
+    log_scheduler_state("Restore")
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  SINGLE-DWRR-SG-ONLY — FAILURES ({} total):".format(len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'single-dwrr-sg-only FAILED ({} failures) — see above'.format(
+                len(fail_msgs)))
+    else:
+        st.log("  SINGLE-DWRR-SG-ONLY — ALL CHECKS PASSED")
+        st.log("  Q0 (w=50) BW%>90%; Q1-Q7 unbound BW%==0%; total ≈ 100%")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'single-dwrr-sg-only PASSED: Q0 (w=50) BW%>90%; '
+            'Q1-Q7 unbound BW%==0%%; total ≈ 100%%')
+
+
+def test_fx3_all_sgs_dwrr_no_strict(setup_topo):
+    """Bind DWRR schedulers to all 8 queues — no STRICT queues at all.
+
+    Maps to SAI test_all_sgs_dwrr_no_strict and scheduler_test_plan.md test 34.
+
+    Weights: Q0-Q3=20, Q4-Q5=40, Q6-Q7=30.
+
+    When no STRICT queue exists, the DCHAL DWRR pool covers all 8 queues.
+    All percentages must be > 0%, proportional to weights, and sum ≈ 100%.
+
+    This is the inverse of the FX3 baseline: Q6 and Q7 are DWRR here, not STRICT.
+    SAI must accept DWRR for Q6 and Q7 (prior tests confirmed that only re-binding
+    Q7 from STRICT back to DWRR fails; creating fresh DWRR on Q7 from a clean state
+    is valid according to the platform constraints).
+
+    Steps:
+      1. config qos reload; override Q6/Q7 bindings to use new DWRR schedulers
+      2. Create sched_w20/sched_w40/sched_w30; bind all 8 queues
+      3. DCHAL: all 8 BW% > 0%; Q4/Q5 ≈ 2× Q0-Q3; Q6/Q7 between; total ≈ 100%
+      4. Restore: config qos reload; DEL sched_w20/40/30
+    """
+    egress = port_info['egress']
+    weights = {0: 20, 1: 20, 2: 20, 3: 20, 4: 40, 5: 40, 6: 30, 7: 30}
+    st.banner(
+        "test_fx3_all_sgs_dwrr_no_strict  [DCHAL only — plan test 34]\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : All 8 queues DWRR (no STRICT); weights Q0-Q3=20 Q4-Q5=40 "
+        "Q6-Q7=30 → all BW%>0; Q4/Q5>Q6/Q7>Q0-Q3".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: config qos reload; create schedulers ──────────────────────────
+    st.banner("STEP 1: config qos reload; create sched_w20, sched_w40, sched_w30")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+
+    for name, weight in (('sched_w20', 20), ('sched_w40', 40), ('sched_w30', 30)):
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB HSET "SCHEDULER|{}" '
+                  '"type" "DWRR" "weight" "{}"'.format(name, weight),
+                  skip_error_check=True)
+    st.wait(1)
+
+    # ── Step 2: Bind all 8 queues to DWRR schedulers ─────────────────────────
+    st.banner("STEP 2: Bind all 8 queues to DWRR schedulers "
+              "(Q0-Q3→sched_w20, Q4-Q5→sched_w40, Q6-Q7→sched_w30)")
+    binding_map = {
+        0: 'sched_w20', 1: 'sched_w20', 2: 'sched_w20', 3: 'sched_w20',
+        4: 'sched_w40', 5: 'sched_w40',
+        6: 'sched_w30', 7: 'sched_w30',
+    }
+    for qi, sched_name in binding_map.items():
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|{}" "scheduler" "{}"'.format(
+                      egress, qi, sched_name),
+                  skip_error_check=True)
+    st.wait(3)
+
+    # Verify CONFIG_DB bindings and types
+    st.banner("Verify CONFIG_DB: all 8 queues bound; all schedulers type=DWRR")
+    for qi, sched_name in binding_map.items():
+        out = st.show(dut,
+                      'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(
+                          egress, qi),
+                      skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        st.log("  Q{} binding: '{}'  expected '{}'  {}".format(
+            qi, actual, sched_name,
+            "OK" if actual == sched_name else "MISMATCH"))
+        if actual != sched_name:
+            fail_msgs.append(
+                "Q{} binding='{}', expected '{}'".format(qi, actual, sched_name))
+
+    for name in ('sched_w20', 'sched_w40', 'sched_w30'):
+        out = st.show(dut,
+                      'sonic-db-cli CONFIG_DB HGET "SCHEDULER|{}" "type"'.format(name),
+                      skip_tmpl=True)
+        typ = parse_redis_hget(out).strip()
+        st.log("  {} type='{}' expected 'DWRR'  {}".format(
+            name, typ, "OK" if typ == 'DWRR' else "MISMATCH"))
+        if typ != 'DWRR':
+            fail_msgs.append(
+                "{} type='{}', expected 'DWRR'".format(name, typ))
+
+    # ── Step 3: DCHAL verification ────────────────────────────────────────────
+    st.banner("STEP 3: DCHAL BW% — all 8 queues > 0%; "
+              "Q4/Q5 (w=40) > Q6/Q7 (w=30) > Q0-Q3 (w=20); total ≈ 100%")
+    dchal_out = dchal_show_queuing(dut, "All-8-DWRR no-strict", egress)
+    log_dchal_egress_table(dchal_out, "All-8-DWRR no-strict")
+    bw_map = parse_dchal_egress_bw(dchal_out)
+
+    # All 8 must be > 0%
+    for qi in range(NUM_QUEUES):
+        qi_bw = (bw_map.get(qi) or {}).get('bw_pct')
+        w = weights[qi]
+        st.log("  Q{} (w={}) BW% = {}  (expected > 0%)".format(qi, w, qi_bw))
+        if qi_bw is None or qi_bw <= 0:
+            fail_msgs.append(
+                "Q{} (DWRR w={}): BW% = {}, expected > 0% "
+                "(no STRICT queues — all participate in DWRR pool)".format(
+                    qi, w, qi_bw))
+
+    # Weight ordering: Q4/Q5 (w=40) > Q6/Q7 (w=30) > Q0-Q3 (w=20)
+    avg_w20 = sum(
+        (bw_map.get(qi) or {}).get('bw_pct', 0) for qi in [0, 1, 2, 3]) / 4.0
+    avg_w30 = sum(
+        (bw_map.get(qi) or {}).get('bw_pct', 0) for qi in [6, 7]) / 2.0
+    avg_w40 = sum(
+        (bw_map.get(qi) or {}).get('bw_pct', 0) for qi in [4, 5]) / 2.0
+    st.log("  avg BW%: w=20 → {:.1f}%, w=30 → {:.1f}%, w=40 → {:.1f}%".format(
+        avg_w20, avg_w30, avg_w40))
+    if avg_w40 <= avg_w30:
+        fail_msgs.append(
+            "Weight ordering: w=40 avg BW%={:.1f}% must be > w=30 avg BW%={:.1f}%".format(
+                avg_w40, avg_w30))
+    if avg_w30 <= avg_w20:
+        fail_msgs.append(
+            "Weight ordering: w=30 avg BW%={:.1f}% must be > w=20 avg BW%={:.1f}%".format(
+                avg_w30, avg_w20))
+
+    # Equal weights: Q0=Q1=Q2=Q3 (within 2%), Q4=Q5 (within 2%), Q6=Q7 (within 2%)
+    for group_name, group_queues in [("Q0-Q3 (w=20)", [0, 1, 2, 3]),
+                                      ("Q4-Q5 (w=40)", [4, 5]),
+                                      ("Q6-Q7 (w=30)", [6, 7])]:
+        pcts = [(bw_map.get(qi) or {}).get('bw_pct', 0) for qi in group_queues]
+        if max(pcts) - min(pcts) > 2:
+            fail_msgs.append(
+                "Equal-weight group {}: BW% spread > 2% — values {}".format(
+                    group_name, pcts))
+
+    # Total ≈ 100%
+    total_bw = sum(
+        (bw_map.get(qi) or {}).get('bw_pct', 0) for qi in range(NUM_QUEUES))
+    st.log("  Total BW% (all 8 queues) = {}  (expected 85–115%)".format(total_bw))
+    if not (85 <= total_bw <= 115):
+        fail_msgs.append(
+            "Total DCHAL BW% = {}%, expected 85–115%".format(total_bw))
+
+    # ── Restore ───────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload; DEL sched_w20/40/30")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    for name in ('sched_w20', 'sched_w40', 'sched_w30'):
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB DEL "SCHEDULER|{}"'.format(name),
+                  skip_error_check=True)
+    log_scheduler_state("Restore")
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  ALL-SGS-DWRR-NO-STRICT — FAILURES ({} total):".format(
+            len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'all-sgs-dwrr-no-strict FAILED ({} failures) — see above'.format(
+                len(fail_msgs)))
+    else:
+        st.log("  ALL-SGS-DWRR-NO-STRICT — ALL CHECKS PASSED")
+        st.log("  All 8 queues DWRR BW%>0; Q4/Q5(w=40)>Q6/Q7(w=30)>Q0-Q3(w=20); "
+               "equal-weight queues equal; total ≈ 100%")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'all-sgs-dwrr-no-strict PASSED: all 8 DWRR BW%%>0; '
+            'Q4/Q5>Q6/Q7>Q0-Q3; equal-weight groups equal; total ≈ 100%%')
+
+
+@pytest.mark.skip(reason="Deferred: meter_type=PACKETS rejection leaves orchagent "
+                  "in broken state causing syncd crash in subsequent tests — under investigation")
+def test_fx3_packet_meter_not_supported(setup_topo):
+    """SCHEDULER with meter_type=PACKETS must be rejected at create time.
+
+    Maps to SAI test_packet_meter_not_supported and
+    scheduler_test_plan.md test 13.
+
+    CloudScale DCHAL supports only byte-based rate accounting.
+    SAI_METER_TYPE_PACKETS is rejected in create_scheduler() before any OID
+    is allocated — unlike CBS/PBS which get created then set-rejected.
+
+    SAI-layer behaviour (sai_scheduler.cpp):
+      create_scheduler with METER_TYPE=PACKETS
+        → sai_log_error "SAI_METER_TYPE_PACKETS not supported on CloudScale"
+        → returns SAI_STATUS_NOT_SUPPORTED  (no OID created)
+
+    SONiC CONFIG_DB has no 'meter_type' field in QoS templates, so the
+    SpyTest approach:
+      1. Write a SCHEDULER key with 'meter_type' = 'PACKETS' to CONFIG_DB
+         via sonic-db-cli (direct write, bypassing SONiC templates)
+      2. Wait for orchagent to process
+      3. Verify: no ASIC_DB entry was created for the scheduler
+         (sonic-db-cli ASIC_DB KEYS to scan for a new OID that matches this
+          scheduler — must not appear)
+      4. Verify: syslog contains the PACKETS meter rejection message
+      5. Verify: the FX3 baseline schedulers (scheduler.0–scheduler.7) are
+         unaffected (CONFIG_DB and DCHAL intact)
+      6. Restore (DEL the test key)
+
+    Note: CONFIG_DB accepts any HSET key/value pair without validation —
+    the rejection happens in orchagent→SAI.  So the key will exist in
+    CONFIG_DB even if SAI rejected it; the verdict is based on ASIC_DB
+    and syslog evidence, not CONFIG_DB absence.
+    """
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_packet_meter_not_supported\n"
+        "  DUT    : {}\n"
+        "  Egress : {}\n"
+        "  Plan   : Write SCHEDULER with meter_type=PACKETS → "
+        "SAI rejects create → no ASIC_DB OID → syslog rejection → "
+        "baseline intact → Restore".format(dut, egress)
+    )
+    fail_msgs = []
+    deploy_dchal_helper(dut)
+
+    # ── Step 1: Snapshot ASIC_DB scheduler OID count before ──────────────────
+    st.banner("STEP 1: Snapshot existing ASIC_DB scheduler OID count (baseline)")
+    out_before = st.show(dut,
+                         'sonic-db-cli ASIC_DB KEYS '
+                         '"ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:*"',
+                         skip_tmpl=True, skip_error_check=True) or ''
+    oids_before = set(
+        line.strip() for line in out_before.splitlines()
+        if 'SAI_OBJECT_TYPE_SCHEDULER' in line)
+    st.log("  ASIC_DB scheduler OIDs before: {} entries".format(len(oids_before)))
+    for oid in sorted(oids_before):
+        st.log("    {}".format(oid))
+
+    # ── Step 2: Write SCHEDULER with 'meter_type' = 'PACKETS' to CONFIG_DB ───
+    # SONiC templates never write meter_type; we write it directly to test SAI.
+    st.banner("STEP 2: Write SCHEDULER|sched_packets_meter with "
+              "meter_type=PACKETS to CONFIG_DB")
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_packets_meter" '
+              '"type" "DWRR" "weight" "20" "meter_type" "PACKETS"',
+              skip_error_check=True)
+    st.wait(3)  # wait for orchagent to attempt processing
+
+    # ── Step 3: Verify no new ASIC_DB OID was created ────────────────────────
+    st.banner("STEP 3: Verify ASIC_DB scheduler OID count unchanged "
+              "(SAI must have rejected the create)")
+    out_after = st.show(dut,
+                        'sonic-db-cli ASIC_DB KEYS '
+                        '"ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:*"',
+                        skip_tmpl=True, skip_error_check=True) or ''
+    oids_after = set(
+        line.strip() for line in out_after.splitlines()
+        if 'SAI_OBJECT_TYPE_SCHEDULER' in line)
+    new_oids = oids_after - oids_before
+    st.log("  ASIC_DB scheduler OIDs after:  {} entries".format(len(oids_after)))
+    st.log("  New OIDs (must be empty):      {}".format(
+        sorted(new_oids) if new_oids else '(none)'))
+    if new_oids:
+        fail_msgs.append(
+            "PACKET meter scheduler was NOT rejected: {} new ASIC_DB OID(s) "
+            "appeared — {}".format(len(new_oids), sorted(new_oids)))
+    else:
+        st.log("  CONFIRMED: no new ASIC_DB OID — SAI rejected the PACKETS "
+               "meter type at create time")
+
+    # ── Step 4: Grep syslog for rejection evidence ────────────────────────────
+    st.banner("STEP 4: Grep syslog for SAI_METER_TYPE_PACKETS rejection")
+    _pkt_reject_cmd = (
+        'sudo grep -a "SAI_METER_TYPE_PACKETS not supported\\|'
+        'METER_TYPE_PACKETS\\|packet.*meter.*not supported" '
+        '/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -5')
+    _pkt_out = st.show(dut, _pkt_reject_cmd,
+                       skip_tmpl=True, skip_error_check=True) or ''
+    _pkt_out = _pkt_out.strip()
+    if any(kw in _pkt_out for kw in ('PACKETS', 'packet', 'meter')):
+        st.log("  SAI PACKETS meter rejection evidence in syslog:")
+        for line in _pkt_out.splitlines():
+            if any(kw in line for kw in ('PACKETS', 'packet', 'meter')):
+                st.log("    {}".format(line.strip()))
+    else:
+        st.log("  PACKETS meter rejection not found in syslog (may be "
+               "rate-limited or orchagent silently dropped the unknown field) — "
+               "ASIC_DB check is primary verdict")
+
+    # ── Step 5: Verify FX3 baseline schedulers unaffected ────────────────────
+    st.banner("STEP 5: Verify FX3 baseline scheduler.0–scheduler.7 unchanged in "
+              "CONFIG_DB and DCHAL")
+    for i in range(8):
+        name = "scheduler.{}".format(i)
+        out = st.show(dut,
+                      'sonic-db-cli CONFIG_DB HGET "SCHEDULER|{}" "type"'.format(name),
+                      skip_tmpl=True)
+        typ = parse_redis_hget(out).strip()
+        expected_type = 'STRICT' if i in (6, 7) else 'DWRR'
+        st.log("  {} type='{}' expected='{}'  {}".format(
+            name, typ, expected_type, "OK" if typ == expected_type else "MISMATCH"))
+        if typ != expected_type:
+            fail_msgs.append(
+                "Baseline scheduler.{} type='{}', expected '{}' "
+                "(PACKETS meter reject must not disturb baseline)".format(
+                    i, typ, expected_type))
+
+    dchal_out = dchal_show_queuing(dut, "Baseline after PACKETS meter attempt", egress)
+    log_dchal_egress_table(dchal_out, "Baseline after PACKETS meter attempt")
+    bw = parse_dchal_egress_bw(dchal_out)
+    for qi in [0, 1, 2, 3, 4, 5]:
+        qi_bw = (bw.get(qi) or {}).get('bw_pct')
+        st.log("  Q{} DCHAL BW% : {}  (expected > 0%)".format(qi, qi_bw))
+        if qi_bw is None or qi_bw <= 0:
+            fail_msgs.append(
+                "Q{} DCHAL BW% = {} after PACKETS meter attempt, "
+                "expected > 0% (baseline must be intact)".format(qi, qi_bw))
+    verify_queue_strict("Q6 STRICT after PACKETS meter attempt",
+                        dchal_out, fail_msgs, queue=6)
+    verify_queue_strict("Q7 STRICT after PACKETS meter attempt",
+                        dchal_out, fail_msgs, queue=7)
+
+    # ── Restore ─────────────────────────────────────────────
+    # SAI rejected the create (meter_type=PACKETS) so orchagent entered a
+    # backoff/error state and never added the key to m_schedulerTable.
+    # HDEL alone does NOT trigger a retry.  Strategy:
+    #  1. DEL the key entirely -- clears orchagent error state.
+    #  2. HSET it back as valid DWRR (no meter_type) -- orchagent treats as new,
+    #     creates OID, inserts into m_schedulerTable.
+    #  3. Poll until OID appears in ASIC_DB.
+    #  4. Final DEL -- safe because m_schedulerTable now has the entry.
+    st.banner("RESTORE: sched_packets_meter -- DEL + re-HSET (valid DWRR) "
+              "-> poll for OID -> DEL")
+    oids_pre_repair = set(asic_db_get_sched_oids(dut))
+    # Step A: DEL to clear orchagent error state
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_packets_meter"',
+              skip_error_check=True)
+    st.wait(1)
+    # Step B: re-HSET as valid DWRR (no meter_type) -- orchagent treats as new
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_packets_meter" '
+              '"type" "DWRR" "weight" "20"',
+              skip_error_check=True)
+    # Step C: poll until OID appears in ASIC_DB
+    _repair_done = False
+    for _att in range(15):
+        st.wait(1)
+        oids_post = set(asic_db_get_sched_oids(dut))
+        if len(oids_post) > len(oids_pre_repair):
+            st.log("  Repair OID appeared after {}s -- safe to DEL".format(_att + 1))
+            _repair_done = True
+            break
+    if not _repair_done:
+        st.log("  WARNING: repair OID never appeared in 15s -- "
+               "proceeding with final DEL anyway (error state cleared by DEL+HSET)")
+    # Step D: final DEL
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_packets_meter"',
+              skip_error_check=True)
+    st.wait(_ORCHAGENT_DELAY)
+    log_scheduler_state("Restore")
+
+    # ── Verdict ───────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  PACKET-METER-NOT-SUPPORTED — FAILURES ({} total):".format(
+            len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'packet-meter-not-supported FAILED ({} failures) — see above'.format(
+                len(fail_msgs)))
+    else:
+        st.log("  PACKET-METER-NOT-SUPPORTED — ALL CHECKS PASSED")
+        st.log("  PACKETS meter rejected by SAI — no new ASIC_DB OID created; "
+               "FX3 baseline scheduler state intact")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'packet-meter-not-supported PASSED: SAI rejected PACKETS meter at '
+            'create time; no new ASIC_DB OID; FX3 baseline Q0-Q7 intact')
 

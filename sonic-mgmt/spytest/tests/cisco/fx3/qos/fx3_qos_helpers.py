@@ -59,6 +59,7 @@ Parsers:
   - parse_dchal_queue_counters() / get_dchal_queue_counters()
   - parse_dchal_egress_bw() / validate_dchal_bw_vs_weights()
   - validate_queue_counters_vs_weights()
+  - validate_queue_counters()
   - parse_dchal_queue_stats()
 
 
@@ -2107,6 +2108,106 @@ def validate_queue_counters_vs_weights(label, q_before, q_after, weight_map, fai
                                label, qi, qj, qi, di, qj, dj, wi, wj))
 
 
+def validate_queue_counters(label, q_before, q_after, fail_msgs,
+                            weight_map=None,
+                            check_zeros=None,
+                            check_nonzero=None,
+                            check_no_drops=None):
+    """Validate per-queue counter deltas (before/after a traffic window).
+
+    Combines four independent checks into one call, any of which can be
+    selectively enabled via their respective arguments:
+
+    Args:
+        label (str):        Descriptive label for log/fail messages.
+        q_before (dict):    Counter snapshot before traffic —
+                            {qi: {'pkts': int, 'drop_pkts': int, ...}}
+                            from get_dchal_queue_counters() or get_queue_counters().
+        q_after (dict):     Counter snapshot after traffic — same format.
+        fail_msgs (list):   Failure descriptions are appended here.
+        weight_map (dict):  {qi: weight} for DWRR proportionality check.
+                            Pass None (default) to skip proportionality check.
+        check_zeros (list): Queue indices whose tx_pkts delta must be == 0.
+                            Typical use: STRICT queues when STRICT traffic is
+                            not being injected.
+        check_nonzero (list): Queue indices whose tx_pkts delta must be > 0.
+                            Typical use: DWRR queues under active traffic.
+        check_no_drops (list): Queue indices whose drop_pkts delta must be == 0.
+                            Typical use: STRICT queues (must never be tail-dropped
+                            when given absolute priority).
+
+    Returns:
+        dict: {qi: tx_delta} — per-queue tx packet deltas (informational).
+    """
+    # Compute tx_pkts and drop_pkts deltas for all queues that appear in
+    # either snapshot.
+    all_queues = sorted(set(q_before) | set(q_after))
+    tx_deltas   = {}
+    drop_deltas = {}
+    for qi in all_queues:
+        b = q_before.get(qi, {})
+        a = q_after.get(qi, {})
+        tx_deltas[qi]   = max(0, a.get('pkts', 0)      - b.get('pkts', 0))
+        drop_deltas[qi] = max(0, a.get('drop_pkts', 0) - b.get('drop_pkts', 0))
+
+    # ── Log delta table ───────────────────────────────────────────────────
+    sep = "=" * 72
+    st.log(sep)
+    st.log("  QUEUE COUNTER DELTAS [{}]".format(label))
+    st.log(sep)
+    st.log("  {:<8} {:>20} {:>20}".format("Queue", "Tx Pkts Delta", "Drop Pkts Delta"))
+    st.log("  " + "-" * 50)
+    for qi in all_queues:
+        st.log("  Q{:<7} {:>20,} {:>20,}".format(qi, tx_deltas[qi], drop_deltas[qi]))
+    st.log(sep)
+
+    # ── Check 1: check_zeros — tx_pkts delta must be 0 ───────────────────
+    if check_zeros:
+        for qi in check_zeros:
+            delta = tx_deltas.get(qi, 0)
+            st.log("  [{}] Q{} (check_zeros): tx delta={} (expected 0)".format(
+                label, qi, delta))
+            if delta != 0:
+                fail_msgs.append(
+                    "[{}] Q{} tx_pkts delta={} — expected 0 "
+                    "(queue must not carry traffic in this scenario)".format(
+                        label, qi, delta))
+
+    # ── Check 2: check_nonzero — tx_pkts delta must be > 0 ───────────────
+    if check_nonzero:
+        for qi in check_nonzero:
+            delta = tx_deltas.get(qi, 0)
+            st.log("  [{}] Q{} (check_nonzero): tx delta={} (expected > 0)".format(
+                label, qi, delta))
+            if delta <= 0:
+                fail_msgs.append(
+                    "[{}] Q{} tx_pkts delta={} — expected > 0 "
+                    "(traffic must reach this queue)".format(
+                        label, qi, delta))
+
+    # ── Check 3: check_no_drops — drop_pkts delta must be 0 ──────────────
+    if check_no_drops:
+        for qi in check_no_drops:
+            drops = drop_deltas.get(qi, 0)
+            st.log("  [{}] Q{} (check_no_drops): drop delta={} (expected 0)".format(
+                label, qi, drops))
+            if drops != 0:
+                fail_msgs.append(
+                    "[{}] Q{} drop_pkts delta={} — expected 0 "
+                    "(this queue must not drop packets)".format(
+                        label, qi, drops))
+
+    # ── Check 4: weight proportionality ──────────────────────────────────
+    if weight_map:
+        # Re-package deltas into the format expected by the existing helper.
+        _q_delta_snap = {qi: {'pkts': tx_deltas.get(qi, 0)} for qi in weight_map}
+        _zero_snap    = {qi: {'pkts': 0} for qi in weight_map}
+        validate_queue_counters_vs_weights(
+            label, _zero_snap, _q_delta_snap, weight_map, fail_msgs)
+
+    return tx_deltas
+
+
 # ── DWRR ratio / scheduler validation (from test_scheduler_validation.py) ──
 
 TORTUGA_DWRR_RATIO_CHECKS = [
@@ -3996,3 +4097,102 @@ def get_scheduler_groups_for_port(dut_h, interface):
     so scheduler groups are identified via COUNTERS_QUEUE_NAME_MAP.
     """
     return get_queue_oids_for_port(dut_h, interface)
+
+
+# Seconds to wait after a CONFIG_DB change for orchagent propagation
+_ORCHAGENT_DELAY = 5
+
+
+# New scheduler helper functions
+def get_scheduler_param(key):
+    """Return the SAI attribute name, value string, or constraint for *key*.
+
+    Keys and their values:
+      'ATTR_TYPE'   -> "SAI_SCHEDULER_ATTR_SCHEDULING_TYPE"
+      'ATTR_WEIGHT' -> "SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT"
+      'ATTR_METER'  -> "SAI_SCHEDULER_ATTR_METER_TYPE"
+      'ATTR_MIN_BW' -> "SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE"
+      'ATTR_MAX_BW' -> "SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE"
+      'VAL_DWRR'    -> "SAI_SCHEDULING_TYPE_DWRR"
+      'VAL_STRICT'  -> "SAI_SCHEDULING_TYPE_STRICT"
+      'VAL_WRR'     -> "SAI_SCHEDULING_TYPE_WRR"
+      'VAL_BYTES'   -> "SAI_METER_TYPE_BYTES"
+      'WEIGHT_MIN'  -> 1    (minimum valid weight for FX3/CloudScale)
+      'WEIGHT_MAX'  -> 255  (maximum valid weight, SAI u8 limit)
+    """
+    _params = {
+        'ATTR_TYPE':   "SAI_SCHEDULER_ATTR_SCHEDULING_TYPE",
+        'ATTR_WEIGHT': "SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT",
+        'ATTR_METER':  "SAI_SCHEDULER_ATTR_METER_TYPE",
+        'ATTR_MIN_BW': "SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE",
+        'ATTR_MAX_BW': "SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE",
+        'VAL_DWRR':    "SAI_SCHEDULING_TYPE_DWRR",
+        'VAL_STRICT':  "SAI_SCHEDULING_TYPE_STRICT",
+        'VAL_WRR':     "SAI_SCHEDULING_TYPE_WRR",
+        'VAL_BYTES':   "SAI_METER_TYPE_BYTES",
+        'WEIGHT_MIN':  1,
+        'WEIGHT_MAX':  255,
+    }
+    if key not in _params:
+        raise KeyError("get_scheduler_param: unknown key {!r}".format(key))
+    return _params[key]
+
+
+def asic_db_get_sched_oids(dut):
+    """Return all SAI_OBJECT_TYPE_SCHEDULER OID keys currently in ASIC_DB."""
+    out = st.show(
+        dut,
+        'sonic-db-cli ASIC_DB KEYS "*SAI_OBJECT_TYPE_SCHEDULER:*"',
+        skip_tmpl=True)
+    keys = [
+        line.strip()
+        for line in out.strip().splitlines()
+        if "SAI_OBJECT_TYPE_SCHEDULER" in line
+    ]
+    st.log("  ASIC_DB scheduler OIDs ({}): {}".format(len(keys), keys))
+    return keys
+
+
+def asic_db_get_sched_attrs(dut, oid_key):
+    """Read ASIC_DB HGETALL for *oid_key* and return as a dict."""
+    out = st.show(
+        dut,
+        'sonic-db-cli ASIC_DB HGETALL "{}"'.format(oid_key),
+        skip_tmpl=True)
+    attrs = parse_redis_hgetall(out)
+    st.log("  ASIC_DB {}: {}".format(oid_key, attrs))
+    return attrs
+
+
+def config_db_create_scheduler(dut, name, sched_type, weight=None, cir=None, pir=None):
+    """Write SCHEDULER|<name> to CONFIG_DB and wait for orchagent propagation."""
+    fields = ['"type" "{}"'.format(sched_type)]
+    if weight is not None:
+        fields.append('"weight" "{}"'.format(weight))
+    if cir is not None:
+        fields.append('"cir" "{}"'.format(cir))
+    if pir is not None:
+        fields.append('"pir" "{}"'.format(pir))
+    cmd = 'sonic-db-cli CONFIG_DB HSET "SCHEDULER|{}" {}'.format(
+        name, " ".join(fields))
+    st.log("  CONFIG_DB: {}".format(cmd))
+    st.config(dut, cmd, skip_error_check=True)
+    st.wait(_ORCHAGENT_DELAY)
+
+
+def config_db_delete_scheduler(dut, name):
+    """Delete SCHEDULER|<name> from CONFIG_DB and wait for orchagent propagation."""
+    cmd = 'sonic-db-cli CONFIG_DB DEL "SCHEDULER|{}"'.format(name)
+    st.log("  CONFIG_DB: {}".format(cmd))
+    st.config(dut, cmd, skip_error_check=True)
+    st.wait(_ORCHAGENT_DELAY)
+
+
+def asic_db_find_new_oid(oids_before, oids_after):
+    """Return the first OID key that appeared in *oids_after* but not *oids_before*."""
+    new_keys = [k for k in oids_after if k not in oids_before]
+    if new_keys:
+        st.log("  ASIC_DB new scheduler OID: {}".format(new_keys[0]))
+    else:
+        st.log("  ASIC_DB no new scheduler OID found")
+    return new_keys[0] if new_keys else None
