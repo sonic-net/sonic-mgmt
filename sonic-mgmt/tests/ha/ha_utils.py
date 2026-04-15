@@ -308,4 +308,3 @@ def wait_for_pending_operation_id(
     )
 
     return pending_id if success else None
-

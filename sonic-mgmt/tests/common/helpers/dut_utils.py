@@ -457,10 +457,23 @@ def is_mellanox_devices(hwsku):
         or 'mlnx' in hwsku
 
 
+def is_virtual_platform(duthost):
+    """Check if the DUT is running on a virtual (KVM) platform.
+
+    Args:
+        duthost: DUT host object.
+
+    Returns:
+        True if the platform is x86_64-kvm_x86_64-r0 (used by both VS and VPP testbeds),
+        False otherwise.
+    """
+    return duthost.facts.get("platform") == "x86_64-kvm_x86_64-r0"
+
+
 def is_mellanox_fanout(duthost, localhost):
     # Ansible localhost fixture which calls ansible playbook on the local host
 
-    if duthost.facts.get("asic_type") == "vs":
+    if is_virtual_platform(duthost):
         return False
 
     try:

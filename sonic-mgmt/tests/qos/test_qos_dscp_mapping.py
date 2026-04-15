@@ -493,10 +493,11 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
 
+    @pytest.mark.disable_loganalyzer
     def test_dscp_to_queue_mapping(self, ptfadapter, rand_selected_dut, localhost, dscp_config, dscp_mode,
                                    toggle_all_simulator_ports_to_rand_selected_tor, completeness_level,  # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor, route_config,
-                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer):  # noqa F811
+                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer, rotate_syslog):  # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" and "pipe" mode
         """
@@ -504,7 +505,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         inner_dst_ip_list = route_config
 
         with allure.step("Prepare test parameter"):
-            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links, loganalyzer)
+            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
 
         with allure.step("Run test"):
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)

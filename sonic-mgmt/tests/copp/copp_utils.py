@@ -20,6 +20,14 @@ _ADD_IP_SCRIPT = "scripts/add_ip.sh"
 _ADD_IP_BACKEND_SCRIPT = "scripts/add_ip_backend.sh"
 _UPDATE_COPP_SCRIPT = "copp/scripts/update_copp_config.py"
 
+_PTF_COMMIT = "9d41838d634c479fc24fac7a527ec5ee2d0ce8eb"
+_PTF_NN_AGENT_URL = (
+    "https://raw.githubusercontent.com/p4lang/ptf"
+    "/{}/ptf_nn/ptf_nn_agent.py".format(_PTF_COMMIT))
+_PTF_AFPACKET_URL = (
+    "https://raw.githubusercontent.com/p4lang/ptf"
+    "/{}/src/ptf/afpacket.py".format(_PTF_COMMIT))
+
 _BASE_COPP_CONFIG = "/tmp/base_copp_config.json"
 _APP_DB_COPP_CONFIG = ":/etc/swss/config.d/00-copp.config.json"
 _CONFIG_DB_COPP_CONFIG = "/etc/sonic/copp_cfg.json"
@@ -214,7 +222,7 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
         # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
-        cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
+        cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
                 mkdir -p /var/tmp_build \
                 && rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
@@ -223,13 +231,12 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
                 && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi==1.16.0 \
                 && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
                 && rm -rf /var/tmp_build \
-                && mkdir -p /opt && cd /opt && wget \
-                https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
-                && mkdir ptf && cd ptf && wget \
-                https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
+                && mkdir -p /opt && cd /opt && wget {3} \
+                && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
                 && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
                 python3-setuptools wget \
-                " '''.format(http_proxy, https_proxy, syncd_docker_name)
+                " '''.format(http_proxy, https_proxy, syncd_docker_name,
+                             _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
         dut.command(cmd)
 
 
@@ -260,7 +267,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
         check_cmd = "docker exec -i {} bash -c 'cat /etc/os-release'".format(syncd_docker_name)
         # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
         if "bullseye" in dut.shell(check_cmd)['stdout'].lower():
-            cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
+            cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
                     chmod 1777 /tmp \
                     && rm -rf /var/lib/apt/lists/* \
                     && apt-get update \
@@ -270,13 +277,12 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
                     && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
                     && rm -f 1.0.0.tar.gz && pip3 install cffi && pip3 install --upgrade cffi && pip3 install nnpy \
-                    && mkdir -p /opt && cd /opt && wget \
-                    https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
-                    && mkdir ptf && cd ptf && wget \
-                    https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
-                    " '''.format(http_proxy, https_proxy, syncd_docker_name)
+                    && mkdir -p /opt && cd /opt && wget {3} \
+                    && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
+                    " '''.format(http_proxy, https_proxy, syncd_docker_name,
+                                 _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
         else:
-            cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
+            cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
                     chmod 1777 /tmp \
                     && rm -rf /var/lib/apt/lists/* \
                     && apt-get update \
@@ -287,11 +293,10 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
                     && rm -f 1.0.0.tar.gz && pip2 install cffi==1.7.0 && pip2 install --upgrade \
                     cffi==1.7.0 && pip2 install nnpy \
-                    && mkdir -p /opt && cd /opt && wget \
-                    https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
-                    && mkdir ptf && cd ptf && wget \
-                    https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
-                    " '''.format(http_proxy, https_proxy, syncd_docker_name)
+                    && mkdir -p /opt && cd /opt && wget {3} \
+                    && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
+                    " '''.format(http_proxy, https_proxy, syncd_docker_name,
+                                 _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
         dut.command(cmd)
 
 

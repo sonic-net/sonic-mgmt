@@ -13,8 +13,9 @@ from tests.packet_trimming.constants import (
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     delete_blocking_scheduler, check_trimming_capability, prepare_service_port, get_interface_peer_addresses,
-    configure_tc_to_dscp_map, set_buffer_profiles_for_block_and_trim_queues, create_blocking_scheduler,
-    configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp, get_test_ports)
+    configure_tc_to_dscp_map, set_buffer_profile_for_block_queue, set_buffer_profile_for_trim_queue,
+    create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
+    get_test_ports)
 
 
 logger = logging.getLogger(__name__)
@@ -151,13 +152,14 @@ def trim_counter_params(duthost, test_params, dut_qos_maps_module):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_trimming(duthost, test_params):
+def setup_trimming(duthost, test_params, trim_counter_params):
     """
     Set up all prerequisites for packet trimming tests.
 
     Args:
         duthost: DUT host object
         test_params: Test parameters from test_params fixture
+        trim_counter_params: Test parameters from trim_counter_params fixture (for counter tests)
     """
     logger.info("Prepare packet trimming related configurations")
     platform = duthost.facts['platform']
@@ -184,17 +186,31 @@ def setup_trimming(duthost, test_params):
         # The first interface is uplink interface, use uplink buffer profile
         uplink_port = test_params['egress_ports'][0]
         block_interface = uplink_port['dut_members']
+        counter_uplink_port = trim_counter_params['egress_ports'][0]
+        counter_block_interface = counter_uplink_port['dut_members']
         logger.info(f"Apply uplink buffer profile to interfaces: {block_interface}")
-        set_buffer_profiles_for_block_and_trim_queues(duthost, block_interface, test_params['block_queue'],
-                                                      test_params['trim_buffer_profiles']['uplink'])
+        set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
+                                           test_params['trim_buffer_profiles']['uplink'])
+        set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
+                                           trim_counter_params['trim_buffer_profiles']['uplink'])
+        set_buffer_profile_for_trim_queue(duthost, block_interface)
 
         # The second interface is downlink interface. If the second interface exists, use downlink buffer profile
         if len(test_params['egress_ports']) > 1:
             downlink_port = test_params['egress_ports'][1]
             block_interface = downlink_port['dut_members']
-            logger.info(f"Apply downlink buffer profile to interfaces: {block_interface}")
-            set_buffer_profiles_for_block_and_trim_queues(duthost, block_interface, test_params['block_queue'],
-                                                          test_params['trim_buffer_profiles']['downlink'])
+            logger.info(f"Apply downlink buffer profile to {block_interface}:{test_params['block_queue']}")
+            set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
+                                               test_params['trim_buffer_profiles']['downlink'])
+
+        # Also set the downlink buffer profile for the block queue used in counter tests, if applicable.
+        if len(trim_counter_params['egress_ports']) > 1:
+            counter_downlink_port = trim_counter_params['egress_ports'][1]
+            counter_block_interface = counter_downlink_port['dut_members']
+            logger.info(f"Apply downlink buffer profile to "
+                        f"{counter_block_interface}:{trim_counter_params['block_queue']}")
+            set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
+                                               trim_counter_params['trim_buffer_profiles']['downlink'])
 
     with allure.step("Create scheduler used for blocking egress queues"):
         create_blocking_scheduler(duthost)
@@ -215,6 +231,8 @@ def setup_trimming(duthost, test_params):
     with allure.step("Disable trimming in buffer profile"):
         for buffer_profile in test_params['trim_buffer_profiles']:
             configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
+        for buffer_profile in trim_counter_params['trim_buffer_profiles']:
+            configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
 
     with allure.step("Delete the blocking scheduler"):
         delete_blocking_scheduler(duthost)
