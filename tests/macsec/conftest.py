@@ -1,7 +1,6 @@
 import pytest
 
 from tests.common.macsec.macsec_helper import check_appl_db
-from tests.common.macsec.macsec_config_helper import generate_macsec_profile
 from tests.common.utilities import wait_until
 
 
