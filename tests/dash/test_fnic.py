@@ -61,7 +61,6 @@ def common_setup_teardown(
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.ROUTING_TYPE_VNET_CONFIG,
         **pl.VNET_CONFIG,
-        **pl.VNET2_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG,
         **pl.METER_POLICY_V4_CONFIG,
         **tunnel_config,
