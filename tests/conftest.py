@@ -7,6 +7,7 @@ import logging
 import random
 import re
 import sys
+import shutil
 
 import pytest
 import yaml
@@ -70,6 +71,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node,
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
@@ -97,7 +99,7 @@ from tests.common.helpers.yang_utils import run_yang_validation
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
-DUTHOSTS_FIXTURE_FAILED_RC = 15
+HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
@@ -160,7 +162,7 @@ def pytest_addoption(parser):
 
     # neighbor device type
     parser.addoption("--neighbor_type", action="store", default="eos", type=str,
-                     choices=["eos", "sonic", "cisco", "csonic"],
+                     choices=["eos", "sonic", "cisco", "csonic", "vsonic", "ceos"],
                      help="Neighbor devices type")
 
     # ceos neighbor lacp multiplier
@@ -238,11 +240,13 @@ def pytest_addoption(parser):
     ########################
     #   pre-test options   #
     ########################
-    parser.addoption("--deep_clean", action="store_true", default=False,
-                     help="Deep clean DUT before tests (remove old logs, cores, dumps)")
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
                      help="Specify the url of the saithrift package to be installed on the ptf "
                           "(should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+    parser.addoption("--enable_qos_ptf_pdb", action="store_true", default=False,
+                     help="Enable QoS PTF test debugging mode with pdb breakpoint")
+    parser.addoption("--ingress_drop_probing", action="store_true", default=False,
+                     help="Enable ingress drop threshold probing instead of PFC xoff probing")
 
     #########################
     #   post-test options   #
@@ -378,7 +382,7 @@ def pytest_addoption(parser):
     #################################
     #   YANG validation options     #
     #################################
-    parser.addoption("--skip_yang", action="store_true", default=False,
+    parser.addoption("--skip-yang", "--skip_yang", action="store_true", default=False, dest="skip_yang",
                      help="Skip YANG validation")
 
 
@@ -389,6 +393,81 @@ def pytest_configure(config):
             config.pluginmanager.register(MacsecPluginT2())
         else:
             config.pluginmanager.register(MacsecPluginT0())
+    converge_topo_if_needed(config)
+
+
+def _load_testbed_config(tbfile, tbname):
+    """Load testbed configuration from file"""
+    with open(tbfile, 'r') as f:
+        testbed_data = yaml.safe_load(f)
+
+    for tb in testbed_data:
+        if tb.get('conf-name') == tbname:
+            return tb
+
+    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    return
+
+
+def converge_topo_if_needed(config):
+    tbname = config.getoption("testbed")
+    tbfile = config.getoption("testbed_file")
+    if tbname is None or tbfile is None:
+        return
+    try:
+        tb_config = _load_testbed_config(tbfile, tbname)
+        if not tb_config:
+            return
+        use_converged_peers = tb_config.get('use_converged_peers', False)
+        if not use_converged_peers:
+            logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
+            return
+        logger.info(f"use_converged_peers=True for testbed '{tbname}', starting converge...")
+
+        topo_name = tb_config.get('topo', '').strip()
+        if not topo_name:
+            logger.warning(f"No valid topo name found in testbed '{tbname}', skipping converge")
+            return
+
+        tests_dir = os.path.dirname(os.path.abspath(__file__))
+        ansible_dir = os.path.join(os.path.dirname(tests_dir), "ansible")
+        vars_dir = os.path.join(ansible_dir, "vars")
+        topo_file = os.path.join(vars_dir, f"topo_{topo_name}.yml")
+        backup_file = f"{topo_file}.bak"
+
+        if not os.path.exists(topo_file):
+            logger.warning(f"Topo file not found: {topo_file}")
+            return
+
+        original_stat = os.stat(topo_file)
+        original_mode = original_stat.st_mode
+        original_uid = original_stat.st_uid
+        original_gid = original_stat.st_gid
+
+        if os.path.exists(backup_file):
+            logger.info("Backup file exists, recovering original topo file")
+            shutil.copy(backup_file, topo_file)
+        else:
+            logger.info(f"Creating backup: {backup_file}")
+            shutil.copy(topo_file, backup_file)
+
+        converger_path = os.path.join(ansible_dir, "ceos_topo_converger.py")
+        spec = importlib.util.spec_from_file_location("ceos_topo_converger", converger_path)
+        ceos_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ceos_module)
+
+        ceos_module.converge_testbed(backup_file, topo_file)
+        logger.info(f"Topology '{topo_name}' converged successfully")
+
+        os.chmod(topo_file, original_mode)
+        os.chown(topo_file, original_uid, original_gid)
+        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+
+        config.cache.set("converged_topo_file", topo_file)
+        config.cache.set("converged_topo_backup", backup_file)
+    except Exception as e:
+        logger.error(f"Error during topo converge: {e}")
+        raise
 
 
 @pytest.fixture(scope="session")
@@ -583,9 +662,23 @@ def pytest_sessionstart(session):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    if session.config.cache.get("duthosts_fixture_failed", None):
+    if (session.config.cache.get("duthosts_fixture_failed", None) or
+            session.config.cache.get("ptfhost_exception", None)):
         session.config.cache.set("duthosts_fixture_failed", None)
-        session.exitstatus = DUTHOSTS_FIXTURE_FAILED_RC
+        session.config.cache.set("ptfhost_exception", None)
+        session.exitstatus = HOST_FIXTURE_FAILED_RC
+
+    topo_file = session.config.cache.get("converged_topo_file", None)
+    backup_file = session.config.cache.get("converged_topo_backup", None)
+    if topo_file and backup_file and os.path.exists(backup_file):
+        logger.info(f"Restoring original topo file from backup: {backup_file} -> {topo_file}")
+        try:
+            shutil.copy(backup_file, topo_file)
+            logger.info("Original topo file restored successfully")
+            session.config.cache.set("converged_topo_file", None)
+            session.config.cache.set("converged_topo_backup", None)
+        except Exception as e:
+            logger.error(f"Failed to restore topo file: {e}")
 
 
 @pytest.fixture(name="duthosts", scope="session")
@@ -965,7 +1058,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
-        elif neighbor_type == "sonic":
+        elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
                     'host': SonicHost(
@@ -1233,11 +1326,13 @@ def vmhosts(enhance_inventory, ansible_adhoc, request, tbinfo):
     elif "servers" in tbinfo:
         for server in tbinfo["servers"].keys():
             vmhost = get_test_server_host(inv_files, server)
-            hosts.append(VMHost(ansible_adhoc, vmhost.name))
+            if vmhost:
+                hosts.append(VMHost(ansible_adhoc, vmhost.name))
     elif "server" in tbinfo:
         server = tbinfo["server"]
         vmhost = get_test_server_host(inv_files, server)
-        hosts.append(VMHost(ansible_adhoc, vmhost.name))
+        if vmhost:
+            hosts.append(VMHost(ansible_adhoc, vmhost.name))
     else:
         logger.info("No VM host exist for this topology: {}".format(tbinfo['topo']['name']))
     return hosts
@@ -3303,13 +3398,20 @@ def on_exit():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def add_mgmt_test_mark(duthosts):
+def add_mgmt_test_mark(duthosts, request):
     '''
     @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
     @param duthosts: fixture to get DUT hosts
+    @param request: pytest request object
     '''
     mark_file = "/etc/sonic/mgmt_test_mark"
-    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+    try:
+        duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+    except AnsibleConnectionFailure as e:
+        logger.error("Failed to create mgmt test mark on DUT, DUT may be unreachable.")
+        request.config.cache.set("duthosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! add_mgmt_test_mark fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
@@ -3953,7 +4055,7 @@ def yang_validation_check(request, duthosts):
     """
     YANG validation check that runs before and after each test module
     """
-    skip_yang = request.config.getoption("--skip_yang")
+    skip_yang = request.config.getoption("skip_yang")
 
     if skip_yang:
         logger.info("Skipping YANG validation pre-check due to --skip_yang flag")
