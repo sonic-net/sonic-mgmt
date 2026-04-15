@@ -157,7 +157,7 @@ class MacsecPlugin(object):
         shutdown_macsec()
 
     @pytest.fixture(scope="module", autouse=True)
-    def load_macsec_info(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+    def load_macsec_info(self, request, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
         """Pre-load MACsec session info for all control links.
 
         If MACsec is enabled and configured for this DUT/profile, wait for
@@ -179,7 +179,7 @@ class MacsecPlugin(object):
                 # to the original behaviour when the fixture is missing.
                 pass
 
-            if is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links):
+            if port_profiles is None and is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links):
                 load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
             else:
                 request.getfixturevalue('macsec_setup')
