@@ -70,7 +70,7 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     else:
         cmd_bcmcmd_false = "'port enable sfi false'"
         cmd_bcmcmd_true = "'port enable sfi true'"
-        cmd = "show queue counters --voq --nonzero| grep -i 'Ethernet-IB' |grep -i 'VOQ0' |awk '{{print $7}}'"
+        cmd = "show queue counters --voq --nonzero| grep -i 'Ethernet-IB' |grep -i 'VOQ0' |awk '{print $7}'"
         try:
             bcm_changes = True
             for asic in duthost.asics:
@@ -84,7 +84,7 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 integers = [int(item.replace(',', '')) for item in out if item.replace(',', '').strip().isdigit()]
                 return any(num > 0 for num in integers)
 
-            pytest_assert(wait_until(300, 0, 0, queue_counter_assertion),
+            pytest_assert(wait_until(300, 5, 0, queue_counter_assertion),
                           "Credit-WD-Del/pkts is not increasing "
                           "Ref: https://github.com/sonic-net/sonic-buildimage/issues/21098")
         finally:
