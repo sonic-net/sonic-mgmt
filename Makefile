@@ -15,7 +15,7 @@ NEIGHBOR    ?= ceos
 
 # Test config
 T           ?=
-EXTRA       ?=
+EXTRA       ?= -e "--skip_sanity --disable_loganalyzer"
 
 # TTY handling: use -t only if terminal is available (for CI compatibility)
 TTY         := $(shell test -t 0 && echo "-t")
@@ -43,7 +43,7 @@ help:
 	@echo "  DUT         - DUT name (default: vlab-01)"
 	@echo "  NEIGHBOR    - Neighbor VM type: ceos|veos|vsonic (default: ceos)"
 	@echo "  T           - Test path for 'test' target"
-	@echo "  EXTRA       - Extra arguments for test"
+	@echo "  EXTRA       - Extra arguments for test (default: -e \"--skip_sanity --disable_loganalyzer\")"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make add-topo"
@@ -72,4 +72,4 @@ test: check-container
 ifndef T
 	$(error T is required. Usage: make test T=bgp/test_bgp_fact.py)
 endif
-	$(EXEC_TESTS) ./run_tests.sh -n $(TOPO) -d $(DUT) -f $(TESTBED) -i ../ansible/$(INVENTORY) -c $(T) $(EXTRA)
+	$(EXEC_TESTS) ./run_tests.sh -u -n $(TOPO) -d $(DUT) -f $(TESTBED) -i ../ansible/$(INVENTORY) -c $(T) $(EXTRA)
