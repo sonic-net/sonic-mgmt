@@ -694,6 +694,14 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
     """
     ecmp_algorithm, ecmp_test_hash_field, ipver, inner_ipver, encap_type = fine_params.split('-')
     skip_unsupported_field_for_ecmp_test(ecmp_test_hash_field, encap_type)
+    # On VS/KVM, cold/warm/fast reboots take 5-8 minutes each, which combined
+    # with hash configuration and two PTF traffic runs easily exceeds the
+    # 20-minute per-module timeout enforced by Elastictest (see #23637).
+    # Config reload is sufficient to verify hash persistence on KVM since it
+    # tests the same CONFIG_DB save/restore path without the slow VM reboot.
+    if rand_selected_dut.facts['asic_type'] == 'vs' and reboot_type in ('cold', 'warm', 'fast'):
+        pytest.skip("Skipping {} reboot on VS/KVM to avoid module timeout; "
+                    "config reload covers hash persistence validation.".format(reboot_type))
     with allure.step('Randomly select an ecmp hash field to test '
                      'and configure all supported fields to the global ecmp and lag hash'):
         config_all_hash_fields(rand_selected_dut, global_hash_capabilities)
