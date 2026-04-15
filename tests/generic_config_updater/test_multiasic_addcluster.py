@@ -78,6 +78,7 @@ LOGANALYZER_IGNORE_REGEX = [
     ".*Unable to find key NPU_SI_SETTINGS_SYNC_STATUS.*",
 ]
 
+
 @support_ignore_loganalyzer
 def apply_patch_with_log_ignore(duthost, json_data, dest_file):
     """Apply GCU patch with loganalyzer temporarily muted.
