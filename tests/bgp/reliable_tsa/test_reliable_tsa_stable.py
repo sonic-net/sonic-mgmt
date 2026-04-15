@@ -817,8 +817,12 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
                 pytest_assert('true' == get_tsa_chassisdb_config(lc),
                               "{} tsa_enabled config is not enabled".format(lc.hostname))
+
                 # Verify line card config changed to TSB after startup-tsa-tsb service expiry
-                pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+
+                def verify_dut_configdb_tsa_disabled(lc):
+                    return verify_dut_configdb_tsa_value(lc) is False
+                pytest_assert(wait_until(120, 1, 0, verify_dut_configdb_tsa_disabled, lc),
                               "DUT {} tsa_enabled config is enabled".format(lc.hostname))
 
         # Once all line cards are in maintenance state, proceed further
