@@ -492,7 +492,6 @@ def converge_topo_if_needed(config):
         config.cache.set("converged_topo_backup", backup_file)
     except Exception as e:
         logger.error(f"Error during topo converge: {e}")
-        raise
 
 
 @pytest.fixture(scope="session")

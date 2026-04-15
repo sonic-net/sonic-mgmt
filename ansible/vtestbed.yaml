@@ -14,6 +14,7 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests virtual switch vm
+  use_converged_peers: true
 
 - conf-name: vms-kvm-t0-csonic
   group-name: vms6-1
@@ -74,6 +75,7 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests virtual switch vm
+  use_converged_peers: true
 
 - conf-name: vms-kvm-t0-2
   group-name: vms6-3
