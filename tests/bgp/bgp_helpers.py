@@ -440,6 +440,16 @@ def check_results(results):
                   'Unexpected routes on neighbors, failed_results={}'.format(json.dumps(failed_results, indent=2)))
 
 
+def check_routes_presence(result, prefix):
+    # Filter the route output
+    matched_lines = [line for line in result["stdout"].splitlines() if prefix in line]
+
+    if matched_lines:
+        logging.info("Found prefix {} in BGP received-routes: {}".format(prefix, matched_lines))
+    else:
+        logging.warning("Prefix {} not found in BGP received-routes".format(prefix))
+
+
 def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
     """
     Check routes result for neighbors in parallel without applying allow list
@@ -905,10 +915,10 @@ def operate_orchagent(duthost, action=ACTION_STOP):
     """
     if action == ACTION_STOP:
         logging.info('Suspend orchagent process to simulate a delay')
-        cmd = 'sudo kill -SIGSTOP $(pidof orchagent)'
+        cmd = 'sudo kill -SIGSTOP $(pgrep -x orchagent)'
     else:
         logging.info('Recover orchagent process')
-        cmd = 'sudo kill -SIGCONT $(pidof orchagent)'
+        cmd = 'sudo kill -SIGCONT $(pgrep -x orchagent)'
     duthost.shell(cmd)
 
 
