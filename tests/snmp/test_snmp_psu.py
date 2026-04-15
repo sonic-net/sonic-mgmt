@@ -13,16 +13,22 @@ pytestmark = [
 ]
 
 
-@pytest.mark.bsl
-def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_all_duts):
+@pytest.fixture(scope="module")
+def snmp_psu_module_facts(duthosts, enum_supervisor_dut_hostname, localhost, creds_all_duts):
+    """One SNMP walk per module shared by PSU count and PSU status tests."""
     duthost = duthosts[enum_supervisor_dut_hostname]
-
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
-
-    snmp_facts = get_snmp_facts(
+    return get_snmp_facts(
         duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+
+
+@pytest.mark.bsl
+def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, snmp_psu_module_facts):
+    duthost = duthosts[enum_supervisor_dut_hostname]
+
+    snmp_facts = snmp_psu_module_facts
     res = duthost.shell("psuutil numpsus", module_ignore_errors=True)
 
     # For kvm testbed, we will get the expected return code 2 because of no chassis
@@ -43,13 +49,9 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
 
 
 @pytest.mark.bsl
-def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, creds_all_duts):
+def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, snmp_psu_module_facts):
     duthost = duthosts[enum_supervisor_dut_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_psu_module_facts
 
     psus_on = 0
     msg = "Unexpected operstatus results {} != {} for PSU {}"
