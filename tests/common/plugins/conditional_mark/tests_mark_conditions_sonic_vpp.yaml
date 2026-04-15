@@ -18,39 +18,7 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
 #######################################
 #####           BFD               #####
 #######################################
-bfd/test_bfd.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_basic:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_echo_mode:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bfd/test_bfd.py::test_bfd_multihop:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -93,55 +61,7 @@ bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[:
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_port_disable.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bgp/test_bgp_suppress_fib.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgpmon.py::test_bgpmon:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -229,17 +149,6 @@ copp:
   skip:
     reason: >
             Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           CRM               #####
-#######################################
-crm/test_crm.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
