@@ -44,16 +44,19 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
     dut_inband_intfs = {}
     dut_port_channels = {}
     switch_type = ''
+    is_chassis = False
     for duthost in duthosts.frontend_nodes:
         cfg_facts = duts_cfg_facts[duthost.hostname]
         for asic_cfg_facts in cfg_facts:
             if duthost.facts['switch_type'] == "voq":
+                is_chassis = \
+                    not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_chassis_config_absent")
                 switch_type = "voq"
                 if 'VOQ_INBAND_INTERFACE' in asic_cfg_facts[1]:
                     dut_inband_intfs.setdefault(duthost.hostname, []).extend(asic_cfg_facts[1]['VOQ_INBAND_INTERFACE'])
             dut_port_channels.setdefault(duthost.hostname, {}).update(asic_cfg_facts[1].get('PORTCHANNEL_MEMBER', {}))
     sys_neigh = {}
-    if switch_type == "voq":
+    if switch_type == "voq" and is_chassis:
         if len(duthosts) == 1:
             voq_db = VoqDbCli(duthosts.frontend_nodes[0])
         else:

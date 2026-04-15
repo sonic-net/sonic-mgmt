@@ -9,7 +9,6 @@ from collections import namedtuple
 
 import pytest
 import requests
-import yaml
 import ipaddr as ipaddress
 
 from jinja2 import Template
@@ -25,6 +24,8 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.eos import EosHost
+
+from bgp_bbr_helpers import get_bbr_default_state, config_bbr_by_gcu
 
 pytestmark = [
     pytest.mark.topology('t1', 't1-multi-asic'),
@@ -91,29 +92,6 @@ def add_bbr_config_to_running_config(duthost, status):
     time.sleep(3)
 
 
-def config_bbr_by_gcu(duthost, status):
-    logger.info('Config BGP_BBR by GCU cmd')
-    json_patch = [
-        {
-            "op": "replace",
-            "path": "/BGP_BBR/all/status",
-            "value": "{}".format(status)
-        }
-    ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
-
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
-
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-    time.sleep(3)
-
-
 def enable_bbr(duthost, namespace):
     logger.info('Enable BGP_BBR')
     # gcu doesn't support multi-asic for now, use sonic-cfggen instead
@@ -156,30 +134,6 @@ def config_bbr_disabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defa
 def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
     enable_bbr(duthost, setup['tor1_namespace'])
-
-
-def get_bbr_default_state(duthost):
-    bbr_supported = False
-    bbr_default_state = 'disabled'
-
-    # Check BBR configuration from config_db first
-    bbr_config_db_exist = int(duthost.shell('redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"')["stdout"])
-    if bbr_config_db_exist:
-        # key exist, BBR is supported
-        bbr_supported = True
-        bbr_default_state = duthost.shell('redis-cli -n 4 HGET "BGP_BBR|all" "status"')["stdout"]
-    else:
-        # Check BBR configuration from constants.yml
-        constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
-        try:
-            bbr_supported = constants['constants']['bgp']['bbr']['enabled']
-            if not bbr_supported:
-                return bbr_supported, bbr_default_state
-            bbr_default_state = constants['constants']['bgp']['bbr']['default_state']
-        except KeyError:
-            return bbr_supported, bbr_default_state
-
-    return bbr_supported, bbr_default_state
 
 
 @pytest.fixture(scope='module')
@@ -392,52 +346,63 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
         dut_asn = setup['dut_asn']
         tor1_asn = setup['tor1_asn']
+        vm_route = None
 
-        vm_route = nbrhosts[node]['host'].get_route(route.prefix)
-        if not isinstance(vm_route, dict):
-            logging.warning("DEBUG: unexpected vm_route type {}, {}".format(type(vm_route), vm_route))
-        vm_route['failed'] = False
-        vm_route['message'] = 'Checking route {} on {} passed'.format(str(route), node)
-        if accepted:
-            tor_route_aspath = None
-            if isinstance(nbrhosts[node]['host'], EosHost):
-                if route.prefix not in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
-                    vm_route['failed'] = True
-                    vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
+        def _check_route():
+            nonlocal vm_route
+            vm_route = nbrhosts[node]['host'].get_route(route.prefix)
+            if not isinstance(vm_route, dict):
+                logging.warning("DEBUG: unexpected vm_route type {}, {}".format(type(vm_route), vm_route))
+            vm_route['failed'] = False
+            vm_route['message'] = 'Checking route {} on {} passed'.format(str(route), node)
+            if accepted:
+                tor_route_aspath = None
+                if isinstance(nbrhosts[node]['host'], EosHost):
+                    if route.prefix not in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
+                        vm_route['failed'] = True
+                        vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
+                        return False
+                    else:
+                        tor_route_aspath = vm_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
+                        ['asPathEntry']['asPath']   # noqa E211
+                elif isinstance(nbrhosts[node]['host'], SonicHost):
+                    if vm_route and 'paths' in vm_route:
+                        tor_route_aspath = vm_route['paths'][0]['aspath']['string']
+                    else:
+                        vm_route['failed'] = True
+                        vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
+                        return False
                 else:
-                    tor_route_aspath = vm_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-                    ['asPathEntry']['asPath']   # noqa E211
-            elif isinstance(nbrhosts[node]['host'], SonicHost):
-                if vm_route and 'paths' in vm_route:
-                    tor_route_aspath = vm_route['paths'][0]['aspath']['string']
-                else:
                     vm_route['failed'] = True
-                    vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
-            else:
-                vm_route['failed'] = True
-                logging.error('Unknown host type {} for {}'.format(type(nbrhosts[node]['host']), node))
-                return
+                    vm_route['message'] = 'Unknown host type {} for {}'.format(type(nbrhosts[node]['host']), node)
+                    return False
 
-            # Route path from other VMs: -> DUT(T1) -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
-            tor_route_aspath_expected = '{} {} {}'.format(dut_asn, tor1_asn, route.aspath)
-            if tor_route_aspath != tor_route_aspath_expected:
-                vm_route['failed'] = True
-                vm_route['message'] = 'On {} expected aspath: {}, actual aspath: {}'\
-                    .format(node, tor_route_aspath_expected, tor_route_aspath)
-        else:
-            if isinstance(nbrhosts[node]['host'], EosHost):
-                if route.prefix in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
+                # Route path from other VMs: -> DUT(T1) -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
+                tor_route_aspath_expected = '{} {} {}'.format(dut_asn, tor1_asn, route.aspath)
+                if tor_route_aspath != tor_route_aspath_expected:
                     vm_route['failed'] = True
-                    vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
-            elif isinstance(nbrhosts[node]['host'], SonicHost):
-                if vm_route and 'paths' in vm_route:
-                    vm_route['failed'] = True
-                    vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
+                    vm_route['message'] = 'On {} expected aspath: {}, actual aspath: {}'\
+                        .format(node, tor_route_aspath_expected, tor_route_aspath)
+                    return False
             else:
-                vm_route['failed'] = True
-                logging.error('Unknown host type {} for {}'.format(type(nbrhosts[node]['host']), node))
-                return
-        return vm_route
+                if isinstance(nbrhosts[node]['host'], EosHost):
+                    if route.prefix in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
+                        vm_route['failed'] = True
+                        vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
+                        return False
+                elif isinstance(nbrhosts[node]['host'], SonicHost):
+                    if vm_route and 'paths' in vm_route:
+                        vm_route['failed'] = True
+                        vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
+                        return False
+                else:
+                    vm_route['failed'] = True
+                    vm_route['message'] = 'Unknown host type {} for {}'.format(type(nbrhosts[node]['host']), node)
+                    return False
+            return True
+
+        wait_until(30, 2, 0, _check_route)
+        results[node] = vm_route
 
     other_vms = setup['other_vms']
     bgp_neighbors = json.loads(duthost.shell("sonic-cfggen -d --var-json 'BGP_NEIGHBOR'")['stdout'])

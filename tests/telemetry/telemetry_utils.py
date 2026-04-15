@@ -55,7 +55,8 @@ def skip_201911_and_older(duthost):
 
 def check_gnmi_cli_running(duthost, ptfhost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"")
+    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"",
+                        module_ignore_errors=True)
     return res and res["rc"] == 0
 
 
@@ -179,6 +180,7 @@ def rotate_telemetry_certs(duthost, localhost):
               -x509 \
               -sha256 \
               -nodes \
+              -days 365 \
               -newkey rsa:2048 \
               -keyout streamingtelemetryserver.key \
               -subj '/CN=ndastreamingservertest' \
@@ -188,6 +190,7 @@ def rotate_telemetry_certs(duthost, localhost):
               -x509 \
               -sha256 \
               -nodes \
+              -days 365 \
               -newkey rsa:2048 \
               -keyout dsmsroot.key \
               -subj '/CN=ndastreamingclienttest' \

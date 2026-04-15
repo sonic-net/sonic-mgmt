@@ -24,14 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
+def set_polling_interval(duthosts):
     wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
     yield
 
-    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
 
@@ -191,7 +193,10 @@ def garp_enabled(rand_selected_dut, config_facts):
     Tries to enable gratuitious ARP for each VLAN on the ToR in CONFIG_DB
 
     Also checks the kernel `arp_accept` value to see if the
-    attempt was successful.
+    attempt was successful. The expectation is that arp_accept value should be
+    set to 2 (i.e, create new entries only if the source IP address is in the
+    same subnet as the address configured on the interface - available in
+    5.19 linux kernel and newer)
 
     During teardown, restores the original `grat_arp` value in
     CONFIG_DB
@@ -224,7 +229,7 @@ def garp_enabled(rand_selected_dut, config_facts):
             arp_accept_res = duthost.shell(cat_arp_accept_cmd.format(vlan))
             arp_accept_vals.append(arp_accept_res['stdout'])
 
-    yield all(int(val) == 1 for val in arp_accept_vals)
+    yield all(int(val) == 2 for val in arp_accept_vals)
 
     garp_disable_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|{}" grat_arp'
     for vlan in vlan_intfs:
@@ -282,7 +287,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 @pytest.fixture
-def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
+def proxy_arp_enabled(request, rand_selected_dut, config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -303,7 +308,6 @@ def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
     vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
     old_proxy_arp_vals = {}
     new_proxy_arp_vals = []
-    ip_version, _, _ = packets_for_test
 
     # Enable proxy ARP/NDP for the VLANs on the DUT
     for vid in vlan_ids:
@@ -316,7 +320,7 @@ def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
         new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
         new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
 
-    if ip_version == 'v6':
+    if 'ipv6' in request.node.name:
         # Allow time for ndppd to reset and startup
         time.sleep(30)
 

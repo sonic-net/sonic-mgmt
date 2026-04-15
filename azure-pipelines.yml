@@ -85,13 +85,9 @@ stages:
 
 - stage: Test
   dependsOn: Pre_test
-  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+  condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
   - group: SONiC-Elastictest
-  - name: inventory
-    value: veos_vtb
-  - name: testbed_file
-    value: vtestbed.yaml
   - name: BUILD_BRANCH
     ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
       value: $(System.PullRequest.TargetBranch)

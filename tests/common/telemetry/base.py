@@ -6,10 +6,11 @@ for the telemetry system including Reporter, Metric, and MetricCollection.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, List, Union
+from typing import Dict, Optional, List, Union, Callable
 from dataclasses import dataclass
 import os
 import time
+import re
 from .constants import (
     METRIC_LABEL_TEST_TESTBED, METRIC_LABEL_TEST_OS_VERSION,
     METRIC_LABEL_TEST_TESTCASE, METRIC_LABEL_TEST_FILE,
@@ -47,6 +48,27 @@ class HistogramRecordData:
 MetricRecordDataT = Union[float, HistogramRecordData]
 
 
+def default_value_convertor(raw_value: str) -> float:
+    """
+    Default conversion for metric values defined via MetricDefinition.
+
+    Removes non-digit characters (except '.') to provide a more robust baseline convertor.
+    This helps us handling values like "8,287,919,536", "9.39%" and etc.
+    """
+    if raw_value == "N/A":
+        return -1
+    if raw_value == "False":
+        return 0
+    if raw_value == "True":
+        return 1
+
+    numeric_value = re.sub(r"[^0-9.]", "", raw_value)
+    if not numeric_value:
+        raise ValueError(f"Cannot convert '{raw_value}' to float")
+
+    return float(numeric_value)
+
+
 @dataclass
 class MetricDefinition:
     """
@@ -59,6 +81,7 @@ class MetricDefinition:
     metric_name: str
     description: str
     unit: str
+    value_convertor: Callable[[str], float] = default_value_convertor
 
     def __str__(self) -> str:
         """Return a readable string representation."""
@@ -231,6 +254,7 @@ class Metric(ABC):
     """
 
     def __init__(self, metric_type: str, name: str, description: str, unit: str, reporter: Reporter,
+                 value_convertor: Callable[[str], MetricRecordDataT] = None,
                  common_labels: Optional[Dict[str, str]] = None):
         """
         Initialize metric with metadata.
@@ -247,6 +271,7 @@ class Metric(ABC):
         self.description = description
         self.unit = unit
         self.reporter = reporter
+        self._value_convertor = value_convertor
         self._common_labels = common_labels or {}
         self._data: Dict[str, MetricDataEntry] = {}  # Map of labels_key -> MetricDataEntry
 
@@ -310,7 +335,8 @@ class MetricCollection:
     used together (e.g., port metrics, PSU metrics).
 
     Subclasses should define METRICS_DEFINITIONS as a class attribute
-    containing a list of tuples: (attribute_name, metric_name, description, unit)
+    containing MetricDefinition entries describing the attribute, metric name,
+    description, unit, and optional value convertor.
     """
 
     # Subclasses should override this with their metric definitions
