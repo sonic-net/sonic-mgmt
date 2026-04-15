@@ -487,7 +487,9 @@ def test_bgp_update_timer_session_down(
         bgp_pcap = BGP_DOWN_LOG_TMPL
         with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
             duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
-            current_time = time.time()
+            # Use DUT clock for baseline since pcap timestamps are in DUT time
+            cmd_dut_time = duthost.shell("date +%s.%6N", module_ignore_errors=True)
+            current_time = float(cmd_dut_time["stdout"])
             time.sleep(constants.sleep_interval)
 
         if constants.log_dir:
