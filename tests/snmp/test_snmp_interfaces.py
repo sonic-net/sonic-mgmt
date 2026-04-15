@@ -40,6 +40,20 @@ def disable_conterpoll(duthosts, enum_rand_one_per_hwsku_hostname):
                                                                     CounterpollConstants.RIF])
 
 
+@pytest.fixture(scope="module")
+def snmp_interfaces_module_facts(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
+    """
+    One SNMP walk per module except for test_snmp_interfaces_error_discard / verify_snmp_counter
+    (needs fresh facts after counter writes).
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
+    return get_snmp_facts(
+        duthost, localhost, host=hostip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+
+
 def get_interfaces(duthost, tbinfo):
     """
     Method to get interfaces for testing
@@ -297,15 +311,10 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
 
 
 @pytest.mark.bsl
-def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
+def test_snmp_interfaces(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
 
     snmp_ifnames = [v['name']
                     for k, v in list(snmp_facts['snmp_interfaces'].items())]
@@ -325,16 +334,11 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
 
 
 @pytest.mark.bsl
-def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
+def test_snmp_mgmt_interface(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts):
     """compare the snmp facts between observed states and target state"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="persistent")['ansible_facts']
 
@@ -359,15 +363,11 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
             not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 
-def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
+def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
        ifAdminStatus, ifOperStatus, ifAlias, ifHighSpeed, ifType """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
 
     for asic in duthost.asics:
         config_facts = duthost.config_facts(
