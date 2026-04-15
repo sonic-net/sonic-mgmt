@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document proposes a solution to prevent test skips from being forgotten indefinitely by introducing a category-based skip management system. Different design approaches are discussed. For some approaches skips are classified into two categories: **permanent** (indefinite skips without expiry dates) and **temporary** (time-bound skips with mandatory expiry dates). This ensures that temporary skips are revisited and either fixed or explicitly renewed, while permanent skips are properly justified. Other approaches don't rely on specifying an expiry date or classifying skips as temporary or permanent. They rely solely on GitHub issues to track skips.
+This document proposes a solution to address the issue of test skips being left in place indefinitely by introducing a structured skip management system. It discusses multiple design approaches. Approaches aimed at explicity categorizing and classifying issues as temporary and permanent. With this method temporary skips are revisited and either resolved or explicitly renewed, while permanent skips are clearly justified. The other approach explored avoids using expiry dates or classifying skips as temporary or permanent, instead relying solely on GitHub issues to track and manage skipped tests.
 
 ---
 
@@ -39,6 +39,7 @@ While this consolidation improves maintainability, tests can be skipped and forg
 ## Problem Statement
 
 **Goal**: Implement a category-based skip management system to ensure that skipped tests are properly classified and periodically reviewed:
+
 1. **Permanent skips**: For fundamental limitations (e.g., ASIC not supported) without expiry dates
 2. **Temporary skips**: For transient issues (e.g., bugs being fixed) with mandatory expiry dates
 3. Tests must be re-enabled if the underlying issue is resolved
@@ -52,6 +53,8 @@ While this consolidation improves maintainability, tests can be skipped and forg
 - Timezone-aware date handling for consistency across global teams
 - Minimal disruption to existing workflows
 - Clear reporting of expired and miscategorized skips
+
+**NOTE** The conditional mark files supports a test specifying the test to be skipped (by `skip:`) or failed (by `xfail:`). The design is track temporary issues that skipped (`skip:`) and not `xfail`-ed. XFAIL-ed tests definitely fail and the test thus breaking the CI.
 
 ---
 
@@ -510,10 +513,33 @@ expiry_config:
   warning_days: [30, 14, 7]  # Days before expiry to send warnings
 ```
 
-**NOTE** An un-reviewed issue marked with P0 tag and then closed by the workflow will be skipped as usual. There is no enforcement that or check required for a user to re-open the issue and allow PR checkers to skip the test again. To handle this scenario the reporting tool would always keep the test and related issue in the report until it has been addressed or fixed.
+The tags used by the workflow -
+
+- Priority tags follow the pattern based on expiry configuration entries. Pattern `skip-wf-priority-<N>`. Where `<N>` indicates the priority number from the expiry configuration file.
+- Auto closed issues would be labelled with `skip-wf-auto-close-<timestamp>`. The `<timestamp>` would follow `ddmmyyyyhhmm` value. If an issue is re-opened manually the subsequent run would close the issue with an updated auto-close tag.
+
+**NOTE-1** If an issue is fixed, the corresponding test entry/entries must be removed from the conditional mark files.
+
+**NOTE-2** An un-reviewed issue marked with P0 tag and then closed by the workflow will be skipped as usual. There is no enforcement that or check required for a user to re-open the issue and allow PR checkers to skip the test again. To handle this scenario the reporting tool would always keep the test and related issue in the report until it has been addressed or fixed.
 
 ### 3. Release Branch Management
 
 To handle skips across multiple release branches:
 
 **Recommended Approach: Option A: Branch-Specific Issues and Conditional Mark Files**
+
+#### 4. Implementation Behavior
+
+- Final auto-close action adds a timestamped label before closing: `skip-wf-auto-close-<ddmmyyyyhhmm>`.
+- If the same issue is auto-closed again later (for example after manual reopen), a new timestamped auto-close label is added again, so each auto-close event is recorded distinctly.
+- Priority levels are derived dynamically from `expiry_config.yml` keys matching `pN_label_expiry_days`; fixed ladders are not assumed.
+- Warning comments and final close comments are idempotent through deterministic hidden markers, so repeated daily runs do not spam duplicate comments for the same threshold/stage.
+- Stage source of truth is issue timeline `labeled` events for workflow priority labels (label history), not current issue label presence.
+- In the current implementation scope, scan/classification is based on `skip:` entries in conditional mark files; `xfail:` entries are not part of the expiry workflow processing path.
+
+#### 5. Conditional Mark Cleanup
+
+- A round of cleanup is required for conditional mark files to check
+  - if all temporary issues have a GitHub issue associated with them
+  - if tests that don't have an issue associated with them are indeed permanent
+  - if a GitHub issue is associated with the test for `skip` and `xfail` then closing that would result in xfail-ing the test. Create separate issues for such cases.
