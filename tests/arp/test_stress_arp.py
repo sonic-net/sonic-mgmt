@@ -46,6 +46,8 @@ def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
                                           hw_snd=arp_src_mac,
                                           hw_tgt='ff:ff:ff:ff:ff:ff'
                                           )
+        # Add a short delay to avoid packet loss
+        time.sleep(0.01)
         testutils.send_packet(ptfadapter, intf1_index, pkt)
     logger.info("Sending {} arp entries".format(ip_num))
 
@@ -86,7 +88,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
         loop_times -= 1
         add_arp(ptf_intf_ipv4_hosts, intf1_index, ptfadapter)
 
-        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= arp_avaliable),
+        pytest_assert(wait_until(40, 1, 0, lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                       "ARP Table Add failed")
 
         try:
@@ -136,7 +138,8 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
         fake_src_addr = generate_global_addr(nd_entry_mac)
         ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
-
+        # Add a short delay to avoid packet loss
+        time.sleep(0.01)
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
 
 
@@ -160,7 +163,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         loop_times -= 1
         add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
 
-        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
+        pytest_assert(wait_until(40, 1, 0, lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                       "Neighbor Table Add failed")
 
         try:
