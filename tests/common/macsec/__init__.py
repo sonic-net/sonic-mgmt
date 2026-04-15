@@ -69,7 +69,7 @@ class MacsecPlugin(object):
         return NotImplementedError()
 
     @pytest.fixture(scope="module")
-    def port_profiles(request, ctrl_links, macsec_profile):
+    def port_profiles(self, request, ctrl_links, macsec_profile):
         """Per-port profile mapping
 
         Returns ``None`` in single-profile mode.
