@@ -3,6 +3,7 @@ import time
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
+import ptf.packet as scapy
 import pytest
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
@@ -62,7 +63,6 @@ def common_setup_teardown(
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.ROUTING_TYPE_VNET_CONFIG,
         **pl.VNET_CONFIG,
-        **pl.VNET2_CONFIG,
         **pl.METER_POLICY_V4_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG,
         **pl.ROUTE_GROUP2_CONFIG,
@@ -261,6 +261,7 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt = rand_udp_port_packets(
             dash_pl_config, floating_nic=True, outbound_vni=pl.ENI_TRUSTED_VNI
         )
+        exp_dpu_to_vm_pkt.set_do_not_care_packet(scapy.IP, "dst")
         # Usually `testutils.send` automatically updates the packet payload to include the test name
         # and `testutils.verify_packet*` updates the expected packet payload to match. Since we are polling
         # the dataplane directly for the DPU to VM packet, we need to manually update the payload
