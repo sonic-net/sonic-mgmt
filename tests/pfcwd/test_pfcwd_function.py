@@ -1363,9 +1363,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         if not has_neighbor_device(setup_pfc_test):
             pytest.skip("Test skipped: No neighbors detected")
 
-        if self.dut.topo_type == 't2':
-            pytest.skip("Test skipped: send_tx_egress forward/drop verification not supported on t2")
-
         port = list(self.ports.keys())[0]
 
         vm_host, neigh_port_channel, min_links = shutdown_lag_members(duthost, port, tbinfo, nbrhosts, self.ports)
