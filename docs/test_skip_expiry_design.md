@@ -38,10 +38,10 @@ While this consolidation improves maintainability, tests can be skipped and forg
 
 ## Problem Statement
 
-**Goal**: Implement a category-based skip management system to ensure that skipped tests are properly classified and periodically reviewed:
+**Goal**: Implement a category-based exception management system to ensure skip/xfail exceptions are properly classified and periodically reviewed:
 
 1. **Permanent skips**: For fundamental limitations (e.g., ASIC not supported) without expiry dates
-2. **Temporary skips**: For transient issues (e.g., bugs being fixed) with mandatory expiry dates
+2. **Temporary exceptions**: For transient issues (e.g., bugs being fixed) with mandatory expiry dates
 3. Tests must be re-enabled if the underlying issue is resolved
 4. Temporary skips must be updated with a new expiry date if the issue persists
 
@@ -54,7 +54,10 @@ While this consolidation improves maintainability, tests can be skipped and forg
 - Minimal disruption to existing workflows
 - Clear reporting of expired and miscategorized skips
 
-**NOTE** The conditional mark files supports a test specifying the test to be skipped (by `skip:`) or failed (by `xfail:`). The design is track temporary issues that skipped (`skip:`) and not `xfail`-ed. XFAIL-ed tests definitely fail and the test thus breaking the CI.
+**NOTE** The conditional mark files support both `skip:` and `xfail:`. For governance and migration:
+- `xfail:` entries with an issue are considered temporary exceptions and must be tracked by expiry workflow.
+- `skip:` entries with an issue are treated as temporary exceptions during cleanup/migration.
+- Target steady state is: permanent `skip:` entries have no issue, temporary exceptions are represented as `xfail:` entries with issue.
 
 ---
 
@@ -199,10 +202,10 @@ Leverage GitHub issues as the source of truth for temporary skip expiry, with au
 
 This approach separates concerns between the conditional mark YAML file and GitHub issue tracking:
 
-1. **Permanent skips**: Are skips without a GitHub issue specified in the condition.
-2. **Temporary skips**: Are skips that reference GitHub issue in the skip clause. The issue's lifecycle (open/closed state, creation date, labels) determines skip behavior.
-3. **Conditional mark plugin**: Only checks if the referenced GitHub issue is open or closed to determine skip status
-4. **External automation**: A separate GitHub Actions workflow or pipeline periodically monitors issues and manages expiry
+1. **Permanent skips**: `skip:` entries without a GitHub issue.
+2. **Temporary exceptions**: `xfail:` entries with GitHub issue, plus legacy `skip:` entries with GitHub issue during migration.
+3. **Conditional mark plugin**: Checks referenced GitHub issue state to determine effective behavior.
+4. **External automation**: Event-based PR gate workflow enforces review policy; scheduled workflow monitors issues and manages expiry.
 
 #### YAML Structure
 
@@ -248,6 +251,23 @@ Priority Tag Timeline:
 
 #### Automation Components
 
+**0. PR Review Gate Workflow (Event-Based)**
+
+A workflow is triggered on PR events (opened, reopened, synchronize, ready_for_review) with path filter for conditional mark YAML files, for example:
+- `tests/common/plugins/conditional_mark/**/*.yaml`
+- `tests/common/plugins/conditional_mark/**/*.yml`
+
+Workflow responsibilities:
+- Detect if the PR changes any conditional mark YAML files.
+- Auto-request review from configured leads and/or feature CODEOWNERS.
+- Optionally post a sticky comment tagging leads for visibility.
+- Fail fast only for policy violations (for example, missing issue on temporary exception), not for notification steps.
+
+Implementation notes:
+- Prefer event-based PR trigger over scheduled scanning of all open PRs.
+- Enforce final approval through branch protection with "Require review from Code Owners".
+- Keep reviewer tagging idempotent (avoid repeated review requests/comments on every sync).
+
 **1. Issue Expiry Workflow (GitHub Actions / Pipeline)**
 
 A scheduled workflow that runs periodically (e.g., daily) to:
@@ -268,12 +288,63 @@ A separate tool that generates periodic reports and dashboards:
 - Track skip health metrics across the repository
 - Provide visibility into permanent vs temporary skip distribution
 
+#### Report Buckets and Warning-Day Semantics
+
+The report is generated from conditional mark YAML entries and GitHub issue metadata, and highlights three mandatory buckets:
+
+1. **Permanently skipped entries (no associated issue)**
+  - Definition: `skip:` entries that do not have any associated GitHub issue.
+  - Purpose: Visibility for long-lived exclusions that require periodic product/test ownership review.
+
+2. **Going to expire soon (reach P0 in next N days)**
+  - Definition: temporary exceptions (`xfail:` with issue, plus legacy `skip:` with issue during migration) whose computed time-to-P0 is within `N` days.
+  - `N` is driven by `warning_days` in `expiry_config.yml`.
+  - Example with `warning_days: [30, 14, 7]`:
+    - Include issues where `days_to_p0 <= 30` (and not expired), and annotate threshold hits at 30/14/7.
+  - Purpose: Early warning so owners can fix, convert, or justify before auto-close/failure impact.
+
+3. **Already expired (immediate attention)**
+  - Definition: temporary exceptions where P0 threshold is already crossed (for example, `days_to_p0 < 0`), including issues auto-closed by workflow or still open but overdue by policy.
+  - Purpose: Escalation list for immediate triage and remediation.
+
+Computation notes:
+- Priority stage durations are read from `expiry_config.yml` (`pN_label_expiry_days`).
+- Current stage timestamp source is issue timeline label events (workflow-applied priority labels).
+- `days_to_p0` is derived from current stage start + remaining configured durations to P0.
+- Buckets must be mutually exclusive in output (`expired` first, then `expiring soon`, then `permanent skip`).
+
+Recommended output fields per row:
+- Test path, mark type (`skip`/`xfail`), issue URL/ID (if any), owner/assignee, current stage, `days_to_p0`, bucket, last update timestamp.
+
 **Dashboard Availability:**
 
-The dashboard and reports can be made available through multiple channels:
+Recommended approach is to use one dedicated GitHub Project (Projects v2) and have the daily workflow sync report rows into that project.
 
-1. **GitHub Project Board**: Create a GitHub Project linked to the repository that automatically tracks issues with the `test-skip` label. This provides a kanban-style view of skip status, assignees, and expiry timeline.
-2. **GitHub Actions Artifact**: The daily workflow generates a report as a GitHub Actions artifact, downloadable from the workflow run page.
+What must be set up before the workflow runs (one-time setup):
+
+1. Create a dedicated GitHub Project for skip governance (for example, "Test Skip Governance").
+2. Create custom fields in that project:
+  - Bucket
+  - DaysToP0
+  - Owner
+  - MarkType
+  - LastSeen
+3. Create views in the project UI:
+  - Permanently skipped (no issue)
+  - Expiring soon
+  - Expired
+4. Store required credentials/secrets for workflow API access.
+
+What the workflow does:
+
+1. Generates normalized report JSON/CSV in the daily run.
+2. Upserts one project item per tracked row (issue-linked exception or permanent-skip record).
+3. Updates project custom fields on every run.
+4. Publishes the same JSON/CSV as build artifact for audit/debug.
+
+Important scope clarification:
+- Project views are expected to be created manually once in GitHub UI.
+- The workflow keeps items and field values up to date; it does not need to create views.
 
 **3. Pre-Expiry Test Execution (Optional)**
 
@@ -297,10 +368,10 @@ The pipeline runs weekly (or on-demand) and operates in non-blocking mode - test
 
 The plugin's responsibility is simplified:
 
-1. **For permanent skips**: ie. skips without an associated issue the skip is applied as it is done in the current implementation.
-2. **For temporary skips**: ie. skips have an associated GitHub issue the plugin behavior remains unchanged. It queries GitHub API to check issue state
-   - If issue is **open**: Condition is evaluated to True;
-   - If issue is **closed**: Condition is evaluated to False; Test skip depends on other conditions.
+1. **For permanent skips**: `skip:` entries without an associated issue are applied as in current implementation.
+2. **For temporary exceptions** (`xfail:` with issue, and legacy `skip:` with issue during migration): plugin behavior remains unchanged and checks issue state.
+  - If issue is **open**: Exception condition is evaluated as configured.
+  - If issue is **closed**: Exception condition is evaluated to False.
 3. **Caching**: Cache issue state to avoid excessive API calls during test runs (already available in current implementation of the conditional mark plugin)
 4. **Fallback**: If GitHub API is unavailable, use cached state or apply skip conservatively
 
@@ -535,11 +606,14 @@ To handle skips across multiple release branches:
 - Priority levels are derived dynamically from `expiry_config.yml` keys matching `pN_label_expiry_days`; fixed ladders are not assumed.
 - Warning comments and final close comments are idempotent through deterministic hidden markers, so repeated daily runs do not spam duplicate comments for the same threshold/stage.
 - Stage source of truth is issue timeline `labeled` events for workflow priority labels (label history), not current issue label presence.
-- In the current implementation scope, scan/classification is based on `skip:` entries in conditional mark files; `xfail:` entries are not part of the expiry workflow processing path.
+- Scan/classification includes both `xfail:` with issue and legacy `skip:` with issue during migration.
+- Long-term policy target: only permanent `skip:` entries remain without issue; temporary exceptions are tracked through `xfail:` entries with issue.
 
 #### 5. Conditional Mark Cleanup
 
 - A round of cleanup is required for conditional mark files to check
   - if all temporary issues have a GitHub issue associated with them
-  - if tests that don't have an issue associated with them are indeed permanent
-  - if a GitHub issue is associated with the test for `skip` and `xfail` then closing that would result in xfail-ing the test. Create separate issues for such cases.
+  - if tests that don't have an issue associated with `skip:` are indeed permanent
+  - convert/track legacy `skip:` entries that have issues as temporary migration items
+  - if a GitHub issue is associated with both `skip:` and `xfail:` for a test, split into separate issues to avoid coupled lifecycle changes
+  - target end state: `skip:` with no issue = permanent; `xfail:` with issue = temporary
