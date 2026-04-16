@@ -2157,9 +2157,9 @@
   auto_recover: 'True'
   comment: kumarsourabh
 
-- conf-name: vms70-t2-sn5640-2
+- conf-name: vms70-t0-sn5640-2
   group-name: vms70-6
-  topo: t2-isolated-d128s2
+  topo: t0-isolated-d32u32s2
   ptf_image_name: docker-ptf
   ptf: vms70-6
   ptf_ip: 10.64.246.67/25
@@ -2170,7 +2170,7 @@
   - str4-sn5640-2
   inv_name: str4
   auto_recover: 'True'
-  comment: kumarsourabh
+  comment: janetcui
 
 - conf-name: vms70-t1-sn5640-3
   group-name: vms70-4
