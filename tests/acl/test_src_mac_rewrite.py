@@ -57,6 +57,10 @@ def generate_mac_address(index):
 
 @pytest.fixture(name="setUp", scope="module")
 def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
+    if 'dualtor' in tbinfo['topo']['name']:
+        pytest.skip("test_src_mac_rewrite does not support dualtor topology - "
+                    "VXLAN tunnel config does not propagate to APP_DB on dualtor")
+
     data = {}
 
     # Basic setup
