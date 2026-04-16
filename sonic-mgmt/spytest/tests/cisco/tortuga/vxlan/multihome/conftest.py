@@ -11,8 +11,10 @@ from multihome.const import (
     spytest_data,
 )
 from spytest import st
+import apis.switching.portchannel as portchannel_obj
 from multihome import dut
 from multihome.const import spytest_data
+from multihome.traffic_generator import PORTCHANNEL_NAME, LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT
 
 
 def testbed_vars():
@@ -82,7 +84,10 @@ def configure():
         "/topology:\d+", lag_handle[lag_name]["int_handle"]
     ).group()
     tg.tg_test_control(action="stop_protocol", handle=topology_handle)
-    dut.wait(10)
+    if not st.poll_wait2(LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT,
+                         portchannel_obj.verify_portchannel_state,
+                         vars.D2, PORTCHANNEL_NAME, state="down"):
+        st.log("PortChannel did not go down during teardown")
     tg.tg_topology_config(topology_handle=topology_handle, mode="destroy")
     dut.wait(5)
     tg.tg_emulation_lag_config(

@@ -1,5 +1,6 @@
 import multihome.const as const
 import vxlan_utils
+import apis.switching.portchannel as portchannel_obj
 
 from multihome.const import spytest_data
 from spytest import st, tgapi
@@ -7,6 +8,10 @@ from multihome.host import get_cli_out
 import evpn_mh_utils as evpn_mh_obj
 from multihome.status_report import log, report_fail, report_pass, banner
 from multihome.dut import wait
+
+PORTCHANNEL_NAME = "PortChannel2"
+LAG_POLL_INTERVAL = 20
+LAG_POLL_TIMEOUT = 120
 
 
 def create_a_raw_traffic_stream(stream_info):
@@ -78,7 +83,14 @@ def start_lag_group_protocol(lag_handle, port):
     tmp_handle = lag_handle[port]["int_handle"]
     device_group = "/" + "/".join(tmp_handle.split("/", 3)[1:3])
     tg_handle.tg_test_control(action="start_protocol", handle=device_group)
-    st.wait(10)  ##give time to start protocol
+    if port == const.lag_name:
+        vars = st.get_testbed_vars()
+        if not st.poll_wait2(LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT,
+                             portchannel_obj.verify_portchannel_state,
+                             vars.D2, PORTCHANNEL_NAME, state="up"):
+            st.log("PortChannel did not come up after start_protocol")
+    else:
+        st.wait(10)
 
 
 def stop_lag_group_protocol(lag_handle, port):
@@ -92,7 +104,14 @@ def stop_lag_group_protocol(lag_handle, port):
     tmp_handle = lag_handle[port]["int_handle"]
     tp_group = "/" + "/".join(tmp_handle.split("/", 3)[1:2])  # /topology:2
     tg_handle.tg_test_control(action="stop_protocol", handle=tp_group)
-    st.wait(10)  # give time to stop protocol
+    if port == const.lag_name:
+        vars = st.get_testbed_vars()
+        if not st.poll_wait2(LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT,
+                             portchannel_obj.verify_portchannel_state,
+                             vars.D2, PORTCHANNEL_NAME, state="down"):
+            st.log("PortChannel did not go down after stop_protocol")
+    else:
+        st.wait(10)
 
 
 def create_lag_group_and_start_protocol(lag_handle, port, host_dict, device_group_name):
@@ -108,7 +127,14 @@ def create_lag_group_and_start_protocol(lag_handle, port, host_dict, device_grou
     tg = lag_handle[port]["tg_handle"]
     topology_name = "/" + lag_handle[port]["int_handle"].split("/")[1]  # /topology:2
     tg.tg_test_control(action="stop_protocol", handle=topology_name)
-    st.wait(15)  # give time to stop protocol
+    if port == const.lag_name:
+        vars = st.get_testbed_vars()
+        if not st.poll_wait2(LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT,
+                             portchannel_obj.verify_portchannel_state,
+                             vars.D2, PORTCHANNEL_NAME, state="down"):
+            st.log("PortChannel did not go down after stop_protocol")
+    else:
+        st.wait(15)
     _result_ = tg.tg_topology_config(
         topology_handle=topology_name,
         device_group_name=device_group_name,
@@ -132,7 +158,13 @@ def create_lag_group_and_start_protocol(lag_handle, port, host_dict, device_grou
     )
     int_handle = _result_["interface_handle"]
     tg.tg_test_control(action="start_protocol", handle=topology_name)
-    st.wait(10)  # give time to start protocol
+    if port == const.lag_name:
+        if not st.poll_wait2(LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT,
+                             portchannel_obj.verify_portchannel_state,
+                             vars.D2, PORTCHANNEL_NAME, state="up"):
+            st.log("PortChannel did not come up after start_protocol")
+    else:
+        st.wait(10)
     lag_handle[port].update({"int_handle1": int_handle})
 
 
