@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 
@@ -30,7 +32,7 @@ def test_console_stress_output(duthost_console):
     num_lines = 1000
     output = duthost_console.send_command(
         f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",
-        max_loops=300
+        read_timeout=300
     )
 
     # Parse output into lines
@@ -75,15 +77,16 @@ def test_console_stress_input(duthost_console):
     # Use 100,000 characters: 10,000 repetitions of '0123456789'
     large_string = '0123456789' * 10000  # 100,000 chars
 
-    # Send the large string via echo and capture the output
-    output = duthost_console.send_command(
-        f"echo '{large_string}'",
-        max_loops=300
+    expected_hash = hashlib.md5(large_string.encode()).hexdigest()
+    output = duthost_console.send_command_timing(
+        f"echo -n '{large_string}' | md5sum",
+        read_timeout=300,
+        last_read=2.0
     )
 
-    # Verify the output matches what we sent
-    pytest_assert(output.strip() == large_string,
-                  f"Echo output mismatch: expected {len(large_string)} chars, got {len(output.strip())} chars")
+    pytest_assert(expected_hash in output,
+                  f"Input integrity check failed: md5sum of echoed 100K chars "
+                  f"expected {expected_hash}, console returned: {output!r}")
 
     # Verify console is still responsive
     response = duthost_console.send_command("echo test_responsive")
