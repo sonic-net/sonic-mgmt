@@ -841,7 +841,7 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
             out = vmhost['host'].eos_command(
                 commands=['show ip bgp neighbors {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
         elif isinstance(vmhost['host'], SonicHost):
-            out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(bgp_neighbor, vrf),
+            out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
     else:
         logging.info('Execute EOS command - "show ipv6 bgp peers {} routes vrf {}"'.format(bgp_neighbor, vrf))
@@ -849,7 +849,7 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
             out = vmhost['host'].eos_command(
                 commands=['show ipv6 bgp peers {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
         elif isinstance(vmhost['host'], SonicHost):
-            out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(bgp_neighbor, vrf),
+            out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
     logging.debug('Command output:\n {}'.format(out))
 
