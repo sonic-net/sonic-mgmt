@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document proposes a solution to address the issue of test skips being left in place indefinitely by introducing a structured skip management system. It discusses multiple design approaches. Approaches aimed at explicity categorizing and classifying issues as temporary and permanent. With this method temporary skips are revisited and either resolved or explicitly renewed, while permanent skips are clearly justified. The other approach explored avoids using expiry dates or classifying skips as temporary or permanent, instead relying solely on GitHub issues to track and manage skipped tests.
+This document proposes a solution to address the issue of test skips being left in place indefinitely by introducing a structured skip management system. The selected direction is **Approach 3: GitHub Issue-Based Expiry Management**, which uses GitHub issue lifecycle and automation to govern temporary exceptions while keeping permanent skips explicit. Alternative approaches that were evaluated (Approach 1 and Approach 2) are retained in the appendix for historical context.
 
 ---
 
@@ -11,16 +11,10 @@ This document proposes a solution to address the issue of test skips being left 
 1. [Background](#background)
 2. [Problem Statement](#problem-statement)
 3. [Proposed Approaches](#proposed-approaches)
-   - [Approach 1: Inline Expiry Date Field](#approach-1-inline-expiry-date-field)
-   - [Approach 2: Expiry Management via Separate Configuration](#approach-2-expiry-management-via-separate-configuration)
    - [Approach 3: GitHub Issue-Based Expiry Management](#approach-3-github-issue-based-expiry-management)
-4. [Comparison of Approaches](#comparison-of-approaches)
-5. [Selected Approach](#selected-approach)
-6. [Detailed Design (Selected Approach)](#detailed-design-selected-approach)
-7. [Implementation Considerations](#implementation-considerations)
-8. [Migration Strategy](#migration-strategy)
-9. [Testing Strategy](#testing-strategy)
-10. [Future Enhancements](#future-enhancements)
+4. [Selected Approach](#selected-approach)
+5. [Detailed Design (Selected Approach)](#detailed-design-selected-approach)
+6. [Appendix A: Archived Alternative Approaches](#appendix-a-archived-alternative-approaches)
 
 ---
 
@@ -63,136 +57,7 @@ While this consolidation improves maintainability, tests can be skipped and forg
 
 ## Proposed Approaches
 
-### Approach 1: Inline Category and Expiry Date Fields
-
-Add `category` and `expiry_date` fields directly within each skip/xfail definition in the YAML file, with skip categories defined at the top level.
-
-#### Structure Example
-
-```yaml
-# Define skip categories at the top of the file
-skip_categories:
-  permanent:
-    description: "Skips are indefinite and do not require expiry dates"
-    requires_expiry_date: false
-    allowed_reasons:
-      - "ASIC_NOT_SUPPORTED"
-      - "TOPO_NOT_SUPPORTED"
-      - "FEATURE_NOT_APPLICABLE"
-  temporary:
-    description: "Skips must have expiry date"
-    requires_expiry_date: true
-    max_expiry_days: 180  # 6 months from today
-    allowed_reasons:
-      - "BUG_FIX_IN_PROGRESS"
-      - "NEW_FEATURE_UNDER_DEVELOPMENT"
-      - "INFRASTRUCTURE_ISSUE"
-
-# Test skip definitions
-acl/test_acl.py:
-  skip:
-    reason: "Skip acl for isolated-v6 topology"
-    category: "TOPO_NOT_SUPPORTED"  # Must match allowed_reasons in permanent
-    conditions:
-      - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
-  xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    expiry: "2025-02-15"
-    conditions:
-      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-bgp/test_bgp_session.py:
-  skip:
-    reason: "Infrastructure issue with BGP session setup"
-    category: "INFRASTRUCTURE_ISSUE"  # Must match allowed_reasons in temporary
-    expiry_date: "2025-06-01"  # Required for temporary category
-    conditions:
-      - "'t1' in topo_name"
-  xfail:
-    reason: "Known issue on specific topology"
-    category: "BUG_FIX_IN_PROGRESS"
-    expiry_date: "2025-05-15"
-    conditions:
-      - "'t0-isolated' in topo_name"
-```
-
-#### Advantages
-- **Simplicity**: Direct association between skip, category, and expiry
-- **Readability**: Easy to understand requirements at a glance
-- **Granularity**: Different categories and expiry dates for skip vs xfail on same test
-- **Enforced Classification**: Category field makes skip purpose explicit
-- **Type Safety**: Category validation prevents arbitrary skip reasons
-- **Self-Documenting**: Skip categories defined in same file as skip definitions
-
-#### Disadvantages
-- **Verbosity**: Adds fields to every skip entry (category + expiry_date for temporary)
-- **Scattered dates**: Harder to get overview of all upcoming expiries
-- **Manual updates**: Each entry needs individual attention when extending
-
----
-
-### Approach 2: Expiry Management via Separate Configuration
-
-Maintain expiry dates in a separate section or file, referenced by test patterns.
-
-#### Structure Example
-
-```yaml
-# In tests_mark_conditions.yaml
-skip_categories:
-  permanent:
-    description: "Skips are indefinite and do not require expiry dates"
-    requires_expiry_date: false
-    allowed_reasons:
-      - "ASIC_NOT_SUPPORTED"
-      - "TOPO_NOT_SUPPORTED"
-  temporary:
-    description: "Skips must have expiry date"
-    requires_expiry_date: true
-    max_expiry_days: 180
-    allowed_reasons:
-      - "BUG_FIX_IN_PROGRESS"
-      - "INFRASTRUCTURE_ISSUE"
-
-test_expiry_config:
-  default_expiry_days: 90  # Default for new temporary skips
-  grace_period_days: 7     # Warning period before hard failure
-
-  expiry_registry:
-    # Pattern-based expiry management
-    - pattern: "acl/test_acl.py"
-      category: "ASIC_NOT_SUPPORTED"
-      applies_to: ["skip"]
-
-    - pattern: "bgp/test_bgp_*.py"
-      category: "BUG_FIX_IN_PROGRESS"
-      expiry_date: "2025-04-01"
-      applies_to: ["skip"]
-
-# Regular skip definitions with categories
-acl/test_acl.py:
-  skip:
-    reason: "Skip acl for isolated-v6 topology"
-    category: "ASIC_NOT_SUPPORTED"
-    conditions:
-      - "'isolated-v6' in topo_name"
-```
-
-#### Advantages
-- **Centralized management**: Easy to see all expiries and categories in one place
-- **Bulk operations**: Update multiple tests at once via patterns
-- **Metadata**: Can add owner, tracking info, issue links
-- **Non-intrusive**: Individual skip definitions less verbose
-- **Easier refactoring**: Change category/expiry for multiple tests together
-
-#### Disadvantages
-- **Complexity**: Additional mapping layer increases cognitive load
-- **Indirection**: Need to cross-reference two sections to understand skip
-- **Pattern matching**: Risk of ambiguity or conflicts, hard to debug
-- **Maintenance**: Two places to update, risk of inconsistency
-- **Locality**: Category and expiry separated from skip reason, harder to review
-
----
+Approach 1 and Approach 2 were evaluated during design exploration and are now moved to [Appendix A](#appendix-a-archived-alternative-approaches) to keep the main design narrative focused on the selected implementation path.
 
 ### Approach 3: GitHub Issue-Based Expiry Management
 
@@ -436,25 +301,6 @@ Different release branches may have different skip requirements for the same tes
 
 ---
 
-## Comparison of Approaches
-
-| Aspect | Approach 1: Inline Expiry | Approach 2: Separate Config | Approach 3: GitHub Issues |
-|--------|---------------------------|-----------------------------|--------------------------|
-| **Source of Truth** | YAML file | YAML file | YAML + GitHub Issues |
-| **Expiry Definition** | Explicit date per skip | Pattern-based in registry | Issue lifecycle |
-| **Code Review Required** | Yes (PR for changes) | Yes (PR for changes) | No (issue state changes) |
-| **Notifications** | Custom tooling needed | Custom tooling needed | Built-in GitHub notifications |
-| **External Dependencies** | None | None | GitHub API |
-| **Forcing Function** | CI fails on expiry | CI fails on expiry | Issue closure stops skip |
-| **Context/History** | Git commit history | Git commit history | Issue discussion threads |
-| **Complexity** | Low | Medium | High |
-| **Offline Operation** | Yes | Yes | Limited (needs API cache) |
-| **Multi-branch Support** | Native (file per branch) | Native (file per branch) | Requires tagging/cloning |
-| **Bulk Operations** | Manual per-entry | Pattern-based | Via GitHub issue queries |
-| **Escalation Support** | Manual | Manual | Automated via labels |
-
----
-
 ## Selected Approach
 
 **Decision: Approach 3 (GitHub Issue-Based Expiry Management) has been selected.**
@@ -485,20 +331,9 @@ This decision was made after team discussions weighing the trade-offs between si
 
 ---
 
-### **Previous Recommendation: Approach 1 (Inline Category and Expiry Date Fields)**
-
-**Rationale**:
-1. **Principle of Locality**: Category and expiry date are most relevant in context of the skip definition
-2. **Simplicity**: Minimal conceptual overhead for users
-3. **Explicit**: No ambiguity about which skip entry expires when or its category
-4. **Easier Implementation**: Straightforward to parse and validate categories and expiry dates
-5. **Natural Extension**: Fits the existing YAML structure pattern
-
----
-
 ## Detailed Design (Selected Approach)
 
-> **Note**: This section describes the detailed design for Approach 3 (GitHub Issue-Based Expiry Management), which has been selected for implementation. The original detailed design for Approach 1 is preserved below for reference.
+> **Note**: This section describes the detailed design for Approach 3 (GitHub Issue-Based Expiry Management), which has been selected for implementation. Archived alternatives are captured in Appendix A.
 
 ### Architecture Overview
 
@@ -617,3 +452,164 @@ To handle skips across multiple release branches:
   - convert/track legacy `skip:` entries that have issues as temporary migration items
   - if a GitHub issue is associated with both `skip:` and `xfail:` for a test, split into separate issues to avoid coupled lifecycle changes
   - target end state: `skip:` with no issue = permanent; `xfail:` with issue = temporary
+
+---
+
+## Appendix A: Archived Alternative Approaches
+
+This appendix preserves earlier design explorations for historical reference. These approaches are not the selected implementation path.
+
+### A.1 Approach 1: Inline Category and Expiry Date Fields
+
+Add `category` and `expiry_date` fields directly within each skip/xfail definition in the YAML file, with skip categories defined at the top level.
+
+#### Structure Example
+
+```yaml
+# Define skip categories at the top of the file
+skip_categories:
+  permanent:
+    description: "Skips are indefinite and do not require expiry dates"
+    requires_expiry_date: false
+    allowed_reasons:
+      - "ASIC_NOT_SUPPORTED"
+      - "TOPO_NOT_SUPPORTED"
+      - "FEATURE_NOT_APPLICABLE"
+  temporary:
+    description: "Skips must have expiry date"
+    requires_expiry_date: true
+    max_expiry_days: 180  # 6 months from today
+    allowed_reasons:
+      - "BUG_FIX_IN_PROGRESS"
+      - "NEW_FEATURE_UNDER_DEVELOPMENT"
+      - "INFRASTRUCTURE_ISSUE"
+
+# Test skip definitions
+acl/test_acl.py:
+  skip:
+    reason: "Skip acl for isolated-v6 topology"
+    category: "TOPO_NOT_SUPPORTED"  # Must match allowed_reasons in permanent
+    conditions:
+      - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    expiry: "2025-02-15"
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+bgp/test_bgp_session.py:
+  skip:
+    reason: "Infrastructure issue with BGP session setup"
+    category: "INFRASTRUCTURE_ISSUE"  # Must match allowed_reasons in temporary
+    expiry_date: "2025-06-01"  # Required for temporary category
+    conditions:
+      - "'t1' in topo_name"
+  xfail:
+    reason: "Known issue on specific topology"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2025-05-15"
+    conditions:
+      - "'t0-isolated' in topo_name"
+```
+
+#### Advantages
+- **Simplicity**: Direct association between skip, category, and expiry
+- **Readability**: Easy to understand requirements at a glance
+- **Granularity**: Different categories and expiry dates for skip vs xfail on same test
+- **Enforced Classification**: Category field makes skip purpose explicit
+- **Type Safety**: Category validation prevents arbitrary skip reasons
+- **Self-Documenting**: Skip categories defined in same file as skip definitions
+
+#### Disadvantages
+- **Verbosity**: Adds fields to every skip entry (category + expiry_date for temporary)
+- **Scattered dates**: Harder to get overview of all upcoming expiries
+- **Manual updates**: Each entry needs individual attention when extending
+
+### A.2 Approach 2: Expiry Management via Separate Configuration
+
+Maintain expiry dates in a separate section or file, referenced by test patterns.
+
+#### Structure Example
+
+```yaml
+# In tests_mark_conditions.yaml
+skip_categories:
+  permanent:
+    description: "Skips are indefinite and do not require expiry dates"
+    requires_expiry_date: false
+    allowed_reasons:
+      - "ASIC_NOT_SUPPORTED"
+      - "TOPO_NOT_SUPPORTED"
+  temporary:
+    description: "Skips must have expiry date"
+    requires_expiry_date: true
+    max_expiry_days: 180
+    allowed_reasons:
+      - "BUG_FIX_IN_PROGRESS"
+      - "INFRASTRUCTURE_ISSUE"
+
+test_expiry_config:
+  default_expiry_days: 90  # Default for new temporary skips
+  grace_period_days: 7     # Warning period before hard failure
+
+  expiry_registry:
+    # Pattern-based expiry management
+    - pattern: "acl/test_acl.py"
+      category: "ASIC_NOT_SUPPORTED"
+      applies_to: ["skip"]
+
+    - pattern: "bgp/test_bgp_*.py"
+      category: "BUG_FIX_IN_PROGRESS"
+      expiry_date: "2025-04-01"
+      applies_to: ["skip"]
+
+# Regular skip definitions with categories
+acl/test_acl.py:
+  skip:
+    reason: "Skip acl for isolated-v6 topology"
+    category: "ASIC_NOT_SUPPORTED"
+    conditions:
+      - "'isolated-v6' in topo_name"
+```
+
+#### Advantages
+- **Centralized management**: Easy to see all expiries and categories in one place
+- **Bulk operations**: Update multiple tests at once via patterns
+- **Metadata**: Can add owner, tracking info, issue links
+- **Non-intrusive**: Individual skip definitions less verbose
+- **Easier refactoring**: Change category/expiry for multiple tests together
+
+#### Disadvantages
+- **Complexity**: Additional mapping layer increases cognitive load
+- **Indirection**: Need to cross-reference two sections to understand skip
+- **Pattern matching**: Risk of ambiguity or conflicts, hard to debug
+- **Maintenance**: Two places to update, risk of inconsistency
+- **Locality**: Category and expiry separated from skip reason, harder to review
+
+### A.3 Comparison of Approaches
+
+| Aspect | Approach 1: Inline Expiry | Approach 2: Separate Config | Approach 3: GitHub Issues |
+|--------|---------------------------|-----------------------------|--------------------------|
+| **Source of Truth** | YAML file | YAML file | YAML + GitHub Issues |
+| **Expiry Definition** | Explicit date per skip | Pattern-based in registry | Issue lifecycle |
+| **Code Review Required** | Yes (PR for changes) | Yes (PR for changes) | No (issue state changes) |
+| **Notifications** | Custom tooling needed | Custom tooling needed | Built-in GitHub notifications |
+| **External Dependencies** | None | None | GitHub API |
+| **Forcing Function** | CI fails on expiry | CI fails on expiry | Issue closure stops skip |
+| **Context/History** | Git commit history | Git commit history | Issue discussion threads |
+| **Complexity** | Low | Medium | High |
+| **Offline Operation** | Yes | Yes | Limited (needs API cache) |
+| **Multi-branch Support** | Native (file per branch) | Native (file per branch) | Requires tagging/cloning |
+| **Bulk Operations** | Manual per-entry | Pattern-based | Via GitHub issue queries |
+| **Escalation Support** | Manual | Manual | Automated via labels |
+
+### A.4 Previous Recommendation (Superseded)
+
+**Previous Recommendation**: Approach 1 (Inline Category and Expiry Date Fields)
+
+**Rationale**:
+1. **Principle of Locality**: Category and expiry date are most relevant in context of the skip definition
+2. **Simplicity**: Minimal conceptual overhead for users
+3. **Explicit**: No ambiguity about which skip entry expires when or its category
+4. **Easier Implementation**: Straightforward to parse and validate categories and expiry dates
+5. **Natural Extension**: Fits the existing YAML structure pattern
