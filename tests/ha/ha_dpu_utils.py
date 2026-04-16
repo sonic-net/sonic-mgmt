@@ -56,6 +56,9 @@ def check_dpu_up_state(duthost,  dpu_index):
             if status['state-detail'] == "dpu_midplane_link_state":
                 if 'up' not in status['state-value'].lower():
                     return False
+            if status['state-detail'] == "dpu_control_plane_state":
+                if 'up' not in status['state-value'].lower():
+                    return False
             if status['state-detail'] == "dpu_data_plane_state":
                 if 'up' not in status['state-value'].lower():
                     return False
@@ -81,6 +84,9 @@ def check_dpu_down_state(duthost, dpu_index):
     for status in output_dpu_health_status:
         if status['name'] == dpu_name:
             if status['state-detail'] == "dpu_midplane_link_state":
+                if 'up' in status['state-value'].lower():
+                    return False
+            if status['state-detail'] == "dpu_control_plane_state":
                 if 'up' in status['state-value'].lower():
                     return False
             if status['state-detail'] == "dpu_data_plane_state":

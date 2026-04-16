@@ -110,19 +110,13 @@ For each scenario, we will send traffic for 60 seconds and check if the packet l
 """
 
 
-'''
-@pytest.mark.parametrize(
-    "traffic_to_standby", [True, False],
-    ids=["Standby Traffic", "Primary Traffic"]
-)
-'''
 @pytest.mark.parametrize(
     "standby_npu_reboot", [True, False],
     ids=["Standby NPU Reboot", "Primary NPU Reboot"]
 )
 @pytest.mark.parametrize(
-    "traffic_to_standby", [False],
-    ids=["Primary Traffic"]
+    "traffic_to_standby", [True, False],
+    ids=["Standby Traffic", "Primary Traffic"]
 )
 def test_ha_npu_reboot(
     ptfadapter,
@@ -154,6 +148,8 @@ def test_ha_npu_reboot(
     send_count = 0
     failed_count = 0
 
+    dut = duthosts[1] if standby_npu_reboot else duthosts[0]
+
     def npu_ha_action():
         # wait for a number of packets to be sent, then simulate failure
         while not stop_event.is_set() and not action_event.is_set():
@@ -162,13 +158,9 @@ def test_ha_npu_reboot(
         if stop_event.is_set():
             return
 
-        if standby_npu_reboot:
-            logger.info(f"Standby NPU reboot, pkt sent {send_count}")
-            reboot_res, dut_datetime = reboot_smartswitch(duthosts[1], pool)
-        else:
-            logger.info(f"Primary NPU reboot, pkt sent {send_count}")
-            reboot_res, dut_datetime = reboot_smartswitch(duthosts[0], pool)
-            logger.info(f"After NPU reboot, pkt sent {send_count}, reboot result {reboot_res}, DUT datetime {dut_datetime}")
+        logger.info(f"Reboot {dut.hostname}, pkt sent {send_count}")
+        reboot_res, _ = reboot_smartswitch(dut, pool)
+        logger.info(f"After {dut.hostname} reboot, pkt sent {send_count}, reboot result {reboot_res}")
 
     t = threading.Thread(target=npu_ha_action, name="npu_ha_action_thread")
     t.start()
