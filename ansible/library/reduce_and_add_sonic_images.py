@@ -324,19 +324,32 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
 
     # If sonic device is configured with minigraph, remove config_db.json
     # to force next image to load minigraph.
+    # Skip this for SmartSwitch devices — they need config_db.json and
+    # golden_config_db.json for DPU configuration.
     if path.exists("/host/old_config/minigraph.xml"):
-        log("Remove /host/old_config/config_db.json when /etc/old_config/minigraph.xml exists")
-        exec_command(
-            module,
-            cmd="rm -f /host/old_config/config_db.json",
-            msg="Remove config_db.json in preference of minigraph.xml"
-        )
-        log("Remove /host/old_config/golden_config_db.json when /etc/old_config/minigraph.xml exists")
-        exec_command(
-            module,
-            cmd="rm -f /host/old_config/golden_config_db.json",
-            msg="Remove golden_config_db.json in preference of minigraph.xml"
-        )
+        is_smartswitch = False
+        try:
+            from sonic_py_common import device_info
+            if hasattr(device_info, 'is_smartswitch'):
+                is_smartswitch = device_info.is_smartswitch()
+        except Exception:
+            pass
+
+        if is_smartswitch:
+            log("SmartSwitch detected, keeping config_db.json and golden_config_db.json")
+        else:
+            log("Remove /host/old_config/config_db.json when /etc/old_config/minigraph.xml exists")
+            exec_command(
+                module,
+                cmd="rm -f /host/old_config/config_db.json",
+                msg="Remove config_db.json in preference of minigraph.xml"
+            )
+            log("Remove /host/old_config/golden_config_db.json when /etc/old_config/minigraph.xml exists")
+            exec_command(
+                module,
+                cmd="rm -f /host/old_config/golden_config_db.json",
+                msg="Remove golden_config_db.json in preference of minigraph.xml"
+            )
 
     try:
         get_sonic_image_size(module)

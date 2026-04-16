@@ -21,6 +21,7 @@ function usage
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
   echo "    $0 [options] install-image <testbed-name> <inventory> <image-url>"
+  echo "    $0 [options] install-dpu-image <testbed-name> <inventory> <image-url> [<dpu-index>]"
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
   echo
   echo "Options:"
@@ -82,6 +83,9 @@ function usage
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
   echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
   echo "To install an image on all DUTs in a testbed: $0 install-image 'testbed-name' 'inventory' 'image-url'"
+  echo "To install an image on DPUs of a testbed: $0 install-dpu-image 'testbed-name' 'inventory' 'image-url' [dpu-index]"
+  echo "    Optional argument for install-dpu-image:"
+  echo "        <dpu-index>              # Upgrade only the DPU at this index (default: all DPUs)"
   echo "To collect show techsupport result of a testbed: $0 collect-show-tech 'testbed-name' 'inventory' ~/.password"
   echo "    collect-show-tech supports specify output path for dumped files"
   echo "        -e output_path=<user-specified-path>"
@@ -1027,6 +1031,28 @@ function install_image
   echo Done
 }
 
+function install_dpu_image
+{
+  testbed_name=$1
+  inventory=$2
+  image_url=$3
+  dpu_index=${4:--1}
+  shift
+  shift
+  shift
+  if [ $# -gt 0 ]; then shift; fi
+
+  echo "Upgrading DPU image on '$testbed_name' (dpu_index=$dpu_index)"
+
+  ansible-playbook upgrade_dpu_sonic.yml -i "$inventory" \
+    -e testbed_name="$testbed_name" \
+    -e testbed_file=$tbfile \
+    -e image_url="$image_url" \
+    -e target_dpu_index="$dpu_index"
+
+  echo Done
+}
+
 function collect_show_tech
 {
   testbed_name=$1
@@ -1299,6 +1325,8 @@ case "${subcmd}" in
   restart-ptf) restart_ptf $@
                ;;
   install-image) install_image $@
+               ;;
+  install-dpu-image) install_dpu_image $@
                ;;
   collect-show-tech) collect_show_tech $@
                ;;
