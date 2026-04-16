@@ -122,6 +122,20 @@ def apply_dhcp_server_config_cli(duthost, config_commands):
 
 def apply_dhcp_server_config_gcu(duthost, config_to_apply):
     logging.info("The dhcp_server_config: %s" % config_to_apply)
+    # Pre-write CUSTOMIZED_OPTIONS entries to CONFIG_DB before calling GCU.
+    # GCU does not respect yang leafref dependency order when applying changes,
+    # so it may write DHCP_SERVER_IPV4 (which references CUSTOMIZED_OPTIONS via
+    # the customized_options field) before the referenced entry exists, causing
+    # a transient yang validation error in syslog. By writing the options first,
+    # the leafref is satisfied when GCU writes DHCP_SERVER_IPV4.
+    for op in config_to_apply:
+        if op.get("op") == "add" and "/DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS/" in op.get("path", ""):
+            option_name = op["path"].split("/")[-1]
+            fields = " ".join('"{}" "{}"'.format(k, v) for k, v in op["value"].items())
+            duthost.shell(
+                'sonic-db-cli CONFIG_DB HSET "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS|{}" {}'.format(
+                    option_name, fields),
+                module_ignore_errors=True)
     tmpfile = duthost.shell('mktemp')['stdout']
     try:
         duthost.copy(content=json.dumps(config_to_apply, indent=4), dest=tmpfile)
