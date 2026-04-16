@@ -391,19 +391,10 @@ This decision was made after team discussions weighing the trade-offs between si
 
 There are no structural changes to the conditional mark YAML file.
 
-```yaml
-# Individual test skip definitions
-<test_path>:
-  skip:
-    reason: "<human-readable skip reason>"
-    issue: "<GitHub issue URL>"  # Marks skip as temporary; not having an issue implicitly assumes skip is permanent.
-    conditions: [...]
-    conditions_logical_operator: "and"  # or "or"
-  xfail:
-    reason: "<human-readable xfail reason>"
-    issue: "<GitHub issue URL>"  # Marks skip as temporary; not having an issue implicitly assumes skip is permanent.
-    conditions: [...]
-```
+**Best-practice guideline**:
+- Temporary exceptions should be represented as `xfail:` entries and must include an associated GitHub issue.
+- `skip:` entries should be reserved for permanent exclusions and should not carry an issue in steady state.
+- Legacy `skip:` entries that include issues are migration artifacts and should be converted/cleaned up toward the target policy.
 
 ### 2. Issue Expiry Workflow
 
