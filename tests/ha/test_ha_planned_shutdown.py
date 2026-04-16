@@ -145,7 +145,7 @@ def test_ha_planned_shutdown(
 
     # Re-activate primary
     pytest_assert(activate_primary_dash_ha(localhost, duthosts[0], ptfhost, "vdpu0_0:haset0_0", "activate_role",
-                                            owner=ha_owner),
+                                           owner=ha_owner),
                   "Failed to re-activate HA on primary")
 
     packet_sending_flag = queue.Queue(1)
@@ -190,5 +190,5 @@ def test_ha_planned_shutdown(
 
     # Re-activate standby
     pytest_assert(activate_secondary_dash_ha(localhost, duthosts[1], ptfhost, "vdpu1_0:haset0_0", "activate_role",
-                                              owner=ha_owner),
+                                             owner=ha_owner),
                   "Failed to re-activate HA on standby")
