@@ -416,10 +416,16 @@ def enable_sonic_dhcpv4_relay_agent(duthost, request):
             sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
         yield
     finally:
-        # Cleanup: disable the feature flag
+        # Cleanup: remove sonic relay config first, then clear the feature flag
+        # and restart. The order matters because sonic_dhcpv4_flag_config_and_unconfig
+        # restarts the dhcp_relay container, and the supervisor config is rendered
+        # from a Jinja2 template at startup. If sonic relay config is still present
+        # when has_sonic_dhcpv4_relay is cleared, the template may render without
+        # the [group:dhcp-relay] section (relay count == 0), leaving dhcprelayd as
+        # a standalone program instead of a group member.
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
-            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
             sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
 
 
 def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None):
