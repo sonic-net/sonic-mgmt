@@ -1099,6 +1099,7 @@ def run_basic_traffic(
         request = api.capture_request()
         request.port_name = snappi_extra_params.packet_capture_ports[0]
         cs = api.control_state()
+        cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
         cs.port.capture.state = cs.port.capture.STOP
         api.set_control_state(cs)
         logger.info(
@@ -1667,11 +1668,10 @@ def run_traffic_and_collect_stats(rx_duthost,
         cs.port.capture.state = cs.port.capture.START
         api.set_control_state(cs)
 
-    # Returns the rest API object for features not present in Snappi
-    ixnet_rest_api = api._ixnetwork
-
     # If imix flag is set, IMIX packet-profile is enabled.
     if (imix):
+        # Returns the rest API object for features not present in Snappi (IxNetwork only)
+        ixnet_rest_api = api._ixnetwork
         logger.info('Test packet-profile setting to IMIX')
         for traff_item in ixnet_rest_api.Traffic.TrafficItem.find():
             config_ele = traff_item.ConfigElement.find()[0].FrameSize
@@ -1726,7 +1726,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         logger.info('----------- Collecting Stats for Iteration : {} ------------'.format(m+1))
         f_stats[m] = {'Date': datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}
         flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
-        traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows
+        traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows if imix else []
         tx_frame = sum([metric.frames_tx for metric in flow_metrics if metric.name in data_flow_names])
         f_stats[m]['tgen_tx_frames'] = tx_frame
         rx_frame = sum([metric.frames_rx for metric in flow_metrics if metric.name in data_flow_names])
@@ -1791,6 +1791,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         request = api.capture_request()
         request.port_name = snappi_extra_params.packet_capture_ports[0]
         cs = api.control_state()
+        cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
         cs.port.capture.state = cs.port.capture.STOP
         api.set_control_state(cs)
         logger.info("Retrieving and saving packet capture to {}.pcapng".format(snappi_extra_params.packet_capture_file))
@@ -1822,7 +1823,7 @@ def run_traffic_and_collect_stats(rx_duthost,
     m = iter_count
     f_stats[m] = {'Date': datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}
     flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
-    traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows
+    traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows if imix else []
     tx_frame = sum([metric.frames_tx for metric in flow_metrics if metric.name in data_flow_names])
     rx_frame = sum([metric.frames_rx for metric in flow_metrics if metric.name in data_flow_names])
     f_stats[m]['tgen_tx_frames'] = tx_frame
