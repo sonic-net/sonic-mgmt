@@ -233,7 +233,7 @@ def test_cron_directories_secure(duthosts, rand_one_dut_hostname):
             continue
 
         parts = result["stdout"].strip().split()
-        mode_str, owner, group = parts[0], parts[1], parts[2]
+        mode_str, owner = parts[0], parts[1]
         mode = int(mode_str, 8)
 
         if mode & 0o002:
