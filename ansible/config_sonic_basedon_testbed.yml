@@ -99,7 +99,7 @@
 
     - name: check if testbed is an stc testbed
       set_fact:
-        is_stc_testbed: "{{ true if ptf_image == 'docker-stc-api-server' else false }}"
+        is_stc_testbed: "{{ true if ptf_image | default('') == 'docker-stc-api-server' else false }}"
 
     - block:
         - name: Set L1 connection script path
