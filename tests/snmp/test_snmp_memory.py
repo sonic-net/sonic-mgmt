@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def CALC_DIFF(snmp, sys_data): return float(
-    abs(snmp - int(sys_data)) * 100) / float(snmp)
+    abs(snmp - int(sys_data)) * 100) / float(max(snmp, int(sys_data)))
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -89,26 +89,36 @@ def test_snmp_memory(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
     # test read from snmp and read from system.
     # Allow the test to retry a few times before claiming failure.
     for _ in range(3):
+        # Read /proc/meminfo before and after the SNMP poll to bracket the snmpd
+        # cache window. snmpd returns a cached (potentially stale) value; picking
+        # whichever sys reading is closest to the SNMP value minimises timing-gap error.
+        facts_before = collect_memory(duthost)
         snmp_facts = get_snmp_facts(
             duthost, localhost, host=host_ip, version="v2c",
             community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
-        facts = collect_memory(duthost)
+        facts_after = collect_memory(duthost)
         # net-snmp calculate cached memory as cached + sreclaimable
-        facts['Cached'] = int(facts['Cached']) + int(facts['SReclaimable'])
+        facts_before['Cached'] = str(int(facts_before['Cached']) + int(facts_before['SReclaimable']))
+        facts_after['Cached'] = str(int(facts_after['Cached']) + int(facts_after['SReclaimable']))
         # Verify correct behaviour of sysTotalMemory
-        pytest_assert(not abs(snmp_facts['ansible_sysTotalMemory'] - int(facts['MemTotal'])),
+        pytest_assert(not abs(snmp_facts['ansible_sysTotalMemory'] - int(facts_after['MemTotal'])),
                       "Unexpected res sysTotalMemory {} v.s. {}"
-                      .format(snmp_facts['ansible_sysTotalMemory'], facts['MemTotal']))
+                      .format(snmp_facts['ansible_sysTotalMemory'], facts_after['MemTotal']))
 
         # Verify correct behaviour of sysTotalFreeMemory, sysTotalBuffMemory, sysCachedMemory, sysTotalSharedMemory
         new_comp = set()
         snmp_diff = {}
         for snmp, sys_data in compare:
-            percentage_diff = CALC_DIFF(snmp_facts[snmp], facts[sys_data])
+            snmp_val = snmp_facts[snmp]
+            before_val = int(facts_before[sys_data])
+            after_val = int(facts_after[sys_data])
+            # Use the sys reading closest to the SNMP value to minimise timing-gap error
+            best_sys = before_val if abs(snmp_val - before_val) <= abs(snmp_val - after_val) else after_val
+            percentage_diff = CALC_DIFF(snmp_val, best_sys)
             if percentage_diff > percentage_threshold:
                 snmp_diff[snmp] = {
-                    "snmp_value": snmp_facts[snmp],
-                    "sys_value": facts[sys_data],
+                    "snmp_value": snmp_val,
+                    "sys_value": best_sys,
                     "diff": percentage_diff,
                 }
                 new_comp.add((snmp, sys_data))
