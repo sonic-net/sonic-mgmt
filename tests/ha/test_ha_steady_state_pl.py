@@ -103,6 +103,7 @@ def test_privatelink_basic_transform(
     dash_pl_config,
     encap_proto
 ):
+    # traffic to active
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config[0])
 
@@ -112,4 +113,16 @@ def test_privatelink_basic_transform(
     flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
     testutils.send(ptfadapter, dash_pl_config[0][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
+    testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[0][LOCAL_PTF_INTF])
+
+    # traffic to standby
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[1], encap_proto)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config[1])
+
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, dash_pl_config[1][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
+    testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[0][REMOTE_PTF_RECV_INTF])
+    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+    testutils.send(ptfadapter, dash_pl_config[1][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[0][LOCAL_PTF_INTF])
