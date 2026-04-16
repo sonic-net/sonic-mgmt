@@ -431,7 +431,7 @@ def __gen_data_flow(testbed_config,
 
         pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(PAUSE_FLOW_DELAY_SEC))
         pause_flow.rate.percentage = flow_rate_percent
-        pause_flow.size.fixed = 64
+        pause_flow.size.fixed = 84
         pause_flow.duration.fixed_seconds.seconds = PAUSE_FLOW_DURATION_SEC
         pause_flow.metrics.enable = True
         pause_flow.metrics.loss = True

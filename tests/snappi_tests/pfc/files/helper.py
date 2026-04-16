@@ -103,6 +103,9 @@ def run_pfc_test(api,
 
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
+    # Reset to initial values before any modification
+    DATA_FLOW_DURATION_SEC = 15
+    data_flow_delay_sec = 1
 
     # Port id of Rx port for traffic config
     port_id = 0
@@ -192,7 +195,7 @@ def run_pfc_test(api,
             "flow_rate_percent": None,
             "flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
             "flow_rate_bps": None,
-            "flow_pkt_size": 64,
+            "flow_pkt_size": 84,
             "flow_pkt_count": None,
             "flow_delay_sec": 0,
             "flow_traffic_type": traffic_flow_mode.CONTINUOUS
