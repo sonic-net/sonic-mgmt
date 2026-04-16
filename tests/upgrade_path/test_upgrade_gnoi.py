@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import gnmi_tls, configure_gnoi_tls_server, restart_gnoi_server  # noqa: F401
 from tests.upgrade_path.test_upgrade_path import setup_upgrade_test
 from tests.common.helpers.upgrade_helpers import perform_gnoi_upgrade, GnoiUpgradeConfig
 
@@ -57,6 +57,10 @@ def test_upgrade_via_gnoi(
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
+        # Re-apply TLS cert config after the DUT reboot done by setup_upgrade_test.
+        # That reboot restores CONFIG_DB from disk, wiping the gnmi_tls fixture's setup.
+        configure_gnoi_tls_server(duthost)
+        restart_gnoi_server(duthost)
 
     perform_gnoi_upgrade(
         ptf_gnoi=gnmi_tls.gnoi,

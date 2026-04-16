@@ -2,7 +2,7 @@ import logging
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
-    ptf_grpc, ptf_gnoi, setup_gnoi_tls_server
+    gnmi_tls, ptf_grpc, ptf_gnoi, setup_gnoi_tls_server
 )
 from tests.common.helpers.upgrade_helpers import (
     GnoiUpgradeConfig,
