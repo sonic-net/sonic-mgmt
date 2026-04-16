@@ -2,6 +2,18 @@
 
 set -e
 
+function restore_topo_if_needed
+ {
+     if [[ -n "$backup_file" && -f "$backup_file" ]]; then
+         echo "Backup exists, restore backup file"
+         rm -f "$topo_file"
+         mv "$backup_file" "$topo_file"
+         echo "Original topo file restored"
+     fi
+ }
+
+ trap restore_topo_if_needed EXIT
+
 function usage
 {
   echo "testbed-cli. Interface to testbeds"
@@ -196,13 +208,14 @@ function converge_topo_if_needed
 
         if [[ -f "$backup_file" ]];then
             echo "Backup file exists, recover..."
-            sudo cp "$backup_file" "$topo_file"
+            cp "$backup_file" "$topo_file"
         elif [[ -f "$topo_file" ]]; then
             echo "Back up topo file"
-            sudo cp "$topo_file" "$backup_file"
+            cp "$topo_file" "$backup_file"
         fi
 
-        sudo python -m ceos_topo_converger "$backup_file" "$topo_file"
+        python -m ceos_topo_converger "$backup_file" "$topo_file"
+
     fi
 }
 
@@ -1311,9 +1324,3 @@ case "${subcmd}" in
   *)           usage
                ;;
 esac
-
-if [[ -f "$backup_file" ]];then
-    echo "Backup exists, restore backup file"
-    sudo rm -f "$topo_file"
-    sudo mv "$backup_file" "$topo_file"
-fi
