@@ -171,6 +171,44 @@ topology:
         - 23
       vm_offset: 7
   DUT:
+    portchannel_mode: bond
+    portchannel_config:
+      PortChannel1001:
+        intfs: [32, 33]
+      PortChannel1002:
+        intfs: [40, 41]
+      PortChannel1003:
+        intfs: [44, 45]
+      PortChannel1004:
+        intfs: [48, 49]
+      PortChannel1005:
+        intfs: [60, 61]
+      PortChannel1006:
+        intfs: [64, 65]
+      PortChannel1007:
+        intfs: [76, 77]
+      PortChannel1008:
+        intfs: [80, 81]
+      PortChannel1009:
+        intfs: [92, 93]
+      PortChannel1010:
+        intfs: [96, 97]
+      PortChannel1011:
+        intfs: [108, 109]
+      PortChannel1012:
+        intfs: [112, 113]
+      PortChannel1013:
+        intfs: [124, 125]
+      PortChannel1014:
+        intfs: [128, 129]
+      PortChannel1015:
+        intfs: [140, 141]
+      PortChannel1016:
+        intfs: [144, 145]
+      PortChannel1017:
+        intfs: [148, 149]
+      PortChannel1018:
+        intfs: [156, 157]
     vlan_configs:
       default_vlan_config: one_vlan_a
       one_vlan_a:

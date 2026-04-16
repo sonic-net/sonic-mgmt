@@ -153,6 +153,29 @@ def disable_portchannel(module, teamd_config):
             module, cmd="supervisorctl stop portchannel-{}".format(conf["name"]), ignore_error=True)
 
 
+def create_bond(module, portchannel_config):
+    """Create bond interfaces with LACP mode and enslave member ports."""
+    for conf in portchannel_config:
+        name = conf["name"]
+        # Remove stale bond if it exists for idempotency
+        exec_command(module, "ip link del {}".format(name), ignore_error=True)
+        exec_command(module, "ip link add {} type bond mode 802.3ad".format(name))
+        for intf in conf["intfs"]:
+            exec_command(module, "ip link set dev {} down".format(intf))
+            exec_command(module, "ip link set dev {} master {}".format(intf, name))
+        exec_command(module, "ip link set dev {} up".format(name))
+
+
+def remove_bond(module, portchannel_config):
+    """Remove bond interfaces and restore member ports."""
+    for conf in portchannel_config:
+        name = conf["name"]
+        exec_command(module, "ip link set dev {} down".format(name), ignore_error=True)
+        exec_command(module, "ip link del {}".format(name), ignore_error=True)
+        for intf in conf["intfs"]:
+            exec_command(module, "ip link set dev {} up".format(intf), ignore_error=True)
+
+
 def setup_portchannel_conf():
     try:
         os.mkdir(portchannel_conf_path, 0o755)
@@ -165,23 +188,31 @@ def main():
         argument_spec=dict(
             cmd=dict(required=True, choices=['start', 'stop'], type='str'),
             portchannel_config=dict(required=True, type='dict'),
+            mode=dict(required=False, choices=['teamd', 'bond'], default='teamd', type='str'),
         ),
         supports_check_mode=False)
     cmd = module.params['cmd']
+    mode = module.params['mode']
     portchannel_config = module.params['portchannel_config']
-    teamd_config = parse_teamd_config(module, portchannel_config)
+    parsed_config = parse_teamd_config(module, portchannel_config)
 
     setup_portchannel_conf()
 
     try:
-        if cmd == 'start':
-            create_teamd_conf(module, teamd_config)
-            create_supervisor_conf(module, teamd_config)
-            enable_portchannel(module, teamd_config)
-        elif cmd == 'stop':
-            disable_portchannel(module, teamd_config)
-            remove_supervisor_conf(module, teamd_config)
-            remove_teamd_conf(module, teamd_config)
+        if mode == 'bond':
+            if cmd == 'start':
+                create_bond(module, parsed_config)
+            elif cmd == 'stop':
+                remove_bond(module, parsed_config)
+        else:
+            if cmd == 'start':
+                create_teamd_conf(module, parsed_config)
+                create_supervisor_conf(module, parsed_config)
+                enable_portchannel(module, parsed_config)
+            elif cmd == 'stop':
+                disable_portchannel(module, parsed_config)
+                remove_supervisor_conf(module, parsed_config)
+                remove_teamd_conf(module, parsed_config)
     except Exception:
         module.fail_json(msg=traceback.format_exc())
 
