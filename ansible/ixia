@@ -703,22 +703,25 @@ sonic_nexthop_ut2:
       sonic_hw_platform: x86_64-nexthop_5010-r0
       switchids: [0]
       serial: NH-SMP2544003D
-      base_mac:
+      base_mac: E8:E4:9D:10:14:2C
       ansible_host: 10.3.152.67
-      ansible_hostv6:
+      ansible_hostv6: 2a01:111:e210:86::2
       model: 'NH-5010-F'
       syseeprom_info:
         "0x21": "NH-5010-F"
-        "0x22": ""
+        "0x22": "950-00004-01"
         "0x23": "NH-SMP2544003D"
-        "0x24": ""
-        "0x26": ""
+        "0x24": "E8:E4:9D:10:14:2C"
+        "0x26": "0"
+        "0x27": "P1"
         "0x28": "x86_64-nexthop_5010-r0"
         "0x2B": "Nexthop Systems Inc"
         "0x2D": "Nexthop AI"
         "0x2F": "www.nexthop.ai"
-        "0xFD": ""
-        "0xFE": ""
+        "0xFD":
+          - "0x00 0x00 0xF6 0x62 0x01 0x4E 0x48 0x2D 0x53 0x4D 0x50 0x32 0x35 0x34 0x32 0x30 0x30 0x31 0x58"
+          - "0x00 0x00 0xF6 0x62 0x02 0x4E 0x48 0x32 0x35 0x2D 0x35 0x30"
+        "0xFE": "0x05346DBD"
 
 ixia_chassis:
   hosts:

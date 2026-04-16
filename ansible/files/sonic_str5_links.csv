@@ -4294,19 +4294,19 @@ str5-7280dr3-3,Ethernet216,str5-z9332f-01,Ethernet104,400000,3992,Access,off
 str5-7280dr3-3,Ethernet232,str5-z9332f-01,Ethernet112,400000,3993,Access,off
 str5-7280dr3-3,Ethernet248,str5-z9332f-01,Ethernet120,400000,3994,Access,off
 
-str5-nh5010-ut2-4,Ethernet24,str5-z9332f-02,Ethernet192,400000,3995,Access,off
-str5-nh5010-ut2-4,Ethernet48,str5-z9332f-02,Ethernet200,400000,3996,Access,off
-str5-nh5010-ut2-4,Ethernet52,str5-z9332f-02,Ethernet208,400000,3997,Access,off
-str5-nh5010-ut2-4,Ethernet96,str5-z9332f-02,Ethernet216,400000,3998,Access,off
-str5-nh5010-ut2-4,Ethernet100,str5-z9332f-02,Ethernet224,400000,3999,Access,off
-str5-nh5010-ut2-4,Ethernet120,str5-z9332f-02,Ethernet232,400000,4000,Access,off
+str5-nh5010-ut2-4,Ethernet24,str5-z9332f-02,Ethernet192,400000,3995,Access,
+str5-nh5010-ut2-4,Ethernet48,str5-z9332f-02,Ethernet200,400000,3996,Access,
+str5-nh5010-ut2-4,Ethernet52,str5-z9332f-02,Ethernet208,400000,3997,Access,
+str5-nh5010-ut2-4,Ethernet96,str5-z9332f-02,Ethernet216,400000,3998,Access,
+str5-nh5010-ut2-4,Ethernet100,str5-z9332f-02,Ethernet224,400000,3999,Access,
+str5-nh5010-ut2-4,Ethernet120,str5-z9332f-02,Ethernet232,400000,4000,Access,
 
-str5-nh5010-ut2-5,Ethernet24,str5-z9332f-02,Ethernet240,400000,4001,Access,off
-str5-nh5010-ut2-5,Ethernet48,str5-z9332f-02,Ethernet248,400000,4002,Access,off
-str5-nh5010-ut2-5,Ethernet52,str5-z9332f-01,Ethernet224,400000,4003,Access,off
-str5-nh5010-ut2-5,Ethernet96,str5-z9332f-01,Ethernet232,400000,4004,Access,off
-str5-nh5010-ut2-5,Ethernet100,str5-z9332f-01,Ethernet240,400000,4005,Access,off
-str5-nh5010-ut2-5,Ethernet120,str5-z9332f-01,Ethernet248,400000,4006,Access,off
+str5-nh5010-ut2-5,Ethernet24,str5-z9332f-02,Ethernet240,400000,4001,Access,
+str5-nh5010-ut2-5,Ethernet48,str5-z9332f-02,Ethernet248,400000,4002,Access,
+str5-nh5010-ut2-5,Ethernet52,str5-z9332f-01,Ethernet224,400000,4003,Access,
+str5-nh5010-ut2-5,Ethernet96,str5-z9332f-01,Ethernet232,400000,4004,Access,
+str5-nh5010-ut2-5,Ethernet100,str5-z9332f-01,Ethernet240,400000,4005,Access,
+str5-nh5010-ut2-5,Ethernet120,str5-z9332f-01,Ethernet248,400000,4006,Access,
 
 str5-7280r4-ut2-3,Ethernet24,str5-z9332f-01,Ethernet128,400000,4007,Access,off
 str5-7280r4-ut2-3,Ethernet48,str5-z9332f-01,Ethernet136,400000,4008,Access,off

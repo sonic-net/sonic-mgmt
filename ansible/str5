@@ -699,111 +699,126 @@ sonic_nexthop_ut2:
       sonic_hwsku: NH-5010-F-O64
       sonic_hw_platform: x86_64-nexthop_5010-r0
       switchids: [0]
-      serial: NH-FSJ25350022
-      base_mac: E8:E4:9D:00:C1:A8
+      serial: NH-SMP2545003Q
+      base_mac: E8:E4:9D:10:14:36
       ansible_host: 10.3.152.66
       ansible_hostv6: 2a01:111:e210:86::1
       model: 'NH-5010-F'
       syseeprom_info:
         "0x21": "NH-5010-F"
-        "0x22": ""
-        "0x23": ""
-        "0x24": ""
+        "0x22": "950-00004-01"
+        "0x23": "NH-SMP2545003Q"
+        "0x24": "E8:E4:9D:10:14:36"
         "0x26": "0"
+        "0x27": "P1"
         "0x28": "x86_64-nexthop_5010-r0"
         "0x2B": "Nexthop Systems Inc"
         "0x2D": "Nexthop AI"
         "0x2F": "www.nexthop.ai"
-        "0xFD": ""
-        "0xFE": ""
+        "0xFD":
+          - "0x00 0x00 0xF6 0x62 0x01 0x4E 0x48 0x2D 0x53 0x4D 0x50 0x32 0x35 0x34 0x32 0x30 0x30 0x32 0x45"
+          - "0x00 0x00 0xF6 0x62 0x02 0x4E 0x48 0x32 0x35 0x2D 0x35 0x30"
+        "0xFE": "0xB4A0DD94"
     str5-nh5010-ut2-2:
       hwsku: NH-5010-F-O64
       sonic_hwsku: NH-5010-F-O64
       sonic_hw_platform: x86_64-nexthop_5010-r0
       switchids: [0]
-      serial:
-      base_mac:
+      serial: NH-SMP2544003D
+      base_mac: E8:E4:9D:10:14:2C
       ansible_host: 10.3.152.67
       ansible_hostv6: 2a01:111:e210:86::2
       model: 'NH-5010-F'
       syseeprom_info:
         "0x21": "NH-5010-F"
-        "0x22": ""
-        "0x23": ""
-        "0x24": ""
-        "0x26": ""
+        "0x22": "950-00004-01"
+        "0x23": "NH-SMP2544003D"
+        "0x24": "E8:E4:9D:10:14:2C"
+        "0x26": "0"
+        "0x27": "P1"
         "0x28": "x86_64-nexthop_5010-r0"
         "0x2B": "Nexthop Systems Inc"
         "0x2D": "Nexthop AI"
         "0x2F": "www.nexthop.ai"
-        "0xFD": ""
-        "0xFE": ""
+        "0xFD":
+          - "0x00 0x00 0xF6 0x62 0x01 0x4E 0x48 0x2D 0x53 0x4D 0x50 0x32 0x35 0x34 0x32 0x30 0x30 0x31 0x58"
+          - "0x00 0x00 0xF6 0x62 0x02 0x4E 0x48 0x32 0x35 0x2D 0x35 0x30"
+        "0xFE": "0x05346DBD"
     str5-nh5010-ut2-3:
       hwsku: NH-5010-F-O64
       sonic_hwsku: NH-5010-F-O64
       sonic_hw_platform: x86_64-nexthop_5010-r0
       switchids: [0]
-      serial:
-      base_mac:
+      serial: NH-SMP2545003P
+      base_mac: E8:E4:9D:10:14:35
       ansible_host: 10.3.152.68
       ansible_hostv6: 2a01:111:e210:86::3
       model: 'NH-5010-F'
       syseeprom_info:
         "0x21": "NH-5010-F"
-        "0x22": ""
-        "0x23": ""
-        "0x24": ""
+        "0x22": "950-00004-01"
+        "0x23": "NH-SMP2545003P"
+        "0x24": "E8:E4:9D:10:14:35"
         "0x26": "0"
+        "0x27": "P1"
         "0x28": "x86_64-nexthop_5010-r0"
         "0x2B": "Nexthop Systems Inc"
         "0x2D": "Nexthop AI"
         "0x2F": "www.nexthop.ai"
-        "0xFD": ""
-        "0xFE": ""
+        "0xFD":
+          - "0x00 0x00 0xF6 0x62 0x01 0x4E 0x48 0x2D 0x53 0x4D 0x50 0x32 0x35 0x34 0x32 0x30 0x30 0x32 0x33"
+          - "0x00 0x00 0xF6 0x62 0x02 0x4E 0x48 0x32 0x35 0x2D 0x35 0x30"
+        "0xFE": "0x70E57187"
     str5-nh5010-ut2-4:
       hwsku: NH-5010-F-O64
       sonic_hwsku: NH-5010-F-O64
       sonic_hw_platform: x86_64-nexthop_5010-r0
       switchids: [0]
-      serial:
-      base_mac:
+      serial: NH-SMP2544003B
+      base_mac: E8:E4:9D:10:14:2A
       ansible_host: 10.3.152.73
       ansible_hostv6: 2a01:111:e210:86::89
       model: 'NH-5010-F'
       syseeprom_info:
         "0x21": "NH-5010-F"
-        "0x22": ""
-        "0x23": ""
-        "0x24": ""
+        "0x22": "950-00004-01"
+        "0x23": "NH-SMP2544003B"
+        "0x24": "E8:E4:9D:10:14:2A"
         "0x26": "0"
+        "0x27": "P1"
         "0x28": "x86_64-nexthop_5010-r0"
         "0x2B": "Nexthop Systems Inc"
         "0x2D": "Nexthop AI"
         "0x2F": "www.nexthop.ai"
-        "0xFD": ""
-        "0xFE": ""
+        "0xFD":
+          - "0x00 0x00 0xF6 0x62 0x01 0x4E 0x48 0x2D 0x53 0x4D 0x50 0x32 0x35 0x34 0x32 0x30 0x30 0x32 0x37"
+          - "0x00 0x00 0xF6 0x62 0x02 0x4E 0x48 0x32 0x35 0x2D 0x35 0x30"
+        "0xFE": "0xCB573DF9"
     str5-nh5010-ut2-5:
       hwsku: NH-5010-F-O64
       sonic_hwsku: NH-5010-F-O64
       sonic_hw_platform: x86_64-nexthop_5010-r0
       switchids: [0]
-      serial:
-      base_mac:
+      serial: NH-SMP2545003M
+      base_mac: E8:E4:9D:10:14:33
       ansible_host: 10.3.152.74
       ansible_hostv6: 2a01:111:e210:86::8a
       model: 'NH-5010-F'
       syseeprom_info:
         "0x21": "NH-5010-F"
-        "0x22": ""
-        "0x23": ""
-        "0x24": ""
-        "0x26": ""
+        "0x22": "950-00004-01"
+        "0x23": "NH-SMP2545003M"
+        "0x24": "E8:E4:9D:10:14:33"
+        "0x26": "0"
+        "0x27": "P1"
         "0x28": "x86_64-nexthop_5010-r0"
         "0x2B": "Nexthop Systems Inc"
         "0x2D": "Nexthop AI"
         "0x2F": "www.nexthop.ai"
-        "0xFD": ""
-        "0xFE": ""
+        "0xFD":
+          - "0x00 0x00 0xF6 0x62 0x01 0x4E 0x48 0x2D 0x53 0x4D 0x50 0x32 0x35 0x34 0x32 0x30 0x30 0x32 0x35"
+          - "0x00 0x00 0xF6 0x62 0x02 0x4E 0x48 0x32 0x35 0x2D 0x35 0x30"
+        "0xFE": "0x47649AF3"
 
 sonic_arista_7280r4_400G:
   vars:
