@@ -2195,11 +2195,11 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 platforms, Broadcom DNX platforms, and Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b). CS00012412189"
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 and 8223 platforms, Broadcom DNX platforms, and Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b). CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b', 'x86_64-8223_64e_mo-r0','x86_64-8223_64ef_mo-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
