@@ -40,9 +40,9 @@ contributor adds a brand-new test to `master` and it gets approved for a release
 |------|-------------|
 | **Block** | Prevent new test files from being merged to non-master branches without review |
 | **Tag** | Automatically label PRs that introduce new test files for visibility |
-| **Bypass** | Allow authorized team members to override the block with justification |
+| **Bypass** | Allow authorized team members to override the block by adding a label |
 | **Notify** | Alert the nightly guard team and platform owners whenever a bypass is granted |
-| **Audit** | Preserve a permanent record of every bypass and its explanation on the PR |
+| **Audit** | Preserve a permanent record of every bypass on the PR |
 
 ### Non-Goals
 
@@ -75,7 +75,7 @@ contributor adds a brand-new test to `master` and it gets approved for a release
 │  (direct PR to release branch  OR  auto-created cherry-pick PR)      │
 └──────────────────────────────┬───────────────────────────────────────┘
                                │  opened / synchronize / labeled /
-                               │  unlabeled / issue_comment:created
+                               │  unlabeled
                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │              GitHub Actions: test-cherry-pick-guard.yml               │
@@ -89,8 +89,6 @@ contributor adds a brand-new test to `master` and it gets approved for a release
 │  Job 2: enforce-policy  (skipped if master or no new tests)          │
 │  ├─ Check for "cherry-pick-bypass-approved" label                     │
 │  ├─ Verify label adder is in @sonic-net/platform-owners (GitHub API) │
-│  ├─ Check for [cherry-pick-bypass-reason] comment from authorized    │
-│  │   team member                                                      │
 │  ├─ FAIL with guidance comment  (any condition unmet)                │
 │  ├─ PASS → create/update check run on PR HEAD via Checks API        │
 │  └─ PASS → send email + post audit comment  (all conditions met)     │
@@ -110,32 +108,14 @@ contributor adds a brand-new test to `master` and it gets approved for a release
 
 ### 3.2 Trigger Events
 
-The workflow responds to two GitHub event types:
+The workflow responds to the following GitHub event:
 
 | Event | Types | Why |
 |-------|-------|-----|
 | `pull_request_target` | `opened`, `synchronize`, `reopened`, `labeled`, `unlabeled` | Covers PR creation, force-pushes, and label changes. Creates a check run on the PR HEAD SHA automatically. |
-| `issue_comment` | `created` | Re-evaluates policy when an explanation comment is added |
 
 `pull_request_target` is used (instead of `pull_request`) because cherry-pick PRs are
 created from a fork (`mssonicbld/sonic-mgmt`), which requires elevated token permissions.
-
-> **Important:** The `issue_comment` trigger does **not** automatically create a check run
-> on the PR HEAD SHA. To satisfy the required status check after posting a bypass comment,
-> the workflow must explicitly create or update a check run via the
-> [Checks API](https://docs.github.com/en/rest/checks/runs#create-a-check-run):
->
-> ```
-> POST /repos/{owner}/{repo}/check-runs
-> {
->   "name": "Cherry-pick policy check",
->   "head_sha": "<PR HEAD SHA>",
->   "status": "completed",
->   "conclusion": "success" | "failure"
-> }
-> ```
->
-> This requires the `checks: write` permission (see Section 6).
 
 ### 3.3 Test File Detection
 
@@ -177,17 +157,7 @@ Cherry-picks may surface files as `"renamed"` rather than `"added"` depending on
    Yes                ❌ FAIL
     │               Post: unauthorized bypass comment
     │
-  ┌─┴──────────────────────────────┐
-  │                                │
-[cherry-pick-bypass-reason]     No explanation comment
-comment by authorized              from authorized member
-team member?
-  │                                │
- Yes                             ❌ FAIL
-  │                          Post: explanation required comment
-  │
 ✅ PASS
-Create/update check run on PR HEAD (Checks API)
 Send email notification (once)
 Post audit comment on PR
 ```
@@ -218,28 +188,7 @@ querying the PR timeline API (`GET /repos/{owner}/{repo}/issues/{number}/timelin
 finding the most recent `labeled` event for the `cherry-pick-bypass-approved` label. This
 approach works regardless of which event triggered the current workflow run.
 
-### 3.6 Explanation Comment Format
-
-The explanation must be posted as a PR comment containing the marker
-`[cherry-pick-bypass-reason]` (case-insensitive). Enforced format:
-
-```
-[cherry-pick-bypass-reason]
-Reason:  <Why this test is needed on the release branch>
-Impact:  <What breaks without this backport>
-Owner:   <Alias — you own any fallout from this cherry-pick>
-```
-
-The workflow detects the most recent such comment, extracts the author and body,
-and includes both in the notification email and the audit comment.
-
-> **Authorization requirement:** The explanation comment must be authored by a member of
-> the authorized team (`@{AUTH_ORG}/{AUTH_TEAM}`). If the marker comment is posted by
-> a non-authorized user, the check fails with a message requesting an authorized member
-> to post the explanation. This prevents an unauthorized user from satisfying the
-> explanation requirement after someone else adds the bypass label.
-
-### 3.7 Email Notification
+### 3.6 Email Notification
 
 Sent via SMTP (STARTTLS) using an inline workflow step.
 Sent **once per PR** — a hidden HTML comment `<!-- cherry-pick-bypass-notification-sent -->`
@@ -257,35 +206,25 @@ workflow re-runs.
 >   cancel-in-progress: false
 > ```
 
-> **Input sanitization:** The explanation text and file list are embedded in both the
-> PR comment (Markdown) and the notification email (HTML). All user-provided text must be
-> escaped before embedding:
-> - **Markdown comments:** Wrap in a code fence or escape special characters.
-> - **HTML email:** Apply HTML entity encoding to prevent injection.
-
 **Email content:**
 
 | Field | Value |
 |-------|-------|
 | Subject | `[sonic-mgmt][AWARENESS] Cherry-pick Bypass — New Tests → <branch>` |
 | To | `GUARD_NOTIFICATION_EMAIL` (comma-separated, set as secret) |
-| Body | PR link, author, target branch, bypass approver, new file list, explanation text |
+| Body | PR link, author, target branch, bypass approver, new file list |
 
-### 3.8 Audit Trail
+### 3.7 Audit Trail
 
 Every bypass creates a permanent record directly on the PR:
 
 1. **`contains-new-tests` label** — visible in PR list views
 2. **`cherry-pick-bypass-approved` label** — records that an exception was granted
-3. **Explanation comment** — authored by an authorized team member, timestamped by GitHub
-4. **Audit comment by bot** — confirms notification was sent, non-editable by the approver
+3. **Audit comment by bot** — confirms notification was sent, records the approver
 
-> **Comment edit/delete:** If the explanation comment is edited or deleted after the check
-> passes, the check is not automatically re-evaluated (GitHub does not fire events on
-> comment edits for `issue_comment: created`). This is accepted as a low-risk gap:
-> the audit comment posted by the bot preserves a snapshot of the explanation at
-> approval time. A future iteration may subscribe to `issue_comment: edited, deleted`
-> events if needed.
+> **Future enhancement (v2):** An optional explanation comment requirement
+> (`[cherry-pick-bypass-reason]`) can be added if the team wants written justification
+> for each bypass. Keeping v1 label-only to validate the core workflow first.
 
 ---
 
@@ -342,9 +281,7 @@ the default `GITHUB_TOKEN`, a **PAT or GitHub App token** must be provided as a 
 | Permission | Scope | Why |
 |------------|-------|-----|
 | `pull-requests: write` | `GITHUB_TOKEN` | Post comments, add labels |
-| `issues: write` | `GITHUB_TOKEN` | Post comments on issue_comment trigger |
 | `contents: read` | `GITHUB_TOKEN` | Read PR file list |
-| `checks: write` | `GITHUB_TOKEN` | Create/update check runs on PR HEAD (required for `issue_comment` trigger) |
 | `read:org` | PAT or App token | Query team membership for bypass authorization |
 
 ### GitHub Secrets (Settings → Secrets → Actions)
@@ -379,13 +316,9 @@ On Settings → Branches, for pattern `20????`:
 | Risk | Mitigation |
 |------|-----------|
 | Unauthorized user adds bypass label | Workflow verifies label adder's org-team membership via GitHub API at runtime; fails even if label is present |
-| Unauthorized user posts explanation comment | Workflow verifies explanation comment author is also in the authorized team; both label and comment must come from authorized members |
-| Bypass label added before explanation | Two-step requirement: label + comment both needed; failing one fails the check |
 | Duplicate email spam on re-runs | Idempotent guard: checks for `<!-- cherry-pick-bypass-notification-sent -->` marker before sending; `concurrency` group prevents race conditions between parallel runs |
 | `pull_request_target` privilege escalation | Workflow only reads PR metadata via API; no checkout of untrusted code |
 | Token scope | `GITHUB_TOKEN` has minimal permissions; `read:org` is isolated to a separate PAT/App token secret |
-| HTML/Markdown injection via explanation text | All user-provided text is HTML-entity-encoded before embedding in email and escaped in Markdown comments |
-| Comment edit/delete after approval | Bot-authored audit comment preserves a snapshot of the explanation at approval time; future iteration may re-evaluate on `issue_comment: edited` |
 
 ---
 
@@ -395,7 +328,7 @@ On Settings → Branches, for pattern `20????`:
 |-------|--------|-------------|
 | **Phase 1** | Commit workflow files to `master` | Workflow appears in Actions tab; no PRs blocked yet (no branch protection rule) |
 | **Phase 2** | Set GitHub Secrets (SMTP + `CHERRY_PICK_GUARD_TOKEN`) with your own email as `GUARD_NOTIFICATION_EMAIL` | Open a test PR to a release branch adding a `test_*.py` file; verify block + email to yourself |
-| **Phase 3** | Verify bypass flow end-to-end | Have a `platform-owners` member add bypass label + explanation; verify pass + email |
+| **Phase 3** | Verify bypass flow end-to-end | Have a `platform-owners` member add bypass label; verify pass + email |
 | **Phase 4** | Add branch protection rule for `20????` | Existing open cherry-pick PRs without new tests are unaffected |
 | **Phase 5** | Update `GUARD_NOTIFICATION_EMAIL` to guard team DL + platform owners alias | Done |
 
@@ -426,7 +359,7 @@ status check on the cherry-pick PR itself is cleaner and more standard.
 Allow specific test files to be pre-approved for release branches.
 
 **Rejected:** Adds maintenance overhead and doesn't enforce a real review — the bypass
-explanation comment on the PR provides better traceability.
+label on the PR provides sufficient traceability for v1.
 
 ### C. Use a GitHub App instead of a GitHub Actions workflow
 A GitHub App could react to label events in real time and have richer API access.
@@ -440,3 +373,12 @@ Mark the `release-branch` environment as requiring approval before deploy.
 **Rejected:** Environments are designed for deployment workflows, not PR merge gates.
 The label + comment pattern is more familiar to contributors already using the
 `Approved for 20XXXX branch` label system.
+
+### E. Require an explanation comment in addition to the bypass label
+Require a `[cherry-pick-bypass-reason]` comment from an authorized team member before
+the check passes.
+
+**Deferred to v2:** Adds complexity (comment authorization, edit/delete handling,
+`issue_comment` trigger + Checks API). Label-only bypass is simpler and sufficient
+to validate the core blocking flow. Can be added later if the team wants written
+justification for each bypass.
