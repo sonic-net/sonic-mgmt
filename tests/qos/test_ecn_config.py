@@ -272,7 +272,7 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     if result['stdout_lines']:
         ecn_list = {}
         for iter, line in enumerate(result['stdout_lines']):
-            if iter < 2 or '---' in line:
+            if iter < 2 or '---' in line or not line.strip():
                 continue
             else:
                 key, value = line.split(maxsplit=1)

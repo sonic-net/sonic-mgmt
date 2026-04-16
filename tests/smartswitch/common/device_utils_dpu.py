@@ -33,17 +33,6 @@ REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
 PING_TIME_INT = 10
 
-# Items to skip in DPU critical process check (non-critical or often Not OK on DPUs)
-# - container_checker: container health; may not apply or differ on DPU
-# - snmp: optional, often not enabled on DPUs
-# - acms:acms: optional; also in system_health services_to_ignore
-# - routeCheck: route check; may not apply or differ on DPU
-# - PSU0, PSU1, ...: PSU check; may not apply or differ on DPU
-DPU_CRITICAL_PROCESS_SKIP = frozenset({
-    "container_checker", "snmp", "acms:acms", "routeCheck",
-    "PSU0", "PSU1", "PSU2", "PSU3",
-})
-
 
 @pytest.fixture(scope='function')
 def num_dpu_modules(platform_api_conn):   # noqa F811
@@ -445,7 +434,7 @@ def check_dpu_health_status(duthost, dpu_name,
     return
 
 
-def _get_dpuhost_for_dpu(dpuhosts, dpu_id):
+def get_dpuhost_for_dpu(dpuhosts, dpu_id):
     """
     Get the dpuhost that corresponds to the given dpu_id.
     dpuhosts may have fewer nodes than platform slots when the testbed
@@ -457,7 +446,7 @@ def _get_dpuhost_for_dpu(dpuhosts, dpu_id):
     dpu_suffix = f"-dpu-{dpu_id}"
     # If index lookup fails (e.g. dpu_id=3 but len(dpuhosts)=1), search by hostname.
     for node in dpuhosts:
-        if dpu_suffix in getattr(node, 'hostname', ''):
+        if getattr(node, 'hostname', '').endswith(dpu_suffix):
             return node
     return None
 
@@ -473,7 +462,7 @@ def check_dpu_critical_processes(dpuhosts, dpu_id):
     Returns:
        True if check passes or DPU not in dpuhosts (skip), False if a critical process failed
     """
-    dpuhost = _get_dpuhost_for_dpu(dpuhosts, dpu_id)
+    dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
     if dpuhost is None:
         logging.warning(
             "DPU%d not in dpuhosts (len=%d); skipping critical process check. "
@@ -481,7 +470,6 @@ def check_dpu_critical_processes(dpuhosts, dpu_id):
             dpu_id, len(dpuhosts)
         )
         return True
-
     cmd = "sudo show system-health detail"
     output_dpu_process = dpuhost.show_and_parse(cmd)
 
@@ -490,14 +478,14 @@ def check_dpu_critical_processes(dpuhosts, dpu_id):
         if parse_output['status'].lower() == 'ok':
             continue
         name = parse_output.get("name", "")
-        if name in DPU_CRITICAL_PROCESS_SKIP:
-            logging.debug(
-                "Skipping non-critical '%s' (Not OK) in DPU%d critical process check",
-                name, dpu_id
-            )
-            continue
-        logging.error("'{}' has failed in DPU{}"
-                      .format(name, dpu_id))
+        logging.error(
+            "DPU%d critical process not OK: name=%r status=%r state-detail=%r state-value=%r",
+            dpu_id,
+            name,
+            parse_output.get("status"),
+            parse_output.get("state-detail"),
+            parse_output.get("state-value"),
+        )
         return False
     return True
 

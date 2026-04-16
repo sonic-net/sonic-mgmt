@@ -34,7 +34,7 @@ def dhcp_server_setup_teardown(duthost):
                    is_supervisor_subprocess_running,
                    duthost,
                    DHCP_RELAY_CONTAINER_NAME,
-                   "dhcp-relay:dhcprelayd"),
+                   "dhcprelayd"),
         'dhcprelayd in container dhcp_relay is not running'
     )
 

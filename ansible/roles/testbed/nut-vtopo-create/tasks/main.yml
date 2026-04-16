@@ -1,0 +1,35 @@
+---
+- name: Read testbed definition and CSV files
+  include_tasks: read_testbed.yml
+
+- name: Create management network
+  include_tasks: create_mgmt_network.yml
+
+- name: Create front-panel link bridges (before VMs, so XML can reference them)
+  include_tasks: create_links.yml
+
+- name: Launch DUT KVM VMs
+  include_tasks: launch_one_dut.yml
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    loop_var: device
+    index_var: device_idx
+
+- name: Kickstart SONiC on DUT VMs
+  include_tasks: start_sonic.yml
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    loop_var: device
+    index_var: device_idx
+
+- name: Launch TG containers
+  include_tasks: launch_one_tg.yml
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevIxiaChassis') | list }}"
+  loop_control:
+    loop_var: device
+
+- name: Connect TG containers to front-panel link bridges
+  include_tasks: connect_tg_links.yml
+
+- name: Wait for testbed to be ready
+  include_tasks: wait_testbed_ready.yml
