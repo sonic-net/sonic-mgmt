@@ -15,7 +15,7 @@ from tests.packet_trimming.packet_trimming_helper import (
     get_port_trim_counters_json, disable_egress_data_plane, enable_egress_data_plane,
     verify_queue_and_port_trim_counter_consistency, get_queue_trim_counters_json, compare_counters,
     has_non_zero_trim_counters, configure_port_mirror_session, remove_port_mirror_session,
-    check_trim_drop_counter_zero)
+    check_trim_drop_counter_zero, is_trim_drop_counter_stable)
 
 logger = logging.getLogger(__name__)
 
@@ -420,14 +420,20 @@ class BasePacketTrimming:
                     for dut_member in port['dut_members']:
                         original_scheduler = original_schedulers.get(dut_member)
                         enable_egress_data_plane(duthost, dut_member, trim_queue, original_scheduler)
-                        # Known limitation: TRIM_DRP_PKTS is a calculated counter (TRIM_PKTS - TRIM_TX_PKTS)
-                        # rather than a real hardware counter. After restoring the blocked trim queue,
-                        # queued packets drain out and TRIM_DRP_PKTS gradually decreases to 0.
-                        # Wait for it to stabilize before reading baseline counters for the next step.
-                        pytest_assert(
-                            wait_until(30, 2, 0, check_trim_drop_counter_zero, duthost, dut_member),
-                            f"TRIM_DRP_PKTS on port {dut_member} did not stabilize to 0"
-                        )
+                        if is_mellanox_device(duthost):
+                            # Known limitation: TRIM_DRP_PKTS is a calculated counter (TRIM_PKTS - TRIM_TX_PKTS)
+                            # rather than a real hardware counter. After restoring the blocked trim queue,
+                            # queued packets drain out and TRIM_DRP_PKTS gradually decreases to 0.
+                            # Wait for it to stabilize before reading baseline counters for the next step.
+                            pytest_assert(
+                                wait_until(30, 2, 0, check_trim_drop_counter_zero, duthost, dut_member),
+                                f"TRIM_DRP_PKTS on port {dut_member} did not stabilize to 0"
+                            )
+                        else:
+                            pytest_assert(
+                                is_trim_drop_counter_stable(duthost, dut_member),
+                                f"TRIM_DRP_PKTS on port {dut_member} is still increasing after shaper has been removed"
+                            )
 
     def test_trimming_counters_with_feature_toggle(self, duthost, ptfadapter, test_params, trim_counter_params):
         """

@@ -2937,6 +2937,29 @@ def check_trim_drop_counter_zero(duthost, port):
     return trim_drop == 0
 
 
+def is_trim_drop_counter_stable(duthost, port):
+    """
+    Check if TRIM_DRP_PKTS counter remains constant on the specified port
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+
+    Returns:
+        bool: True if TRIM_DRP_PKTS counter stops increasing, otherwise False
+    """
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        prev_trim_drop = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+        # Ensure there is enough time to poll for an updated value from the ASIC
+        time.sleep(2 * (TRIMMING_COUNTER_INTERVAL / 1000))
+        curr_trim_drop = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+        if prev_trim_drop == curr_trim_drop:
+            return True
+
+    return False
+
+
 def has_non_zero_trim_counters(duthost, port):
     """
     Checks if port level trim counters are non-zero.
