@@ -498,12 +498,12 @@ def setup_ha_config(duthosts, tbinfo):
 @pytest.fixture(scope="module")
 def ha_owner(dpuhosts):
     """
-    Fixture to parametrize HA owner type (dpu or npu) for the test.
+    Fixture to parametrize HA owner type (dpu or switch) for the test.
     """
     if 'pensando' in dpuhosts[0].facts['asic_type']:
         owner = "dpu"
     else:
-        owner = "npu"
+        owner = "switch"
     yield owner
 
 
