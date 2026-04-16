@@ -14,7 +14,6 @@ from constants import (
 )
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
-from tests.common.config_reload import config_reload
 from ha_utils import set_dead_dash_ha_scope, activate_secondary_dash_ha
 from ha_link_utils import add_acl_link_drop, remove_acl_link_drop
 
@@ -24,6 +23,9 @@ pytestmark = [
     pytest.mark.topology('t1-smartswitch-ha'),
     pytest.mark.skip_check_dut_health
 ]
+
+TRAFFIC_LOSS_DURATION = 2.0  # Up to 2s of allowable loss during link failure.
+RATE_PPS = 20  # packets per second
 
 
 def restore_ha_state(localhost, ptfhost, duthost):
@@ -94,13 +96,6 @@ def common_setup_teardown(
 
     yield
 
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
-    # apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
-
 
 """
 We are testing 4 scenarios:
@@ -133,9 +128,8 @@ def test_ha_link_failure(
     traffic_to_standby
 ):
     encap_proto = "vxlan"
-    rate_pps = 20  # packets per second
     initial_send_count = 100
-    delay = 1.0 / rate_pps
+    delay = 1.0 / RATE_PPS
     rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
 
     if traffic_to_standby:
@@ -236,23 +230,24 @@ def test_ha_link_failure(
     if standby_link_fail:
         remove_acl_link_drop(duthosts[1], dash_pl_config[1][NPU_DATAPLANE_PORT])
     else:
-        remove_acl_link_drop(duthosts[0], dash_pl_config[1][NPU_DATAPLANE_PORT])
+        remove_acl_link_drop(duthosts[0], dash_pl_config[0][NPU_DATAPLANE_PORT])
     # take system out of split-brain
     restore_ha_state(localhost, ptfhost, duthosts[1])
 
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
+    link_fail = "Standby link fail" if standby_link_fail else "Primary link fail"
     if standby_link_fail:
         if failed_count > 0:
-            pytest.fail(f"Standby link fail with {traffic} test error:"
+            pytest.fail(f"{link_fail} with {traffic} test error:"
                         f"{failed_count} packets not received  {send_count} packets sent.")
         else:
-            logger.info(f"Standby link fail with {traffic} test OK. All {send_count} packets sent were received.")
+            logger.info(f"{link_fail} with {traffic} test OK. All {send_count} packets sent were received.")
     else:
-        threshold_loss = rate_pps * 2.0  # Up to 2s of allowable loss during link failure.
+        threshold_loss = RATE_PPS * TRAFFIC_LOSS_DURATION
         percentage_loss = (failed_count / send_count) * 100
         if (failed_count < threshold_loss):
-            logger.info(f"Primary link fail with {traffic} test OK. Sent: {send_count},"
+            logger.info(f"{link_fail} with {traffic} test OK. Sent: {send_count},"
                         f" not received: {failed_count}, loss: {percentage_loss}, threshold: {threshold_loss}")
         else:
-            pytest.fail(f"Primary link fail with {traffic} test error. Sent: {send_count},"
+            pytest.fail(f"{link_fail} with {traffic} test error. Sent: {send_count},"
                         f" not received: {failed_count} loss: {percentage_loss}, threshold: {threshold_loss}")
