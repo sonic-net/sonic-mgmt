@@ -14,6 +14,7 @@ import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
@@ -3236,30 +3237,13 @@ def set_queue_pir(interface, queue, rate):
         By default WRED_ECN_QUEUE and WRED_ECN_PORT are disabled for polling.
         Enable flexcounter groups WRED_ECN_QUEUE and WRED_ECN_PORT using counterpoll CLI
         """
-        duthost = duthosts.frontend_nodes[0]
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll wredqueue {} enable".format(namespace_arg))
-                    duthost.command("sudo counterpoll wredport {} enable".format(namespace_arg))
-                duthost.command("sudo config save -y")
-        else:
-            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
-                dut_asic.command("counterpoll wredqueue enable")
-                dut_asic.command("counterpoll wredport enable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for dut_asic in duthost.asics:
+                ConterpollHelper.enable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
             duthost.command("sudo config save -y")
 
         yield
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll wredqueue {} disable".format(namespace_arg))
-                    duthost.command("sudo counterpoll wredport {} disable".format(namespace_arg))
-                duthost.command("sudo config save -y")
-        else:
-            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
-                dut_asic.command("counterpoll wredqueue disable")
-                dut_asic.command("counterpoll wredport disable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for dut_asic in duthost.asics:
+                ConterpollHelper.disable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
             duthost.command("sudo config save -y")
