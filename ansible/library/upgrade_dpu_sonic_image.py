@@ -485,7 +485,6 @@ class UpgradeDpuSonicImageModule(object):
 
         try:
             for idx in dpu_indices:
-                dpu_start = time.time()
                 if self.upgrade_single_dpu(idx):
                     success_count += 1
                     results_per_dpu[idx] = "SUCCESS"
