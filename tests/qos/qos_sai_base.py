@@ -692,7 +692,17 @@ class QosSaiBase(QosBase):
                 pytest_assert(
                     ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
                 portIds.append(dutConfig["testPorts"][idName])
-        pytest_assert(self.replaceNonExistentPortId(testPortIds, list(portIds)), "No enough test ports")
+        has_enough_ports = self.replaceNonExistentPortId(testPortIds, list(portIds))
+        if not has_enough_ports:
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            is_vs = dutConfig.get('dstDutAsic') == 'vs'
+            is_t2 = src_dut.facts.get('switch_type') == 'voq'
+            if is_vs and is_t2:
+                pytest.skip(
+                    "Not enough test ports for T2 VS platform "
+                    "(need {}, got {}). See: https://github.com/sonic-net/sonic-mgmt/issues/23988".format(
+                        len(portIds), len(testPortIds)))
+            pytest_assert(False, "No enough test ports")
         for idx, idName in enumerate(portIdNames):
             dutConfig["testPorts"][idName] = portIds[idx]
             ipName = idName.replace('id', 'ip')
