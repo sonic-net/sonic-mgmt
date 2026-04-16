@@ -30,8 +30,9 @@ if ansible_path not in sys.path:
 
 
 from devutil.devices.factory import init_localhost, init_testbed_sonichosts, init_sonichosts  # noqa: E402
-from devutil.devices.sonic import upgrade_image, enable_nat_for_dpuhosts             # noqa: E402
+from devutil.devices.sonic import upgrade_image             # noqa: E402
 from devutil.devices.ansible_hosts import RunAnsibleModuleFailed                     # noqa: E402
+from devutil.devices.dpu_utils import enable_nat_for_dpuhosts  # noqa: E402
 
 
 logger = logging.getLogger(__name__)

@@ -188,7 +188,7 @@ def verify_ha_state(
     return success
 
 
-def activate_primary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type):
+def activate_primary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type, owner="dpu"):
     """
     Activate Role using pending_operation_ids
     """
@@ -196,12 +196,12 @@ def activate_primary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op
                 "version": "1",
                 "disabled": False,
                 "desired_ha_state": "active",
-                "owner": "dpu",
+                "owner": owner,
             }
     return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
 
 
-def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type):
+def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type, owner="dpu"):
     """
     Activate Role using pending_operation_ids
     """
@@ -209,7 +209,7 @@ def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_
                 "version": "1",
                 "disabled": False,
                 "desired_ha_state": "unspecified",
-                "owner": "dpu",
+                "owner": owner,
             }
     return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
 
