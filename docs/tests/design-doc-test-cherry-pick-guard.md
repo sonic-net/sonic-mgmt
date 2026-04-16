@@ -141,19 +141,14 @@ created from a fork (`mssonicbld/sonic-mgmt`), which requires elevated token per
 
 A file is classified as a **new test file** if:
 - Its `status` in the PR diff is `"added"` (not `"modified"` or `"renamed"`)
-- Its path matches one of the following patterns:
+- Its path matches the following pattern:
 
 | Pattern | Framework | Example |
 |---------|-----------|---------|
-| `tests/**/test_*.py` | pytest (primary) | `tests/bgp/test_bgp_fact.py` |
-| `tests/**/conftest.py` | pytest fixtures | `tests/bgp/conftest.py` |
-| `spytest/tests/**/*.py` | SpyTest | `spytest/tests/routing/test_ospf.py` |
-| `sdn_tests/**/*_test.go` | Bazel / Ondatra | `sdn_tests/pins_ondatra/bgp_test.go` |
+| `tests/**/test_*.py` | pytest | `tests/bgp/test_bgp_fact.py` |
 
-**Known limitations (v1):**
-- `spytest/tests/**/*.py` may match non-test utility files. This is accepted as
-  over-matching is safer than under-matching; false positives can use the bypass flow.
-- Cherry-picks may surface files as `"renamed"` rather than `"added"` depending on diff
+**Known limitation (v1):**
+Cherry-picks may surface files as `"renamed"` rather than `"added"` depending on diff
   similarity. A future iteration can also match `"renamed"` files whose new path matches
   test patterns and whose previous path does not exist on the target branch.
 
@@ -411,11 +406,9 @@ On Settings → Branches, for pattern `20????`:
 | # | Question | Owner | Status |
 |---|----------|-------|--------|
 | 1 | Which GitHub team slug is the authoritative "platform owners" for sonic-mgmt? | Platform team | Open |
-| 2 | Should `conftest.py` modifications (not additions) also be blocked? | Guard team | Open |
-| 3 | Should `spytest/` new tests be treated differently (different ownership team)? | SpyTest owners | Open |
-| 4 | Do we need a weekly digest of all bypasses, or is per-bypass email sufficient? | Guard team | Open |
-| 5 | Should the policy also apply to non-release feature branches (e.g. `feature/*`)? | Platform team | Open |
-| 6 | PAT vs GitHub App: which approach for `read:org` scope is preferred? | Platform team | Open |
+| 2 | Do we need a weekly digest of all bypasses, or is per-bypass email sufficient? | Guard team | Open |
+| 3 | Should the policy also apply to non-release feature branches (e.g. `feature/*`)? | Platform team | Open |
+| 4 | PAT vs GitHub App: which approach for `read:org` scope is preferred? | Platform team | Open |
 
 ---
 
