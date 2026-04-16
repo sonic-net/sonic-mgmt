@@ -17,47 +17,73 @@ pytestmark = [
 
 SCRIPT_FILE = "/opt/cisco/silicon-one/res/script.txt"
 
+Q200_PLATFORMS = [
+    "x86_64-8101_32h_o-r0",
+    "x86_64-8102_64h_o-r0",
+    "x86_64-8101_32fh_o-r0",
+    "x86_64-8800_rp-r0",
+    "x86_64-8800_rp_o-r0",
+    "x86_64-88_lc0_36fh_m-r0",
+    "x86_64-88_lc0_36fh_mo-r0",
+    "x86_64-88_lc0_36fh-r0",
+    "x86_64-88_lc0_36fh_o-r0",
+]
+
+NON_SUDO_USER = "non_sudo_usr"
+NON_SUDO_PASSWORD = "password"
+PERMISSION_DENIED_MESSAGE = "Are you using sudo"
+
 # List of commands allowed in non-sudo user mode
 npu_cli_dict_usr_mode = {
-        #feature cli keyword : list of options under the cli (for all topologies)
-        "packet-debug": ["capture", "status"],
-        "next-hop": ["usage"],
-        "router": ["entries", "ports"],
-        "event-trap": " ",
-        "trap": " ",
-        "global": " ",
-        "resource": " "
+    "next-hop": ["usage", "entries"],
+    "router": ["entries", "ports", "details", "route-table"],
+    "trap": ["", "list"],
+    "global": [""],
+    "resource": [""],
+    "port": ["counters", "entries"],
+    "packet-debug": ["capture", "status"],
+    "counters": [""],
+    "event-trap": [""],
+    "asic-errors": [""],
+    "asic-interrupts": [""],
+    "ecmp": [""],
+    "lpts": [""],
+    "packet-path": [""],
+    "hash": [""],
+    "bfd": ["summary", "counter"],
+    "l3-interface": [""],
+    "temperatures": [""],
+    "histograms": ["sms", "sqg", "tc"],
+    "mac": ["state"],
+    "rx": ["cgm_profile", "cgm_global", "interface_cgm", "punt"],
+    "tx": ["cgm_state", "cgm_global"],
+    "voq": ["cgm_profile", "queue_counters", "stats", "voq_globals", "voq_ids", "hbm"],
 }
 
+# NPU CLIs that require sudo (not allowed in non-sudo user mode)
 npu_cli_dict_general = {
-        #feature cli keyword : list of options under the cli (for all topologies)
-        "acl" : ["summary"],
-        "asic-errors": " ",
-        "bfd" : ["summary"],
-        "counters": " ",
-        "ecmp": " ",
-        "hash" : " ",
-        "l3-interface": " ",
-        "l3-table" : " ",
+        # feature cli keyword : list of options under the cli (for all topologies)
+        "acl": ["summary"],
+        "l3-table": " ",
         "lag": ["entries", "members"],
-        #"lpts": " ", # commented out due to known issue with lpts cli in 25.11 SDK
         "multipath": " ",
-        "next-hop": ["entries"],
-        "port": ["counters", "entries"],
         "rate-check": " ",
-        "router": ["route-table", "details"],
         "sdk-debug": ["status"],
         "switch": ["entries", "ports"],
         "trap-list": " ",
         "script": [f"-s {SCRIPT_FILE} -t 60"],
-        #"ars": ["info","flows"]
+        # "ars": ["info","flows"]
 }
 
 npu_cli_dict_q200 = {
         #feature cli keyword : list of options under the cli (only for q200)
-        "acl" : ["key-profile"],
+        "acl": ["key-profile"],
+}
+
+# Q200-only commands allowed in non-sudo user mode (moved from npu_cli_dict_q200)
+npu_cli_dict_q200_usr_mode = {
         "router": ["port-counters"],
-        "temperatures": " "
+        "temperatures": " ",
 }
 
 npu_cli_dict_t2 = {
@@ -70,6 +96,18 @@ npu_cli_dict_hw = {
         "cem-db" : " ",
         "lpm-db" : " "
 }
+
+
+def _normalize_cli_opts(opts):
+    """
+    Normalize option representation for CLI dicts.
+    Empty option can be represented as [] or " ".
+    """
+    if opts == " ":
+        return [""]
+    if isinstance(opts, list):
+        return opts
+    return [str(opts)]
 
 def get_asic_str(duthost, asic):
     if duthost.is_multi_asic:
@@ -181,8 +219,7 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
     result_list = []
     npu_cli_dict = npu_cli_dict_general.copy()
 
-    if duthost.facts["platform"] in ["x86_64-8101_32h_o-r0",
-            "x86_64-8102_64h_o-r0", "x86_64-8101_32fh_o-r0"]:
+    if duthost.facts["platform"] in Q200_PLATFORMS:
         npu_cli_dict.update(npu_cli_dict_q200)
 
     if 't2' in tbinfo['topo']['name']:
@@ -196,7 +233,7 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
             asic = enum_rand_one_asic_index
         else:
             asic = ''
-        for opt in npu_cli_dict[cli]:
+        for opt in _normalize_cli_opts(npu_cli_dict[cli]):
             result = duthost.shell("sudo show platform npu {} {} {}".format(cli, opt, get_asic_str(duthost, asic)), module_ignore_errors=True)
             logging.info(result["stdout"])
             traceback_found = "Traceback" in result["stdout"]
@@ -216,24 +253,30 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
 
 def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, enum_rand_one_asic_index):
     """
-    @summary: Verify output of `show platform npu` for user mode CLIs.
+    @summary: Verify output of `show platform npu` for user mode CLIs when run as a non-sudo user.
+    Creates non_sudo_usr (password: password), then runs allowed user-mode CLIs as that user; commands must succeed.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     check_dshell_client(duthost)
 
-    result = duthost.shell(f"sudo echo 'dapi.dump_router_ports()' > {SCRIPT_FILE}")
+    # Create non-sudo user (idempotent: ignore error if user already exists)
+    duthost.shell("sudo useradd -m -s /bin/bash {} 2>/dev/null || true".format(NON_SUDO_USER), module_ignore_errors=True)
+    duthost.shell("echo '{}:{}' | sudo chpasswd".format(NON_SUDO_USER, NON_SUDO_PASSWORD))
 
     result_list = []
     npu_cli_dict = npu_cli_dict_usr_mode.copy()
-    
+    if duthost.facts["platform"] in Q200_PLATFORMS:
+        npu_cli_dict.update(npu_cli_dict_q200_usr_mode)
+
     for cli in npu_cli_dict:
         if duthost.is_multi_asic:
             asic = enum_rand_one_asic_index
         else:
             asic = ''
-        for opt in npu_cli_dict[cli]:
-            result = duthost.shell("show platform npu {} {} {}".format(cli, opt, get_asic_str(duthost, asic)), module_ignore_errors=True)
+        for opt in _normalize_cli_opts(npu_cli_dict[cli]):
+            cmd = "show platform npu {} {} {}".format(cli, opt, get_asic_str(duthost, asic))
+            result = duthost.shell("sudo -u {} {}".format(NON_SUDO_USER, cmd), module_ignore_errors=True)
             logging.info(result["stdout"])
             traceback_found = "Traceback" in result["stdout"]
 
@@ -242,7 +285,7 @@ def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostn
             elif result is None:
                 result_list.append("No output for this CLI show platform npu {} {}".format(cli, opt))
             elif result["failed"]:
-                result_list.append("Failed CLI show platform npu {} {}".format(cli, opt))
+                result_list.append("Failed CLI show platform npu {} {} (rc={})".format(cli, opt, result.get("rc", "")))
 
     for result in result_list:
         logging.error(result)
@@ -250,6 +293,48 @@ def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostn
     assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
 
 
+def test_show_platform_npu_general_requires_sudo(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index):
+    """
+    @summary: Verify that npu_cli_dict_general commands do NOT work as non-sudo user.
+    When run as non_sudo_usr, the command must return "Permission denied. Run command in sudo mode."
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    check_dshell_client(duthost)
+
+    # Ensure non-sudo user exists
+    duthost.shell("sudo useradd -m -s /bin/bash {} 2>/dev/null || true".format(NON_SUDO_USER), module_ignore_errors=True)
+    duthost.shell("echo '{}:{}' | sudo chpasswd".format(NON_SUDO_USER, NON_SUDO_PASSWORD))
+
+    result_list = []
+    npu_cli_dict = npu_cli_dict_general.copy()
+
+    for cli in npu_cli_dict:
+        if duthost.is_multi_asic:
+            asic = enum_rand_one_asic_index
+        else:
+            asic = ''
+        opts = _normalize_cli_opts(npu_cli_dict[cli])
+        for opt in opts:
+            cmd = "show platform npu {} {} {}".format(cli, opt, get_asic_str(duthost, asic))
+            result = duthost.shell("sudo -u {} {}".format(NON_SUDO_USER, cmd), module_ignore_errors=True)
+            stdout = result.get("stdout", "")
+            logging.info("stdout for {} {}: {}".format(cli, opt, stdout))
+
+            if PERMISSION_DENIED_MESSAGE not in stdout:
+                result_list.append(
+                    "Expected '{}' for show platform npu {} {}; got: {}".format(
+                        PERMISSION_DENIED_MESSAGE, cli, opt, stdout[:200] if len(stdout) > 200 else stdout
+                    )
+                )
+
+    for msg in result_list:
+        logging.error(msg)
+
+    assert not result_list, "One or more general npu CLIs did not return permission denied for non-sudo user: {}".format(result_list)
+
+
+@pytest.mark.skip(reason="Disabled: broken testcase: MIGSOFTWAR-35140")
 def test_show_platform_npu_udump(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index):
     """
     @summary: Verify output of 'sudo udump --force -t <sw, full>'
