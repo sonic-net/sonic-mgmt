@@ -1149,6 +1149,7 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Buffer Pool watermark test is disabled")
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        buf_pool_roid = None
         if "wm_buf_pool_lossless" in bufPool:
             if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' and \
                     not get_src_dst_asic_and_duts['single_asic_test']:

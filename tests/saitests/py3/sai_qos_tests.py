@@ -83,8 +83,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
             time.sleep(interval)
             elapsed_time = time.time() - start_time
 
-    if elapsed_time >= timeout:
-        return False
+    return False
 
 
 # Counters
