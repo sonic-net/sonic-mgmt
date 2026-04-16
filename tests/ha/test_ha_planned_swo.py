@@ -126,7 +126,7 @@ def _planned_swo_phase(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set %s to standby (planned switchover)", label)
-        set_dash_ha_scope(localhost, swo_duthost, ptfhost, swo_scope_key, "standby", ha_owner)
+        set_dash_ha_scope(localhost, swo_duthost, ptfhost, swo_scope_key, "unspecified", ha_owner)
 
     t = threading.Thread(target=swo_action, name=f"{label}_swo_action_thread")
     t.start()
