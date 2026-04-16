@@ -354,16 +354,17 @@ class UpgradeDpuSonicImageModule(object):
                         self.log("[DPU {}] Back online after {}s".format(dpu_ip, elapsed))
                         ssh.close()
                         return True
-                    except Exception:
+                    except Exception as e:
+                        self.log("SSH connection to DPU {} failed during reboot wait: {}".format(dpu_ip, str(e)))
                         continue
-            except Exception:
-                pass
+            except Exception as e:
+                self.log("Exception while waiting for DPU {} to reboot: {}".format(dpu_ip, str(e)))
             finally:
                 if ssh:
                     try:
                         ssh.close()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        self.log("Exception while closing SSH connection to DPU {}: {}".format(dpu_ip, str(e)))
 
             time.sleep(REBOOT_POLL_INTERVAL)
             elapsed += REBOOT_POLL_INTERVAL
@@ -430,8 +431,8 @@ class UpgradeDpuSonicImageModule(object):
         finally:
             try:
                 ssh.close()
-            except Exception:
-                pass
+            except Exception as e:
+                self.log("WARNING: [DPU{}] Exception while closing SSH connection: {}".format(dpu_index, str(e)))
 
         if not self.reboot_dpu(dpu_index):
             self.log("WARNING: [DPU{}] FAILED: Reboot command failed".format(dpu_index))
@@ -451,8 +452,8 @@ class UpgradeDpuSonicImageModule(object):
             finally:
                 try:
                     ssh.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.log("WARNING: [DPU{}] Exception while closing SSH connection: {}".format(dpu_index, str(e)))
         else:
             self.log("WARNING: [DPU{}] Could not connect for post-reboot image cleanup".format(dpu_index))
 

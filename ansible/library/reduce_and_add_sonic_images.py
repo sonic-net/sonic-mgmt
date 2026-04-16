@@ -333,7 +333,7 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
             if hasattr(device_info, 'is_smartswitch'):
                 is_smartswitch = device_info.is_smartswitch()
         except Exception:
-            pass
+            log("Failed to determine if device is SmartSwitch")
 
         if is_smartswitch:
             log("SmartSwitch detected, keeping config_db.json and golden_config_db.json")
