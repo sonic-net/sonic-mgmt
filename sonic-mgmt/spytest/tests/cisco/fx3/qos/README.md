@@ -56,7 +56,7 @@ Summary:
 ✅  Test Result Examples
 Scheduler CLI:
 cd /data/sonic-mgmt/spytest && bin/spytest \
-  --testbed testbeds/fx3/fx3_qos_testbed.yaml \
+  --testbed testbeds/fx3/fx3_qos_testbed_2022.yaml \
   --device-feature-group master \
   --module-init-max-timeout=72000 \
   --tc-max-timeout=72000 \
@@ -105,7 +105,7 @@ cd /data/sonic-mgmt/spytest && bin/spytest \
 
 WRED CLI:
 cd /data/sonic-mgmt/spytest && bin/spytest \
-  --testbed testbeds/fx3/fx3_qos_testbed.yaml \
+  --testbed testbeds/fx3/fx3_qos_testbed_2022.yaml \
   --device-feature-group master \
   --module-init-max-timeout=72000 \
   --tc-max-timeout=72000 \

@@ -180,3 +180,39 @@ Monotonicity: `[0.00%, 0.25%, 0.50%, 2.91%, 3.85%, 4.76%, 5.11%, 6.61%, 8.26%, 9
 | 11000M | 55.500% | 55.500% | 111.000% | 2.99MB | 1.23% | 9.91% | B | OK |
 
 Monotonicity: `[0.00%, 0.25%, 0.50%, 2.91%, 3.85%, 4.76%, 5.21%, 6.54%, 8.26%, 9.91%]` — monotonically increasing
+
+---
+
+## 4. `test_wred_narrowest_zone`
+
+Test 8 (traffic): applies a 1-byte WRED zone (`min=1048576`, `max=1048577`) and
+verifies drops occur under fan-in congestion.  Both thresholds quantize to the same
+HW QDES value (39), so the WRED zone is effectively zero-width in hardware.
+
+Run date: 2026-04-07
+
+### Parameters
+
+| Parameter | Value |
+|---|---|
+| Profile | AZURE_LOSSY (narrow zone) |
+| `green_min_threshold` | 1,048,576 (1 MB) |
+| `green_max_threshold` | 1,048,577 (1 MB + 1 byte) |
+| `green_drop_probability` | 5% |
+| Margin | 10000 Mbps (10% oversubscription) |
+| Duration | 20s |
+| Depth limit | 2 MB |
+
+### Results
+
+| AF | Result | Duration | drop_rate | avg_depth | drop_pkts | egress_pkts |
+|---|---|---|---|---|---|---|
+| ipv4 | **PASS** | 2m 03s | 9.09% | 0.95 MB | 432,280,034 | 4,322,111,556 |
+| ipv6 | **PASS** | 2m 00s | 9.09% | 0.95 MB | 432,994,064 | 4,329,251,120 |
+
+### Notes
+
+The key validation is **avg queue depth** (0.95 MB), which confirms the narrow zone
+constrains the queue near the 1 MB threshold.  With the golden profile at similar
+oversubscription, the queue sits at ~3 MB.  The config-only portion (CONFIG_DB +
+ASIC_DB + DCHAL acceptance) is covered in `test_wred_config_propagation.py`.

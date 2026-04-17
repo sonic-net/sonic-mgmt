@@ -1,377 +1,398 @@
-import time
-import json
-import os
-import sys
+#!/usr/bin/env python3
+# BEGIN_LEGAL
+#
+# Copyright (c) 2026-current, Cisco Systems, Inc. ("Cisco"). All Rights Reserved.
+#
+# This file and all technical concepts, proprietary knowledge, algorithms and
+# intellectual property rights it contains (collectively the "Confidential Information"),
+# are the sole propriety information of Cisco and shall remain at Cisco's ownership.
+# You shall not disclose the Confidential Information to any third party and you
+# shall use it solely in connection with operating and/or maintaining of Cisco's
+# products and pursuant to the terms and conditions of the license agreement you
+# entered into with Cisco.
+#
+# THE SOURCE CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+# IN NO EVENT SHALL CISCO BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+# AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
+# THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+# END_LEGAL
+
+"""
+FX3 QoS Strict Priority Tests — verify STRICT scheduler queues with PIR enforcement.
+
+Topology is auto-detected by setup_topo_common (from fx3_qos_helpers):
+  ixia      -- D1T1:3.  2 ingress + 1 egress, all IXIA on DUT1.
+  peer_link -- D1T1:2 + D1D2:1 + D2T1:1.  Egress is the peer link to DUT2.
+  breakout  -- D1T1:1 + D1D2:1 + D2T1:1.  1 ingress, 4x25G breakout egress.
+
+Test matrix (for each frame size and PIR value):
+  - Two streams of the same high TC  (both at STRICT queue 6)
+  - Two streams of different TCs      (high=7, low=6 — priority preemption)
+  - Two streams of the same low TC   (both at STRICT queue 7)
+
+Each case verifies that actual packet loss matches the theoretical expectation
+within tolerance, given the configured PIR and available egress bandwidth.
+"""
+
 import pytest
-import pprint
-import tortuga_common_utils as common_util
-import traffic_stream_ixia_api as stream_api
 
-from spytest import st, tgapi, SpyTestDict
-module_dir = os.path.join(os.path.dirname(__file__), '../../', 'common')
-sys.path.insert(0, os.path.abspath(module_dir))
+from fx3_qos_helpers import (
+    setup_topo_common,
+    IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP, IXIA_EGRESS_IP,
+    get_dut_mac, parse_speed_to_mbps,
+    clear_dut_counters, deploy_dchal_helper,
+    get_dchal_queue_counters, log_queue_counters,
+)
 
-min_keys = ["leaf", "tc", "frame_sizes", "pirs", "stream_rates"]
-
-
-def remove_interface_from_vlan(dut, interface):
-    """
-    Remove interface from any VLAN membership.
-
-    Example 'show vlan brief' output:
-    +-----------+--------------+--------------+----------------+-------------+...
-    |   VLAN ID | IP Address   | Ports        | Port Tagging   | Proxy ARP   |...
-    +===========+==============+==============+================+=============+...
-    |        10 |              | Ethernet1_49 | untagged       | disabled    |...
-    |           |              | Ethernet1_50 | tagged         |             |...
-    +-----------+--------------+--------------+----------------+-------------+...
-    """
-    st.log("Checking if {} is a member of any VLAN...".format(interface))
-
-    output = st.show(dut, "show vlan brief", skip_tmpl=True)
-    if not output:
-        st.log("No VLAN configuration found.")
-        return True
-
-    vlans_to_remove = []
-    current_vlan_id = None
-
-    for line in output.split('\n'):
-        # Skip header/separator lines
-        if '===' in line or '---' in line or 'VLAN ID' in line or not line.strip():
-            continue
-
-        if '|' not in line:
-            continue
-
-        # Split by '|' and strip each field
-        fields = [f.strip() for f in line.split('|')]
-
-        # fields[0] is empty, fields[1] is VLAN ID
-        if len(fields) > 1 and fields[1].isdigit():
-            current_vlan_id = fields[1]
-
-        # Check if interface is in this line
-        if interface in line and current_vlan_id:
-            if current_vlan_id not in vlans_to_remove:
-                vlans_to_remove.append(current_vlan_id)
-
-    if not vlans_to_remove:
-        st.log("{} is not a member of any VLAN.".format(interface))
-        return True
-
-    st.log("Found {} in VLAN(s): {}".format(interface, vlans_to_remove))
-
-    for vlan_id in vlans_to_remove:
-        st.log("Removing {} from VLAN {}...".format(interface, vlan_id))
-        st.config(dut, "config vlan member del {} {}".format(vlan_id, interface),
-                  skip_error_check=True)
-
-    return True
+from spytest import st, tgapi
 
 
-def remove_interface_from_portchannel(dut, interface):
-    """
-    Remove interface from any PortChannel membership.
+# ── Test parameters (previously loaded from sp_input_short.json2) ─────────
+# Traffic classes under test (STRICT queues on FX3)
+TC_PAIR = [6, 7]
 
-    Example 'show interfaces portchannel' output:
-    Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available,
-           S - selected, D - deselected, * - not synced
-      No.  Team Dev      Protocol     Ports
-    -----  ------------  -----------  --------------
-        2  PortChannel2  LACP(A)(Dw)  Ethernet1_4(D)
-    """
-    st.log("Checking if {} is a member of any PortChannel...".format(interface))
+# DSCP values that map to each queue under the default AZURE dscp_to_tc_map
+QUEUE_TO_DSCP = {
+    0: 0, 1: 6, 2: 2, 3: 3, 4: 4, 5: 46, 6: 48, 7: 49,
+}
 
-    output = st.show(dut, "show interfaces portchannel", skip_tmpl=True)
-    if not output:
-        st.log("No PortChannel configuration found.")
-        return True
+# PIR values as percent of egress line rate
+PIRS = [60]
 
-    portchannel_name = None
+# Stream rate pairs as percent of egress line rate: [stream_high%, stream_low%]
+STREAM_RATES = [[40, 40], [80, 20], [80, 80]]
 
-    for line in output.split('\n'):
-        # Interface appears with suffix like Ethernet1_4(D)
-        if interface in line:
-            parts = line.split()
-            for part in parts:
-                if part.startswith('PortChannel'):
-                    portchannel_name = part
-                    break
-            if portchannel_name:
-                break
+# Frame sizes to test
+FRAME_SIZES = [1350, 8192]
 
-    if not portchannel_name:
-        st.log("{} is not a member of any PortChannel.".format(interface))
-        return True
+# Traffic duration in seconds
+TRAFFIC_DURATION = 45
 
-    st.log("Found {} in PortChannel: {}".format(interface, portchannel_name))
-    st.log("Removing {} from {}...".format(interface, portchannel_name))
-    st.config(dut, "config portchannel member del {} {}".format(portchannel_name, interface),
-              skip_error_check=True)
+# Loss deviation tolerance (percent) — within this, result is PASS
+LOSS_TOLERANCE = 5.0
 
-    return True
+# Extended tolerance — within this, result is PASS with warning
+LOSS_TOLERANCE_WARN = 18.0
 
 
-def remove_interface_from_all_memberships(dut, interface):
-    """
-    Remove interface from both VLAN and PortChannel memberships.
-    """
-    st.log("Removing {} from all memberships (VLAN and PortChannel)...".format(interface))
+# ── Module state ─────────────────────────────────────────────────────────
+dut = None
+tg = None
+tg_ph = {}
+port_info = {}
+port_speeds = {}       # {'ingress_a': 100, 'egress': 25} — Gbps
+tb_vars = None
+topo_mode = 'ixia'
+egress_speed_gbps = 100
+pass_ctr = 0
+fail_ctr = 0
 
-    vlan_result = remove_interface_from_vlan(dut, interface)
-    pc_result = remove_interface_from_portchannel(dut, interface)
+# IXIA IPs keyed by role for stream creation
+IXIA_IPV4 = {
+    'ingress_a': IXIA_INGRESS_A_IP,
+    'ingress_b': IXIA_INGRESS_B_IP,
+    'egress':    IXIA_EGRESS_IP,
+}
 
-    return vlan_result and pc_result
 
-def calc_gbps(gbps_percnt):
-    return int(gbps_percnt) * test_info['if_speed'] / 100.0
-
-def tgen_ports_check():
-    st.config(vars.D3, "config qos reload", skip_tmpl=True)
-    st.config(vars.D4, "config qos reload", skip_tmpl=True)
-    for src in ['T1D4P1', 'T1D4P2', 'T1D4P3', 'T1D4P4']:
-        for dst in ['T1D4P1', 'T1D4P2', 'T1D4P3', 'T1D4P4']:
-            if src == dst:
-                continue
-
-            str_id = stream_api.create_traffic_stream(tb_dict, src, dst, 8192,
-                         stream_api.gbps_to_pps(99.9, 8192), 3)
-            if str_id == None:
-                st.error('Stream creation failed')
-                continue
-            st.log('stream_id ', str_id)
-            stream_api.start_traffic_stream(str_id)
-            st.wait(10)
-            stream_api.stop_traffic_stream(str_id)
-            st.wait(5)
-            stats = stream_api.collect_traffic_stream_stats()
-            stream_api.delete_traffic_stream(str_id)
+# ── Fixture ──────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_topo():
-    global tb_dict
-    global vars
-    global test_info
+    """Set up DUT L3, IXIA interfaces, QoS baseline via setup_topo_common."""
+    global dut, tg, tg_ph, port_info, tb_vars, port_speeds
+    global topo_mode, egress_speed_gbps
 
-    st.log("setup topology Started")
-    test_info = common_util.get_qos_test_dict('../qos/sp_input_short.json2',
-                                              'STRICT_PRIORITY_TEST')
-    if test_info == None:
-        st.report_fail('msg', 'Failed to read test input file or missing key')
+    for result in setup_topo_common(tgapi, target_queue=TC_PAIR[0]):
+        dut = result['dut']
+        tg = result['tg']
+        tg_ph = result['tg_ph']
+        port_info = result['port_info']
+        tb_vars = result['tb_vars']
+        topo_mode = result['mode']
+
+        raw_speeds = result['port_speeds']
+        port_speeds = {}
+        for role, spd_str in raw_speeds.items():
+            mbps = parse_speed_to_mbps(spd_str)
+            port_speeds[role] = mbps // 1000 if mbps else 100
+
+        egress_speed_gbps = port_speeds.get('egress', 100)
+
+        deploy_dchal_helper(dut)
+
+        st.log("setup_topo: mode={}, egress_speed={}G, port_info={}".format(
+            topo_mode, egress_speed_gbps, port_info))
+        yield
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────
+
+def gbps_to_scheduler_rate(gbps):
+    """Convert Gbps to bytes/sec for SONiC SCHEDULER CIR/PIR (SAI_METER_TYPE_BYTES)."""
+    return int(gbps * 125000000)
+
+
+def report_pass_or_fail(gbps, avail, loss, s_info, pir, frame_size):
+    """Compare actual loss against theoretical expectation.
+
+    gbps:  total stream rate in Gbps (sum if same-TC pair)
+    avail: available bandwidth in Gbps for this stream
+    loss:  actual loss percent from queue counters (-1 means no data)
+    s_info: formatted info string for logging
+    """
+    global pass_ctr, fail_ctr
+
+    info1 = 'PIR(gbps) {:.2f} Frame Len {} '.format(pir, frame_size)
+
+    if loss < 0:
+        st.log('FAIL: ' + info1 + s_info +
+               ' (DCHAL returned no queue data — cannot compute loss)')
+        fail_ctr += 1
         return
 
-    for k in min_keys:
-        if k not in test_info:
-            st.report_fail('msg', 'Input dictionary is missing {}'.format(k))
-            sys.exit(-1)
-
-    test_info['tgen_port_cnt'] = 4
-    # the leaf to leaf link D3D4 is non-standard for a 2 spine 2 leaf topology
-    # the non-standard link is useful for breakout testing with data streams
-    tb_dict = st.ensure_min_topology("D1D3:2", "D1D4:2", "D2D3:1", "D2D4:1",
-                                     "D3T1:4", "D4T1:4")
-    vars = st.get_testbed_vars()
-
-    test_info['dut'] = tb_dict[test_info['leaf']]
-    test_info['src'] = ['T1' + test_info['leaf'] + 'P1',
-                        'T1' + test_info['leaf'] + 'P2']
-    test_info['dst'] = 'T1' + test_info['leaf'] + 'P3'
-    test_info['dut_if'] = tb_dict[test_info['leaf'] + 'T1' + 'P3']
-    stream_api.traffic_api_init('T1' + test_info['leaf'],
-                                ['0', '1', '2', '3', '0', '0', '0', '0'])
-    temp = st.show(test_info['dut'],
-                "show int status {} | tail -1 | awk '{{print $3}}'".format(\
-                test_info['dut_if']), skip_tmpl=True)
-    temp = temp.splitlines()[0]
-    if temp[-1].upper() == 'G':
-        temp = temp[:-1]
-    test_info['if_speed'] = int(temp) if temp.isdigit() else 10
-    test_info['gbps_table'] = []
-    for r in test_info['stream_rates']:
-        test_info['gbps_table'].append((calc_gbps(r[0]), calc_gbps(r[1])))
-
-    common_util.cleanup_ip_interfaces(test_info['dut'])
-    if test_info['dut'] == vars.D3:
-        remove_interface_from_all_memberships(test_info['dut'], vars.D3T1P1)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D3T1P2)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D3T1P3)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D3T1P4)
-    elif test_info['dut'] == vars.D4:
-        remove_interface_from_all_memberships(test_info['dut'], vars.D4T1P1)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D4T1P2)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D4T1P3)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D4T1P4)
-    stream_api.config_one_leaf(tb_dict, test_info)
-    st.log("setup topology Done")
-            
-    if test_info['test_tgen'] == 'True':
-        tgen_ports_check()
-    yield
-    common_util.cleanup_ip_interfaces(test_info['dut'])
-
-'''
-gbps is the total stream rate in gigabits /sec
-If 2 streams are of the same TC, then its the sum of both streams
-
-avail is how much bandwidth is theoretically available for the stream(s)
-
-loss is the percent of loss returned in statistics
-
-s_info is the formatted string containing key info about the stream(s)
-'''
-def report_pass_or_fail(gbps, avail, loss, s_info):
     diff = gbps - avail
     if diff <= 0:
-        # If available is more than input traffic rate, we should be good
         expected_loss_percnt = 0
     else:
         expected_loss_percnt = diff * 100.0 / gbps
     delta = loss - expected_loss_percnt
     if delta <= 0:
-        # we suffered less loss than expected
         delta_percnt = 0
     elif expected_loss_percnt == 0:
-        # When no loss is expected, any loss is a delta
         delta_percnt = delta
     else:
-        # Calculate the percent of deviation from theoretical loss%
         delta_percnt = delta * 100.0 / expected_loss_percnt
-    info1 = 'PIR(gbps) {} Frame Len {} '.format(test_info['pir'],
-                test_info['frame_size'])
-    if delta_percnt <= 5:
-        # If deviation from expected loss is withint 5%, we call it a PASS
+
+    if delta_percnt <= LOSS_TOLERANCE:
         st.log('PASS: ' + info1 + s_info + ' Exp Loss% {:.2f}'.format(
-              expected_loss_percnt))
-        test_info['pass_ctr'] += 1
-    elif delta_percnt <= 18:
-        # TODO: This need further investigation
+            expected_loss_percnt))
+        pass_ctr += 1
+    elif delta_percnt <= LOSS_TOLERANCE_WARN:
         st.log('PASS: ' + info1 + s_info + ' Exp Loss% {:.2f}'.format(
-              expected_loss_percnt))
-        st.banner(f'Warning: delta % is {delta_percnt}')
-        test_info['pass_ctr'] += 1
+            expected_loss_percnt))
+        st.banner('Warning: delta % is {:.2f}'.format(delta_percnt))
+        pass_ctr += 1
     else:
         st.log('FAIL: ' + info1 + s_info + ' Exp Loss% {:.2f}'.format(
-              expected_loss_percnt))
-        test_info['fail_ctr'] += 1
+            expected_loss_percnt))
+        fail_ctr += 1
 
-def run_traffic_test(gbps_pair, tc_pair):
-    str1 = str2 = None
+
+def run_traffic_test(rate_pair_gbps, tc_pair, frame_size, pir_gbps):
+    """Send 2 STRICT-priority streams and validate loss via DUT queue counters.
+
+    In breakout mode with a single ingress port, both streams are sent from
+    the same port with different DSCP values.  The DUT queues them into
+    separate STRICT queues based on DSCP-to-TC mapping.
+    """
     if tc_pair[0] < tc_pair[1]:
-        high = 1
-        low = 0
+        high, low = 1, 0
     else:
-        high = 0
-        low = 1
-    # str1 is the higher priority stream. If both streams belong to same tc,
-    # they they are created in order of occurrence in the tc_pair
-    str1 = stream_api.create_traffic_stream(tb_dict, test_info['src'][high],
-              test_info['dst'], test_info['frame_size'],
-              stream_api.gbps_to_pps(gbps_pair[high], test_info['frame_size']),
-              tc_pair[high])
-    if str1 == None:
-        st.error('Stream creation failed str1')
-        return
-    str1['tc'] = tc_pair[high]
-    str1['gbps'] = gbps_pair[high]
+        high, low = 0, 1
 
-    str2 = stream_api.create_traffic_stream(tb_dict, test_info['src'][low],
-              test_info['dst'], test_info['frame_size'],
-              stream_api.gbps_to_pps(gbps_pair[low], test_info['frame_size']),
-              tc_pair[low])
-    if str2 == None:
-        st.error('Stream creation failed str2')
-        return
-    str2['tc'] = tc_pair[low]
-    str2['gbps'] = gbps_pair[low]
-    
-    st.log('Test info before stream execution')
-    st.log(test_info)
+    ingress_roles = sorted(k for k in port_info if k != 'egress')
+    ingress_speed = port_speeds.get(ingress_roles[0], 100)
+    router_mac = get_dut_mac(dut, port_info[ingress_roles[0]])
+    egress_intf = port_info['egress']
 
-    # 2 streams have been created. Now execute them
-    stream_api.start_traffic_stream()
-    st.wait(45)
-    stream_api.stop_traffic_stream()
+    dscp_high = QUEUE_TO_DSCP[tc_pair[high]]
+    dscp_low = QUEUE_TO_DSCP[tc_pair[low]]
+
+    rate_pct_high = rate_pair_gbps[high] * 100.0 / ingress_speed
+    rate_pct_low = rate_pair_gbps[low] * 100.0 / ingress_speed
+
+    if len(ingress_roles) >= 2:
+        ph_high = tg_ph[ingress_roles[0]]
+        ph_low = tg_ph[ingress_roles[1]]
+        src_ip_high = IXIA_IPV4.get(ingress_roles[0], IXIA_INGRESS_A_IP)
+        src_ip_low = IXIA_IPV4.get(ingress_roles[1], IXIA_INGRESS_B_IP)
+        mac_high = get_dut_mac(dut, port_info[ingress_roles[0]])
+        mac_low = get_dut_mac(dut, port_info[ingress_roles[1]])
+    else:
+        ph_high = tg_ph[ingress_roles[0]]
+        ph_low = tg_ph[ingress_roles[0]]
+        src_ip_high = IXIA_IPV4.get(ingress_roles[0], IXIA_INGRESS_A_IP)
+        src_ip_low = src_ip_high
+        mac_high = router_mac
+        mac_low = router_mac
+
+    st.log("  Stream HIGH: TC={} DSCP={} rate={:.2f}G ({:.1f}%) src={} frame={}".format(
+        tc_pair[high], dscp_high, rate_pair_gbps[high], rate_pct_high,
+        src_ip_high, frame_size))
+    st.log("  Stream LOW:  TC={} DSCP={} rate={:.2f}G ({:.1f}%) src={} frame={}".format(
+        tc_pair[low], dscp_low, rate_pair_gbps[low], rate_pct_low,
+        src_ip_low, frame_size))
+
+    clear_dut_counters(dut)
+    tg.tg_traffic_control(action='clear_stats')
+
+    q_before = get_dchal_queue_counters(dut, egress_intf, "SP before")
+
+    res_high = tg.tg_traffic_config(
+        mode='create', port_handle=ph_high,
+        l3_protocol='ipv4', l4_protocol='icmp',
+        ip_src_addr=src_ip_high,
+        ip_dst_addr=IXIA_EGRESS_IP,
+        mac_dst=mac_high,
+        ip_dscp=dscp_high,
+        ip_ttl=64,
+        frame_size=frame_size,
+        rate_percent=rate_pct_high,
+        transmit_mode='continuous',
+        high_speed_result_analysis=0,
+    )
+    res_low = tg.tg_traffic_config(
+        mode='create', port_handle=ph_low,
+        l3_protocol='ipv4', l4_protocol='icmp',
+        ip_src_addr=src_ip_low,
+        ip_dst_addr=IXIA_EGRESS_IP,
+        mac_dst=mac_low,
+        ip_dscp=dscp_low,
+        ip_ttl=64,
+        frame_size=frame_size,
+        rate_percent=rate_pct_low,
+        transmit_mode='continuous',
+        high_speed_result_analysis=0,
+    )
+
+    tg.tg_traffic_control(action='apply')
+    tg.tg_traffic_control(action='run')
+    st.wait(TRAFFIC_DURATION)
+    tg.tg_traffic_control(action='stop')
     st.wait(5)
 
-    stats = stream_api.collect_traffic_stream_stats()
-    if 'traffic_item' not in stats:
-        st.report_fail('msg', 'Failed to find traffic_item in stats')
-        sys.exit(-1)
+    q_after = get_dchal_queue_counters(dut, egress_intf, "SP after")
 
-    # Each stream handle will have an entry in the stats dictionary
-    item_stats = stats['traffic_item']
-    str1['loss'] = float(item_stats[str1['stream_id']]['rx']['loss_percent'])
-    str2['loss'] = float(item_stats[str2['stream_id']]['rx']['loss_percent'])
+    st.log("  Queue counters BEFORE:")
+    log_queue_counters(q_before)
+    st.log("  Queue counters AFTER:")
+    log_queue_counters(q_after)
 
-    if str1['tc'] == str2['tc']:
-        # Both streams belong to the same traffic class
-        loss_percent = (str1['loss'] + str2['loss']) / 2.0
-        total_gbps = (gbps_pair[0] + gbps_pair[1])
-        s_info = 'TC {} Streams(gbps) {} Avg Loss% {:.2f}'.format(str1['tc'],
-                    gbps_pair, loss_percent)
-        report_pass_or_fail(total_gbps, test_info['pir'], loss_percent, s_info)
+    for sh in [res_high, res_low]:
+        try:
+            tg.tg_traffic_config(mode='remove', stream_id=sh.get('stream_id'))
+        except Exception:
+            pass
+
+    dchal_empty = (not q_before) and (not q_after)
+    if dchal_empty:
+        st.error("DCHAL returned no queue data — loss results are unreliable. "
+                 "Verify deploy_dchal_helper() ran and /tmp/dchal_qi.py exists "
+                 "inside the syncd container.")
+
+    def _queue_loss_pct(qi):
+        tx = (q_after.get(qi, {}).get('pkts', 0)
+              - q_before.get(qi, {}).get('pkts', 0))
+        drops = (q_after.get(qi, {}).get('drop_pkts', 0)
+                 - q_before.get(qi, {}).get('drop_pkts', 0))
+        total = tx + drops
+        if total <= 0:
+            return -1.0 if dchal_empty else 0.0
+        return drops * 100.0 / total
+
+    if tc_pair[high] == tc_pair[low]:
+        qi = tc_pair[high]
+        loss_percent = _queue_loss_pct(qi)
+        total_gbps = rate_pair_gbps[0] + rate_pair_gbps[1]
+        s_info = 'TC {} Streams(gbps) ({:.2f},{:.2f}) Loss% {:.2f}'.format(
+            qi, rate_pair_gbps[0], rate_pair_gbps[1], loss_percent)
+        report_pass_or_fail(total_gbps, pir_gbps, loss_percent, s_info,
+                            pir_gbps, frame_size)
     else:
-        # str1 corresponds to the higher priority stream
-        # Theoretically the higher priority stream should take upto the PIR
-        # and the rest of the bandwidht should go to lower priority stream
-        s_info = 'TC {} Stream(gbps) {:.2f} Loss% {:.2f}'.format(str1['tc'],
-                    str1['gbps'], str1['loss'])
-        report_pass_or_fail(str1['gbps'], test_info['pir'], str1['loss'],
-                            s_info)
-        s_info = 'TC {} Stream(gbps) {:.2f} Loss% {:.2f}'.format(str2['tc'],
-                    str2['gbps'], str2['loss'])
-        # Theoretically, whatever bandwidth remains after passing higher 
-        # priority stream, should go to lower priority stream. So we used upto
-        # PIR of the bandwidth for str1 (the higher priority stream). Now we 
-        # calculate how much remains
-        remaining_gbps = test_info['if_speed'] - min(str1['gbps'], test_info['pir'])
-        if remaining_gbps > test_info['pir']:
-            remaining_gbps = test_info['pir']
-        report_pass_or_fail(str2['gbps'], remaining_gbps, str2['loss'], s_info)
+        loss_high = _queue_loss_pct(tc_pair[high])
+        loss_low = _queue_loss_pct(tc_pair[low])
 
-    stream_api.delete_traffic_stream(str1)
-    stream_api.delete_traffic_stream(str2)
+        s_info = 'TC {} Stream(gbps) {:.2f} Loss% {:.2f}'.format(
+            tc_pair[high], rate_pair_gbps[high], loss_high)
+        report_pass_or_fail(rate_pair_gbps[high], pir_gbps, loss_high, s_info,
+                            pir_gbps, frame_size)
 
-def get_scheduler_cfg(tc):
-    new_name = test_info['dst'] + '_' + str(tc) + str(test_info['pir_bytes'])
-    test_info['cfg'] += '''config scheduler add --type STRICT --cir {} --pir {} {}\n
-        config queue queue-list update --scheduler {} {} {}\n'''.format(\
-        test_info['pir_bytes'], test_info['pir_bytes'], new_name, new_name, 
-        test_info['dut_if'], tc)
+        remaining_gbps = egress_speed_gbps - min(
+            rate_pair_gbps[high], pir_gbps)
+        if remaining_gbps > pir_gbps:
+            remaining_gbps = pir_gbps
 
-def apply_pir(pir):
-    test_info['pir'] = (int(pir) * test_info['if_speed']) / 100.0
-    test_info['pir_bytes'] = stream_api.gbps_to_bytes(test_info['pir'])
-    test_info['cfg'] = 'config qos reload\n'
-    get_scheduler_cfg(test_info['tc'][0])
-    get_scheduler_cfg(test_info['tc'][1])
-    st.config(test_info['dut'], test_info['cfg'], skip_tmpl=True)
+        s_info = 'TC {} Stream(gbps) {:.2f} Loss% {:.2f}'.format(
+            tc_pair[low], rate_pair_gbps[low], loss_low)
+        report_pass_or_fail(rate_pair_gbps[low], remaining_gbps, loss_low,
+                            s_info, pir_gbps, frame_size)
 
-def test_one_dev_strict_priority():
-    # Test assumes a single device with 3 or more tgen ports connected to it
-    st.banner('Test STARTED')
 
-    test_info['tc'][0] = int(test_info['tc'][0])
-    test_info['tc'][1] = int(test_info['tc'][1])
-    test_info['pass_ctr'] = test_info['fail_ctr'] = 0
-    for tc_pair in [(test_info['tc'][0], test_info['tc'][0]),
-                    (test_info['tc'][0], test_info['tc'][1]),
-                    (test_info['tc'][1], test_info['tc'][1])]:
-        for pir in test_info['pirs']:
-            apply_pir(pir)
-            for gbps_pair in test_info['gbps_table']:
-                for frame_size in test_info['frame_sizes']:
-                        test_info['frame_size'] = int(frame_size)
-                        run_traffic_test(gbps_pair, tc_pair)
+def apply_pir(pir_pct):
+    """Configure STRICT scheduler profiles at the given PIR (percent of egress).
 
-    # Clear any qos config
-    st.config(test_info['dut'], 'config qos clear', skip_tmpl=True)
+    Reloads QoS baseline, then adds STRICT scheduler entries for both TCs
+    under test and binds them to the egress interface queues.
+    """
+    pir_gbps = pir_pct * egress_speed_gbps / 100.0
+    pir_bps = str(gbps_to_scheduler_rate(pir_gbps))
+    egress_intf = port_info['egress']
 
-    # Print the final disposition of the test execution
-    final_msg = 'Test Cases: Passed={} Failed={}'.format(
-                    test_info['pass_ctr'], test_info['fail_ctr'])
-    if test_info['fail_ctr'] > 0:
+    st.config(dut, 'config qos reload', skip_error_check=True)
+
+    for tc in TC_PAIR:
+        sched_name = 'sp_tc{}_{}'.format(tc, pir_bps)
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB HSET "SCHEDULER|{}" '
+                  '"type" "STRICT" "meter_type" "bytes" '
+                  '"cir" "{}" "pir" "{}"'.format(
+                      sched_name, pir_bps, pir_bps),
+                  skip_error_check=True)
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|{}" '
+                  '"scheduler" "{}"'.format(egress_intf, tc, sched_name),
+                  skip_error_check=True)
+
+    st.wait(5)
+    return pir_gbps
+
+
+# ── Test ─────────────────────────────────────────────────────────────────
+
+def test_one_dev_strict_priority(setup_topo):
+    """Verify STRICT scheduler queues enforce PIR across TC combinations.
+
+    Test matrix: for each (tc_pair, pir, stream_rate_pair, frame_size),
+    send two concurrent streams and validate loss against theoretical
+    expectation.
+    """
+    global pass_ctr, fail_ctr
+
+    st.banner('test_one_dev_strict_priority STARTED (mode={})'.format(topo_mode))
+    pass_ctr = 0
+    fail_ctr = 0
+
+    tc0 = TC_PAIR[0]
+    tc1 = TC_PAIR[1]
+
+    for tc_pair in [(tc0, tc0), (tc0, tc1), (tc1, tc1)]:
+        for pir_pct in PIRS:
+            pir_gbps = apply_pir(pir_pct)
+
+            # Convert stream rate percentages to absolute Gbps
+            gbps_table = []
+            for rate_pair in STREAM_RATES:
+                gbps_table.append((
+                    int(rate_pair[0]) * egress_speed_gbps / 100.0,
+                    int(rate_pair[1]) * egress_speed_gbps / 100.0,
+                ))
+
+            for gbps_pair in gbps_table:
+                for frame_size in FRAME_SIZES:
+                    st.banner(
+                        'SP: TC=({},{}) PIR={:.1f}G rates=({:.1f},{:.1f})G '
+                        'frame={}'.format(
+                            tc_pair[0], tc_pair[1], pir_gbps,
+                            gbps_pair[0], gbps_pair[1], frame_size))
+                    run_traffic_test(gbps_pair, tc_pair, int(frame_size),
+                                     pir_gbps)
+
+    st.config(dut, 'config qos clear', skip_error_check=True)
+
+    final_msg = 'Test Cases: Passed={} Failed={}'.format(pass_ctr, fail_ctr)
+    if fail_ctr > 0:
         st.report_fail('msg', final_msg)
     else:
         st.report_pass('msg', final_msg)

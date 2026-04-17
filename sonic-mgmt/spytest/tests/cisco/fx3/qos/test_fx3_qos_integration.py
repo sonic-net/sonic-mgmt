@@ -62,15 +62,14 @@ warnings.filterwarnings(
 
 from fx3_qos_helpers import (
     QUEUE_TO_DSCP, NUM_QUEUES, PKT_SIZE,
-    V4_INGRESS_A_IP, V4_INGRESS_B_IP, V4_EGRESS_IP,
-    V6_INGRESS_A_IP, V6_INGRESS_B_IP, V6_EGRESS_IP,
+    V4_INGRESS_A_IP, V4_INGRESS_B_IP,
+    V6_INGRESS_A_IP, V6_INGRESS_B_IP,
     IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP, IXIA_EGRESS_IP,
     IXIA_INGRESS_A_IP6, IXIA_INGRESS_B_IP6, IXIA_EGRESS_IP6,
-    NETMASK, PREFIX_LEN_V6,
     WRED_MIN_TH, WRED_MAX_TH, WRED_MAX_PROB,
     WRED_TOLERANCE, WRED_DURATION, WRED_SETTLE_TIME,
-    setup_topo_common,
-    verify_config_db_baseline,
+    setup_topo_common, verify_egress_reachable,
+    verify_config_db_baseline, compute_dwrr_rate_pct, scale_margin,
     deploy_dchal_helper, dchal_show_queuing, report_dchal_bw_check,
     get_dchal_queue_counters, get_dut_mac,
     clear_dut_counters, dchal_clear_counters, get_intf_counters,
@@ -85,7 +84,7 @@ from spytest import st, tgapi
 
 # ── Test-specific parameters ──────────────────────────────────────────────
 TRAFFIC_DURATION   = 10      # match test_scheduler_validation.py
-STREAM_RATE_PCT    = 8       # 8% of 100G line rate per stream (match test_scheduler_validation.py)
+DWRR_OVERSUB       = 1.28    # target oversubscription ratio for DWRR traffic
 TARGET_QUEUE       = 1
 TARGET_DSCP        = QUEUE_TO_DSCP[TARGET_QUEUE]   # 6
 
@@ -95,18 +94,23 @@ TARGET_DSCP        = QUEUE_TO_DSCP[TARGET_QUEUE]   # 6
 # queue depth above min_th and into Zone B.  Use a small negative margin
 # so combined rate stays ~0.5% below line rate, keeping the queue firmly
 # in Zone A while still validating the "below min_th → zero drops" property.
+#
+# All margin constants are authored for 100G egress (the baseline).
+# scale_margin() adjusts them proportionally for slower links (e.g. 25G
+# breakout) so the overshoot ratio stays constant across topologies.
 WRED_ZONE_A_MARGIN  = -500       # Mbps below line rate (per fan-in pair)
 
 # ── Module state ─────────────────────────────────────────────────────────
 dut = None
 tg = None
-tg_ph = {}          # {'ingress_a': handle, 'ingress_b': handle, 'egress': handle}
-port_info = {}      # {'ingress_a': '<D1T1P1>', 'ingress_b': '<D1T1P2>', 'egress': '<D1T1P3>'}
-port_speeds = {}    # {'ingress_a': '100G', 'ingress_b': '100G', 'egress': '100G'}
+tg_ph = {}          # {'ingress_a': handle, ['ingress_b': handle,] 'egress': handle}
+port_info = {}      # {'ingress_a': '<port>', ['ingress_b': '<port>',] 'egress': '<port>'}
+port_speeds = {}    # {'ingress_a': '100G', 'egress': '100G' or '25G', ...}
 ingress_speed_mbps = 0
 egress_speed_mbps = 0
 wred_ctx = {}       # shared context dict for WRED helper functions
 tb_vars = None
+stream_rate_pct = 0 # computed by setup_topo via compute_dwrr_rate_pct
 
 
 # ── Fixture ──────────────────────────────────────────────────────────────
@@ -116,6 +120,7 @@ def setup_topo():
     """Set up DUT L3, IXIA interfaces, and QoS baseline for all tests."""
     global dut, tg, tg_ph, port_info, port_speeds
     global ingress_speed_mbps, egress_speed_mbps, wred_ctx, tb_vars
+    global stream_rate_pct
 
     for result in setup_topo_common(tgapi, target_queue=TARGET_QUEUE):
         dut = result['dut']
@@ -127,6 +132,15 @@ def setup_topo():
         egress_speed_mbps = result['egress_speed_mbps']
         wred_ctx = result['wred_ctx']
         tb_vars = result['tb_vars']
+
+        num_ingress = len([k for k in tg_ph
+                          if k not in ('egress', 'egress_sink')])
+        stream_rate_pct = compute_dwrr_rate_pct({
+            'ingress_speed_mbps': ingress_speed_mbps,
+            'egress_speed_mbps': egress_speed_mbps,
+            'num_queues': NUM_QUEUES,
+            'num_ingress_ports': num_ingress,
+        }, oversub_ratio=DWRR_OVERSUB)
         yield
 
 # def test_fx3_scheduler_reordered_config():
@@ -265,17 +279,13 @@ def test_scheduler_dwrr_validation(af):
 
     # ── Address-family dispatch ──
     if af == "ipv6":
-        src_ips   = (IXIA_INGRESS_A_IP6, IXIA_INGRESS_B_IP6)
-        dst_ip    = IXIA_EGRESS_IP6
-        egress_gw = V6_EGRESS_IP.split('/')[0]
-        nb_cmd    = 'show ndp'
-        ping_cmd  = 'ping6'
+        src_ips = (IXIA_INGRESS_A_IP6, IXIA_INGRESS_B_IP6)
+        dst_ip  = IXIA_EGRESS_IP6
+        nb_cmd  = 'show ndp'
     else:
-        src_ips   = (IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP)
-        dst_ip    = IXIA_EGRESS_IP
-        egress_gw = V4_EGRESS_IP.split('/')[0]
-        nb_cmd    = 'show arp'
-        ping_cmd  = 'ping'
+        src_ips = (IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP)
+        dst_ip  = IXIA_EGRESS_IP
+        nb_cmd  = 'show arp'
 
     # ══════════════════════════════════════════════════════════════════════
     # Phase 1: Config — verify live CONFIG_DB matches config_db.json baseline
@@ -306,53 +316,23 @@ def test_scheduler_dwrr_validation(af):
     # Phase 2: Traffic — oversubscribed fan-in, DWRR ratios + STRICT drops
     # ══════════════════════════════════════════════════════════════════════
     egress_speed = port_speeds.get('egress', 'N/A')
+    has_ingress_b = 'ingress_b' in port_info
+    num_ports = 2 if has_ingress_b else 1
     st.log("Phase 2 [{}]: Sending oversubscribed traffic "
-           "(8 streams x {}% x 2 ports = {}% of {})".format(
-               af, STREAM_RATE_PCT, STREAM_RATE_PCT * NUM_QUEUES * 2,
+           "(8 streams x {:.1f}% x {} port(s) = {:.0f}% of {})".format(
+               af, stream_rate_pct, num_ports,
+               stream_rate_pct * NUM_QUEUES * num_ports,
                egress_speed))
 
     mac_a = get_dut_mac(dut, port_info['ingress_a'])
-    mac_b = get_dut_mac(dut, port_info['ingress_b'])
-    st.log("DUT MACs: ingress_a={} ingress_b={}".format(mac_a, mac_b))
+    mac_b = get_dut_mac(dut, port_info['ingress_b']) if has_ingress_b else None
+    st.log("DUT MACs: ingress_a={}{}".format(
+        mac_a, " ingress_b={}".format(mac_b) if mac_b else ""))
 
-    # Ensure neighbor (ARP for v4, NDP for v6) for egress next-hop is resolved
-    for _attempt in range(1, 4):
-        nb_out = str(st.show(dut, "{} {}".format(nb_cmd, dst_ip),
-                             skip_tmpl=True) or '')
-        if dst_ip in nb_out:
-            st.log("{} resolved for {} (attempt {})".format(
-                nb_cmd.upper(), dst_ip, _attempt))
-            break
-        st.log("{} for {} not yet in table (attempt {}); re-triggering".format(
-            nb_cmd.upper(), dst_ip, _attempt))
-        try:
-            if af == "ipv6":
-                tg.tg_interface_config(
-                    mode='config', port_handle=tg_ph['egress'],
-                    ipv6_intf_addr=IXIA_EGRESS_IP6,
-                    ipv6_prefix_length=PREFIX_LEN_V6,
-                    ipv6_gateway=egress_gw,
-                    ipv6_resolve_gateway_mac=1,
-                    arp_send_req=1)
-            else:
-                tg.tg_interface_config(
-                    mode='config', port_handle=tg_ph['egress'],
-                    intf_ip_addr=IXIA_EGRESS_IP, netmask=NETMASK,
-                    gateway=egress_gw,
-                    arp_send_req=1, enable_ping_response=1,
-                    resolve_gateway_mac=1)
-        except Exception as _e:
-            st.log("  tg_interface_config re-trigger failed: {}".format(_e))
-        st.wait(10)
-        st.config(dut, "{} -c 3 -W 2 {}".format(ping_cmd, dst_ip),
-                  skip_error_check=True)
-        st.wait(3)
-    else:
-        dump_l3_diag(dut, dst_ip)
+    if not verify_egress_reachable(dut, tg, tg_ph, af):
         st.report_fail('msg',
-                       '{} for {} not resolved after 3 attempts — '
-                       'check IXIA interface and L3 config'.format(
-                           nb_cmd.upper(), dst_ip))
+                       'Egress neighbor resolution failed for {} — '
+                       'check IXIA interface and L3 config'.format(af))
         return
 
     # Clear DUT counters so deltas reflect only this test run
@@ -376,12 +356,10 @@ def test_scheduler_dwrr_validation(af):
     q_before = get_dchal_queue_counters(dut, egress,
                                         label="BEFORE DWRR traffic")
 
-    # Program streams: 8 queues x 2 ingress ports = 16 streams
     stream_handles = []
-    ports = [
-        (tg_ph['ingress_a'], src_ips[0], mac_a, 'TX1'),
-        (tg_ph['ingress_b'], src_ips[1], mac_b, 'TX2'),
-    ]
+    ports = [(tg_ph['ingress_a'], src_ips[0], mac_a, 'TX1')]
+    if has_ingress_b:
+        ports.append((tg_ph['ingress_b'], src_ips[1], mac_b, 'TX2'))
     tg.tg_traffic_control(action='clear_stats')
     for qi in range(NUM_QUEUES):
         dscp = QUEUE_TO_DSCP[qi]
@@ -400,7 +378,7 @@ def test_scheduler_dwrr_validation(af):
                     ipv6_traffic_class=tc_val,
                     ipv6_hop_limit=64,
                     frame_size=PKT_SIZE,
-                    rate_percent=STREAM_RATE_PCT,
+                    rate_percent=stream_rate_pct,
                     transmit_mode='continuous',
                     high_speed_result_analysis=0,
                 )
@@ -418,7 +396,7 @@ def test_scheduler_dwrr_validation(af):
                     ip_dscp=dscp,
                     ip_ttl=64,
                     frame_size=PKT_SIZE,
-                    rate_percent=STREAM_RATE_PCT,
+                    rate_percent=stream_rate_pct,
                     transmit_mode='continuous',
                     high_speed_result_analysis=0,
                 )
@@ -671,28 +649,8 @@ def test_scheduler_dwrr_validation(af):
 
 
 def _verify_egress_neighbor(af):
-    """Quick check that DUT can reach the egress IXIA IP (ARP/NDP resolved)."""
-    if af == "ipv6":
-        nb_cmd = 'show ndp'
-        target = IXIA_EGRESS_IP6
-    else:
-        nb_cmd = 'show arp'
-        target = IXIA_EGRESS_IP
-    nb_out = st.show(dut, "{} {}".format(nb_cmd, target), skip_tmpl=True)
-    if target in str(nb_out):
-        st.log("{} resolved for {} — OK".format(nb_cmd.upper(), target))
-        return True
-    st.warn("{} NOT resolved for {} — attempting ping".format(
-        nb_cmd.upper(), target))
-    ping_cmd = 'ping6' if af == 'ipv6' else 'ping'
-    st.config(dut, "{} -c 3 -W 2 {}".format(ping_cmd, target),
-              skip_error_check=True)
-    st.wait(3)
-    nb_out = st.show(dut, "{} {}".format(nb_cmd, target), skip_tmpl=True)
-    if target in str(nb_out):
-        return True
-    dump_l3_diag(dut, target)
-    return False
+    """Closure over module globals, passed as a callback to run_wred_linearity."""
+    return verify_egress_reachable(dut, tg, tg_ph, af)
 
 
 # ── Test: WRED Zone A — below min threshold ──────────────────────────────
@@ -719,10 +677,11 @@ def test_wred_below_min(af):
         st.report_fail('msg', 'Egress neighbor resolution failed for {}'.format(af))
         return
 
+    margin = scale_margin(WRED_ZONE_A_MARGIN, egress_speed_mbps)
     st.log("Phase 2: Sending fan-in traffic below line rate "
-           "(margin={}M for IXIA headroom)".format(WRED_ZONE_A_MARGIN))
+           "(margin={}M for IXIA headroom)".format(margin))
     results = wred_fanin_send_and_measure(wred_ctx, af,
-                                          margin_mbps=WRED_ZONE_A_MARGIN,
+                                          margin_mbps=margin,
                                           duration=WRED_DURATION)
     report_wred_result(wred_ctx, results, "ZONE A (below min)")
 
@@ -769,10 +728,9 @@ def test_wred_below_min(af):
 def test_wred_active_zone(af, margin_mbps):
     """Zone B: 1 MB < queue depth < 3 MB, WRED probability 0-5%.
 
-    Fan-in at egress rate + margin.  Each port sends at
-    (100G + margin) / 2 / 100G * 100 %.
-
-    Margins are 10x vs 2021 (10G egress) to match WRED curve coverage.
+    Fan-in at egress rate + margin.  Parametrize values are authored for
+    100G egress; ``scale_margin`` adjusts proportionally so the overshoot
+    ratio (and thus WRED zone) is identical on slower links (e.g. 25G).
     """
     st.banner("test_wred_active_zone [{}] margin={}M (fan-in)".format(
         af, margin_mbps))
@@ -789,8 +747,10 @@ def test_wred_active_zone(af, margin_mbps):
         st.report_fail('msg', 'Egress neighbor resolution failed for {}'.format(af))
         return
 
-    st.log("Phase 2: Sending fan-in traffic with {}M margin".format(margin_mbps))
-    results = wred_fanin_send_and_measure(wred_ctx, af, margin_mbps,
+    effective_margin = scale_margin(margin_mbps, egress_speed_mbps)
+    st.log("Phase 2: Sending fan-in traffic with {}M margin "
+           "(scaled from {}M baseline)".format(effective_margin, margin_mbps))
+    results = wred_fanin_send_and_measure(wred_ctx, af, effective_margin,
                                           duration=WRED_DURATION)
     report_wred_result(wred_ctx, results, "ZONE B (active)")
 
@@ -854,11 +814,11 @@ def test_wred_active_zone(af, margin_mbps):
 def test_wred_tail_drop(af):
     """Zone C: queue depth > 3 MB, tail drop dominates.
 
-    Fan-in with 10000 Mbps margin (10G over 100G egress).
-    The excess overwhelms WRED's 5% max drop probability, causing
-    queue to exceed max_threshold and trigger tail drop.
+    Fan-in with large margin (10000M @ 100G baseline, scaled for actual
+    egress speed).  The excess overwhelms WRED's 5% max drop probability,
+    causing queue to exceed max_threshold and trigger tail drop.
     """
-    margin = 10000
+    margin = scale_margin(10000, egress_speed_mbps)
     st.banner("test_wred_tail_drop [{}] margin={}M (fan-in)".format(af, margin))
     fail_msgs = []
 
@@ -927,9 +887,11 @@ def test_wred_linearity(af):
     """Verify WRED drop rate increases monotonically across margins.
 
     Fan-in sweep from Zone A through Zone B to Zone C boundary.
-    Margins are 10x vs 2021 (10G) for equivalent coverage on 100G.
+    Base margins are authored for 100G egress and scaled proportionally
+    via ``scale_margin`` so the same WRED zones are exercised at any
+    egress speed (e.g. 25G breakout).
 
-    Expected steady-state (100G egress):
+    Expected steady-state at baseline (100G egress):
         0M   -> depth ~0 MB,    drop 0.00%  (Zone A)
       250M   -> depth 1.10 MB,  drop 0.25%  (Zone B)
       500M   -> depth 1.20 MB,  drop 0.50%  (Zone B)
@@ -941,7 +903,8 @@ def test_wred_linearity(af):
      5250M   -> depth ~3.0 MB,  drop 4.99%  (Zone B/C boundary)
      5500M   -> depth > 3 MB,   drop 5.21%  (Zone C, tail drop)
     """
-    margins = [0, 250, 500, 1000, 2000, 3000, 4000, 5000, 5250, 5500]
+    base_margins = [0, 250, 500, 1000, 2000, 3000, 4000, 5000, 5250, 5500]
+    margins = [scale_margin(m, egress_speed_mbps) for m in base_margins]
     st.banner("test_wred_linearity [{}] margins={} (fan-in)".format(af, margins))
 
     fail_msgs, data_points = run_wred_linearity(

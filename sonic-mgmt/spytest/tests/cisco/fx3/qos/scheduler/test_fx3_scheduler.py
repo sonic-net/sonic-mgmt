@@ -21,10 +21,10 @@
 """
 FX3 QoS Scheduler Tests — testbed end-to-end verification (IPv4 + IPv6 dual-stack).
 
-Testbed (fx3_qos_testbed_2022.yaml):
-  Ingress A: Ixia 1/9  -> DUT Ethernet1_49 (100G)
-  Ingress B: Ixia 1/10 -> DUT Ethernet1_50 (100G)
-  Egress:    DUT Ethernet1_51 -> Ixia 1/11 (100G)
+Topology is auto-detected by setup_topo_common (from fx3_qos_helpers):
+  ixia      — D1T1:3.  2 ingress + 1 egress, all IXIA on DUT1.
+  peer_link — D1T1:2 + D1D2:1 + D2T1:1.  Egress is the peer link to DUT2.
+  breakout  — D1T1:1 + D1D2:1 + D2T1:1.  1 ingress, 4x25G breakout egress.
 
 (test_fx3_scheduler_reordered_config)  — maps to test_plan test 23
   Remove all QUEUE->scheduler bindings, then re-apply in non-sequential order
@@ -82,6 +82,11 @@ FX3 constraints:
 import pytest
 
 from fx3_qos_helpers import (
+    setup_topo_common,
+    V4_INGRESS_A_IP, V4_INGRESS_B_IP, V4_EGRESS_IP,
+    V6_INGRESS_A_IP, V6_INGRESS_B_IP, V6_EGRESS_IP,
+    IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP, IXIA_EGRESS_IP,
+    IXIA_INGRESS_A_IP6, IXIA_INGRESS_B_IP6, IXIA_EGRESS_IP6,
     validate_dchal_bw_vs_weights,
     dchal_show_queuing,
     deploy_dchal_helper, get_dchal_queue_counters,
@@ -93,6 +98,7 @@ from fx3_qos_helpers import (
     ensure_interfaces_admin_up, verify_queue_counters,
     clear_dut_counters, get_intf_counters, report_intf_counters,
     tg_port_speed_gbps, compute_dwrr_stream_rate_pct,
+    parse_speed_to_mbps,
     log_queue_counters,
     print_banner, print_section,
     get_queue_binding, log_queue_bindings_table,
@@ -109,43 +115,38 @@ from spytest import st, tgapi
 
 
 # ── L3 Addresses ─────────────────────────────────────────────────────────
-# All addressing is keyed by the port role used in port_info / tg_ph.
-# To add ingress_c: append one entry to each dict below — no other changes needed.
+# Keyed by port role.  Addresses match fx3_qos_helpers constants so that
+# setup_topo_common and the traffic functions use the same L3 config.
 #
 # DUT-side IPv4/IPv6 (assigned to DUT interfaces)
 DUT_IPV4 = {
-    'ingress_a': '10.10.10.1/24',
-    'ingress_b': '10.10.11.1/24',
-    # 'ingress_c': '10.10.12.1/24',
-    'egress':    '20.20.20.1/24',
+    'ingress_a': V4_INGRESS_A_IP,
+    'ingress_b': V4_INGRESS_B_IP,
+    'egress':    V4_EGRESS_IP,
 }
 DUT_IPV6 = {
-    'ingress_a': '2001:db8:a::1/64',
-    'ingress_b': '2001:db8:b::1/64',
-    # 'ingress_c': '2001:db8:d::1/64',
-    'egress':    '2001:db8:c::1/64',
+    'ingress_a': V6_INGRESS_A_IP,
+    'ingress_b': V6_INGRESS_B_IP,
+    'egress':    V6_EGRESS_IP,
 }
 
 # Ixia-side IPv4 (traffic source/dest IPs on Ixia ports)
 IXIA_IPV4 = {
-    'ingress_a': '10.10.10.2',
-    'ingress_b': '10.10.11.2',
-    # 'ingress_c': '10.10.12.2',
-    'egress':    '20.20.20.2',
+    'ingress_a': IXIA_INGRESS_A_IP,
+    'ingress_b': IXIA_INGRESS_B_IP,
+    'egress':    IXIA_EGRESS_IP,
 }
 # Ixia-side IPv6
 IXIA_IPV6 = {
-    'ingress_a': '2001:db8:a::2',
-    'ingress_b': '2001:db8:b::2',
-    # 'ingress_c': '2001:db8:d::2',
-    'egress':    '2001:db8:c::2',
+    'ingress_a': IXIA_INGRESS_A_IP6,
+    'ingress_b': IXIA_INGRESS_B_IP6,
+    'egress':    IXIA_EGRESS_IP6,
 }
 
 # Ixia source MACs for IPv6 streams (one per port role)
 IXIA_SRC_MAC = {
     'ingress_a': '00:11:01:00:00:01',
     'ingress_b': '00:11:02:00:00:01',
-    # 'ingress_c': '00:11:03:00:00:01',
     'egress':    '00:11:04:00:00:01',
 }
 
@@ -156,8 +157,7 @@ IXIA_GWV6 = {role: ip.split('/')[0] for role, ip in DUT_IPV6.items()}
 NETMASK       = '255.255.255.0'
 V6_PREFIX_LEN = '64'
 
-# Convenience aliases kept for backward-compat in log strings
-IXIA_EGRESS_IP    = IXIA_IPV4['egress']
+# Convenience alias for IPv6 egress destination
 IXIA_V6_EGRESS_IP = IXIA_IPV6['egress']
 
 # ── Traffic parameters ───────────────────────────────────────────────────
@@ -205,179 +205,52 @@ tg_ph = {}                # {'ingress_a': handle, ...}
 port_info = {}            # {'ingress_a': 'Ethernet1_49', 'egress': 'Ethernet1_51', ...}
 tb_vars = None
 port_speeds = {}          # {'ingress_a': 100, 'egress': 100} — Gbps, set by setup_topo
-
-
-# ── Interface-membership helpers ─────────────────────────────────────────
-
-def remove_interface_from_vlan(dut_handle, interface):
-    output = st.show(dut_handle, "show vlan brief", skip_tmpl=True)
-    if not output:
-        return
-
-    vlans_to_remove = []
-    current_vlan_id = None
-
-    for line in output.split('\n'):
-        if '===' in line or '---' in line or 'VLAN ID' in line or not line.strip():
-            continue
-        if '|' not in line:
-            continue
-        fields = [f.strip() for f in line.split('|')]
-        if len(fields) > 1 and fields[1].isdigit():
-            current_vlan_id = fields[1]
-        if interface in line and current_vlan_id:
-            if current_vlan_id not in vlans_to_remove:
-                vlans_to_remove.append(current_vlan_id)
-
-    for vlan_id in vlans_to_remove:
-        st.log("Removing {} from VLAN {}".format(interface, vlan_id))
-        st.config(dut_handle, "config vlan member del {} {}".format(
-            vlan_id, interface), skip_error_check=True)
-
-
-def remove_interface_from_portchannel(dut_handle, interface):
-    output = st.show(dut_handle, "show interfaces portchannel", skip_tmpl=True)
-    if not output:
-        return
-
-    for line in output.split('\n'):
-        if interface in line:
-            parts = line.split()
-            for part in parts:
-                if part.startswith('PortChannel'):
-                    st.log("Removing {} from {}".format(interface, part))
-                    st.config(dut_handle,
-                              "config portchannel member del {} {}".format(
-                                  part, interface),
-                              skip_error_check=True)
-                    return
-
-
-def remove_interface_from_all_memberships(dut_handle, interface):
-    remove_interface_from_vlan(dut_handle, interface)
-    remove_interface_from_portchannel(dut_handle, interface)
+topo_mode = 'ixia'        # 'ixia', 'peer_link', or 'breakout' — set by setup_topo
 
 
 # ── Fixture ──────────────────────────────────────────────────────────────
 
 @pytest.fixture(scope="module")
 def setup_topo():
-    """Set up DUT L3 dual-stack (IPv4 + IPv6), Ixia interfaces, and QoS baseline.
+    """Set up DUT L3, IXIA interfaces, QoS baseline via setup_topo_common.
 
-    Requires D1T1:3 topology: 2 ingress TGen ports + 1 egress TGen port.
+    Adapts automatically to the testbed topology:
+      * ixia      — D1T1:3, 2 ingress + 1 egress, all IXIA on DUT1
+      * peer_link — D1T1:2 + D1D2:1 + D2T1:1, egress via DUT2
+      * breakout  — D1T1:1 + D1D2:1 + D2T1:1, 1 ingress, 25G breakout egress
     """
-    global dut, tg, tg_ph, port_info, tb_vars, STREAM_RATE_PCT
+    global dut, tg, tg_ph, port_info, tb_vars, port_speeds
+    global STREAM_RATE_PCT, topo_mode
 
-    st.log("setup_topo: establishing minimum topology D1T1:3")
-    tb_vars = st.ensure_min_topology("D1T1:3")
-    dut = tb_vars.D1
+    for result in setup_topo_common(tgapi, target_queue=0):
+        dut = result['dut']
+        tg = result['tg']
+        tg_ph = result['tg_ph']
+        port_info = result['port_info']
+        tb_vars = result['tb_vars']
+        topo_mode = result['mode']
 
-    port_info = {
-        'ingress_a': tb_vars.D1T1P1,
-        'ingress_b': tb_vars.D1T1P2,
-        'egress':    tb_vars.D1T1P3,
-    }
-    st.log("setup_topo: ports -> {}".format(port_info))
+        # port_speeds from setup_topo_common are strings ('100G', '25G').
+        # Convert to integer Gbps for compatibility with traffic helpers.
+        raw_speeds = result['port_speeds']
+        port_speeds = {}
+        for role, spd_str in raw_speeds.items():
+            mbps = parse_speed_to_mbps(spd_str)
+            port_speeds[role] = mbps // 1000 if mbps else 100
 
-    tg_handle, tg_ph_a = tgapi.get_handle_byname('T1D1P1')
-    _, tg_ph_b = tgapi.get_handle_byname('T1D1P2')
-    _, tg_ph_e = tgapi.get_handle_byname('T1D1P3')
-    tg = tg_handle
-    tg_ph = {'ingress_a': tg_ph_a, 'ingress_b': tg_ph_b, 'egress': tg_ph_e}
+        # Compute per-stream Tx rate for DWRR congestion.
+        # In breakout/peer_link the egress TGen handle is behind DUT2, so
+        # pass egress_speed_gbps explicitly from the DUT-side port speed.
+        _dwrr_weights = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40, 5: 30}
+        _ingress_phs = [tg_ph[k] for k in tg_ph
+                        if k not in ('egress', 'egress_sink')]
+        egress_gbps = port_speeds.get('egress', 100)
+        STREAM_RATE_PCT = compute_dwrr_stream_rate_pct(
+            tg, _ingress_phs, None, _dwrr_weights,
+            egress_speed_gbps=egress_gbps)
 
-    # ── Stream rate + port speeds ─────────────────────────────────────────
-    _dwrr_weights = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40, 5: 30}  # FX3 baseline
-    _ingress_phs = [tg_ph[k] for k in tg_ph if k != 'egress']
-    STREAM_RATE_PCT = compute_dwrr_stream_rate_pct(tg, _ingress_phs, tg_ph_e, _dwrr_weights)
-    for _role, _ph in tg_ph.items():
-        port_speeds[_role] = tg_port_speed_gbps(tg, _ph)
-
-    # ── Remove ports from VLAN / PortChannel ──
-    st.log("setup_topo: removing port memberships")
-    for intf in port_info.values():
-        remove_interface_from_all_memberships(dut, intf)
-
-    # ── Reload QoS to ensure FX3 baseline ──
-    st.log("setup_topo: reloading QoS config")
-    st.config(dut, "config qos reload", skip_error_check=True)
-    st.wait(5)
-
-    # ── L3 dual-stack on DUT ──
-    # Loop over all roles in DUT_IPV4 (ingress_* + egress). Adding ingress_c
-    # to the address dicts above is the only change needed for a 3rd port.
-    st.log("setup_topo: configuring IPv4 + IPv6 L3 interfaces on DUT")
-    l3_cmds = []
-    for role in sorted(DUT_IPV4):
-        intf = port_info[role]
-        l3_cmds.append('config interface ip add {} {}'.format(intf, DUT_IPV4[role]))
-        l3_cmds.append('config interface ip add {} {}'.format(intf, DUT_IPV6[role]))
-    st.config(dut, '\n'.join(l3_cmds), skip_error_check=True)
-    st.wait(10)
-
-    # ── Ixia IPv4 interfaces ──
-    st.log("setup_topo: configuring Ixia IPv4 interfaces")
-    intf_handles = []
-    for role in sorted(IXIA_IPV4):
-        result = tg.tg_interface_config(
-            mode='config', port_handle=tg_ph[role],
-            intf_ip_addr=IXIA_IPV4[role], netmask=NETMASK,
-            gateway=IXIA_GWV4[role],
-            arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
-        if result and result.get('handle'):
-            intf_handles.append(result['handle'])
-
-    # ── Ixia IPv6 interfaces ──
-    st.log("setup_topo: configuring Ixia IPv6 interfaces")
-    v6_intf_handles = []
-    for role in sorted(IXIA_IPV6):
-        result = tg.tg_interface_config(
-            mode='config', port_handle=tg_ph[role],
-            ipv6_intf_addr=IXIA_IPV6[role], ipv6_prefix_length=V6_PREFIX_LEN,
-            ipv6_gateway=IXIA_GWV6[role],
-            src_mac_addr=IXIA_SRC_MAC[role],
-            arp_send_req='1')
-        if result and result.get('handle'):
-            v6_intf_handles.append(result['handle'])
-
-    # Start protocol stacks
-    try:
-        tg.tg_topology_test_control(action='start_all_protocols')
-    except Exception:
-        st.warn("start_all_protocols unavailable; relying on arp_send_req")
-
-    st.wait(30)
-
-    # Force ARP/NDP from all Ixia interfaces
-    for h in intf_handles + v6_intf_handles:
-        try:
-            tg.tg_arp_control(handle=h, arp_target='all')
-        except Exception as e:
-            st.warn("tg_arp_control failed for handle {}: {}".format(h, e))
-    st.wait(5)
-
-    st.config(dut, "ping -c 5 -W 2 {}".format(IXIA_EGRESS_IP),
-        skip_error_check=True)
-    st.wait(5)
-
-    # ── Ensure DUT interfaces are admin up and queue counters accessible ──
-    st.log("setup_topo: ensuring interfaces admin up")
-    ensure_interfaces_admin_up(dut, port_info.values())
-    missing = verify_queue_counters(dut, port_info.values())
-    if missing:
-        st.warn("setup_topo: queue counters missing for: {}".format(missing))
-
-    log_topology_summary()
-    yield
-
-    # ── Teardown ──
-    st.log("setup_topo: teardown — removing dual-stack L3 config")
-    cleanup_cmds = []
-    for role in sorted(DUT_IPV4):
-        intf = port_info[role]
-        cleanup_cmds.append('config interface ip remove {} {}'.format(intf, DUT_IPV4[role]))
-        cleanup_cmds.append('config interface ip remove {} {}'.format(intf, DUT_IPV6[role]))
-    st.config(dut, '\n'.join(cleanup_cmds), skip_error_check=True)
-    st.log("setup_topo: teardown complete")
+        log_topology_summary()
+        yield
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -419,29 +292,31 @@ def verify_scheduler_weights(label, expected_weights, fail_msgs):
 def log_topology_summary():
     """Print a formatted topology table once setup_topo is complete.
 
-    Shows DUT interface names, Ixia IP assignments, port speeds, and the
-    computed STREAM_RATE_PCT with the congestion math — gives full context
-    to anyone reading the log without access to the testbed YAML.
+    Shows DUT interface names, port speeds, and the computed STREAM_RATE_PCT
+    with the congestion math.  Iterates over actual port_info roles so it
+    works in ixia (2 ingress), peer_link (2 ingress), and breakout (1 ingress).
     """
     W    = 80
     SEP  = "=" * W
     DASH = "-" * W
+    roles = sorted(port_info.keys())
     topo_rows = [
         (role,
          port_info.get(role, '?'), port_speeds.get(role, '?'),
          DUT_IPV4.get(role, '?'), IXIA_IPV4.get(role, '?'),
          DUT_IPV6.get(role, '?'), IXIA_IPV6.get(role, '?'))
-        for role in sorted(DUT_IPV4)
+        for role in roles
     ]
-    ingress_spds   = [port_speeds[r] for r in port_speeds if r != 'egress']
+    ingress_spds   = [port_speeds[r] for r in port_speeds
+                      if r not in ('egress', 'egress_sink')]
     egress_spd     = port_speeds.get('egress', 100)
     n_ingress      = len(ingress_spds)
-    n_queues       = 6  # DWRR queues used in traffic check
+    n_queues       = 6
     total_load_pct = STREAM_RATE_PCT * n_ingress * n_queues
 
     st.log("")
     st.log(SEP)
-    st.log("  ACTIVE TOPOLOGY")
+    st.log("  ACTIVE TOPOLOGY  (mode={})".format(topo_mode))
     st.log(DASH)
     st.log("  {:<12} {:<22} {:>6}   {:<20} {:<20}".format(
         "Role", "DUT Interface", "Speed", "DUT IPv4 (/24)", "Ixia IPv4"))
@@ -454,9 +329,10 @@ def log_topology_summary():
         st.log("  {:<38}         {:<20} {:<20}".format("", v6_dut, v6_ixia))
     st.log("  " + DASH)
     st.log("  Ingress : {}  ({} port(s), total {}G)".format(
-        " + ".join("{}G".format(s) for s in ingress_spds), n_ingress, sum(ingress_spds)))
+        " + ".join("{}G".format(s) for s in ingress_spds), n_ingress,
+        sum(ingress_spds) if ingress_spds else 0))
     st.log("  Egress  : {}G".format(egress_spd))
-    st.log("  Stream  : {}% per stream  × {} DWRR queues  × {} ingress port(s)  =  {}% total egress load".format(
+    st.log("  Stream  : {}% per stream  x {} DWRR queues  x {} ingress port(s)  =  {}% total egress load".format(
         STREAM_RATE_PCT, n_queues, n_ingress, total_load_pct))
     st.log(SEP)
     st.log("")

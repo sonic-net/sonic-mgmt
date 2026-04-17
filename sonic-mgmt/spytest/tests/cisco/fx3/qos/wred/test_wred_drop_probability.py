@@ -21,10 +21,8 @@
 """
 FX3 QoS WRED Drop Probability Test.
 
-Testbed (fx3_qos_testbed_2022.yaml):
-  Ingress A: Ixia 1/9  -> DUT Ethernet1_49 (100G)
-  Ingress B: Ixia 1/10 -> DUT Ethernet1_50 (100G)
-  Egress:    DUT Ethernet1_51 -> Ixia 1/11 (100G)
+Topology mode is inferred from the testbed YAML structure
+(ixia / peer_link / breakout) via the shared ``setup_topo_common`` helper.
 
 (test_wred_drop_probability):
   Test WRED (Weighted Random Early Detection) drop probability behavior
@@ -45,207 +43,62 @@ from spytest import st, tgapi
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from fx3_qos_helpers import (
-    QUEUE_TO_DSCP, deploy_dchal_helper,
-    dchal_show_queuing, get_dut_mac,
-    parse_dchal_queue_stats, parse_dchal_egress_bw,
+    QUEUE_TO_DSCP, IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP, IXIA_EGRESS_IP,
+    NUM_QUEUES, PKT_SIZE,
+    setup_topo_common, compute_single_queue_rate_pct,
+    deploy_dchal_helper, get_dut_mac,
+    dchal_show_queuing, parse_dchal_queue_stats, parse_dchal_egress_bw,
     parse_redis_hget, load_config_db_baseline,
     verify_wred_profile, verify_queue_bindings,
     verify_scheduler_profiles,
 )
 
 
-# ── L3 Addresses ─────────────────────────────────────────────────────────
-V4_INGRESS_A_IP = '10.10.10.1/24'
-V4_INGRESS_B_IP = '10.10.11.1/24'
-V4_EGRESS_IP    = '20.20.20.1/24'
-
-IXIA_INGRESS_A_IP = '10.10.10.2'
-IXIA_INGRESS_B_IP = '10.10.11.2'
-IXIA_EGRESS_IP    = '20.20.20.2'
-NETMASK = '255.255.255.0'
-
-# ── Traffic parameters ───────────────────────────────────────────────────
-PKT_SIZE           = 128
+# ── Test-specific parameters ──────────────────────────────────────────────
+TARGET_QUEUE       = 3
 STREAM_RATE_PPS    = 100
-NUM_QUEUES         = 8
 TRAFFIC_DURATION   = 5
-
-# WRED congestion test: 2 streams (one per ingress port) at 75% line rate
-# targeting queue 3 only.  Total ingress = 2 x 75% = 150% of the 100G egress
-# capacity, creating 50% oversubscription that builds queue depth past WRED
-# thresholds (green_min=1MB, green_max=3MB).
-TG_STREAM_RATE_PCT    = 75
-CONGESTION_DURATION   = 10
+WRED_OVERSUB       = 1.50    # target oversubscription for single-queue WRED
+CONGESTION_DURATION = 10
 
 
+# ── Module-level topology state (populated by fixture) ────────────────────
 dut = None
 tg = None
-tg_ph = {}          # {'ingress_a': handle, 'ingress_b': handle, 'egress': handle}
-port_info = {}      # {'ingress_a': 'Ethernet1_49', ...}
-vars = None
-
-
-# ── Interface-membership helpers ─────────────────────────────────────────
-
-def remove_interface_from_vlan(dut_handle, interface):
-    output = st.show(dut_handle, "show vlan brief", skip_tmpl=True)
-    if not output:
-        return
-
-    vlans_to_remove = []
-    current_vlan_id = None
-
-    for line in output.split('\n'):
-        if '===' in line or '---' in line or 'VLAN ID' in line or not line.strip():
-            continue
-        if '|' not in line:
-            continue
-        fields = [f.strip() for f in line.split('|')]
-        if len(fields) > 1 and fields[1].isdigit():
-            current_vlan_id = fields[1]
-        if interface in line and current_vlan_id:
-            if current_vlan_id not in vlans_to_remove:
-                vlans_to_remove.append(current_vlan_id)
-
-    for vlan_id in vlans_to_remove:
-        st.log("Removing {} from VLAN {}".format(interface, vlan_id))
-        st.config(dut_handle, "config vlan member del {} {}".format(
-            vlan_id, interface), skip_error_check=True)
-
-
-def remove_interface_from_portchannel(dut_handle, interface):
-    output = st.show(dut_handle, "show interfaces portchannel", skip_tmpl=True)
-    if not output:
-        return
-
-    for line in output.split('\n'):
-        if interface in line:
-            parts = line.split()
-            for part in parts:
-                if part.startswith('PortChannel'):
-                    st.log("Removing {} from {}".format(interface, part))
-                    st.config(dut_handle,
-                              "config portchannel member del {} {}".format(
-                                  part, interface),
-                              skip_error_check=True)
-                    return
-
-
-def remove_interface_from_all_memberships(dut_handle, interface):
-    remove_interface_from_vlan(dut_handle, interface)
-    remove_interface_from_portchannel(dut_handle, interface)
-
-
-def _wait_for_interfaces(dut_handle, interfaces, timeout=30, poll=5):
-    """Block until every interface in *interfaces* has a kernel netdev.
-
-    Checks ``/sys/class/net/<if>`` existence via a single shell test.
-    Returns True if all appeared, False on timeout.
-    """
-    for elapsed in range(0, timeout + 1, poll):
-        check = " && ".join(
-            "test -d /sys/class/net/{}".format(intf) for intf in interfaces)
-        out = st.show(dut_handle,
-                      "{} && echo READY || echo NOTREADY".format(check),
-                      skip_tmpl=True).strip()
-        if "READY" in out and "NOTREADY" not in out:
-            st.log("_wait_for_interfaces: all present after ~{}s".format(
-                elapsed))
-            return True
-        st.log("_wait_for_interfaces: waiting ({}s / {}s)".format(
-            elapsed, timeout))
-        if elapsed < timeout:
-            st.wait(poll)
-    st.warn("_wait_for_interfaces: timed out after {}s".format(timeout))
-    return False
+tg_ph = {}
+port_info = {}
+port_speeds = {}
+ingress_speed_mbps = 0
+egress_speed_mbps = 0
+wred_ctx = None
+tg_stream_rate_pct = 0  # computed by setup_topo via compute_single_queue_rate_pct
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_topo():
-    """Set up DUT L3, Ixia interfaces, and QoS baseline for WRED tests."""
-    global dut, tg, tg_ph, port_info, vars
+    """Set up topology via shared setup_topo_common helper."""
+    global dut, tg, tg_ph, port_info, port_speeds
+    global ingress_speed_mbps, egress_speed_mbps, wred_ctx
+    global tg_stream_rate_pct
 
-    st.log("setup_topo: establishing minimum topology D1T1:3")
-    tb_dict = st.ensure_min_topology("D1T1:3")
-    vars = st.get_testbed_vars()
-    dut = tb_dict.D1
+    for result in setup_topo_common(tgapi, target_queue=TARGET_QUEUE):
+        dut = result['dut']
+        tg = result['tg']
+        tg_ph = result['tg_ph']
+        port_info = result['port_info']
+        port_speeds = result['port_speeds']
+        ingress_speed_mbps = result['ingress_speed_mbps']
+        egress_speed_mbps = result['egress_speed_mbps']
+        wred_ctx = result['wred_ctx']
 
-    port_info = {
-        'ingress_a': vars.D1T1P1,
-        'ingress_b': vars.D1T1P2,
-        'egress':    vars.D1T1P3,
-    }
-    st.log("setup_topo: ports -> {}".format(port_info))
-
-    tg_handle, tg_ph_a = tgapi.get_handle_byname('T1D1P1')
-    _, tg_ph_b = tgapi.get_handle_byname('T1D1P2')
-    _, tg_ph_e = tgapi.get_handle_byname('T1D1P3')
-    tg = tg_handle
-    tg_ph = {'ingress_a': tg_ph_a, 'ingress_b': tg_ph_b, 'egress': tg_ph_e}
-
-    # ── Remove ports from VLAN / PortChannel ──
-    st.log("setup_topo: removing port memberships")
-    for intf in port_info.values():
-        remove_interface_from_all_memberships(dut, intf)
-
-    # ── Reload QoS to ensure Tortuga FX3 baseline ──
-    st.log("setup_topo: reloading QoS config")
-    st.config(dut, "config qos reload", skip_error_check=True)
-    st.wait(5)
-
-    # ── L3 on DUT ──
-    st.log("setup_topo: configuring L3 interfaces on DUT")
-    l3_cfg = (
-        'config interface ip add {} {}\n'
-        'config interface ip add {} {}\n'
-        'config interface ip add {} {}'
-    ).format(
-        port_info['ingress_a'], V4_INGRESS_A_IP,
-        port_info['ingress_b'], V4_INGRESS_B_IP,
-        port_info['egress'],    V4_EGRESS_IP,
-    )
-    st.config(dut, l3_cfg, skip_error_check=True)
-
-    _wait_for_interfaces(dut, port_info.values(), timeout=30, poll=5)
-
-    # ── Ixia interfaces (ARP-enabled so DUT can resolve next-hop) ──
-    st.log("setup_topo: configuring Ixia interfaces")
-    ixia_intf_params = [
-        ('ingress_a', IXIA_INGRESS_A_IP, '10.10.10.1'),
-        ('ingress_b', IXIA_INGRESS_B_IP, '10.10.11.1'),
-        ('egress',    IXIA_EGRESS_IP,    '20.20.20.1'),
-    ]
-    for key, ip, gw in ixia_intf_params:
-        tg.tg_interface_config(
-            mode='config', port_handle=tg_ph[key],
-            intf_ip_addr=ip, netmask=NETMASK, gateway=gw,
-            arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
-
-    try:
-        tg.tg_topology_test_control(action='start_all_protocols')
-    except Exception:
-        st.warn("start_all_protocols unavailable; relying on arp_send_req")
-
-    st.config(dut, "ping -c 3 -W 1 {}".format(IXIA_EGRESS_IP),
-              skip_error_check=True)
-    st.wait(5)
-
-    st.log("setup_topo: DONE")
-    yield
-
-    # ── Teardown ──
-    st.log("setup_topo: teardown — removing L3 config")
-    cleanup_cfg = (
-        'config interface ip remove {} {}\n'
-        'config interface ip remove {} {}\n'
-        'config interface ip remove {} {}'
-    ).format(
-        port_info['ingress_a'], V4_INGRESS_A_IP,
-        port_info['ingress_b'], V4_INGRESS_B_IP,
-        port_info['egress'],    V4_EGRESS_IP,
-    )
-    st.config(dut, cleanup_cfg, skip_error_check=True)
-    st.log("setup_topo: teardown complete")
+        num_ingress = len([k for k in tg_ph
+                          if k not in ('egress', 'egress_sink')])
+        tg_stream_rate_pct = compute_single_queue_rate_pct({
+            'ingress_speed_mbps': ingress_speed_mbps,
+            'egress_speed_mbps': egress_speed_mbps,
+            'num_ingress_ports': num_ingress,
+        }, oversub_ratio=WRED_OVERSUB)
+        yield
 
 
 def test_wred_drop_probability():
@@ -278,9 +131,11 @@ def test_wred_drop_probability():
 
     deploy_dchal_helper(dut)
 
+    has_ingress_b = 'ingress_b' in port_info
     mac_a = get_dut_mac(dut, port_info['ingress_a'])
-    mac_b = get_dut_mac(dut, port_info['ingress_b'])
-    st.log("DUT MACs: ingress_a={} ingress_b={}".format(mac_a, mac_b))
+    mac_b = get_dut_mac(dut, port_info['ingress_b']) if has_ingress_b else None
+    st.log("DUT MACs: ingress_a={}{}".format(
+        mac_a, " ingress_b={}".format(mac_b) if mac_b else ""))
 
     # Step 1: Verify baseline WRED_PROFILE|AZURE_LOSSY and queue bindings
     st.log("Step 1: Verifying baseline WRED_PROFILE|AZURE_LOSSY and Q3 binding")
@@ -321,10 +176,9 @@ def test_wred_drop_probability():
 
     verify_scheduler_profiles(dut, fail_msgs, baseline=step3_baseline)
 
-    # Force ASIC re-programming by deleting and re-creating the
-    # QUEUE->scheduler bindings.  Changing the SCHEDULER entry's type
-    # field alone does not trigger orchagent to re-bind the scheduler
-    # to its Scheduler Group (SG), so the ASIC keeps the old bindings.
+    # Changing the SCHEDULER entry's type field alone does not trigger
+    # orchagent to re-bind the scheduler to its Scheduler Group (SG),
+    # so the ASIC keeps the old bindings.  Delete + re-create forces it.
     st.log("Step 3: Re-binding QUEUE->scheduler entries to force "
            "ASIC reprogramming")
     for qi in range(NUM_QUEUES):
@@ -350,8 +204,8 @@ def test_wred_drop_probability():
     expected_bw = 100.0 / NUM_QUEUES
     asic_dwrr_ok = True
     for qi in range(NUM_QUEUES):
-        actual_bw = bw_map.get(qi, -1)
-        if actual_bw < 0 or abs(actual_bw - expected_bw) > 3:
+        actual_bw = bw_map.get(qi, {}).get('bw_pct', -1)
+        if actual_bw is None or actual_bw < 0 or abs(actual_bw - expected_bw) > 3:
             asic_dwrr_ok = False
 
     if asic_dwrr_ok:
@@ -417,11 +271,12 @@ def test_wred_drop_probability():
         pass
 
     # Step 5: High-rate fan-in traffic to queue 3 for WRED congestion
-    total_pct = TG_STREAM_RATE_PCT * 2
+    num_tx_ports = 2 if has_ingress_b else 1
+    total_pct = tg_stream_rate_pct * num_tx_ports
     st.log("Step 5: High-rate fan-in traffic targeting Q3 only")
-    st.log("  Rate: 2 streams x {}% = {}% of 100G egress capacity "
-           "-> {}% oversubscription".format(
-               TG_STREAM_RATE_PCT, total_pct, total_pct - 100))
+    st.log("  Rate: {} stream(s) x {:.1f}% = {:.0f}% of egress capacity "
+           "-> {:.0f}% oversubscription".format(
+               num_tx_ports, tg_stream_rate_pct, total_pct, total_pct - 100))
 
     st.show(dut, "show arp {}".format(IXIA_EGRESS_IP), skip_tmpl=True)
 
@@ -433,10 +288,9 @@ def test_wred_drop_probability():
 
     stream_handles_p5 = []
     dscp_q3 = QUEUE_TO_DSCP[3]
-    ports = [
-        (tg_ph['ingress_a'], IXIA_INGRESS_A_IP, mac_a),
-        (tg_ph['ingress_b'], IXIA_INGRESS_B_IP, mac_b),
-    ]
+    ports = [(tg_ph['ingress_a'], IXIA_INGRESS_A_IP, mac_a)]
+    if has_ingress_b:
+        ports.append((tg_ph['ingress_b'], IXIA_INGRESS_B_IP, mac_b))
     for ph, src_ip, dst_mac in ports:
         result = tg.tg_traffic_config(
             mode='create',
@@ -447,7 +301,7 @@ def test_wred_drop_probability():
             mac_dst=dst_mac,
             ip_dscp=dscp_q3,
             frame_size=PKT_SIZE,
-            rate_percent=TG_STREAM_RATE_PCT,
+            rate_percent=tg_stream_rate_pct,
             transmit_mode='continuous',
         )
         stream_handles_p5.append(result)
@@ -509,7 +363,8 @@ def test_wred_drop_probability():
             q3_wred_delta))
     else:
         fail_msgs.append("Step 5: Q3 WRED drops=0 despite {}% into Q3 "
-                         "(egress limited to 100G)".format(total_pct))
+                         "(egress limited to {}G)".format(
+                             total_pct, egress_speed_mbps / 1000))
 
     for sh in stream_handles_p5:
         try:

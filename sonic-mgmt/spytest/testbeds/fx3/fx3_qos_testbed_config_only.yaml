@@ -1,0 +1,29 @@
+version: 2.0
+
+services: {default: "!include sonic_services.yaml"}
+
+params: "!include sonic_params.yaml"
+builds: "!include sonic_builds.yaml"
+speeds: "!include sonic_speeds.yaml"
+errors: "!include sonic_errors.yaml"
+instrument: "!include sonic_instrument.yaml"
+
+configs:
+    default: "!include sonic_configs.yaml"
+    empty: {current: [], restore: []}
+
+devices:
+    dut1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.26.235.251, port: 22}
+        rps: {model: Raritan, ip: 10.28.105.119, outlet: 23, username: admin, password: raritan}
+        credentials: {username: admin, password: password, altpassword: ""}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: ixia, version: 11.10, ip: 172.26.235.250, ix_server: 172.26.235.72, params: def_tg}
+
+topology:
+    dut1:
+        interfaces:
+            Ethernet1_49: {EndDevice: T1, EndPort: 1/12, params: def_tg_link}

@@ -21,7 +21,7 @@ devices:
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     dut2:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 172.26.235.251, port: 21}
+        access: {protocol: ssh, ip: 172.26.235.251, port: 22}
         rps: {model: Raritan, ip: 10.28.105.119, outlet: 23, username: admin, password: raritan}
         credentials: {username: admin, password: password, altpassword: ""}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
@@ -32,19 +32,12 @@ devices:
 topology:
     dut1:
         interfaces:
+            # Single IXIA ingress (oversubscription via breakout)
             Ethernet1_49: {EndDevice: T1, EndPort: 1/9, params: def_tg_link}
-            Ethernet1_50: {EndDevice: T1, EndPort: 1/10, params: def_tg_link}
-            Ethernet1_51: {EndDevice: T1, EndPort: 1/11, params: def_tg_link}
-            # peer links to dut2
-            Ethernet1_1: {EndDevice: dut2, EndPort: Ethernet1_1, params: def_link}
-            Ethernet1_2: {EndDevice: dut2, EndPort: Ethernet1_2, params: def_link}
-            Ethernet1_53: {EndDevice: dut2, EndPort: Ethernet1_53, params: def_link}
-            Ethernet1_54: {EndDevice: dut2, EndPort: Ethernet1_54, params: def_link}
+            # 100G peer link to dut2 — broken out to 4x25G
+            Ethernet1_54: {EndDevice: dut2, EndPort: Ethernet1_54, params: def_link, breakout: "4x25"}
     dut2:
         interfaces:
             Ethernet1_49: {EndDevice: T1, EndPort: 1/12, params: def_tg_link}
-            # peer links to dut1
-            Ethernet1_1: {EndDevice: dut1, EndPort: Ethernet1_1, params: def_link}
-            Ethernet1_2: {EndDevice: dut1, EndPort: Ethernet1_2, params: def_link}
-            Ethernet1_53: {EndDevice: dut1, EndPort: Ethernet1_53, params: def_link}
-            Ethernet1_54: {EndDevice: dut1, EndPort: Ethernet1_54, params: def_link}
+            # 100G peer link to dut1 — broken out to 4x25G
+            Ethernet1_54: {EndDevice: dut1, EndPort: Ethernet1_54, params: def_link, breakout: "4x25"}

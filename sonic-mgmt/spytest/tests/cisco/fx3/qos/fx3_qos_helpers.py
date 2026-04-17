@@ -48,6 +48,7 @@ Other Helpers:
   - ensure_interfaces_admin_up() : check admin status + startup if needed
   - verify_queue_counters()      : confirm 'show queue counters' returns rows
   - load_config_db_baseline()    : load config_db.json as dict (golden baseline)
+  - unbind_wred_from_queues()    : HDEL wred_profile from WRED-bound queues (0-6)
   - validate_scheduler()         : DWRR ratio + STRICT zero-drop validation
 
 DCHAL:
@@ -92,8 +93,8 @@ _CONFIG_DB_JSON = os.path.join(os.path.dirname(__file__), 'config_db.json')
 
 
 # ── FX3 QoS testbed L3 addresses ─────────────────────────────────────────
-# Shared by all test modules using the fx3_qos_testbed.yaml fan-in topology
-# (2 ingress + 1 egress, each 100G).
+# Shared by all test modules.  The ingress and egress subnet addresses are
+# the same regardless of topology mode (ixia / peer_link / breakout).
 
 # DUT-side IPs (with prefix)
 V4_INGRESS_A_IP = '10.10.10.1/24'
@@ -113,6 +114,17 @@ IXIA_EGRESS_IP6    = '2001:db8:20::2'
 
 NETMASK       = '255.255.255.0'
 PREFIX_LEN_V6 = 64
+
+# ── Peer-link / breakout transit subnet (dut1 <-> dut2) ──────────────────
+# Used in multi-DUT topologies (peer_link / breakout).  The egress
+# subnet (20.20.20.0/24) lives on dut2's IXIA port; dut1 reaches it via
+# a static route through this transit subnet.
+V4_TRANSIT_DUT1_IP   = '30.30.30.1/24'
+V4_TRANSIT_DUT2_IP   = '30.30.30.2/24'
+V6_TRANSIT_DUT1_IP   = '2001:db8:30::1/64'
+V6_TRANSIT_DUT2_IP   = '2001:db8:30::2/64'
+V4_TRANSIT_DUT2_BARE = '30.30.30.2'
+V6_TRANSIT_DUT2_BARE = '2001:db8:30::2'
 
 # ── Traffic / WRED defaults ─────────────────────────────────────────────
 NUM_QUEUES       = 8
@@ -1371,6 +1383,163 @@ def report_wred_variance(mismatches, fail_msgs=None):
             len(mismatches)))
 
 
+# ── FX3 / Sundown1 WRED HW constants ─────────────────────────────────────
+#  Source: hal/inc/int_inc/cloudscale/sundown/qos/qos.h
+#          hal/src/cloudscale/qos/queue.c  hal_cscale_qos_queue_wred_params_adjust()
+#          hal/src/shell/commands/qos.py   _AQM_MAX_PROB_DIVISOR
+
+_WRED_CELL_SIZE   = 416        # bytes per BAX cell  (HAL_SUNDOWN1_QOS_CELL_SIZE)
+_WRED_OCC_RANGE   = 64         # 2^AQM_OCC_RANGE = 2^6  (HAL_SUNDOWN1_QOS_AQM_OCC_RANGE)
+_WRED_MAX_PROB_HW = 0x7FF      # 2047  (HAL_CSCALE_QOS_AQM_MAX_PROB)
+
+
+def _wred_bytes_to_hw_thr(bytes_val):
+    """Convert CONFIG_DB bytes threshold to DCHAL HW QDES units.
+
+    Formula (from hal_cscale_qos_queue_wred_params_adjust):
+        hw_thr = floor(bytes / CELL_SIZE) / OCC_RANGE
+               = floor(bytes / 416) / 64
+    """
+    return int(bytes_val) // _WRED_CELL_SIZE // _WRED_OCC_RANGE
+
+
+def _wred_prob_to_hw(percent):
+    """Convert CONFIG_DB drop_probability (0-100%) to HW max_prob register.
+
+    Formula:
+        max_prob = floor(percent * 2047 / 100)
+    """
+    return int(percent) * _WRED_MAX_PROB_HW // 100
+
+
+def verify_wred_config_values_prog_in_dchal(dut, interface, qid,
+                                            min_threshold, max_threshold,
+                                            drop_probability):
+    """Verify that CONFIG_DB WRED values are correctly programmed in DCHAL HW.
+
+    Converts CONFIG_DB byte thresholds and drop probability to the expected
+    DCHAL register values using FX3/Sundown1 HAL formulas, then reads back
+    the live ASIC AQM registers and compares them queue by queue.
+
+    Conversion formulas (hal_cscale_qos_queue_wred_params_adjust):
+      min_thr   = floor(min_threshold_bytes / 416) // 64
+      max_thr   = floor(max_threshold_bytes / 416) // 64
+      max_prob  = floor(drop_probability_pct * 2047 / 100)
+
+    Args:
+      dut              : spytest DUT handle
+      interface        : egress interface string (e.g. 'Ethernet1_51')
+      qid              : queue index 0-7 to validate
+      min_threshold    : CONFIG_DB green_min_threshold (bytes, int or str)
+      max_threshold    : CONFIG_DB green_max_threshold (bytes, int or str)
+      drop_probability : CONFIG_DB green_drop_probability (percent, int or str)
+
+    Returns:
+       0  — all three values match HW
+      -1  — min_thr mismatch
+      -2  — max_thr mismatch
+      -3  — drop_prob (max_prob) mismatch
+    """
+    # ── Step 1: Convert CONFIG_DB values to expected HW register values ──
+    exp_min_thr  = _wred_bytes_to_hw_thr(min_threshold)
+    exp_max_thr  = _wred_bytes_to_hw_thr(max_threshold)
+    exp_max_prob = _wred_prob_to_hw(drop_probability)
+
+    sep = "=" * 72
+    st.log(sep)
+    st.log("  verify_wred_config_values_prog_in_dchal: {} Q{}".format(
+        interface, qid))
+    st.log(sep)
+    st.log("  CONFIG_DB input:")
+    st.log("    green_min_threshold    = {} bytes".format(min_threshold))
+    st.log("    green_max_threshold    = {} bytes".format(max_threshold))
+    st.log("    green_drop_probability = {}%".format(drop_probability))
+    st.log("")
+    st.log("  Expected HW registers (formula: bytes/416//64, prob*2047//100):")
+    st.log("    min_thr   = {}".format(exp_min_thr))
+    st.log("    max_thr   = {}".format(exp_max_thr))
+    st.log("    max_prob  = {}".format(exp_max_prob))
+    st.log(sep)
+
+    # ── Step 2: Read live DCHAL AQM HW registers ──────────────────────────
+    deploy_dchal_helper(dut)
+    aqm_data = dchal_aqm_hw_info(dut, interface)
+
+    if aqm_data is None:
+        st.log("  ERROR: DCHAL AQM data unavailable for {} — cannot verify".format(
+            interface))
+        return -1
+
+    act_min_thr  = aqm_data.get('min_thr',  [0] * 8)[qid]
+    act_max_thr  = aqm_data.get('max_thr',  [0] * 8)[qid]
+    act_max_prob = aqm_data.get('max_prob', [0] * 8)[qid]
+
+    # ── Step 3: Print comparison table ───────────────────────────────────
+    st.log(sep)
+    st.log("  DCHAL AQM register comparison for Q{}:".format(qid))
+    st.log(sep)
+    st.log("  {:>14} {:>12} {:>12} {:>8}".format(
+        'Field', 'Expected', 'Actual', 'Status'))
+    st.log("  " + "-" * 50)
+
+    min_ok  = (act_min_thr == exp_min_thr)
+    max_ok  = (act_max_thr == exp_max_thr)
+    prob_ok = (act_max_prob == exp_max_prob)
+
+    st.log("  {:>14} {:>12} {:>12} {:>8}".format(
+        'min_thr', exp_min_thr, act_min_thr, 'OK' if min_ok else '** FAIL'))
+    st.log("  {:>14} {:>12} {:>12} {:>8}".format(
+        'max_thr', exp_max_thr, act_max_thr, 'OK' if max_ok else '** FAIL'))
+    st.log("  {:>14} {:>12} {:>12} {:>8}".format(
+        'max_prob', exp_max_prob, act_max_prob, 'OK' if prob_ok else '** FAIL'))
+    st.log(sep)
+
+    # ── Step 4: Return result code ────────────────────────────────────────
+    if not min_ok:
+        st.log("  RESULT: FAIL — min_thr mismatch (expected {}, got {})".format(
+            exp_min_thr, act_min_thr))
+        return -1
+    if not max_ok:
+        st.log("  RESULT: FAIL — max_thr mismatch (expected {}, got {})".format(
+            exp_max_thr, act_max_thr))
+        return -2
+    if not prob_ok:
+        st.log("  RESULT: FAIL — max_prob mismatch (expected {}, got {})".format(
+            exp_max_prob, act_max_prob))
+        return -3
+
+    st.log("  RESULT: PASS — all WRED HW registers match CONFIG_DB")
+    return 0
+
+
+def unbind_wred_from_queues(dut, egress_intf, wait_secs=5):
+    """Remove the wred_profile field from each WRED-bound queue in CONFIG_DB.
+
+    Deletes the ``wred_profile`` hash field from
+    ``QUEUE|<egress_intf>|<q>`` for every queue in WRED_BOUND_QUEUES
+    (0-6).  Waits *wait_secs* afterwards for orchagent to propagate
+    the change through SAI and into DCHAL HW.
+
+    This is the config-path equivalent of test-plan step 19.6:
+        redis-cli -n 4 HDEL "QUEUE|<intf>|<q>" wred_profile
+
+    Args:
+        dut:         spytest DUT handle
+        egress_intf: egress interface string (e.g. 'Ethernet1_49')
+        wait_secs:   seconds to wait for orchagent propagation (default 5)
+    """
+    for q in WRED_BOUND_QUEUES:
+        key = "QUEUE|{}|{}".format(egress_intf, q)
+        st.log("  unbind_wred_from_queues: HDEL \"{}\" wred_profile".format(key))
+        st.config(
+            dut,
+            'sonic-db-cli CONFIG_DB HDEL "{}" "wred_profile"'.format(key),
+            skip_error_check=True)
+    st.log("  unbind_wred_from_queues: waiting {}s for orchagent".format(
+        wait_secs))
+    st.wait(wait_secs)
+
+
 # ── Redis / CONFIG_DB parsers ─────────────────────────────────────────────
 
 def parse_redis_hgetall(output):
@@ -1426,6 +1595,72 @@ def parse_redis_hget(output):
                 line = line[1:-1]
         return line
     return ''
+
+
+def get_first_asic_wred_profile_oid(dut_handle):
+    """Return the ``oid:0x...`` string for the first WRED object in ASIC_DB, or ''.
+
+    Used to obtain the expected *bound* WRED profile OID before unbind tests.
+    """
+    out = st.show(
+        dut_handle,
+        "sonic-db-cli ASIC_DB KEYS '*SAI_OBJECT_TYPE_WRED*'",
+        skip_tmpl=True)
+    for line in str(out).splitlines():
+        line = line.strip()
+        if 'SAI_OBJECT_TYPE_WRED' in line and line.startswith('ASIC_STATE'):
+            parts = line.split(':')
+            return ':'.join(parts[-2:]) if len(parts) >= 2 else line
+    return ''
+
+
+def get_queue_wred_oid(dut_handle, port, queue_idx):
+    """Return ``SAI_QUEUE_ATTR_WRED_PROFILE_ID`` for a specific port/queue from ASIC_DB.
+
+    Resolves the queue object id via ``COUNTERS_QUEUE_NAME_MAP`` in COUNTERS_DB,
+    then reads ``SAI_QUEUE_ATTR_WRED_PROFILE_ID`` for that queue.
+
+    Returns:
+        WRED profile OID (e.g. ``oid:0x1300...``) when bound, ``oid:0x0`` when
+        unbound, or ``''`` if the queue OID could not be resolved.
+    """
+    oid_out = st.show(
+        dut_handle,
+        'sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP '
+        '"{}:{}"'.format(port, queue_idx),
+        skip_tmpl=True)
+    queue_oid = parse_redis_hget(oid_out).strip()
+    if not queue_oid:
+        st.log("  get_queue_wred_oid: no OID for {}:{}".format(port, queue_idx))
+        return ''
+
+    asic_key = "ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:{}".format(queue_oid)
+    wred_out = st.show(
+        dut_handle,
+        'sonic-db-cli ASIC_DB HGET "{}" '
+        '"SAI_QUEUE_ATTR_WRED_PROFILE_ID"'.format(asic_key),
+        skip_tmpl=True)
+    return parse_redis_hget(wred_out).strip()
+
+
+def verify_queues_wred_binding(dut_handle, port, queues, expected_oid,
+                               fail_msgs, label):
+    """Check ``SAI_QUEUE_ATTR_WRED_PROFILE_ID`` for each queue index on *port*.
+
+    Appends mismatches to *fail_msgs*.  Returns the number of queues that matched
+    *expected_oid*.
+    """
+    matched = 0
+    for q in queues:
+        actual = get_queue_wred_oid(dut_handle, port, q)
+        if actual == expected_oid:
+            st.log("  {} Q{} WRED={} — OK".format(label, q, actual))
+            matched += 1
+        else:
+            fail_msgs.append(
+                "{}: Q{} WRED expected='{}', actual='{}'".format(
+                    label, q, expected_oid, actual))
+    return matched
 
 
 # ── Queue counter / MAC helpers ───────────────────────────────────────────
@@ -1644,8 +1879,10 @@ def clear_dut_counters(dut_handle):
     deltas from that baseline.  We must NOT delete these files — doing so
     would cause the CLI to show raw cumulative values instead of zeros.
     """
-    st.config(dut_handle, "sonic-clear counters", skip_error_check=True)
-    st.config(dut_handle, "sonic-clear queuecounters", skip_error_check=True)
+    st.config(dut_handle, "sonic-clear counters", skip_error_check=True,
+              sudo=False)
+    st.config(dut_handle, "sonic-clear queuecounters", skip_error_check=True,
+              sudo=False)
 
     st.config(dut_handle,
               "sonic-db-cli COUNTERS_DB EVAL "
@@ -1782,7 +2019,8 @@ def tg_port_speed_gbps(tg_handle, port_handle):
     return 100
 
 
-def compute_dwrr_stream_rate_pct(tg_handle, ingress_phs, egress_ph, weight_map, margin=1.3):
+def compute_dwrr_stream_rate_pct(tg_handle, ingress_phs, egress_ph, weight_map,
+                                 margin=1.3, egress_speed_gbps=None):
     """Return the per-stream Tx rate (% of line rate) needed to congest every DWRR queue.
 
     Accepts any number of ingress port handles with any mix of line speeds.  Each
@@ -1808,15 +2046,20 @@ def compute_dwrr_stream_rate_pct(tg_handle, ingress_phs, egress_ph, weight_map, 
     egress_ph   : port handle for the egress port (pass None if no TGen on egress)
     weight_map  : dict {queue_index: weight} — only DWRR queues
     margin      : headroom factor above the minimum (default 1.3 = 30%)
+    egress_speed_gbps : override egress speed in Gbps (e.g. 25 for breakout);
+                        when None, auto-detected from egress_ph or defaults to 100
 
     Returns
     -------
     int  — stream rate percent (at least 10%, at most 90%)
     """
     ingress_speeds = [tg_port_speed_gbps(tg_handle, ph) for ph in ingress_phs]
-    # egress_ph is None when the egress port is a DUT-DUT link with no TGen handle;
-    # default to 100 Gbps which is correct for all FX3 interfaces.
-    egress_gbps        = tg_port_speed_gbps(tg_handle, egress_ph) if egress_ph else 100
+    if egress_speed_gbps is not None:
+        egress_gbps = egress_speed_gbps
+    elif egress_ph:
+        egress_gbps = tg_port_speed_gbps(tg_handle, egress_ph)
+    else:
+        egress_gbps = 100
     total_ingress_gbps = sum(ingress_speeds)
 
     max_w    = max(weight_map.values())
@@ -2666,7 +2909,7 @@ def report_wred_linearity(data_points, egress_speed_mbps=10000,
 def run_wred_linearity(ctx, af, margins, verify_egress_neighbor_fn,
                        duration=20, num_depth_samples=3, cooldown=5,
                        wred_profile=GOLDEN_WRED_PROFILE):
-    """Run a full WRED linearity sweep and return (pass, fail_msgs, data_points).
+    """Run a full WRED linearity sweep and return (fail_msgs, data_points).
 
     Orchestrates config verification, neighbor resolution, fan-in traffic
     at each margin point, monotonicity checking, and per-point sanity
@@ -2703,12 +2946,12 @@ def run_wred_linearity(ctx, af, margins, verify_egress_neighbor_fn,
     verify_wred_config(ctx, fail_msgs, wred_profile=wred_profile)
     deploy_dchal_helper(_dut)
     if fail_msgs:
-        return False, fail_msgs, []
+        return fail_msgs, []
 
     if not verify_egress_neighbor_fn(af):
         fail_msgs.append(
             'Egress neighbor resolution failed for {}'.format(af))
-        return False, fail_msgs, []
+        return fail_msgs, []
 
     st.log("Phase 2: Running {} margin points".format(len(margins)))
     data_points = []
@@ -2879,21 +3122,48 @@ def compute_rate_pct(ctx, margin_mbps):
     return max(0.1, rate)
 
 
-def compute_fanin_rate_pct(ctx, margin_mbps):
-    """Return per-port IXIA rate_percent for 2-port fan-in WRED test.
+_BASELINE_EGRESS_MBPS = 100000  # reference speed margins are authored for
 
-    Total target = egress_speed + margin, split evenly across 2 ingress ports.
-    ctx keys: ingress_speed_mbps, egress_speed_mbps
+
+def scale_margin(margin_mbps, egress_speed_mbps):
+    """Scale an absolute margin proportionally to egress speed.
+
+    All WRED margin values (250, 500, 1000 ... Mbps) are authored for a
+    100 GbE egress.  On slower links (e.g. 25G breakout) the same absolute
+    margin would produce a much larger *proportional* overshoot, pushing the
+    queue out of the intended WRED zone.
+
+    Scaling keeps the overshoot ratio constant::
+
+        effective = margin * egress_speed / 100G
+
+    Examples (margin=2000M):
+        100G egress -> 2000M  (2.0% excess)
+         25G egress ->  500M  (2.0% excess)
+    """
+    if egress_speed_mbps == _BASELINE_EGRESS_MBPS or egress_speed_mbps <= 0:
+        return margin_mbps
+    return int(round(margin_mbps * egress_speed_mbps / _BASELINE_EGRESS_MBPS))
+
+
+def compute_fanin_rate_pct(ctx, margin_mbps):
+    """Return per-port IXIA rate_percent for fan-in WRED test.
+
+    Total target = egress_speed + margin, split evenly across ingress ports.
+    The margin is used as-is — callers should pre-scale with ``scale_margin``
+    when the margin was authored for a different egress speed.
+    ctx keys: ingress_speed_mbps, egress_speed_mbps, num_ingress_ports
     Clamped to [0.1, 99.0] to stay within IXIA safe operating range.
     """
     ingress = ctx['ingress_speed_mbps']
     egress = ctx['egress_speed_mbps']
+    num_ports = ctx.get('num_ingress_ports', 2)
     if ingress == 0 or egress == 0:
         st.warn("port speed unknown (ingress={}M, egress={}M) — "
                 "defaulting to 50% rate".format(ingress, egress))
         return 50.0
     target_total = egress + margin_mbps
-    per_port = target_total / 2.0
+    per_port = target_total / float(num_ports)
     rate = per_port / ingress * 100
     if rate > 99.0:
         st.warn("compute_fanin_rate_pct: {:.2f}% exceeds 99% — "
@@ -2903,19 +3173,63 @@ def compute_fanin_rate_pct(ctx, margin_mbps):
 
 
 def compute_dwrr_rate_pct(ctx, oversub_ratio=1.28):
-    """Return per-stream rate_percent for DWRR 8-queue oversubscription.
+    """Return per-stream rate_percent that produces *exactly* ``oversub_ratio``
+    total offered load relative to egress capacity.
 
-    ctx keys: ingress_speed_mbps, egress_speed_mbps, num_queues
+    Formula::
+
+        rate = oversub_ratio * egress / (num_queues * num_ingress_ports * ingress) * 100
+
+    Baseline: 2×100 G ingress → 100 G egress, 8 queues, 1.28× → 8 % per stream.
+    Breakout: 1×100 G ingress →  25 G egress, 8 queues, 1.28× → 4 % per stream.
+
+    ctx keys: ingress_speed_mbps, egress_speed_mbps, num_queues, num_ingress_ports
     """
     ingress = ctx['ingress_speed_mbps']
     egress = ctx['egress_speed_mbps']
     nq = ctx['num_queues']
+    num_ports = ctx.get('num_ingress_ports', 1)
     if ingress == 0 or egress == 0:
-        st.warn("Port speeds unknown — defaulting to 1.6% per stream")
-        return 1.6
+        st.warn("Port speeds unknown — defaulting to 8% per stream")
+        return 8.0
     target_total = egress * oversub_ratio
-    per_stream = target_total / nq
-    return per_stream / ingress * 100
+    per_stream = target_total / (nq * num_ports)
+    rate = per_stream / ingress * 100
+    st.log("compute_dwrr_rate_pct: oversub={:.2f}x  egress={}M  "
+           "{} port(s) @ {}M ingress  {} queues  -> {:.2f}% per stream".format(
+               oversub_ratio, egress, num_ports, ingress, nq, rate))
+    return rate
+
+
+def compute_single_queue_rate_pct(ctx, oversub_ratio=1.50):
+    """Return per-port rate_percent for single-queue congestion (e.g. WRED).
+
+    Same principle as :func:`compute_dwrr_rate_pct` but with exactly one
+    stream per ingress port (all targeting the same queue).
+
+    Baseline: 2×100 G → 100 G, 1.50× → 75 % per port.
+    Breakout: 1×100 G →  25 G, 1.50× → 37.5 % per port.
+
+    ctx keys: ingress_speed_mbps, egress_speed_mbps, num_ingress_ports
+    Clamped to [0.1, 99.0] to stay within IXIA safe operating range.
+    """
+    ingress = ctx['ingress_speed_mbps']
+    egress = ctx['egress_speed_mbps']
+    num_ports = ctx.get('num_ingress_ports', 1)
+    if ingress == 0 or egress == 0:
+        st.warn("Port speeds unknown — defaulting to 75% per stream")
+        return 75.0
+    target_total = egress * oversub_ratio
+    per_port = target_total / num_ports
+    rate = per_port / ingress * 100
+    st.log("compute_single_queue_rate_pct: oversub={:.2f}x  egress={}M  "
+           "{} port(s) @ {}M ingress  -> {:.2f}% per port".format(
+               oversub_ratio, egress, num_ports, ingress, rate))
+    if rate > 99.0:
+        st.warn("compute_single_queue_rate_pct: {:.2f}% exceeds 99% — "
+                "clamping".format(rate))
+        rate = 99.0
+    return max(0.1, rate)
 
 
 def resolve_ingress_neighbor(ctx, af):
@@ -3044,9 +3358,9 @@ def verify_wred_config(ctx, fail_msgs, wred_profile=None):
                 "AQM Q{} ecn_enable={} — expected 0 (ecn_none)".format(
                     tq, ecn_en[tq]))
 
-        exp_min_bytes = int(GOLDEN_WRED_PROFILE.get(
+        exp_min_bytes = int(wred_profile.get(
             'green_min_threshold', '1048576'))
-        exp_max_bytes = int(GOLDEN_WRED_PROFILE.get(
+        exp_max_bytes = int(wred_profile.get(
             'green_max_threshold', '3145728'))
 
         st.log("  AQM Q{} min_thr: HW={} (config={}B={:.2f}MB)".format(
@@ -3274,15 +3588,14 @@ def wred_send_and_measure(ctx, af, margin_mbps, duration=None,
 
 def wred_fanin_send_and_measure(ctx, af, margin_mbps, duration=None,
                                 num_depth_samples=10):
-    """Send fan-in traffic from TWO ingress ports and measure WRED behavior.
+    """Send fan-in traffic from ingress port(s) and measure WRED behavior.
 
-    Like wred_send_and_measure but creates two identical streams (one per
-    ingress port), each at half the total desired rate.  Used for topologies
-    where ingress and egress ports are the same speed (e.g. all 100G).
+    Creates one stream per ingress port, each at the per-port share of the
+    total desired rate.  Supports 1-port (breakout) or 2-port fan-in.
 
-    ctx keys: dut, tg, tg_ph_ingress_a, tg_ph_ingress_b, port_info,
-              ingress_speed_mbps, egress_speed_mbps,
-              target_queue, target_dscp, router_mac,
+    ctx keys: dut, tg, tg_ph_ingress_a, tg_ph_ingress_b (may be None),
+              port_info, ingress_speed_mbps, egress_speed_mbps,
+              num_ingress_ports, target_queue, target_dscp, router_mac,
               pkt_size, num_queues, wred_duration, wred_settle_time,
               ips  (v4_src_a, v4_src_b, v4_dst, v6_src_a, v6_src_b, v6_dst, ...)
 
@@ -3291,7 +3604,7 @@ def wred_fanin_send_and_measure(ctx, af, margin_mbps, duration=None,
     _dut = ctx['dut']
     _tg = ctx['tg']
     _ph_a = ctx['tg_ph_ingress_a']
-    _ph_b = ctx['tg_ph_ingress_b']
+    _ph_b = ctx.get('tg_ph_ingress_b')
     egress = ctx['port_info']['egress']
     tq = ctx['target_queue']
     td = ctx['target_dscp']
@@ -3312,9 +3625,14 @@ def wred_fanin_send_and_measure(ctx, af, margin_mbps, duration=None,
         src_a, src_b = ips['v4_src_a'], ips['v4_src_b']
         dst_ip = ips['v4_dst']
 
+    streams_spec = [('A', _ph_a, src_a)]
+    if _ph_b is not None:
+        streams_spec.append(('B', _ph_b, src_b))
+
+    num_streams = len(streams_spec)
     st.log("DUT router MAC (mac_dst for IXIA): {}".format(mac))
-    st.log("Fan-in: 2 streams x {:.3f}% = {:.3f}% total toward {}".format(
-        rate_pct, rate_pct * 2, egress))
+    st.log("Fan-in: {} stream(s) x {:.3f}% = {:.3f}% total toward {}".format(
+        num_streams, rate_pct, rate_pct * num_streams, egress))
 
     clear_dut_counters(_dut)
     dchal_clear_counters(_dut, egress)
@@ -3325,7 +3643,7 @@ def wred_fanin_send_and_measure(ctx, af, margin_mbps, duration=None,
     _tg.tg_traffic_control(action='clear_stats')
 
     stream_ids = []
-    for label, ph, src_ip in [('A', _ph_a, src_a), ('B', _ph_b, src_b)]:
+    for label, ph, src_ip in streams_spec:
         if af == "ipv6":
             tc_val = td << 2
             result = _tg.tg_traffic_config(
@@ -3463,7 +3781,7 @@ def wred_fanin_send_and_measure(ctx, af, margin_mbps, duration=None,
 
     return {
         'margin_mbps':    margin_mbps,
-        'rate_pct':       rate_pct * 2,
+        'rate_pct':       rate_pct * num_streams,
         'rate_pct_per_port': rate_pct,
         'q_depth_bytes':  q_depth,
         'depth_samples':  depth_samples,
@@ -3476,6 +3794,103 @@ def wred_fanin_send_and_measure(ctx, af, margin_mbps, duration=None,
         'all_queues':     all_queues,
         'rebaselined':    rebaselined,
     }
+
+
+def wred_fanin_start_continuous(ctx, af, margin_mbps):
+    """Create and run fan-in traffic without stopping (for mid-traffic WRED tests).
+
+    Two continuous streams (one per ingress port) at the same combined rate as
+    :func:`wred_fanin_send_and_measure` for *margin_mbps*.  Does not clear DUT
+    counters — the caller should do that before calling when a clean baseline
+    is required.  Clears IXIA statistics before creating streams.
+
+    Args:
+        ctx: Same context dict as :func:`wred_fanin_send_and_measure`.
+        af: ``\"ipv4\"`` or ``\"ipv6\"``.
+        margin_mbps: Mbps above line rate (same semantics as fan-in measure).
+
+    Returns:
+        List of IXIA ``stream_id`` strings; pass to :func:`wred_fanin_stop_continuous`.
+    """
+    _tg = ctx['tg']
+    _ph_a = ctx['tg_ph_ingress_a']
+    _ph_b = ctx['tg_ph_ingress_b']
+    egress = ctx['port_info']['egress']
+    tq = ctx['target_queue']
+    td = ctx['target_dscp']
+    mac = ctx['router_mac']
+    pkt_sz = ctx['pkt_size']
+    ips = ctx['ips']
+
+    rate_pct = compute_fanin_rate_pct(ctx, margin_mbps)
+
+    if af == "ipv6":
+        src_a, src_b = ips['v6_src_a'], ips['v6_src_b']
+        dst_ip = ips['v6_dst']
+    else:
+        src_a, src_b = ips['v4_src_a'], ips['v4_src_b']
+        dst_ip = ips['v4_dst']
+
+    streams_spec = [('A', _ph_a, src_a)]
+    if _ph_b is not None:
+        streams_spec.append(('B', _ph_b, src_b))
+    num_streams = len(streams_spec)
+
+    st.log("wred_fanin_start_continuous: egress={} Q{} DSCP={} margin={} Mbps "
+           "-> {:.3f}% per port ({:.3f}% combined, {} stream(s))".format(
+               egress, tq, td, margin_mbps, rate_pct,
+               rate_pct * num_streams, num_streams))
+
+    _tg.tg_traffic_control(action='clear_stats')
+
+    stream_ids = []
+    for label, ph, src_ip in streams_spec:
+        if af == "ipv6":
+            tc_val = td << 2
+            result = _tg.tg_traffic_config(
+                mode='create', port_handle=ph,
+                l3_protocol='ipv6',
+                ipv6_src_addr=src_ip, ipv6_dst_addr=dst_ip,
+                mac_dst=mac,
+                ipv6_traffic_class=tc_val, ipv6_hop_limit=64,
+                frame_size=pkt_sz, rate_percent=rate_pct,
+                transmit_mode='continuous', high_speed_result_analysis=0)
+        else:
+            result = _tg.tg_traffic_config(
+                mode='create', port_handle=ph,
+                l3_protocol='ipv4', l4_protocol='icmp',
+                ip_src_addr=src_ip, ip_dst_addr=dst_ip,
+                mac_dst=mac,
+                ip_dscp=td, ip_ttl=64,
+                frame_size=pkt_sz, rate_percent=rate_pct,
+                transmit_mode='continuous', high_speed_result_analysis=0)
+        sid = result.get('stream_id', 'UNKNOWN')
+        stream_ids.append(sid)
+        st.log("  stream_{} id={} Q{} DSCP={} rate={:.3f}%".format(
+            label, sid, tq, td, rate_pct))
+
+    _tg.tg_traffic_control(action='apply')
+    _tg.tg_traffic_control(action='run')
+    return stream_ids
+
+
+def wred_fanin_stop_continuous(tg, stream_ids):
+    """Stop fan-in traffic and remove streams from *tg*.
+
+    Safe to call with an empty *stream_ids* list.
+    """
+    if not stream_ids:
+        return
+    try:
+        tg.tg_traffic_control(action='stop')
+    except Exception:
+        pass
+    st.wait(2)
+    for sid in stream_ids:
+        try:
+            tg.tg_traffic_config(mode='remove', stream_id=sid)
+        except Exception:
+            pass
 
 
 def report_wred_result(ctx, results, zone_label):
@@ -3599,10 +4014,56 @@ def report_end_to_end(total_ixia_tx, total_egress, ixia_rx,
     st.log("    {:<25}{:>14,} pkts".format(rx_label + ":", ixia_rx))
 
 
+# ── Topology mode inference ────────────────────────────────────────────
+
+def _infer_topo_mode():
+    """Derive the QoS topology mode from the testbed YAML structure.
+
+    Inspects the testbed *before* ``ensure_min_topology`` to determine the
+    mode from the physical topology alone — no explicit ``qos_egress_mode``
+    parameter is needed in the YAML.
+
+    Detection logic:
+      1. ``st.get_testbed_vars()`` — if ``D1D2P1`` exists, there is a
+         DUT-to-DUT link (multi-DUT topology).
+      2. ``st.get_breakout(D1)`` — if D1 has any breakout-annotated links
+         the mode is ``breakout``; otherwise ``peer_link``.
+      3. No D2 at all → ``ixia`` (single-DUT, all-IXIA egress).
+
+    Returns:
+        str: ``'ixia'``, ``'peer_link'``, or ``'breakout'``.
+    """
+    tb_preview = st.get_testbed_vars()
+    has_dut2 = hasattr(tb_preview, 'D1D2P1')
+
+    if has_dut2:
+        breakout_list = st.get_breakout(tb_preview.D1)
+        if breakout_list:
+            mode = 'breakout'
+        else:
+            mode = 'peer_link'
+    else:
+        mode = 'ixia'
+
+    st.log("_infer_topo_mode: detected mode='{}' (has_dut2={})".format(
+        mode, has_dut2))
+    return mode
+
+
 # ── Shared topology setup ──────────────────────────────────────────────
 
 def setup_topo_common(tgapi_module, target_queue):
     """Shared topology setup: DUT L3, IXIA interfaces, QoS baseline, WRED ctx.
+
+    The topology mode is **inferred** from the testbed YAML structure by
+    ``_infer_topo_mode()`` — no explicit parameter is needed:
+
+      * ``ixia``      -- D1T1:3.  Egress is a 3rd IXIA port on dut1.
+      * ``peer_link`` -- D1T1:2 + D1D2:1 + D2T1:1.  Egress is the peer
+                         link to dut2; dut2 forwards to its IXIA port.
+      * ``breakout``  -- D1T1:1 + D1D2:1 + D2T1:1.  Same as peer_link
+                         but with a single IXIA ingress and the peer
+                         port broken out (e.g. 4x25G).
 
     This is a generator (uses ``yield``), **not** a pytest fixture.  Each
     test module wraps it in its own ``@pytest.fixture`` to populate
@@ -3610,49 +4071,141 @@ def setup_topo_common(tgapi_module, target_queue):
 
     Args:
         tgapi_module: The ``tgapi`` module (``from spytest import tgapi``).
-                      Passed in to avoid adding a tgapi import to this
-                      library-only helpers file.
         target_queue: Queue index under test (e.g. 1 or 3).
 
     Yields:
         dict with keys ``dut``, ``tg``, ``tg_ph``, ``port_info``,
         ``port_speeds``, ``ingress_speed_mbps``, ``egress_speed_mbps``,
-        ``wred_ctx``, ``tb_vars``.
-
-    On teardown (after ``yield``) removes all IPv4/IPv6 L3 config from
-    the DUT.
+        ``wred_ctx``, ``tb_vars``, ``mode``.
     """
-    st.log("setup_topo: establishing minimum topology D1T1:3")
-    tb_dict = st.ensure_min_topology("D1T1:3")
-    tb_vars = st.get_testbed_vars()
-    dut = tb_dict.D1
+    mode = _infer_topo_mode()
 
-    port_info = {
-        'ingress_a': tb_vars.D1T1P1,
-        'ingress_b': tb_vars.D1T1P2,
-        'egress':    tb_vars.D1T1P3,
-    }
-    st.log("setup_topo: ports -> {}".format(port_info))
+    # ── Phase 1: Topology and port assignment ─────────────────────────────
+    dut2 = None
+    dut2_port_info = {}
 
-    st.log("setup_topo: checking interface admin status")
-    ensure_interfaces_admin_up(dut, port_info.values())
+    if mode == 'breakout':
+        st.log("setup_topo: establishing topology D1T1:1 D1D2:1 D2T1:1")
+        tb_dict = st.ensure_min_topology("D1T1:1", "D1D2:1", "D2T1:1")
+        tb_vars = st.get_testbed_vars()
+        dut = tb_dict.D1
+        dut2 = tb_dict.D2
 
-    st.log("setup_topo: verifying queue counters")
-    missing = verify_queue_counters(dut, port_info.values())
+        parent_d1 = tb_vars.D1D2P1
+        parent_d2 = tb_vars.D2D1P1
+
+        for _dut, _parent, _label in [(dut, parent_d1, 'dut1'),
+                                       (dut2, parent_d2, 'dut2')]:
+            blist = st.get_breakout(_dut)
+            for port, bmode in (blist or []):
+                cli_mode = bmode if bmode.endswith('G') else bmode + 'G'
+                st.log("setup_topo [breakout]: applying breakout {} "
+                       "on {} port {}".format(cli_mode, _label, port))
+                st.config(_dut,
+                          'config interface breakout {} "{}" -yfl'.format(
+                              port, cli_mode),
+                          skip_error_check=True)
+        st.wait(5)
+
+        egress_sub = '{}_1'.format(parent_d1)
+        peer_sub = '{}_1'.format(parent_d2)
+        st.log("setup_topo [breakout]: sub-ports egress={} peer={}".format(
+            egress_sub, peer_sub))
+
+        st.config(dut, 'config interface startup {}'.format(egress_sub),
+                  skip_error_check=True)
+        st.config(dut2, 'config interface startup {}'.format(peer_sub),
+                  skip_error_check=True)
+        st.wait(5)
+
+        port_info = {
+            'ingress_a': tb_vars.D1T1P1,
+            'egress':    egress_sub,
+        }
+        dut2_port_info = {
+            'peer':  peer_sub,
+            'egress_ixia': tb_vars.D2T1P1,
+        }
+        tg_handle, tg_ph_a = tgapi_module.get_handle_byname('T1D1P1')
+        _, tg_ph_d2_e = tgapi_module.get_handle_byname('T1D2P1')
+        tg = tg_handle
+        tg_ph = {
+            'ingress_a': tg_ph_a,
+            'egress': tg_ph_d2_e,
+            'egress_sink': tg_ph_d2_e,
+        }
+    elif mode == 'peer_link':
+        d1t1_count = sum(1 for k in st.get_testbed_vars()
+                         if k.startswith('D1T1P'))
+        topo_args = ["D1T1:{}".format(d1t1_count), "D1D2:1", "D2T1:1"]
+        st.log("setup_topo: establishing topology {}".format(
+            " ".join(topo_args)))
+        tb_dict = st.ensure_min_topology(*topo_args)
+        tb_vars = st.get_testbed_vars()
+        dut = tb_dict.D1
+        dut2 = tb_dict.D2
+        port_info = {
+            'ingress_a': tb_vars.D1T1P1,
+            'ingress_b': tb_vars.D1T1P2,
+            'egress':    tb_vars.D1D2P1,
+        }
+        dut2_port_info = {
+            'peer':  tb_vars.D2D1P1,
+            'egress_ixia': tb_vars.D2T1P1,
+        }
+        tg_handle, tg_ph_a = tgapi_module.get_handle_byname('T1D1P1')
+        _, tg_ph_b = tgapi_module.get_handle_byname('T1D1P2')
+        _, tg_ph_d2_e = tgapi_module.get_handle_byname('T1D2P1')
+        tg = tg_handle
+        tg_ph = {
+            'ingress_a': tg_ph_a,
+            'ingress_b': tg_ph_b,
+            'egress': tg_ph_d2_e,
+            'egress_sink': tg_ph_d2_e,
+        }
+    else:
+        st.log("setup_topo: establishing topology D1T1:3")
+        tb_dict = st.ensure_min_topology("D1T1:3")
+        tb_vars = st.get_testbed_vars()
+        dut = tb_dict.D1
+        port_info = {
+            'ingress_a': tb_vars.D1T1P1,
+            'ingress_b': tb_vars.D1T1P2,
+            'egress':    tb_vars.D1T1P3,
+        }
+        tg_handle, tg_ph_a = tgapi_module.get_handle_byname('T1D1P1')
+        _, tg_ph_b = tgapi_module.get_handle_byname('T1D1P2')
+        _, tg_ph_e = tgapi_module.get_handle_byname('T1D1P3')
+        tg = tg_handle
+        tg_ph = {
+            'ingress_a': tg_ph_a,
+            'ingress_b': tg_ph_b,
+            'egress': tg_ph_e,
+        }
+
+    st.log("setup_topo: mode={} ports={}".format(mode, port_info))
+    if dut2_port_info:
+        st.log("setup_topo: dut2 ports={}".format(dut2_port_info))
+
+    # ── Phase 2: Interface preparation (both DUTs) ────────────────────────
+    all_dut1_ports = list(port_info.values())
+    ensure_interfaces_admin_up(dut, all_dut1_ports)
+
+    missing = verify_queue_counters(dut, all_dut1_ports)
     if missing:
         st.warn("setup_topo: queue counters missing for: {}".format(missing))
 
-    tg_handle, tg_ph_a = tgapi_module.get_handle_byname('T1D1P1')
-    _, tg_ph_b = tgapi_module.get_handle_byname('T1D1P2')
-    _, tg_ph_e = tgapi_module.get_handle_byname('T1D1P3')
-    tg = tg_handle
-    tg_ph = {'ingress_a': tg_ph_a, 'ingress_b': tg_ph_b, 'egress': tg_ph_e}
-
-    st.log("setup_topo: removing port memberships")
-    for intf in port_info.values():
+    for intf in all_dut1_ports:
         remove_interface_from_all_memberships(dut, intf)
 
-    raw_speeds = get_intf_speeds(dut, port_info.values())
+    if dut2:
+        all_dut2_ports = list(dut2_port_info.values())
+        ensure_interfaces_admin_up(dut2, all_dut2_ports)
+        for intf in all_dut2_ports:
+            remove_interface_from_all_memberships(dut2, intf)
+
+    # ── Phase 3: Port speeds ──────────────────────────────────────────────
+    raw_speeds = get_intf_speeds(dut, all_dut1_ports)
     port_speeds = {}
     for role, intf in port_info.items():
         port_speeds[role] = raw_speeds.get(intf, 'N/A')
@@ -3671,14 +4224,69 @@ def setup_topo_common(tgapi_module, target_queue):
     st.log("setup_topo: ingress_speed={}M, egress_speed={}M".format(
         ingress_speed_mbps, egress_speed_mbps))
 
-    st.log("setup_topo: reloading QoS config")
+    # ── Phase 4: QoS reload ──────────────────────────────────────────────
+    st.log("setup_topo: reloading QoS config on dut1")
     st.config(dut, "config qos reload", skip_error_check=True)
     st.wait(5)
-    ensure_interfaces_admin_up(dut, port_info.values())
+    ensure_interfaces_admin_up(dut, all_dut1_ports)
 
-    _wait_for_interfaces(dut, port_info.values(), timeout=30, poll=5)
+    if dut2:
+        st.log("setup_topo: reloading QoS config on dut2")
+        st.config(dut2, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        ensure_interfaces_admin_up(dut2, list(dut2_port_info.values()))
 
-    st.log("setup_topo: configuring L3 interfaces on DUT (dual-stack)")
+    _wait_for_interfaces(dut, all_dut1_ports, timeout=30, poll=5)
+    if dut2:
+        _wait_for_interfaces(dut2, list(dut2_port_info.values()),
+                             timeout=30, poll=5)
+
+    # ── Phase 5: L3 configuration ────────────────────────────────────────
+    if mode == 'peer_link':
+        _setup_l3_peer_link(dut, dut2, port_info, dut2_port_info,
+                            tg, tg_ph, tgapi_module)
+    elif mode == 'breakout':
+        _setup_l3_breakout(dut, dut2, port_info, dut2_port_info,
+                           tg, tg_ph, tgapi_module)
+    else:
+        _setup_l3_ixia(dut, port_info, tg, tg_ph)
+
+    # ── Phase 6: Build WRED context and yield ─────────────────────────────
+    router_mac = get_dut_mac(dut, port_info['ingress_a'])
+    st.log("setup_topo: DUT router MAC = {}".format(router_mac))
+    wred_ctx = build_wred_ctx(
+        dut, tg, tg_ph, port_info,
+        ingress_speed_mbps, egress_speed_mbps,
+        router_mac, target_queue=target_queue)
+
+    st.log("setup_topo: DONE (mode={})".format(mode))
+    yield {
+        'dut': dut,
+        'dut2': dut2,
+        'tg': tg,
+        'tg_ph': tg_ph,
+        'port_info': port_info,
+        'dut2_port_info': dut2_port_info,
+        'port_speeds': port_speeds,
+        'ingress_speed_mbps': ingress_speed_mbps,
+        'egress_speed_mbps': egress_speed_mbps,
+        'wred_ctx': wred_ctx,
+        'tb_vars': tb_vars,
+        'mode': mode,
+    }
+
+    # ── Teardown ──────────────────────────────────────────────────────────
+    if mode == 'peer_link':
+        _teardown_l3_peer_link(dut, dut2, port_info, dut2_port_info)
+    elif mode == 'breakout':
+        _teardown_l3_breakout(dut, dut2, port_info, dut2_port_info)
+    else:
+        _teardown_l3_ixia(dut, port_info)
+
+
+def _setup_l3_ixia(dut, port_info, tg, tg_ph):
+    """L3 setup for ixia mode: all three ports on dut1, all connected to IXIA."""
+    st.log("setup_topo [ixia]: configuring L3 on DUT (dual-stack)")
     l3_cfg = (
         'config interface ip add {} {}\n'
         'config interface ip add {} {}\n'
@@ -3697,7 +4305,7 @@ def setup_topo_common(tgapi_module, target_queue):
     st.config(dut, l3_cfg, skip_error_check=True)
     st.wait(2)
 
-    st.log("setup_topo: configuring IXIA IPv4 interfaces")
+    st.log("setup_topo [ixia]: configuring IXIA IPv4 interfaces")
     ixia_v4_params = [
         ('ingress_a', IXIA_INGRESS_A_IP, '10.10.10.1'),
         ('ingress_b', IXIA_INGRESS_B_IP, '10.10.11.1'),
@@ -3709,7 +4317,7 @@ def setup_topo_common(tgapi_module, target_queue):
             intf_ip_addr=ip, netmask=NETMASK, gateway=gw,
             arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
 
-    st.log("setup_topo: configuring IXIA IPv6 interfaces")
+    st.log("setup_topo [ixia]: configuring IXIA IPv6 interfaces")
     ixia_v6_params = [
         ('ingress_a', IXIA_INGRESS_A_IP6, '2001:db8:10::1'),
         ('ingress_b', IXIA_INGRESS_B_IP6, '2001:db8:11::1'),
@@ -3729,47 +4337,120 @@ def setup_topo_common(tgapi_module, target_queue):
 
     st.wait(30)
 
-    ping_out = st.config(dut, "ping -c 5 -W 2 {}".format(IXIA_EGRESS_IP),
-                         skip_error_check=True)
-    ping_str = str(ping_out) if ping_out else ''
-    if '0 received' in ping_str or 'Unreachable' in ping_str:
-        st.warn("setup_topo: IPv4 ping to {} FAILED".format(IXIA_EGRESS_IP))
-        dump_l3_diag(dut, IXIA_EGRESS_IP)
-    else:
-        st.log("setup_topo: IPv4 ping to {} OK".format(IXIA_EGRESS_IP))
-
-    ping6_out = st.config(dut, "ping6 -c 5 -W 2 {}".format(IXIA_EGRESS_IP6),
-                          skip_error_check=True)
-    ping6_str = str(ping6_out) if ping6_out else ''
-    if '0 received' in ping6_str or 'Unreachable' in ping6_str:
-        st.warn("setup_topo: IPv6 ping to {} FAILED".format(IXIA_EGRESS_IP6))
-        dump_l3_diag(dut, IXIA_EGRESS_IP6)
-    else:
-        st.log("setup_topo: IPv6 ping to {} OK".format(IXIA_EGRESS_IP6))
+    _verify_ping(dut, IXIA_EGRESS_IP, 'IPv4')
+    _verify_ping(dut, IXIA_EGRESS_IP6, 'IPv6', cmd='ping6')
     st.wait(5)
 
-    router_mac = get_dut_mac(dut, port_info['ingress_a'])
-    st.log("setup_topo: DUT router MAC = {}".format(router_mac))
-    wred_ctx = build_wred_ctx(
-        dut, tg, tg_ph, port_info,
-        ingress_speed_mbps, egress_speed_mbps,
-        router_mac, target_queue=target_queue)
 
-    st.log("setup_topo: DONE")
-    yield {
-        'dut': dut,
-        'tg': tg,
-        'tg_ph': tg_ph,
-        'port_info': port_info,
-        'port_speeds': port_speeds,
-        'ingress_speed_mbps': ingress_speed_mbps,
-        'egress_speed_mbps': egress_speed_mbps,
-        'wred_ctx': wred_ctx,
-        'tb_vars': tb_vars,
-    }
+def _setup_l3_peer_link(dut, dut2, port_info, dut2_port_info,
+                         tg, tg_ph, tgapi_module):
+    """L3 setup for peer_link mode: transit subnet between DUTs, egress on dut2.
 
-    st.log("setup_topo: teardown — removing L3 config (IPv4 + IPv6)")
-    cleanup_cfg = (
+    Traffic path:
+      IXIA(ingress) -> dut1(route) -> peer link(egress, queuing measured here)
+      -> dut2(route) -> dut2 IXIA port -> IXIA(sink)
+    """
+    peer_d1 = port_info['egress']
+    peer_d2 = dut2_port_info['peer']
+    d2_ixia_port = dut2_port_info['egress_ixia']
+
+    # ── dut1: ingress L3 + transit L3 on peer port + static route ──
+    st.log("setup_topo [peer_link]: configuring L3 on dut1 (dual-stack)")
+    d1_l3 = (
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}'
+    ).format(
+        port_info['ingress_a'], V4_INGRESS_A_IP,
+        port_info['ingress_b'], V4_INGRESS_B_IP,
+        peer_d1,                V4_TRANSIT_DUT1_IP,
+        port_info['ingress_a'], V6_INGRESS_A_IP,
+        port_info['ingress_b'], V6_INGRESS_B_IP,
+        peer_d1,                V6_TRANSIT_DUT1_IP,
+    )
+    st.config(dut, d1_l3, skip_error_check=True)
+    st.wait(2)
+
+    st.log("setup_topo [peer_link]: adding static routes on dut1")
+    st.config(dut, 'sudo ip route add 20.20.20.0/24 via {}'.format(
+        V4_TRANSIT_DUT2_BARE), skip_error_check=True)
+    st.config(dut, 'sudo ip -6 route add 2001:db8:20::/64 via {}'.format(
+        V6_TRANSIT_DUT2_BARE), skip_error_check=True)
+    st.wait(2)
+
+    # ── dut2: transit L3 on peer port + egress L3 on IXIA port ──
+    st.log("setup_topo [peer_link]: configuring L3 on dut2 (dual-stack)")
+    d2_l3 = (
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}'
+    ).format(
+        peer_d2,       V4_TRANSIT_DUT2_IP,
+        d2_ixia_port,  V4_EGRESS_IP,
+        peer_d2,       V6_TRANSIT_DUT2_IP,
+        d2_ixia_port,  V6_EGRESS_IP,
+    )
+    st.config(dut2, d2_l3, skip_error_check=True)
+    st.wait(2)
+
+    # ── IXIA: ingress interfaces on dut1 ports ──
+    st.log("setup_topo [peer_link]: configuring IXIA ingress IPv4 interfaces")
+    for key, ip, gw in [('ingress_a', IXIA_INGRESS_A_IP, '10.10.10.1'),
+                         ('ingress_b', IXIA_INGRESS_B_IP, '10.10.11.1')]:
+        tg.tg_interface_config(
+            mode='config', port_handle=tg_ph[key],
+            intf_ip_addr=ip, netmask=NETMASK, gateway=gw,
+            arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
+
+    st.log("setup_topo [peer_link]: configuring IXIA ingress IPv6 interfaces")
+    for key, ip6, gw6 in [('ingress_a', IXIA_INGRESS_A_IP6, '2001:db8:10::1'),
+                           ('ingress_b', IXIA_INGRESS_B_IP6, '2001:db8:11::1')]:
+        tg.tg_interface_config(
+            mode='config', port_handle=tg_ph[key],
+            ipv6_intf_addr=ip6, ipv6_prefix_length=PREFIX_LEN_V6,
+            ipv6_gateway=gw6, ipv6_resolve_gateway_mac=1,
+            arp_send_req=1)
+
+    # ── IXIA: egress sink on dut2's IXIA port ──
+    st.log("setup_topo [peer_link]: configuring IXIA egress sink (dut2)")
+    tg.tg_interface_config(
+        mode='config', port_handle=tg_ph['egress_sink'],
+        intf_ip_addr=IXIA_EGRESS_IP, netmask=NETMASK, gateway='20.20.20.1',
+        arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
+    tg.tg_interface_config(
+        mode='config', port_handle=tg_ph['egress_sink'],
+        ipv6_intf_addr=IXIA_EGRESS_IP6, ipv6_prefix_length=PREFIX_LEN_V6,
+        ipv6_gateway='2001:db8:20::1', ipv6_resolve_gateway_mac=1,
+        arp_send_req=1)
+
+    try:
+        tg.tg_topology_test_control(action='start_all_protocols')
+    except Exception:
+        st.warn("start_all_protocols unavailable; relying on arp_send_req")
+
+    st.wait(30)
+
+    # Verify connectivity: dut1 -> dut2 (transit), dut2 -> IXIA (egress)
+    _verify_ping(dut, V4_TRANSIT_DUT2_BARE, 'dut1->dut2 transit IPv4')
+    _verify_ping(dut2, IXIA_EGRESS_IP, 'dut2->IXIA egress IPv4')
+    _verify_ping(dut, IXIA_EGRESS_IP, 'dut1->IXIA end-to-end IPv4')
+    _verify_ping(dut, V6_TRANSIT_DUT2_BARE, 'dut1->dut2 transit IPv6',
+                 cmd='ping6')
+    _verify_ping(dut2, IXIA_EGRESS_IP6, 'dut2->IXIA egress IPv6',
+                 cmd='ping6')
+    _verify_ping(dut, IXIA_EGRESS_IP6, 'dut1->IXIA end-to-end IPv6',
+                 cmd='ping6')
+    st.wait(5)
+
+
+def _teardown_l3_ixia(dut, port_info):
+    """Remove L3 config for ixia mode."""
+    st.log("setup_topo: teardown [ixia] — removing L3 config")
+    cleanup = (
         'config interface ip remove {} {}\n'
         'config interface ip remove {} {}\n'
         'config interface ip remove {} {}\n'
@@ -3784,8 +4465,208 @@ def setup_topo_common(tgapi_module, target_queue):
         port_info['ingress_b'], V6_INGRESS_B_IP,
         port_info['egress'],    V6_EGRESS_IP,
     )
-    st.config(dut, cleanup_cfg, skip_error_check=True)
-    st.log("setup_topo: teardown complete")
+    st.config(dut, cleanup, skip_error_check=True)
+    st.log("setup_topo: teardown [ixia] complete")
+
+
+def _teardown_l3_peer_link(dut, dut2, port_info, dut2_port_info):
+    """Remove L3 config + static routes for peer_link mode."""
+    st.log("setup_topo: teardown [peer_link] — removing L3 + routes")
+    peer_d1 = port_info['egress']
+    peer_d2 = dut2_port_info['peer']
+    d2_ixia_port = dut2_port_info['egress_ixia']
+
+    st.config(dut, 'sudo ip route del 20.20.20.0/24 via {}'.format(
+        V4_TRANSIT_DUT2_BARE), skip_error_check=True)
+    st.config(dut, 'sudo ip -6 route del 2001:db8:20::/64 via {}'.format(
+        V6_TRANSIT_DUT2_BARE), skip_error_check=True)
+
+    d1_cleanup = (
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}'
+    ).format(
+        port_info['ingress_a'], V4_INGRESS_A_IP,
+        port_info['ingress_b'], V4_INGRESS_B_IP,
+        peer_d1,                V4_TRANSIT_DUT1_IP,
+        port_info['ingress_a'], V6_INGRESS_A_IP,
+        port_info['ingress_b'], V6_INGRESS_B_IP,
+        peer_d1,                V6_TRANSIT_DUT1_IP,
+    )
+    st.config(dut, d1_cleanup, skip_error_check=True)
+
+    d2_cleanup = (
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}'
+    ).format(
+        peer_d2,       V4_TRANSIT_DUT2_IP,
+        d2_ixia_port,  V4_EGRESS_IP,
+        peer_d2,       V6_TRANSIT_DUT2_IP,
+        d2_ixia_port,  V6_EGRESS_IP,
+    )
+    st.config(dut2, d2_cleanup, skip_error_check=True)
+    st.log("setup_topo: teardown [peer_link] complete")
+
+
+def _setup_l3_breakout(dut, dut2, port_info, dut2_port_info,
+                        tg, tg_ph, tgapi_module):
+    """L3 setup for breakout mode: single ingress, breakout sub-port egress via dut2.
+
+    Traffic path:
+      IXIA(ingress) -> dut1(route) -> breakout sub-port(25G, queuing measured)
+      -> dut2(route) -> dut2 IXIA port -> IXIA(sink)
+    """
+    egress_sub = port_info['egress']
+    peer_sub = dut2_port_info['peer']
+    d2_ixia_port = dut2_port_info['egress_ixia']
+
+    st.log("setup_topo [breakout]: configuring L3 on dut1 (dual-stack)")
+    d1_l3 = (
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}'
+    ).format(
+        port_info['ingress_a'], V4_INGRESS_A_IP,
+        egress_sub,             V4_TRANSIT_DUT1_IP,
+        port_info['ingress_a'], V6_INGRESS_A_IP,
+        egress_sub,             V6_TRANSIT_DUT1_IP,
+    )
+    st.config(dut, d1_l3, skip_error_check=True)
+    st.wait(2)
+
+    st.log("setup_topo [breakout]: adding static routes on dut1")
+    st.config(dut, 'sudo ip route add 20.20.20.0/24 via {}'.format(
+        V4_TRANSIT_DUT2_BARE), skip_error_check=True)
+    st.config(dut, 'sudo ip -6 route add 2001:db8:20::/64 via {}'.format(
+        V6_TRANSIT_DUT2_BARE), skip_error_check=True)
+    st.wait(2)
+
+    st.log("setup_topo [breakout]: configuring L3 on dut2 (dual-stack)")
+    d2_l3 = (
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}'
+    ).format(
+        peer_sub,      V4_TRANSIT_DUT2_IP,
+        d2_ixia_port,  V4_EGRESS_IP,
+        peer_sub,      V6_TRANSIT_DUT2_IP,
+        d2_ixia_port,  V6_EGRESS_IP,
+    )
+    st.config(dut2, d2_l3, skip_error_check=True)
+    st.wait(2)
+
+    st.log("setup_topo [breakout]: configuring IXIA ingress IPv4")
+    tg.tg_interface_config(
+        mode='config', port_handle=tg_ph['ingress_a'],
+        intf_ip_addr=IXIA_INGRESS_A_IP, netmask=NETMASK, gateway='10.10.10.1',
+        arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
+
+    st.log("setup_topo [breakout]: configuring IXIA ingress IPv6")
+    tg.tg_interface_config(
+        mode='config', port_handle=tg_ph['ingress_a'],
+        ipv6_intf_addr=IXIA_INGRESS_A_IP6, ipv6_prefix_length=PREFIX_LEN_V6,
+        ipv6_gateway='2001:db8:10::1', ipv6_resolve_gateway_mac=1,
+        arp_send_req=1)
+
+    st.log("setup_topo [breakout]: configuring IXIA egress sink (dut2)")
+    tg.tg_interface_config(
+        mode='config', port_handle=tg_ph['egress_sink'],
+        intf_ip_addr=IXIA_EGRESS_IP, netmask=NETMASK, gateway='20.20.20.1',
+        arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
+    tg.tg_interface_config(
+        mode='config', port_handle=tg_ph['egress_sink'],
+        ipv6_intf_addr=IXIA_EGRESS_IP6, ipv6_prefix_length=PREFIX_LEN_V6,
+        ipv6_gateway='2001:db8:20::1', ipv6_resolve_gateway_mac=1,
+        arp_send_req=1)
+
+    try:
+        tg.tg_topology_test_control(action='start_all_protocols')
+    except Exception:
+        st.warn("start_all_protocols unavailable; relying on arp_send_req")
+
+    st.wait(30)
+
+    _verify_ping(dut, V4_TRANSIT_DUT2_BARE, 'dut1->dut2 transit IPv4')
+    _verify_ping(dut2, IXIA_EGRESS_IP, 'dut2->IXIA egress IPv4')
+    _verify_ping(dut, IXIA_EGRESS_IP, 'dut1->IXIA end-to-end IPv4')
+    _verify_ping(dut, V6_TRANSIT_DUT2_BARE, 'dut1->dut2 transit IPv6',
+                 cmd='ping6')
+    _verify_ping(dut2, IXIA_EGRESS_IP6, 'dut2->IXIA egress IPv6',
+                 cmd='ping6')
+    _verify_ping(dut, IXIA_EGRESS_IP6, 'dut1->IXIA end-to-end IPv6',
+                 cmd='ping6')
+    st.wait(5)
+
+
+def _teardown_l3_breakout(dut, dut2, port_info, dut2_port_info):
+    """Remove L3 config and static routes.
+
+    Port breakout is intentionally **not** reverted here because the
+    reverse breakout (4x25G -> 1x100G) triggers the same SAI port-deletion
+    bug that prevents orchagent from removing sub-ports from ASIC_DB.
+    The DUTs are left in breakout state; a reboot with the original
+    config_db.json is required to fully restore 1x100G.
+    """
+    st.log("setup_topo: teardown [breakout] — removing L3 + routes")
+    egress_sub = port_info['egress']
+    peer_sub = dut2_port_info['peer']
+    d2_ixia_port = dut2_port_info['egress_ixia']
+
+    st.config(dut, 'sudo ip route del 20.20.20.0/24 via {}'.format(
+        V4_TRANSIT_DUT2_BARE), skip_error_check=True)
+    st.config(dut, 'sudo ip -6 route del 2001:db8:20::/64 via {}'.format(
+        V6_TRANSIT_DUT2_BARE), skip_error_check=True)
+
+    d1_cleanup = (
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}'
+    ).format(
+        port_info['ingress_a'], V4_INGRESS_A_IP,
+        egress_sub,             V4_TRANSIT_DUT1_IP,
+        port_info['ingress_a'], V6_INGRESS_A_IP,
+        egress_sub,             V6_TRANSIT_DUT1_IP,
+    )
+    st.config(dut, d1_cleanup, skip_error_check=True)
+
+    d2_cleanup = (
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}'
+    ).format(
+        peer_sub,      V4_TRANSIT_DUT2_IP,
+        d2_ixia_port,  V4_EGRESS_IP,
+        peer_sub,      V6_TRANSIT_DUT2_IP,
+        d2_ixia_port,  V6_EGRESS_IP,
+    )
+    st.config(dut2, d2_cleanup, skip_error_check=True)
+
+    st.banner("WARNING: DUTs are still in 4x25G breakout. Reverse breakout "
+              "is skipped due to a SAI port-deletion bug. A reboot with the "
+              "original config_db.json is required before running tests that "
+              "expect the default 1x100G port map.")
+    st.log("setup_topo: teardown [breakout] complete")
+
+
+def _verify_ping(dut_handle, target, label, cmd='ping'):
+    """Ping helper used during setup to verify connectivity."""
+    ping_out = st.config(dut_handle, "{} -c 5 -W 2 {}".format(cmd, target),
+                         skip_error_check=True)
+    ping_str = str(ping_out) if ping_out else ''
+    if '0 received' in ping_str or 'Unreachable' in ping_str:
+        st.warn("setup_topo: {} ping to {} FAILED".format(label, target))
+        dump_l3_diag(dut_handle, target)
+    else:
+        st.log("setup_topo: {} ping to {} OK".format(label, target))
 
 
 # ── WRED context builder ────────────────────────────────────────────────
@@ -3798,30 +4679,26 @@ def build_wred_ctx(dut, tg, tg_ph, port_info,
     Bakes in the FX3 QoS testbed L3 addresses and AZURE_LOSSY WRED
     defaults so callers only need to pass runtime-discovered values.
 
-    Args:
-        dut:                 DUT handle from spytest topology.
-        tg:                  Traffic generator handle.
-        tg_ph:               Dict with keys 'ingress_a', 'ingress_b', 'egress'
-                             mapping to TG port handles.
-        port_info:           Dict with keys 'ingress_a', 'ingress_b', 'egress'
-                             mapping to DUT interface names.
-        ingress_speed_mbps:  Ingress port speed in Mbps.
-        egress_speed_mbps:   Egress port speed in Mbps.
-        router_mac:          DUT router MAC address string.
-        target_queue:        Queue index under test (default 3).
+    In peer_link mode the ``'egress'`` handle points to the IXIA sink port
+    on dut2 (same handle as ``'egress_sink'``), so downstream helpers can
+    still verify received traffic.
 
     Returns:
         dict suitable for passing as ``ctx`` to run_wred_linearity(),
         wred_fanin_send_and_measure(), and related helpers.
     """
+    tg_ph_egress = tg_ph.get('egress')
+    num_ingress = 2 if 'ingress_b' in tg_ph else 1
     return {
         'dut': dut,
         'tg': tg,
         'tg_ph_ingress_a': tg_ph['ingress_a'],
-        'tg_ph_ingress_b': tg_ph['ingress_b'],
+        'tg_ph_ingress_b': tg_ph.get('ingress_b'),
+        'tg_ph_egress': tg_ph_egress,
         'port_info': port_info,
         'ingress_speed_mbps': ingress_speed_mbps,
         'egress_speed_mbps': egress_speed_mbps,
+        'num_ingress_ports': num_ingress,
         'target_queue': target_queue,
         'target_dscp': QUEUE_TO_DSCP[target_queue],
         'router_mac': router_mac,
@@ -4196,3 +5073,91 @@ def asic_db_find_new_oid(oids_before, oids_after):
     else:
         st.log("  ASIC_DB no new scheduler OID found")
     return new_keys[0] if new_keys else None
+
+
+# ── Egress reachability verification ─────────────────────────────────────
+
+def verify_egress_reachable(dut_handle, tg, tg_ph, af):
+    """Verify that the DUT can forward traffic to the IXIA egress destination.
+
+    Uses ``_infer_topo_mode()`` to decide the strategy:
+
+      * **ixia** -- The IXIA egress port is directly connected to the DUT.
+        Checks the DUT's ARP/NDP table and, if needed, re-triggers IXIA
+        interface config + ping up to 3 times.
+      * **peer_link / breakout** -- The IXIA egress is behind dut2.  The DUT
+        reaches it via a static route, so dut1's ARP table won't contain the
+        IXIA IP.  Verifies reachability with an end-to-end ping.
+
+    Args:
+        dut_handle: Primary DUT (dut1) handle.
+        tg:         Traffic generator handle.
+        tg_ph:      Dict of TG port handles (must include ``'egress'``).
+        af:         ``'ipv4'`` or ``'ipv6'``.
+
+    Returns:
+        True if reachable, False otherwise.
+    """
+    mode = _infer_topo_mode()
+    ping_cmd = 'ping6' if af == 'ipv6' else 'ping'
+
+    if af == 'ipv6':
+        target = IXIA_EGRESS_IP6
+        nb_cmd = 'show ndp'
+    else:
+        target = IXIA_EGRESS_IP
+        nb_cmd = 'show arp'
+
+    if mode in ('peer_link', 'breakout'):
+        ping_out = st.config(dut_handle,
+                             "{} -c 5 -W 2 {}".format(ping_cmd, target),
+                             skip_error_check=True)
+        ping_str = str(ping_out) if ping_out else ''
+        if '0 received' not in ping_str and 'Unreachable' not in ping_str:
+            st.log("verify_egress_reachable [{}]: ping to {} OK".format(
+                mode, target))
+            return True
+        st.warn("verify_egress_reachable [{}]: ping to {} FAILED".format(
+            mode, target))
+        dump_l3_diag(dut_handle, target)
+        return False
+
+    # ── ixia mode: ARP/NDP table check with IXIA re-trigger ──
+    egress_gw = (V6_EGRESS_IP.split('/')[0] if af == 'ipv6'
+                 else V4_EGRESS_IP.split('/')[0])
+
+    for attempt in range(1, 4):
+        nb_out = str(st.show(dut_handle, "{} {}".format(nb_cmd, target),
+                             skip_tmpl=True) or '')
+        if target in nb_out:
+            st.log("verify_egress_reachable: {} resolved (attempt {})".format(
+                target, attempt))
+            return True
+
+        st.log("verify_egress_reachable: {} not in {} table (attempt {}); "
+               "re-triggering".format(target, nb_cmd.upper(), attempt))
+        try:
+            if af == 'ipv6':
+                tg.tg_interface_config(
+                    mode='config', port_handle=tg_ph['egress'],
+                    ipv6_intf_addr=IXIA_EGRESS_IP6,
+                    ipv6_prefix_length=PREFIX_LEN_V6,
+                    ipv6_gateway=egress_gw,
+                    ipv6_resolve_gateway_mac=1,
+                    arp_send_req=1)
+            else:
+                tg.tg_interface_config(
+                    mode='config', port_handle=tg_ph['egress'],
+                    intf_ip_addr=IXIA_EGRESS_IP, netmask=NETMASK,
+                    gateway=egress_gw,
+                    arp_send_req=1, enable_ping_response=1,
+                    resolve_gateway_mac=1)
+        except Exception as exc:
+            st.log("  tg_interface_config re-trigger failed: {}".format(exc))
+        st.wait(10)
+        st.config(dut_handle, "{} -c 3 -W 2 {}".format(ping_cmd, target),
+                  skip_error_check=True)
+        st.wait(3)
+
+    dump_l3_diag(dut_handle, target)
+    return False
