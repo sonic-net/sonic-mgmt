@@ -35,7 +35,9 @@ import subprocess
 
 # Checking samples with tolerance of 40 % as the sampling is random and not deterministic.
 # Over many samples it should converge to a mean of 1:N
-NUM_SAMPLES = 100
+# Use 200 samples so the ±40% bounds are ~5.7σ away (vs ~4σ at 100), making flaky
+# bound violations essentially impossible.
+NUM_SAMPLES = 200
 MIN_EXPECTED_SAMPLES = 0.6 * NUM_SAMPLES
 MAX_EXPECTED_SAMPLES = 1.4 * NUM_SAMPLES
 
@@ -51,10 +53,16 @@ class SflowTest(BaseTest):
         self.router_mac = self.test_params['router_mac']
         self.dst_port = self.test_params['dst_port']
 
+        self.enabled_intf = []
         if 'enabled_sflow_interfaces' in self.test_params:
-            self.enabled_intf = self.test_params['enabled_sflow_interfaces']
+            intf_param = self.test_params['enabled_sflow_interfaces']
+            self.enabled_intf = ast.literal_eval(intf_param) if isinstance(intf_param, str) else intf_param
         self.agent_id = self.test_params['agent_id']
-        self.active_col = self.test_params['active_collectors']
+        if 'active_collectors' in self.test_params:
+            col_param = self.test_params['active_collectors']
+            self.active_col = ast.literal_eval(col_param) if isinstance(col_param, str) else col_param
+        else:
+            self.active_col = []
         self.sflow_interfaces = []
         self.sflow_ports_file = self.test_params['sflow_ports_file']
         if 'polling_int' in self.test_params:
@@ -70,6 +78,9 @@ class SflowTest(BaseTest):
         self.collectors = ['collector0', 'collector1']
         for param, value in self.test_params.items():
             logging.info("%s : %s" % (param, value))
+
+        samples_per_collector = NUM_SAMPLES * len(self.enabled_intf)
+        self.total_expected_flow_samples = samples_per_collector * len(self.active_col)
 
     def tearDown(self):
         self.cmd(["supervisorctl", "stop", "arp_responder"])
@@ -97,7 +108,54 @@ class SflowTest(BaseTest):
 
     # --------------------------------------------------------------------------
 
-    def read_data(self, collector, event, sflow_port=['6343']):
+    def parse_sflow_samples(self, outfile, collector):
+        """
+        Parse sflow samples from a file.
+
+        Args:
+            outfile: Path to the file containing sflow data
+            collector: Name of the collector ('collector0' or 'collector1')
+
+        Returns:
+            dict: port_sample[collector]['FlowSample'] = list of flow samples
+                  port_sample[collector]['CounterSample'] = list of counter samples
+        """
+        port_sample = {}
+        port_sample[collector] = {}
+        port_sample[collector]['FlowSample'] = []
+        port_sample[collector]['CounterSample'] = []
+
+        try:
+            with open(outfile, 'r') as sflow_data:
+                for line in sflow_data:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        j = json.dumps(ast.literal_eval(line))
+                        datagram = json.loads(j)
+                        agent = datagram.get('agent')
+                        samples = datagram.get('samples', [])
+                        for sample in samples:
+                            sampleType = sample.get('sampleType', '')
+                            if sampleType == 'FLOWSAMPLE':
+                                port_sample[collector]['FlowSample'].append(sample)
+                            elif sampleType == 'COUNTERSSAMPLE':
+                                sample['agent_id'] = agent
+                                port_sample[collector]['CounterSample'].append(sample)
+                    except (ValueError, SyntaxError) as e:
+                        # sflowtool output can include stderr
+                        logging.warning("Skipping line in %s: %s (error: %s)", collector, line[:100], str(e))
+                        continue
+        except OSError as e:
+            # if sflowtool hasn't started writing yet this is expected
+            logging.warning("Could not read file %s: %s", outfile, str(e))
+
+        return port_sample
+
+    # --------------------------------------------------------------------------
+
+    def read_data(self, collector, ready_event, stop_event, sflow_port=['6343']):
         """
         Starts sflowtool with the corresponding port and saves the data to file for processing
         """
@@ -109,69 +167,53 @@ class SflowTest(BaseTest):
                                        shell=False
                                        )
 
-            flow_count = 0
-            counter_count = 0
-            port_sample = {}
-            port_sample[collector] = {}
-            port_sample[collector]['FlowSample'] = {}
-            port_sample[collector]['CounterSample'] = {}
             logging.info("Collector %s starts collecting ......" % collector)
+            ready_event.set()
             timeout = 240
-            logging.info("Waiting for event to be set under {} seconds; Event is {}".format(
-                timeout, event.isSet()))
-            # Wait for event to be set from Main Thread or to pass out by timeout
-            event_is_set = event.wait(timeout=timeout)
-            logging.info("{}; Event set: {}".format(
+            logging.info("Waiting for stop_event to be set under {} seconds; stop_event is {}".format(
+                timeout, stop_event.isSet()))
+            # Wait for stop_event to be set from Main Thread or to pass out by timeout
+            event_is_set = stop_event.wait(timeout=timeout)
+            logging.info("{}; stop_event set: {}".format(
                 threading.current_thread().getName(), event_is_set))
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                logging.warning("Process did not terminate gracefully, killing it")
+                process.kill()
+                process.wait()
 
-        process.terminate()
-        process.wait()
-        f.close()
-        with open(outfile, 'r') as sflow_data:
-            for line in sflow_data:
-                j = json.dumps(ast.literal_eval(line))
-                datagram = json.loads(j)
-                agent = datagram["agent"]
-                samples = datagram["samples"]
-                for sample in samples:
-                    sampleType = sample["sampleType"]
-                    if sampleType == "FLOWSAMPLE":
-                        flow_count += 1
-                        port_sample[collector]['FlowSample'][flow_count] = sample
-                    elif sampleType == "COUNTERSSAMPLE":
-                        counter_count += 1
-                        port_sample[collector]['CounterSample'][counter_count] = sample
-                        port_sample[collector]['CounterSample'][counter_count]['agent_id'] = agent
-        sflow_data.close()
-        port_sample[collector]['counter_count'] = counter_count
-        port_sample[collector]['flow_count'] = flow_count
-        port_sample[collector]['total_count'] = counter_count + flow_count
+        port_sample = self.parse_sflow_samples(outfile, collector)
+
+        flow_count = len(port_sample[collector]['FlowSample'])
+        counter_count = len(port_sample[collector]['CounterSample'])
+
         logging.info("%s Sampled Packets : Total flow samples -> %s Total counter samples -> %s" %
                      (collector, flow_count, counter_count))
-        return (port_sample)
+        return port_sample
+
     # --------------------------------------------------------------------------
 
-    def collector_0(self, event):
-        self.collector0_samples = self.read_data('collector0', event)
+    def collector_0(self, ready_event, stop_event):
+        self.collector0_samples = self.read_data('collector0', ready_event, stop_event)
     # --------------------------------------------------------------------------
 
-    def collector_1(self, event):
-        self.collector1_samples = self.read_data('collector1', event, ['6344'])
-
+    def collector_1(self, ready_event, stop_event):
+        self.collector1_samples = self.read_data('collector1', ready_event, stop_event, ['6344'])
     # --------------------------------------------------------------------------
 
     def packet_analyzer(self, port_sample, collector, poll_test):
         logging.info("Analysing collector  %s" % collector)
         data = {}
         data['total_samples'] = 0
-        data['total_flow_count'] = port_sample[collector]['flow_count']
-        data['total_counter_count'] = port_sample[collector]['counter_count']
-        data['total_samples'] = port_sample[collector]['flow_count'] + \
-            port_sample[collector]['counter_count']
+        data['total_flow_count'] = len(port_sample[collector]['FlowSample'])
+        data['total_counter_count'] = len(port_sample[collector]['CounterSample'])
+        data['total_samples'] = data['total_flow_count'] + data['total_counter_count']
         logging.info(data)
         if data['total_flow_count']:
             data['flow_port_count'] = Counter(
-                k['inputPort'] for k in port_sample[collector]['FlowSample'].values())
+                k['inputPort'] for k in port_sample[collector]['FlowSample'])
 
         if collector not in self.active_col:
             logging.info("....%s : Sample Packets are not expected , received %s flow packets  and %s counter packets"
@@ -210,13 +252,13 @@ class SflowTest(BaseTest):
             counter_sample[intf] = 0
         self.assertTrue(data['total_counter_count'] > 0,
                         "No counter packets are received in collector %s" % collector)
-        for i in range(1, data['total_counter_count']+1):
-            rcvd_agent_id = port_sample[collector]['CounterSample'][i]['agent_id']
+        for sample in port_sample[collector]['CounterSample']:
+            rcvd_agent_id = sample['agent_id']
             self.assertTrue(
                 rcvd_agent_id == self.agent_id,
                 "Agent id in Sampled packet is not expected . Expected :  %s , received : %s"
                 % (self.agent_id, rcvd_agent_id))
-            elements = port_sample[collector]['CounterSample'][i]['elements']
+            elements = sample['elements']
             for element in elements:
                 try:
                     if 'ifName' in element and element['ifName'] in self.interfaces.keys():
@@ -265,6 +307,12 @@ class SflowTest(BaseTest):
         src_ip_addr_templ = '192.168.{}.1'
         ip_dst_addr = '192.168.0.4'
         pktlen = 100
+        # VS tap interfaces have limited kernel receive queue depth.
+        # Sending large bursts (e.g. 512 packets) all at once causes ~20% drops
+        # before packets reach the TC ingress filter/sampler.
+        # Send in small batches with a brief pause to allow the queue to drain.
+        BATCH_SIZE = 32
+        BATCH_SLEEP = 0.001  # 1ms between batches
         # send NUM_SAMPLES * sampling_rate packets in each interface for better analysis
         for _ in range(0, NUM_SAMPLES, 1):
             index = 0
@@ -279,7 +327,13 @@ class SflowTest(BaseTest):
                                                       ip_dst=ip_dst_addr,
                                                       ip_ttl=64)
                 no_of_packets = self.interfaces[intf]['sample_rate']
-                testutils.send(self, src_port, tcp_pkt, count=no_of_packets)
+                remaining = no_of_packets
+                while remaining > 0:
+                    burst = min(BATCH_SIZE, remaining)
+                    testutils.send(self, src_port, tcp_pkt, count=burst)
+                    remaining -= burst
+                    if remaining > 0:
+                        time.sleep(BATCH_SLEEP)
                 index += 1
             pktlen += 10  # send traffic with different packet sizes
 
@@ -287,17 +341,21 @@ class SflowTest(BaseTest):
 
     def runTest(self):
         self.generate_ArpResponderConfig()
-        time.sleep(1)
+        collector0_ready = threading.Event()
+        collector1_ready = threading.Event()
         stop_collector = threading.Event()
         thr1 = threading.Thread(target=self.collector_0,
-                                name='Collector0_thread', args=(stop_collector,))
+                                name='Collector0_thread', args=(collector0_ready, stop_collector,))
         thr2 = threading.Thread(target=self.collector_1,
-                                name='Collector1_thread', args=(stop_collector,))
+                                name='Collector1_thread', args=(collector1_ready, stop_collector,))
         thr1.start()
-        time.sleep(2)
         thr2.start()
-        # wait for the collectors to initialise
-        time.sleep(5)
+
+        if not collector0_ready.wait(timeout=30):
+            raise Exception("Collector 0 failed to initialize")
+        if not collector1_ready.wait(timeout=30):
+            raise Exception("Collector 1 failed to initialize")
+
         if self.poll_tests:
             if self.polling_int == 0:
                 time.sleep(20)
@@ -308,7 +366,28 @@ class SflowTest(BaseTest):
                 time.sleep(self.polling_int)
         else:
             self.sendTraffic()
-            time.sleep(10)  # For Test Stability
+
+            # Wait for packets to arrive. If we don't see any packets for 30 seconds, fail the test.
+            # Otherwise, as long as packets are arriving, keep waiting.
+            last_update_time = time.time()
+            last_packet_count = 0
+            while time.time() < last_update_time + 30:
+                time.sleep(5)
+                current_packet_count = 0
+                for collector in self.active_col:
+                    outfile = f'/tmp/{collector}'
+                    port_sample = self.parse_sflow_samples(outfile, collector)
+                    flow_count = len(port_sample[collector]['FlowSample'])
+                    current_packet_count += flow_count
+                if current_packet_count > last_packet_count:
+                    last_packet_count = current_packet_count
+                    # If we're receiving packets but haven't seen all the ones we expect, just wait longer.
+                    # If we've seen as many as we expect, let the timeout expire to see if we get any extra.
+                    if last_packet_count < self.total_expected_flow_samples:
+                        last_update_time = time.time()
+                    logging.info("%s/%s packets received, waiting for more..." % (
+                        last_packet_count, self.total_expected_flow_samples))
+
         stop_collector.set()
         thr1.join()
         thr2.join()
