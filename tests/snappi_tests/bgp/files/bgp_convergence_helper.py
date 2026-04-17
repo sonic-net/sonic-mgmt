@@ -804,8 +804,8 @@ def get_rib_in_convergence(snappi_api,
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
-        number_of_routes:  Number of IPv4/IPv6 Routes
-        route_type: IPv4 or IPv6 routes
+        number_of_routes:  Number of IPv4/IPv6/IPv4v6 Routes
+        route_type: IPv4 or IPv6 or IPv4v6 routes
         timeout: timeout for route withdraw and advertisement.
     """
     if timeout is not None:
@@ -875,7 +875,7 @@ def get_rib_in_convergence(snappi_api,
             tx_frate.append(flow.frames_tx_rate)
             rx_frate.append(flow.frames_rx_rate)
         assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
-            "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}"\
+            "Traffic has not converged, TxFrameRate:{},RxFrameRate:{}"\
             .format(sum(tx_frate), sum(rx_frate))
         logger.info("Traffic has converged after route advertisement")
 

@@ -1,3 +1,6 @@
+baseline_config_db:
+  skip_config_db: true
+
 north_zmq_ring_buffer:
   DEVICE_METADATA:
     localhost:

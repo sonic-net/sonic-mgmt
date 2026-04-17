@@ -62,7 +62,7 @@ except Exception:
 try:
     _BK_PAIRS = _load_bk_pairs()
 except Exception:
-    _BK_PAIRS = [['default', 'default'], [5000, 5000], [10000, 10000], [15000, 15000], [20000, 20000]]
+    _BK_PAIRS = [['default', 'default']]
 
 PROFILE_NAMES = [
     name for name, cfg in _FINE_TUNINGS.items()
@@ -172,7 +172,7 @@ def dut_ready_for_rib_combo(duthost, localhost, profile_name, bulk_value, batch_
 @pytest.mark.parametrize('bulk_value,batch_value', _BK_PAIRS)
 @pytest.mark.parametrize('route_type', ['IPv4', 'IPv6', 'IPv4v6'])
 @pytest.mark.parametrize('MULTIPATH', [1])
-@pytest.mark.parametrize('NUMBER_OF_ROUTES', [250000])
+@pytest.mark.parametrize('NUMBER_OF_ROUTES', [300000])
 def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                             duthost,
                             tgen_ports,                 # noqa: F811
@@ -206,11 +206,8 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
     if duthost.is_multi_asic:
         pytest.skip("Test not supported on multi-ASIC platforms")
 
-    if profile_name == '_no_profile_':
-        pytest.skip("No valid profiles in fine-tunings.yml")
-
     if route_type == 'IPv4v6':
-        pytest.skip("Skipping test for route_type IPv4v6")
+        pytest.skip("Skipping test for route_type IPv4v6 due to outstanding keysight issue")
 
     use_bgp_pc_config = request.config.getoption("--bgp_pc_config", default=False)
 
