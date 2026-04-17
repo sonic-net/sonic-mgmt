@@ -121,6 +121,7 @@ class ShowInterfaceModule(object):
             r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int = re.compile(
             r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+        regex_int = re.compile(r'(\S+)\s+[\d,N\/A]+\s+(\S+)\s+(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+?)\s+(\S+)$')
         regex_int_internal = re.compile(
             r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|N\/A)\s+([\w\-]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         self.int_status = {}
@@ -138,25 +139,25 @@ class ShowInterfaceModule(object):
                         if fec and interface == fec.group(1):
                             self.int_status[interface]['name'] = fec.group(1)
                             self.int_status[interface]['speed'] = fec.group(2)
-                            self.int_status[interface]['fec'] = fec.group(4)
-                            self.int_status[interface]['alias'] = fec.group(5)
-                            self.int_status[interface]['vlan'] = fec.group(6)
+                            self.int_status[interface]['fec'] = fec.group(3)
+                            self.int_status[interface]['alias'] = fec.group(4)
+                            self.int_status[interface]['vlan'] = fec.group(5)
                             self.int_status[interface]['oper_state'] = fec.group(
-                                7)
+                                6)
                             self.int_status[interface]['admin_state'] = fec.group(
-                                8)
+                                7)
                             self.int_status[interface]['type'] = self._fetch_interface_type(
                                 line)
                         elif old and interface == old.group(1):
                             self.int_status[interface]['name'] = old.group(1)
                             self.int_status[interface]['speed'] = old.group(2)
                             self.int_status[interface]['fec'] = 'Unknown'
-                            self.int_status[interface]['alias'] = old.group(4)
-                            self.int_status[interface]['vlan'] = old.group(5)
+                            self.int_status[interface]['alias'] = old.group(5)
+                            self.int_status[interface]['vlan'] = old.group(6)
                             self.int_status[interface]['oper_state'] = old.group(
-                                6)
-                            self.int_status[interface]['admin_state'] = old.group(
                                 7)
+                            self.int_status[interface]['admin_state'] = old.group(
+                                8)
                             self.int_status[interface]['type'] = 'N/A'
                         self.facts['int_status'] = self.int_status
                 except Exception as e:
@@ -199,11 +200,11 @@ class ShowInterfaceModule(object):
                         self.int_status[interface]['name'] = interface
                         self.int_status[interface]['speed'] = old.group(2)
                         self.int_status[interface]['fec'] = 'Unknown'
-                        self.int_status[interface]['alias'] = old.group(4)
-                        self.int_status[interface]['vlan'] = old.group(5)
-                        self.int_status[interface]['oper_state'] = old.group(6)
+                        self.int_status[interface]['alias'] = old.group(5)
+                        self.int_status[interface]['vlan'] = old.group(6)
+                        self.int_status[interface]['oper_state'] = old.group(7)
                         self.int_status[interface]['admin_state'] = old.group(
-                            7)
+                                8)
                         self.int_status[interface]['type'] = 'N/A'
                     elif internal and include_internal_intfs:
                         interface = internal.group(1)

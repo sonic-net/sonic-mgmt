@@ -262,6 +262,32 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in s100G_ports:
                 alias = "etp%d" % (i / 4 + 1)
                 port_alias_to_name_map[alias] = "Ethernet%d" % i
+        elif hwsku == "Juniper-QFX5241-64-OD":
+            # Base 64 ports with 8 lanes each (100G). Default maps to the first lane
+            for i in range(1, 65):
+                alias = "et-0/0/{}".format(i-1)
+                eth_name = "Ethernet{}".format((i - 1) * 8)
+                port_alias_to_name_map[alias] = eth_name
+
+            # Add support for 2x breakout ports (2x400G, 2x200G, etc.)
+            # For 2x breakout with 8-lane ports:
+            # et-0/0/52:0 -> Ethernet416 (lanes 0-3)
+            # et-0/0/52:1 -> Ethernet420 (lanes 4-7)
+            for base_port_idx in range(0, 64):
+                base_eth_num = base_port_idx * 8
+                # First breakout sub-port (uses lanes 0-3)
+                alias = "et-0/0/{}:0".format(base_port_idx)
+                port_alias_to_name_map[alias] = "Ethernet{}".format(base_eth_num)
+                # Second breakout sub-port (uses lanes 4-7, offset +4)
+                alias = "et-0/0/{}:1".format(base_port_idx)
+                port_alias_to_name_map[alias] = "Ethernet{}".format(base_eth_num + 4)
+
+            # Add support for 8x10G breakout (et-0/0/x:0..7)
+            for base_port_idx in range(0, 64):
+                base_eth_num = base_port_idx * 8
+                for lane in range(0, 8):
+                    alias = "et-0/0/{}:{}".format(base_port_idx, lane)
+                    port_alias_to_name_map[alias] = "Ethernet{}".format(base_eth_num + lane)
         elif hwsku == "Mellanox-SN3800-D112C8":
             x_ports = [x for x in range(0, 95, 2)]
             for i in x_ports:
