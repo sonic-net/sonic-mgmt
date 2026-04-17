@@ -6,7 +6,6 @@ import random
 import re
 
 from tests.common import constants
-from datetime import datetime, timedelta
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
