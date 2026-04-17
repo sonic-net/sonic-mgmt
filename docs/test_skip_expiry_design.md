@@ -43,7 +43,7 @@ While this consolidation improves maintainability, tests can be skipped and forg
 - Two distinct skip categories: permanent and temporary
 - Enforce expiry dates for temporary skips
 - Validate category-specific allowed reasons
-- Clear handling of expired skips (force test to run or fail with explicit message)
+- Clear handling of expired skips through soft escalation, reporting, and explicit owner notification
 - Timezone-aware date handling for consistency across global teams
 - Minimal disruption to existing workflows
 - Clear reporting of expired and miscategorized skips
@@ -83,8 +83,8 @@ The following strategies are proposed for determining when a GitHub issue (and i
 **Strategy A: Time-Based Expiry from Issue Creation**
 
 - Calculate expiry based on issue creation date plus a configurable duration (e.g., 6 months)
-- The automation workflow closes the issue when the expiry threshold is reached
-- When the conditional mark plugin sees a closed issue, it evaluates that condition to False. The final skip behavior is determined by other conditions specified for the test and `conditions_logical_operator`.
+- The automation workflow marks the issue as expired when the expiry threshold is reached
+- On expiry, the workflow adds the configured expired label and posts an issue comment that `@` mentions designated skip maintainers for triage
 - Initial expiry thresholds can be calibrated based on historical analysis of how long issues have been open
 
 ```
@@ -92,7 +92,7 @@ Issue #12345 created: 2025-08-01
 Expiry policy: 6 months from creation
 Expiry date: 2026-02-01
 Today: 2026-02-18
-Status: EXPIRED → Issue automatically closed by workflow
+Status: EXPIRED → Workflow adds expired label and comments with maintainer mentions
 ```
 
 **Strategy B: Priority Tag Escalation**
@@ -100,14 +100,14 @@ Status: EXPIRED → Issue automatically closed by workflow
 - Issues are assigned initial priority tags (e.g., P3) with associated time-to-expiry values
 - As time passes, priority is automatically escalated (P3 → P2 → P1 → P0)
 - Each priority level has a defined duration before escalation
-- Final escalation (P0 expiry) results in issue closure
+- Final escalation (P0 expiry) results in soft escalation via expired labeling and maintainer notification comments
 
 ```
 Priority Tag Timeline:
   P3: Initial assignment, 3 months to escalate
   P2: Elevated priority, 2 months to escalate
   P1: High priority, 1 month to escalate
-  P0: Critical, 2 weeks to closure
+  P0: Critical, 2 weeks to maintainer escalation
 ```
 
 #### Chosen Expiry Strategy
@@ -139,11 +139,37 @@ A scheduled workflow that runs periodically (e.g., daily) to:
 - Parse all conditional mark YAML files to extract referenced GitHub issues
 - Query GitHub API for each issue's metadata (creation date, labels, state)
 - Apply Priority tag based escalation logic
+- Check whether one of the configured skip maintainers has applied a maintainer-extension label in the form `skip-maintainer-extension-N`, where `N` is the number of extension days granted
 - Take action on expired issues:
-  - Close the issue (causing the skip to no longer apply)
   - Add expiry-related labels (e.g., `sonic-wf-priority-3`, `sonic-wf-priority-2` etc.)
   - Bump priority labels if using escalation strategy
-  - Optionally notify issue assignees
+  - Add an explicit expired label when P0 duration is exceeded
+  - Post or update an issue comment that `@` mentions configured skip maintainers
+  - Surface active maintainer-extension labels in the generated report
+  - Optionally notify issue assignees in the same comment
+
+**Maintainer registry**
+
+- Maintain a dedicated registry file for governance leads, recommended as `.github/SKIP_MAINTAINERS.yml`
+- The file contains the GitHub usernames that should be mentioned when a temporary skip reaches its expired state
+- This keeps the escalation list explicit, reviewable, and independent of issue assignee churn
+- Maintainer-extension labels are only honored when they were applied by one of the usernames listed in this file
+
+Example:
+
+```yaml
+skip_maintainers:
+  - wangxin
+  - stormliang
+  - yinxie
+```
+
+**Maintainer extension labels**
+
+- A designated skip maintainer may grant a grace period by adding a label in the form `skip-maintainer-extension-N`
+- `N` is interpreted as calendar days of temporary extension beyond the current expired threshold
+- The workflow must validate that the label was applied by a configured skip maintainer before honoring it in reporting
+- If multiple such labels exist, the workflow should use the largest active `N` value and record the full label set in the report for auditability
 
 **2. Reporting and Dashboard Tool**
 
@@ -166,20 +192,22 @@ The report is generated from conditional mark YAML entries and GitHub issue meta
   - `N` is driven by `warning_days` in `expiry_config.yml`.
   - Example with `warning_days: [30, 14, 7]`:
     - Include issues where `days_to_p0 <= 30` (and not expired), and annotate threshold hits at 30/14/7.
-  - Purpose: Early warning so owners can fix, convert, or justify before auto-close/failure impact.
+  - Purpose: Early warning so owners can fix, convert, or justify before maintainer escalation is triggered.
 
 3. **Already expired (immediate attention)**
-  - Definition: temporary exceptions where P0 threshold is already crossed (for example, `days_to_p0 < 0`), including issues auto-closed by workflow or still open but overdue by policy.
+  - Definition: temporary exceptions where P0 threshold is already crossed (for example, `days_to_p0 < 0`), including issues marked expired by workflow while still open for investigation and remediation.
   - Purpose: Escalation list for immediate triage and remediation.
+  - If an approved maintainer-extension label is present, the row remains in the expired bucket but must show the granted grace period and the extended review deadline.
 
 Computation notes:
 - Priority stage durations are read from `expiry_config.yml` (`pN_label_expiry_days`).
 - Current stage timestamp source is issue timeline label events (workflow-applied priority labels).
 - `days_to_p0` is derived from current stage start + remaining configured durations to P0.
+- If a valid `skip-maintainer-extension-N` label exists, compute `extension_days = N` and derive `extended_due_date = expired_at + extension_days`.
 - Buckets must be mutually exclusive in output (`expired` first, then `expiring soon`, then `permanent skip`).
 
 Recommended output fields per row:
-- Test path, mark type (`skip`/`xfail`), issue URL/ID (if any), owner/assignee, current stage, `days_to_p0`, bucket, last update timestamp.
+- Test path, mark type (`skip`/`xfail`), issue URL/ID (if any), owner/assignee, current stage, `days_to_p0`, bucket, extension label, extension days, extended due date, last update timestamp.
 
 **Dashboard Availability:**
 
@@ -198,7 +226,11 @@ What must be set up before the workflow runs (one-time setup):
   - Permanently skipped (no issue)
   - Expiring soon
   - Expired
-4. Store required credentials/secrets for workflow API access.
+4. Add project fields for extension tracking if the project will be used as the operational dashboard:
+  - ExtensionLabel
+  - ExtensionDays
+  - ExtendedDueDate
+5. Store required credentials/secrets for workflow API access.
 
 What the workflow does:
 
@@ -206,6 +238,7 @@ What the workflow does:
 2. Upserts one project item per tracked row (issue-linked exception or permanent-skip record).
 3. Updates project custom fields on every run.
 4. Publishes the same JSON/CSV as build artifact for audit/debug.
+5. Includes maintainer-extension metadata in both the project sync and exported artifacts so exemption usage is visible during review.
 
 Important scope clarification:
 - Project views are expected to be created manually once in GitHub UI.
@@ -216,7 +249,7 @@ Important scope clarification:
 To provide early warning, tests associated with soon-to-expire skips can be run before their expiry date:
 - Run skipped tests in a non-blocking mode when expiry is approaching
 - Report results to issue comments or dashboard
-- Gives developers advance notice to fix issues before skips expire
+- Gives developers advance notice to fix issues before maintainer escalation
 
 **Implementation via Pipelines:**
 
@@ -235,20 +268,23 @@ The plugin's responsibility is simplified:
 
 1. **For permanent skips**: `skip:` entries without an associated issue are applied as in current implementation.
 2. **For temporary exceptions** (`xfail:` with issue, and legacy `skip:` with issue during migration): plugin behavior remains unchanged and checks issue state.
-  - If issue is **open**: Exception condition is evaluated as configured.
-  - If issue is **closed**: Exception condition is evaluated to False.
-3. **Caching**: Cache issue state to avoid excessive API calls during test runs (already available in current implementation of the conditional mark plugin)
-4. **Fallback**: If GitHub API is unavailable, use cached state or apply skip conservatively
+  - If issue is **open**: Exception condition is evaluated as configured, even if the workflow has labeled it as expired.
+  - If issue is **closed** as part of normal issue resolution: Exception condition is evaluated to False.
+3. **Expiry state**: Workflow-applied priority and expired labels do not change runtime skip evaluation; they are governance signals only.
+4. **Caching**: Cache issue state to avoid excessive API calls during test runs (already available in current implementation of the conditional mark plugin)
+5. **Fallback**: If GitHub API is unavailable, use cached state or apply skip conservatively
 
 #### Open Issues and Considerations
 
 **1. PR Pipeline Impact**
 
-When the automation closes an expired issue, tests that were previously skipped will start running. This may cause PR pipelines to fail if the underlying issue is not fixed.
+With soft escalation, the automation does not close expired issues. Tests that are temporarily skipped remain skipped until the linked issue is actually resolved and closed by maintainers or issue owners.
 
-- **Pro**: Creates forcing function - developers must address the issue
-- **Con**: May block unrelated PRs if expired skip affects shared tests
-- **Mitigation**: Use a grace period with warnings before hard failure; provide clear error messages indicating which issue expired
+- **Pro**: Avoids unrelated PR failures caused purely by workflow-driven issue state changes
+- **Con**: Expired skips no longer create an automatic hard forcing function in CI
+- **Mitigation**: Use P0 labeling, expired reports, maintainer mentions, and Test Subcommittee review to create visible ownership without destabilizing PR validation
+
+**Good practice note**: All issues that are currently at P0 or already expired should be reviewed in the SONiC Test Subcommittee meeting until the skip is removed, the issue is fixed, or a maintainer-granted extension is explicitly recorded.
 
 **2. Nightly Test Management**
 
@@ -285,6 +321,7 @@ Different release branches may have different skip requirements for the same tes
 - Issues appear in project boards, dashboards, and search results
 - Expiry logic is centralized in automation
 - Priority-based escalation provides graduated urgency
+- Soft escalation avoids workflow-induced PR disruption
 - Natural fit with existing GitHub-based development workflow
 - Issue history captures all state changes and discussions
 - Can adjust expiry policies without modifying YAML files
@@ -293,7 +330,7 @@ Different release branches may have different skip requirements for the same tes
 
 - Skip definitions in YAML, skip reasons/status in GitHub - two places to check
 - Requires building and maintaining the expiry workflow
-- Easy to reopen a closed issue without actually fixing the problem
+- Soft escalation relies on maintainers responding to notifications rather than CI enforcing re-enable
 - Closing/reopening issues doesn't require PR approval
 - Managing issues across multiple branches adds overhead
 
@@ -314,6 +351,7 @@ This decision was made after team discussions weighing the trade-offs between si
 3. **Built-in notification system**: GitHub's notifications, assignees, and watchers provide visibility without building custom alerting infrastructure.
 4. **Dynamic expiry management**: Expiry policies can be adjusted centrally in the automation workflow without modifying individual YAML entries.
 5. **Priority escalation**: The ability to automatically escalate issue priority provides graduated urgency and gives developers multiple opportunities to address issues before expiry.
+6. **Non-disruptive governance**: Expired skips should surface ownership gaps without causing workflow-driven breakage in unrelated PRs.
 
 ### Trade-offs Accepted
 
@@ -321,13 +359,16 @@ This decision was made after team discussions weighing the trade-offs between si
 - **Increased complexity**: The automation workflow and caching layer add implementation complexity
 - **No code review for state changes**: Issue state changes don't require PR approval, relying instead on team discipline and visibility
 - **Split context**: Information is distributed between YAML files and GitHub issues
+- **Soft enforcement model**: Expiry is governed through visibility and escalation, not automatic closure or forced CI failures
 
 ### Implementation Approach
 
 - **Expiry Strategy**: Strategy A (time-based expiry from issue creation) will be used initially, with a 6-month default expiry period
+- **Maintainer escalation**: When a skip reaches expired state, the workflow labels the issue and posts an `@` mention comment to the configured skip maintainers instead of closing the issue
+- **Maintainer extension support**: Authorized skip maintainers may add `skip-maintainer-extension-N` to record a bounded grace period, and the reporting workflow will surface that extension explicitly
 - **Initial calibration**: Historical analysis of existing issues will inform the initial expiry threshold
-- **Soft rollout**: Use "soft expiry" mode initially (warnings only) before enabling hard failure
-- **Controlled impact**: Automation will report status without automatically closing issues during the transition period
+- **Soft rollout**: Use warning thresholds, expired labels, maintainer mentions, and extension-aware reporting from the start so the workflow remains non-disruptive
+- **Controlled impact**: Automation will report status and notify responsible leads without automatically closing issues
 
 ---
 
@@ -366,8 +407,8 @@ This decision was made after team discussions weighing the trade-offs between si
 │                                                             ▼              │
 │                                                  ┌─────────────────────┐   │
 │                                                  │ Actions:            │   │
-│                                                  │ - Close issue       │   │
 │                                                  │ - Update labels     │   │
+│                                                  │ - Comment/@mention  │   │
 │                                                  │ - Notify assignees  │   │
 │                                                  └─────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -413,11 +454,15 @@ expiry_config:
 The tags used by the workflow -
 
 - Priority tags follow the pattern based on expiry configuration entries. Pattern `skip-wf-priority-<N>`. Where `<N>` indicates the priority number from the expiry configuration file.
-- Auto closed issues would be labelled with `skip-wf-auto-close-<timestamp>`. The `<timestamp>` would follow `ddmmyyyyhhmm` value. If an issue is re-opened manually the subsequent run would close the issue with an updated auto-close tag.
+- Expired issues would be labelled with `skip-wf-expired` once the P0 threshold is crossed.
+- Maintainer-granted grace periods use labels in the form `skip-maintainer-extension-N`, where `N` is the number of extension days.
+- Expiry comments would be idempotent and include `@` mentions for the usernames listed in `.github/SKIP_MAINTAINERS.yml`.
 
 **NOTE-1** If an issue is fixed, the corresponding test entry/entries must be removed from the conditional mark files.
 
-**NOTE-2** An un-reviewed issue marked with P0 tag and then closed by the workflow will be skipped as usual. There is no enforcement that or check required for a user to re-open the issue and allow PR checkers to skip the test again. To handle this scenario the reporting tool would always keep the test and related issue in the report until it has been addressed or fixed.
+**NOTE-2** An un-reviewed issue marked with P0 tag and then `skip-wf-expired` by the workflow will still be skipped as usual because the issue remains open. To handle this scenario the reporting tool must always keep the test and related issue in the expired bucket until it has been addressed or fixed.
+
+**NOTE-3** A `skip-maintainer-extension-N` label is only effective for reporting if the workflow can verify from issue timeline events that the label was applied by one of the configured skip maintainers.
 
 ### 3. Release Branch Management
 
@@ -427,10 +472,13 @@ To handle skips across multiple release branches:
 
 #### 4. Implementation Behavior
 
-- Final auto-close action adds a timestamped label before closing: `skip-wf-auto-close-<ddmmyyyyhhmm>`.
-- If the same issue is auto-closed again later (for example after manual reopen), a new timestamped auto-close label is added again, so each auto-close event is recorded distinctly.
+- Final expired-state action adds `skip-wf-expired` and posts an idempotent escalation comment mentioning skip maintainers from `.github/SKIP_MAINTAINERS.yml`.
+- If the same issue remains expired across repeated runs, the workflow updates or reuses the existing escalation comment rather than posting duplicates.
+- The workflow inspects issue timeline label events to determine whether any `skip-maintainer-extension-N` label was applied by an authorized skip maintainer.
+- Authorized maintainer-extension labels do not remove the issue from the expired bucket; they add grace-period metadata that is surfaced in the report and dashboard.
+- If multiple authorized extension labels are present, the workflow should use the largest `N` as the effective extension while preserving the raw labels in artifacts for auditability.
 - Priority levels are derived dynamically from `expiry_config.yml` keys matching `pN_label_expiry_days`; fixed ladders are not assumed.
-- Warning comments and final close comments are idempotent through deterministic hidden markers, so repeated daily runs do not spam duplicate comments for the same threshold/stage.
+- Warning comments and final escalation comments are idempotent through deterministic hidden markers, so repeated daily runs do not spam duplicate comments for the same threshold/stage.
 - Stage source of truth is issue timeline `labeled` events for workflow priority labels (label history), not current issue label presence.
 - Scan/classification includes both `xfail:` with issue and legacy `skip:` with issue during migration.
 - Long-term policy target: only permanent `skip:` entries remain without issue; temporary exceptions are tracked through `xfail:` entries with issue.
@@ -586,7 +634,7 @@ acl/test_acl.py:
 | **Code Review Required** | Yes (PR for changes) | Yes (PR for changes) | No (issue state changes) |
 | **Notifications** | Custom tooling needed | Custom tooling needed | Built-in GitHub notifications |
 | **External Dependencies** | None | None | GitHub API |
-| **Forcing Function** | CI fails on expiry | CI fails on expiry | Issue closure stops skip |
+| **Forcing Function** | CI fails on expiry | CI fails on expiry | Maintainer escalation and reporting |
 | **Context/History** | Git commit history | Git commit history | Issue discussion threads |
 | **Complexity** | Low | Medium | High |
 | **Offline Operation** | Yes | Yes | Limited (needs API cache) |
