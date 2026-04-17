@@ -507,21 +507,18 @@ def single_endpoint(request):
 
 
 @pytest.fixture
-def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
+def dpu_setup(dpuhosts, dpu_index, skip_config):
     if skip_config:
 
         return
     dpuhost = dpuhosts[dpu_index]
-    # explicitly add mgmt IP route so the default route doesn't disrupt SSH access
-    dpuhost.shell(f'ip route replace {duthost.mgmt_ip}/32 via 169.254.200.254')
+
     intfs = dpuhost.shell("show ip int")["stdout"]
     dpu_cmds = list()
     if "Loopback0" not in intfs:
         dpu_cmds.append("config loopback add Loopback0")
         dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
 
-    if dpuhost.npu_data_port_ip:
-        dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
     dpuhost.shell_cmds(cmds=dpu_cmds)
 
 
