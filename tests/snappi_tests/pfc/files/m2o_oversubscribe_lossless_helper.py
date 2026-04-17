@@ -125,6 +125,7 @@ def run_m2o_oversubscribe_lossless_test(api,
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     """ Run traffic """
+    
     flow_stats, switch_flow_stats, _ = run_traffic(duthost=egress_duthost,
                                                    api=api,
                                                    config=testbed_config,
@@ -384,10 +385,10 @@ def verify_m2o_oversubscribe_lossless_result(rows,
     """
     for row in rows:
         if 'Test Flow 1 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss".format(row.name))
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
         elif 'Test Flow 2 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
         elif 'Background Flow 1 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
         elif 'Background Flow 2 -> 0' in row.name:
-            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
