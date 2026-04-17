@@ -8,7 +8,7 @@ from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports, get_port_indexes_with_flat_memory
 from tests.common.port_toggle import default_port_toggle_wait_time, WAIT_TIME_AFTER_INTF_SHUTDOWN
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.utilities import wait_until
@@ -83,6 +83,8 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
 
     if request.cls is not None:
         request.cls.sfp_setup = sfp_setup
+
+    sfp_setup["indexes_with_flat_memory"] = get_port_indexes_with_flat_memory(duthost)
 
 
 @pytest.mark.usefixtures("setup")
@@ -350,15 +352,18 @@ class TestSfpApi(PlatformApiTestBase):
             return 0.3
         return 0
 
-    def is_xcvr_support_lpmode(self, xcvr_info_dict):
+    def is_xcvr_support_lpmode(self, xcvr_info_dict, port_index=None):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
         # Amphenol 800G Backplane cartridge does not support lpmode.
         if xcvr_type == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
             return False
 
-        ext_identifier = xcvr_info_dict["ext_identifier"]
-        if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
+        if port_index is not None and port_index in self.sfp_setup["indexes_with_flat_memory"]:
+            logger.info("Skipping lpmode test for transceiver {} as it is in flat memory".format(port_index))
+            return False
+
+        if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type):
             return False
 
         # Temporarily add this logic to skip lpmode test for some transceivers with known issue
@@ -396,7 +401,7 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
 
             info_dict = port_index_to_info_dict[sfp_port_idx]
-            if self.is_xcvr_support_lpmode(info_dict):
+            if self.is_xcvr_support_lpmode(info_dict, sfp_port_idx):
                 logger.info("Flapping interface {} - xcvr supports lpmode and needs to be flapped".format(intf))
                 interfaces_to_flap.append(intf)
         return interfaces_to_flap
@@ -911,7 +916,7 @@ class TestSfpApi(PlatformApiTestBase):
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
-            if not self.is_xcvr_support_lpmode(info_dict):
+            if not self.is_xcvr_support_lpmode(info_dict, i):
                 logger.warning(
                     "test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)"
                     .format(i))

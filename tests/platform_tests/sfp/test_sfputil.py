@@ -563,7 +563,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       enum_frontend_asic_index, conn_graph_facts,
-                                      tbinfo, xcvr_skip_list, shutdown_ebgp):   # noqa: F811
+                                      tbinfo, xcvr_skip_list, shutdown_ebgp, port_list_with_flat_memory):   # noqa: F811
     """
     @summary: Check SFP low power mode
 
@@ -618,11 +618,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
             sfp_type_docker_cmd = asichost.get_docker_cmd(sfp_type_cmd, "database")
             sfp_type = duthost.command(sfp_type_docker_cmd)["stdout"]
 
-            power_class_cmd = 'redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" ext_identifier'.format(intf)
-            power_class_docker_cmd = asichost.get_docker_cmd(power_class_cmd, "database")
-            power_class = duthost.command(power_class_docker_cmd)["stdout"]
-
-            if ("QSFP" not in sfp_type and "OSFP" not in sfp_type) or "Power Class 1" in power_class:
+            if ("QSFP" not in sfp_type and "OSFP" not in sfp_type) or \
+                    (intf in port_list_with_flat_memory[duthost.hostname]):
                 logging.info("skip testing port {} which doesn't support LPM".format(intf))
                 not_supporting_lpm_physical_ports.add(phy_intf)
                 continue
