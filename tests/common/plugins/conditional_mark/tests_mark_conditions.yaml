@@ -3864,6 +3864,12 @@ packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::
     conditions:
       - "asic_gen in ['th5']"
 
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_with_srv6:
+  xfail:
+    reason: "vlan decap is disabled in 202412 image"
+    conditions:
+      - "'isolated' in topo_name and release in ['202412']"
+
 #######################################
 #####           pc               #####
 #######################################
