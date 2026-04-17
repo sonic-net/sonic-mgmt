@@ -167,9 +167,12 @@ skip_maintainers:
 **Maintainer extension labels**
 
 - A designated skip maintainer may grant a grace period by adding a label in the form `skip-maintainer-extension-N`
-- `N` is interpreted as calendar days of temporary extension beyond the current expired threshold
+- `N` is interpreted as calendar days of temporary extension starting from the moment that label was applied (i.e., `extension_due_date = label_applied_at + N`)
 - The workflow must validate that the label was applied by a configured skip maintainer before honoring it in reporting
-- If multiple such labels exist, the workflow should use the largest active `N` value and record the full label set in the report for auditability
+- A maintainer may add the label multiple times as each extension period runs out (e.g., add `skip-maintainer-extension-30`, and after 30 days add it again to grant another 30-day window)
+- Because the same label name can appear multiple times in the issue timeline, the workflow must use the `labeled` event timestamp from the GitHub issue timeline API for each occurrence rather than relying solely on currently attached labels
+- An extension is considered **active** only if `today < label_applied_at + N`; expired extension occurrences are disregarded
+- When multiple authorized extension label occurrences are present (same or different `N`), the workflow selects the one whose computed `extension_due_date` is furthest in the future and still active; all occurrences are preserved in the report artifacts for auditability
 
 **2. Reporting and Dashboard Tool**
 
@@ -203,7 +206,7 @@ Computation notes:
 - Priority stage durations are read from `expiry_config.yml` (`pN_label_expiry_days`).
 - Current stage timestamp source is issue timeline label events (workflow-applied priority labels).
 - `days_to_p0` is derived from current stage start + remaining configured durations to P0.
-- If a valid `skip-maintainer-extension-N` label exists, compute `extension_days = N` and derive `extended_due_date = expired_at + extension_days`.
+- If a valid `skip-maintainer-extension-N` label exists, iterate over all timeline `labeled` events for that label name, filter to those applied by authorized skip maintainers, and compute `extension_due_date = label_applied_at + N` for each occurrence. Use the occurrence whose `extension_due_date` is the latest and is still in the future as the effective extension.
 - Buckets must be mutually exclusive in output (`expired` first, then `expiring soon`, then `permanent skip`).
 
 Recommended output fields per row:
@@ -474,9 +477,12 @@ To handle skips across multiple release branches:
 
 - Final expired-state action adds `skip-wf-expired` and posts an idempotent escalation comment mentioning skip maintainers from `.github/SKIP_MAINTAINERS.yml`.
 - If the same issue remains expired across repeated runs, the workflow updates or reuses the existing escalation comment rather than posting duplicates.
-- The workflow inspects issue timeline label events to determine whether any `skip-maintainer-extension-N` label was applied by an authorized skip maintainer.
+- The workflow inspects issue timeline `labeled` events to determine whether any `skip-maintainer-extension-N` label was applied by an authorized skip maintainer; the timestamp of each `labeled` event is used, not just the presence of the label on the issue today.
+- A `skip-maintainer-extension-N` label applied before the issue reaches expired state is not a valid extension event and must be ignored for effective grace-period computation.
 - Authorized maintainer-extension labels do not remove the issue from the expired bucket; they add grace-period metadata that is surfaced in the report and dashboard.
-- If multiple authorized extension labels are present, the workflow should use the largest `N` as the effective extension while preserving the raw labels in artifacts for auditability.
+- A single label name (e.g., `skip-maintainer-extension-30`) may appear multiple times in the timeline because a maintainer can re-apply it after each prior extension window closes; each occurrence is treated as a separate event with its own start timestamp.
+- The effective extension is the timeline occurrence applied by an authorized maintainer whose computed `label_applied_at + N` is the furthest future date that is still greater than today; occurrences whose window has already passed are ignored for computing active coverage but are preserved in artifacts.
+- All extension label occurrences, their applicators, applied timestamps, and computed due dates are recorded in the exported report for full auditability.
 - Priority levels are derived dynamically from `expiry_config.yml` keys matching `pN_label_expiry_days`; fixed ladders are not assumed.
 - Warning comments and final escalation comments are idempotent through deterministic hidden markers, so repeated daily runs do not spam duplicate comments for the same threshold/stage.
 - Stage source of truth is issue timeline `labeled` events for workflow priority labels (label history), not current issue label presence.
