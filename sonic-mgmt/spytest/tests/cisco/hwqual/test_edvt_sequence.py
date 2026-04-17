@@ -30,6 +30,16 @@ def test_edvt_sequence_hooks(request):
     CfgDataG.password = st.get_password(TBDataG.D1)
     CfgDataG.homedir = "/home/" + CfgDataG.username
 
+    if 'D1T1P1' in TBDataG:
+        CfgDataG.D1T1P1 = TBDataG['D1T1P1']
+    else:
+        CfgDataG.D1T1P1 = None
+
+    if 'D1T1P2' in TBDataG:
+        CfgDataG.D1T1P2 = TBDataG['D1T1P2']
+    else:
+        CfgDataG.D1T1P2 = CfgDataG.D1T1P1
+
    # Initialize Platform Details
     CfgDataG.dut = TBDataG.D1
     CfgDataG.mgmt_ipv4=TBDataG.get("mgmt_ipv4").get(CfgDataG.dut)
@@ -60,6 +70,7 @@ def test_edvt_sequence_hooks(request):
     CfgDataG['noshut_timer'] = platform_cfg["noshut_timer"]
     CfgDataG['shut_noshut'] = platform_cfg["shut_noshut"]
     CfgDataG['exception_intf'] = platform_cfg['exception_intf']
+    CfgDataG.util = platform_cfg.get("util")
 
     CfgDataG.traffic_cfg_type = get_platform_edvt_traffic_cfg_type(CfgDataG.product_id)
     if not CfgDataG.traffic_cfg_type:
@@ -72,28 +83,30 @@ def test_edvt_sequence_hooks(request):
         report_fail(f"{CfgDataG.logprefix} Missing platform_cfg information for PID:{CfgDataG.product_id}")
         return False
 
-    # Identify DUT Tx and Rx ports
-    CfgDataG.D1T1P1, CfgDataG.D1T1P2 = get_io_ports(CfgDataG.product_id)
-    if CfgDataG.D1T1P1 is None or CfgDataG.D1T1P2 is None:
-        report_fail(f"{CfgDataG.logprefix} Missing IO_PORT information for PID:{CfgDataG.product_id}")
-        return False
+    CfgDataG.is_single_tgen_port = True
+    if CfgDataG.D1T1P2 is not None and CfgDataG.D1T1P1 != CfgDataG.D1T1P2:
+        CfgDataG.is_single_tgen_port = False
 
     CfgDataG.cfg_reload_timer = platform_vrf_cfg.get("cfg_reload_timer")
-    CfgDataG.D1T1P1_ipv4 = platform_vrf_cfg.get("dutp1_ipv4")
-    #CfgDataG.D1T1P2_ipv4 = platform_vrf_cfg.get("dutp2_ipv4")
-
     # Initialize TGEN details
-    #CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1, TBDataG.T1D1P2])
-    CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1])
+    if CfgDataG.is_single_tgen_port:
+        CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1])
+    else:
+        CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1, TBDataG.T1D1P2])
+
     CfgDataG.tg = CfgDataG.tg_handler["tg"]
     CfgDataG.tg_ph1 = CfgDataG.tg_handler["tg_ph_1"]
-    #CfgDataG.tg_ph2 = CfgDataG.tg_handler["tg_ph_2"]
-
     CfgDataG.T1D1P1_ipv4 = platform_vrf_cfg.get("tgenp1_ipv4")
-    #CfgDataG.T1D1P2_ipv4 = platform_vrf_cfg.get("tgenp2.ipv4")
     CfgDataG.T1D1P1_mac= platform_vrf_cfg.get("tgenp1_mac")
-    #CfgDataG.T1D1P2_mac= platform_vrf_cfg.get("tgenp2_mac")
+    CfgDataG.D1T1P1_ipv4 = platform_vrf_cfg.get("dutp1_ipv4")
 
+    if not CfgDataG.is_single_tgen_port:
+        CfgDataG.tg_ph2 = CfgDataG.tg_handler["tg_ph_2"]
+        CfgDataG.T1D1P2_ipv4 = platform_vrf_cfg.get("tgenp2.ipv4")
+        CfgDataG.T1D1P2_mac= platform_vrf_cfg.get("tgenp2_mac")
+        CfgDataG.D1T1P2_ipv4 = platform_vrf_cfg.get("dutp2_ipv4")
+
+    CfgDataG.is_ext_loop = hwqual_common.is_ext_loop_exist(CfgDataG)
     CfgDataG['results'] = {}
 
     yield

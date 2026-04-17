@@ -30,3 +30,4 @@ topology:
     D1:
         interfaces:
                 Ethernet0: {EndDevice: T1, EndPort: "3.1", params: def_tg_link}
+                Ethernet248: {EndDevice: T1, EndPort: "3.2", params: def_tg_link}

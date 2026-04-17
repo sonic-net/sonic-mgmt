@@ -14,16 +14,31 @@ def report_fail(msg=''):
 
 def verify_tgen_traffic_stats(CfgDataG, k):
 
-    ph1_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph1)
-    #ph2_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph2)
-    #if int(ph2_traffic_stats.rx.total_packets) < int(ph1_traffic_stats.tx.total_packets):
-    if int(ph1_traffic_stats.rx.total_packets) < int(ph1_traffic_stats.tx.total_packets):
-        #pkt_loss = int(ph2_traffic_stats.rx.total_packets) - int(ph1_traffic_stats.tx.total_packets)
-        pkt_loss = int(ph1_traffic_stats.rx.total_packets) - int(ph1_traffic_stats.tx.total_packets)
-        st.log(f" {CfgDataG.logprefix} Traffic drop for {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
-        report_fail(f" {CfgDataG.logprefix} Traffic drop for {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
+    if CfgDataG.is_single_tgen_port:
+        ph1_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph1)
+        if int(ph1_traffic_stats.rx.total_packets) < int(ph1_traffic_stats.tx.total_packets):
+            pkt_loss = int(ph1_traffic_stats.tx.total_packets) - int(ph1_traffic_stats.rx.total_packets)
+            report_fail(f" {CfgDataG.logprefix} Traffic drop for {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
+        else:
+            st.log(f" {CfgDataG.logprefix} No Traffic drop for {CfgDataG.traffic_cfg_type}:{k}")
     else:
-        st.log(f" {CfgDataG.logprefix} No Traffic drop for {CfgDataG.traffic_cfg_type}:{k}")
+        no_drop = True
+        ph1_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph1)
+        ph2_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph2)
+
+        if int(ph2_traffic_stats.rx.total_packets) < int(ph1_traffic_stats.tx.total_packets):
+            pkt_loss = int(ph1_traffic_stats.tx.total_packets) - int(ph2_traffic_stats.rx.total_packets)
+            report_fail(f" {CfgDataG.logprefix} Traffic drop from {CfgDataG.D1T1P1} to {CfgDataG.D1T1P2} {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
+            no_drop = False
+
+        if int(ph1_traffic_stats.rx.total_packets) < int(ph2_traffic_stats.tx.total_packets):
+            pkt_loss = int(ph2_traffic_stats.tx.total_packets) - int(ph1_traffic_stats.rx.total_packets)
+            report_fail(f" {CfgDataG.logprefix} Traffic drop from {CfgDataG.D1T1P2} to {CfgDataG.D1T1P1} {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
+            no_drop = False
+
+        if no_drop:
+            st.log(f" {CfgDataG.logprefix} No Traffic drop for {CfgDataG.traffic_cfg_type}:{k}")
+
 
 def stop_tgen_traffic(CfgDataG, k):
     st.log(f" {CfgDataG.logprefix} Stopping Traffic {CfgDataG.traffic_cfg_type}:{k}")
@@ -41,7 +56,7 @@ def run_tgen_traffic(CfgDataG, k, v):
             port_handle=CfgDataG.tg_ph1,
             mac_dst=CfgDataG.dut_base_mac,
             mac_src=CfgDataG.T1D1P1_mac,
-            rate_percent=v.get('util'),
+            rate_percent=CfgDataG.util,
             mode='create',
             l2_encap='ethernet_ii',
             ip_src_addr= CfgDataG.T1D1P1_ipv4,
@@ -57,6 +72,29 @@ def run_tgen_traffic(CfgDataG, k, v):
             transmit_mode='continuous'
         )
         CfgDataG.stream_ids.append(res['stream_id'])
+
+        if not CfgDataG.is_single_tgen_port:
+            res = CfgDataG.tg.tg_traffic_config(
+                port_handle=CfgDataG.tg_ph2,
+                mac_dst=CfgDataG.dut_base_mac,
+                mac_src=CfgDataG.T1D1P2_mac,
+                rate_percent=CfgDataG.util,
+                mode='create',
+                l2_encap='ethernet_ii',
+                ip_src_addr= CfgDataG.T1D1P2_ipv4,
+                ip_dst_addr=v.get('bi_stream_addr'),
+                l3_protocol= v.get('stream_type'),
+                ip_ttl=v.get('ttl'),
+                length_mode=stream.get('length_mode'),
+                data_pattern = stream.get('pattern'),
+                data_pattern_mode = stream.get('pattern_mode'),
+                frame_size_min=stream.get('minframelength'),
+                frame_size_max=stream.get('maxframelength'),
+                mac_discovery_gw=CfgDataG.D1T1P2_ipv4,
+                transmit_mode='continuous'
+            )
+            CfgDataG.stream_ids.append(res['stream_id'])
+
 
     result=CfgDataG.tg.tg_traffic_control(action='run', handle=CfgDataG.stream_ids)
     if not result:
@@ -131,8 +169,16 @@ def setup_dut_vrf_config(CfgDataG):
         return True
 
     traffic_cfggen = "/opt/cisco/bin/traffic-cfggen.py"
-    #cmd = f"{traffic_cfggen} vrf -e -i {CfgDataG.D1T1P1} -o {CfgDataG.D1T1P2} -s 3.3.3.3 -a"
-    cmd = f"{traffic_cfggen} vrf -e -i {CfgDataG.D1T1P1} -o {CfgDataG.D1T1P1} -s 3.3.3.3 -a"
+
+    if CfgDataG.is_ext_loop:
+        loop_flag = "-p"
+    else:
+        loop_flag = "-e"
+
+    tgen_flag = "-b 5.5.5.5" if not CfgDataG.is_single_tgen_port else ""
+
+    cmd = f"{traffic_cfggen} vrf {loop_flag} -i {CfgDataG.D1T1P1} -o {CfgDataG.D1T1P2} {tgen_flag} -s 3.3.3.3 -a"
+    st.log(f"{CfgDataG.logprefix} VRF Config command: {cmd}")
     st.config(CfgDataG.dut, cmd, max_time=1800)
     return True
 
@@ -140,7 +186,6 @@ def setup_tgen_interface_config(CfgDataG):
 
     CfgDataG.tg.tg_traffic_control(
         action='reset',
-        #port_handle=[CfgDataG.tg_ph1, CfgDataG.tg_ph2]
         port_handle=[CfgDataG.tg_ph1]
     )
 
@@ -156,17 +201,26 @@ def setup_tgen_interface_config(CfgDataG):
     st.log("INTFCONF: "+str(res1))
     CfgDataG.tg_ipv4h1 = res1['ipv4_handle']
 
-    #Configure tgen interface T1D1P2
-    #res2=CfgDataG.tg.tg_interface_config(
-    #        port_handle=CfgDataG.tg_ph2,
-    #        mode='config',
-    #        intf_ip_addr=CfgDataG.T1D1P2_ipv4,
-    #        gateway=CfgDataG.D1T1P2_ipv4,
-    #        src_mac_addr=CfgDataG.T1D1P2_mac,
-    #        arp_send_req='1'
-    #)
-    #st.log("INTFCONF: "+str(res2))
-    #CfgDataG.tg_ipv4h2 = res2['ipv4_handle']
+    if not CfgDataG.is_single_tgen_port:
+        CfgDataG.T1D1P2_ipv4 = hwqual_common.get_connected_interface_ipaddress(CfgDataG, CfgDataG.D1T1P2)
+
+        CfgDataG.tg.tg_traffic_control(
+            action='reset',
+            port_handle=[CfgDataG.tg_ph2]
+        )
+
+        #Configure tgen interface T1D1P2
+        res2=CfgDataG.tg.tg_interface_config(
+            port_handle=CfgDataG.tg_ph2,
+            mode='config',
+            intf_ip_addr=CfgDataG.T1D1P2_ipv4,
+            gateway=CfgDataG.D1T1P2_ipv4,
+            src_mac_addr=CfgDataG.T1D1P2_mac,
+            arp_send_req='1'
+        )
+        st.log("INTFCONF: "+str(res2))
+        CfgDataG.tg_ipv4h2 = res2['ipv4_handle']
+
     return True
 
 def install_hwqual_pkg(CfgDataG):

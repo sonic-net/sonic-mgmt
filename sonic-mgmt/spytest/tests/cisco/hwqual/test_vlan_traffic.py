@@ -50,6 +50,15 @@ def snt_vlan_traffic_hooks(request):
     CfgDataG.username = st.get_username(TBDataG.D1)
     CfgDataG.password = st.get_password(TBDataG.D1)
     CfgDataG.homedir = "/home/" + CfgDataG.username + "/"
+    if 'D1T1P1' in TBDataG:
+        CfgDataG.D1T1P1 = TBDataG['D1T1P1']
+    else:
+        CfgDataG.D1T1P1 = None
+
+    if 'D1T1P2' in TBDataG:
+        CfgDataG.D1T1P2 = TBDataG['D1T1P2']
+    else:
+        CfgDataG.D1T1P2 = None
 
     yield
 
@@ -186,8 +195,7 @@ def initialize_cfgdata():
     if get_platform_details(CfgDataG.mgmt_ipv4) is False:
         return False
 
-    # Identify DUT Rx and Tx ports
-    CfgDataG.D1T1P1, CfgDataG.D1T1P2 = get_io_ports(CfgDataG.product_id)
+    # Validate DUT ports
     if CfgDataG.D1T1P1 is None or CfgDataG.D1T1P2 is None:
         report_fail(f"{CfgDataG.logprefix} Missing IO_PORT information for PID:{CfgDataG.product_id}")
         return False
@@ -199,16 +207,17 @@ def initialize_cfgdata():
         return False
 
     CfgDataG.cfg_reload_timer = platform_cfg.get("cfg_reload_timer")
+    CfgDataG.util = platform_cfg.get("util")
 
     # Initialize TGEN details
     CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1, TBDataG.T1D1P2])
-    #CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1])
     CfgDataG.tg = CfgDataG.tg_handler["tg"]
     CfgDataG.tg_ph1 = CfgDataG.tg_handler["tg_ph_1"]
-    CfgDataG.tg_ph2 = CfgDataG.tg_handler["tg_ph_2"]
-
     CfgDataG.T1D1P1_mac= platform_cfg.get("tgenp1_mac")
+    CfgDataG.tg_ph2 = CfgDataG.tg_handler["tg_ph_2"]
     CfgDataG.T1D1P2_mac= platform_cfg.get("tgenp2_mac")
+
+    CfgDataG.is_ext_loop = hwqual_common.is_ext_loop_exist(CfgDataG)
     return True
 
 def setup_dut_vlan_config(dut):
@@ -219,7 +228,7 @@ def setup_dut_vlan_config(dut):
         return True
 
     traffic_cfggen = "/opt/cisco/bin/traffic-cfggen.py"
-    cmd = f"{traffic_cfggen} vlan -p -i {CfgDataG.D1T1P1} -o {CfgDataG.D1T1P2} -m -a"
+    cmd = f"{traffic_cfggen} vlan -p -i {CfgDataG.D1T1P1} -o {CfgDataG.D1T1P2} -a"
     st.config(dut, cmd, max_time=1800)
     return True
 
@@ -251,28 +260,26 @@ def setup_tgen_interface_config():
 
 def verify_tgen_traffic_stats(k):
 
+    traffic_drop = False
     ph1_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph1)
     ph2_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph2)
     if int(ph2_traffic_stats.rx.total_packets) < int(ph1_traffic_stats.tx.total_packets):
-        pkt_loss = int(ph2_traffic_stats.rx.total_packets) - int(ph1_traffic_stats.tx.total_packets)
-        report_fail(f" {CfgDataG.logprefix} Traffic drop for {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
-    else:
-        st.log(f" {CfgDataG.logprefix} No Traffic drop for {CfgDataG.traffic_cfg_type}:{k}")
+        pkt_loss = int(ph1_traffic_stats.tx.total_packets) - int(ph2_traffic_stats.rx.total_packets)
+        report_fail(f" {CfgDataG.logprefix} Traffic drop {CfgDataG.D1T1P1} -> {CfgDataG.D1T1P2}:{CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
+        traffic_drop = True
 
     if int(ph1_traffic_stats.rx.total_packets) < int(ph2_traffic_stats.tx.total_packets):
-        pkt_loss = int(ph1_traffic_stats.rx.total_packets) - int(ph2_traffic_stats.tx.total_packets)
-        report_fail(f" {CfgDataG.logprefix} Traffic drop for {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
-    else:
+        pkt_loss = int(ph2_traffic_stats.tx.total_packets) - int(ph1_traffic_stats.rx.total_packets)
+        report_fail(f" {CfgDataG.logprefix} Traffic drop {CfgDataG.D1T1P2} -> {CfgDataG.D1T1P1}:{CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
+        traffic_drop = True
+
+    if not traffic_drop:
         st.log(f" {CfgDataG.logprefix} No Traffic drop for {CfgDataG.traffic_cfg_type}:{k}")
 
 def stop_tgen_traffic(k):
     st.log(f" {CfgDataG.logprefix} Stopping Traffic {CfgDataG.traffic_cfg_type}:{k}")
     CfgDataG.tg.tg_traffic_control(action='stop', handle=CfgDataG.stream_ids)
     time.sleep(15)
-    #out=st.config(TBDataG.D1, 'show interface counters')
-    #out2=st.show(TBDataG.D1, 'show interface counters')
-    #print(out)
-    #print(out2)
 
 def run_tgen_traffic(k, v):
 
@@ -283,9 +290,9 @@ def run_tgen_traffic(k, v):
         #Configure tgen traffic stream
         res = CfgDataG.tg.tg_traffic_config(
             port_handle=CfgDataG.tg_ph1,
-	    mac_dst=CfgDataG.dut_base_mac,
             mac_src=CfgDataG.T1D1P1_mac,
-            rate_percent=v.get('util'),
+	    mac_dst=CfgDataG.T1D1P2_mac,
+            rate_percent=CfgDataG.util,
             mode='create',
             l2_encap='ethernet_ii',
             length_mode=stream.get('length_mode'),
@@ -297,9 +304,9 @@ def run_tgen_traffic(k, v):
 
         res = CfgDataG.tg.tg_traffic_config(
             port_handle=CfgDataG.tg_ph2,
-	    mac_dst=CfgDataG.dut_base_mac,
             mac_src=CfgDataG.T1D1P2_mac,
-            rate_percent=v.get('util'),
+	    mac_dst=CfgDataG.T1D1P1_mac,
+            rate_percent=CfgDataG.util,
             mode='create',
             l2_encap='ethernet_ii',
             length_mode=stream.get('length_mode'),
@@ -317,9 +324,6 @@ def run_tgen_traffic(k, v):
         st.log(f"{CfgDataG.logprefix} Traffic control for {CfgDataG.traffic_cfg_type}:{k} Success")
 
     st.log(f"{CfgDataG.logprefix} Running bidirectional traffic {CfgDataG.traffic_cfg_type}:{k} for {v.get('duration')}Sec")
-    #st.tg_wait(int(v.get('duration')))
-    #stop_tgen_traffic(k)
-    #verify_tgen_traffic_stats(k)
     return True
 
 def start_tgen_traffic():

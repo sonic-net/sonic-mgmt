@@ -2,6 +2,7 @@ import re
 import yaml
 import pytest
 import os.path
+import ipaddress
 from spytest import st, SpyTestDict
 
 @pytest.fixture(scope="module", autouse=True)
@@ -867,5 +868,148 @@ def is_vlan_configured(dut, vid, interface_name):
     except Exception as e:
         if 'st' in locals():
             st.error(f"VLAN validation error: {e}")
+        return False
+
+def check_external_loopback_exist(input_text):
+    """
+    Parse LLDP output into structured data
+
+    Args:
+        input_text (str): Raw lldp table output from 'show lldp table'
+
+    Returns:
+        bool: True or False
+    """
+    e_loopback = False
+    lines = input_text.strip().split('\n')
+
+    # Find header line
+    header_line = -1
+    for i, line in enumerate(lines):
+        if 'Capability' in line and 'codes' in line:
+            header_line = i
+            break
+
+    if header_line == -1:
+        print("ERROR: Could not find VLAN table headers")
+        return {}
+
+    # Skip header and separator line
+    data_start = header_line + 3
+
+    for line in lines[data_start:]:
+        line = line.strip()
+        if not line or line.startswith('-'):
+            continue
+
+        # Split by whitespace, handling multiple spaces
+        #parts = re.split(r'\s+', line, 1)  # Split into max 2 parts
+        parts = line.split()
+
+        if len(parts) >= 5:
+            localport = parts[0]
+            remoteport = parts[4]
+
+            if localport != remoteport:
+                e_loopback = True
+                break
+
+    return e_loopback
+
+def is_ext_loop_exist(CfgDataG):
+    try:
+
+        # Get LLDP table data from device
+        lldp_output = st.config(CfgDataG.dut, "show lldp table", skip_error_check=True)
+
+        if not lldp_output:
+            st.error("Failed to get LLDP data from device")
+            return False
+
+        # Check external loopback connection
+        entry_exists = check_external_loopback_exist(lldp_output)
+
+        if entry_exists:
+            st.log(f"✓ External loopback exist")
+        else:
+            st.log(f"✗ External loopback not found")
+
+        return entry_exists
+
+    except Exception as e:
+        if 'st' in locals():
+            st.error(f"LLDP validation error: {e}")
+        return False
+
+def parse_ipaddress(input_text):
+    """
+    Parse ip interfaces output into structured data
+
+    Args:
+        input_text (str): ip interfaces table output from 'show ip interfaces'
+
+    Returns:
+        Dict[str, List[str]]: Dictionary mapping interface names to ipaddress
+    """
+    ipdata = {}
+    lines = input_text.strip().split('\n')
+
+    # Find header line
+    header_line = -1
+    for i, line in enumerate(lines):
+        if 'Interface' in line and 'IPv4' in line:
+            header_line = i
+            break
+
+    if header_line == -1:
+        print("ERROR: Could not find IP interfaces table headers")
+        return {}
+
+    # Skip header and separator line
+    data_start = header_line + 1
+    for line in lines[data_start:]:
+        line = line.strip()
+        if not line or line.startswith('-'):
+            continue
+
+        parts = line.split()
+        if len(parts) >= 6:
+            parts = line.split()
+            intf = parts[0]
+            ipdata[intf] = parts[2]
+
+    return ipdata
+
+def get_interface_ipaddress(CfgDataG, ifname):
+    try:
+        # Get IP table data from device
+        ip_output = st.config(CfgDataG.dut, "show ip interfaces", skip_error_check=True)
+        if not ip_output:
+            st.error("Failed to get ip data from device")
+            return False
+
+        # Check external loopback connection
+        ipdata = parse_ipaddress(ip_output)
+        if ipdata:
+            if ifname in ipdata:
+                return ipdata[ifname]
+        return None
+    except Exception as e:
+        if 'st' in locals():
+            st.error(f"Get IP interfaces error: {e}")
+        return False
+
+
+def get_connected_interface_ipaddress(CfgDataG, ifname):
+    try:
+        ipinfo = get_interface_ipaddress(CfgDataG, ifname)
+        if ipinfo:
+            network = ipaddress.IPv4Interface(ipinfo)
+            conn_ip = network.ip + 1
+            return f"{conn_ip}"
+        return None
+    except Exception as e:
+        if 'st' in locals():
+            st.error(f"Connected IP error: {e}")
         return False
 

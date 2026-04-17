@@ -117,8 +117,8 @@ vrf_traffic_configs = {
                 "name": "fixed_traffic",
                 "stream_type": "ipv4",
                 "stream_addr": "3.3.3.3",
+                "bi_stream_addr": "5.5.5.5",
                 "no_of_stream" : 1,
-                "util": "95",
                 "duration": "120",
                 "ttl": "255",
                 "pre-action": None,
@@ -142,8 +142,8 @@ vrf_traffic_configs = {
                 "name": "mixed_traffic",
                 "stream_type": "ipv4",
                 "stream_addr": "3.3.3.3",
+                "bi_stream_addr": "5.5.5.5",
                 "no_of_stream" : 1,
-                "util": "95",
                 "duration": "120",
                 "ttl": "255",
                 "pre-action": None,
@@ -167,8 +167,8 @@ vrf_traffic_configs = {
                 "name": "killer_traffic",
                 "stream_type": "ipv4",
                 "stream_addr": "3.3.3.3",
+                "bi_stream_addr": "5.5.5.5",
                 "no_of_stream" : 6,
-                "util": "95",
                 "duration": "120",
                 "ttl": "255",
                 "pre-action": "pre_action_bgp_route_adv",
@@ -227,8 +227,8 @@ vrf_traffic_configs = {
                 "name": "fixed_traffic",
                 "stream_type": "ipv4",
                 "stream_addr": "3.3.3.3",
+                "bi_stream_addr": "5.5.5.5",
                 "no_of_stream" : 1,
-                "util": "95",
                 "duration": "120",
                 "ttl": "255",
                 "pre-action": None,
@@ -250,8 +250,8 @@ vrf_traffic_configs = {
                 "name": "mixed_traffic",
                 "stream_type": "ipv4",
                 "stream_addr": "3.3.3.3",
+                "bi_stream_addr": "5.5.5.5",
                 "no_of_stream" : 1,
-                "util": "95",
                 "duration": "120",
                 "ttl": "255",
                 "pre-action": None,
@@ -386,6 +386,7 @@ platform_vrf_config = {
             "pid": "8102-64H-O",
             "data_ports": "64",
             "max_bw": "100G",
+            "util": "40",
             "bidir": "y",
             "cfg_reload_timer" : 300,
             "tgenp1_ipv4": "192.16.1.2",
@@ -398,17 +399,14 @@ platform_vrf_config = {
             "tgenp2_asn" : "65205",
             "dutp1_asn"  : "65100",
             "dutp2_asn"  : "65105",
-            "io_ports": {
-                "tx_port": "Ethernet0",
-                "rx_port": "Ethernet0",
-            },
-            "bgp_route_cfg_type" : "ipv4_300k",
+            "bgp_route_cfg_type" : "ipv4_100k",
             "traffic_cfg_type": "fixed_traffic"
         },
         "8101-32FH-O": {
             "pid": "8101-32FH-O",
             "data_ports": "32",
             "max_bw": "400G",
+            "util": "40",
             "bidir": "y",
             "cfg_reload_timer" : 300,
             "tgenp1_ipv4": "192.16.1.2",
@@ -421,17 +419,14 @@ platform_vrf_config = {
             "tgenp2_asn" : "65205",
             "dutp1_asn"  : "65100",
             "dutp2_asn"  : "65105",
-            "io_ports": {
-                "tx_port": "Ethernet248",
-                "rx_port": "Ethernet0",
-            },
-            "bgp_route_cfg_type" : "ipv4_300k",
+            "bgp_route_cfg_type" : "ipv4_100k",
             "traffic_cfg_type": "fixed_traffic"
         },
         "8101-32FH-O-C01": {
             "pid": "8101-32FH-O-C01",
             "data_ports": "32",
             "max_bw": "400G",
+            "util": "40",
             "bidir": "y",
             "cfg_reload_timer" : 300,
             "tgenp1_ipv4": "192.16.1.2",
@@ -444,17 +439,14 @@ platform_vrf_config = {
             "tgenp2_asn" : "65205",
             "dutp1_asn"  : "65100",
             "dutp2_asn"  : "65105",
-            "io_ports": {
-                "tx_port": "Ethernet0",
-                "rx_port": "Ethernet0",
-            },
-            "bgp_route_cfg_type" : "ipv4_300k",
+            "bgp_route_cfg_type" : "ipv4_100k",
             "traffic_cfg_type": "fixed_traffic"
         },
         "8122-64EH-O": {
             "pid": "8122-64EH-O",
             "data_ports": "64",
             "max_bw": "800G",
+            "util": "40",
             "bidir": "y",
             "cfg_reload_timer" : 300,
             "tgenp1_ipv4": "192.16.1.2",
@@ -467,17 +459,14 @@ platform_vrf_config = {
             "tgenp2_asn" : "65205",
             "dutp1_asn"  : "65100",
             "dutp2_asn"  : "65105",
-            "io_ports": {
-                "tx_port": "Ethernet0",
-                "rx_port": "Ethernet0",
-            },
-            "bgp_route_cfg_type" : "ipv4_300k",
+            "bgp_route_cfg_type" : "ipv4_100k",
             "traffic_cfg_type": "fixed_traffic"
         },
         "8122-64EHF-O": {
             "pid": "8122-64EHF-O",
             "data_ports": "64",
             "max_bw": "800G",
+            "util": "40",
             "bidir": "y",
             "cfg_reload_timer" : 300,
             "tgenp1_ipv4": "192.16.1.2",
@@ -490,17 +479,14 @@ platform_vrf_config = {
             "tgenp2_asn" : "65205",
             "dutp1_asn"  : "65100",
             "dutp2_asn"  : "65105",
-            "io_ports": {
-                "tx_port": "Ethernet0",
-                "rx_port": "Ethernet0",
-            },
-            "bgp_route_cfg_type" : "ipv4_300k",
-            "traffic_cfg_type": "snt_traffic"
+            "bgp_route_cfg_type" : "ipv4_100k",
+            "traffic_cfg_type": "fixed_traffic"
         },
         "8223-64E-MO": {
             "pid": "8223-64E-MO",
             "data_ports": "64",
             "max_bw": "800G",
+            "util": "40",
             "bidir": "y",
             "cfg_reload_timer" : 300,
             "tgenp1_ipv4": "192.16.1.2",
@@ -513,17 +499,14 @@ platform_vrf_config = {
             "tgenp2_asn" : "65205",
             "dutp1_asn"  : "65100",
             "dutp2_asn"  : "65105",
-            "io_ports": {
-                "tx_port": "Ethernet0",
-                "rx_port": "Ethernet0",
-            },
-            "bgp_route_cfg_type" : "ipv4_300k",
-            "traffic_cfg_type": "snt_traffic"
+            "bgp_route_cfg_type" : "ipv4_100k",
+            "traffic_cfg_type": "fixed_traffic"
         },
         "HF6100-64ED": {
             "pid": "HF6100-64ED",
             "data_ports": "64",
             "max_bw": "800G",
+            "util": "40",
             "bidir": "y",
             "cfg_reload_timer" : 300,
             "tgenp1_ipv4": "192.16.1.2",
@@ -536,12 +519,8 @@ platform_vrf_config = {
             "tgenp2_asn" : "65205",
             "dutp1_asn"  : "65100",
             "dutp2_asn"  : "65105",
-            "io_ports": {
-                "tx_port": "Ethernet0",
-                "rx_port": "Ethernet0",
-            },
-            "bgp_route_cfg_type" : "ipv4_300k",
-            "traffic_cfg_type": "snt_traffic"
+            "bgp_route_cfg_type" : "ipv4_100k",
+            "traffic_cfg_type": "fixed_traffic"
         }
     }
 }

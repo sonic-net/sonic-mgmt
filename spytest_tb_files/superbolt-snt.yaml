@@ -22,7 +22,7 @@ devices:
 
     T1:
         device_type: TGEN
-        properties: {type: ixia, version: 10.00, ip: 172.26.235.46, ix_server: 10.29.158.67}
+        properties: {type: ixia, version: 10.00, ip: 172.26.235.43, ix_server: 10.29.158.67}
         credentials: {username: admin, password: sonicroZes@123, altpassword: admin}
 
 topology:

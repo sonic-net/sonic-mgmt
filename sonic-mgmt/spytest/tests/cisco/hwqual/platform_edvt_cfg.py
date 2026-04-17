@@ -506,7 +506,7 @@ platform_edvt_cfg = {
            "fpds": ["BIOS", "Aikido", "TAM", "IOFPGA", "SSD", "eCPLD"],
            "fantrays": 4,
            "psus": 2,
-           "shut_noshut" : 25,
+           "shut_noshut" : 10,
            "noshut_timer": 60,
            "exception_intf" : [],
            "traffic_cfg_type": "fixed_traffic"
@@ -518,7 +518,7 @@ platform_edvt_cfg = {
            "fpds": ["BIOS", "Aikido", "TAM", "IOFPGA", "SSD", "eCPLD", "CPU_CPLD"],
            "fantrays": 6,
            "psus": 2,
-           "shut_noshut" : 25,
+           "shut_noshut" : 10,
            "noshut_timer": 60,
            "exception_intf" : [],
            "traffic_cfg_type": "fixed_traffic"
@@ -530,7 +530,7 @@ platform_edvt_cfg = {
            "fpds": ["BIOS", "Aikido", "TAM", "IOFPGA", "SSD", "eCPLD", "CPU_CPLD"],
            "fantrays": 6,
            "psus": 2,
-           "shut_noshut" : 25,
+           "shut_noshut" : 10,
            "noshut_timer": 60,
            "exception_intf" : [],
            "traffic_cfg_type": "fixed_traffic"
@@ -542,9 +542,21 @@ platform_edvt_cfg = {
            "fpds": ["BIOS", "Aikido", "TAM", "IOFPGA", "SSD", "pwrcpld", "iocpld0", "iocpld1"],
            "fantrays": 4,
            "psus": 2,
-           "shut_noshut" : 25,
+           "shut_noshut" : 10,
            "noshut_timer": 60,
            "exception_intf" : ["Ethernet4", "Ethernet512", "Ethernet513"],
+           "traffic_cfg_type": "fixed_traffic"
+       },
+       "8223-64E-MO": {
+           "test_type": "hwqual",
+           "asic": "cisco-8000",
+           "asic_count": 1,
+           "fpds": ["BIOS", "Aikido", "IOFPGA", "uFPGA", "pwrcpld", "iocpld0", "iocpld1"],
+           "fantrays": 4,
+           "psus": 2,
+           "shut_noshut" : 10,
+           "noshut_timer": 60,
+           "exception_intf" : ["Ethernet4"],
            "traffic_cfg_type": "fixed_traffic"
        },
        "HF6100-64ED": {
@@ -554,7 +566,7 @@ platform_edvt_cfg = {
            "fpds": ["BIOS", "Aikido", "TAM", "IOFPGA", "SSD", "pwrcpld", "iocpld0", "iocpld1"],
            "fantrays": 4,
            "psus": 2,
-           "shut_noshut" : 25,
+           "shut_noshut" : 10,
            "noshut_timer": 60,
            "exception_intf" : ["Ethernet4", "Ethernet512", "Ethernet513"],
            "traffic_cfg_type": "fixed_traffic"
