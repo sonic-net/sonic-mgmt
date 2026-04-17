@@ -18,6 +18,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
 from tests.common.helpers.dut_utils import is_mellanox_fanout
+from tests.common.plugins.memory_utilization.memory_utilization import wait_memory_stable
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -269,6 +270,11 @@ EOF
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
     config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+    if duthost.facts["asic_type"] == "vpp":
+        # After config_reload the kernel page cache is empty so monit reports
+        # artificially low memory usage.  Wait for it to stabilize before the
+        # memory_utilization fixture captures its baseline.
+        wait_memory_stable(duthost)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
@@ -779,7 +785,8 @@ def test_not_expected_vlan_tag_drop(do_test, duthosts, enum_rand_one_per_hwsku_f
         )
 
     group = "L2"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+            skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
 
 
 def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_ports, ports_info):

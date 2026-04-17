@@ -1,6 +1,7 @@
 import logging
 import re
 import json
+import time
 from os.path import join, split
 
 logger = logging.getLogger(__name__)
@@ -690,3 +691,63 @@ def parse_frr_memory_output(output, memory_params):
 
     logger.debug("Parsed FRR memory values: {}".format(memory_values))
     return memory_values
+
+
+def wait_memory_stable(duthost, timeout=300, interval=30, initial_delay=30, tolerance=3.0):
+    """Wait for system memory usage (as reported by monit) to stabilize.
+
+    After a config_reload, the kernel page cache is largely empty and monit reports
+    artificially low memory usage. As services read configs, libraries, and DB files
+    the page cache refills and the reported percentage climbs. This function polls
+    monit until two consecutive readings are within ``tolerance`` percentage points,
+    indicating the system has settled.
+
+    Args:
+        duthost: DUT host object.
+        timeout: Maximum seconds to wait for stabilization.
+        interval: Seconds between consecutive monit polls.
+        initial_delay: Seconds to wait before the first poll (let services start).
+        tolerance: Maximum allowed difference (percentage points) between two
+            consecutive readings to consider memory stable.
+
+    Returns:
+        True if memory stabilized within timeout, False otherwise.
+    """
+    logger.info("Waiting for memory usage to stabilize (timeout={}s, interval={}s, "
+                "tolerance={}pp)".format(timeout, interval, tolerance))
+
+    if initial_delay > 0:
+        logger.info("Initial delay of {}s before first poll".format(initial_delay))
+        time.sleep(initial_delay)
+
+    memory_pattern = re.compile(r"memory usage\s+[\d.]+ \w+\s+\[(\d+\.\d+)%\]")
+    prev_reading = None
+    start = time.time()
+
+    while time.time() - start < timeout:
+        try:
+            output = duthost.command("sudo monit validate", module_ignore_errors=True).get("stdout", "")
+            match = memory_pattern.search(output)
+            if not match:
+                logger.warning("Could not parse monit memory usage, retrying")
+                time.sleep(interval)
+                continue
+
+            current = float(match.group(1))
+            logger.info("monit memory_usage: {:.1f}%".format(current))
+
+            if prev_reading is not None and abs(current - prev_reading) < tolerance:
+                logger.info("Memory stabilized at {:.1f}% (previous {:.1f}%, "
+                            "delta {:.1f}pp < {:.1f}pp tolerance)".format(
+                                current, prev_reading, abs(current - prev_reading), tolerance))
+                return True
+
+            prev_reading = current
+        except Exception as e:
+            logger.warning("Error polling monit: {}".format(e))
+
+        time.sleep(interval)
+
+    logger.warning("Memory did not stabilize within {}s (last reading: {})".format(
+        timeout, prev_reading))
+    return False
