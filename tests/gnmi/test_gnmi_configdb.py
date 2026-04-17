@@ -24,7 +24,23 @@ pytestmark = [
 ]
 
 
+<<<<<<< HEAD:tests/gnmi/test_gnmi_configdb.py
 def get_first_interface(duthost):
+=======
+@pytest.fixture
+def restore_bgp_asn(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    old_bgp_asn = duthost.shell(sonic_cli_cmd("hget"))['stdout']
+    try:
+        yield
+    finally:
+        ret = duthost.shell(sonic_cli_cmd("hset") + old_bgp_asn)
+        if ret['rc'] != 0:
+            pytest.fail("failed to restore original CONFIG_DB state")
+
+
+def get_first_interface(duthost, excluded_interfaces=[]):
+>>>>>>> 2907bdcbe (NOS-6928: implement post-test cleanup for VRF-aware tests (#1448)):tests/gnmi/vrf_aware_tests/test_gnmi_configdb.py
     cmds = "show interface status"
     output = duthost.shell(cmds)
     assert (not output['rc']), "No output"
@@ -76,7 +92,18 @@ def wait_bgp_neighbor(duthost):
                   "Not all BGP sessions are established on DUT")
 
 
+<<<<<<< HEAD:tests/gnmi/test_gnmi_configdb.py
 def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost):
+=======
+def sonic_cli_cmd(op):
+    '''
+    Generate `sonic-db-cli` command to read/update/remove (hget/hset/hdel respectively) BGP ASN
+    '''
+    return f"sonic-db-cli CONFIG_DB {op} \"DEVICE_METADATA|localhost\" bgp_asn "
+
+
+def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, ptfhost, vrf_config):
+>>>>>>> 2907bdcbe (NOS-6928: implement post-test cleanup for VRF-aware tests (#1448)):tests/gnmi/vrf_aware_tests/test_gnmi_configdb.py
     '''
     Verify GNMI native write, incremental config for configDB
     Toggle interface admin status
@@ -182,7 +209,12 @@ def test_gnmi_configdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptfh
 
 
 @pytest.mark.parametrize('test_data', test_data_metadata)
+<<<<<<< HEAD:tests/gnmi/test_gnmi_configdb.py
 def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, ptfhost, test_data):
+=======
+def test_gnmi_configdb_streaming_onchange_01(
+        duthosts, rand_one_dut_hostname, ptfhost, test_data, vrf_config, restore_bgp_asn):
+>>>>>>> 2907bdcbe (NOS-6928: implement post-test cleanup for VRF-aware tests (#1448)):tests/gnmi/vrf_aware_tests/test_gnmi_configdb.py
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe streaming onchange mode
@@ -196,10 +228,10 @@ def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, pt
             if not run_flag.value:
                 break
             time.sleep(0.5)
-            cmd = "sonic-db-cli CONFIG_DB hdel \"DEVICE_METADATA|localhost\" bgp_asn "
+            cmd = sonic_cli_cmd("hdel")
             duthost.shell(cmd, module_ignore_errors=True)
             time.sleep(0.5)
-            cmd = "sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" bgp_asn " + str(i+1000)
+            cmd = sonic_cli_cmd("hset") + str(i+1000)
             duthost.shell(cmd, module_ignore_errors=True)
 
     client_task = multiprocessing.Process(target=worker, args=(duthost, run_flag,))
@@ -212,7 +244,11 @@ def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, pt
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
+<<<<<<< HEAD:tests/gnmi/test_gnmi_configdb.py
 def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, ptfhost):
+=======
+def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, ptfhost, vrf_config, restore_bgp_asn):
+>>>>>>> 2907bdcbe (NOS-6928: implement post-test cleanup for VRF-aware tests (#1448)):tests/gnmi/vrf_aware_tests/test_gnmi_configdb.py
     '''
     Verify GNMI subscribe API, streaming onchange mode
     Subscribe table, and verify gnmi output has table key
@@ -226,7 +262,7 @@ def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, pt
             if not run_flag.value:
                 break
             time.sleep(0.5)
-            cmd = "sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" bgp_asn " + str(i+1000)
+            cmd = sonic_cli_cmd("hset") + str(i+1000)
             duthost.shell(cmd, module_ignore_errors=True)
 
     client_task = multiprocessing.Process(target=worker, args=(duthost, run_flag,))
