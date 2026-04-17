@@ -1,5 +1,5 @@
 baseline_config_db:
-  skip_config_db: true
+  config_db_wo_tuning: true
 
 north_zmq_ring_buffer:
   DEVICE_METADATA:

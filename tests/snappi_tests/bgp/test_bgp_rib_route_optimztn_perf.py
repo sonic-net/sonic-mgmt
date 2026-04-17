@@ -67,7 +67,7 @@ except Exception:
 PROFILE_NAMES = [
     name for name, cfg in _FINE_TUNINGS.items()
     if isinstance(cfg, dict) and (
-        cfg.get('skip_config_db')
+        cfg.get('config_db_wo_tuning')
         or 'DEVICE_METADATA' in cfg
     )
 ]
@@ -146,8 +146,8 @@ def dut_ready_for_rib_combo(duthost, localhost, profile_name, bulk_value, batch_
     logger.info('Fixture: applying profile=%s, bulk_value=%s, batch_value=%s',
                 profile_name, bulk_value, batch_value)
 
-    # if the skip_config_db is present, then no changes in config_db.
-    if not profile_config.get('skip_config_db'):
+    # if the config_db_wo_tuning is present, then no changes in config_db.
+    if not profile_config.get('config_db_wo_tuning'):
         _apply_config_db_profile(duthost, profile_config, original_config)
 
     _apply_bk_value(duthost, bulk_value, batch_value)

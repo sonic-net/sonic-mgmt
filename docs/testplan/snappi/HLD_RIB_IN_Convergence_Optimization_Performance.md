@@ -120,11 +120,11 @@ Note:-
 - **Purpose**: Define named profiles whose DEVICE_METADATA is merged into the DUTs config_db (localhost section) before reboot.
 - **Structure**: Top-level keys = profile names; each value must contain a `DEVICE_METADATA.localhost` map.
 - **Example knobs**: `orch_northbond_route_zmq_enabled`, `synchronous_mode`, `suppress-fib-pending`, `nexthop_group`.
-- **Default-config_db**: Use of customized profile-name with following key `skip_config_db: true`.
+- **Default-config_db**: Use of customized profile-name with following key `config_db_wo_tuning: true`.
 Example:
 `
 baseline_config_db:
-	skip_config_db: true
+	config_db_wo_tuning: true
 `
 - **Usage**: Test backs up config_db, merges selected profile into a copy, copies merged config to DUT; after test, config_db is reverted from backup.
 - **Failure to load fine-tunings.yml**: In case of failure to load fine-tunings.yml file, test sets profile_name to '_no_profile_' and will execute the test with this profile.
