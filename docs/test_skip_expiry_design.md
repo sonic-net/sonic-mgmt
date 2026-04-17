@@ -138,6 +138,7 @@ Implementation notes:
 A scheduled workflow that runs periodically (e.g., daily) to:
 - Parse all conditional mark YAML files to extract referenced GitHub issues
 - Query GitHub API for each issue's metadata (creation date, labels, state)
+- Check assignee metadata for each tracked issue and flag issues with no assignee
 - Apply Priority tag based escalation logic
 - Check whether one of the configured skip maintainers has applied a maintainer-extension label in the form `skip-maintainer-extension-N`, where `N` is the number of extension days granted
 - Take action on expired issues:
@@ -207,10 +208,11 @@ Computation notes:
 - Current stage timestamp source is issue timeline label events (workflow-applied priority labels).
 - `days_to_p0` is derived from current stage start + remaining configured durations to P0.
 - If a valid `skip-maintainer-extension-N` label exists, iterate over all timeline `labeled` events for that label name, filter to those applied by authorized skip maintainers, and compute `extension_due_date = label_applied_at + N` for each occurrence. Use the occurrence whose `extension_due_date` is the latest and is still in the future as the effective extension.
+- Assignee status is derived from issue metadata: if assignee list is empty, mark the row as unassigned and include an explicit note for triage.
 - Buckets must be mutually exclusive in output (`expired` first, then `expiring soon`, then `permanent skip`).
 
 Recommended output fields per row:
-- Test path, mark type (`skip`/`xfail`), issue URL/ID (if any), owner/assignee, current stage, `days_to_p0`, bucket, extension label, extension days, extended due date, last update timestamp.
+- Test path, mark type (`skip`/`xfail`), issue URL/ID (if any), owner/assignee, assignee status (`assigned`/`unassigned`), assignment note, current stage, `days_to_p0`, bucket, extension label, extension days, extended due date, last update timestamp.
 
 **Dashboard Availability:**
 
@@ -223,6 +225,8 @@ What must be set up before the workflow runs (one-time setup):
   - Bucket
   - DaysToP0
   - Owner
+  - AssigneeStatus
+  - AssignmentNote
   - MarkType
   - LastSeen
 3. Create views in the project UI:
@@ -242,6 +246,7 @@ What the workflow does:
 3. Updates project custom fields on every run.
 4. Publishes the same JSON/CSV as build artifact for audit/debug.
 5. Includes maintainer-extension metadata in both the project sync and exported artifacts so exemption usage is visible during review.
+6. Flags rows for issue-linked temporary exceptions that have no assignee, and writes that status/note to both dashboard fields and exported artifacts.
 
 Important scope clarification:
 - Project views are expected to be created manually once in GitHub UI.
@@ -477,6 +482,7 @@ To handle skips across multiple release branches:
 
 - Final expired-state action adds `skip-wf-expired` and posts an idempotent escalation comment mentioning skip maintainers from `.github/SKIP_MAINTAINERS.yml`.
 - If the same issue remains expired across repeated runs, the workflow updates or reuses the existing escalation comment rather than posting duplicates.
+- During scan/classification, each issue is checked for assignee presence; when no assignee exists, the workflow records `AssigneeStatus=unassigned` and emits an assignment note in the report.
 - The workflow inspects issue timeline `labeled` events to determine whether any `skip-maintainer-extension-N` label was applied by an authorized skip maintainer; the timestamp of each `labeled` event is used, not just the presence of the label on the issue today.
 - A `skip-maintainer-extension-N` label applied before the issue reaches expired state is not a valid extension event and must be ignored for effective grace-period computation.
 - Authorized maintainer-extension labels do not remove the issue from the expired bucket; they add grace-period metadata that is surfaced in the report and dashboard.
