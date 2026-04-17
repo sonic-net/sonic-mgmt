@@ -274,7 +274,8 @@ EOF
         # After config_reload the kernel page cache is empty so monit reports
         # artificially low memory usage.  Wait for it to stabilize before the
         # memory_utilization fixture captures its baseline.
-        wait_memory_stable(duthost)
+        if not wait_memory_stable(duthost):
+            logger.warning("Memory did not stabilize; baseline may be inaccurate")
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):

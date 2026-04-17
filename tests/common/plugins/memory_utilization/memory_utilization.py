@@ -716,13 +716,14 @@ def wait_memory_stable(duthost, timeout=300, interval=30, initial_delay=30, tole
     logger.info("Waiting for memory usage to stabilize (timeout={}s, interval={}s, "
                 "tolerance={}pp)".format(timeout, interval, tolerance))
 
+    start = time.time()
+
     if initial_delay > 0:
         logger.info("Initial delay of {}s before first poll".format(initial_delay))
         time.sleep(initial_delay)
 
-    memory_pattern = re.compile(r"memory usage\s+[\d.]+ \w+\s+\[(\d+\.\d+)%\]")
+    memory_pattern = re.compile(r"memory usage\s+[\d.]+ \w+\s+\[(\d+(?:\.\d+)?)%\]")
     prev_reading = None
-    start = time.time()
 
     while time.time() - start < timeout:
         try:
