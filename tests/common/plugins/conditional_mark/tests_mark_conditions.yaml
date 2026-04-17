@@ -3927,12 +3927,6 @@ pc/test_po_voq.py:
     conditions:
       - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
-pc/test_retry_count.py:
-  skip:
-    reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
-    conditions:
-        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/26742"
-
 #######################################
 #####           pfc               #####
 #######################################
