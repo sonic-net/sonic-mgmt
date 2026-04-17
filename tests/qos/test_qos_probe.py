@@ -153,7 +153,8 @@ class TestQosProbe(QosSaiBase):
 
         bufferConfig = dutQosConfig["bufferConfig"]
         testParams["ingress_lossless_pool_size"] = bufferConfig["BUFFER_POOL"]["ingress_lossless_pool"]["size"]
-        testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
+        testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"].get(
+            "egress_lossy_pool", {"size": "0"})["size"]
 
         # Get cell_size with fallback to sub-layers if not found at top level
         cell_size = dutQosConfig["param"].get("cell_size", None)
@@ -262,7 +263,8 @@ class TestQosProbe(QosSaiBase):
 
         bufferConfig = dutQosConfig["bufferConfig"]
         testParams["ingress_lossless_pool_size"] = bufferConfig["BUFFER_POOL"]["ingress_lossless_pool"]["size"]
-        testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
+        testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"].get(
+            "egress_lossy_pool", {"size": "0"})["size"]
 
         # Get cell_size with fallback to sub-layers if not found at top level
         cell_size = dutQosConfig["param"].get("cell_size", None)
@@ -516,7 +518,8 @@ class TestQosProbe(QosSaiBase):
 
         bufferConfig = dutQosConfig["bufferConfig"]
         testParams["ingress_lossless_pool_size"] = bufferConfig["BUFFER_POOL"]["ingress_lossless_pool"]["size"]
-        testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
+        testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"].get(
+            "egress_lossy_pool", {"size": "0"})["size"]
 
         # Get cell_size with fallback to sub-layers if not found at top level
         cell_size = dutQosConfig["param"].get("cell_size", None)
