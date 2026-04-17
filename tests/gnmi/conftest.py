@@ -14,11 +14,15 @@ from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_revoked_cert_and_crl, \
                                             create_gnmi_certs, delete_gnmi_certs, create_ext_conf
 from tests.common.helpers.ntp_helper import setup_ntp_context
-
+from tests.gnmi.helper import _init_cert_extension,cert_extension
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_cert_extension(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    _init_cert_extension(duthost)
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
@@ -119,10 +123,10 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
                         -CA gnmiCA.pem \
                         -CAkey gnmiCA.key \
                         -CAcreateserial \
-                        -out gnmiserver.crt \
+                        -out gnmiserver.{} \
                         -days 825 \
                         -sha256 \
-                        -extensions req_ext -extfile extfile.cnf"
+                        -extensions req_ext -extfile extfile.cnf".format(cert_extension)
     localhost.shell(local_command)
 
     # Create client key
@@ -144,18 +148,18 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
                         -CA gnmiCA.pem \
                         -CAkey gnmiCA.key \
                         -CAcreateserial \
-                        -out gnmiclient.crt \
+                        -out gnmiclient.{} \
                         -days 825 \
-                        -sha256"
+                        -sha256".format(cert_extension)
     localhost.shell(local_command)
 
     create_revoked_cert_and_crl(localhost, ptfhost, duthost)
 
     # Copy CA certificate, server certificate and client certificate over to the DUT
     duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiserver.{}'.format(cert_extension), dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.{}'.format(cert_extension), dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
 
 
@@ -236,7 +240,7 @@ def grpc_channel(duthosts, rand_one_dut_hostname):
     # Load the TLS certificates
     with open("gnmiCA.pem", "rb") as f:
         root_certificates = f.read()
-    with open("gnmiclient.crt", "rb") as f:
+    with open("gnmiclient.{}".format(cert_extension), "rb") as f:
         client_certificate = f.read()
     with open("gnmiclient.key", "rb") as f:
         client_key = f.read()

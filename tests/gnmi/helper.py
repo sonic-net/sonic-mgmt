@@ -17,7 +17,20 @@ GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
 # Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
+cert_extension = None
 
+def _init_cert_extension(duthost):
+    global cert_extension
+    if cert_extension is not None:
+        return
+    gnmi_config = duthost.shell(
+        "show runningconfiguration all | jq '.GNMI.certs'",
+        module_ignore_errors=True
+    )
+    if "gnmiclient.cer" in gnmi_config.get("stdout", ""):
+        cert_extension = "cer"
+    else:
+        cert_extension = "crt"
 
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
@@ -41,7 +54,7 @@ def apply_cert_config(duthost):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s bash -c " % env.gnmi_container
     dut_command += "\"/usr/bin/nohup /usr/sbin/%s -logtostderr --port %s " % (env.gnmi_process, env.gnmi_port)
-    dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /etc/sonic/telemetry/gnmiserver.key "
+    dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.{} --server_key /etc/sonic/telemetry/gnmiserver.key ".format(cert_extension)
     dut_command += "--config_table_name GNMI_CLIENT_CERT "
     dut_command += "--client_auth cert "
     dut_command += "--enable_crl=true "
@@ -195,10 +208,10 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     cmd += '-rcert /root/gnmiCA.pem '
     if cert:
         cmd += '-pkey /root/{}.key '.format(cert)
-        cmd += '-cchain /root/{}.crt '.format(cert)
+        cmd += '-cchain /root/{}.{} '.format(cert, cert_extension)
     else:
         cmd += '-pkey /root/gnmiclient.key '
-        cmd += '-cchain /root/gnmiclient.crt '
+        cmd += '-cchain /root/gnmiclient.{} '.format(cert_extension)
     if len(replace_list) >= 1:
         cmd += '-m set-replace '
     elif len(update_list) >= 1:
@@ -273,7 +286,7 @@ def gnmi_get(duthost, ptfhost, path_list):
     cmd += '-xo sonic-db '
     cmd += '-rcert /root/gnmiCA.pem '
     cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-cchain /root/gnmiclient.{} '.format(cert_extension)
     cmd += '--encoding 4 '
     cmd += '-m get '
     cmd += '--xpath '
@@ -325,7 +338,7 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
     interval = interval_ms / 1000.0
     # Run gnmi_cli in gnmi container as workaround
     cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.{} ".format(cert_extension)
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
     cmd += "-logtostderr "
@@ -366,7 +379,7 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
     cmd += '-xo sonic-db '
     cmd += '-rcert /root/gnmiCA.pem '
     cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-cchain /root/gnmiclient.{} '.format(cert_extension)
     cmd += '--encoding 4 '
     cmd += '-m subscribe '
     cmd += '--subscribe_mode 0 --submode 2 --create_connections 1 '
@@ -405,7 +418,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
     cmd += '-xo sonic-db '
     cmd += '-rcert /root/gnmiCA.pem '
     cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-cchain /root/gnmiclient.{} '.format(cert_extension)
     cmd += '--encoding 4 '
     cmd += '-m subscribe '
     cmd += '--subscribe_mode 0 --submode 1 --create_connections 1 '
@@ -426,7 +439,7 @@ def gnoi_reboot(duthost, method, delay, message):
     port = env.gnmi_port
     # Run gnoi_client in gnmi container as workaround
     cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.{} ".format(cert_extension)
     cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
     cmd += "-logtostderr -rpc Reboot "
@@ -445,7 +458,7 @@ def gnoi_request(duthost, localhost, module, rpc, request_json_data):
     ip = f"[{duthost.mgmt_ip}]" if dut_facts.get('is_mgmt_ipv6_only', False) else duthost.mgmt_ip
     port = env.gnmi_port
     cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.{} ".format(cert_extension)
     cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
     cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
@@ -500,7 +513,7 @@ def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_da
         return -1, "Failed to get DPU gNMI port"
 
     cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.{} ".format(cert_extension)
     cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
     cmd += "-notls "
