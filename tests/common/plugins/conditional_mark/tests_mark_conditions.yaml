@@ -4892,6 +4892,10 @@ sflow/test_sflow.py::TestReboot::testWarmreboot:
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "platform in ['x86_64-nvidia_sn5640-r0']"
+  xfail:
+    reason: "testWarmreboot sflow failure: VS SAI warm reboot bug (sonic-net/sonic-buildimage#26594)"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/26594 and asic_type in ['vs']"
 
 #######################################
 #####      show_techsupport       #####
