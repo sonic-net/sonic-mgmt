@@ -720,7 +720,7 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
             members = [m.split('|', 1)[1] for m in list(pc_member.keys()) if m.startswith(pc_name + '|')]
         else:
             members = list(members.keys()) if isinstance(members, dict) else members
-        # Skip portchannel if it is empty or has more than 2 ports as members.
+        # Skip portchannel if it has no ports or has more than 2 ports as members.
         if (not members) or (len(members) >= 2):
             continue
         pc_port_member = members[0]

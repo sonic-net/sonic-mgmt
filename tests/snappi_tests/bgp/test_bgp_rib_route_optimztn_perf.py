@@ -188,12 +188,7 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                             route_type,):
     """
     Run RIB-IN convergence test for one (profile, bulk_value, batch_value, route_type).
-    DUT is already prepared by dut_ready_for_rib_combo (same boot); memory_utilization
-    before/after are from the same boot and comparable.
-
-    This allows tests.common.plugins.memory_utilization to capture before_test (after
-    fixture setup/reboot) and after_test (after convergence test) on the same boot,
-    giving a meaningful memory delta.
+    DUT is already prepared by dut_ready_for_rib_combo (same boot);
 
     Profiles and (bulk, batch) pairs are parameterized from files/fine-tunings.yml and
     files/bk_values.json (pairs; same as test_bgp_rib_in_combo).

@@ -127,7 +127,7 @@ baseline_config_db:
 	skip_config_db: true
 `
 - **Usage**: Test backs up config_db, merges selected profile into a copy, copies merged config to DUT; after test, config_db is reverted from backup.
-- **Failure to load fine-tunings.yml**: In case of failure to load fine-tunings.yml file, test sets profile_name to '_no_profile_' and will skip the test.
+- **Failure to load fine-tunings.yml**: In case of failure to load fine-tunings.yml file, test sets profile_name to '_no_profile_' and will execute the test with this profile.
 
 ### 5.2 bk_values.json
 
@@ -173,7 +173,7 @@ When `--bgp_pc_config` is set, the fixture uses an internal helper **`_tgen_port
 
 - Reads **PORTCHANNEL_INTERFACE** and **PORTCHANNEL_MEMBER** from config_db (supports key formats such as `PortChannel1` or `PortChannel1|ip/prefix` and member keys such as `PortChannel1|Ethernet0` or nested dict).
 - Builds one tgen_ports entry per PortChannel: `peer_port` = PortChannel name (e.g. `PortChannel1`); IPs from PORTCHANNEL_INTERFACE; location/speed from the first members Snappi port.
-- Test will skip portchannels if they are empty or contain 2 or more ports as **PORTCHANNEL_MEMBER**. Test looks for portchannels with one member port. 
+- Test will skip portchannels if they are empty or contain 2 or more ports as **PORTCHANNEL_MEMBER**. Test looks for portchannels with one member port.
 - **TGEN (neighbor) IP** for each PortChannel: preferred source is **config_db `BGP_NEIGHBOR`**: for each neighbor, key = neighbor (TGEN) IP, value has `local_addr` = DUT IP; the fixture maps `local_addr` to neighbor IP and uses it for `entry['ip']` and `entry['ipv6']`. If no matching BGP neighbor exists, it falls back to deriving an IP in the same subnet (e.g. via `get_addrs_in_subnet`).
 - **TGEN AS_NUM** for each PortChannel: Uses **config_db `BGP_NEIGHBOR`**: for each neighbor. It looks for both asnv4 and asnv6 for each IPv4 and IPv6 neighbor. For each IPv4 neighbor ASN, it will assert if there is mistmatch with ASN configured for IPv6 neighor on same interface.
 - **DUT_AS_NUM** for the DUT: Returns DUT ASN configured in **config_db `DEVICE_METADATA`**.
