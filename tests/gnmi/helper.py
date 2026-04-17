@@ -22,7 +22,7 @@ cert_extension = None
 def _init_cert_extension(duthost):
     global cert_extension
     if cert_extension is not None:
-        return
+        return cert_extension
     gnmi_config = duthost.shell(
         "show runningconfiguration all | jq '.GNMI.certs'",
         module_ignore_errors=True
@@ -31,6 +31,7 @@ def _init_cert_extension(duthost):
         cert_extension = "cer"
     else:
         cert_extension = "crt"
+    return cert_extension
 
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)

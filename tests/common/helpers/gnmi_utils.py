@@ -32,8 +32,13 @@ class GNMIEnvironment(object):
             if ret:
                 logger.info("Successfully generated telemetry config")
                 return
+
+        # If no container found, use default configuration
+        logger.warning("No GNMI/Telemetry container found, using default configuration")
+        self._set_default_config()
+        self._configure_connection_params(duthost)
         pytest.fail("Can't generate GNMI/TELEMETRY configuration, mode %d" % mode)
-        
+    
     def cert_extension(self, duthost):
         global cert_extension
         if cert_extension is not None:
@@ -46,11 +51,7 @@ class GNMIEnvironment(object):
             cert_extension = "cer"
         else:
             cert_extension = "crt"
-        # If no container found, use default configuration
-        logger.warning("No GNMI/Telemetry container found, using default configuration")
-        self._set_default_config()
-        self._configure_connection_params(duthost)
-
+        
     def generate_gnmi_config(self, duthost):
         cmd = "docker images | grep -w sonic-gnmi"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:

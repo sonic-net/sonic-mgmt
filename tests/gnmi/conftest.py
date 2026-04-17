@@ -8,15 +8,17 @@ from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.gnmi_utils import create_gnmi_certs, delete_gnmi_certs
 from tests.common.helpers.ntp_helper import setup_ntp_context
-from tests.gnmi.helper import _init_cert_extension,cert_extension
+from tests.gnmi.helper import _init_cert_extension
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
+cert_extension = None
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_cert_extension(duthosts, rand_one_dut_hostname):
+    global cert_extension
     duthost = duthosts[rand_one_dut_hostname]
-    _init_cert_extension(duthost)
+    cert_extension = _init_cert_extension(duthost)
 
 @pytest.fixture(scope="module")
 def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
