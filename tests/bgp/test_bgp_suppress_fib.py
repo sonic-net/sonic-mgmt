@@ -293,7 +293,7 @@ def is_orchagent_stopped(duthost):
     """
     Check if process 'orchagent' is stopped
     """
-    out = duthost.shell('cat /proc/$(pidof orchagent)/status | grep State')['stdout']
+    out = duthost.shell('cat /proc/$(pgrep -x orchagent)/status | grep State')['stdout']
     logger.info('Orchagent process - {}'.format(out))
     return ACTION_STOP in out
 
@@ -588,8 +588,17 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
 
 def compute_middle_average_time(time_stamp_dict):
     time_delta_list = []
-    for _, timestamp_list in time_stamp_dict.items():
+    for prefix, timestamp_list in time_stamp_dict.items():
+        if len(timestamp_list) < 2:
+            logger.warning("Prefix {} has only {} timestamp(s) in PCAP, skipping.".format(
+                prefix, len(timestamp_list)))
+            continue
         time_delta_list.append(abs(timestamp_list[1] - timestamp_list[0]))
+    if not time_delta_list:
+        logger.warning("No valid timestamp pairs found in PCAP after all retry attempts; "
+                       "cannot compute BGP route process performance.")
+        pytest.fail("No valid timestamp pairs found in PCAP after all retry attempts; "
+                    "cannot compute BGP route process performance.")
     time_delta_list.sort()
 
     mid_delta_time = time_delta_list[(len(time_delta_list) - 1) // 2]
@@ -1222,30 +1231,53 @@ def test_suppress_fib_performance(tcpdump_helper, duthost, tbinfo, nbrhosts, ptf
             with allure.step("Config bgp suppress-fib-pending function"):
                 config_bgp_suppress_fib(duthost)
 
-            with allure.step("Start sniffer"):
-                tcpdump_sniffer = tcpdump_helper
-                perf_sniffer_prepare(tcpdump_sniffer, duthost, tbinfo, nbrhosts, mg_facts, recv_port)
-                tcpdump_sniffer.start_sniffer(host='dut')
+            MAX_CAPTURE_ATTEMPTS = 3
+            pcap_file = None
+            for attempt in range(1, MAX_CAPTURE_ATTEMPTS + 1):
+                if attempt > 1:
+                    logger.warning(
+                        "Attempt {}/{}: PCAP had no valid timestamp pairs, retrying capture...".format(
+                            attempt, MAX_CAPTURE_ATTEMPTS))
 
-            with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from T0 VM by ExaBGP - "
-                             f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
+                with allure.step("Start sniffer (attempt {}/{})".format(attempt, MAX_CAPTURE_ATTEMPTS)):
+                    tcpdump_sniffer = tcpdump_helper
+                    perf_sniffer_prepare(tcpdump_sniffer, duthost, tbinfo, nbrhosts, mg_facts, recv_port)
+                    tcpdump_sniffer.start_sniffer(host='dut')
 
-            with allure.step("Validate the BGP routes are propagated to T2 VM"):
-                validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list)
+                with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from T0 VM by ExaBGP - "
+                                 f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
 
-            with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from T0 VM by ExaBGP - "
-                             f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                          action=WITHDRAW)
-            with allure.step("Validate the BGP routes are withdrawn from T2 VM"):
-                validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list, exist=False)
+                with allure.step("Validate the BGP routes are propagated to T2 VM"):
+                    validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list)
 
-            with allure.step("Stop sniffer"):
-                tcpdump_sniffer.stop_sniffer(host='dut')
+                with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from T0 VM by ExaBGP - "
+                                 f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                              action=WITHDRAW)
+                with allure.step("Validate the BGP routes are withdrawn from T2 VM"):
+                    validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list, exist=False)
+
+                with allure.step("Stop sniffer"):
+                    tcpdump_sniffer.stop_sniffer(host='dut')
+
+                bgp_packets_check = sniff(
+                    offline=tcpdump_sniffer.pcap_path,
+                    lfilter=lambda p: (IP or IPv6 in p) and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2)
+                announce_ts, _ = parse_time_stamp(bgp_packets_check, ipv4_route_list, ipv6_route_list)
+                valid_pairs = sum(1 for v in announce_ts.values() if len(v) >= 2)
+                if valid_pairs > 0:
+                    pcap_file = tcpdump_sniffer.pcap_path
+                    break
+                logger.warning("Attempt {}/{}: PCAP captured no valid prefix timestamp pairs.".format(
+                    attempt, MAX_CAPTURE_ATTEMPTS))
+            else:
+                pytest.fail(
+                    "PCAP capture yielded no valid prefix timestamp pairs after {} attempts.".format(
+                        MAX_CAPTURE_ATTEMPTS))
 
             with allure.step("Validate BGP route process performance"):
-                validate_route_process_perf(tcpdump_sniffer.pcap_path, ipv4_route_list, ipv6_route_list)
+                validate_route_process_perf(pcap_file, ipv4_route_list, ipv6_route_list)
         finally:
             with allure.step("Disable bgp suppress-fib-pending function"):
                 config_bgp_suppress_fib(duthost, False, validate_result=True)

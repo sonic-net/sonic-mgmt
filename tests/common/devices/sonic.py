@@ -87,8 +87,15 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
 
         device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        switch_type = device_metadata.get('switch_type', '')
         device_type = device_metadata.get('type')
         device_subtype = device_metadata.get('subtype')
+
+        if switch_type == "dpu":
+            logger.info("Removing teamd and lldp from default services for switch_type DPU")
+            self.DEFAULT_ASIC_SERVICES.remove("lldp")
+            self.DEFAULT_ASIC_SERVICES.remove("teamd")
+
         if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
 

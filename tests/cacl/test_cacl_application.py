@@ -260,7 +260,7 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost.file(path=file_path, state='absent')
 
     logger.info("Reloading config to recover original ACL configuration...")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def is_acl_rule_empty(duthost):

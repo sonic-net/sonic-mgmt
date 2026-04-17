@@ -17,6 +17,8 @@ from dash_api.meter_policy_pb2 import MeterPolicy
 from dash_api.meter_rule_pb2 import MeterRule
 from dash_api.tunnel_pb2 import Tunnel
 from dash_api.route_rule_pb2 import RouteRule
+from dash_api.outbound_port_map_pb2 import OutboundPortMap
+from dash_api.outbound_port_map_range_pb2 import OutboundPortMapRange
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
@@ -48,7 +50,9 @@ PB_CLASS_MAP = {
     "METER_POLICY": MeterPolicy,
     "METER_RULE": MeterRule,
     "TUNNEL": Tunnel,
-    "ROUTE_RULE": RouteRule
+    "ROUTE_RULE": RouteRule,
+    "OUTBOUND_PORT_MAP_RANGE": OutboundPortMapRange,
+    "OUTBOUND_PORT_MAP": OutboundPortMap
 }
 
 
@@ -111,7 +115,10 @@ def parse_dash_proto(key: str, proto_dict: dict):
             elif field_map[key].message_type.name == "Guid":
                 new_dict[key] = parse_guid(value)
             elif field_map[key].message_type.name == "ValueOrRange":
-                new_dict[key] = parse_value_or_range(value)
+                if field_map[key].label == FieldDescriptor.LABEL_REPEATED:
+                    new_dict[key] = [parse_value_or_range(val) for val in value]
+                else:
+                    new_dict[key] = parse_value_or_range(value)
 
         elif field_map[key].type == field_map[key].TYPE_BYTES:
             new_dict[key] = parse_byte_field(value)

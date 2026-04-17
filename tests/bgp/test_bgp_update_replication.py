@@ -109,13 +109,14 @@ def measure_stats(dut):
 
 
 @pytest.fixture
-def setup_duthost_intervals(duthost):
+def setup_duthost_intervals(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     '''
     Fixture to allow for dynamic interval definitions for each interval, based on duthost facts.
     The default is left relatively long to ensure that it passes on all platforms.
 
     Returns a list of float values.
     '''
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     DEFAULT_INTERVALS = [10.0, 9.0, 8.0]
     PLATFORM_INTERVALS = {
         'mellanox': [4.0, 3.5, 3.0],
@@ -135,7 +136,8 @@ def setup_duthost_intervals(duthost):
 
 @pytest.fixture
 def setup_bgp_peers(
-    duthost,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
     tbinfo,
     ptfhost,
     setup_interfaces,
@@ -144,14 +146,20 @@ def setup_bgp_peers(
 ):
     ASN_BASE = 61000
     PORT_BASE = 11000
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    confed_asn = duthost.get_bgp_confed_asn()
+    use_vtysh = False
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
-    elif dut_type == "UpperSpineRouter":
+    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
+        if dut_type == "FabricSpineRouter" and confed_asn is not None:
+            # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
 
@@ -189,7 +197,9 @@ def setup_bgp_peers(
             neigh_type=neigh_type,
             namespace=connection_namespace,
             is_multihop=is_quagga or is_dualtor,
-            is_passive=False
+            is_passive=False,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh,
         )
 
         bgp_peers.append(peer)
@@ -213,11 +223,13 @@ def setup_bgp_peers(
 
 
 def test_bgp_update_replication(
-    duthost,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
     setup_bgp_peers,
     setup_duthost_intervals,
 ):
     NUM_ROUTES = 10_000
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
     duthost_intervals: list[float] = setup_duthost_intervals
 

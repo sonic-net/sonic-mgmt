@@ -51,11 +51,12 @@ def setup_tacacs(ptfhost, duthosts, selected_dut, selected_rand_dut, tacacs_cred
 
     tacacs_server_ip = ""
     tacacs_server_passkey = ""
+    duthost_mgmt_info = duthost.get_mgmt_ip()
     if use_lab_tacacs_server:
         tacacs_server_ip = creds['lab_tacacs_server']
         tacacs_server_passkey = creds['lab_tacacs_passkey']
     else:
-        tacacs_server_ip = ptfhost.mgmt_ip
+        tacacs_server_ip = ptfhost.mgmt_ipv6 if duthost_mgmt_info["version"] == "v6" else ptfhost.mgmt_ip
         tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
 
     logger.warning("Setup TACACS server: use_lab_tacacs_server:{}, tacacs_server_ip:{}, tacacs_server_passkey:{}"

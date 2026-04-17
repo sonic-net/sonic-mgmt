@@ -99,7 +99,7 @@
     environment: "{{ proxy_env | default({}) }}"
     ignore_errors: yes
   - name: Install python packages requests=2.32.5
-    pip: name=requests version=2.32.5 executable={{ pip_executable }} extra_args="--ignore-installed --no-deps"
+    pip: name=requests version=2.32.5 executable={{ pip_executable }} extra_args="--force-reinstall --no-deps"
     become: yes
     environment: "{{ proxy_env | default({}) }}"
   - name: Install python packages docker==7.1.0

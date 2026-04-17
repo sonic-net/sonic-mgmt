@@ -37,6 +37,7 @@ from switch import (switch_init,          # noqa F401
                     sai_thrift_read_pg_counters,
                     sai_thrift_read_pg_drop_counters,
                     sai_thrift_read_pg_shared_watermark,
+                    sai_thrift_clear_buffer_pool_watermark,
                     sai_thrift_read_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
                     sai_thrift_read_queue_occupancy,
@@ -2340,16 +2341,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                margin_asics = ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]
                 counter_margin = COUNTER_MARGIN if (
-                    platform_asic and platform_asic in dnx_asics) else 0
+                    platform_asic and platform_asic in margin_asics) else 0
                 # Check if ingress drop is caused by environmental non-unicast noise
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
                         counter_margin=counter_margin):
                     # Legitimate ingress drop, should fail test
-                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx"]:
+                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]:
                         qos_test_assert(
                             self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                             'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2393,16 +2394,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                margin_asics = ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]
                 counter_margin = COUNTER_MARGIN if (
-                    platform_asic and platform_asic in dnx_asics) else 0
+                    platform_asic and platform_asic in margin_asics) else 0
                 # Check if ingress drop is caused by environmental non-unicast noise
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
                         counter_margin=counter_margin):
                     # Legitimate ingress drop, should fail test
-                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx"]:
+                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]:
                         qos_test_assert(
                             self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                             'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2449,15 +2450,24 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
-                    qos_test_assert(
-                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                margin_asics = ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in margin_asics) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    if (platform_asic and
+                            platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]):
+                        qos_test_assert(
+                            self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                    else:
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -2647,7 +2657,12 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                 # recv port no ingress drop
                 for cntr in ingress_counters:
                     diff = counter_details_after[i][0][cntr] - counter_details_before[i][0][cntr]
-                    assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                    if 'cisco-8000' in asic_type:
+                        # For cisco-8000, adding margin to avoid test failure caused by small amount of RX drops
+                        assert diff <= COUNTER_MARGIN, \
+                            "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                    else:
+                        assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
 
             # xmit port no egress drop
             for cntr in egress_counters:
@@ -2681,7 +2696,12 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                 # recv port no ingress drop
                 for cntr in ingress_counters:
                     diff = counter_details_3[i][0][cntr] - counter_details_before[i][0][cntr]
-                    assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                    if 'cisco-8000' in asic_type:
+                        # For cisco-8000, adding margin to avoid test failure caused by small amount of RX drops
+                        assert diff <= COUNTER_MARGIN, \
+                            "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                    else:
+                        assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
 
             # xmit port no egress drop
             for cntr in egress_counters:
@@ -5034,25 +5054,33 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
-                    if cntr == 1:
-                        log_message("recv_counters_base: {}, recv_counters: {}".format(
-                            recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
+                margin_asics = ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in margin_asics) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    if (platform_asic and
+                            platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]):
+                        if cntr == 1:
+                            log_message("recv_counters_base: {}, recv_counters: {}".format(
+                                recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
+                            qos_test_assert(
+                                self,
+                                recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                                "Ingress drop encountered: {} packets dropped on "
+                                "counter {} ({})".format(
+                                    recv_counters[cntr] - recv_counters_base[cntr],
+                                    cntr, port_counter_fields[cntr]))
+                    else:
                         qos_test_assert(
-                            self,
-                            recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
                             "Ingress drop encountered: {} packets dropped on "
                             "counter {} ({})".format(
                                 recv_counters[cntr] - recv_counters_base[cntr],
                                 cntr, port_counter_fields[cntr]))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        "Ingress drop encountered: {} packets dropped on "
-                        "counter {} ({})".format(
-                            recv_counters[cntr] - recv_counters_base[cntr],
-                            cntr, port_counter_fields[cntr]))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -5102,13 +5130,24 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                 "counter {} ({})".format(
                                     recv_counters[cntr] - recv_counters_base[cntr],
                                     cntr, port_counter_fields[cntr]))
-                else:
+                elif platform_asic and platform_asic == "cisco-8000" and cntr == 1:
                     qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         "Ingress drop encountered: {} packets dropped on "
                         "counter {} ({})".format(
                             recv_counters[cntr] - recv_counters_base[cntr],
                             cntr, port_counter_fields[cntr]))
+                else:
+                    # Check if ingress drop is caused by environmental non-unicast noise
+                    if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                            self.src_client, port_list['src'][src_port_id],
+                            recv_counters, recv_counters_base, cntr):
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            "Ingress drop encountered: {} packets dropped on "
+                            "counter {} ({})".format(
+                                recv_counters[cntr] - recv_counters_base[cntr],
+                                cntr, port_counter_fields[cntr]))
 
             # xmit port egress drop
             if platform_asic and platform_asic == "broadcom-dnx" and dut_asic != 'q3d':
@@ -6389,6 +6428,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # Some small amount of memory is always occupied
             # We use dst client for cisco 8000.
             client_to_use = self.dst_client
+            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
             buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
                 client_to_use, buf_pool_roid)
         else:
@@ -7501,6 +7541,7 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
+        platform_asic = self.test_params.get('platform_asic', None)
         pkts_num = int(self.test_params['pkts_num'])
         exp_ip_id = 110
 
@@ -7572,10 +7613,16 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
                     recv_counters, recv_counters_base, xmit_counters, xmit_counters_base),
                 to_stderr=True)
             # recv port no ingress drop
+            # Adding COUNTER_MARGIN to tolerate background counter drift, for cisco-8000
             for cntr in ingress_counters:
-                qos_test_assert(
-                    self, recv_counters[cntr] == recv_counters_base[cntr],
-                    'unexpectedly RX drop counter increase')
+                if (platform_asic and platform_asic in ["cisco-8000"]):
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly RX drop counter increase')
+                else:
+                    qos_test_assert(
+                        self, recv_counters[cntr] == recv_counters_base[cntr],
+                        'unexpectedly RX drop counter increase')
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(

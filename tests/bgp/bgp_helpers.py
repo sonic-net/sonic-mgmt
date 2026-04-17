@@ -20,6 +20,7 @@ from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
+from tests.common.utilities import testbed_is_multi_vrf
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
@@ -673,7 +674,7 @@ def get_vm_name_list(tbinfo, vm_level='T2'):
     Get vm name, default return value would be T2 VM name
     """
     vm_name_list = []
-    if tbinfo.get('use_converged_peers', False):
+    if testbed_is_multi_vrf(tbinfo):
         vms = list(tbinfo['topo']['properties']['configuration'].keys())
     else:
         vms = list(tbinfo['topo']['properties']['topology']['VMs'].keys())
@@ -860,10 +861,10 @@ def operate_orchagent(duthost, action=ACTION_STOP):
     """
     if action == ACTION_STOP:
         logging.info('Suspend orchagent process to simulate a delay')
-        cmd = 'sudo kill -SIGSTOP $(pidof orchagent)'
+        cmd = 'sudo kill -SIGSTOP $(pgrep -x orchagent)'
     else:
         logging.info('Recover orchagent process')
-        cmd = 'sudo kill -SIGCONT $(pidof orchagent)'
+        cmd = 'sudo kill -SIGCONT $(pgrep -x orchagent)'
     duthost.shell(cmd)
 
 
@@ -985,7 +986,9 @@ def initial_tsa_check_before_and_after_test(duthosts):
                               "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
 
     def run_tsb_on_linecard_and_verify(lc):
-        if verify_dut_configdb_tsa_value(lc) is not False or get_tsa_chassisdb_config(lc) != 'false' or \
+        is_chassis = not lc.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_chassis_config_absent")
+        if verify_dut_configdb_tsa_value(lc) is not False or \
+                (is_chassis and get_tsa_chassisdb_config(lc) != 'false') or \
                 get_traffic_shift_state(lc, cmd='TSC no-stats') != TS_NORMAL:
             lc.shell('TSB')
             lc.shell('sudo config save -y')
