@@ -57,33 +57,7 @@ function get_dut_from_testbed_file() {
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
             DUT_NAME=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
-
-            topo_name=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('topo', ''))")
-            use_converged_peers=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('use_converged_peers', ''))")
-            converge_topo_if_needed "$topo_name" "$use_converged_peers"
         fi
-    fi
-}
-
-function converge_topo_if_needed
-{
-    topo_name="$1"
-    use_converged_peers="$2"
-    ANSIBLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/ansible"
-    VARS_DIR="$ANSIBLE_DIR/vars"
-    topo_file="$VARS_DIR/topo_${topo_name}.yml"
-    backup_file="${topo_file}".bak
-    if [[ "$use_converged_peers" == "True" ]]; then
-        echo "use_converged_peers is true, converging topo..."
-
-        if [[ -f "$backup_file" ]];then
-            echo "Backup file exists, recover..."
-            sudo cp "$backup_file" "$topo_file"
-        elif [[ -f "$topo_file" ]]; then
-            echo "Back up topo file"
-            sudo cp "$topo_file" "$backup_file"
-        fi
-        sudo PYTHONPATH="$ANSIBLE_DIR:$PYTHONPATH" python -m ceos_topo_converger "$backup_file" "$topo_file"
     fi
 }
 
@@ -583,12 +557,6 @@ fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
-fi
-
-if [[ -f "$backup_file" ]];then
-    echo "Backup exists, restore backup file"
-    sudo rm -f "$topo_file"
-    sudo mv "$backup_file" "$topo_file"
 fi
 
 exit ${RC}

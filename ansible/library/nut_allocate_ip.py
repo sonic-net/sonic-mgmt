@@ -33,6 +33,11 @@ DOCUMENTATION = '''
 module: nut_allocate_ip.py
 version_added:  1.0.0.0
 short_description: Allocate IPs for devices in network under test (NUT) testbed
+notes:
+    - Device templates can optionally define p2p_v4_subnet_len and p2p_v6_subnet_len to override the
+      default child subnet lengths used for P2P allocation.
+    - p2p_v4_subnet_len must be within [parent_prefix_len + 1, 31].
+    - p2p_v6_subnet_len must be within [parent_prefix_len + 1, 127].
 options:
     - testbed_facts:
       Description: Testbed info returned from nut_test_facts module
@@ -65,13 +70,17 @@ EXAMPLES = '''
                         "loopback_v6": "2064:100:0:0::/64"
                         "asn_base": 64001
                         "p2p_v4": "10.0.0.0/16"
+                        "p2p_v4_subnet_len": 31,
                         "p2p_v6": "fc0a::/64",
+                        "p2p_v6_subnet_len": 127
                     }, ...],
                     "tg_template": {
                         "type": "Server",
                         "asn_base": 60001,
                         "p2p_v4": "10.0.0.0/16",
-                        "p2p_v6": "fc0a::/64"
+                        "p2p_v4_subnet_len": 31,
+                        "p2p_v6": "fc0a::/64",
+                        "p2p_v6_subnet_len": 127
                     }
                 }
             },
@@ -118,6 +127,9 @@ EXAMPLES = '''
     - name: Create device config info
       nut_allocate_ip: testbed_facts="{{ testbed_facts }}" device_info="{{ device_info }}"
         device_port_links="{{ device_conn }}"
+
+    The optional p2p_v4_subnet_len and p2p_v6_subnet_len fields can be used to allocate /31 and /127
+    point-to-point subnets from a larger parent CIDR.
 '''
 
 RETURN = '''
@@ -183,6 +195,20 @@ class IPAllocator():
 class GenerateDeviceConfig():
     """Generate device config for devices in network under test (NUT) testbed."""
 
+    @staticmethod
+    def _build_allocator_key(ipcidr, child_subnet_prefix_len):
+        return ipcidr, child_subnet_prefix_len
+
+    @staticmethod
+    def _validate_p2p_subnet_len(ipcidr, child_subnet_prefix_len, max_prefix_len):
+        parent_prefix_len = ip_network(ipcidr).prefixlen
+        min_prefix_len = parent_prefix_len + 1
+        if child_subnet_prefix_len < min_prefix_len or child_subnet_prefix_len > max_prefix_len:
+            raise ValueError(
+                f"Invalid child subnet prefix length {child_subnet_prefix_len} for {ipcidr}; "
+                f"expected range [{min_prefix_len}, {max_prefix_len}]"
+            )
+
     def __init__(self, testbed_facts, device_info, device_port_links, device_port_vrfs):
         self.testbed_facts = testbed_facts
         self.device_info = device_info
@@ -240,37 +266,58 @@ class GenerateDeviceConfig():
             device_template = self.device_templates[dut]
             if 'p2p_v4' in device_template:
                 p2p_v4_cidr = device_template['p2p_v4']
-                if p2p_v4_cidr not in p2p_v4_allocator_map:
-                    p2p_v4_allocator_map[p2p_v4_cidr] = IPAllocator(p2p_v4_cidr, 30)
+                p2p_v4_subnet_len = device_template.get('p2p_v4_subnet_len', 30)
+                self._validate_p2p_subnet_len(p2p_v4_cidr, p2p_v4_subnet_len, 31)
+                allocator_key = self._build_allocator_key(p2p_v4_cidr, p2p_v4_subnet_len)
+                if allocator_key not in p2p_v4_allocator_map:
+                    p2p_v4_allocator_map[allocator_key] = IPAllocator(p2p_v4_cidr, p2p_v4_subnet_len)
 
-                self.device_ipv4_allocators[dut] = p2p_v4_allocator_map[p2p_v4_cidr]
-                logging.debug(f"Found P2P v4 allocator for {dut} with CIDR {p2p_v4_cidr}")
+                self.device_ipv4_allocators[dut] = p2p_v4_allocator_map[allocator_key]
+                logging.debug(
+                    f"Found P2P v4 allocator for {dut} with CIDR {p2p_v4_cidr}/{p2p_v4_subnet_len}"
+                )
 
             if 'p2p_v6' in device_template:
                 p2p_v6_cidr = device_template['p2p_v6']
-                if p2p_v6_cidr not in p2p_v6_allocator_map:
-                    p2p_v6_allocator_map[p2p_v6_cidr] = IPAllocator(p2p_v6_cidr, 126)
+                p2p_v6_subnet_len = device_template.get('p2p_v6_subnet_len', 126)
+                self._validate_p2p_subnet_len(p2p_v6_cidr, p2p_v6_subnet_len, 127)
+                allocator_key = self._build_allocator_key(p2p_v6_cidr, p2p_v6_subnet_len)
+                if allocator_key not in p2p_v6_allocator_map:
+                    p2p_v6_allocator_map[allocator_key] = IPAllocator(p2p_v6_cidr, p2p_v6_subnet_len)
 
-                self.device_ipv6_allocators[dut] = p2p_v6_allocator_map[p2p_v6_cidr]
-                logging.debug(f"Found P2P v6 allocator for {dut} with CIDR {p2p_v6_cidr}")
+                self.device_ipv6_allocators[dut] = p2p_v6_allocator_map[allocator_key]
+                logging.debug(
+                    f"Found P2P v6 allocator for {dut} with CIDR {p2p_v6_cidr}/{p2p_v6_subnet_len}"
+                )
 
         tg_template = self.testbed_facts['topo']['properties']['tg_template']
         for tg in self.testbed_facts['tgs']:
+            # TGs intentionally share one template, so they also share the same configured subnet lengths here.
             if 'p2p_v4' in tg_template:
                 p2p_v4_cidr = tg_template['p2p_v4']
-                if p2p_v4_cidr not in p2p_v4_allocator_map:
-                    p2p_v4_allocator_map[p2p_v4_cidr] = IPAllocator(p2p_v4_cidr, 30)
+                p2p_v4_subnet_len = tg_template.get('p2p_v4_subnet_len', 30)
+                self._validate_p2p_subnet_len(p2p_v4_cidr, p2p_v4_subnet_len, 31)
+                allocator_key = self._build_allocator_key(p2p_v4_cidr, p2p_v4_subnet_len)
+                if allocator_key not in p2p_v4_allocator_map:
+                    p2p_v4_allocator_map[allocator_key] = IPAllocator(p2p_v4_cidr, p2p_v4_subnet_len)
 
-                self.device_ipv4_allocators[tg] = p2p_v4_allocator_map[p2p_v4_cidr]
-                logging.debug(f"Found P2P v4 allocator for {tg} with CIDR {p2p_v4_cidr}")
+                self.device_ipv4_allocators[tg] = p2p_v4_allocator_map[allocator_key]
+                logging.debug(
+                    f"Found P2P v4 allocator for {tg} with CIDR {p2p_v4_cidr}/{p2p_v4_subnet_len}"
+                )
 
             if 'p2p_v6' in tg_template:
                 p2p_v6_cidr = tg_template['p2p_v6']
-                if p2p_v6_cidr not in p2p_v6_allocator_map:
-                    p2p_v6_allocator_map[p2p_v6_cidr] = IPAllocator(p2p_v6_cidr, 126)
+                p2p_v6_subnet_len = tg_template.get('p2p_v6_subnet_len', 126)
+                self._validate_p2p_subnet_len(p2p_v6_cidr, p2p_v6_subnet_len, 127)
+                allocator_key = self._build_allocator_key(p2p_v6_cidr, p2p_v6_subnet_len)
+                if allocator_key not in p2p_v6_allocator_map:
+                    p2p_v6_allocator_map[allocator_key] = IPAllocator(p2p_v6_cidr, p2p_v6_subnet_len)
 
-                self.device_ipv6_allocators[tg] = p2p_v6_allocator_map[p2p_v6_cidr]
-                logging.debug(f"Found P2P v6 allocator for {tg} with CIDR {p2p_v6_cidr}")
+                self.device_ipv6_allocators[tg] = p2p_v6_allocator_map[allocator_key]
+                logging.debug(
+                    f"Found P2P v6 allocator for {tg} with CIDR {p2p_v6_cidr}/{p2p_v6_subnet_len}"
+                )
 
     def _set_dut_device_meta(self, dut):
         """
@@ -418,8 +465,8 @@ class GenerateDeviceConfig():
                 if p2p_v4_allocator:
                     p2p_v4_subnet = p2p_v4_allocator.allocate()
 
-                    local_device_ip = str(p2p_v4_subnet[1])
-                    peer_device_ip = str(p2p_v4_subnet[2])
+                    local_device_ip = str(p2p_v4_subnet[0] if p2p_v4_subnet.prefixlen == 31 else p2p_v4_subnet[1])
+                    peer_device_ip = str(p2p_v4_subnet[1] if p2p_v4_subnet.prefixlen == 31 else p2p_v4_subnet[2])
                     p2p_ip_prefix_len = str(p2p_v4_subnet.prefixlen)
 
                     self.device_interfaces[local_device][local_port]['ip_v4'] = local_device_ip
@@ -448,8 +495,9 @@ class GenerateDeviceConfig():
                 if p2p_v6_allocator:
                     p2p_v6_subnet = p2p_v6_allocator.allocate()
 
-                    local_device_ip = str(p2p_v6_subnet[1])
-                    peer_device_ip = str(p2p_v6_subnet[2])
+                    # /127 (RFC 6164) has two usable addresses, so both endpoints use the subnet members directly.
+                    local_device_ip = str(p2p_v6_subnet[0] if p2p_v6_subnet.prefixlen == 127 else p2p_v6_subnet[1])
+                    peer_device_ip = str(p2p_v6_subnet[1] if p2p_v6_subnet.prefixlen == 127 else p2p_v6_subnet[2])
                     p2p_ip_prefix_len = str(p2p_v6_subnet.prefixlen)
 
                     self.device_interfaces[local_device][local_port]['ip_v6'] = local_device_ip

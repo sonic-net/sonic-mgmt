@@ -36,19 +36,7 @@ pytestmark = [
 ]
 
 PKTS_NUM = 100
-
-
-@pytest.fixture(scope="function", autouse=True)
-def ignore_log_voq_watchdog(duthosts, loganalyzer):
-    if not loganalyzer:
-        yield
-        return
-    ignore_list = [r".*HARDWARE_WATCHDOG.*", r".*soft_reset*", r".*VOQ Appears to be stuck*"]
-    for dut in duthosts:
-        for line in ignore_list:
-            loganalyzer[dut.hostname].ignore_regex.append(line)
-    yield
-    return
+EXPECT_VOQ_WD_DETECT_RE = [r".*HARDWARE_WATCHDOG.*", r".*soft_reset*", r".*VOQ Appears to be stuck*"]
 
 
 class TestVoqWatchdog(QosSaiBase):
@@ -62,7 +50,7 @@ class TestVoqWatchdog(QosSaiBase):
     @pytest.mark.parametrize("enable_voq_watchdog", [True, False])
     def testVoqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            duthosts, get_src_dst_asic_and_duts, enable_voq_watchdog
+            duthosts, get_src_dst_asic_and_duts, enable_voq_watchdog, loganalyzer
     ):
         """
             Test VOQ watchdog
@@ -80,7 +68,10 @@ class TestVoqWatchdog(QosSaiBase):
         """
 
         try:
-            if not enable_voq_watchdog:
+            if enable_voq_watchdog:
+                dst_dut = get_src_dst_asic_and_duts['dst_dut']
+                loganalyzer[dst_dut.hostname].expect_regex.extend(EXPECT_VOQ_WD_DETECT_RE)
+            else:
                 modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, enable=False)
 
             testParams = dict()

@@ -1,8 +1,8 @@
 """
-Simple integration tests for gNOI System service.
+Integration tests for gNOI System service.
 
-All tests automatically run with TLS server configuration by default.
-Users don't need to worry about TLS configuration.
+Tests run with TLS by default. Opt-in to dual transport (TLS + UDS)
+via the parametrize decorator on individual tests.
 """
 import pytest
 import logging
@@ -16,9 +16,11 @@ pytestmark = [
 ]
 
 
+@pytest.mark.parametrize("gnmi_tls", ["tls", "uds"], indirect=True)
 def test_system_time(gnmi_tls):  # noqa: F811
-    """Test System.Time RPC with TLS enabled by default."""
+    """Test System.Time RPC works over both TLS and UDS transports."""
     result = gnmi_tls.gnoi.system_time()
     assert "time" in result
     assert isinstance(result["time"], int)
-    logger.info(f"System time: {result['time']} nanoseconds since epoch")
+    assert result["time"] > 0
+    logger.info("System time via %s: %d ns", gnmi_tls.transport, result["time"])
