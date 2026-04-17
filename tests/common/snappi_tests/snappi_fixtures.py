@@ -67,22 +67,35 @@ def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(scope='module')
 def snappi_api(snappi_api_serv_ip,
-               snappi_api_serv_port):
+               snappi_api_serv_port,
+               tbinfo):
     """
     Fixture for session handle,
     for creating snappi objects and making API calls.
     Args:
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
-        snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture.
+        snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture
+        tbinfo (pytest fixture): fixture provides information about testbed.
     """
-    location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
-    # TODO: Currently extension is defaulted to ixnetwork.
-    # Going forward, we should be able to specify extension
-    # from command line while running pytest.
-    api = snappi.api(location=location, ext="ixnetwork")
-    # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
-    # api._username = "<please mention the username if other than default username>"
-    # api._password = "<please mention the password if other than default password>"
+
+    ptf_image_name = tbinfo.get("ptf_image_name", "")
+    if not ptf_image_name:
+        logger.warning('Cannot get ptf_image_name in tbinfo {}, defaulting to ixnetwork'.format(tbinfo))
+
+    if "docker-stc-api-server" in ptf_image_name:
+        logger.info("for docker-stc-api-server")
+        location = snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
+        api = snappi.api(location=location, transport="grpc")
+        api.request_timeout = 300
+    else:
+        logger.info("for docker-keysight-api-server")
+        location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
+        api = snappi.api(location=location, ext="ixnetwork")
+
+        # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
+        # api._username = "<please mention the username if other than default username>"
+        # api._password = "<please mention the password if other than default password>"
+
     yield api
 
     if getattr(api, 'assistant', None) is not None:

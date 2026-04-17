@@ -692,10 +692,6 @@ cacl/test_cacl_application.py:
     reason: "skip test_cacl_application in PR test temporarily"
     conditions:
       - "asic_type in ['vs']"
-  xfail:
-    reason: "Wait PR https://github.com/sonic-net/sonic-host-services/pull/301 include in sonic-buildimage"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21175"
 
 cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
   skip:
@@ -864,6 +860,12 @@ dash/test_dash_eni_counter.py:
     reason: "Currently dash tests are not supported on KVM"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+dash/test_dash_metering.py:
+  skip:
+    reason: "Metering w/ FNIC not supported on Nvidia yet"
+    conditions:
+      - "hwsku not in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_privatelink.py:
   skip:
@@ -2193,11 +2195,11 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 platforms, Broadcom DNX platforms, and Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b). CS00012412189"
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 and 8223 platforms, Broadcom DNX platforms, and Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b). CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b', 'x86_64-8223_64e_mo-r0','x86_64-8223_64ef_mo-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -3354,11 +3356,12 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
 #######################################
 high_frequency_telemetry:
   skip:
-    reason: "High frequency telemetry isn't supported in this platform"
+    reason: "High frequency telemetry isn't supported in this platform or on T2 topology"
     conditions_logical_operator: or
     conditions:
       - "platform not in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-arista_7060x6_64pe_b']"
       - "'bmc' in topo_type"
+      - "'t2' in topo_type"
 
 high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters:
   skip:
@@ -3861,6 +3864,12 @@ packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::
     conditions:
       - "asic_gen in ['th5']"
 
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_with_srv6:
+  xfail:
+    reason: "vlan decap is disabled in 202412 image"
+    conditions:
+      - "'isolated' in topo_name and release in ['202412']"
+
 #######################################
 #####           pc               #####
 #######################################
@@ -4270,6 +4279,30 @@ qos/test_qos_masic.py:
       - "is_multi_asic==False or topo_name not in ['t1-lag', 't1-64-lag', 't1-56-lag', 't1-backend']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "asic_type in ['vs']"
+
+qos/test_qos_probe.py:
+  skip:
+    reason: "Buffer threshold probing tests need platform-specific validation. Tracked by per-ASIC GitHub issues."
+    conditions_logical_operator: or
+    conditions:
+      # Virtual Switch support
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/22599"
+      # Cisco-8000 GB series (8102/8101 GB SKUs)
+      - "hwsku in ['Cisco-8102-C64', 'Cisco-8101-O8C48', 'Cisco-8102-28FH-DPU-O'] and https://github.com/sonic-net/sonic-mgmt/issues/22601"
+      # Cisco-8000 GR/GR2 series (8101 GR/GR2 SKUs)
+      - "hwsku in ['Cisco-8101-O32', 'Cisco-8101-O8V48'] and https://github.com/sonic-net/sonic-mgmt/issues/22602"
+      # Broadcom TD3 (Trident 3)
+      - "hwsku in ['Arista-7050CX3-32C-C32', 'Arista-7050CX3-32S-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/22603"
+      # Broadcom TH (Tomahawk)
+      - "hwsku in ['Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32'] and https://github.com/sonic-net/sonic-mgmt/issues/22604"
+      # Broadcom TH2 (Tomahawk 2)
+      - "hwsku in ['Arista-7260CX3-C64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10'] and https://github.com/sonic-net/sonic-mgmt/issues/22605"
+      # Broadcom TH5 (Tomahawk 5)
+      - "hwsku in ['Arista-7060X6-16PE-384C-B-O128S2', 'Arista-7060X6-64PE-B-O128'] and https://github.com/sonic-net/sonic-mgmt/issues/22606"
+      # Mellanox SPC1 (Spectrum 1)
+      - "hwsku in ['Mellanox-SN2700'] and https://github.com/sonic-net/sonic-mgmt/issues/22607"
+      # Mellanox SPC3 (Spectrum 3)
+      - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
 
 qos/test_qos_sai.py:
   skip:
@@ -5853,6 +5886,12 @@ vxlan/test_vxlan_multi_tunnel.py:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
       - "platform in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0')"
+
+vxlan/test_vxlan_multiple_tunnels.py:
+  skip:
+    reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test cannot currently run on most platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
