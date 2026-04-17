@@ -224,8 +224,6 @@ INFRA: #Anand Mehra
         - container_checker/test_container_checker.py
         - container_hardening/test_container_hardening.py
         - database/test_db_scripts.py
-        - dhcp_relay/test_dhcp_pkt_fwd.py
-        - dhcp_relay/test_dhcp_relay.py
         - monit/test_monit_status.py
         - syslog/test_syslog_rate_limit.py
         - system_health/test_system_health.py
@@ -288,6 +286,8 @@ L2: #Venkata Gouri Rajesh Etla / Bidipta Das
         - fdb/test_fdb.py
         - fdb/test_fdb_flush.py
         - arp/test_neighbor_mac.py
+        - dhcp_relay/test_dhcp_pkt_fwd.py
+        - dhcp_relay/test_dhcp_relay.py
   t2-min:
     sfd:
       sim:
