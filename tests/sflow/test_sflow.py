@@ -345,7 +345,8 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo
                   'router_mac': var['router_mac'],
                   'dst_port': var['ptf_test_indices'][2],
                   'agent_id': var['lo_ip'],
-                  'sflow_ports_file': "/tmp/sflow_ports.json"}
+                  'sflow_ports_file': "/tmp/sflow_ports.json",
+                  'kvm_support': True}
         params.update(kwargs)
 
         # Make sure hsflowd daemon has processed collector config before
