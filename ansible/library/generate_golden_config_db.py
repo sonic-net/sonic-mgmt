@@ -61,13 +61,12 @@ class GenerateGoldenConfigDBModule(object):
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
                                     is_lit_mode=dict(required=False, type='bool', default=True),
-                                    bgp_confd_asn=dict(required=False, type='str', default=None),
-                                    bgp_confd_peers=dict(required=False, type='str', default=None),
-                                    npu_index=dict(required=False, type='int', default=0)),
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
                                     dut_loopbacks=dict(required=False, type='dict', default={}),
-                                    console_ports=dict(required=False, type='dict', default=None)),
+                                    console_ports=dict(required=False, type='dict', default=None),
+                                    bgp_confd_asn=dict(required=False, type='str', default=None),
+                                    bgp_confd_peers=dict(required=False, type='str', default=None),),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -549,46 +548,6 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
-    def generate_ut2_golden_config_db(self):
-        rendered_json = {}
-        if self.macsec_profile:
-            with open(MACSEC_PROFILE_PATH) as f:
-                macsec_profiles = json.load(f)
-
-                profile = macsec_profiles.get(self.macsec_profile)
-                if profile:
-                    profile['macsec_profile'] = self.macsec_profile
-
-                # Update the profile context with the asic count
-                profile['asic_cnt'] = self.num_asics
-
-                def safe_open_template(template_path):
-                    with open(template_path) as template_file:
-                        return Template(template_file.read())
-
-                # Render the template using the profile
-                rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
-
-        if self.num_asics > 1:
-            if "localhost" not in rendered_json:
-                rendered_json["localhost"] = {}
-            for asic in range(0, self.num_asics):
-                namespace = "asic{}".format(asic)
-                if namespace not in rendered_json:
-                    rendered_json[namespace] = {}
-                rendered_json[namespace] = {
-                    "BGP_DEVICE_GLOBAL": {
-                        "CONFED": {"asn": self.bgp_confd_asn, "peers": self.bgp_confd_peers}
-                    }
-                }
-        else:
-            if "BGP_DEVICE_GLOBAL" not in rendered_json:
-                rendered_json["BGP_DEVICE_GLOBAL"] = {}
-            rendered_json["BGP_DEVICE_GLOBAL"]["CONFED"] = {
-                "asn": self.bgp_confd_asn,
-                "peers": self.bgp_confd_peers
-            }
-        return json.dumps(rendered_json, indent=4)
     def _generate_ha_config(self, dpu_count):
         """
         Generate DASH-HA configuration tables (DPU, REMOTE_DPU, VDPU,
@@ -730,26 +689,24 @@ class GenerateGoldenConfigDBModule(object):
         return ha_config
 
     def generate_t2_golden_config_db(self):
-        rendered_json = {}
-        if self.macsec_profile:
-            with open(MACSEC_PROFILE_PATH) as f:
-                macsec_profiles = json.load(f)
+        with open(MACSEC_PROFILE_PATH) as f:
+            macsec_profiles = json.load(f)
 
-                profile = macsec_profiles.get(self.macsec_profile)
-                if profile:
-                    profile['macsec_profile'] = self.macsec_profile
+            profile = macsec_profiles.get(self.macsec_profile)
+            if profile:
+                profile['macsec_profile'] = self.macsec_profile
 
-                # Update the profile context with the asic count
-                profile['asic_cnt'] = self.num_asics
+            # Update the profile context with the asic count
+            profile['asic_cnt'] = self.num_asics
 
-                def safe_open_template(template_path):
-                    with open(template_path) as template_file:
-                        return Template(template_file.read())
+            def safe_open_template(template_path):
+                with open(template_path) as template_file:
+                    return Template(template_file.read())
 
-                # Render the template using the profile
-                rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
+            # Render the template using the profile
+            rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
 
-        return json.dumps(rendered_json, indent=4)
+        return rendered_json
 
     def update_dns_config(self, config):
         # Generate dns_server related configuration
@@ -958,11 +915,6 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for t0-f2"
         elif "ft2" in self.topo_name or "lt2" in self.topo_name:
             config = self.generate_lt2_ft2_golden_config_db()
-        elif "t2_single_node" in self.topo_name:
-            config = self.generate_ut2_golden_config_db()
-            self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
-            self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
-            module_msg = module_msg + " for ut2 device"
         elif "t2" in self.topo_name:
             config = self.generate_t2_golden_config_db()
             module_msg = module_msg + " for t2"
