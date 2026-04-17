@@ -44,7 +44,7 @@ def fixture_encap_type(request):
     return request.param
 
 
-@pytest.fixture(autouse=True,scope="function")
+@pytest.fixture(autouse=True, scope="function")
 def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
@@ -88,8 +88,6 @@ def fixture_setUp(duthosts,
         data['tolerance'] = 0.03
     else:
         pytest.skip("This test is supported only on Cisco-8000 and Mellanox platforms.")
-
-    platform = duthosts[rand_one_dut_hostname].facts['platform']
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \
@@ -376,7 +374,7 @@ class Test_VxLAN_VNET_PING_TSA():
                 return False
         return True
 
-    def test_tsa_case1(self, setUp, encap_type):
+    def test_tsa_case1(self, setUp, encap_type, setup_vnet_ping_responder):  # noqa: F811
         '''
             tc1: This test checks the basic TSA removal of vnet-ping sessions.
             1) Create Vnet route with 4 endpoints and vnet-ping monitors.
@@ -408,7 +406,7 @@ class Test_VxLAN_VNET_PING_TSA():
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case2(self, setUp, encap_type):
+    def test_tsa_case2(self, setUp, encap_type, setup_vnet_ping_responder):  # noqa: F811
         '''
             tc2: This test checks the basic route application while in TSA.
             1) apply TSA.
@@ -439,7 +437,7 @@ class Test_VxLAN_VNET_PING_TSA():
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case3(self, setUp, encap_type):
+    def test_tsa_case3(self, setUp, encap_type, setup_vnet_ping_responder):  # noqa: F811
         '''
             tc3: This test checks for lasting impact of TSA and TSB.
             1) apply TSA.
@@ -470,7 +468,7 @@ class Test_VxLAN_VNET_PING_TSA():
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case4(self, setUp, encap_type):
+    def test_tsa_case4(self, setUp, encap_type, setup_vnet_ping_responder):  # noqa: F811
         '''
             tc4: This test checks TSA state retention w.r.t vnet-ping across config reload.
             1) Create Vnet route with 4 endpoints and vnet-ping monitors.
@@ -521,7 +519,7 @@ class Test_VxLAN_VNET_PING_TSA():
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case5(self, setUp, encap_type):
+    def test_tsa_case5(self, setUp, encap_type, setup_vnet_ping_responder):  # noqa: F811
         '''
             tc5: This test checks that the vnet-ping doesnt come up while device
             is in TSA and remains down across config reload.
