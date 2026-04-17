@@ -1,8 +1,9 @@
 import logging
 import json
+import os
 
 from tests.common.utilities import wait_until
-from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config
+from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 
 logger = logging.getLogger(__name__)
 
@@ -308,3 +309,91 @@ def wait_for_pending_operation_id(
     )
 
     return pending_id if success else None
+
+
+def bfd_pin_primary(localhost, ptfhost, duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            if "pinned_vdpu_bfd_probe_states" not in fields:
+                fields["pinned_vdpu_bfd_probe_states"] = ["down", "up"]
+            else:
+                fields.update({"pinned_vdpu_bfd_probe_states": ["down", "up"]})
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+            )
+
+
+def bfd_unpin_primary(localhost, ptfhost, duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            if "pinned_vdpu_bfd_probe_states" in fields:
+                fields["pinned_vdpu_bfd_probe_states"] = ["up", "up"]
+            else:
+                fields.update({"pinned_vdpu_bfd_probe_states": ["up", "up"]})
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+            )
+
+
+def bfd_pin_both_sides(localhost, ptfhost, duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            if "pinned_vdpu_bfd_probe_states" not in fields:
+                fields["pinned_vdpu_bfd_probe_states"] = ["down", "down"]
+            else:
+                fields.update({"pinned_vdpu_bfd_probe_states": ["down", "down"]})
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+            )
+
+
+def bfd_unpin_both_sides(localhost, ptfhost, duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            if "pinned_vdpu_bfd_probe_states" in fields:
+                fields["pinned_vdpu_bfd_probe_states"] = ["up", "up"]
+            else:
+                fields.update({"pinned_vdpu_bfd_probe_states": ["up", "up"]})
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+            )
