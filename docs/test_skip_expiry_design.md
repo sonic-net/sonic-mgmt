@@ -48,10 +48,10 @@ While this consolidation improves maintainability, tests can be skipped and forg
 - Minimal disruption to existing workflows
 - Clear reporting of expired and miscategorized skips
 
-**NOTE** The conditional mark files support both `skip:` and `xfail:`. For governance and migration:
-- `xfail:` entries with an issue are considered temporary exceptions and must be tracked by expiry workflow.
-- `skip:` entries with an issue are treated as temporary exceptions during cleanup/migration.
-- Target steady state is: permanent `skip:` entries have no issue, temporary exceptions are represented as `xfail:` entries with issue.
+**NOTE** The conditional mark files support both `skip:` and `xfail:`. Governance policy:
+- `xfail:` entries with an issue are temporary exceptions and must be tracked by expiry workflow.
+- `skip:` entries with an issue are also temporary exceptions and must be tracked by expiry workflow.
+- `skip:` entries without an issue are permanent skips.
 
 ---
 
@@ -68,7 +68,7 @@ Leverage GitHub issues as the source of truth for temporary skip expiry, with au
 This approach separates concerns between the conditional mark YAML file and GitHub issue tracking:
 
 1. **Permanent skips**: `skip:` entries without a GitHub issue.
-2. **Temporary exceptions**: `xfail:` entries with GitHub issue, plus legacy `skip:` entries with GitHub issue during migration.
+2. **Temporary exceptions**: `xfail:` entries with GitHub issue and `skip:` entries with GitHub issue.
 3. **Conditional mark plugin**: Checks referenced GitHub issue state to determine effective behavior.
 4. **External automation**: Event-based PR gate workflow enforces review policy; scheduled workflow monitors issues and manages expiry.
 
@@ -191,7 +191,7 @@ The report is generated from conditional mark YAML entries and GitHub issue meta
   - Purpose: Visibility for long-lived exclusions that require periodic product/test ownership review.
 
 2. **Going to expire soon (reach P0 in next N days)**
-  - Definition: temporary exceptions (`xfail:` with issue, plus legacy `skip:` with issue during migration) whose computed time-to-P0 is within `N` days.
+  - Definition: temporary exceptions (`xfail:` with issue and `skip:` with issue) whose computed time-to-P0 is within `N` days.
   - `N` is driven by `warning_days` in `expiry_config.yml`.
   - Example with `warning_days: [30, 14, 7]`:
     - Include issues where `days_to_p0 <= 30` (and not expired), and annotate threshold hits at 30/14/7.
@@ -270,7 +270,7 @@ The pipeline runs weekly (or on-demand) and operates in non-blocking mode - test
 The plugin's responsibility is simplified:
 
 1. **For permanent skips**: `skip:` entries without an associated issue are applied as in current implementation.
-2. **For temporary exceptions** (`xfail:` with issue, and legacy `skip:` with issue during migration): plugin behavior remains unchanged and checks issue state.
+2. **For temporary exceptions** (`xfail:` with issue and `skip:` with issue): plugin behavior remains unchanged and checks issue state.
   - If issue is **open**: Exception condition is evaluated as configured, even if the workflow has labeled it as expired.
   - If issue is **closed** as part of normal issue resolution: Exception condition is evaluated to False.
 3. **Expiry state**: Workflow-applied priority and expired labels do not change runtime skip evaluation; they are governance signals only.
@@ -436,9 +436,9 @@ This decision was made after team discussions weighing the trade-offs between si
 There are no structural changes to the conditional mark YAML file.
 
 **Best-practice guideline**:
-- Temporary exceptions should be represented as `xfail:` entries and must include an associated GitHub issue.
-- `skip:` entries should be reserved for permanent exclusions and should not carry an issue in steady state.
-- Legacy `skip:` entries that include issues are migration artifacts and should be converted/cleaned up toward the target policy.
+- Temporary exceptions may be represented as either `xfail:` or `skip:`, and must include an associated GitHub issue.
+- `skip:` entries without an associated issue are permanent exclusions.
+- `skip:` entries with an associated issue are temporary exceptions and are managed by the same expiry workflow as `xfail:` with issue.
 
 ### 2. Issue Expiry Workflow
 
@@ -486,17 +486,15 @@ To handle skips across multiple release branches:
 - Priority levels are derived dynamically from `expiry_config.yml` keys matching `pN_label_expiry_days`; fixed ladders are not assumed.
 - Warning comments and final escalation comments are idempotent through deterministic hidden markers, so repeated daily runs do not spam duplicate comments for the same threshold/stage.
 - Stage source of truth is issue timeline `labeled` events for workflow priority labels (label history), not current issue label presence.
-- Scan/classification includes both `xfail:` with issue and legacy `skip:` with issue during migration.
-- Long-term policy target: only permanent `skip:` entries remain without issue; temporary exceptions are tracked through `xfail:` entries with issue.
+- Scan/classification includes both `xfail:` with issue and `skip:` with issue as temporary exceptions.
 
-#### 5. Conditional Mark Cleanup
+#### 5. Conditional Mark Hygiene
 
-- A round of cleanup is required for conditional mark files to check
-  - if all temporary issues have a GitHub issue associated with them
-  - if tests that don't have an issue associated with `skip:` are indeed permanent
-  - convert/track legacy `skip:` entries that have issues as temporary migration items
-  - if a GitHub issue is associated with both `skip:` and `xfail:` for a test, split into separate issues to avoid coupled lifecycle changes
-  - target end state: `skip:` with no issue = permanent; `xfail:` with issue = temporary
+- A periodic hygiene review is required for conditional mark files to check:
+  - every temporary exception (`xfail:` with issue, `skip:` with issue) has a valid associated GitHub issue
+  - every `skip:` entry without an issue is truly permanent and periodically re-validated by owners
+  - if a single GitHub issue is associated with both `skip:` and `xfail:` for the same test scope, owners should evaluate whether separate issues would reduce coupled lifecycle changes
+  - ownership, priority labels, and expiry metadata remain consistent with workflow reports
 
 ---
 
