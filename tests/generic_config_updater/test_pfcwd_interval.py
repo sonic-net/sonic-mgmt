@@ -1,3 +1,15 @@
+"""
+Test for PFC Watchdog (PFCWD) poll interval configuration updates via GCU.
+
+T2 Topology Support:
+    This test uses `rand_one_dut_front_end_hostname` to ensure compatibility
+    with T2 topologies. On T2, only linecards (not supervisor nodes) have
+    frontend ASICs with Ethernet interfaces and PFC_WD configuration. Using
+    `rand_one_dut_front_end_hostname` automatically selects either a
+    linecard on T2 or a regular DUT, ensuring the test always targets a
+    node with the required PFC_WD config.
+"""
+
 import logging
 import pytest
 import json
@@ -11,18 +23,6 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint
 from tests.common.gu_utils import rollback_or_reload
 from tests.common.gu_utils import is_valid_platform_and_version
-
-"""
-Test for PFC Watchdog (PFCWD) poll interval configuration updates via GCU.
-
-T2 Topology Support:
-    This test uses `rand_one_dut_front_end_hostname` to ensure compatibility
-    with T2 topologies. On T2, only linecards (not supervisor nodes) have
-    frontend ASICs with Ethernet interfaces and PFC_WD configuration. Using
-    `rand_one_dut_front_end_hostname` automatically selects either a
-    linecard on T2 or a regular DUT, ensuring the test always targets a
-    node with the required PFC_WD config.
-"""
 
 pytestmark = [
     pytest.mark.asic('cisco-8000', 'mellanox', 'marvell-teralynx'),
@@ -38,29 +38,32 @@ READ_FLEXCOUNTER_DB_INTERVAL = 20
 @pytest.fixture(scope="module")
 def ensure_dut_readiness(duthosts, rand_one_dut_front_end_hostname):
     """
-    Setup/teardown fixture for pfcwd interval config update tst
+    Setup/teardown fixture for pfcwd interval config update test.
 
     Args:
         duthosts: DUT hosts object
         rand_one_dut_front_end_hostname: frontend DUT hostname
             (linecard on T2, regular DUT otherwise)
+
+    Yields:
+        duthost: The selected DUT host object
     """
     duthost = duthosts[rand_one_dut_front_end_hostname]
     create_checkpoint(duthost)
 
-    yield
+    yield duthost
 
     try:
-        logger.info("Rolled back to original  checkpoint")
+        logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
 
 
 @pytest.fixture(autouse=True, scope="module")
-def enable_default_pfcwd_configuration(duthosts,
-                                       rand_one_dut_front_end_hostname):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+def enable_default_pfcwd_configuration(ensure_dut_readiness):
+    """Enable default PFCWD configuration on the DUT."""
+    duthost = ensure_dut_readiness
     res = duthost.shell(
         'redis-dump -d 4 --pretty -k \"DEVICE_METADATA|localhost\"')
     meta_data = json.loads(res["stdout"])
@@ -210,11 +213,10 @@ def get_new_interval(duthost, is_valid, ip_netns_namespace_prefix,
 @pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
 @pytest.mark.parametrize("is_valid_config_update", [True, False])
 def test_pfcwd_interval_config_updates(
-        duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, oper,
-        field_pre_status, is_valid_config_update,
+        ensure_dut_readiness, oper, field_pre_status, is_valid_config_update,
         enum_rand_one_frontend_asic_index, ip_netns_namespace_prefix,
         cli_namespace_prefix, loganalyzer):
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = ensure_dut_readiness
     asic_namespace = duthost.get_namespace_from_asic_id(
         enum_rand_one_frontend_asic_index)
 
