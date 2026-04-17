@@ -922,12 +922,57 @@ sonic_cisco_8220:
     bjw3-can-8220-1:
       ansible_host: 10.150.238.118
       ansible_hostv6: 2404:f801:10:16::a96:ee76
+      model: C8220TG-48A-O
+      serial: FHH2947P00S
+      base_mac: 34:70:69:B6:1D:40
+      syseeprom_info:
+        '0x21': 'C8220TG-48A-O'
+        '0x23': 'FHH2947P00S'
+        '0x24': '34:70:69:B6:1D:40'
+        '0x26': '0'
+        '0x27': '04'
+        '0x28': 'arm64-c8220tg_48a_o-r0'
+        '0x2a': '64'
+        '0x2b': 'Cisco'
+        '0x2c': 'US'
+        '0x2d': 'Cisco'
+        '0xfe': '0x1FCFFAB2'
     bjw3-can-8220-2:
       ansible_host: 10.150.238.120
       ansible_hostv6: 2404:f801:10:16::a96:ee78
+      model: C8220TG-48A-O
+      serial: FHH2947P009
+      base_mac: 34:70:69:B6:19:00
+      syseeprom_info:
+        '0x21': 'C8220TG-48A-O'
+        '0x23': 'FHH2947P009'
+        '0x24': '34:70:69:B6:19:00'
+        '0x26': '0'
+        '0x27': '04'
+        '0x28': 'arm64-c8220tg_48a_o-r0'
+        '0x2a': '64'
+        '0x2b': 'Cisco'
+        '0x2c': 'US'
+        '0x2d': 'Cisco'
+        '0xfe': '0x1F70A6EC'
     bjw3-can-8220-3:
       ansible_host: 10.150.238.121
       ansible_hostv6: 2404:f801:10:16::a96:ee79
+      model: C8220TG-48A-O
+      serial: FHH2947P00G
+      base_mac: 34:70:69:B6:1A:C0
+      syseeprom_info:
+        '0x21': 'C8220TG-48A-O'
+        '0x23': 'FHH2947P00G'
+        '0x24': '34:70:69:B6:1A:C0'
+        '0x26': '0'
+        '0x27': '04'
+        '0x28': 'arm64-c8220tg_48a_o-r0'
+        '0x2a': '64'
+        '0x2b': 'Cisco'
+        '0x2c': 'US'
+        '0x2d': 'Cisco'
+        '0xfe': '0xBE248513'
 
 
 sonic_arista_720dt:
