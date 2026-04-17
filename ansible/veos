@@ -395,6 +395,8 @@ all:
         - lt2-o128-d110u14
         - lt2-p32o64
         - lt2-o128
+        - urh
+        - lrh
 vm_host_1:
   hosts:
     STR-ACS-SERV-01:
