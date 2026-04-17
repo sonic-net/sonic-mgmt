@@ -1589,7 +1589,7 @@
   l1s:
   - str-ocs-dlx64-acs-06
   tgs:
-  - msr-ixia-4
+  - msr-ixia-5
   auto_recover: 'False'
   comment: ediwibowo
 

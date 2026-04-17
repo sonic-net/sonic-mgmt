@@ -264,9 +264,14 @@ msr-ixia-4,Card2/Port3,str-ocs-dlx64-acs-06,21|22|23|24
 STR-8102-C19-U24,Ethernet184,str-ocs-dlx64-acs-06,41|42|43|44
 STR-8102-C19-U24,Ethernet188,str-ocs-dlx64-acs-06,45|46|47|48
 STR-8102-C19-U24,Ethernet192,str-ocs-dlx64-acs-06,49|50|51|52
-str3-SN4700-D11-U39,Ethernet100,str-ocs-dlx64-acs-06,53|54|55|56
-str3-SN4700-D11-U39,Ethernet104,str-ocs-dlx64-acs-06,57|58|59|60
-str3-SN4700-D11-U39,Ethernet108,str-ocs-dlx64-acs-06,61|62|63|64
+str3-SN4700-D11-U39,Ethernet96,str-ocs-dlx64-acs-06,53
+str3-SN4700-D11-U39,Ethernet104,str-ocs-dlx64-acs-06,54
+str3-SN4700-D11-U39,Ethernet112,str-ocs-dlx64-acs-06,55
+str3-SN4700-D11-U39,Ethernet120,str-ocs-dlx64-acs-06,56
+msr-ixia-5,Card1/Port1,str-ocs-dlx64-acs-06,61
+msr-ixia-5,Card1/Port2,str-ocs-dlx64-acs-06,62
+msr-ixia-5,Card1/Port3,str-ocs-dlx64-acs-06,63
+msr-ixia-5,Card1/Port4,str-ocs-dlx64-acs-06,64
 STR-7050CX3-C19-U37,Ethernet100,str-ocs-dlx64-acs-06,29|30|31|32
 STR-7050CX3-C19-U37,Ethernet104,str-ocs-dlx64-acs-06,33|34|35|36
 STR-7050CX3-C19-U37,Ethernet108,str-ocs-dlx64-acs-06,37|38|39|40
