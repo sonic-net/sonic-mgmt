@@ -956,7 +956,9 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         return None
     if tbinfo['topo']['name'].startswith("nut-"):
         return None
-    if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+    if ("ptf_image_name" in tbinfo
+            and ("docker-keysight-api-server" in tbinfo["ptf_image_name"]
+                 or "docker-stc-api-server" in tbinfo["ptf_image_name"])):
         return None
     if "ptf" in tbinfo:
         _hosts.append(PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo,
@@ -1016,15 +1018,16 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     logger.info("Fixture nbrhosts started")
     devices = {}
-    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or \
-        'ptf' in tbinfo['topo']['name'] or \
-            'ixia' in tbinfo['topo']['name']:
+    topo_name = tbinfo['topo']['name']
+    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in topo_name) or \
+            'ptf' in topo_name or 'ixia' in topo_name:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
         return devices
 
     neighbor_type = request.config.getoption("--neighbor_type")
     if 'VMs' not in tbinfo['topo']['properties']['topology']:
-        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
+        logger.info("No VMs exist for this topology: {}".format(
+            tbinfo['topo']['properties']['topology']))
         return devices
 
     def initial_neighbor(neighbor_name, vm_name, multi_vrf_peer=False, multi_vrf_primary_host=None):
