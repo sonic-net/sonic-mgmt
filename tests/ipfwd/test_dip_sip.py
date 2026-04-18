@@ -40,21 +40,15 @@ def check_route(duthost, static_route, nexthop_ip, asic_id, ip_ver=4, expected_s
 
 
 def add_static_route(duthost, static_route, nexthop_ip, asic_id):
-    cli_cmd = "config route add prefix {} nexthop {}".format(static_route, nexthop_ip)
-    if duthost.is_multi_asic:
-        namespace = duthost.get_namespace_from_asic_id(asic_id)
-        cmd_prefix = "sudo ip netns exec {} ".format(namespace)
-        cli_cmd = cmd_prefix + cli_cmd
+    cli_ns_option = duthost.asic_instance(asic_id).cli_ns_option
+    cli_cmd = "config route {} add prefix {} nexthop {}".format(cli_ns_option, static_route, nexthop_ip)
     result = duthost.shell(cli_cmd)
     return result
 
 
 def delete_static_route(duthost, static_route, nexthop_ip, asic_id):
-    cli_cmd = "config route del prefix {} nexthop {}".format(static_route, nexthop_ip)
-    if duthost.is_multi_asic:
-        namespace = duthost.get_namespace_from_asic_id(asic_id)
-        cmd_prefix = "sudo ip netns exec {} ".format(namespace)
-        cli_cmd = cmd_prefix + cli_cmd
+    cli_ns_option = duthost.asic_instance(asic_id).cli_ns_option
+    cli_cmd = "config route {} del prefix {} nexthop {}".format(cli_ns_option, static_route, nexthop_ip)
     result = duthost.shell(cli_cmd)
     return result
 
