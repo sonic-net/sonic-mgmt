@@ -4,6 +4,7 @@ import logging
 import ipaddress
 import random
 import re
+import json
 
 from tests.common import constants
 from tests.common.utilities import skip_release
@@ -459,14 +460,28 @@ def verify_bgp_session(duthost, bgp_neighbor):
 def get_bgp_connection_count(duthost, bgp_neighbor):
     """Get the established/dropped connection counts for a dynamic BGP neighbor."""
     output = duthost.shell(
-        "show ip bgp neighbors | sed -n '/{}/,/^BGP neighbor/p' | grep 'Connections established'".format(
-            bgp_neighbor
-        )
+        'vtysh -c "show bgp neighbors {} json"'.format(bgp_neighbor),
+        module_ignore_errors=True,
     )
-    pytest_assert(output["stdout"], "Could not find connection info for {}".format(bgp_neighbor))
-    match = re.search(r"Connections established (\d+);\s*dropped (\d+)", output["stdout"])
-    pytest_assert(match, "Could not parse connection counters for {}".format(bgp_neighbor))
-    return int(match.group(1)), int(match.group(2))
+    pytest_assert(
+        output["rc"] == 0 and output["stdout"],
+        "Could not find connection info for {} (rc={})".format(
+            bgp_neighbor, output["rc"]
+        ),
+    )
+    bgp_info = json.loads(output["stdout"])
+    pytest_assert(
+        bgp_neighbor in bgp_info,
+        "Neighbor {} not found in vtysh JSON output".format(bgp_neighbor),
+    )
+    neighbor_info = bgp_info[bgp_neighbor]
+    established = neighbor_info.get("connectionsEstablished", 0)
+    dropped = neighbor_info.get("connectionsDropped", 0)
+    pytest_assert(
+        established > 0,
+        "connectionsEstablished is 0 for {} — session was never established".format(bgp_neighbor),
+    )
+    return established, dropped
 
 
 def check_bgp_routes_exist(duthost, prefix):
@@ -586,6 +601,9 @@ def test_bgp_dual_asn_v4(
         # Verify the original BGP peer did not flap by comparing FRR connection counters.
         # Uses established/dropped counts instead of uptime to avoid false positives
         # from wall-clock vs BGP-uptime measurement drift over SSH.
+        # Note: Any change in either counter (established or dropped) is treated as unexpected,
+        # including reconnections (e.g. graceful restart). This is intentional, during
+        # this test window, the original peer should maintain a single stable session without any flap.
         final_established, final_dropped = get_bgp_connection_count(duthost, dualAsn.peer_addrs[0])
         if final_established != initial_established or final_dropped != initial_dropped:
             pytest.fail(
