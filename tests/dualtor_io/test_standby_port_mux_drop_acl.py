@@ -27,7 +27,6 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host  
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # noqa: F401
@@ -67,7 +66,9 @@ def get_rx_drp_count(duthost, interface):
 def test_standby_mux_drop_not_counted_as_rx_drp(
     upper_tor_host, lower_tor_host,                         # noqa: F811
     toggle_all_simulator_ports_to_upper_tor,                # noqa: F811
-    ptfadapter, tbinfo, cable_type                          # noqa: F811
+    ptfadapter, tbinfo, cable_type,                         # noqa: F811
+    run_icmp_responder, run_garp_service,                   # noqa: F811
+    change_mac_addresses                                    # noqa: F811
 ):
     """
     Verify that packets dropped by the standby port MUX drop ACL
