@@ -284,6 +284,14 @@ class BgpDualAsn:
             ptfhost.exabgp(name="bgps%d" % i, state="absent")
         logger.info("exabgp stopped")
 
+        # Delete test-specific BGP_PEER_RANGE entries so rollback can
+        # restore BGPVac without listen-range overlap
+        for name in [BGPSLB, BGPSLB_2, BGPSLB_V6, BGPSLB_V6_2]:
+            duthost.shell(
+                'sonic-db-cli CONFIG_DB del "BGP_PEER_RANGE|{}"'.format(name),
+                module_ignore_errors=True
+            )
+
         for port in self.ptf_ports:
             ptfhost.shell("ip addr flush dev {} scope global".format(port))
         duthost.command("sonic-clear arp")
