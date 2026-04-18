@@ -2,6 +2,18 @@
 
 set -e
 
+function restore_topo_if_needed
+ {
+     if [[ -n "$backup_file" && -f "$backup_file" ]]; then
+         echo "Backup exists, restore backup file"
+         rm -f "$topo_file"
+         mv "$backup_file" "$topo_file"
+         echo "Original topo file restored"
+     fi
+ }
+
+ trap restore_topo_if_needed EXIT
+
 function usage
 {
   echo "testbed-cli. Interface to testbeds"
@@ -10,6 +22,7 @@ function usage
   echo "    $0 [options] (start-topo-vms | stop-topo-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] (deploy-topo-with-cache) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (add-topo | remove-topo | redeploy-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
+  echo "    $0 [options] (add-vnut-topo | remove-vnut-topo) <testbed-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <testbed-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
@@ -202,6 +215,7 @@ function converge_topo_if_needed
         fi
 
         python -m ceos_topo_converger "$backup_file" "$topo_file"
+
     fi
 }
 
@@ -230,7 +244,7 @@ function read_nut_file
   content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['$keyName']))")
   echo ""
 
-  IFS=$'+' read -r -a tb_lines <<< $content
+  IFS=$'+' read -r -a tb_lines <<< "$content"
   linecount=${#tb_lines[@]}
 
   if [ $linecount == 0 ]
@@ -847,7 +861,7 @@ function deploy_config
 
   echo "Deploying config to testbed '$testbed_name'"
 
-  read_nut_file $testbed_name
+  read_nut_file "$testbed_name"
 
   devices=$duts
   if [ ! -z "$l1s" ]; then
@@ -873,7 +887,7 @@ function deploy_l1
 
   echo "Deploying L1 config to testbed '$testbed_name'"
 
-  read_nut_file $testbed_name
+  read_nut_file "$testbed_name"
 
   devices=$duts
   if [ ! -z "$l1s" ]; then
@@ -898,7 +912,7 @@ function generate_config
 
   echo "Generate config for testbed '$testbed_name' for testing"
 
-  read_nut_file $testbed_name
+  read_nut_file "$testbed_name"
 
   devices=$duts
   if [ ! -z "$l1s" ]; then
@@ -1197,6 +1211,48 @@ then
   usage
 fi
 
+function add_vnut_topo
+{
+  testbed_name="$1"
+  inventory="$2"
+  passwd="$3"
+  shift; shift; shift
+  echo "Deploying virtual NUT topology for testbed '${testbed_name}'"
+
+  read_nut_file "${testbed_name}"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "${inventory}" \
+      testbed_add_nut_topo.yml \
+      --vault-password-file="${passwd}" \
+      -e testbed_name="${testbed_name}" \
+      -e testbed_file="${tbfile}" \
+      -e duts_name="${duts}" \
+      "$@"
+
+  echo Done
+}
+
+function remove_vnut_topo
+{
+  testbed_name="$1"
+  inventory="$2"
+  passwd="$3"
+  shift; shift; shift
+  echo "Removing virtual NUT topology for testbed '${testbed_name}'"
+
+  read_nut_file "${testbed_name}"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "${inventory}" \
+      testbed_remove_nut_topo.yml \
+      --vault-password-file="${passwd}" \
+      -e testbed_name="${testbed_name}" \
+      -e testbed_file="${tbfile}" \
+      -e duts_name="${duts}" \
+      "$@"
+
+  echo Done
+}
+
 subcmd=$1
 shift
 case "${subcmd}" in
@@ -1261,12 +1317,10 @@ case "${subcmd}" in
                ;;
   config-vs-chassis) config_vs_chassis $@
                ;;
+  add-vnut-topo)    add_vnut_topo "$@"
+               ;;
+  remove-vnut-topo) remove_vnut_topo "$@"
+               ;;
   *)           usage
                ;;
 esac
-
-if [[ -f "$backup_file" ]];then
-    echo "Backup exists, restore backup file"
-    rm -f "$topo_file"
-    mv "$backup_file" "$topo_file"
-fi

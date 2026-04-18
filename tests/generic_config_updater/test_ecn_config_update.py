@@ -1,3 +1,5 @@
+"""Tests for ECN/WRED configuration updates via Generic Config Updater.
+"""
 import ast
 from functools import cmp_to_key
 import logging
@@ -6,11 +8,10 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.common.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -141,6 +142,61 @@ def get_wred_profiles(duthost, cli_namespace_prefix):
     return [w for w in wred_profiles.split('\n') if w]
 
 
+# Determines how the value of each field should change to satisfy different constraints (explained below).
+def determine_delta_values(ecn_data, fields):
+    # Extra care should be taken when changing "green_min_threshold" and "green_max_threshold". "green_min_threshold"
+    # must always be less than or equal to "green_max_threshold". Also, "green_max_threshold" must be less than
+    # the available buffer pool size. Note that some platforms (e.g., Mellanox) round-up the value of
+    # "green_max_threshold" if it is not provided as a multiple of a certain number in the config. The rounded-up
+    # value must still be less than the buffer pool size. So to avoid potential issues, we never attempt to increase
+    # "green_max_threshold".
+    delta = {"green_min_threshold": 0, "green_max_threshold": 0, "green_drop_probability": 0}
+
+    min_threshold = int(ecn_data["green_min_threshold"])
+    max_threshold = int(ecn_data["green_max_threshold"])
+    assert 0 <= min_threshold <= max_threshold, \
+        f"Invalid thresholds: green_min_threshold={min_threshold}, green_max_threshold={max_threshold}"
+    if "green_min_threshold" in fields and "green_max_threshold" in fields:
+        # Both fields are being updated.
+        if min_threshold > 0:
+            delta["green_min_threshold"] = -1
+            delta["green_max_threshold"] = -1
+        else:  # min_threshold == 0
+            if max_threshold - min_threshold >= 2:
+                delta["green_min_threshold"] = 1
+                delta["green_max_threshold"] = -1
+            elif max_threshold > min_threshold:  # min_threshold == 0, max_threshold == 1
+                delta["green_min_threshold"] = 0
+                delta["green_max_threshold"] = -1
+            else:  # min_threshold == max_threshold == 0
+                delta["green_min_threshold"] = 0
+                delta["green_max_threshold"] = 0
+    elif "green_max_threshold" in fields:
+        # Only "green_max_threshold" is being updated.
+        if max_threshold > min_threshold:
+            delta["green_max_threshold"] = -1
+        else:  # max_threshold == min_threshold
+            delta["green_max_threshold"] = 0
+    elif "green_min_threshold" in fields:
+        # Only "green_min_threshold" is being updated.
+        if min_threshold > 0:
+            delta["green_min_threshold"] = -1
+        else:  # min_threshold == 0
+            if min_threshold < max_threshold:
+                delta["green_min_threshold"] = 1
+            else:
+                delta["green_min_threshold"] = 0
+
+    if "green_drop_probability" in fields:
+        probability = int(ecn_data["green_drop_probability"])
+        assert 0 <= probability <= 100, f"Invalid green_drop_probability value: {probability}"
+        if 0 <= probability < 99:
+            delta["green_drop_probability"] = 1
+        else:  # probability == 100 or probability == 99
+            delta["green_drop_probability"] = -1
+    return delta
+
+
 @pytest.mark.parametrize("configdb_field", ["green_min_threshold", "green_max_threshold", "green_drop_probability",
                          "green_min_threshold,green_max_threshold,green_drop_probability"])
 @pytest.mark.parametrize("operation", ["replace"])
@@ -164,20 +220,14 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
         ecn_data = duthost.shell("sonic-db-cli {} CONFIG_DB hgetall 'WRED_PROFILE|{}'"
                                  .format(cli_namespace_prefix, wred_profile))['stdout']
         ecn_data = ast.literal_eval(ecn_data)
+        delta = determine_delta_values(ecn_data, fields)
+        if all(delta[f] == 0 for f in fields):
+            logger.info(f"Skipping WRED profile {wred_profile}: all deltas are 0, no real value change possible.")
+            continue
         new_values[wred_profile] = {}
         for field in fields:
             value = int(ecn_data[field])
-            if "probability" in field:
-                if 0 <= value < 99:
-                    value += 1
-                elif value >= 99:
-                    value -= 1
-                else:
-                    raise ValueError("Invalid probability value: {}".format(value))
-            elif "min" in field:
-                value -= 1
-            else:
-                value += 1
+            value += delta[field]
             new_values[wred_profile][field] = value
 
             logger.info("value to be added to json patch: {}, operation: {}, field: {}"
@@ -188,14 +238,14 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
                                "path": f"/WRED_PROFILE/{wred_profile}/{field}",
                                "value": "{}".format(value)})
 
+    if not json_patch:
+        pytest.skip("All WRED profiles have zero deltas for the requested fields, skipping test.")
+
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
                                                  is_asic_specific=True, asic_namespaces=[namespace])
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
-            expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, fields, new_values, cli_namespace_prefix)
-        else:
-            expect_op_failure(output)
+        expect_op_success(duthost, output)
+        ensure_application_of_updated_config(duthost, fields, new_values, cli_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)

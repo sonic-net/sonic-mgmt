@@ -85,7 +85,7 @@ def copy_running_config_to_config_db_json(dut, src_path, **kwargs):
     :return:
     Example:
     copy_running_config_to_config_db_json(dut,"config://filename")
-    copy_running_config_to_config_db_json(dut,"ftp://userid:passwd@hostip/filepath")
+    copy_running_config_to_config_db_json(dut,"ftp://userid:passwd@hostip/filepath")  # [SuppressMessage("Microsoft.Security", "CS001:SecretInline", Justification="Sample placeholder password in docstring")]
     copy_running_config_to_config_db_json(dut,"home://filename")
     copy_running_config_to_config_db_json(dut,"http://hostip/filepath")
     copy_running_config_to_config_db_json(dut,"scp://userid:passwd@hostip/filepath")

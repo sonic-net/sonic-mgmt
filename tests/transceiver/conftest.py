@@ -19,6 +19,10 @@ from tests.transceiver.infra.paths import (
     get_repo_root,
 )
 
+pytestmark = [
+    pytest.mark.topology('ptp')
+]
+
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = get_repo_root()

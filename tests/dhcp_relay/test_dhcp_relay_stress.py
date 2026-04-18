@@ -6,13 +6,15 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.dhcp_relay_utils import check_dhcp_stress_status
 from tests.common.dhcp_relay_utils import restart_dhcp_service
+from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
+    pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"])
 ]
 
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
@@ -20,7 +22,8 @@ DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 
 
-def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist,
+                                        testing_config, relay_agent,
                                         request, setup_standby_ports_on_rand_unselected_tor,
                                         toggle_all_simulator_ports_to_rand_selected_tor_m):      # noqa F811
     """
@@ -57,7 +60,9 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                             "testing_mode": testing_mode,
                             "duration": duration,
                             "pps": pps,
-                            "kvm_support": True},
+                            "kvm_support": True,
+                            "relay_agent": relay_agent,
+                            "downlink_vlan_iface_name": str(dut_dhcp_relay_data[0]["downlink_vlan_iface"]["name"])},
                    log_file="/tmp/dhcp_relay_stress_test.DHCPContinuousStressTest.log", is_python3=True,
                    async_mode=True)
 
@@ -98,12 +103,15 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                             "switch_loopback_ip": dut_dhcp_relay_data[0]['switch_loopback_ip'],
                             "uplink_mac": str(dut_dhcp_relay_data[0]['uplink_mac']),
                             "testing_mode": testing_mode,
-                            "kvm_support": True},
+                            "kvm_support": True,
+                            "relay_agent": relay_agent,
+                            "downlink_vlan_iface_name": str(dut_dhcp_relay_data[0]["downlink_vlan_iface"]["name"])},
                    log_file="/tmp/dhcp_relay_test.stress.DHCPTest.log", is_python3=True)
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
-def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist,
+                           testing_config, relay_agent,
                            setup_standby_ports_on_rand_unselected_tor,
                            toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
                            dhcp_type, clean_processes_after_stress_test):
@@ -139,7 +147,9 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             "packets_send_duration": packets_send_duration,
             "client_packets_per_sec": client_packets_per_sec,
             "testing_mode": testing_mode,
-            "kvm_support": True
+            "kvm_support": True,
+            "relay_agent": relay_agent,
+            "downlink_vlan_iface_name": str(dhcp_relay["downlink_vlan_iface"]["name"])
         }
         count_file = '/tmp/dhcp_stress_test_{}'.format(dhcp_type)
 
