@@ -619,8 +619,50 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     return config, port_config_list
 
 
+def check_if_ports_are_members_of_portchannel_or_vlan(duthost, snappi_ports):
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    if 'minigraph_portchannels' not in mg_facts:
+        return True
+    pc_facts = mg_facts['minigraph_portchannels']
+    vlan_facts = mg_facts['minigraph_vlans']
+    if not pc_facts and not vlan_facts:
+        return True
+    pc_members = {k: v['members'] for k, v in pc_facts.items()}
+    for sp in snappi_ports:
+        for pc, members in pc_members.items():
+            if sp['peer_port'] in members:
+                logger.warning(f"Removing port {sp['peer_port']} from portchannel {pc} for snappi testing")
+                duthost.command(
+                    f"sudo config portchannel member del {pc} {sp['peer_port']}"
+                )
+    vlan_members = {k: v['members'] for k, v in vlan_facts.items()}
+    for sp in snappi_ports:
+        for vlan, members in vlan_members.items():
+            if sp['peer_port'] in members:
+                logger.warning(f"Removing port {sp['peer_port']} from vlan {vlan.split('Vlan')[-1]} for snappi testing")
+                duthost.command(
+                    f"sudo config vlan member del {vlan.split('Vlan')[-1]} {sp['peer_port']}"
+                )
+    return True
+
+
+@pytest.fixture(scope="function")
+def setup_bgp_testbed(duthost):  # noqa: F811
+    duthost.command("sudo cp /etc/sonic/config_db.json /etc/sonic/bgp_backup.json \n")
+    logger.info('Backing up the initial config to /etc/sonic/bgp_backup.json \n')
+    yield
+    logger.info('\n Restoring the initial config as part of teardown \n')
+    # duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y")
+    error = duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y \n")['stderr']
+    if 'Error' in error:
+        pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/bgp_backup.json -y \n")['stderr'],
+                      'Error while reloading config in {} !!!!!'
+                      .format(duthost.hostname))
+    duthost.command("sudo cp /etc/sonic/bgp_backup.json /etc/sonic/config_db.json \n")
+
+
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
+def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts):  # noqa: F811
     """
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
@@ -653,20 +695,16 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         'prefix': u'24',
         'speed': 'speed_400_gbps'}]
     """
-    speed_type = {
-                  '10000': 'speed_10_gbps',
-                  '25000': 'speed_25_gbps',
-                  '40000': 'speed_40_gbps',
-                  '50000': 'speed_50_gbps',
-                  '100000': 'speed_100_gbps',
-                  '200000': 'speed_200_gbps',
-                  '400000': 'speed_400_gbps',
-                  '800000': 'speed_800_gbps'}
+    gs = get_snappi_ports
+    check_if_ports_are_members_of_portchannel_or_vlan(duthost, gs)
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                              dut_hostname=duthost.hostname)
     pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
+
+    dut_port_table = config_facts.get('PORT', {})
+
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     for snappi_fanout in snappi_fanouts:
         snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
@@ -682,22 +720,23 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         dutv6Ips = create_ip_list(dut_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
         tgenv6Ips = create_ip_list(snappi_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
         for port_id, port in enumerate(snappi_ports):
+            port['port_id'] = str(port_id + 1)
+            dut_port_info = dut_port_table.get(port['peer_port'], {})
+            port['autoneg'] = dut_port_info.get('autoneg') == 'on'
+            port['fec'] = str(dut_port_info.get('fec', '')).strip().lower().startswith('rs')
+            fec_value = str(dut_port_info.get('link_training', '')).strip().lower()
+            port['link_training'] = fec_value in ['on', 'true', 'yes', '1']
             port['speed'] = speed_type.get(str(port_speed), port['speed'])
             peer_port = port['peer_port']
-            int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+            entry = bool(config_facts.get('INTERFACE', {}).get(peer_port))
             for ipver, addr_type in (("ipv4", "IPv4"), ("ipv6", "IPv6")):
-                entry = next((a for a in int_addrs if (":" in a) == (ipver == "ipv6")), None)
                 if ipver == "ipv4":
                     dut_list, tgen_list, mask = dutIps, tgenIps, prefix_length
                     peer_ip_key, prefix_key, ip_key = "peer_ip", "prefix", "ip"
                 else:
                     dut_list, tgen_list, mask = dutv6Ips, tgenv6Ips, v6_prefix_length
                     peer_ip_key, prefix_key, ip_key = "peer_ipv6", "ipv6_prefix", "ipv6"
-                if entry:
-                    # Already configured on DUT
-                    port[peer_ip_key], port[prefix_key] = entry.split("/")
-                    port[ip_key] = get_addrs_in_subnet(entry, 1, exclude_ips=[entry.split("/")[0]])[0]
-                else:
+                if not entry:
                     # Assign and configure new IPs
                     port[peer_ip_key] = dut_list[port_id]
                     port[prefix_key] = mask
@@ -715,6 +754,11 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
                             f"Unable to configure {addr_type} on {peer_port}: {e}",
                             pytrace=False,
                         )
+                else:
+                    int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+                    entry = next((a for a in int_addrs if (":" in a) == (ipver == "ipv6")), None)
+                    port[peer_ip_key], port[prefix_key] = entry.split("/")
+                    port[ip_key] = get_addrs_in_subnet(entry, 1, exclude_ips=[entry.split("/")[0]])[0]
     return snappi_ports
 
 

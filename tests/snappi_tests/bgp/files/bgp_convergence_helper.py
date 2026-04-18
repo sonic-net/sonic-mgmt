@@ -231,7 +231,8 @@ def duthost_bgp_config(duthost,
             "sudo config interface ip add PortChannel%s %s/%s\n"
         )
         portchannel_config %= (i+1, i+1, tgen_ports[i]['peer_port'], i+1, tgen_ports[i]
-                               ['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'], 64)
+                               ['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'],
+                               tgen_ports[i]['ipv6_prefix'])
         logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (
             tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
         duthost.shell(portchannel_config)
