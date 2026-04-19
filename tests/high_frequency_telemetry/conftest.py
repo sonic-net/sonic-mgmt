@@ -6,6 +6,36 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, enum_rand_one_per_hwsku_hostname, loganalyzer):
+    """
+    Ignore expected SAI_TAM errors during HFT test execution.
+
+    When HFT is enabled, SONiC initially sends a buffer size of 65535 for IPFIX templates,
+    but SAI requires a larger buffer (e.g., 119352). SAI returns SAI_STATUS_BUFFER_OVERFLOW
+    with the required size, and SONiC retries with the correct size. This is normal behavior,
+    not a functional issue. The error logs can be safely ignored.
+
+    Args:
+        duthosts: list of DUTs.
+        enum_rand_one_per_hwsku_hostname: Hostname of a random chosen dut
+        loganalyzer: Loganalyzer utility fixture
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if loganalyzer:
+        ignoreRegex = [
+            # SAI prints ERR when IPFIX template buffer is too small on first probe;
+            # SONiC retries with the correct size and succeeds - not a functional issue
+            ".*ERR syncd#SDK.*SAI_TAM.*mlnx_generate_ipfix_templates.*Buffer size is too small"
+            " to hold IPFIX template.*",
+            ".*ERR syncd#SDK.*SAI_TAM.*mlnx_tam_tel_type_get_ipfix_templates.*Failed to generate"
+            " IPFIX templates.*",
+            ".*ERR syncd#SDK.*SAI_TAM.*mlnx_tam_tel_type_attrib_get.*Failed to get attribute.*",
+            ".*ERR syncd#SDK.*SAI_UTILS.*get_dispatch_attribs_handler.*Failed Get.*IPFIX_TEMPLATES.*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+
 @pytest.fixture(scope="function")
 def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     """Ensure swss container is running and stable for at least 10 seconds.
