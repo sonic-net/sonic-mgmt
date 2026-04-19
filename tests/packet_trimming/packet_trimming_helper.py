@@ -18,7 +18,7 @@ from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_i
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
                                              DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
-                                             PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
+                                             PACKET_COUNT, SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
@@ -774,7 +774,6 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     remaining_packets = fill_packet_count % BATCH_PACKET_COUNT
 
     total_sent_packets = 0
-    max_retries = 3  # Maximum number of retries per batch
 
     # Send packets in batches
     logger.info(f"Sending packets in batches of {BATCH_PACKET_COUNT} packets each")
@@ -784,7 +783,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         retries = 0
         batch_success = False
 
-        while not batch_success and retries < max_retries:
+        while not batch_success and retries < SEND_MAX_RETRIES:
             try:
                 logger.info(f"Sending batch {batch_index + 1}/{num_batches} ({BATCH_PACKET_COUNT} packets)")
                 for interface in interfaces:
@@ -802,7 +801,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
             except Exception as e:
                 retries += 1
-                logger.warning(f"Batch {batch_index + 1} failed (attempt {retries}/{max_retries}): {e}")
+                logger.warning(f"Batch {batch_index + 1} failed (attempt {retries}/{SEND_MAX_RETRIES}): {e}")
                 # Wait before retry
                 time.sleep(2)
 
@@ -2632,12 +2631,30 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
 
         # Send packet
         logger.info(f"Sending {packet_count} packets from port {ingress_port['ptf_id']}")
-        testutils.send(
-            ptfadapter,
-            port_id=ingress_port['ptf_id'],
-            pkt=pkt,
-            count=packet_count
-        )
+        retries = 0
+        send_success = False
+        last_exception = None
+        while not send_success and retries < SEND_MAX_RETRIES:
+            try:
+                testutils.send(
+                    ptfadapter,
+                    port_id=ingress_port['ptf_id'],
+                    pkt=pkt,
+                    count=packet_count
+                )
+                send_success = True
+            except Exception as e:
+                last_exception = e
+                retries += 1
+                logger.warning(f"Send failed (attempt {retries}/{SEND_MAX_RETRIES}): {e}")
+                time.sleep(2)
+                ptfadapter.dataplane.flush()
+
+        if not send_success:
+            raise RuntimeError(
+                f"Failed to send packets from port {ingress_port['ptf_id']} after {SEND_MAX_RETRIES} retries: "
+                f"{last_exception}"
+            ) from last_exception
 
         # Get verify port
         if isinstance(egress_port['ptf_id'], list):
