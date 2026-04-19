@@ -22,6 +22,7 @@ from ptf.testutils import simple_icmpv6_packet
 from ptf.mask import Mask
 
 pytestmark = [
+    pytest.mark.disable_memory_utilization,
     pytest.mark.topology(
         't0-isolated-d2u254s1', 't0-isolated-d2u254s2', 't0-isolated-d2u510', 't0-isolated-d2u510s2',
         't1-isolated-d254u2s1', 't1-isolated-d254u2s2', 't1-isolated-d510u2',
