@@ -11,8 +11,7 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
-from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
-         verify_ha_state, set_dash_ha_scope
+from ha_utils import verify_ha_state, set_dash_ha_scope
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,6 @@ def _planned_swo_phase(
     peer_scope_key,
     expected_swo_state,
     expected_peer_state,
-    activate_fn,
     ha_owner,
     vm_to_dpu_pkt,
     exp_dpu_to_pe_pkt,
@@ -112,7 +110,6 @@ def _planned_swo_phase(
         peer_scope_key: HA scope key for the peer DUT.
         expected_swo_state: Expected HA state on swo_duthost after SWO (e.g. "standby").
         expected_peer_state: Expected HA state on peer_duthost after SWO (e.g. "active").
-        activate_fn: Function to re-activate HA on swo_duthost after verification.
         ha_owner: Owner string from ha_owner fixture ("dpu" or "switch").
         label: Human-readable label for logging (e.g. "primary" / "secondary").
     """
@@ -158,10 +155,6 @@ def _planned_swo_phase(
 
     logging.info("%s planned switchover complete, all %d packets received", label, send_count)
 
-    pytest_assert(activate_fn(localhost, swo_duthost, ptfhost, swo_scope_key, "activate_role",
-                              owner=ha_owner),
-                  f"Failed to re-activate HA on {label}")
-
 
 def test_ha_planned_swo(
     ptfadapter,
@@ -179,7 +172,7 @@ def test_ha_planned_swo(
     Phase 1: Switch primary (active) to standby.
              Verify primary becomes standby and secondary becomes active.
              Re-activate primary.
-    Phase 2: Switch secondary (now standby again) to standby.
+    Phase 2: Switch secondary (now active) again to standby.
              Verify states remain consistent.
              Re-activate secondary.
     """
@@ -203,7 +196,6 @@ def test_ha_planned_swo(
         peer_scope_key="vdpu1_0:haset0_0",
         expected_swo_state="standby",
         expected_peer_state="active",
-        activate_fn=activate_primary_dash_ha,
         ha_owner=ha_owner,
         vm_to_dpu_pkt=vm_to_dpu_pkt,
         exp_dpu_to_pe_pkt=exp_dpu_to_pe_pkt,
@@ -212,7 +204,7 @@ def test_ha_planned_swo(
         label="primary",
     )
 
-    # Phase 2: secondary (standby) -> standby
+    # Phase 2: secondary (now active) -> standby
     _planned_swo_phase(
         ptfadapter=ptfadapter,
         localhost=localhost,
@@ -223,7 +215,6 @@ def test_ha_planned_swo(
         peer_scope_key="vdpu0_0:haset0_0",
         expected_swo_state="standby",
         expected_peer_state="active",
-        activate_fn=activate_secondary_dash_ha,
         ha_owner=ha_owner,
         vm_to_dpu_pkt=vm_to_dpu_pkt,
         exp_dpu_to_pe_pkt=exp_dpu_to_pe_pkt,
