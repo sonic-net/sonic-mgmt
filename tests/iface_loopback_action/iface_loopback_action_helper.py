@@ -4,6 +4,7 @@ import ptf.packet as packet
 import time
 import re
 import logging
+from contextlib import contextmanager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
@@ -196,7 +197,7 @@ def remove_orig_dut_port_config(duthost, orig_ports_configuration):
     :param orig_ports_configuration: original ports configuration parameters
     """
     remove_acl_tables(duthost)
-    ports_to_verify_rif_removal = []
+    ip_ports = {}
     for _, port_dict in list(orig_ports_configuration.items()):
         port = port_dict['port']
         if port_dict['vlan']:
@@ -211,18 +212,37 @@ def remove_orig_dut_port_config(duthost, orig_ports_configuration):
                 duthost.shell('sudo config portchannel del {}'.format(port_dict['portchannel']))
 
         elif port_dict['ip_addr']:
-            for ip in port_dict['ip_addr']:
-                remove_dut_ip_from_port(duthost, port, ip)
-            ports_to_verify_rif_removal.append(port)
+            ip_ports[port] = port_dict['ip_addr']
 
-    for port in ports_to_verify_rif_removal:
-        verify_port_rif_removed_asic_db(
-            duthost,
-            port,
-            timeout=90,
-            interval=2,
-            exact=True
-        )
+    # Shutdown interfaces before removing IPs to prevent race condition where
+    # a stale neighbor SET arrives in APP_DB after INTF_TABLE DEL, creating
+    # zombie NEIGHBOR/NEXT_HOP entries that block RIF removal in ASIC_DB.
+    with shutdown_interfaces(duthost, list(ip_ports.keys())):
+        for port, ips in ip_ports.items():
+            for ip in ips:
+                remove_dut_ip_from_port(duthost, port, ip)
+        for port in ip_ports:
+            verify_port_rif_removed_asic_db(
+                duthost,
+                port,
+                timeout=90,
+                interval=2,
+                exact=True
+            )
+
+
+@contextmanager
+def shutdown_interfaces(duthost, ports):
+    """Shutdown interfaces and ensure they are started up on exit."""
+    shutdown_ports = []
+    try:
+        for port in ports:
+            duthost.shell(f"config interface shutdown {port}")
+            shutdown_ports.append(port)
+        yield
+    finally:
+        for port in shutdown_ports:
+            duthost.shell(f"config interface startup {port}", module_ignore_errors=True)
 
 
 def get_portchannel_peer_port_map(duthost, orig_ports_configuration, tbinfo, nbrhosts):
