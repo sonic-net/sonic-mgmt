@@ -463,6 +463,15 @@ class EosHost(AnsibleHostBase):
         try:
             command = 'show interfaces {} | json'.format(interface_name)
             output = self.eos_command(commands=[command])['stdout'][0]
+            forwardingModel = output["interfaces"][interface_name]["forwardingModel"]
+            if forwardingModel == "routed":
+                self.eos_config(
+                    lines=['switchport'],
+                    parents=['interface {}'.format(interface_name)])
+                output = self.eos_command(commands=[command])['stdout'][0]
+                self.eos_config(
+                    lines=['no switchport'],
+                    parents=['interface {}'.format(interface_name)])
             mac = output["interfaces"][interface_name]["physicalAddress"]
             return mac
         except Exception as e:
