@@ -2640,6 +2640,12 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "release in ['202211']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/22295 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0']"
 
+generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates[None-replace-green_max_threshold]:
+  xfail:
+    reason: "Xfail due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/23597"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23597 and platform in ['x86_64-nvidia_sn5640-r0']"
+
 generic_config_updater/test_eth_interface.py::test_port_speed_change_oper_status:
   skip:
     reason: 'Skip this test due to misleading StateDB output for valid speed, same known issue as test_update_speed'
