@@ -29,6 +29,7 @@
         - [Module 6 Critical Process Crash](#module-6-critical-process-crash)
         - [Module 7 Power down and hardware failure](#module-7-power-down-and-hardware-failure)
         - [Module 8 Operations](#module-8-operations)
+        - [Module 9 Controller Workflow](#module-9-controller-workflow)
     - [Test Utilities](#test-utilities)
 
 <!-- /TOC -->
@@ -138,9 +139,9 @@ All of the test modules below, are requesting 2 SmartSwitch to form a pair. Test
 ### Module 1 Steady State
 
 
-| Case                   | Goal                                     | Test Steps                              | Expected Control Plane Behavior            | Expected Data Plane Behavior                                 |
-| ---------------------- | ---------------------------------------- | --------------------------------------- | ------------------------------------------ | ------------------------------------------------------------ |
-| Steady State – Active  | Verify normal operation in healthy state | • Start sending traffic to Active side  | DPU1 remains active, DPU2 remains standby. | T2 receives packets without disruption.                      |
+| Case                  | Goal                                     | Test Steps                             | Expected Control Plane Behavior            | Expected Data Plane Behavior            |
+| --------------------- | ---------------------------------------- | -------------------------------------- | ------------------------------------------ | --------------------------------------- |
+| Steady State – Active | Verify normal operation in healthy state | • Start sending traffic to Active side | DPU1 remains active, DPU2 remains standby. | T2 receives packets without disruption. |
 
 
 ### Module 2 Planned Switchovers
@@ -261,7 +262,7 @@ For each case in this module, there are 2 variations:
 | ENI presents when programming HA                                                                                                                                        | Make sure if programming order ever goes wrong, system can be recovered with DASH provided APIs. | - Program ENI before HA and recover.                                                                                                          | HA programming should fail due to SAI failure. After  removing ENI, HA can be programmed cleanly.                                                                              | NA                           |
 | Split-brain                                                                                                                                                             | Test split-brain recover workflow.                                                               | Shutdown NPU interface to trigger split-brain. Unshut interfaces to re-establish conntection. Controller approves split-brain recovery op id. | DPU-DPU connection can recover from split-brain after network issue is resolved. NOS will receive split-brain notification (DPU-driven) and recover per controller's approval. | NA                           |
 | [Launch with no peer](https://github.com/sonic-net/SONiC/blob/master/doc/smart-switch/high-availability/smart-switch-ha-hld.md#813-launch-with-no-peer)                 | Verify behavior designed in HLD                                                                  | Keep peer in dead state while launching                                                                                                       | Local DPU enter standalone state.                                                                                                                                              | NA                           |
-| [Launch with standalone peer](https://github.com/sonic-net/SONiC/blob/master/doc/smart-switch/high-availability/smart-switch-ha-hld.md#812-launch-with-standalone-peer) | Verify behavior designed in HLD                                                                  | From the end state of "Launch with no peer", activate peer.                                                                                   | Enter steady state eventually.                                                                                                                                                 | NA |
+| [Launch with standalone peer](https://github.com/sonic-net/SONiC/blob/master/doc/smart-switch/high-availability/smart-switch-ha-hld.md#812-launch-with-standalone-peer) | Verify behavior designed in HLD                                                                  | From the end state of "Launch with no peer", activate peer.                                                                                   | Enter steady state eventually.                                                                                                                                                 | NA                           |
 
 ## Test Utilities 
 There are some test utilities we need to implement to cover all test scenarios, including but not limited to:
