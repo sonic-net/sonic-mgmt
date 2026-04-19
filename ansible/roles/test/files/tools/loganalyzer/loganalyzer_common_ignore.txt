@@ -482,8 +482,11 @@ r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*
 r, ".* ERR swss\d*#orchagent:.*getPortLinkTrainingFailure: Failed to get LT failure status for .*"
 
 # Ignore RX signal detect and RX SNR feature unavailable errors on broadcom platforms
+# and the corresponding collectData failure from FlexCounter PORT_PHY_ATTR polling
+# https://github.com/sonic-net/sonic-mgmt/issues/24023
 r, ".* ERR syncd\d*#syncd:.*SAI_API_PORT:brcm_sai_get_port_attribute_cmn:\d+ RX signal detect status get \d+ attrib \d+ failed with error Feature unavailable \(0xfffffff0\).*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_PORT:brcm_sai_get_port_attribute_cmn:\d+ bcm_port_phy_control_get rx snr failed with error Feature unavailable \(0xfffffff0\).*"
+r, ".* ERR syncd\d*#syncd: :- collectData: Failed to get port attr for VID 0x[0-9a-fA-F]+, RID:0x[0-9a-fA-F]+: -2.*"
 
 # https://github.com/sonic-net/sonic-mgmt/issues/19347
 r, ".* ERR auditd.*: queue to plugins is full - dropping event"
