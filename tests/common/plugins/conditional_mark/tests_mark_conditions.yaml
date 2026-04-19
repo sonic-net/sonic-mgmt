@@ -1281,15 +1281,6 @@ disk/test_disk_exhaustion.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20759 and '-v6-' in topo_name"
 
 #######################################
-#####             dns             #####
-#######################################
-dns/static_dns/test_static_dns.py::test_static_dns_basic:
-  skip:
-    reason: "Found regression issue on multi-asic platform, need to skip for multi-asic platform until the issue is fixed."
-    conditions:
-      - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/23880"
-
-#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
