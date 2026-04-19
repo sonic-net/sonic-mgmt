@@ -7,6 +7,7 @@ from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import check_pmon_uptime_minutes
+from tests.platform_tests.mellanox.conftest import CPO_PORT_TYPE
 
 pytestmark = [
     pytest.mark.asic('mellanox', 'nvidia-bluefield'),
@@ -15,6 +16,8 @@ pytestmark = [
 
 SHOW_EEPOMR_CMDS = ["show interface transceiver eeprom -d",
                     "sudo sfputil show eeprom -d"]
+SHOW_INTF_STATUS_CMDS = "show interface status"
+REDIS_CLI_TRANSCEIVER_TYPE = 'sonic-db-cli STATE_DB hget "TRANSCEIVER_INFO|{}" "type"'
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -64,7 +67,7 @@ def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts,
 
 @pytest.mark.parametrize("show_eeprom_cmd", SHOW_EEPOMR_CMDS)
 def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_eeprom_cmd, sfp_test_intfs_to_dom_map,
-                                          port_list_with_flat_memory):
+                                          port_list_with_flat_memory, is_cpo_supported):
     """This test case is to check result of  transceiver eeprom with option -d is correct or not for every interface .
     It will do below checks for every available interface
         1. Check if all expected keys exist in the result
@@ -78,11 +81,17 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
 
     with allure.step("Run: {} to get transceiver eeprom info".format(show_eeprom_cmd)):
         check_eeprom_dom_output = duthost.command(show_eeprom_cmd)
-        assert check_eeprom_dom_output["rc"] == 0, "Failed to read eeprom info for all interfaces"
         sfp_info_dict = parse_sfp_eeprom_infos(
             check_eeprom_dom_output["stdout"])
+        assert sfp_info_dict, "No SFP EEPROM info found"
 
     with allure.step("Check results for {}".format(show_eeprom_cmd)):
+        if is_cpo_supported:
+            with allure.step("Run: {} to get interface status".format(SHOW_INTF_STATUS_CMDS)):
+                intf_status = duthost.show_and_parse(SHOW_INTF_STATUS_CMDS)
+                assert intf_status["rc"] == 0, "Failed to read interface status"
+                intf_status_dict = {row["interface"]: row for row in intf_status}
+
         for intf, inft_support_dom in list(sfp_test_intfs_to_dom_map.items()):
             if intf in sfp_info_dict:
                 with allure.step("Check {}".format(intf)):
@@ -92,3 +101,13 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
                     is_flat_memory = True if intf in port_list_with_flat_memory[duthost.hostname] else False
                     check_sfp_eeprom_info(
                         duthost, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd, is_flat_memory)
+
+                if is_cpo_supported:
+                    with allure.step("Check {} identifier type".format(intf)):
+                        cmd = f'sonic-db-cli STATE_DB hget "TRANSCEIVER_INFO|{intf}" "type"'.format(intf)
+                        transceiver_type = duthost.command(cmd)["stdout"]
+                        assert transceiver_type == CPO_PORT_TYPE, f"Transceiver type in state DBis not {CPO_PORT_TYPE}"
+                        assert intf_status_dict[intf]["type"] == CPO_PORT_TYPE, \
+                            f"Interface type in show interface status is not {CPO_PORT_TYPE}"
+                        assert sfp_info_dict[intf]["Identifier"] == CPO_PORT_TYPE, \
+                            f"Identifier type in sfp eeprom is not {CPO_PORT_TYPE}"
