@@ -784,13 +784,13 @@ def pytest_addoption(parser):
         "--vnet_count",
         action="store",
         default="100",
-        help="Number of VNETs/VLANs/Subinterfaces to create"
+        help="Number of VNETs/VLANs to create"
     )
     parser.addoption(
         "--subif_per_vnet",
         action="store",
         default="16",
-        help="Number of VNETs/VLANs/Subinterfaces to create"
+        help="Number of Subinterfaces to create per vnet"
     )
 
 
