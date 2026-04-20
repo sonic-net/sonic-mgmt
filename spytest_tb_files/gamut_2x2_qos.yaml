@@ -1,0 +1,83 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    spine0: # Gamut Spine-0 (SJ02-112-AAL-11)
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.25.168.173, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    spine1:  # Superbolt Spine-1
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.25.168.172, port: 22}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf0:  # Gamut Leaf-0 (SJ02-112-AAL-11)
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.25.168.174, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf1:  # Gamut Leaf-1 (SJ02-112-AAL-11)
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.25.168.175, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: ixia, version: 11.00, ip: 172.25.168.194, ix_server: 10.29.158.84}
+
+topology:
+    # spine0=Gamut Spine-0 (172.25.168.173) - Uses Ethernet1_X_Y naming
+    # spine1=Superbolt-X Spine-1 (172.25.168.172) - Uses EthernetN naming
+    # leaf0=Gamut Leaf-0 (172.25.168.174)
+    # leaf1=Gamut Leaf-1 (172.25.168.175)
+    spine0:
+        interfaces:
+            # spine0 (400G breakouts) -> leaf1 (800G) - 2x400G per 800G port
+            Ethernet1_2: {EndDevice: leaf1, EndPort: Ethernet1_2, params: def_link}
+            Ethernet1_4: {EndDevice: leaf1, EndPort: Ethernet1_4, params: def_link}
+            Ethernet1_3: {EndDevice: leaf1, EndPort: Ethernet1_3, params: def_link}
+            Ethernet1_1: {EndDevice: leaf1, EndPort: Ethernet1_1, params: def_link}
+            # spine0 (800G) -> leaf0 (800G)
+            Ethernet1_8: {EndDevice: leaf0, EndPort: Ethernet1_8, params: def_link}
+            Ethernet1_5: {EndDevice: leaf0, EndPort: Ethernet1_5, params: def_link}
+            Ethernet1_7: {EndDevice: leaf0, EndPort: Ethernet1_7, params: def_link}
+            Ethernet1_6: {EndDevice: leaf0, EndPort: Ethernet1_6, params: def_link}
+    spine1:
+        interfaces:
+            # spine1 (400G) -> leaf0 (400G breakouts)
+            Ethernet8: {EndDevice: leaf0, EndPort: Ethernet1_2_1, params: def_link}
+            Ethernet12: {EndDevice: leaf0, EndPort: Ethernet1_2_2, params: def_link}
+            Ethernet0: {EndDevice: leaf0, EndPort: Ethernet1_1_1, params: def_link}
+            Ethernet4: {EndDevice: leaf0, EndPort: Ethernet1_1_2, params: def_link}
+            # spine1 (400G) -> leaf1 (400G breakouts)
+            Ethernet32: {EndDevice: leaf1, EndPort: Ethernet1_5_1, params: def_link}
+            Ethernet36: {EndDevice: leaf1, EndPort: Ethernet1_5_2, params: def_link}
+            Ethernet40: {EndDevice: leaf1, EndPort: Ethernet1_6_1, params: def_link}
+            Ethernet44: {EndDevice: leaf1, EndPort: Ethernet1_6_2, params: def_link}
+    leaf0:
+        interfaces:
+            # leaf0 800G <- spine0 (defined above)
+            # leaf0 400G breakouts <- spine1 (defined above)
+            # IXIA ports 1 and 2
+            Ethernet1_58_1: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}
+            Ethernet1_58_2: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
+            Ethernet1_59_1: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
+            Ethernet1_45: {EndDevice: leaf1, EndPort: Ethernet1_45, params: def_link}
+    leaf1:
+        interfaces:
+            # leaf1 800G <- spine0 (defined above)
+            # leaf1 400G breakouts <- spine1 (defined above)
+            # IXIA ports 3 and 4
+            Ethernet1_57_1: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}

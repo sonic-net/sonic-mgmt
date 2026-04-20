@@ -40,7 +40,6 @@ from tests.cisco.tortuga.common import tortuga_common_utils as common_util
 # Module-level cache for nodes dict
 _nodes_cache = None
 
-
 def get_nodes():
     """
     Get node name to DUT object mapping for 2-spine + 2-leaf topology.
@@ -603,3 +602,22 @@ def dump_mid_traffic_debug(dut, interfaces, tc):
     for intf in interfaces:
         st.config(dut, f"redis-cli -n 4 hgetall 'PORT_QOS_MAP|{intf}'",
                   skip_error_check=True)
+
+_qos_reloaded = set()
+
+def perform_qos_reload(dut, force=False):
+    # We keep track of which DUTs have already undergone a qos reload.
+    # However if function is invoked with force option, we will disregard
+    # a prior qos reload
+    if dut in _qos_reloaded and not force:
+        st.log(f"QoS already reloaded on {dut}, skipping")
+        return
+    if common_util.find_platform_str(dut) == 'gamut':
+        st.config(dut,
+          'redis-cli -n 4 hset "DEVICE_METADATA|localhost" cfg_profile hyperfabric',
+          skip_tmpl=True, skip_error_check=True)
+    st.config(dut,
+      'config qos clear\nconfig qos reload --no-dynamic-buffer',
+      skip_tmpl=True, skip_error_check=True)
+    if not force:
+        _qos_reloaded.add(dut)

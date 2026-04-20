@@ -1,8 +1,10 @@
+import os
 import pytest
 import pprint
 from spytest import st, tgapi, SpyTestDict
 import tortuga_common_utils as common_util
 from spytest.tgen.tg import get_ixiangpf as ixia_handle
+import qos_test_utils
 
 ONE_GBPS = 1000000000
 
@@ -198,7 +200,6 @@ def configure_tc_to_pg_map(dut, pg_map, map_name='AZURE'):
     st.log("Setting TC-to-PG map on {}: {}".format(dut, cmd))
     st.config(dut, cmd, skip_error_check=True)
 
-
 def init_qos_on_dut(dut, tc_list=[3, 4]):
     """Reload QoS defaults and set the IXIA-compatible TC-to-PG map on a DUT."""
 
@@ -227,6 +228,8 @@ def init_qos_on_dut(dut, tc_list=[3, 4]):
             ports += f'{port}|'
             port_cnt += 1
 
+        st.log(f'IXIA port cnt {port_cnt}')
+        up_cnt = 0
         # Try upto 60 seconds to ensure ports are up
         for i in range(1, port_cnt + 1):
             st.wait(15)
@@ -245,16 +248,13 @@ def init_qos_on_dut(dut, tc_list=[3, 4]):
 
         if up_cnt < port_cnt:
             # Most tests are D3 based, so allow some down ports on D4
-            if leaf == 'D3':
-                st.report_fail('msg',
-                    f"IXIA port {tokens[0]} is not up on D3 - aborting test")
-            else:
-                st.warn(f"IXIA port {tokens[0]} is not up on D4") 
+            st.report_fail('msg',
+                f"IXIA port {tokens[0]} is not up on {leaf} - aborting test")
             
     lossless = tc_list
     if len(pg_map_cache) == 0:
         pg_map_cache = build_tc_to_pg_map(tc_list)
-    st.config(dut, "config qos reload", skip_error_check=True)
+    qos_test_utils.perform_qos_reload(dut)
     if tgen_handle is None:
         tgen_handle,_ = tgapi.get_handle_byname('T1D3P1')
     if leaf is None:
@@ -381,6 +381,8 @@ def config_one_spine_three_leaf_topo(tb_dict):
     cfg_route_dut3 = ''
     cfg_route_dut4 = ''
     for key, value in net_map.items():
+        if key not in tb_dict:
+            continue
         cfg_str = 'config interface ip add {} {}/24\n'.format(tb_dict[key],
                                                               value) 
         p1 = key[0:2]
@@ -580,13 +582,17 @@ def config_ixia_links(tb_dict, vars):
     cfg_dut1 = ''
     cfg_dut2 = ''
     for key, value in net_map.items():
+        if key not in tb_dict:
+            continue
         p1 = key[0:2]
         if p1 == 'D3':
             cfg_dut1 += 'config interface ip add {} {}/24\n'.format(tb_dict[key], value)
         else:
             cfg_dut2 += 'config interface ip add {} {}/24\n'.format(tb_dict[key], value)
-    st.config(tb_dict.D3, cfg_dut1, skip_tmpl=True)
-    st.config(tb_dict.D4, cfg_dut2, skip_tmpl=True)
+    if cfg_dut1:
+        st.config(tb_dict.D3, cfg_dut1, skip_tmpl=True)
+    if cfg_dut2:
+        st.config(tb_dict.D4, cfg_dut2, skip_tmpl=True)
 
     # Just for debug display the interfaces
     st.show(tb_dict.D3, 'show ip interfaces', skip_tmpl=True)
@@ -640,18 +646,22 @@ def config_one_leaf(tb_dict, t_info):
     # Startup all IXIA-facing interfaces on the leaf
     leaf = t_info['leaf']
     startup_cfg = ''
+    port_cnt = 0
     for i in range(1, 5):
         key = leaf + 'T1P' + str(i)
-        if key in tb_dict:
-            startup_cfg += 'config interface startup {}\n'.format(tb_dict[key])
+        if key not in tb_dict:
+            break
+
+        port_cnt += 1
+        startup_cfg += 'config interface startup {}\n'.format(tb_dict[key])
 
     if startup_cfg:
         st.config(t_info['dut'], startup_cfg, skip_tmpl=True, skip_error_check=True)
         st.wait(5)  # Allow interfaces to come up
 
     cfg_dut = ''
-    for i in range(4):
-        key = t_info['leaf'] + 'T1' + 'P' + str(i + 1)
+    for i in range(1, port_cnt + 1): 
+        key = t_info['leaf'] + 'T1' + 'P' + str(i)
         cfg_dut += 'config interface ip add {} {}/24\n'\
             .format(tb_dict[key], one_device_map[key])
     st.config(t_info['dut'], cfg_dut, skip_tmpl=True)

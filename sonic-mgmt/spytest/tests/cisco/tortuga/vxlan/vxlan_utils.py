@@ -863,8 +863,8 @@ def is_mac_no_extern_learn_present_in_kernel(nodes, src_vtep, mac):
 def verify_bgp_convergence(nodes, svi_ips, src_vtep, remote_vtep, addr_family='ipv4'):
     st.log("Start BGP convergence check on {}" .format(src_vtep))
     start_time = time.time()
-    iter = 0
     for value in svi_ips[remote_vtep]:
+        iter = 0
         if addr_family == 'ipv4':
             prefix = value['ip'].strip('254/24') + '0'
         else:

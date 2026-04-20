@@ -22,6 +22,9 @@ def platform_to_modes(plat_str):
         return vars.test_info['Q200_modes']
     if common_util.is_g200(plat_str):
         return vars.test_info['G200_modes']
+    # Just reuse the G200 breakout modes for now
+    if common_util.is_gamut(plat_str):
+        return vars.test_info['G200_modes']
 
 def dut_to_tgen_str(dut):
     if dut == vars.D1:
@@ -41,8 +44,7 @@ def setup_topo():
     global brkout_result
 
     # This is standard 2 spine 2 leaf topology with 4 tgen ports on each leaf
-    tb_dict = st.ensure_min_topology("D1D3:2", "D1D4:2", "D2D3:1", "D2D4:1",
-                                     "D3T1:4", "D4T1:4")
+    tb_dict = st.ensure_min_topology("D1D3:2", "D3T1:3", "D4T1:1")
     vars = st.get_testbed_vars()
 
     vars.plat_str = []
@@ -107,8 +109,6 @@ def setup_topo():
     # Now make sure we have the required tgen ports on the router side
     # Sometimes they have to be broken due to previous state of router
     yield
-    for dut in vars.b2b_dut:
-        common_util.cleanup_ip_interfaces(dut)
 
 def mode_to_speed(mode):
     # will accept a string like '1x800G' and return '800G'
@@ -268,13 +268,23 @@ def perform_traffic_test(frame_sz):
             rx_stats = stats['traffic_item'][s1['stream_id']]['rx']
             loss = float(rx_stats['loss_percent'])
             tx_time = calc_tx_time(rx_stats)
-            pfc_rate_tgen = (1000 * (cntr2_tgen - cntr1_tgen)) / tx_time
-            pfc_rate_b2b = (1000 * (cntr2_b2b - cntr1_b2b)) / tx_time
-            st.banner(f"Tx={tx_stats['total_pkts']} "
-                      f"Rx={rx_stats['total_pkts']} "
-                      f"Loss%={loss:.2f} "
-                      f"PFC(IXIA)={pfc_rate_tgen:.2f}/sec "
-                      f"PFC(L2L)={pfc_rate_b2b:.2f}/sec")
+            if tx_time == 0:
+                # Unexpectedly the tx time is 0
+                pfc_delta_tgen = cntr2_tgen - cntr1_tgen
+                pfc_delta_b2b = cntr2_b2b - cntr1_b2b
+                st.banner(f"Tx={tx_stats['total_pkts']} "
+                          f"Rx={rx_stats['total_pkts']} "
+                          f"Loss%={loss:.2f} "
+                          f"PFC(IXIA)={pfc_delta_tgen}"
+                          f"PFC(L2L)={pfc_delta_b2b}")
+            else:
+                pfc_rate_tgen = (1000 * (cntr2_tgen - cntr1_tgen)) / tx_time
+                pfc_rate_b2b = (1000 * (cntr2_b2b - cntr1_b2b)) / tx_time
+                st.banner(f"Tx={tx_stats['total_pkts']} "
+                          f"Rx={rx_stats['total_pkts']} "
+                          f"Loss%={loss:.2f} "
+                          f"PFC(IXIA)={pfc_rate_tgen:.2f}/sec "
+                          f"PFC(L2L)={pfc_rate_b2b:.2f}/sec")
             if loss > 1:
                 # Cleanup routes before returning on error
                 st.config(vars.b2b_dut[0],

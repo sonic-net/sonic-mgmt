@@ -61,11 +61,6 @@ def setup_topo():
 
     yield
 
-    # Cleanup
-    for dut in st.get_dut_names():
-        common_util.cleanup_ip_interfaces(dut)
-        st.config(dut, 'config qos reload', skip_tmpl=True)
-
 
 def create_all_streams():
     """

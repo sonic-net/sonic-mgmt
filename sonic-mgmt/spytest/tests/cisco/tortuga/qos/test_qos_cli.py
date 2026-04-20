@@ -6,6 +6,7 @@ import pytest
 import tortuga_common_utils as common_util
 # Import Spytest APIs and helpers
 from spytest import st, tgapi, SpyTestDict
+import qos_test_utils
 
 scheduler_opts = ['type', 'weight', 'priority', 'meter-type', 'cir', 'pir',\
                   'cbs', 'pbs']
@@ -169,7 +170,7 @@ def test_single_map_add_update_del():
             continue;
 
         key_name = val['key_name']
-        st.config(dut1, "config qos reload")
+        qos_test_utils.perform_qos_reload(dut1, True)
         # Capture original cli dictionary
         curr_dict = common_util.show_cmd_to_dict(dut1, cmd_name)
         curr_dict = curr_dict[key_name]
@@ -218,7 +219,7 @@ def test_single_map_add_update_del():
                 pass_ctr += 1
                 st.banner('PASS: Dict {}'.format(cmd_dict))
             curr_dict = new_dict
-    st.config(dut1, "config qos reload")
+    qos_test_utils.perform_qos_reload(dut1, True)
     final_msg = f'Test Cases: Passed={pass_ctr} Failed={fail_ctr}'
     if fail_ctr > 0:
         st.report_fail('msg', final_msg)

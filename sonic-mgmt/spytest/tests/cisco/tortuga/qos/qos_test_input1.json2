@@ -10,7 +10,8 @@
                                "meter-type" : "bytes", "cir" : "100",
                                "pir" : "1000", "cbs" : "100", "pbs" : "400"}},
                    {"op" : "update", "name" : "new_scheduler",
-                    "value" : {"type" : "STRICT"}},
+                    "value" : {"priority" : "5", "weight" : "100",
+                               "pir" : "100000"}},
                    {"op" : "delete", "name" : "new_scheduler"}]
   },
   "tc-to-queue-map" : {

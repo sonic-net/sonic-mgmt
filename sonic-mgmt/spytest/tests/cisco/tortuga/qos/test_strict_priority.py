@@ -6,6 +6,7 @@ import pytest
 import pprint
 import tortuga_common_utils as common_util
 import traffic_stream_ixia_api as stream_api
+import qos_test_utils
 
 from spytest import st, tgapi, SpyTestDict
 module_dir = os.path.join(os.path.dirname(__file__), '../../', 'common')
@@ -32,14 +33,14 @@ def setup_topo():
 
     for k in min_keys:
         if k not in test_info:
-            st.report_fail('msg', 'Input dictionary is missing {}'.format(k))
+            st.report_fail('msg', f'Input dictionary is missing {k}')
             sys.exit(-1)
 
     test_info['tgen_port_cnt'] = 4
     # the leaf to leaf link D3D4 is non-standard for a 2 spine 2 leaf topology
     # the non-standard link is useful for breakout testing with data streams
     tb_dict = st.ensure_min_topology("D1D3:2", "D1D4:2", "D2D3:1", "D2D4:1",
-                                     "D3T1:4", "D4T1:4")
+                                     "D3T1:3", "D4T1:1")
     vars = st.get_testbed_vars()
 
     test_info['dut'] = tb_dict[test_info['leaf']]
@@ -59,7 +60,6 @@ def setup_topo():
     st.log("setup topology Done")
             
     yield
-    common_util.cleanup_ip_interfaces(test_info['dut'])
 
 '''
 gbps is the total stream rate in gigabits /sec
@@ -79,31 +79,18 @@ def report_pass_or_fail(gbps, avail, loss, s_info):
     else:
         expected_loss_percnt = diff * 100.0 / gbps
     delta = loss - expected_loss_percnt
-    if delta <= 0:
-        # we suffered less loss than expected
-        delta_percnt = 0
-    elif expected_loss_percnt == 0:
-        # When no loss is expected, any loss is a delta
-        delta_percnt = delta
+    if expected_loss_percnt == 0:
+        # No loss expected — any loss is the deviation
+        delta_percnt = abs(loss)
     else:
-        # Calculate the percent of deviation from theoretical loss%
-        delta_percnt = delta * 100.0 / expected_loss_percnt
-    info1 = 'PIR(gbps) {} Frame Len {} '.format(test_info['pir'],
-                test_info['frame_size'])
-    if delta_percnt <= 5:
-        # If deviation from expected loss is withint 5%, we call it a PASS
-        st.log('PASS: ' + info1 + s_info + ' Exp Loss% {:.2f}'.format(
-              expected_loss_percnt))
-        test_info['pass_ctr'] += 1
-    elif delta_percnt <= 18:
-        # TODO: This need further investigation
-        st.log('PASS: ' + info1 + s_info + ' Exp Loss% {:.2f}'.format(
-              expected_loss_percnt))
-        st.banner(f'Warning: delta % is {delta_percnt}')
+        delta_percnt = abs(delta) * 100.0 / expected_loss_percnt
+    info1 = f"PIR(gbps) {test_info['pir']} Frame Len {test_info['frame_size']} "
+    if delta_percnt <= 10:
+        # If deviation from expected loss is within 10%, we call it a PASS
+        st.log(f'PASS: {info1}{s_info} Exp Loss% {expected_loss_percnt:.2f}')
         test_info['pass_ctr'] += 1
     else:
-        st.log('FAIL: ' + info1 + s_info + ' Exp Loss% {:.2f}'.format(
-              expected_loss_percnt))
+        st.log(f'FAIL: {info1}{s_info} Exp Loss% {expected_loss_percnt:.2f}')
         test_info['fail_ctr'] += 1
 
 def run_traffic_test(gbps_pair, tc_pair):
@@ -159,19 +146,16 @@ def run_traffic_test(gbps_pair, tc_pair):
         # Both streams belong to the same traffic class
         loss_percent = (str1['loss'] + str2['loss']) / 2.0
         total_gbps = (gbps_pair[0] + gbps_pair[1])
-        s_info = 'TC {} Streams(gbps) {} Avg Loss% {:.2f}'.format(str1['tc'],
-                    gbps_pair, loss_percent)
+        s_info = f"TC {str1['tc']} Streams(gbps) {gbps_pair} Avg Loss% {loss_percent:.2f}"
         report_pass_or_fail(total_gbps, test_info['pir'], loss_percent, s_info)
     else:
         # str1 corresponds to the higher priority stream
         # Theoretically the higher priority stream should take upto the PIR
         # and the rest of the bandwidht should go to lower priority stream
-        s_info = 'TC {} Stream(gbps) {:.2f} Loss% {:.2f}'.format(str1['tc'],
-                    str1['gbps'], str1['loss'])
+        s_info = f"TC {str1['tc']} Stream(gbps) {str1['gbps']:.2f} Loss% {str1['loss']:.2f}"
         report_pass_or_fail(str1['gbps'], test_info['pir'], str1['loss'],
                             s_info)
-        s_info = 'TC {} Stream(gbps) {:.2f} Loss% {:.2f}'.format(str2['tc'],
-                    str2['gbps'], str2['loss'])
+        s_info = f"TC {str2['tc']} Stream(gbps) {str2['gbps']:.2f} Loss% {str2['loss']:.2f}"
         # Theoretically, whatever bandwidth remains after passing higher 
         # priority stream, should go to lower priority stream. So we used upto
         # PIR of the bandwidth for str1 (the higher priority stream). Now we 
@@ -185,19 +169,26 @@ def run_traffic_test(gbps_pair, tc_pair):
     stream_api.delete_traffic_stream(str2)
 
 def get_scheduler_cfg(tc):
-    new_name = test_info['dst'] + '_' + str(tc) + str(test_info['pir_bytes'])
-    test_info['cfg'] += '''config scheduler add --type STRICT --cir {} --pir {} {}\n
-        config queue queue-list update --scheduler {} {} {}\n'''.format(\
-        test_info['pir_bytes'], test_info['pir_bytes'], new_name, new_name, 
-        test_info['dut_if'], tc)
+    new_name = f"{test_info['dst']}_{tc}{test_info['pir_bytes']}"
+    orig_name = f'scheduler.{tc}'
+    pir_bytes = test_info['pir_bytes']
+    dut_if = test_info['dut_if']
+    test_info['cfg'] += f'''config scheduler add --type STRICT --cir {pir_bytes} --pir {pir_bytes} {new_name}\n
+        config queue queue-list update --scheduler {new_name} {dut_if} {tc}\n'''
+    test_info['undo_cfg'] += f'''config queue queue-list update --scheduler {orig_name} {dut_if} {tc}\n
+        config scheduler del {new_name}\n'''
 
 def apply_pir(pir):
     test_info['pir'] = (int(pir) * test_info['if_speed']) / 100.0
     test_info['pir_bytes'] = stream_api.gbps_to_bytes(test_info['pir'])
-    test_info['cfg'] = 'config qos reload\n'
+    test_info['cfg'] = ''
+    test_info['undo_cfg'] = ''
     get_scheduler_cfg(test_info['tc'][0])
     get_scheduler_cfg(test_info['tc'][1])
     st.config(test_info['dut'], test_info['cfg'], skip_tmpl=True)
+
+def clear_pir():
+    st.config(test_info['dut'], test_info['undo_cfg'], skip_tmpl=True)
 
 def test_one_dev_strict_priority():
     # Test assumes a single device with 3 or more tgen ports connected to it
@@ -215,13 +206,10 @@ def test_one_dev_strict_priority():
                 for frame_size in test_info['frame_sizes']:
                         test_info['frame_size'] = int(frame_size)
                         run_traffic_test(gbps_pair, tc_pair)
-
-    # Clear any qos config
-    st.config(test_info['dut'], 'config qos clear', skip_tmpl=True)
+            clear_pir()
 
     # Print the final disposition of the test execution
-    final_msg = 'Test Cases: Passed={} Failed={}'.format(
-                    test_info['pass_ctr'], test_info['fail_ctr'])
+    final_msg = f"Test Cases: Passed={test_info['pass_ctr']} Failed={test_info['fail_ctr']}"
     if test_info['fail_ctr'] > 0:
         st.report_fail('msg', final_msg)
     else:

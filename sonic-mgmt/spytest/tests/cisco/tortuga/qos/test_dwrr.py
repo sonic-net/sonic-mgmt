@@ -4,6 +4,7 @@ import pytest
 import pprint
 import tortuga_common_utils as common_util
 import traffic_stream_ixia_api as stream_api
+import qos_test_utils
 
 from spytest import st, tgapi, SpyTestDict
 module_dir = os.path.join(os.path.dirname(__file__), '../../', 'common')
@@ -37,10 +38,10 @@ def setup_topo():
 
     for k in min_keys:
         if k not in test_info:
-            st.report_fail('msg', 'Input dictionary is missing {}'.format(k))
+            st.report_fail('msg', f'Input dictionary is missing {k}')
             sys.exit(-1)
 
-    tb_dict = st.ensure_min_topology('T1' + test_info['leaf'] + ":4")
+    tb_dict = st.ensure_min_topology('T1' + test_info['leaf'] + ":3")
 
     vars = st.get_testbed_vars()
 
@@ -77,8 +78,6 @@ def setup_topo():
     stream_api.config_one_leaf(tb_dict, test_info)
     st.log("setup topology Done")
     yield
-    common_util.cleanup_ip_interfaces(test_info['dut'])
-    st.config(test_info['dut'], 'config qos reload', skip_tmpl=True)
 
 lossy = [0, 1, 2, 5, 6]
 lossless = [3, 4]
@@ -160,7 +159,7 @@ def run_traffic_test(gbps_pair, tc_pair):
     rv = check_tc_pair(tc_pair)
     if rv == BOTH_LOSSY:
         # Assuming weights are equal, it should be 1:1 roughly
-        ratio = (rx_bits1 / rx_bits2)
+        ratio = (rx_bits1 / rx_bits2) if (rx_bits1 and rx_bits2) else 0
         passed = (ratio >= 0.75 and ratio <= 1.25)
     elif rv == BOTH_LOSSLESS:
         # Allow upto 1% loss in both
@@ -180,17 +179,25 @@ def run_traffic_test(gbps_pair, tc_pair):
     stream_api.delete_traffic_stream(str2)
 
 def get_scheduler_cfg(tc):
-    new_name = test_info['dst'] + '_' + 'dwrr' + str(tc)
-    test_info['cfg'] += '''config scheduler add --type DWRR --weight {} {}\n
-        config queue queue-list update --scheduler {} {} {}\n'''.format(\
-        test_info['dwrr_wt'], new_name, new_name, test_info['dut_if'], tc)
+    new_name = f"{test_info['dst']}_dwrr{tc}"
+    orig_name = f'scheduler.{tc}'
+    dut_if = test_info['dut_if']
+    wt = test_info['dwrr_wt']
+    test_info['cfg'] += f'''config scheduler add --type DWRR --weight {wt} {new_name}\n
+        config queue queue-list update --scheduler {new_name} {dut_if} {tc}\n'''
+    test_info['undo_cfg'] += f'''config queue queue-list update --scheduler {orig_name} {dut_if} {tc}\n
+        config scheduler del {new_name}\n'''
 
 def apply_dwrr(tc_pair):
-    test_info['cfg'] = 'config qos reload\n'
+    test_info['cfg'] = ''
+    test_info['undo_cfg'] = ''
     get_scheduler_cfg(tc_pair[0])
     if tc_pair[0] != tc_pair[1]:
         get_scheduler_cfg(tc_pair[1])
     st.config(test_info['dut'], test_info['cfg'], skip_tmpl=True)
+
+def clear_dwrr():
+    st.config(test_info['dut'], test_info['undo_cfg'], skip_tmpl=True)
 
 def test_deficit_weighted_round_robin():
     # Test assumes a single device with 3 or more tgen ports connected to it
@@ -205,11 +212,11 @@ def test_deficit_weighted_round_robin():
             for frame_size in test_info['frame_sizes']:
                 test_info['frame_size'] = int(frame_size)
                 run_traffic_test(gbps_pair, tc_pair)
+        clear_dwrr()
 
 
     # Print the final disposition of the test execution
-    final_msg = 'Test Cases: Passed={} Failed={}'.format(
-                    test_info['pass_ctr'], test_info['fail_ctr'])
+    final_msg = f"Test Cases: Passed={test_info['pass_ctr']} Failed={test_info['fail_ctr']}"
     if test_info['fail_ctr'] > 0:
         st.report_fail('msg', final_msg)
     else:

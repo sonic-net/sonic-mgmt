@@ -105,6 +105,7 @@ def initial_setup():
     st.banner("Reloading QoS configuration on all DUTs")
     for dut in st.get_dut_names():
         stream_api.init_qos_on_dut(dut)
+        common_util.cleanup_ip_interfaces(dut)
 
     if  dut_type == "sim":
         data.transmit_mode = "single_burst"
@@ -724,9 +725,10 @@ def deconfigure_multi_vni_for_pfc(nodes, vrfs_config, svi_ips):
         data.config_vrfs.append(vrf)
 
 
-def test_pfc_vxlan_multiple_vni():
+def test_pfc_vxlan_4stream():
     """
-    Test PFC with multiple streams for fan-in congestion over VXLAN L3VNI.
+    Test PFC with 4 streams for fan-in congestion over VXLAN L3VNI.
+    Requires 4 IXIA ports per leaf (T1D3P1-P4, T1D4P1-P4).
     
     Four bidirectional streams between Leaf0 and Leaf1 at 99% line rate each:
         Stream 1: IXIA (T1D3P1) ↔ Leaf0 ↔ Spine ↔ Leaf1 ↔ IXIA (T1D4P1) via VNI 2000 (Vrf02)
@@ -741,7 +743,13 @@ def test_pfc_vxlan_multiple_vni():
     Traffic uses TC 3 (PFC-enabled) DSCP to test lossless behavior.
     """
     vars = st.get_testbed_vars()
-    st.log('Started test_pfc_vxlan_multiple_vni')
+    st.log('Started test_pfc_vxlan_4stream')
+
+    if not hasattr(vars, 'D3T1P4') or not hasattr(vars, 'D4T1P4'):
+        st.log("Testbed does not have 4 IXIA ports per leaf (D3T1P4/D4T1P4 missing) - skipping test_pfc_vxlan_4stream")
+        st.report_unsupported("test_case_unsupported", "Requires 4 IXIA ports per leaf (T1D3P4/T1D4P4)")
+        return
+
     nodes = get_nodes()
 
     # Print expected packet paths for each stream using actual testbed interface names
@@ -981,10 +989,10 @@ def test_pfc_vxlan_multiple_vni():
 
     # Report pass/fail AFTER cleanup with specific failure reasons
     if result:
-        st.report_pass("test_case_passed", "test_pfc_vxlan_multiple_vni passed")
+        st.report_pass("test_case_passed", "test_pfc_vxlan_4stream passed")
     else:
         fail_summary = "; ".join(failure_reasons) if failure_reasons else "unknown"
-        st.report_fail("test_case_failed", f"test_pfc_vxlan_multiple_vni failed: {fail_summary}")
+        st.report_fail("test_case_failed", f"test_pfc_vxlan_4stream failed: {fail_summary}")
 
 
 def test_pfc_vxlan_00_v4_basic():

@@ -54,7 +54,7 @@ def setup_topo():
     st.log("setup topology Started")
 
     tb_dict = st.ensure_min_topology("D1D3:2", "D1D4:2", "D2D3:1", "D2D4:1",
-                                     "D3T1:4", "D4T1:4")
+                                     "D3T1:3", "D4T1:1")
     vars = st.get_testbed_vars()
 
     test_info = SpyTestDict()
@@ -74,10 +74,6 @@ def setup_topo():
     st.log("setup topology Done")
 
     yield
-
-    common_util.cleanup_ip_interfaces(test_info['dut'])
-    st.config(test_info['dut'], 'config qos clear', skip_tmpl=True)
-
 
 def configure_scheduler(tc, pir_gbps):
     """Configure a strict-priority scheduler for a TC on the egress interface."""

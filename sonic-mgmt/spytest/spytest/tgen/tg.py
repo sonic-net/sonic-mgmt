@@ -1829,7 +1829,7 @@ class TGIxia(TGBase):
             return None
         self.ports_fec_disable = []
         res = dict()
-        if self.tg_version not in [11.1]:
+        if self.tg_version not in [11.0, 11.1]:
             for _ in range(3):
                 res = self.ixia_eval('traffic_stats')
                 if res.get('status') == '1':

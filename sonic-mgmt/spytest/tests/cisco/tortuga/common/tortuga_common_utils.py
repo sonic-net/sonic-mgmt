@@ -17,7 +17,8 @@ from collections import OrderedDict
 platform_dict = {
     'carib'  : ['x86_64-hf6100_32d-r0'],
     'siren'  : ['x86_64-hf6100_60l4d-r0'],
-    'laguna' : ['x86_64-hf6100_64ed-r0']
+    'laguna' : ['x86_64-hf6100_64ed-r0'],
+    'gamut' :  ['x86_64-n9164e_ns4_o-r0']
 }
 
 # Hierarchical Port Naming
@@ -763,6 +764,9 @@ def is_q200(plat_str):
 def is_g200(plat_str):
     return plat_str == 'laguna'
 
+def is_gamut(plat_str):
+    return plat_str == 'gamut'
+
 def find_platform_str(dut):
     '''
     Get the platform string and map it to a name like siren
@@ -973,11 +977,54 @@ def _cleanup_portchannels(dut):
                      skip_tmpl=True, skip_error_check=True)
 
 
+def _cleanup_vrfs(dut):
+    """Remove all non-default VRFs from CONFIG_DB.
+
+    Must run after interfaces are unbound and VxLAN mappings are removed.
+    BGP VRF instances are removed first since SONiC refuses to delete a VRF
+    that is still referenced by 'router bgp <ASN> vrf <name>'.
+    """
+    result = st.show(dut, "redis-cli -n 4 keys 'VRF|*'", skip_tmpl=True)
+    vrfs_to_delete = []
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VRF|')
+        if parts is None or len(parts) != 1:
+            continue
+        vrf_name = parts[0]
+        if vrf_name in ('default', 'mgmt'):
+            continue
+        vrfs_to_delete.append(vrf_name)
+
+    if not vrfs_to_delete:
+        return
+
+    # Remove BGP VRF instances first (look up ASN from CONFIG_DB)
+    for vrf_name in vrfs_to_delete:
+        asn_result = st.show(dut,
+            "redis-cli -n 4 hget 'BGP_GLOBALS|{}' local_asn".format(vrf_name),
+            skip_tmpl=True)
+        asn = None
+        for aline in asn_result.splitlines():
+            aline = aline.strip()
+            if aline.isdigit():
+                asn = aline
+                break
+        if asn:
+            st.config(dut,
+                "vtysh -c 'configure terminal' -c 'no router bgp {} vrf {}'".format(asn, vrf_name),
+                skip_tmpl=True, skip_error_check=True)
+
+    # Now delete the VRFs
+    for vrf_name in vrfs_to_delete:
+        st.config(dut, "sudo config vrf del {}".format(vrf_name),
+                 skip_tmpl=True, skip_error_check=True)
+
+
 def cleanup_ip_interfaces(dut):
     """Clean up IP interfaces and memberships.
 
     Removes static routes, L3 config, VLAN members, PortChannel members,
-    VLANs, and PortChannels from CONFIG_DB.  Also clears hardware counters.
+    VLANs, VRFs, and PortChannels from CONFIG_DB.  Also clears hardware counters.
     """
     st.config(dut, '''sonic-clear counters
 sonic-clear dropcounters
@@ -988,6 +1035,7 @@ sonic-clear pfccounters''', skip_tmpl=True, skip_error_check=True)
     _cleanup_l3_interfaces(dut)
     _cleanup_vlan_interfaces(dut)
     _cleanup_vxlan_mappings(dut)
+    _cleanup_vrfs(dut)
     _cleanup_vlans(dut)
     _cleanup_portchannels(dut)
 

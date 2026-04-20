@@ -122,11 +122,11 @@ def setup_topo():
 
     # 2 spine + 2 leaf topology with 4 TGEN ports per leaf
     tb_dict = st.ensure_min_topology("D1D3:2", "D1D4:2", "D2D3:1", "D2D4:1",
-                                     "D3T1:4", "D4T1:4")
+                                     "D3T1:2", "D4T1:1")
 
 
     # Clean up any existing IP configurations
-    for dut in vars.dut_list:
+    for dut in st.get_dut_names():
         common_util.cleanup_ip_interfaces(dut)
 
     # Configure 2-spine 2-leaf topology with IP addresses and routes
@@ -142,10 +142,6 @@ def setup_topo():
     # Restore spine links before cleanup
     restore_spine_links()
     
-    # Cleanup
-    for dut in vars.dut_list:
-        common_util.cleanup_ip_interfaces(dut)
-
 
 def create_all_streams():
     """
