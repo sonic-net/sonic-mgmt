@@ -56,8 +56,8 @@ class TestVoqCreditWDCounter(QosSaiBase):
         asic_name = get_asic_name(src_dut).lower()
         if src_dut.is_multi_asic:
             pytest.skip("Multi-ASIC VOQ coverage is exercised in tests/voq/test_voq_counter.py")
-        if "q3d" in asic_name:
-            pytest.skip("Q3D single-ASIC VOQ coverage is exercised in tests/voq/test_voq_counter.py")
+        if "q3d" not in asic_name:
+            pytest.skip("Skipping for non-Q3D single-ASIC VOQ testing")
 
     def testVoqCreditWDCounter(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
