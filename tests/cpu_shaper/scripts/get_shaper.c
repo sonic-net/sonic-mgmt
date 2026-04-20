@@ -4,7 +4,10 @@ int get_cosq_shaper(bcm_port_t port, bcm_cos_queue_t cosq, uint32 kbits_sec_min,
     int rv_gport=0;
     bcm_gport_t gport=0;
 
-    /* Try gport-based API first (works on both DNX and XGS) */
+    /* Try the gport-based API first: it is preferred and required on TH5+
+     * and is supported on many platforms, but it may not be available on
+     * every platform/SDK combination.
+     */
     BCM_GPORT_LOCAL_SET(gport, port);
     rv_gport = bcm_cosq_gport_bandwidth_get(0, gport, cosq, &kbits_sec_min, &kbits_sec_max, &flags);
     if (rv_gport == 0) {
