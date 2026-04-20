@@ -25,6 +25,11 @@ VENDOR_SPEC_ADDITIONAL_INFO_RE = {
     }
 
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
+PFCWD_DEFAULT_DETECT_TIME = 200
+PFCWD_DEFAULT_RESTORE_TIME = 200
+PFCWD_DEFAULT_POLL_INTERVAL = 200
+PFCWD_DEFAULT_PORT_NUM = 32
+PFCWD_MAX_POLL_INTERVAL = 1000
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +335,38 @@ def set_pfc_timers():
 def update_pfc_poll_interval(duthost, poll_interval):
     logger.info("Setting PFC watchdog poll interval to {}ms".format(poll_interval))
     duthost.command("pfcwd interval {}".format(poll_interval))
+
+
+def calculate_pfcwd_default_timers(duthost):
+    """
+    Calculate PFC watchdog default timers dynamically based on port count.
+
+    The logic from sonic-utilities pfcwd start_default:
+    https://github.com/sonic-net/sonic-utilities/blob/fb3d73db/pfcwd/main.py#L402
+
+    Args:
+        duthost: DUT host instance
+
+    Returns:
+        pfc_timers (dict): dynamically calculated PFC watchdog timers
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    port_num = len(config_facts.get('PORT', {}))
+
+    multiply = max(1, (port_num - 1) // PFCWD_DEFAULT_PORT_NUM + 1)
+
+    poll_interval = min(PFCWD_DEFAULT_POLL_INTERVAL * multiply, PFCWD_MAX_POLL_INTERVAL)
+
+    pfc_timers = {
+        'pfc_wd_detect_time': PFCWD_DEFAULT_DETECT_TIME * multiply,
+        'pfc_wd_restore_time': PFCWD_DEFAULT_RESTORE_TIME * multiply,
+        'pfc_wd_restore_time_large': 3000,
+        'pfc_wd_poll_time': poll_interval
+    }
+
+    logger.info(f"Port count: {port_num}, multiply factor: {multiply}, calculated PFC timers: {pfc_timers}")
+
+    return pfc_timers
 
 
 def select_test_ports(test_ports):
