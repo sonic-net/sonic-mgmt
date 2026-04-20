@@ -286,9 +286,13 @@ class BgpDualAsn:
 
         # Delete test-specific BGP_PEER_RANGE entries so rollback can
         # restore BGPVac without listen-range overlap
-        for name in [BGPSLB, BGPSLB_2, BGPSLB_V6, BGPSLB_V6_2]:
+        test_peer_ranges = [BGPSLB, BGPSLB_2, BGPSLB_V6, BGPSLB_V6_2]
+        del_keys = " ".join('"BGP_PEER_RANGE|{}"'.format(n) for n in test_peer_ranges)
+        ns_list = duthost.get_frontend_asic_namespace_list() or [None]
+        for ns in ns_list:
+            ns_flag = "-n {} ".format(ns) if ns else ""
             duthost.shell(
-                'sonic-db-cli CONFIG_DB del "BGP_PEER_RANGE|{}"'.format(name),
+                "sonic-db-cli {}CONFIG_DB del {}".format(ns_flag, del_keys),
                 module_ignore_errors=True
             )
 
