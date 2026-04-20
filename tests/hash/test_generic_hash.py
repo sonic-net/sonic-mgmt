@@ -20,7 +20,8 @@ from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor  # noqa F401
-
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor, \
+    toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 DEFAULT_VXLAN_PORT = 4789
 PTF_LOG_PATH = "/tmp/generic_hash_test.GenericHashTest.log"
 
@@ -131,7 +132,8 @@ def test_hash_capability(duthost, global_hash_capabilities):  # noqa:F811
 
 
 def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,  # noqa:F811
-                   restore_vxlan_port, toggle_all_aa_ports_to_rand_selected_tor):                        # noqa:F811
+                   restore_vxlan_port, toggle_all_simulator_ports_to_rand_selected_tor,                  # noqa:F811
+                   toggle_all_aa_ports_to_rand_selected_tor):                                            # noqa:F811
     """
     Test case to validate the ecmp hash. The hash field to test is randomly chosen from the supported hash fields.
     Args:
@@ -189,7 +191,9 @@ def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, gl
 
 
 def test_lag_hash(rand_selected_dut, ptfhost, tbinfo, fine_params, mg_facts, restore_configuration,         # noqa:F811
-                  restore_vxlan_port, global_hash_capabilities, toggle_all_aa_ports_to_rand_selected_tor):  # noqa:F811
+                  restore_vxlan_port, global_hash_capabilities,                                             # noqa:F811
+                  toggle_all_simulator_ports_to_rand_selected_tor,                                          # noqa:F811
+                  toggle_all_aa_ports_to_rand_selected_tor):                                                # noqa:F811
     """
     Test case to validate the lag hash. The hash field to test is randomly chosen from the supported hash fields.
     When hash field is in [DST_MAC, ETHERTYPE, VLAN_ID], need to re-configure the dut for L2 traffic.
@@ -272,6 +276,7 @@ def config_all_hash_algorithm(duthost, ecmp_algorithm, lag_algorithm):  # noqa:F
 
 def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,                     # noqa:F811
                            global_hash_capabilities,  restore_vxlan_port, get_supported_hash_algorithms,  # noqa:F811
+                           toggle_all_simulator_ports_to_rand_selected_tor,                               # noqa:F811
                            toggle_all_aa_ports_to_rand_selected_tor):                                     # noqa:F811
     """
     Test case to validate the hash behavior when both ecmp and lag hash are configured with a same field.
@@ -327,6 +332,7 @@ def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_f
 
 def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
                       restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,    # noqa:F811
+                      toggle_all_simulator_ports_to_rand_selected_tor,                                # noqa:F811
                       toggle_all_aa_ports_to_rand_selected_tor):                                      # noqa:F811
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
@@ -421,7 +427,8 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
 
 def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,  # noqa:F811
                          restore_interfaces, global_hash_capabilities, restore_vxlan_port,                  # noqa:F811
-                         get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):          # noqa:F811
+                         get_supported_hash_algorithms, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa:F811
+                         toggle_all_aa_ports_to_rand_selected_tor):                                         # noqa:F811
     """
     Test case to validate the lag hash when there is lag member flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -521,7 +528,9 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
 def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,                 # noqa:F811
                                restore_configuration, restore_interfaces,                                 # noqa:F811
                                global_hash_capabilities, restore_vxlan_port,                              # noqa:F811
-                               get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):  # noqa:F811
+                               get_supported_hash_algorithms,                                             # noqa:F811
+                               toggle_all_simulator_ports_to_rand_selected_tor,                           # noqa:F811
+                               toggle_all_aa_ports_to_rand_selected_tor):                                 # noqa:F811
     """
     Test case to validate the lag hash when a lag member is removed from the lag and added back for
     a few times.
@@ -618,9 +627,10 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
 
 
 @pytest.mark.disable_loganalyzer
-def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_facts, restore_vxlan_port,  # noqa:F811
-                global_hash_capabilities, reboot_type, get_supported_hash_algorithms,                      # noqa:F811
-                toggle_all_aa_ports_to_rand_selected_tor):                                                 # noqa:F811
+def test_reboot(rand_selected_dut, rand_unselected_dut, tbinfo, ptfhost, localhost, fine_params, mg_facts,  # noqa:F811
+                restore_vxlan_port, global_hash_capabilities, reboot_type, get_supported_hash_algorithms,   # noqa:F811
+                toggle_all_simulator_ports_to_rand_selected_tor_m,                                          # noqa:F811
+                toggle_all_aa_ports_to_rand_selected_tor):                                                  # noqa:F811
     """
     Test case to validate the hash behavior after fast/warm/cold reboot.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -672,19 +682,29 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
             socket_recv_size=16384,
             is_python3=True
         )
-
+    is_dualtor = 'dualtor' in tbinfo['topo']['name']
     with allure.step(f'Randomly choose a reboot type: {reboot_type}, and reboot'):
         # Save config if reboot type is config reload, cold, fast, warm reboot
         if reboot_type in ['cold', 'reload', 'warm', 'fast']:
             rand_selected_dut.shell('config save -y')
+            if is_dualtor:
+                rand_unselected_dut.shell('config save -y')
         # Reload/Reboot the dut
         if reboot_type == 'reload':
             config_reload(rand_selected_dut, safe_reload=True, check_intf_up_ports=True)
+            if is_dualtor:
+                config_reload(rand_unselected_dut, safe_reload=True, check_intf_up_ports=True)
         else:
             reboot(rand_selected_dut, localhost, reboot_type=reboot_type)
+            if is_dualtor:
+                reboot(rand_unselected_dut, localhost, reboot_type=reboot_type)
         # Wait for the dut to recover
         pytest_assert(wait_until(300, 20, 0, rand_selected_dut.critical_services_fully_started),
                       "Not all critical services are fully started.")
+        if is_dualtor:
+            pytest_assert(wait_until(300, 20, 0, rand_unselected_dut.critical_services_fully_started),
+                          "Not all critical services are fully started.")
+
     with allure.step('Check the generic hash config after the reboot'):
         check_global_hash_config(rand_selected_dut, global_hash_capabilities['ecmp'], global_hash_capabilities['lag'])
         if ptf_params.get('vxlan_port') and ptf_params['vxlan_port'] != DEFAULT_VXLAN_PORT:
