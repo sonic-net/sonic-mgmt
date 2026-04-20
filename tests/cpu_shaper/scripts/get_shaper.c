@@ -14,6 +14,10 @@ int get_cosq_shaper(bcm_port_t port, bcm_cos_queue_t cosq, uint32 kbits_sec_min,
         printf("bcm_cosq_gport_bandwidth_get for port=%d, cos=%d pps_max=%d\n", port, cosq, kbits_sec_max);
         return 0;
     }
+    if (rv_gport != -16) {
+        printf("bcm_cosq_gport_bandwidth_get failed for port=%d, cos=%d: rv=%d\n", port, cosq, rv_gport);
+        return rv_gport;
+    }
     /* Fall back to port-based API (works on XGS only) */
     kbits_sec_min = 0;
     kbits_sec_max = 0;
