@@ -64,6 +64,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
     mg_facts = dut_host.minigraph_facts(
         host=dut_host.hostname)['ansible_facts']
     confed_asn = dut_host.get_bgp_confed_asn()
+
     all_routes = {}
     BGP_ENTRY_HEADING = r"BGP routing table entry for "
     BGP_COMMUNITY_HEADING = r"Community: "
