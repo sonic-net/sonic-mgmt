@@ -86,6 +86,21 @@ def check_gnmi_status(duthost):
     return "RUNNING" in output['stdout']
 
 
+def _check_monit_container_checker(duthost):
+    """Check if monit container_checker service is healthy.
+
+    After gNMI cert config recovery, monit needs time to re-evaluate
+    container status. This function checks if container_checker has
+    returned to a healthy state (OK or Status ok).
+    """
+    monit_services = duthost.get_monit_services_status()
+    if not monit_services:
+        return False
+    container_checker = monit_services.get("container_checker", {})
+    status = container_checker.get("service_status", "")
+    return status in ("OK", "Status ok")
+
+
 def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Kill the GNMI process
@@ -119,6 +134,13 @@ def recover_cert_config(duthost):
     if not check_container_state(duthost, "telemetry", should_be_running=True):
         logger.info("Telemetry container is not running after cert config recovery, restarting it")
         duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
+
+    # Wait for monit container_checker to report healthy status.
+    # After restarting processes/containers, monit needs time to re-evaluate
+    # service status. Without this wait, post-test sanity check may see stale
+    # "Status failed" from container_checker and fail the test on teardown.
+    if not wait_until(120, 10, 30, _check_monit_container_checker, duthost):
+        logger.warning("Monit container_checker did not recover to healthy status after cert config recovery")
 
 
 def check_ntp_sync_status(duthost):
