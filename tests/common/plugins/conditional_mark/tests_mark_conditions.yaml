@@ -4286,6 +4286,7 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
     conditions:
       - "'dualtor' in topo_name and asic_type in ['mellanox']"
       - "asic_type in ['marvell-teralynx']"
+      - "'-v6-' in topo_name"
   xfail:
     reason: "Test case has issue on the 202412 branch as decap tunnel is disabled."
     conditions_logical_operator: or
