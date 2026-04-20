@@ -42,9 +42,7 @@ def restart_swss_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
 
     # make sure all critical services are up
-    assert wait_until(600, 5, 30, duthost.critical_services_fully_started), (
-        "Not all critical services are fully started after restarting orchagent. "
-    )
+    duthost.wait_critical_services_fully_started(timeout=600, poll_interval=5, wait=30)
 
     # wait for ports to be up and lldp neighbor information has been received by dut
     assert wait_until(300, 20, 60,
@@ -686,8 +684,7 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
 
         logger.info("Step 3: Waiting for system to stabilize after config reload")
         # Wait for LLDP to converge
-        assert wait_until(300, 10, 0, duthost.critical_services_fully_started), \
-            "Not all critical services are fully started after config reload"
+        duthost.wait_critical_services_fully_started(poll_interval=10)
 
         # Wait for all LLDP neighbors to be re-discovered using pre-reload count as baseline
         pytest_assert(

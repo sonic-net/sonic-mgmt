@@ -3,7 +3,7 @@ import logging
 import json
 import time
 
-from tests.common.utilities import wait_until, file_exists_on_dut
+from tests.common.utilities import file_exists_on_dut
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.system_utils.docker import download_image
@@ -121,8 +121,7 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
     reboot(duthost, localhost)
     logger.info("Waiting for critical services to startup")
     fetch_docker_conf(duthost)
-    py_assert(wait_until(300, 20, 20, duthost.critical_services_fully_started),
-              "All critical services should be fully started!")
+    duthost.wait_critical_services_fully_started(wait=20)
 
 
 def validate_is_v1_enabled(duthost, sidecar_container_name):

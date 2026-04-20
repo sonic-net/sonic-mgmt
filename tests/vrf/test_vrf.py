@@ -1207,9 +1207,7 @@ class TestVrfWarmReboot:
         assert len(tbd_comp_list) == 0, "Some components didn't finish reconcile: {} ...".format(tbd_comp_list)
 
         # basic check after warm reboot
-        assert wait_until(
-            300, 20, 0, duthost.critical_services_fully_started
-        ), "All critical services should fully started!{}".format(duthost.critical_services)
+        duthost.wait_critical_services_fully_started()
 
         up_ports = [p for p, v in list(cfg_facts["PORT"].items()) if v.get("admin_status", None) == "up"]
         assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), "All interfaces should be up!"
@@ -1250,9 +1248,7 @@ class TestVrfWarmReboot:
         assert len(tbd_comp_list) == 0, "Some components didn't finish reconcile: {} ...".format(tbd_comp_list)
 
         # basic check after warm reboot
-        assert wait_until(
-            300, 20, 0, duthost.critical_services_fully_started
-        ), "Not all critical services are fully started"
+        duthost.wait_critical_services_fully_started()
 
         up_ports = [p for p, v in list(cfg_facts["PORT"].items()) if v.get("admin_status", None) == "up"]
         assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), "Not all interfaces are up"

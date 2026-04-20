@@ -692,8 +692,7 @@ class TestReboot():
         verify_show_sflow(duthost, status='up', polling_int=80)
         duthost.command('sudo config save -y')
         reboot(duthost, localhost)
-        assert wait_until(
-            300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        duthost.wait_critical_services_fully_started()
         force_active_tor(duthost, "all")
         assert wait_until(60, 5, 0, verify_sflow_config_apply, duthost)
         verify_show_sflow(duthost, status='up', collector=[
@@ -723,8 +722,7 @@ class TestReboot():
             active_collectors="[]")
         duthost.command('sudo config save -y')
         reboot(duthost, localhost)
-        assert wait_until(
-            300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        duthost.wait_critical_services_fully_started()
         force_active_tor(duthost, "all")
         verify_show_sflow(duthost, status='down')
         for intf in var['sflow_ports']:
@@ -746,8 +744,7 @@ class TestReboot():
                           'collector0', 'collector1'])
         duthost.command('sudo config save -y')
         reboot(duthost, localhost, reboot_type='fast')
-        assert wait_until(
-            300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        duthost.wait_critical_services_fully_started()
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
         for intf in var['sflow_ports']:
@@ -770,8 +767,7 @@ class TestReboot():
                           'collector0', 'collector1'])
         duthost.command('sudo config save -y')
         reboot(duthost, localhost, reboot_type='warm')
-        assert wait_until(
-            300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        duthost.wait_critical_services_fully_started()
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
         for intf in var['sflow_ports']:

@@ -46,7 +46,6 @@ from pathlib import Path
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -145,10 +144,7 @@ def real_dut(duthosts, rand_one_dut_hostname):
                   module_ignore_errors=True)
     duthost.shell("rm -f {}".format(REAL_CONFIG_DB_BAK), module_ignore_errors=True)
     duthost.shell("config reload -y -f", module_ignore_errors=True)
-    pytest_assert(
-        wait_until(300, 20, 0, duthost.critical_services_fully_started),
-        "Critical services did not start after config restore"
-    )
+    duthost.wait_critical_services_fully_started()
 
 
 # ---------------------------------------------------------------------------
@@ -502,10 +498,7 @@ class TestRealConfigSetupMinigraphFallback:
         )
 
         # Wait for services and verify mgmt IP survived
-        pytest_assert(
-            wait_until(120, 10, 0, duthost.critical_services_fully_started),
-            "Critical services did not start after config-setup boot"
-        )
+        duthost.wait_critical_services_fully_started(timeout=120, poll_interval=10)
 
         mgmt_ip_after = get_mgmt_ip(duthost)
         logger.info("Management IP after test: %s", mgmt_ip_after)

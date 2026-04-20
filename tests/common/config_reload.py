@@ -306,8 +306,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         pytest_assert(wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
                       "Database not start.")
         sonic_host.critical_services_tracking_list()
-        pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
-                      "All critical services should be fully started!")
+        sonic_host.wait_critical_services_fully_started(timeout=wait + 300)
         wait_critical_processes(sonic_host)
         # After config load_minigraph, update-containers fires ~5s after the DNS config
         # change but slow-starting containers (e.g., restapi, 75-128s startup) may not

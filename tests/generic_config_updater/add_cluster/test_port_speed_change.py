@@ -687,8 +687,7 @@ def setup_port_speed_change(duthosts,
     with allure.step("Reload the system with config reload so as to simulate that we start with speed B"):
         duthost.shell("config save -y")
         config_reload(duthost, config_source='config_db', safe_reload=True)
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "All critical services should be fully started!")
+        duthost.wait_critical_services_fully_started()
 
     with allure.step("Verify no config failures after reload by applying an empty patch."):
         tmpfile = generate_tmpfile(duthost)

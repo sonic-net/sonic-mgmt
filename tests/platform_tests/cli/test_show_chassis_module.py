@@ -189,13 +189,7 @@ def test_show_chassis_module_status_after_docker_restart(duthosts, tbinfo):
 
     logging.info(f"Wait until all critical processes are fully started on the supervisor node - {sup_hostname}")
     wait_critical_processes(suphost)
-    pytest_assert(
-        wait_until(330, 20, 0, suphost.critical_services_fully_started),
-        (
-            "All critical services should be fully started on the supervisor node - {}. "
-            "One or more critical services failed to start within the expected timeframe."
-        ).format(sup_hostname)
-    )
+    suphost.wait_critical_services_fully_started(timeout=330)
 
     for linecard in duthosts.frontend_nodes:
         lc_hostname = linecard.hostname

@@ -20,7 +20,6 @@ from tests.common import constants
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, pfcwd_show_status
 from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
-from tests.common.utilities import wait_until
 from tests.common import config_reload
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -561,8 +560,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             if 'warm-reboot' in test_action:
                 reboot(self.dut, localhost, reboot_type="warm", wait_warmboot_finalizer=True)
 
-                assert wait_until(300, 20, 20, self.dut.critical_services_fully_started), \
-                    "All critical services should fully started!"
+                self.dut.wait_critical_services_fully_started(wait=20)
 
                 continue
 
@@ -631,8 +629,10 @@ class TestPfcwdWb(SetupPfcwdFunc):
                     except Exception as e:
                         pfcwd_show_status(self.dut, "pfcwd wr: run_test exception")
                         pytest.fail(str(e))
-            wait_until(300, 20, 20, self.dut.critical_services_fully_started), \
-                "All critical services should fully started!"
+            try:
+                self.dut.wait_critical_services_fully_started(wait=20)
+            except TimeoutError:
+                logging.warning("Not all critical services fully started after warm reboot")
 
     @pytest.fixture(params=['no_storm', 'storm', 'async_storm'])
     def testcase_action(self, request):

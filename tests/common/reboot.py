@@ -446,8 +446,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         pytest_assert(wait_until(20, 5, 0, duthost.is_service_running, "redis", "database"), "Redis DB not start")
 
         duthost.critical_services_tracking_list()
-        pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
-                      "{}: All critical services should be fully started!".format(hostname))
+        duthost.wait_critical_services_fully_started(timeout=(wait + 400))
         wait_critical_processes(duthost)
 
         if check_intf_up_ports:

@@ -1,5 +1,5 @@
 from tabulate import tabulate
-from tests.common.utilities import (wait, wait_until)
+from tests.common.utilities import wait
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot
 from threading import Thread
@@ -559,9 +559,7 @@ def get_convergence_for_reboot_test(duthost,
     bgp_up_time = bgp_up_start_timer - bgp_down_start_timer
     loopback_up_time = loopback_up_start_timer - loopback_down_start_timer
     logger.info("Wait until the system is stable")
-    pytest_assert(wait_until(360, 10, 1,
-                             duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started(timeout=360, poll_interval=10, wait=1)
     request = snappi_api.metrics_request()
     request.convergence.flow_names = []  # flow_names
     convergence_metrics = snappi_api.get_metrics(request).convergence_metrics

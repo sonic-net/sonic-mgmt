@@ -304,7 +304,9 @@ def check_services(duthost):
     Perform a health check of services
     """
     logging.info("Wait until all critical services are fully started")
-    if not wait_until(330, 30, 0, duthost.critical_services_fully_started):
+    try:
+        duthost.wait_critical_services_fully_started(timeout=330, poll_interval=30)
+    except TimeoutError:
         raise RebootHealthError("dut.critical_services_fully_started is False")
 
     critical_services = [re.sub(r'(\d+)$', r'@\1', service) for service in duthost.critical_services]

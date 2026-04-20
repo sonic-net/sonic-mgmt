@@ -1751,8 +1751,7 @@ def setup_add_cluster(tbinfo,
     with allure.step("Reload the system with config reload"):
         duthost.shell("config save -y")
         config_reload(duthost, config_source='config_db', safe_reload=True)
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "All critical services should be fully started!")
+        duthost.wait_critical_services_fully_started()
         pytest_assert(wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
 

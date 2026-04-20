@@ -147,7 +147,10 @@ def common_setup_teardown(
     if not hasattr(request.node, "rep_call") or request.node.rep_call.failed:
         logger.warning("Test failed, restarting swss")
         rand_selected_dut.restart_service("swss")
-        wait_until(60, 5, 0, rand_selected_dut.critical_services_fully_started)
+        try:
+            rand_selected_dut.wait_critical_services_fully_started(timeout=60, poll_interval=5)
+        except TimeoutError:
+            logger.warning("Critical services did not fully start after swss restart")
         wait_until(60, 5, 0, rand_selected_dut.critical_processes_running, "swss")
         wait_until(60, 5, 0, rand_selected_dut.critical_processes_running, "mux")
 
