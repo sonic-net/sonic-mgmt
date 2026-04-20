@@ -12,6 +12,7 @@ import csv
 import json
 import os
 from copy import copy
+from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -681,6 +682,9 @@ def setup_bgp_testbed(duthost):     # noqa: F811
     if 'Error' in error:
         pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/bgp_backup.json -y \n")['stderr'],
                       'Error while reloading config in {} !!!!!'.format(duthost.hostname))
+    logger.info("Wait until the system is stable")
+    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
     duthost.command("sudo cp /etc/sonic/bgp_backup.json /etc/sonic/config_db.json \n")
 
 
