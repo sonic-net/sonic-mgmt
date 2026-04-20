@@ -4262,23 +4262,22 @@ qos/test_pfc_counters.py::test_pfc_unpause:
     conditions:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
 
-qos/test_pfc_pause.py:
-  skip:
-    reason: "This test is not run on this asic type or version or topology currently and also skip for 202412 for now"
-    conditions_logical_operator: or
-    conditions:
-      - "topo_type not in ['t0']"
-      - "release in ['202412']"
+# qos/test_pfc_pause.py:
+#   skip:
+#     reason: "This test is not run on this asic type or version or topology currently and also skip for 202412 for now"
+#     conditions_logical_operator: or
+#     conditions:
+#       - "topo_type not in ['t0']"
+#       - "release in ['202412']"
 
-qos/test_pfc_pause.py::test_pfc_pause_lossless:
-  # For this test, we use the fanout connected to the DUT to send PFC pause frames.
-  # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
-  # of the test. The inter packet interval between PFC frames to completely block a queue vary based on link speed and
-  # we have seen flakiness in our test runs. Since this test is already covered under the 'ixia' folder where we use a
-  # traffic generator to generate pause frames, skipping this here.
-  skip:
-    reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
-
+# qos/test_pfc_pause.py::test_pfc_pause_lossless:
+#   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
+#   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
+#   # of the test. The inter packet interval between PFC frames to completely block a queue vary based on list speed and
+#   # we have seen flakiness in our test runs. Since this test is already covered under the 'ixia' folder where we use a
+#   # traffic generator to generate pause frames, skipping this here.
+#   skip:
+#     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 qos/test_qos_dscp_mapping.py:
   skip:
     reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly."
