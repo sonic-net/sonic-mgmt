@@ -23,6 +23,7 @@ import pytest
 
 from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
+    PLACEHOLDER_PREFIX,
     AggregateCfg,
     dump_db,
     gcu_add_aggregate,
@@ -50,7 +51,6 @@ pytestmark = [
 # ---- Constants ----
 AGGR_V4 = "172.16.51.0/24"
 AGGR_V6 = "2000:172:16:50::/64"
-PLACEHOLDER_PREFIX = "192.0.2.0/32"
 BGP_SESSION_WAIT_TIMEOUT = 300
 BGP_SESSION_POLL_INTERVAL = 10
 

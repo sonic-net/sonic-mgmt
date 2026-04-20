@@ -949,15 +949,29 @@ class QosSaiBase(QosBase):
                       dst_port_ids: {}, get_src_dst_asic_and_duts: {}, uplinkPortIds: {}".format(
                       testPortIds, testPortIps, src_port_ids, dst_port_ids, get_src_dst_asic_and_duts, uplinkPortIds))
 
-        src_dut_port_ids = testPortIds[get_src_dst_asic_and_duts['src_dut_index']]
-        src_test_port_ids = src_dut_port_ids[get_src_dst_asic_and_duts['src_asic_index']]
-        dst_dut_port_ids = testPortIds[get_src_dst_asic_and_duts['dst_dut_index']]
-        dst_test_port_ids = dst_dut_port_ids[get_src_dst_asic_and_duts['dst_asic_index']]
+        # Use dynamic key fallback: some platforms (e.g., SPC2 SN3800 t1) may not have
+        # dut_index=0 as a key in testPortIds/testPortIps dicts
+        src_dut_idx = get_src_dst_asic_and_duts['src_dut_index']
+        dst_dut_idx = get_src_dst_asic_and_duts['dst_dut_index']
+        src_asic_idx = get_src_dst_asic_and_duts['src_asic_index']
+        dst_asic_idx = get_src_dst_asic_and_duts['dst_asic_index']
 
-        src_dut_port_ips = testPortIps[get_src_dst_asic_and_duts['src_dut_index']]
-        src_test_port_ips = src_dut_port_ips[get_src_dst_asic_and_duts['src_asic_index']]
-        dst_dut_port_ips = testPortIps[get_src_dst_asic_and_duts['dst_dut_index']]
-        dst_test_port_ips = dst_dut_port_ips[get_src_dst_asic_and_duts['dst_asic_index']]
+        if src_dut_idx not in testPortIds:
+            src_dut_idx = next(iter(testPortIds))
+            dst_dut_idx = src_dut_idx
+        if src_asic_idx not in testPortIds[src_dut_idx]:
+            src_asic_idx = next(iter(testPortIds[src_dut_idx]))
+            dst_asic_idx = src_asic_idx
+
+        src_dut_port_ids = testPortIds[src_dut_idx]
+        src_test_port_ids = src_dut_port_ids[src_asic_idx]
+        dst_dut_port_ids = testPortIds[dst_dut_idx]
+        dst_test_port_ids = dst_dut_port_ids[dst_asic_idx]
+
+        src_dut_port_ips = testPortIps[src_dut_idx]
+        src_test_port_ips = src_dut_port_ips[src_asic_idx]
+        dst_dut_port_ips = testPortIps[dst_dut_idx]
+        dst_test_port_ips = dst_dut_port_ips[dst_asic_idx]
 
         if dstPorts is None:
             if dst_port_ids:

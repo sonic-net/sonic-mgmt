@@ -321,13 +321,39 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
 
         Wrapper around module-level get_rx_port function.
         Used as rx_port_resolver in StreamManager.
+
+        Includes retry logic for T1 topologies where BGP routes may not be
+        fully converged when the first probe packet is sent.
         """
         log_message(f"dst_port_id:{dst_port_id}, src_port_id:{src_port_id}", to_stderr=False)
-        dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_vlan
-        )
-        log_message(f"actual dst_port_id: {dst_port_id}", to_stderr=False)
-        return dst_port_id
+        from probing_observer import ProbingObserver
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                ProbingObserver.trace(
+                    f"rx_port_resolver attempt {attempt+1}/{max_retries}"
+                )
+                dst_port_id = get_rx_port(
+                    self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_vlan
+                )
+                ProbingObserver.trace(
+                    f"rx_port_resolver resolved on attempt {attempt+1}/{max_retries}, "
+                    f"actual dst_port_id: {dst_port_id}"
+                )
+                return dst_port_id
+            except AssertionError:
+                if attempt < max_retries - 1:
+                    wait = (attempt + 1) * 3
+                    ProbingObserver.trace(
+                        f"rx_port_resolver FAILED attempt {attempt+1}/{max_retries}, "
+                        f"retrying in {wait}s (BGP may not be fully converged)"
+                    )
+                    time.sleep(wait)
+                else:
+                    ProbingObserver.trace(
+                        f"rx_port_resolver FAILED all {max_retries} attempts, giving up"
+                    )
+                    raise
 
     def get_pool_size(self):
         """

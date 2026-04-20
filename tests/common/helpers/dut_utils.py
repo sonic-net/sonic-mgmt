@@ -722,10 +722,10 @@ def duthost_clear_console_port(
         console_username: Username for the console account (overridden for Digi console)
         console_password: Password for the console account
     """
-    if menu_type == "console_ssh_":
+    if menu_type == "console_ssh":
         raise Exception("Device does not have a defined Console_menu_type.")
 
-    if menu_type == "console_conserver_":
+    if menu_type == "console_conserver":
         logger.info("Skip clearing conserver console port")
         return
 
