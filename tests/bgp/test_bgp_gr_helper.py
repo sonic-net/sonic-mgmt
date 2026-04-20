@@ -155,7 +155,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         test_neighbor_name = dev_nbrs[test_interface]['name']
 
     nbrhost = nbrhosts[test_neighbor_name]
-    if nbrhost['is_multi_vrf_peer']:
+    if nbrhost.get('is_multi_vrf_peer', False):
         vrf = test_neighbor_name
         exabgp_ips = [nbrhost['multi_vrf_data']['ptf_bp_config'].get("ipv4"),
                       nbrhost['multi_vrf_data']['ptf_bp_config'].get("ipv6")]
