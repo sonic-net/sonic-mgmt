@@ -229,7 +229,8 @@ def __tgen_bgp_config(snappi_api, ):
         snappi_api (pytest fixture): snappi API
     """
     config = snappi_api.config()
-    snappi_api.enable_scaling(True)
+    if hasattr(snappi_api, 'enable_scaling'):
+        snappi_api.enable_scaling(True)
 
     p1, p2, p3 = (
         config.ports.port(name="t1", location=temp_tg_port[0]['location'])

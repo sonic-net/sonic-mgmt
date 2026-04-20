@@ -209,7 +209,8 @@ def __tgen_bgp_config(snappi_api,
         dual_stack_flag: notation for dual or single stack
     """
     config = snappi_api.config()
-    snappi_api.enable_scaling(True)
+    if hasattr(snappi_api, 'enable_scaling'):
+        snappi_api.enable_scaling(True)
     p1, p2 = (
         config.ports.port(name="Source", location=temp_tg_port[0]['location'])
         .port(name="Destination", location=temp_tg_port[1]['location'])
