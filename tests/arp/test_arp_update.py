@@ -26,10 +26,10 @@ def pause_arp_update(rand_selected_dut):
         "docker exec swss supervisorctl stop arp_update",
         "ip neigh flush all"
     ]
-    rand_selected_dut.shell_cmds(cmds)
+    rand_selected_dut.shell_cmds(cmds=cmds)
     yield
     cmds[0] = "docker exec swss supervisorctl start arp_update"
-    rand_selected_dut.shell_cmds(cmds)
+    rand_selected_dut.shell_cmds(cmds=cmds)
 
 
 @pytest.fixture
