@@ -528,7 +528,7 @@ def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_da
     cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
-    cmd += "-notls "
+    cmd += "-insecure "
     cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
     cmd += f'-jsonin \'{request_json_data}\''
     output = duthost.shell(cmd, module_ignore_errors=True)
