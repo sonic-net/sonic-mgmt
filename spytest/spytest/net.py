@@ -453,7 +453,7 @@ class Net(object):
         access = self._get_dev_access(devname)
         self.gnmi.update({devname: gNMI(logger=self.logger, devName=devname)})
         self.gnmi[devname].configure(ip=devinfo.get('gnmi_ip', access.get('ip')),
-                                     port=devinfo.get('gnmi_port', 8080),
+                                     port=devinfo.get('gnmi_port', 8082),
                                      username=devinfo.get('gnmi_username', access['username']),
                                      password=devinfo.get('gnmi_password', access['password']))
 

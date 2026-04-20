@@ -19,7 +19,7 @@ class gNMI(object):
         self.ip = None
         self.inSecure = True
 
-    def configure(self, ip=None, port=8080, targetName=None, username='admin',
+    def configure(self, ip=None, port=8082, targetName=None, username='admin',
                   password=None, ca=None, cert=None, inSecure=True, noTls=False,
                   timeout=10, params=None):
         self.target_name = targetName
@@ -37,7 +37,7 @@ class gNMI(object):
             self.reinit(ip, port=port)
         return self
 
-    def reinit(self, ip, port=8080):
+    def reinit(self, ip, port=8082):
         self.ip = ip.decode('utf-8') if isinstance(ip, bytes) else str(ip)
         self.port = int(port)
         self.target_addr = "{}:{}".format(self.ip, self.port)

@@ -102,7 +102,7 @@ class GNMIEnvironment(object):
                 config = cfg_facts.get('TELEMETRY', {}).get('gnmi', {})
 
             if config:
-                self.gnmi_port = int(config.get('port', 8080))
+                self.gnmi_port = int(config.get('port', 8082))
                 client_auth = config.get('client_auth', 'false').lower()
                 self.use_tls = client_auth != 'false'
                 logger.info(f"Found CONFIG_DB {self.gnmi_config_table} config: "
@@ -130,7 +130,7 @@ class GNMIEnvironment(object):
             logger.warning(f"Failed to detect from running process: {e}")
 
         # Final fallback: use standard defaults
-        self.gnmi_port = 8080
+        self.gnmi_port = 8082
         self.use_tls = False
         logger.info(f"Using default config: port={self.gnmi_port}, tls={self.use_tls}")
 

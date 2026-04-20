@@ -1,6 +1,6 @@
 parameters:
     host:  10.11.97.10
-    port:  8080
+    port:  8082
     ca: ~
     cert: ~
     username: ~

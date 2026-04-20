@@ -29,7 +29,7 @@ class GrpcCertificateConfig:
 
     # Default gRPC connection settings
     DEFAULT_TLS_PORT = 50052
-    DEFAULT_PLAINTEXT_PORT = 8080
+    DEFAULT_PLAINTEXT_PORT = 8082
 
     @classmethod
     def get_dut_cert_paths(cls) -> Dict[str, str]:

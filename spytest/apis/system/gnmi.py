@@ -42,7 +42,7 @@ def gnmi_get(dut, xpath, **kwargs):
     gnmi_debug(dut)
     credentails = st.get_credentials(dut)
     ip_address = kwargs.get('ip_address', '127.0.0.1')
-    port = kwargs.get('port', '8080')
+    port = kwargs.get('port', '8082')
     insecure = kwargs.get('insecure', '')
     skip_tmpl = kwargs.get('skip_tmpl', False)
     username = kwargs.get('username', credentails[0])
@@ -103,7 +103,7 @@ def gnmi_set(dut, xpath, json_content, **kwargs):
     gnmi_debug(dut)
     credentails = st.get_credentials(dut)
     ip_address = kwargs.get('ip_address', '127.0.0.1')
-    port = kwargs.get('port', '8080')
+    port = kwargs.get('port', '8082')
     insecure = kwargs.get('insecure', '')
     username = kwargs.get('username', credentails[0])
     password = kwargs.get('password', credentails[3])
@@ -174,7 +174,7 @@ def gnmi_cli(dut, **kwargs):
     credentails = st.get_credentials(dut)
     query_type = kwargs.get('query_type', 'stream')
     ip_address = kwargs.get('ip_address', '127.0.0.1')
-    port = kwargs.get('port', '8080')
+    port = kwargs.get('port', '8082')
     gnmi_utils_path = kwargs.get('gnmi_utils_path', '/tmp')
     if not docker_command:
         st.log("Docker command not found ..")
@@ -261,7 +261,7 @@ def dialout_server_cli(**kwargs):
     :return:
     """
 
-    port = kwargs.get('port', '8080')
+    port = kwargs.get('port', '8082')
     cli_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'spytest', 'gnmi', "dialout_server_cli"))
     if not os.path.exists(cli_path):
         st.log("{} command not found ..".format(cli_path))
@@ -491,7 +491,7 @@ def gnmi_delete(dut, xpath, **kwargs):
     gnmi_debug(dut)
     st.log("Performing GNMI DELETE OPERATION ...")
     ip_address = kwargs.get('ip_address', '127.0.0.1')
-    port = kwargs.get('port', '8080')
+    port = kwargs.get('port', '8082')
     insecure = kwargs.get('insecure', '')
     credentails = st.get_credentials(dut)
     username = kwargs.get('username', credentails[0])
@@ -586,7 +586,7 @@ def _run_gnmi_command(command, pid=False):
 def _prepare_gnmi_command(dut, xpath, **kwargs):
     credentials = st.get_credentials(dut)
     ip_address = kwargs.get('ip_address', '127.0.0.1')
-    port = kwargs.get('port', '8080')
+    port = kwargs.get('port', '8082')
     insecure = kwargs.get('insecure', '')
     username = kwargs.get('username', credentials[0])
     password = kwargs.get('password', credentials[3])

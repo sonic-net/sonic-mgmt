@@ -306,7 +306,7 @@ def pytest_addoption(parser):
     # gnmi connection options      #
     ##############################
     # The gNMI target port number to connect to the DUT gNMI server.
-    parser.addoption("--gnmi_port", action="store", default="8080", type=str,
+    parser.addoption("--gnmi_port", action="store", default="8082", type=str,
                      help="gNMI target port number")
     parser.addoption("--gnmi_insecure", action="store_true", default=True,
                      help="Use insecure connection to gNMI target")
