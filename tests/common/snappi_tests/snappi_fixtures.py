@@ -631,9 +631,16 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
 
 
 def check_if_ports_are_members_of_portchannel_or_vlan(duthost, snappi_ports):
+    """
+    Checks if the ports defined in links.csv is part of vlan or portchannel and
+    removes them from the respective vlan/portchannel to avoid any conflict while testing with snappi.
+    Args:
+        duthost (pytest fixture): duthost fixture
+        snappi_ports (list): list of snappi ports info
+    Return:
+        Boolean: True
+    """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    if 'minigraph_portchannels' not in mg_facts:
-        return True
     pc_facts = mg_facts['minigraph_portchannels']
     vlan_facts = mg_facts['minigraph_vlans']
     if not pc_facts and not vlan_facts:
@@ -650,7 +657,7 @@ def check_if_ports_are_members_of_portchannel_or_vlan(duthost, snappi_ports):
     for sp in snappi_ports:
         for vlan, members in vlan_members.items():
             if sp['peer_port'] in members:
-                logger.warning(f"Removing port {sp['peer_port']} from vlan {vlan.split('Vlan')[-1]} for snappi testing")
+                logger.warning(f"Removing {sp['peer_port']} from vlan {vlan.split('Vlan')[-1]} for snappi testing")
                 duthost.command(
                     f"sudo config vlan member del {vlan.split('Vlan')[-1]} {sp['peer_port']}"
                 )
@@ -658,7 +665,13 @@ def check_if_ports_are_members_of_portchannel_or_vlan(duthost, snappi_ports):
 
 
 @pytest.fixture(scope="function")
-def setup_bgp_testbed(duthost):  # noqa: F811
+def setup_bgp_testbed(duthost):     # noqa: F811
+    """
+    Fixture to backup and restore config for bgp tests. This is required as we are making changes to
+    DUT config in bgp tests and we want to restore the original config after the test is done.
+    Args:
+    duthost (pytest fixture): duthost fixture
+    """
     duthost.command("sudo cp /etc/sonic/config_db.json /etc/sonic/bgp_backup.json \n")
     logger.info('Backing up the initial config to /etc/sonic/bgp_backup.json \n')
     yield
@@ -667,8 +680,7 @@ def setup_bgp_testbed(duthost):  # noqa: F811
     error = duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y \n")['stderr']
     if 'Error' in error:
         pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/bgp_backup.json -y \n")['stderr'],
-                      'Error while reloading config in {} !!!!!'
-                      .format(duthost.hostname))
+                      'Error while reloading config in {} !!!!!'.format(duthost.hostname))
     duthost.command("sudo cp /etc/sonic/bgp_backup.json /etc/sonic/config_db.json \n")
 
 
