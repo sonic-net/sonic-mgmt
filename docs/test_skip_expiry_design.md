@@ -133,6 +133,8 @@ Implementation notes:
 - Enforce final approval through branch protection with "Require review from Code Owners".
 - Keep reviewer tagging idempotent (avoid repeated review requests/comments on every sync).
 
+> **Note:** This workflow will be implemented by modifying the existing workflow at `.github/workflows/assignReviewers.yaml` rather than creating a new workflow file.
+
 **1. Issue Expiry Workflow (GitHub Actions / Pipeline)**
 
 A scheduled workflow that runs periodically (e.g., daily) to:
@@ -148,6 +150,16 @@ A scheduled workflow that runs periodically (e.g., daily) to:
   - Post or update an issue comment that `@` mentions configured skip maintainers
   - Surface active maintainer-extension labels in the generated report
   - Optionally notify issue assignees in the same comment
+
+**Issue Comment Generation:**
+
+The workflow generates issue comments to make escalation and expiry dates explicit:
+
+- **When workflow adds a priority label (P3, P2, P1, P0)**: Post a comment such as `"Priority tag [skip-wf-priority-N] was added. This issue will be escalated to the next priority / expire in M days on [date]."`
+- **When anyone deletes a workflow-applied priority label**: Post a comment such as `"Priority tag [skip-wf-priority-N] was deleted by @[user]. This label is workflow-managed and manual deletion does not change expiry timeline calculations."`
+- **When a designated skip maintainer adds `skip-maintainer-extension-N`**: Post a comment such as `"Expiry extension granted for N days; next expiry on [date]."`
+- **When a designated skip maintainer removes `skip-maintainer-extension-N`**: Post a comment such as `"Expiry extension canceled by maintainer @[maintainer] on [date]. Issue is now considered expired."`
+- **Idempotency**: Comments use deterministic markers so repeated runs do not create duplicates for the same event.
 
 **Maintainer registry**
 
@@ -490,8 +502,12 @@ To handle skips across multiple release branches:
 - The effective extension is the timeline occurrence applied by an authorized maintainer whose computed `label_applied_at + N` is the furthest future date that is still greater than today; occurrences whose window has already passed are ignored for computing active coverage but are preserved in artifacts.
 - All extension label occurrences, their applicators, applied timestamps, and computed due dates are recorded in the exported report for full auditability.
 - Priority levels are derived dynamically from `expiry_config.yml` keys matching `pN_label_expiry_days`; fixed ladders are not assumed.
+- **Priority label immutability**: Priority labels are workflow-managed only. Non-maintainer users and designated maintainers must not manually modify priority labels.
+- **Priority label deletion handling**: If any user deletes a workflow-applied priority label, deletion is logged/commented, but the deletion is not treated as a valid state change for expiry calculations.
+- **No re-apply behavior**: If a workflow-applied priority label is deleted, the workflow does not re-apply it solely to restore UI state.
+- **Expiry baseline rule**: Escalation and expiry calculations must always use the first timeline `labeled` event where the workflow applied that priority label. Re-application timestamps (if they exist later) must never reset or shift the schedule.
+- **Stage source of truth**: Priority-stage timing is derived from issue timeline metadata of workflow-applied label events, not merely from current labels present on the issue.
 - Warning comments and final escalation comments are idempotent through deterministic hidden markers, so repeated daily runs do not spam duplicate comments for the same threshold/stage.
-- Stage source of truth is issue timeline `labeled` events for workflow priority labels (label history), not current issue label presence.
 - Scan/classification includes both `xfail:` with issue and `skip:` with issue as temporary exceptions.
 
 #### 5. Conditional Mark Hygiene
