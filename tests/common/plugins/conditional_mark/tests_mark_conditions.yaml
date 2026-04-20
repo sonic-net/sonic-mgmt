@@ -4346,7 +4346,7 @@ qos/test_qos_probe.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/22599"
       # Multi-asic KVM: testPortIds empty for VS platform
       - "'t1-8-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24068"
-      # T2 KVM: SonicAsic.command() rejects module_ignore_errors
+      # T2: SonicAsic.command() rejects module_ignore_errors in updateFeatureState
       - "topo_type in ['t2'] and https://github.com/sonic-net/sonic-mgmt/issues/24069"
       # Cisco-8000 GB series (8102/8101 GB SKUs)
       - "hwsku in ['Cisco-8102-C64', 'Cisco-8101-O8C48', 'Cisco-8102-28FH-DPU-O'] and https://github.com/sonic-net/sonic-mgmt/issues/22601"
