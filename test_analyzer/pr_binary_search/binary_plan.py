@@ -243,6 +243,9 @@ class DynamicParallelBisect:
             - 'new_range_commits': commits in the new range
             - 'eliminated_commits': commits that were eliminated this round
         """
+        assert all(v is not None for v in results.values()), (
+            "submit_test_results received None result values; filter incomplete results before calling"
+        )
         old_left, old_right = self.left, self.right
         old_range_commits = self.commits[old_left:old_right + 1]
 

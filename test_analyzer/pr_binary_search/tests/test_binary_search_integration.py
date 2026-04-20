@@ -713,3 +713,565 @@ class TestExecuteBinarySearch:
         assert result == expected_jobs, (
             f"checker={checker}: expected INCLUDE_JOBS='{expected_jobs}', got '{result}'"
         )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Part 4 – round-by-round on-demand builds
+# ──────────────────────────────────────────────────────────────────────
+
+def run_execute_binary_search_with_round_builds(
+    commits: List[str],
+    test_results_by_commit: Dict[str, bool],
+    ci_build_cache: Optional[dict] = None,
+    max_parallel: int = 3,
+    build_pipeline_id: int = 3332,
+):
+    """
+    Run execute_binary_search with build_pipeline_id set (round-by-round mode).
+
+    prebuild_commits_for_repo is patched to return synthetic build-cache entries
+    without making real network calls.  Returns (result, mock_client, mock_trigger,
+    prebuild_calls) where prebuild_calls is the list of commit-id lists passed to
+    each per-round prebuild invocation.
+    """
+    commits_with_meta = [{"sha": sha} for sha in commits]
+    result_json = {
+        "repo": "sonic-net/sonic-buildimage",
+        "branch": "master",
+        "test_scripts": {"t1-multi-asic_checker": ["test.py"]},
+        "commits": commits_with_meta,
+        "analyzer_run_id": "mock-run",
+        "trigger_type": "BaselineTest",
+        "checker": "t1-multi-asic_checker",
+        "file_path": "test.py",
+        "module_path": "test",
+        "testcase": "test_case",
+    }
+    client = make_mock_client(test_results_by_commit)
+
+    prebuild_calls = []
+
+    def _fake_prebuild(client, repo, branch, commit_ids,
+                       build_pipeline_id, build_queue_parallel):
+        prebuild_calls.append(list(commit_ids))
+        built = {}
+        for i, sha in enumerate(commit_ids):
+            run_id = 8000 + commits.index(sha)
+            built[sha] = {
+                "is_bad": False,
+                "run_id": run_id,
+                "run_url": f"https://fake/build/{run_id}",
+                "status": "completed",
+                "result": "succeeded",
+            }
+        return built
+
+    with patch("pr_binary_search.trigger_pipeline",
+               side_effect=make_trigger_side_effect()) as mock_trigger, \
+         patch("pr_binary_search.prebuild_commits_for_repo",
+               side_effect=_fake_prebuild):
+        result = execute_binary_search(
+            client=client,
+            result_json=result_json,
+            max_parallel=max_parallel,
+            test_pipeline_id=3320,
+            build_cache=dict(ci_build_cache) if ci_build_cache else None,
+            search_run_id="mock-search-id",
+            build_pipeline_id=build_pipeline_id,
+            build_queue_parallel=2,
+        )
+    return result, client, mock_trigger, prebuild_calls
+
+
+class TestRoundByRoundBuilds:
+    """execute_binary_search with build_pipeline_id triggers per-round on-demand builds."""
+
+    def test_builds_only_round_commits_not_all_upfront(self):
+        """Each prebuild call must only contain commits for that round, not all commits."""
+        commits = make_commits(8)
+        BAD_IDX = 4
+        test_results = {c: (commits.index(c) >= BAD_IDX) for c in commits}
+
+        result, _, _, prebuild_calls = run_execute_binary_search_with_round_builds(
+            commits, test_results, max_parallel=3
+        )
+
+        assert result["search_completed"] is True
+        assert result["bad_commit"] == commits[BAD_IDX]
+
+        # Each individual prebuild call must be ≤ max_parallel commits.
+        for call_commits in prebuild_calls:
+            assert len(call_commits) <= 3, (
+                f"Prebuild triggered {len(call_commits)} commits in one round; "
+                "expected at most max_parallel=3"
+            )
+
+        # Total unique commits built must be << 8 (only visited commits).
+        all_built = {c for call in prebuild_calls for c in call}
+        assert len(all_built) < len(commits), (
+            "Round-by-round build should visit fewer commits than the full set"
+        )
+
+    def test_ci_prescreened_commits_not_rebuilt(self):
+        """Commits already in ci_build_cache must not be passed to prebuild_commits_for_repo."""
+        commits = make_commits(6)
+        BAD_IDX = 3
+        test_results = {c: (commits.index(c) >= BAD_IDX) for c in commits}
+
+        # Pre-seed cache with commits[2] (a CI build) and commits[4]
+        ci_cache = {
+            commits[2]: {"is_bad": False, "run_id": 7002, "run_url": "u", "status": "completed", "result": "succeeded"},
+            commits[4]: {"is_bad": False, "run_id": 7004, "run_url": "u", "status": "completed", "result": "succeeded"},
+        }
+
+        _, _, _, prebuild_calls = run_execute_binary_search_with_round_builds(
+            commits, test_results, ci_build_cache=ci_cache, max_parallel=3
+        )
+
+        built_via_pipeline = {c for call in prebuild_calls for c in call}
+        # Commits already in ci_cache must not be re-built.
+        for cached_sha in ci_cache:
+            assert cached_sha not in built_via_pipeline, (
+                f"Commit {cached_sha} was in ci_build_cache but got re-built unnecessarily"
+            )
+
+    def test_build_stage_records_emitted_per_round(self):
+        """Build-stage execution records must be present for every on-demand built commit."""
+        commits = make_commits(5)
+        BAD_IDX = 2
+        test_results = {c: (commits.index(c) >= BAD_IDX) for c in commits}
+
+        result, _, _, prebuild_calls = run_execute_binary_search_with_round_builds(
+            commits, test_results, max_parallel=2
+        )
+
+        built_commits = {c for call in prebuild_calls for c in call}
+        build_records = [r for r in result["execution_records"] if r["Stage"] == "build"]
+        built_in_records = {r["CommitSha"] for r in build_records}
+
+        assert built_commits == built_in_records, (
+            f"Build records don't match built commits.\n"
+            f"  Built: {built_commits}\n  In records: {built_in_records}"
+        )
+        for rec in build_records:
+            assert rec["RoundNumber"] >= 1, "Build records must carry the actual round number"
+
+    def test_build_failure_mid_round_marks_commit_bad(self):
+        """If a per-round build fails (is_bad=True), the commit must be marked bad without testing."""
+        commits = make_commits(5)
+        BAD_IDX = 2
+        test_results = {c: (commits.index(c) >= BAD_IDX) for c in commits}
+
+        commits_with_meta = [{"sha": sha} for sha in commits]
+        result_json = {
+            "repo": "sonic-net/sonic-buildimage",
+            "branch": "master",
+            "test_scripts": {"t1-multi-asic_checker": ["test.py"]},
+            "commits": commits_with_meta,
+            "analyzer_run_id": "mock",
+            "trigger_type": "BaselineTest",
+            "checker": "t1-multi-asic_checker",
+            "file_path": "test.py",
+            "module_path": "test",
+            "testcase": "tc",
+        }
+        client = make_mock_client(test_results)
+
+        def _fake_prebuild_with_failure(client, repo, branch, commit_ids,
+                                        build_pipeline_id, build_queue_parallel):
+            built = {}
+            for sha in commit_ids:
+                idx = commits.index(sha)
+                run_id = 8000 + idx
+                # Simulate build failure for commits[BAD_IDX]
+                if idx == BAD_IDX:
+                    built[sha] = {
+                        "is_bad": True, "run_id": run_id,
+                        "run_url": f"u/{run_id}", "status": "completed", "result": "failed",
+                    }
+                else:
+                    built[sha] = {
+                        "is_bad": False, "run_id": run_id,
+                        "run_url": f"u/{run_id}", "status": "completed", "result": "succeeded",
+                    }
+            return built
+
+        with patch("pr_binary_search.trigger_pipeline",
+                   side_effect=make_trigger_side_effect()) as mock_trigger, \
+             patch("pr_binary_search.prebuild_commits_for_repo",
+                   side_effect=_fake_prebuild_with_failure):
+            result = execute_binary_search(
+                client=client,
+                result_json=result_json,
+                max_parallel=2,
+                test_pipeline_id=3320,
+                build_cache=None,
+                search_run_id="mock",
+                build_pipeline_id=3332,
+                build_queue_parallel=2,
+            )
+
+        # Commit with failed build must be identified as bad.
+        assert result["bad_commit"] == commits[BAD_IDX]
+        # No test pipeline should be triggered for the build-failed commit.
+        triggered_commits = {call.args[2] for call in mock_trigger.call_args_list}
+        assert commits[BAD_IDX] not in triggered_commits, (
+            "Test pipeline must not fire for a commit whose build failed"
+        )
+
+    def test_build_cache_returned_in_result(self):
+        """execute_binary_search must include accumulated build_cache in its result dict."""
+        commits = make_commits(4)
+        test_results = {c: False for c in commits}
+
+        result, _, _, _ = run_execute_binary_search_with_round_builds(
+            commits, test_results, max_parallel=2
+        )
+
+        assert "build_cache" in result, "result must contain 'build_cache'"
+        # All visited commits must appear in the returned build_cache.
+        build_records = [r for r in result["execution_records"] if r["Stage"] == "build"]
+        visited = {r["CommitSha"] for r in build_records}
+        for sha in visited:
+            assert sha in result["build_cache"], f"{sha} missing from returned build_cache"
+
+    def test_failed_cache_entries_are_retried_next_round(self):
+        """Commits with a failed build status in the cache must be retried in subsequent rounds,
+        not silently skipped as if they had a valid image."""
+        commits = make_commits(4)
+        BAD_IDX = 2
+        test_results = {c: (commits.index(c) >= BAD_IDX) for c in commits}
+
+        # Seed the cache with a queue_error entry for commits[1] — it should be rebuilt.
+        error_entry = {
+            "is_bad": None,
+            "run_id": None,
+            "run_url": None,
+            "status": "queue_error",
+            "result": "previous failure",
+        }
+        ci_cache = {commits[1]: error_entry}
+
+        prebuild_calls = []
+
+        def _fake_prebuild(client, repo, branch, commit_ids,
+                           build_pipeline_id, build_queue_parallel):
+            prebuild_calls.append(list(commit_ids))
+            built = {}
+            for sha in commit_ids:
+                idx = commits.index(sha)
+                run_id = 8000 + idx
+                built[sha] = {
+                    "is_bad": False, "run_id": run_id,
+                    "run_url": f"https://fake/build/{run_id}",
+                    "status": "completed", "result": "succeeded",
+                }
+            return built
+
+        commits_with_meta = [{"sha": sha} for sha in commits]
+        result_json = {
+            "repo": "sonic-net/sonic-buildimage",
+            "branch": "master",
+            "test_scripts": {"t1-multi-asic_checker": ["test.py"]},
+            "commits": commits_with_meta,
+            "analyzer_run_id": "mock",
+            "trigger_type": "BaselineTest",
+            "checker": "t1-multi-asic_checker",
+            "file_path": "test.py",
+            "module_path": "test",
+            "testcase": "tc",
+        }
+        client = make_mock_client(test_results)
+
+        with patch("pr_binary_search.trigger_pipeline",
+                   side_effect=make_trigger_side_effect()), \
+             patch("pr_binary_search.prebuild_commits_for_repo",
+                   side_effect=_fake_prebuild):
+            execute_binary_search(
+                client=client,
+                result_json=result_json,
+                max_parallel=2,
+                test_pipeline_id=3320,
+                build_cache=dict(ci_cache),
+                search_run_id="mock",
+                build_pipeline_id=3332,
+                build_queue_parallel=2,
+            )
+
+        all_rebuilt = {c for call in prebuild_calls for c in call}
+        # commits[1] had a queue_error; it must have been retried.
+        assert commits[1] in all_rebuilt, (
+            "commits[1] had a 'queue_error' cache entry but was NOT retried. "
+            "Failed builds must be retried when selected again in a later round."
+        )
+
+    def test_prebuild_exception_handled_gracefully(self):
+        """If prebuild_commits_for_repo raises, the search must not abort;
+        affected commits should receive queue_error entries and be treated as bad."""
+        commits = make_commits(4)
+        BAD_IDX = 2
+        test_results = {c: (commits.index(c) >= BAD_IDX) for c in commits}
+
+        def _raising_prebuild(client, repo, branch, commit_ids,
+                              build_pipeline_id, build_queue_parallel):
+            raise RuntimeError("Network timeout during queue")
+
+        commits_with_meta = [{"sha": sha} for sha in commits]
+        result_json = {
+            "repo": "sonic-net/sonic-buildimage",
+            "branch": "master",
+            "test_scripts": {"t1-multi-asic_checker": ["test.py"]},
+            "commits": commits_with_meta,
+            "analyzer_run_id": "mock",
+            "trigger_type": "BaselineTest",
+            "checker": "t1-multi-asic_checker",
+            "file_path": "test.py",
+            "module_path": "test",
+            "testcase": "tc",
+        }
+        client = make_mock_client(test_results)
+
+        with patch("pr_binary_search.trigger_pipeline",
+                   side_effect=make_trigger_side_effect()), \
+             patch("pr_binary_search.prebuild_commits_for_repo",
+                   side_effect=_raising_prebuild):
+            # Must not raise — should return a result dict
+            result = execute_binary_search(
+                client=client,
+                result_json=result_json,
+                max_parallel=2,
+                test_pipeline_id=3320,
+                build_cache=None,
+                search_run_id="mock",
+                build_pipeline_id=3332,
+                build_queue_parallel=2,
+            )
+
+        assert isinstance(result, dict), "execute_binary_search must return a dict even on prebuild failure"
+        # Build records must capture the queue_error status, not be missing.
+        build_records = [r for r in result.get("execution_records", []) if r["Stage"] == "build"]
+        assert build_records, "Build-stage records must be emitted even when prebuild raises"
+        for rec in build_records:
+            assert rec["Status"] == "queue_error", (
+                f"Expected Status='queue_error' for failed prebuild, got '{rec['Status']}'"
+            )
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Part 5 – OVERRIDE_PARAMS / KVM_IMAGE_BUILD_PIPELINE_ID
+# ──────────────────────────────────────────────────────────────────────
+
+def make_ci_build_cache(commits, ci_pipeline_definition_id=1):
+    """Return a build cache where every entry is flagged as a CI prescreening hit."""
+    cache = {}
+    for i, sha in enumerate(commits):
+        run_id = 9000 + i
+        cache[sha] = {
+            "is_bad": False,
+            "run_id": run_id,
+            "run_url": f"https://fake/ci/{run_id}",
+            "status": "completed",
+            "result": "succeeded",
+            "ci_prescreening": True,
+            "pipeline_definition_id": ci_pipeline_definition_id,
+        }
+    return cache
+
+
+class TestOverrideParamsKvmPipelineId:
+    """KVM_IMAGE_BUILD_PIPELINE_ID must be set in OVERRIDE_PARAMS for CI-sourced builds."""
+
+    def test_ci_sourced_builds_set_kvm_pipeline_id(self):
+        """When a commit's build came from a CI pipeline, OVERRIDE_PARAMS must include
+        KVM_IMAGE_BUILD_PIPELINE_ID pointing to that pipeline, so the test scheduler
+        fetches the image from the right pipeline (not defaulting to the VS build pipeline)."""
+        CI_PIPELINE_ID = 1
+        commits = make_commits(4)
+        BAD_IDX = 2
+        test_results = {c: (commits.index(c) >= BAD_IDX) for c in commits}
+
+        ci_cache = make_ci_build_cache(commits, ci_pipeline_definition_id=CI_PIPELINE_ID)
+        commits_with_meta = [{"sha": sha} for sha in commits]
+        result_json = {
+            "repo": "sonic-net/sonic-buildimage",
+            "branch": "master",
+            "test_scripts": {"t1-multi-asic_checker": ["test.py"]},
+            "commits": commits_with_meta,
+            "analyzer_run_id": "mock",
+            "trigger_type": "BaselineTest",
+            "checker": "t1-multi-asic_checker",
+            "file_path": "test.py",
+            "module_path": "test",
+            "testcase": "tc",
+        }
+        client = make_mock_client(test_results)
+
+        with patch("pr_binary_search.trigger_pipeline",
+                   side_effect=make_trigger_side_effect()) as mock_trigger:
+            execute_binary_search(
+                client=client,
+                result_json=result_json,
+                max_parallel=2,
+                test_pipeline_id=3320,
+                build_cache=dict(ci_cache),
+                search_run_id="mock",
+            )
+
+        assert mock_trigger.called, "trigger_pipeline should have been called"
+        for call_args in mock_trigger.call_args_list:
+            params = call_args.args[5]
+            override = params.OVERRIDE_PARAMS or {}
+            assert override.get("KVM_IMAGE_BUILD_PIPELINE_ID") == str(CI_PIPELINE_ID), (
+                f"Expected OVERRIDE_PARAMS[KVM_IMAGE_BUILD_PIPELINE_ID]='{CI_PIPELINE_ID}', "
+                f"got OVERRIDE_PARAMS={override!r}. "
+                "The test scheduler will try to fetch the VS image from the wrong pipeline."
+            )
+
+    def test_non_ci_sourced_builds_do_not_set_override(self):
+        """Commits built by the VS image build pipeline must NOT receive an OVERRIDE_PARAMS
+        (or the value should be None), to avoid overriding the correct default."""
+        commits = make_commits(4)
+        BAD_IDX = 2
+        test_results = {c: (commits.index(c) >= BAD_IDX) for c in commits}
+
+        # Regular (non-CI) build cache — no ci_prescreening flag
+        regular_cache = make_build_cache(commits)
+        commits_with_meta = [{"sha": sha} for sha in commits]
+        result_json = {
+            "repo": "sonic-net/sonic-buildimage",
+            "branch": "master",
+            "test_scripts": {"t1-multi-asic_checker": ["test.py"]},
+            "commits": commits_with_meta,
+            "analyzer_run_id": "mock",
+            "trigger_type": "BaselineTest",
+            "checker": "t1-multi-asic_checker",
+            "file_path": "test.py",
+            "module_path": "test",
+            "testcase": "tc",
+        }
+        client = make_mock_client(test_results)
+
+        with patch("pr_binary_search.trigger_pipeline",
+                   side_effect=make_trigger_side_effect()) as mock_trigger:
+            execute_binary_search(
+                client=client,
+                result_json=result_json,
+                max_parallel=2,
+                test_pipeline_id=3320,
+                build_cache=dict(regular_cache),
+                search_run_id="mock",
+            )
+
+        assert mock_trigger.called
+        for call_args in mock_trigger.call_args_list:
+            params = call_args.args[5]
+            assert not params.OVERRIDE_PARAMS, (
+                f"Non-CI build must not set OVERRIDE_PARAMS, got {params.OVERRIDE_PARAMS!r}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# fetch_failure_info_from_kusto — skip-completed filtering
+# ---------------------------------------------------------------------------
+
+class TestFetchFailureInfoFromKusto:
+    """Verify that fetch_failure_info_from_kusto skips already-completed episodes."""
+
+    def _make_kusto_client(self, failure_rows):
+        """Return a mock KustoClient whose execute_query returns *failure_rows*."""
+        mock_result = MagicMock()
+        mock_result.primary_results = [MagicMock()]
+        mock_result.primary_results[0].to_dict.return_value = {"data": failure_rows}
+        client = MagicMock()
+        client.execute_query.return_value = mock_result
+        return client
+
+    def _capture_query(self, failure_rows):
+        """Return (query_str, records) for a call with the given rows."""
+        client = self._make_kusto_client(failure_rows)
+        from pr_binary_search import fetch_failure_info_from_kusto
+        records = fetch_failure_info_from_kusto(client, lookback_hours=12)
+        query_str = client.execute_query.call_args[0][1]
+        return query_str, records
+
+    def test_skip_completed_uses_analyzer_run_id(self):
+        """The skip subquery must filter by AnalyzerRunId — not FailureJoinKey — to avoid
+        suppressing new regressions of the same test."""
+        query, _ = self._capture_query([])
+        assert "AnalyzerRunId" in query
+        assert "SearchCompleted" in query
+        assert "leftanti" in query
+
+    def test_completed_filter_uses_result_table(self):
+        """The skip subquery must reference PRBinarySearchResult."""
+        query, _ = self._capture_query([])
+        assert "PRBinarySearchResult" in query
+
+    def test_failure_join_key_in_projection(self):
+        """FailureJoinKey must be included in the projected columns."""
+        query, _ = self._capture_query([])
+        assert "FailureJoinKey" in query
+
+    def test_records_returned_from_rows(self):
+        """Records returned should match the rows the Kusto mock provides."""
+        rows = [
+            {"AnalyzerRunId": "aaa", "FailureJoinKey": "sonic-net/sonic-mgmt|master|PRTest|t0|f.py|m|test_foo",
+             "SourceRepo": "sonic-net/sonic-mgmt",
+             "Branch": "master", "TriggerType": "PRTest", "CheckerType": "t0_checker",
+             "FilePath": "f.py", "ModulePath": "m", "TestCase": "test_foo",
+             "Commits": [], "LikelyIssueClose": False, "RawFailureInfo": None},
+        ]
+        _, records = self._capture_query(rows)
+        assert len(records) == 1
+        assert records[0]["AnalyzerRunId"] == "aaa"
+        assert records[0]["FailureJoinKey"] == "sonic-net/sonic-mgmt|master|PRTest|t0|f.py|m|test_foo"
+
+    def test_raw_failure_info_json_string_is_parsed(self):
+        """RawFailureInfo stored as a JSON string must be parsed into a dict."""
+        import json
+        raw = json.dumps({"test_scripts": {"t0_checker": ["f.py"]}})
+        rows = [
+            {"AnalyzerRunId": "bbb", "FailureJoinKey": "sonic-net/sonic-buildimage|master|PRTest|t0|f.py|m|test_bar",
+             "SourceRepo": "sonic-net/sonic-buildimage",
+             "Branch": "master", "TriggerType": "PRTest", "CheckerType": "t0_checker",
+             "FilePath": "f.py", "ModulePath": "m", "TestCase": "test_bar",
+             "Commits": [], "LikelyIssueClose": False, "RawFailureInfo": raw},
+        ]
+        _, records = self._capture_query(rows)
+        assert isinstance(records[0]["RawFailureInfo"], dict)
+        assert "test_scripts" in records[0]["RawFailureInfo"]
+
+    def test_lookback_hours_appears_in_query(self):
+        """Custom lookback_hours value must be reflected in the KQL query."""
+        query, _ = self._capture_query([])
+        assert "12h" in query
+
+    def test_exact_failure_join_key_bypasses_lookback(self):
+        """When exact_failure_join_key is set the time filter must be absent
+        and the query must filter by FailureJoinKey with a take 1 limit."""
+        client = self._make_kusto_client([])
+        from pr_binary_search import fetch_failure_info_from_kusto
+        fetch_failure_info_from_kusto(
+            client,
+            lookback_hours=12,
+            exact_failure_join_key="sonic-net/sonic-mgmt|master|PRTest|t0|f.py|m|test_foo",
+        )
+        query = client.execute_query.call_args[0][1]
+        assert "12h" not in query, "Lookback filter should be absent when exact key is provided"
+        assert "FailureJoinKey ==" in query
+        assert "take 1" in query
+
+    def test_exact_analyzer_run_id_bypasses_lookback(self):
+        """When exact_analyzer_run_id is set all rows for that batch are returned
+        (no time filter, no take 1 limit — one batch can have many failure rows)."""
+        client = self._make_kusto_client([])
+        from pr_binary_search import fetch_failure_info_from_kusto
+        fetch_failure_info_from_kusto(
+            client,
+            lookback_hours=12,
+            exact_analyzer_run_id="batch-run-abc123",
+        )
+        query = client.execute_query.call_args[0][1]
+        assert "12h" not in query, "Lookback filter should be absent when exact batch ID is provided"
+        assert "AnalyzerRunId ==" in query
+        assert "take 1" not in query, "No row limit — all failures in the batch should be returned"

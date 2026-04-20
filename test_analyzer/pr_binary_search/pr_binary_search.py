@@ -5,7 +5,7 @@ import argparse
 import uuid
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pipeline_triggers import AzureDevOpsClient, trigger_pipeline
+from pipeline_triggers import AzureDevOpsClient, trigger_pipeline  # ThreadPoolExecutor kept for prebuild
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from azure.kusto.data.exceptions import KustoServiceError
 from config import (
@@ -116,7 +116,16 @@ def build_failure_join_key(metadata):
 
 def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_parallel: int,
                           test_pipeline_id: int, build_cache: dict = None,
-                          search_run_id: str = None):
+                          search_run_id: str = None,
+                          build_pipeline_id: int = None,
+                          build_queue_parallel: int = 1):
+    """Run binary search, optionally building VS images per round on demand.
+
+    When *build_pipeline_id* is provided the function builds only the commits
+    needed for each binary search round instead of requiring a fully pre-built
+    cache.  This limits peak concurrent builds to *max_parallel* rather than
+    the total number of commits in the search range.
+    """
     repo = result_json['repo']
     branch = result_json['branch']
     test_scripts = result_json['test_scripts']
@@ -130,6 +139,8 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
     searcher = DynamicParallelBisect(commit_ids, max_parallel=max_parallel)
     execution_records = []
     test_plan_records = []
+    # Keep a mutable local copy of the build cache so on-demand builds accumulate.
+    build_cache = dict(build_cache) if build_cache else {}
     metadata_base = {
         "analyzer_run_id": result_json.get("analyzer_run_id"),
         "repo": repo,
@@ -154,6 +165,80 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
         logger.info(f"Round {round_number} testing commits: {test_commits}")
 
         round_results = {}
+
+        # Per-round on-demand build: build VS images for commits not yet in cache,
+        # or whose prior build attempt failed/is indeterminate (retry them).
+        if repo != MGMT_REPO and build_pipeline_id:
+            _build_failed_statuses = {"queue_error", "timeout", "error"}
+            commits_to_build = [
+                c for c in test_commits
+                if c not in build_cache
+                or build_cache[c].get("status") in _build_failed_statuses
+                or build_cache[c].get("is_bad") is None
+            ]
+            if commits_to_build:
+                logger.info(
+                    f"Round {round_number}: building {len(commits_to_build)} VS image(s) on demand"
+                )
+                try:
+                    round_build_map = prebuild_commits_for_repo(
+                        client=client,
+                        repo=repo,
+                        branch=branch,
+                        commit_ids=commits_to_build,
+                        build_pipeline_id=build_pipeline_id,
+                        build_queue_parallel=build_queue_parallel,
+                    )
+                except Exception as e:
+                    logger.error(f"Error during prebuild for round {round_number}: {e}")
+                    round_build_map = {
+                        commit: {
+                            "is_bad": None,
+                            "run_id": None,
+                            "run_url": None,
+                            "status": "queue_error",
+                            "result": str(e),
+                        }
+                        for commit in commits_to_build
+                    }
+                build_cache.update(round_build_map)
+                # Emit build-stage records for the commits just built.
+                for commit, detail in round_build_map.items():
+                    run_id = detail.get("run_id")
+                    status = detail.get("status")
+                    verdict = (
+                        "completed"
+                        if status not in {"queue_error", "timeout", "error"}
+                        else status
+                    )
+                    execution_records.append({
+                        "SearchRunId": search_run_id,
+                        "AnalyzerRunId": result_json.get("analyzer_run_id"),
+                        "FailureJoinKey": failure_join_key,
+                        "TriggerType": result_json.get("trigger_type"),
+                        "SourceRepo": repo,
+                        "Branch": branch,
+                        "CheckerType": result_json.get("checker"),
+                        "FilePath": result_json.get("file_path"),
+                        "ModulePath": result_json.get("module_path"),
+                        "TestCase": result_json.get("testcase"),
+                        "RoundNumber": round_number,
+                        "CommitSha": commit,
+                        "Stage": "build",
+                        "Verdict": verdict,
+                        "IsBad": detail.get("is_bad"),
+                        "PipelineDefinitionId": detail.get(
+                            "pipeline_definition_id", build_pipeline_id
+                        ),
+                        "PipelineRunId": str(run_id) if run_id is not None else None,
+                        "PipelineUrl": detail.get("run_url"),
+                        "Status": status,
+                        "Result": detail.get("result"),
+                        "BuildReason": BUILD_REASON,
+                        "ImpactAreaInfo": test_scripts,
+                        "RawRecord": detail,
+                        "UploadTime": isoformat_utc(datetime.now(tz=timezone.utc)),
+                    })
 
         # Test pipelines
         test_runs = []
@@ -255,9 +340,9 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
 
             if repo != MGMT_REPO:
                 # sonic-buildimage binary search: use the pre-built VS image identified
-                # by its build run ID.  MGMT_COMMIT_HASH is left unset so the test
-                # pipeline checks out the HEAD of sonic-mgmt (test scripts stay fixed
-                # across rounds; only the image changes).
+                # by its build run ID.  If mgmt_commit_hash is set in the failure entry
+                # the test pipeline will pin that sonic-mgmt commit (e.g. to rerun with
+                # a specific mgmt version before a known skip/flake was introduced).
                 params = TestPipelineParameters(
                     BUILD_REASON=BUILD_REASON,
                     BUILD_BRANCH=branch,
@@ -266,6 +351,14 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
                     RETRY_TIMES=DEFAULT_RETRY_TIMES,
                     IMPACT_AREA_INFO=pipeline_test_scripts,
                     KVM_BUILD_ID=str(commit_build["run_id"]),
+                    MGMT_COMMIT_HASH=result_json.get("mgmt_commit_hash") or None,
+                    # If the image came from a CI pipeline (not the VS image build pipeline),
+                    # tell the test scheduler which pipeline to fetch the image from.
+                    OVERRIDE_PARAMS=(
+                        {"KVM_IMAGE_BUILD_PIPELINE_ID": str(commit_build["pipeline_definition_id"])}
+                        if commit_build.get("ci_prescreening") and commit_build.get("pipeline_definition_id")
+                        else None
+                    ),
                     INCLUDE_JOBS=include_jobs,
                 )
             else:
@@ -413,18 +506,58 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
         'search_completed': search_status['finished'],
         'execution_records': execution_records,
         'test_plan_records': test_plan_records,
+        'build_cache': build_cache,
     }
 
 
-def fetch_failure_info_from_kusto(kusto_client, lookback_hours=48, table=None):
-    """Query a PRBinarySearchFailureInfo-schema table for recent records to drive binary search."""
+def fetch_failure_info_from_kusto(
+    kusto_client,
+    lookback_hours=48,
+    table=None,
+    exact_analyzer_run_id=None,
+    exact_failure_join_key=None,
+):
+    """Query a PRBinarySearchFailureInfo-schema table for records to drive binary search.
+
+    Failure episodes whose AnalyzerRunId already has a completed result in
+    PRBinarySearchResult (SearchCompleted=true) are skipped to avoid redundant
+    re-runs.  Filtering by AnalyzerRunId (episode identity) rather than
+    FailureJoinKey (test identity) ensures that a new regression of the same
+    test is never suppressed by an old, unrelated completed search.
+
+    Lookup modes (mutually exclusive; first match wins):
+      exact_analyzer_run_id  — return all failure rows for this batch (no time filter)
+      exact_failure_join_key — return the one row for this failure (no time filter, take 1)
+      default                — return all rows within the lookback window
+    """
     if table is None or not str(table).strip():
         table = KUSTO_FAILURE_TABLE
+    if exact_analyzer_run_id:
+        time_clause = ""
+        id_clause = f"| where AnalyzerRunId == '{exact_analyzer_run_id}'"
+        limit_clause = ""
+    elif exact_failure_join_key:
+        time_clause = ""
+        id_clause = f"| where FailureJoinKey == '{exact_failure_join_key}'"
+        limit_clause = "| take 1"
+    else:
+        time_clause = f"| where UploadTime > ago({lookback_hours}h)"
+        id_clause = ""
+        limit_clause = ""
     query = f"""
+        let completed = {KUSTO_RESULT_TABLE}
+            | where SearchCompleted == true
+            | summarize by AnalyzerRunId;
         {table}
-        | where UploadTime > ago({lookback_hours}h)
-        | project AnalyzerRunId, SourceRepo, Branch, TriggerType, CheckerType,
+        {time_clause}
+        | extend FailureJoinKey = strcat(
+            SourceRepo, "|", Branch, "|", TriggerType, "|",
+            CheckerType, "|", FilePath, "|", ModulePath, "|", TestCase)
+        {id_clause}
+        | join kind=leftanti completed on AnalyzerRunId
+        | project AnalyzerRunId, FailureJoinKey, SourceRepo, Branch, TriggerType, CheckerType,
                 FilePath, ModulePath, TestCase, Commits, LikelyIssueClose, RawFailureInfo
+        {limit_clause}
         """
     try:
         rows = kusto_client.execute_query(KUSTO_DATABASE, query).primary_results[0].to_dict()["data"]
@@ -441,7 +574,12 @@ def fetch_failure_info_from_kusto(kusto_client, lookback_hours=48, table=None):
             except (json.JSONDecodeError, TypeError):
                 pass
         records.append(record)
-    logger.info(f"Fetched {len(records)} failure info records from Kusto (lookback={lookback_hours}h)")
+    if exact_analyzer_run_id:
+        logger.info(f"Fetched {len(records)} failure info records from Kusto (analyzer_run_id={exact_analyzer_run_id})")
+    elif exact_failure_join_key:
+        logger.info(f"Fetched {len(records)} failure info records from Kusto (exact_key={exact_failure_join_key})")
+    else:
+        logger.info(f"Fetched {len(records)} failure info records from Kusto (lookback={lookback_hours}h)")
     return records
 
 
@@ -498,6 +636,7 @@ def parse_failure_info_records(records, allowed_branches=None):
                 "test_scripts": test_scripts,
                 "commits": commits,
                 "analyzer_run_id": item.get("AnalyzerRunId"),
+                "failure_join_key": item.get("FailureJoinKey"),
                 "trigger_type": item.get("TriggerType"),
                 "checker": item.get("CheckerType"),
                 "file_path": item.get("FilePath"),
@@ -743,6 +882,9 @@ def narrow_with_ci_prescreening(
                 RETRY_TIMES=DEFAULT_RETRY_TIMES,
                 IMPACT_AREA_INFO=pipeline_test_scripts,
                 KVM_BUILD_ID=str(ci_build["id"]),
+                # CI builds come from the master CI pipeline, not the VS image build
+                # pipeline. Tell the test scheduler which pipeline to fetch the image from.
+                OVERRIDE_PARAMS={"KVM_IMAGE_BUILD_PIPELINE_ID": str(ci_pipeline_definition_id)},
                 INCLUDE_JOBS=include_jobs,
             )
             try:
@@ -1040,64 +1182,10 @@ def process_failure_entry(
             except Exception as ci_err:
                 logger.error(f"CI prescreening failed for {repo}@{branch}, falling back to full build: {ci_err}")
 
-        # Phase 2: Build individual VS images for commits not covered by CI builds.
-        commit_ids = [c.get("sha") for c in commits_to_build if c.get("sha")]
-        commits_needing_build = [sha for sha in commit_ids if sha not in ci_build_cache]
-        if commits_needing_build:
-            build_map = prebuild_commits_for_repo(
-                client=client,
-                repo=repo,
-                branch=branch,
-                commit_ids=commits_needing_build,
-                build_pipeline_id=build_pipeline_id,
-                build_queue_parallel=build_queue_parallel,
-            )
-        else:
-            build_map = {}
-
-        # Merge CI build cache entries into the build map so execute_binary_search
-        # can look up any commit (CI-built or individually-built) uniformly.
-        for sha, entry in ci_build_cache.items():
-            if sha not in build_map:
-                build_map[sha] = entry
-
-    execution_records = []
-    if build_map is not None:
-        failure_join_key = build_failure_join_key(result_json)
-        for commit, detail in build_map.items():
-            run_id = detail.get("run_id")
-            status = detail.get("status")
-            verdict = (
-                "completed"
-                if status not in {"queue_error", "timeout", "error"}
-                else status
-            )
-            execution_records.append({
-                "SearchRunId": search_run_id,
-                "AnalyzerRunId": result_json.get("analyzer_run_id"),
-                "FailureJoinKey": failure_join_key,
-                "TriggerType": result_json.get("trigger_type"),
-                "SourceRepo": repo,
-                "Branch": branch,
-                "CheckerType": result_json.get("checker"),
-                "FilePath": result_json.get("file_path"),
-                "ModulePath": result_json.get("module_path"),
-                "TestCase": result_json.get("testcase"),
-                "RoundNumber": 0,
-                "CommitSha": commit,
-                "Stage": "build",
-                "Verdict": verdict,
-                "IsBad": detail.get("is_bad"),
-                "PipelineDefinitionId": detail.get("pipeline_definition_id", build_pipeline_id),
-                "PipelineRunId": str(run_id) if run_id is not None else None,
-                "PipelineUrl": detail.get("run_url"),
-                "Status": status,
-                "Result": detail.get("result"),
-                "BuildReason": BUILD_REASON,
-                "ImpactAreaInfo": result_json.get("test_scripts"),
-                "RawRecord": detail,
-                "UploadTime": isoformat_utc(datetime.now(tz=timezone.utc)),
-            })
+        # Phase 2: VS images for commits not covered by CI builds are built
+        # on demand inside execute_binary_search, one round at a time.
+        # Seed the cache with whatever CI prescreening already built.
+        build_map = dict(ci_build_cache)
 
     try:
         result = execute_binary_search(
@@ -1107,7 +1195,12 @@ def process_failure_entry(
             test_pipeline_id=test_pipeline_id,
             build_cache=build_map,
             search_run_id=search_run_id,
+            build_pipeline_id=build_pipeline_id if repo != MGMT_REPO else None,
+            build_queue_parallel=build_queue_parallel,
         )
+        # Accumulate all per-round builds back into build_map for write_build_map.
+        if build_map is not None:
+            build_map.update(result.get("build_cache", {}))
     except Exception as search_err:
         # An unhandled error inside the binary search loop (e.g. an unexpected
         # API failure) must not swallow the build-stage and any partial test-
@@ -1124,7 +1217,7 @@ def process_failure_entry(
             "execution_records": [],
             "test_plan_records": [],
         }
-    result['execution_records'] = ci_execution_records + execution_records + result.get('execution_records', [])
+    result['execution_records'] = ci_execution_records + result.get('execution_records', [])
     result['test_plan_records'] = ci_test_plan_records + result.get('test_plan_records', [])
     return entry_key, result, build_map
 
@@ -1149,6 +1242,12 @@ def main():
                         default=MASTER_CI_PIPELINE_DEFINITION_ID,
                         help="Azure DevOps pipeline definition ID for master CI builds "
                              "(default: %(default)s)")
+    parser.add_argument("--failure_join_key", type=str, default="",
+                        help="If set, only process the failure entry with this FailureJoinKey. "
+                             "Use this when running one pipeline instance per failure row.")
+    parser.add_argument("--mgmt_commit_hash", type=str, default="",
+                        help="If set, pin this sonic-mgmt commit when triggering test pipelines "
+                             "(useful to re-run with a mgmt version before a known flake/skip).")
     args = parser.parse_args()
     search_run_id = str(uuid.uuid4())
 
@@ -1167,6 +1266,7 @@ def main():
             kusto_client,
             lookback_hours=args.kusto_lookback_hours,
             table=get_failure_info_table(args.USE_AGENCY_FAILURE_INFO),
+            exact_failure_join_key=args.failure_join_key or None,
         )
         failure_info = parse_failure_info_records(records, allowed_branches=allowed_branches)
     else:
@@ -1174,25 +1274,39 @@ def main():
     if not failure_info:
         logger.error("No failure info found")
         return
+    if args.failure_join_key:
+        # When exact key provided the Kusto query already filtered to 1 row (take 1),
+        # but guard against parsed duplicates just in case.
+        failure_info = [e for e in failure_info if e.get("failure_join_key") == args.failure_join_key]
+        if not failure_info:
+            logger.error(f"No failure entry found for failure_join_key={args.failure_join_key}")
+            return
+        logger.info(f"Filtered to 1 entry for failure_join_key={args.failure_join_key}")
     if not MSSONIC_TOKEN:
         logger.error("MSSONIC_TOKEN is empty, cannot trigger Azure DevOps pipelines.")
         return
 
     client = AzureDevOpsClient(BASE_URL, ORGANIZATION, PROJECT, token=MSSONIC_TOKEN)
 
-    # Execute each failure entry in parallel. Buildimage entries prebuild first, mgmt entries test directly.
+    # Process failure entries sequentially — one pipeline run per failure episode.
+    # Each entry triggers its own build and test pipelines independently so that
+    # a timeout or error in one entry does not affect any other.
+    # (Parallel build pre-fetching within a single entry is still done via
+    #  ThreadPoolExecutor inside prebuild_commits_for_repo.)
+    results = {}
+    logger.info(f"Running {len(failure_info)} failure entries sequentially")
     results = {}
     build_maps_by_entry = {}
-    max_workers = max(1, len(failure_info))
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_repo = {}
-        for idx, result_json in enumerate(failure_info):
-            repo = result_json.get("repo")
-            branch = result_json.get("branch")
-            entry_key = f"{repo}@{branch}#{idx}"
-
-            future = executor.submit(
-                process_failure_entry,
+    for idx, result_json in enumerate(failure_info):
+        # Inject CLI-level mgmt_commit_hash override so execute_binary_search can
+        # pin the sonic-mgmt commit when triggering test pipelines.
+        if args.mgmt_commit_hash:
+            result_json["mgmt_commit_hash"] = args.mgmt_commit_hash
+        repo = result_json.get("repo")
+        branch = result_json.get("branch")
+        entry_key = f"{repo}@{branch}#{idx}"
+        try:
+            finished_entry_key, search_result, build_map = process_failure_entry(
                 client,
                 result_json,
                 entry_key,
@@ -1204,18 +1318,12 @@ def main():
                 enable_ci_prescreening=args.enable_ci_prescreening,
                 ci_pipeline_definition_id=args.ci_pipeline_definition_id,
             )
-            future_to_repo[future] = entry_key
-
-        for future in as_completed(future_to_repo):
-            entry_key = future_to_repo[future]
-            try:
-                finished_entry_key, search_result, build_map = future.result()
-                results[finished_entry_key] = search_result
-                if build_map is not None:
-                    build_maps_by_entry[finished_entry_key] = build_map
-            except Exception as e:
-                logger.error(f"{entry_key} binary search failed: {e}")
-                results[entry_key] = None
+            results[finished_entry_key] = search_result
+            if build_map is not None:
+                build_maps_by_entry[finished_entry_key] = build_map
+        except Exception as e:
+            logger.error(f"{entry_key} binary search failed: {e}")
+            results[entry_key] = None
 
     write_build_map(build_maps_by_entry, args.build_map_output_file)
 

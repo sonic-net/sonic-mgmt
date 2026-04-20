@@ -178,11 +178,13 @@ def get_all_commits_info(failure_details):
             commits = commit_cache[cache_key]
         else:
             commits = get_github_commits(repo, branch, start_time, end_time)
+            # Sort commits oldest-first (ascending by date).
+            # DynamicParallelBisect expects index 0 = oldest (good) and index N-1 = newest (bad).
+            commits = sorted(commits, key=lambda x: x["date"])
             if INCLUDE_NEXT_COMMIT_AFTER_WINDOW:
                 next_commit = get_next_commit_after_time(repo, branch, end_time)
                 if next_commit and all(c["sha"] != next_commit["sha"] for c in commits):
                     commits.append(next_commit)
-                    commits = sorted(commits, key=lambda x: x["date"], reverse=True)
             commit_cache[cache_key] = commits
         if len(commits) > 0:
             commit_info = {

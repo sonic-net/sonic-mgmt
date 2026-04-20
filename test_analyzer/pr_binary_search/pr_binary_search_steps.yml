@@ -21,6 +21,14 @@ parameters:
     type: boolean
     default: false
     displayName: "Use existing CI build images to narrow buildimage commit range before building individual VS images"
+  - name: FAILURE_JOIN_KEY
+    type: string
+    default: ""
+    displayName: "FailureJoinKey of the single failure row to process (empty = all recent)"
+  - name: MGMT_COMMIT_HASH
+    type: string
+    default: ""
+    displayName: "Pin this sonic-mgmt commit when triggering test pipelines"
 
 steps:
   - template: ../../.azure-pipelines/templates/install-azure-cli.yml
@@ -39,13 +47,23 @@ steps:
         cd test_analyzer
         pip install -r requirements.txt
         cd pr_binary_search
+        EXTRA_ARGS=""
+        if [ -n "$FAILURE_JOIN_KEY" ]; then
+          EXTRA_ARGS="--failure_join_key $FAILURE_JOIN_KEY"
+        fi
+        if [ -n "$MGMT_COMMIT_HASH" ]; then
+          EXTRA_ARGS="$EXTRA_ARGS --mgmt_commit_hash $MGMT_COMMIT_HASH"
+        fi
         python pr_binary_search.py \
           --from_kusto True \
           --kusto_lookback_hours ${{ parameters.KUSTO_LOOKBACK_HOURS }} \
           --max_parallel ${{ parameters.MAX_PARALLEL }} \
           --upload_kusto ${{ parameters.UPLOAD_KUSTO }} \
           --USE_AGENCY_FAILURE_INFO ${{ parameters.USE_AGENCY_FAILURE_INFO }} \
-          --enable_ci_prescreening ${{ parameters.ENABLE_CI_PRESCREENING }}
+          --enable_ci_prescreening ${{ parameters.ENABLE_CI_PRESCREENING }} \
+          $EXTRA_ARGS
     env:
       KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
       MSSONIC_TOKEN: $(MSSONIC-TOKEN)
+      FAILURE_JOIN_KEY: ${{ parameters.FAILURE_JOIN_KEY }}
+      MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}

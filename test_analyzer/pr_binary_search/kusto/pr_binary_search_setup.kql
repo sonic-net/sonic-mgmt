@@ -165,3 +165,63 @@
   {"column":"RawSummary","Properties":{"path":"$.RawSummary"}},
   {"column":"UploadTime","Properties":{"path":"$.UploadTime"}}
 ]'
+
+////////////////////////////////////////////////////////////////////////////////
+// Dashboard helper functions
+//
+// Use these functions in Grafana panel queries instead of raw table scans to
+// avoid inflated counts from:
+//   - PRBinarySearchFailureInfo: same AnalyzerRunId re-ingested daily → many rows
+//   - PRBinarySearchResult:      same episode retried → many SearchRunIds per failure
+//
+// Each failure episode (AnalyzerRunId) may produce multiple rows in both tables.
+// These functions return one row per episode so dashboard panels show actual
+// failure count rather than ingest/retry count.
+//
+// Precedence for "best" result per episode (PRBinarySearchResult*):
+//   1. SearchCompleted=true and BadCommit found  (fully resolved)
+//   2. SearchCompleted=true, no BadCommit         (completed, inconclusive)
+//   3. In-progress / timed-out                   (still running or failed)
+// Within the same precedence tier, the most recent UploadTime wins.
+////////////////////////////////////////////////////////////////////////////////
+
+// One row per failure episode — first detection time.
+// Use for "Detected" counts and any panel reading PRBinarySearchFailureInfo.
+// UploadTime on the returned row = earliest ingest time = true first-detection date.
+.create-or-alter function with (
+    folder = "PRBinarySearch",
+    docstring = "One row per failure episode (AnalyzerRunId) using earliest UploadTime as detection date — deduplicated for dashboard use"
+) PRBinarySearchFailureInfoLatest() {
+    PRBinarySearchFailureInfo
+    | summarize arg_min(UploadTime, *) by AnalyzerRunId
+}
+
+// Best result per failure episode.
+// Use for "Detected Issues", "Bad Commits Found", and per-failure summary panels.
+.create-or-alter function with (
+    folder = "PRBinarySearch",
+    docstring = "Best PRBinarySearchResult per AnalyzerRunId — one row per failure episode, deduplicated for dashboard use"
+) PRBinarySearchResultLatest() {
+    PRBinarySearchResult
+    | extend _rank = case(
+        SearchCompleted == true and isnotempty(BadCommit), 2,
+        SearchCompleted == true,                           1,
+                                                           0)
+    | order by AnalyzerRunId asc, FailureJoinKey asc, _rank desc, UploadTime desc
+    | summarize take_any(*) by AnalyzerRunId, FailureJoinKey
+    | project-away _rank
+}
+
+// Log rows from the canonical search run per failure episode.
+// Use for "Search Rounds", "Commits Tested", and per-round detail panels.
+.create-or-alter function with (
+    folder = "PRBinarySearch",
+    docstring = "PRBinarySearchLog rows scoped to the canonical SearchRunId per failure episode"
+) PRBinarySearchLogLatest() {
+    let canonical_runs = PRBinarySearchResultLatest()
+        | project AnalyzerRunId, FailureJoinKey, CanonicalRunId = SearchRunId;
+    PRBinarySearchLog
+    | join kind=inner canonical_runs on AnalyzerRunId, FailureJoinKey
+    | where SearchRunId == CanonicalRunId
+    | project-away CanonicalRunId, AnalyzerRunId1, FailureJoinKey1
+}

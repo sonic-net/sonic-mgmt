@@ -144,10 +144,10 @@ class AzureDevOpsClient:
                     logger.info(f"Pipeline status for commit {pipeline_run.commit}: status={status}, result={result}")
 
                     is_final = status.lower() in ['completed', 'canceled', 'cancelled'] or result.lower() in [
-                        'succeeded', 'failed', 'canceled', 'partiallySucceeded']
+                        'succeeded', 'failed', 'canceled', 'partiallysucceeded']
 
                     if is_final:
-                        is_bad = result.lower() not in ['succeeded', 'partiallySucceeded']
+                        is_bad = result.lower() not in ['succeeded', 'partiallysucceeded']
                         results[pipeline_run.commit] = is_bad
                         logger.info(f"Commit {pipeline_run.commit}: \
                                     {'BAD' if is_bad else 'GOOD'} (status={status}, result={result})")
@@ -201,10 +201,10 @@ class AzureDevOpsClient:
                     status = status_data.get('status', 'unknown')
                     result = status_data.get('result', 'unknown')
                     is_final = status.lower() in ['completed', 'canceled', 'cancelled'] or result.lower() in [
-                        'succeeded', 'failed', 'canceled', 'partiallySucceeded']
+                        'succeeded', 'failed', 'canceled', 'partiallysucceeded']
 
                     if is_final:
-                        is_bad = result.lower() not in ['succeeded', 'partiallySucceeded']
+                        is_bad = result.lower() not in ['succeeded', 'partiallysucceeded']
                         details[pipeline_run.commit] = {
                             "is_bad": is_bad,
                             "run_id": pipeline_run.run_id,

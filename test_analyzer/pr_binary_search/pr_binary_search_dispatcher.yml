@@ -1,89 +1,54 @@
-# Pipeline: PR Full Binary Search Pipeline (combined)
-# Runs failure analyzer → waits for Kusto ingestion → dispatches one binary
-# search pipeline run per unique failure row.
-# After all child pipelines are triggered the job exits immediately.
-# For manual dispatch with a specific AnalyzerRunId, use pr_binary_search_dispatcher.yml.
+# Pipeline: PR Binary Search Dispatcher
+# Accepts an AnalyzerRunId, queries all failure rows for that batch, and triggers
+# one independent pipeline 3305 run per unique failure (deduped by test identity).
+# Finishes as soon as all child pipelines are queued — does not wait for results.
+#
+# Usage:
+#   - Triggered manually with a specific ANALYZER_RUN_ID to dispatch binary searches
+#     for a freshly completed failure-analyzer batch.
+#   - Called from pr_binary_search_full_pipeline.yml after the analyzer step.
 name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-
 trigger: none
 pr: none
 
-schedules:
-  - cron: "0 22 * * *"
-    displayName: Daily PR Failure Analyzer and Binary Search
-    branches:
-      include:
-        - internal
-    always: true
-
 parameters:
-  - name: LOOKBACK_DAYS
-    type: number
-    default: 7
-    displayName: "Lookback Days"
-
-  - name: FAILURE_INFO_FILE
+  - name: ANALYZER_RUN_ID
     type: string
-    default: "failure_info.json"
-    displayName: "Failure Info File"
-
+    displayName: "AnalyzerRunId from the failure analyzer batch to dispatch"
   - name: MAX_PARALLEL
     type: number
     default: 5
-    displayName: "Max Parallel Binary Searches"
-
+    displayName: "Max Parallel Binary Searches (per 3305 run)"
+  - name: MAX_CONCURRENT_RUNS
+    type: number
+    default: 8
+    displayName: "Max simultaneous 3305 pipeline runs to queue"
   - name: UPLOAD_KUSTO
     type: boolean
     default: true
     displayName: "Upload results to Kusto"
-
   - name: USE_AGENCY_FAILURE_INFO
     type: boolean
     default: false
     displayName: "Use PRBinarySearchFailureInfoAgency as Kusto failure info source"
-
   - name: ENABLE_CI_PRESCREENING
     type: boolean
     default: false
     displayName: "Use existing CI build images to narrow buildimage commit range"
 
-  - name: MAX_CONCURRENT_RUNS
-    type: number
-    default: 8
-    displayName: "Max simultaneous binary search pipeline runs to queue"
-
 stages:
-  - stage: PRFailureAnalyzerAndBinarySearch
+  - stage: DispatchBinarySearches
     jobs:
-      - job: PRFailureAnalyzerAndBinarySearch
+      - job: DispatchBinarySearches
         pool: sonic-ubuntu-1c
-        timeoutInMinutes: 120
+        timeoutInMinutes: 30
         variables:
           - group: KUSTO_SECRETS
-          - group: GIT_SECRETS
-          - group: PR Regression
           - group: sonicbld
           - name: skipComponentGovernanceDetection
             value: true
         steps:
-          - template: pr_failure_analyzer_steps.yml
-            parameters:
-              LOOKBACK_DAYS: ${{ parameters.LOOKBACK_DAYS }}
-              FAILURE_INFO_FILE: ${{ parameters.FAILURE_INFO_FILE }}
-              UPLOAD_KUSTO: ${{ parameters.UPLOAD_KUSTO }}
-
-          - task: AzureCLI@2
-            retryCountOnTaskFailure: 0
-            displayName: Wait for Kusto ingestion
-            condition: eq('${{ parameters.UPLOAD_KUSTO }}', 'true')
-            inputs:
-              azureSubscription: "SONiC-Automation"
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                set -eux
-                echo "Waiting 10 minutes for Kusto ingestion to complete before binary search"
-                sleep 600
+          - template: ../../.azure-pipelines/templates/install-azure-cli.yml
 
           - task: AzureCLI@2
             retryCountOnTaskFailure: 0
@@ -100,7 +65,7 @@ stages:
                 pip install -r requirements.txt
                 cd pr_binary_search
                 python trigger_binary_searches.py \
-                  --kusto_lookback_hours 2 \
+                  --analyzer_run_id "$ANALYZER_RUN_ID" \
                   --max_parallel ${{ parameters.MAX_PARALLEL }} \
                   --max_concurrent_runs ${{ parameters.MAX_CONCURRENT_RUNS }} \
                   --upload_kusto ${{ parameters.UPLOAD_KUSTO }} \
@@ -109,3 +74,4 @@ stages:
             env:
               KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
               MSSONIC_TOKEN: $(MSSONIC-TOKEN)
+              ANALYZER_RUN_ID: ${{ parameters.ANALYZER_RUN_ID }}

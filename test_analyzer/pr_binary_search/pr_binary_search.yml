@@ -27,6 +27,14 @@ parameters:
     type: boolean
     default: false
     displayName: "Use existing CI build images to narrow buildimage commit range"
+  - name: FAILURE_JOIN_KEY
+    type: string
+    default: ""
+    displayName: "FailureJoinKey of the single failure row to process (empty = all recent)"
+  - name: MGMT_COMMIT_HASH
+    type: string
+    default: ""
+    displayName: "Pin this sonic-mgmt commit when triggering test pipelines (e.g. to rerun before a known flake/skip)"
 
 stages:
   - stage: PRBinarySearch
@@ -49,3 +57,5 @@ stages:
               UPLOAD_KUSTO: ${{ parameters.UPLOAD_KUSTO }}
               USE_AGENCY_FAILURE_INFO: ${{ parameters.USE_AGENCY_FAILURE_INFO }}
               ENABLE_CI_PRESCREENING: ${{ parameters.ENABLE_CI_PRESCREENING }}
+              FAILURE_JOIN_KEY: ${{ parameters.FAILURE_JOIN_KEY }}
+              MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
