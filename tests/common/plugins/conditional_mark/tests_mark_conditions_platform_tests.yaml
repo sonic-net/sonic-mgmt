@@ -1548,9 +1548,11 @@ platform_tests/test_service_warm_restart.py:
 
 platform_tests/test_xcvr_info_in_db.py:
   skip:
-    reason: 'Transceiver info tests require SFP hardware, not available on BMC'
+    reason: 'Transceiver info tests require SFP hardware, not available on BMC or VS platform'
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "asic_type in ['vs']"
 
 platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
   xfail:
