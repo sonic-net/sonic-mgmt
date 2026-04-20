@@ -248,7 +248,7 @@ def get_sonic_image_size(module):
                     break
 
 
-def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600):
+def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600, skip_platform_check=False):
     log("install new sonic image")
     if not save_as:
         log("Clean-up previous downloads first")
@@ -276,9 +276,12 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         return
 
     skip_package_migrate_param = ""
+    skip_platform_check_param = ""
     _, output, _ = exec_command(module, cmd="sonic_installer install --help", ignore_error=True)
     if "skip-package-migration" in output:
         skip_package_migrate_param = "--skip-package-migration"
+    if skip_platform_check and "skip-platform-check" in output:
+        skip_platform_check_param = "--skip-platform-check"
 
     if save_as.startswith("/tmp/tmpfs"):
         log("Create a tmpfs partition to download image to install")
@@ -294,7 +297,8 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         log("Running sonic_installer to install image at {}".format(save_as))
         rc, out, err = exec_command(
             module,
-            cmd="sonic_installer install {} {} -y".format(save_as, skip_package_migrate_param),
+            cmd="sonic_installer install {} {} {} -y".format(
+                save_as, skip_package_migrate_param, skip_platform_check_param),
             msg="installing new image", ignore_error=True
         )
         log("Done running sonic_installer to install image")
@@ -313,8 +317,8 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         log("Running sonic_installer to install image at {}".format(save_as))
         rc, out, err = exec_command(
             module,
-            cmd="sonic_installer install {} {} -y".format(
-                save_as, skip_package_migrate_param),
+            cmd="sonic_installer install {} {} {} -y".format(
+                save_as, skip_package_migrate_param, skip_platform_check_param),
             msg="installing new image", ignore_error=True
         )
         log("Always remove the downloaded temp image inside /host/ before proceeding")
@@ -466,6 +470,7 @@ def main():
             new_image_url=dict(required=False, type='str', default=None),
             save_as=dict(required=False, type='str', default=None),
             required_space=dict(required=False, type='int', default=1600),
+            skip_platform_check=dict(required=False, type='bool', default=False),
         ),
         supports_check_mode=False)
 
@@ -473,7 +478,7 @@ def main():
     new_image_url = module.params['new_image_url']
     save_as = module.params['save_as']
     required_space = module.params['required_space']
-
+    skip_platform_check = module.params['skip_platform_check']
     try:
         if new_image_url or save_as:
             results["current_stage"] = "start"
@@ -488,7 +493,8 @@ def main():
             setup_swap_if_necessary(module)
             results["current_stage"] = "install"
 
-            install_new_sonic_image(module, new_image_url, save_as, required_space)
+            install_new_sonic_image(
+                module, new_image_url, save_as, required_space, skip_platform_check)
             results["current_stage"] = "complete"
         else:
             reduce_installed_sonic_images(module)

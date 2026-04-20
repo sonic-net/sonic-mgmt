@@ -69,7 +69,7 @@ def test_non_secure_boot_upgrade_failure(duthost, non_secure_image_path, tbinfo)
     result = "image install failure"  # because we expect fail
     try:
         # in case of success result will take the target image name
-        result = install_sonic(duthost, non_secure_image_path, tbinfo)
+        result = install_sonic(duthost, non_secure_image_path, tbinfo, skip_platform_check=True)
     except RunAnsibleModuleFail as err:
         err_msg = str(err.results._check_key("msg"))
         logger.info("Expected fail, err msg is : {}".format(err_msg))
