@@ -107,6 +107,11 @@ router bgp {{ host['bgp']['asn'] }}
  graceful-restart restart-time {{ bgp_gr_timer }}
  graceful-restart
  !
+{% if host['bgp']['confed_asn'] is defined and host['bgp']['confed_peers'] is defined %}
+ bgp confederation identifier {{ host['bgp']['confed_asn'] }}
+ bgp confederation peers {{ host['bgp']['confed_peers'] }}
+!
+{% endif %}
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
 {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
