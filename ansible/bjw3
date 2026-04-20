@@ -938,6 +938,7 @@ sonic_cisco_8220:
         '0x2d': 'Cisco'
         '0xfe': '0x1FCFFAB2'
     bjw3-can-8220-2:
+      os: sonic
       ansible_host: 10.150.238.120
       ansible_hostv6: 2404:f801:10:16::a96:ee78
       model: C8220TG-48A-O
@@ -956,6 +957,7 @@ sonic_cisco_8220:
         '0x2d': 'Cisco'
         '0xfe': '0x1F70A6EC'
     bjw3-can-8220-3:
+      os: sonic
       ansible_host: 10.150.238.121
       ansible_hostv6: 2404:f801:10:16::a96:ee79
       model: C8220TG-48A-O
