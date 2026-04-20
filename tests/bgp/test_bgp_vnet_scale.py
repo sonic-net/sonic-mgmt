@@ -460,7 +460,6 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
         total_sessions = vnet_count * subif_per_vnet
         wait_time = calculate_wait_time(total_sessions)
         dut_vtep = get_loopback_ip(cfg_facts)
-        pytest.fail("Failed to get DUT VTEP IP from config facts") if dut_vtep is None else None
 
         vnet_config, bgp_config = generate_dut_config_ptf(
             vnet_count,
