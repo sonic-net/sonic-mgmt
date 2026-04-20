@@ -293,7 +293,7 @@ def __tgen_bgp_config(snappi_api,
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
     """
-    global NG_LIST
+    global NG_LIST    # noqa: F824
     config = snappi_api.config()
     for i in range(1, port_count+1):
         config.ports.port(name='Test_Port_%d' %

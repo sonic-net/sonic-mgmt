@@ -33,6 +33,17 @@ _next_system_id = 1
 macsec_enabled_port = {}
 macsec_profile_name = ""
 
+speed_type = {
+    '10000': 'speed_10_gbps',
+    '25000': 'speed_25_gbps',
+    '40000': 'speed_40_gbps',
+    '50000': 'speed_50_gbps',
+    '100000': 'speed_100_gbps',
+    '200000': 'speed_200_gbps',
+    '400000': 'speed_400_gbps',
+    '800000': 'speed_800_gbps',
+}
+
 
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):

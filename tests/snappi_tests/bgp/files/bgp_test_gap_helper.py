@@ -1,7 +1,8 @@
 from tabulate import tabulate
-from tests.common.utilities import (wait, wait_until)
+from tests.common.utilities import (wait)
 from tests.common.helpers.assertions import pytest_assert
 import logging
+import json
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -34,7 +35,7 @@ def run_bgp_convergence_performance(snappi_api,
         stop_routes: ending route count value
         route_type: IPv4 or IPv6 routes
     """
-    port_count = multipath + 1
+
     """ Create bgp config on dut """
 
     """ Create bgp config on dut """
@@ -174,7 +175,6 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
             "type": "ToRRouter"
         }
     }
-    config_db_keys = config_db.keys()
     config_db.setdefault("LOOPBACK_INTERFACE", {}).update(loopback_interfaces)
     config_db.setdefault("BGP_NEIGHBOR", {}).update(bgp_neighbors)
     config_db.setdefault("DEVICE_NEIGHBOR_METADATA", {}).update(device_neighbor_metadatas)
@@ -185,8 +185,8 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     logger.info("Reloading config on DUT {}".format(duthost.hostname))
     error = duthost.command("sudo config reload -f -y \n")['stderr']
     if 'Error' in error:
-        pytest_assert('Error' not in duthost.shell("sudo config reload -y \n")['stderr'],'Error while reloading config in {} !!!!!'
-                        .format(duthost.hostname))
+        pytest_assert('Error' not in duthost.shell("sudo config reload -y \n")['stderr'],
+                      'Error while reloading config in {} !!!!!'.format(duthost.hostname))
     wait(60, "For DUT to come back online after config reload")
     logger.info('Config Reload Successful in {} !!!'.format(duthost.hostname))
 
@@ -347,7 +347,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
         route_type: IPv4 or IPv6 routes
     """
     table = []
-    global NG_LIST
+    global NG_LIST  # noqa: F824
 
     def tgen_config(routes):
         config = snappi_api.config()
@@ -631,4 +631,3 @@ def get_bgp_scalability_result(snappi_api, localhost, bgp_config, flag, duthost)
     else:
         assert float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
         logger.info('PASSED : No Loss observerd in traffic item and {}'.format(msg))
-
