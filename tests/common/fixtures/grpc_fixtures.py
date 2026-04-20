@@ -140,6 +140,32 @@ class GnmiFixture:
     gnoi: object        # PtfGnoi or DutGnoi
     gnmic: Optional[PtfGnmic]   # None for UDS transport
     transport: str = 'tls'      # 'tls' or 'uds'
+    _duthost: object = None  # For post-reboot reconfiguration
+
+    def reconfigure_after_reboot(self):
+        """
+        Reconfigure gNMI server after a DUT reboot.
+
+        After a COLD or WARM reboot, the gNMI server may start with default
+        configuration. This method re-applies the TLS configuration and
+        restarts the server so the existing client can reconnect.
+
+        Usage:
+            # After reboot completes and DUT is back up:
+            gnmi_tls.reconfigure_after_reboot()
+            # Now gNOI calls work again:
+            status = gnmi_tls.gnoi.reboot_status()
+        """
+        if self._duthost is None:
+            raise RuntimeError("GnmiFixture was not initialized with duthost reference")
+        if not self.tls:
+            logger.info("Plaintext mode - no TLS reconfiguration needed")
+            return
+
+        logger.info("Reconfiguring gNMI server after reboot")
+        _configure_gnoi_tls_server(self._duthost)
+        _restart_gnoi_server(self._duthost)
+        logger.info("Post-reboot TLS reconfiguration completed")
 
 
 @pytest.fixture(scope="module")
@@ -237,6 +263,7 @@ def gnmi_tls(request, duthost, ptfhost):
             gnoi=gnoi_client,
             gnmic=gnmic_client,
             transport='tls',
+            _duthost=duthost,
         )
 
         logger.info("Constructed PtfGnmic client: %s", gnmic_client)
@@ -246,11 +273,16 @@ def gnmi_tls(request, duthost, ptfhost):
     finally:
         # 6. Cleanup: rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")
-        output = rollback(duthost, checkpoint_name)
-        if output['rc'] or "Config rolled back successfully" not in output['stdout']:
-            logger.error("Configuration rollback failed: %s", output['stdout'])
-        else:
-            logger.info("Configuration rollback completed")
+        try:
+            output = rollback(duthost, checkpoint_name)
+            stdout = output.get('stdout', '')
+            if output.get('rc') or "Config rolled back successfully" not in stdout:
+                error_msg = output.get('stdout', output.get('msg', 'unknown error'))
+                logger.error("Configuration rollback failed: %s", error_msg)
+            else:
+                logger.info("Configuration rollback completed")
+        except Exception as e:
+            logger.error("Configuration rollback failed with exception: %s", e)
 
         try:
             _delete_gnoi_certs(cert_dir)
