@@ -2,7 +2,7 @@ import logging
 import pytest
 import re
 
-from .helper import gnmi_get, gnmi_subscribe_polling, gnmi_subscribe_streaming_sample
+from .helper import gnmi_get, gnmi_subscribe_polling, gnmi_subscribe_streaming_sample, get_namespace_for_interface
 from tests.common.helpers.assertions import pytest_assert
 
 
@@ -29,9 +29,14 @@ def test_gnmi_queue_buffer_cnt(duthosts, rand_one_dut_hostname, ptfhost):
     dut_command = "show queue counters %s" % iface
     result = duthost.shell(dut_command, module_ignore_errors=True)
     uc_list = re.findall(r"UC(\d+)", result["stdout"])
+
+    # Find the correct namespace for the interface
+    target_namespace = get_namespace_for_interface(duthost, "Ethernet0")
+
     for i in uc_list:
         # Read UC
-        path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS_QUEUE_NAME_MAP/" + iface + ":" + str(i)]
+        path_list = ["/sonic-db:COUNTERS_DB/{}/COUNTERS_QUEUE_NAME_MAP/{}:{}".format(
+            target_namespace, iface, str(i))]
         msg_list = gnmi_get(duthost, ptfhost, path_list)
         result = msg_list[0]
         pytest_assert("oid" in result, (
@@ -40,14 +45,14 @@ def test_gnmi_queue_buffer_cnt(duthosts, rand_one_dut_hostname, ptfhost):
         ).format(result))
 
     # Read invalid UC
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS_QUEUE_NAME_MAP/" + iface + ":abc"]
+    path_list = ["/sonic-db:COUNTERS_DB/{}/COUNTERS_QUEUE_NAME_MAP/{}:abc".format(
+        target_namespace, iface)]
     try:
         msg_list = gnmi_get(duthost, ptfhost, path_list)
     except Exception as e:
         assert "GRPC error" in str(e), (
             "Expected GRPC error, but got: {}. "
         ).format(str(e))
-
     else:
         pytest.fail("Should fail for invalid path: " + path_list[0])
 
@@ -61,15 +66,23 @@ def test_gnmi_output(duthosts, rand_one_dut_hostname, ptfhost):
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start gnmi output testing')
+
+    # Find the correct namespace for Ethernet0
+    target_namespace = get_namespace_for_interface(duthost, "Ethernet0")
+
     # Get COUNTERS table key for Ethernet0
-    dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
+    if target_namespace == "localhost":
+        dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
+    else:
+        dut_command = "sonic-db-cli -n {} COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0".format(target_namespace)
+
     result = duthost.shell(dut_command, module_ignore_errors=True)
     counter_key = result['stdout'].strip()
     assert "oid" in counter_key, (
         "Invalid oid: {}."
     ).format(counter_key)
 
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key]
+    path_list = ["/sonic-db:COUNTERS_DB/{}/COUNTERS/{}".format(target_namespace, counter_key)]
     msg_list = gnmi_get(duthost, ptfhost, path_list)
     result = msg_list[0]
     logger.info("GNMI Server output")
@@ -77,7 +90,6 @@ def test_gnmi_output(duthosts, rand_one_dut_hostname, ptfhost):
     pytest_assert("SAI_PORT_STAT_IF_IN_ERRORS" in result, (
         "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output: {}."
     ).format(result))
-
 
 test_data_counters_port_name_map = [
     {
@@ -100,8 +112,12 @@ def test_gnmi_counterdb_polling_01(duthosts, rand_one_dut_hostname, ptfhost, tes
     duthost = duthosts[rand_one_dut_hostname]
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
+
+    # Find the correct namespace for Ethernet0
+    target_namespace = get_namespace_for_interface(duthost, "Ethernet0")
+
     exp_cnt = 3
-    path_list = [test_data["path"]]
+    path_list = [test_data["path"].replace("localhost", target_namespace)]
     msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("oid") >= exp_cnt, (
         "{}: {}. "
@@ -119,8 +135,16 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
+
+    # Find the correct namespace for Ethernet0
+    target_namespace = get_namespace_for_interface(duthost, "Ethernet0")
+
     # Get COUNTERS table key for Ethernet0
-    dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
+    if target_namespace == "localhost":
+        dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
+    else:
+        dut_command = "sonic-db-cli -n {} COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0".format(target_namespace)
+
     result = duthost.shell(dut_command, module_ignore_errors=True)
     counter_key = result['stdout'].strip()
     assert "oid" in counter_key, (
@@ -129,7 +153,7 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
     ).format(counter_key)
 
     # Subscribe table
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/"]
+    path_list = ["/sonic-db:COUNTERS_DB/{}/COUNTERS/".format(target_namespace)]
     msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "
@@ -139,7 +163,7 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
     ).format(exp_cnt, msg.count("SAI_PORT_STAT_IF_IN_ERRORS"), msg)
 
     # Subscribe table key
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key]
+    path_list = ["/sonic-db:COUNTERS_DB/{}/COUNTERS/{}".format(target_namespace, counter_key)]
     msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "
@@ -147,8 +171,10 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
         "Actual count: {}"
         "Message: {}"
     ).format(exp_cnt, msg.count("SAI_PORT_STAT_IF_IN_ERRORS"), msg)
+
     # Subscribe table field
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
+    path_list = ["/sonic-db:COUNTERS_DB/{}/COUNTERS/{}/SAI_PORT_STAT_IF_IN_ERRORS".format(
+        target_namespace, counter_key)]
     msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "
@@ -167,8 +193,11 @@ def test_gnmi_counterdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptf
     duthost = duthosts[rand_one_dut_hostname]
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
+
+    target_namespace = get_namespace_for_interface(duthost, "Ethernet0")
+
     exp_cnt = 3
-    path_list = [test_data["path"]]
+    path_list = [test_data["path"].replace("localhost", target_namespace)]
     msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
     assert msg.count("oid") >= exp_cnt, (
         "Expected count of 'oid' not met. "
@@ -187,8 +216,15 @@ def test_gnmi_counterdb_streaming_sample_02(duthosts, rand_one_dut_hostname, ptf
     if duthost.is_supervisor_node():
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
+
+    target_namespace = get_namespace_for_interface(duthost, "Ethernet0")
+
     # Get COUNTERS table key for Ethernet0
-    dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
+    if target_namespace == "localhost":
+        dut_command = "sonic-db-cli COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0"
+    else:
+        dut_command = "sonic-db-cli -n {} COUNTERS_DB hget COUNTERS_PORT_NAME_MAP Ethernet0".format(target_namespace)
+
     result = duthost.shell(dut_command, module_ignore_errors=True)
     counter_key = result['stdout'].strip()
     assert "oid" in counter_key, (
@@ -197,7 +233,8 @@ def test_gnmi_counterdb_streaming_sample_02(duthosts, rand_one_dut_hostname, ptf
     ).format(counter_key)
 
     # Subscribe table field
-    path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
+    path_list = ["/sonic-db:COUNTERS_DB/{}/COUNTERS/{}/SAI_PORT_STAT_IF_IN_ERRORS".format(
+        target_namespace, counter_key)]
     msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "

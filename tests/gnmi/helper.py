@@ -18,6 +18,17 @@ GNMI_PORT = 0
 # Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
 
+def get_namespace_for_interface(duthost, iface):
+    """Get the correct DB namespace for a given interface on multi-ASIC devices."""
+    if not duthost.is_multi_asic:
+        return "localhost"
+    for ns in duthost.get_asic_namespace_list():
+        res = duthost.shell(
+            "sonic-db-cli -n {} COUNTERS_DB hget COUNTERS_PORT_NAME_MAP {}".format(ns, iface),
+            module_ignore_errors=True)
+        if res['stdout'].strip() and 'nil' not in res['stdout']:
+            return ns
+    return "localhost"
 
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
