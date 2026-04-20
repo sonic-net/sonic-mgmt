@@ -12,6 +12,8 @@ import time
 from collections import defaultdict
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
+import ast
+from tests.common.mellanox_data import is_mellanox_device
 
 
 def parse_intf_status(lines):
@@ -369,3 +371,44 @@ def get_pport_presence_data(duthost, asic_index=None):
         if pport_index is not None:
             pport_presence_dict[pport_index] = is_present
     return pport_presence_dict
+
+
+def get_ports_with_flat_memory(dut, conn_graph_facts):
+    """
+    This method is to get ports with flat memory
+    """
+    port_indexes_with_flat_memory = []
+    if is_mellanox_device(dut):
+        port_indexes_with_flat_memory = get_port_indexes_with_flat_memory(dut)
+
+    physical_intfs = conn_graph_facts["device_conn"][dut.hostname]
+    physical_port_index_map = get_physical_port_indices(dut, physical_intfs)
+    ports_with_flat_memory = []
+    for port, index in physical_port_index_map.items():
+        if index in port_indexes_with_flat_memory:
+            ports_with_flat_memory.append(port)
+    logging.info(f"Ports with flat memory: {ports_with_flat_memory}")
+    return ports_with_flat_memory
+
+
+def get_port_indexes_with_flat_memory(dut):
+    """
+    This method is to get port indexes with flat memory
+    """
+    cmd = """
+cat << EOF > get_port_indexes_with_flat_memory.py
+import sonic_platform.platform as P
+num_sfps = P.Platform().get_chassis().get_num_sfps()
+port_indexes_with_flat_memory = []
+for i in range(1, num_sfps + 1):
+    is_flat_memory = P.Platform().get_chassis().get_sfp(i).get_xcvr_api().is_flat_memory()
+    if is_flat_memory:
+        port_indexes_with_flat_memory.append(i)
+print(port_indexes_with_flat_memory)
+EOF
+"""
+    dut.shell(cmd)
+    port_indexes_with_flat_memory = dut.shell("python3 get_port_indexes_with_flat_memory.py")["stdout"]
+    port_indexes_with_flat_memory = ast.literal_eval(port_indexes_with_flat_memory)
+    logging.info(f"Port indexes with flat memory: {port_indexes_with_flat_memory}")
+    return port_indexes_with_flat_memory
