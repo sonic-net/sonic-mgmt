@@ -1468,5 +1468,405 @@ def analyze_counter_trend(output):
         return 'increasing'
     if neg_changes > pos_changes:
         return 'decreasing'
+    else:  # Within 5% change
+        return 'stable'
 
-    return 'stable'
+
+def start_countersyncd_otel(duthost, stats_interval=60):
+    """
+    Start countersyncd with otel export enabled in background (swss container).
+    """
+    cmd = (
+        "nohup docker exec swss countersyncd --enable-otel -e "
+        f"--max-stats-per-report 0 --stats-interval {stats_interval} "
+        "> /tmp/countersyncd_otel.log 2>&1 &"
+    )
+    duthost.shell(cmd, module_ignore_errors=False)
+    logger.info("Started countersyncd with otel export")
+
+
+def stop_countersyncd_otel(duthost):
+    """
+    Stop the countersyncd otel process inside swss container.
+    """
+    duthost.shell(
+        "docker exec swss pkill -f 'countersyncd.*--enable-otel' || true",
+        module_ignore_errors=True,
+    )
+    logger.info("Stopped countersyncd otel process")
+
+
+def render_otel_collector_config(template_path, **kwargs):
+    """
+    Render an OpenTelemetry collector config from a Jinja2 template file.
+
+    Args:
+        template_path: local path to the .j2 template file
+        **kwargs: variables to pass to the template (e.g., ptf_ip)
+
+    Returns:
+        str: rendered YAML text
+    """
+    from jinja2 import Template
+
+    with open(template_path, "r") as f:
+        template = Template(f.read())
+    return template.render(**kwargs)
+
+
+def install_otel_collector_config(duthost, rendered_config,
+                                  dest_path="/etc/sonic/otel_config.yml"):
+    """
+    Write a rendered otel collector config onto the DUT.
+
+    Args:
+        duthost: DUT host object
+        rendered_config: fully rendered YAML config string
+        dest_path: destination path on DUT
+    """
+    duthost.copy(content=rendered_config, dest=dest_path)
+    logger.info(f"Installed otel collector config to {dest_path}")
+
+
+def enable_otel_collector(duthost, timeout=60):
+    """
+    Enable the OpenTelemetry collector feature on the DUT and wait
+    until the otel container is running.
+
+    If the feature entry is missing from CONFIG_DB (e.g. after a
+    config_reload) but the docker image exists, re-add the entry.
+    Skips the test if the platform does not support otel at all.
+    """
+    logger.info("Enabling OpenTelemetry collector...")
+
+    # Check if the otel docker image exists (platform support check).
+    # Retry a few times because docker daemon may still be restarting
+    # after a config_reload triggered by test fixtures.
+    has_image = False
+    for attempt in range(6):
+        img_check = duthost.shell(
+            "docker images docker-sonic-otel --format yes",
+            module_ignore_errors=True,
+        )
+        if img_check["rc"] == 0 and "yes" in img_check.get("stdout", ""):
+            has_image = True
+            break
+        logger.info("docker image check attempt %d failed, retrying in 10s...",
+                    attempt + 1)
+        time.sleep(10)
+    if not has_image:
+        pytest.skip("otel is not supported on this platform "
+                    "(docker-sonic-otel image not found)")
+
+    # Ensure the feature entry exists in CONFIG_DB
+    check = duthost.shell(
+        "sonic-db-cli CONFIG_DB exists 'FEATURE|otel'",
+        module_ignore_errors=True,
+    )
+    if check.get("stdout", "").strip() == "0":
+        logger.info("otel feature entry missing from CONFIG_DB, re-adding...")
+        duthost.shell(
+            "sonic-db-cli CONFIG_DB hmset 'FEATURE|otel' "
+            "state enabled auto_restart enabled "
+            "has_global_scope True has_per_asic_scope False",
+            module_ignore_errors=False,
+        )
+    else:
+        duthost.shell(
+            "sudo config feature state otel enabled",
+            module_ignore_errors=False,
+        )
+
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        result = duthost.shell(
+            'docker ps -q --filter "name=otel"',
+            module_ignore_errors=True,
+        )
+        if result["rc"] == 0 and result["stdout"].strip():
+            logger.info("otel container is running")
+            return True
+        time.sleep(2)
+    pytest_assert(False, "otel container did not become ready in time")
+
+
+def start_influxdb(ptfhost, port=8181, timeout=30):
+    """
+    Start InfluxDB 3 Core on the PTF host and wait for it to be healthy.
+    Cleans any leftover data from previous runs to ensure a fresh state.
+    """
+    logger.info("Starting InfluxDB 3 on PTF host...")
+
+    # Stop any existing influxdb3 and clean stale data
+    ptfhost.shell("pkill -f influxdb3 || true", module_ignore_errors=True)
+    time.sleep(2)
+    ptfhost.shell("rm -rf ~/.influxdb3", module_ignore_errors=True)
+
+    ptfhost.shell(
+        f"nohup influxdb3 serve --object-store memory --node-id test "
+        f"--http-bind={port} --without-auth "
+        "> /var/log/influxdb3.log 2>&1 &",
+        module_ignore_errors=False,
+    )
+
+    # Wait for health endpoint to return "OK"
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        result = ptfhost.shell(
+            f"curl -sf http://localhost:{port}/health",
+            module_ignore_errors=True,
+        )
+        if result["rc"] == 0 and "OK" in result.get("stdout", ""):
+            logger.info("InfluxDB 3 is healthy")
+            return True
+        time.sleep(2)
+    pytest_assert(False, f"InfluxDB 3 did not become healthy within {timeout}s")
+
+
+def setup_influxdb(ptfhost, port=8181, bucket="home"):
+    """
+    Ensure the InfluxDB 3 database exists.
+
+    InfluxDB 3 Core is schema-on-write and auto-creates databases on first
+    write, so explicit creation is optional. We attempt to pre-create the
+    database via the CLI for clarity; failure is non-fatal.
+    """
+    result = ptfhost.shell(
+        f"influxdb3 create database {bucket} --port {port}",
+        module_ignore_errors=True,
+    )
+    if result["rc"] == 0:
+        logger.info(f"InfluxDB 3 database '{bucket}' created")
+    else:
+        logger.info(
+            f"InfluxDB 3 database '{bucket}' may already exist or will "
+            "auto-create on first write (rc=%d)", result["rc"],
+        )
+
+
+def query_influxdb(ptfhost, influxql_query, port=8181, db="home"):
+    """
+    Execute an InfluxQL query against InfluxDB 3 via the v1 /query endpoint.
+
+    Returns:
+        dict: shell result with 'rc', 'stdout', 'stderr'.
+              stdout contains JSON in the v1 response format.
+    """
+    cmd = (
+        f"curl -sS -G 'http://localhost:{port}/query' "
+        f"--data-urlencode 'db={db}' "
+        f"--data-urlencode 'q={influxql_query}'"
+    )
+    return ptfhost.shell(cmd, module_ignore_errors=True)
+
+
+def wait_for_influxdb_data(ptfhost, bucket="home", port=8181,
+                           timeout=60, poll_interval=5):
+    """
+    Poll InfluxDB 3 until at least one data point appears in the database.
+
+    Returns:
+        dict or None: the query result if data is found, None on timeout
+    """
+    import json as _json
+
+    influxql = "SELECT * FROM /.*/ LIMIT 5"
+
+    end_time = time.time() + timeout
+    last_result = None
+    while time.time() < end_time:
+        last_result = query_influxdb(
+            ptfhost, influxql, port=port, db=bucket,
+        )
+        stdout = last_result.get("stdout", "").strip()
+        if last_result["rc"] == 0 and stdout:
+            try:
+                body = _json.loads(stdout)
+                results = body.get("results", [])
+                for r in results:
+                    series = r.get("series", [])
+                    if series:
+                        total_values = sum(
+                            len(s.get("values", [])) for s in series
+                        )
+                        logger.info(
+                            f"InfluxDB returned {total_values} data row(s)"
+                        )
+                        return last_result
+            except _json.JSONDecodeError:
+                pass
+        time.sleep(poll_interval)
+
+    logger.warning(
+        "Timed out waiting for InfluxDB data. "
+        f"Last response: {last_result}"
+    )
+    return None
+
+
+def stop_influxdb(ptfhost):
+    """
+    Stop InfluxDB 3 on the PTF host and clean up data.
+    """
+    ptfhost.shell("pkill -f influxdb3 || true", module_ignore_errors=True)
+    time.sleep(2)
+    ptfhost.shell("rm -rf ~/.influxdb3", module_ignore_errors=True)
+    logger.info("InfluxDB 3 stopped and data cleaned on PTF host")
+
+
+def parse_influxdb_json(json_text):
+    """
+    Parse InfluxDB v1 API JSON response into groups of data rows.
+
+    The v1 /query endpoint returns JSON like:
+      {"results":[{"statement_id":0,"series":[
+        {"name":"measurement","columns":["time","field1"],
+         "values":[[...],[...]]}
+      ]}]}
+
+    Returns:
+        dict: mapping of series_name -> list of dicts (column->value).
+    """
+    import json as _json
+
+    body = _json.loads(json_text)
+    groups = {}
+    for result in body.get("results", []):
+        for series in result.get("series", []):
+            name = series.get("name", "unknown")
+            columns = series.get("columns", [])
+            rows = []
+            for values in series.get("values", []):
+                rows.append(dict(zip(columns, values)))
+            groups.setdefault(name, []).extend(rows)
+    return groups
+
+
+def validate_influxdb_intervals(ptfhost, bucket="home", port=8181,
+                                expected_interval_ms=10,
+                                tolerance_low=0.5, tolerance_high=1.5,
+                                avg_tolerance=0.2, min_points=10):
+    """
+    Validate that HFT data points in InfluxDB arrive at the expected interval.
+
+    Queries all data from the last 5 minutes using InfluxQL, groups by series,
+    and for each group checks that:
+      1. Consecutive timestamp deltas fall within
+         [expected_ms * tolerance_low, expected_ms * tolerance_high]
+      2. The average delta is within avg_tolerance of expected_ms
+
+    Args:
+        ptfhost: PTF host object
+        bucket: InfluxDB database name
+        port: InfluxDB HTTP port
+        expected_interval_ms: expected interval between points in ms
+        tolerance_low: lower multiplier (0.5 = 50% of expected)
+        tolerance_high: upper multiplier (1.5 = 150% of expected)
+        avg_tolerance: allowed deviation ratio for average (0.2 = 20%)
+        min_points: minimum data points per group to validate
+
+    Returns:
+        dict with keys:
+          - 'groups': dict of series_key -> stats dict
+          - 'violations': list of violation descriptions
+          - 'passed': bool
+    """
+    from datetime import datetime
+
+    influxql = (
+        "SELECT * FROM /.*/ "
+        "WHERE time >= now() - 5m "
+        "ORDER BY time ASC"
+    )
+    result = query_influxdb(ptfhost, influxql, port=port, db=bucket)
+    if result["rc"] != 0 or not result.get("stdout", "").strip():
+        return {"groups": {}, "violations": ["No data returned from query"],
+                "passed": False}
+
+    groups = parse_influxdb_json(result["stdout"])
+    all_stats = {}
+    violations = []
+
+    min_ms = expected_interval_ms * tolerance_low
+    max_ms = expected_interval_ms * tolerance_high
+
+    for series_key, rows in groups.items():
+        timestamps = []
+        for row in rows:
+            time_str = row.get("time", "")
+            if not time_str:
+                continue
+            try:
+                # InfluxDB 3 returns RFC3339 timestamps, e.g.
+                # 2026-04-10T06:32:03.117415123Z
+                clean = time_str.replace("Z", "+00:00")
+                # Truncate to microseconds if nanoseconds present
+                if "." in clean:
+                    dot_idx = clean.index(".")
+                    plus_idx = clean.index("+", dot_idx)
+                    frac = clean[dot_idx + 1:plus_idx]
+                    frac = frac[:6]  # truncate to microseconds
+                    clean = clean[:dot_idx + 1] + frac + clean[plus_idx:]
+                ts = datetime.fromisoformat(clean)
+                timestamps.append(ts)
+            except (ValueError, IndexError):
+                continue
+
+        if len(timestamps) < min_points:
+            logger.info("Series %s has only %d points, skipping validation",
+                        series_key, len(timestamps))
+            continue
+
+        timestamps.sort()
+        deltas_ms = []
+        for i in range(1, len(timestamps)):
+            delta = (timestamps[i] - timestamps[i - 1]).total_seconds() * 1000
+            deltas_ms.append(delta)
+
+        out_of_range = [
+            (i, d) for i, d in enumerate(deltas_ms)
+            if d < min_ms or d > max_ms
+        ]
+        avg_delta = sum(deltas_ms) / len(deltas_ms) if deltas_ms else 0
+        min_delta = min(deltas_ms) if deltas_ms else 0
+        max_delta = max(deltas_ms) if deltas_ms else 0
+
+        stats = {
+            "num_points": len(timestamps),
+            "num_intervals": len(deltas_ms),
+            "avg_ms": round(avg_delta, 3),
+            "min_ms": round(min_delta, 3),
+            "max_ms": round(max_delta, 3),
+            "out_of_range_count": len(out_of_range),
+        }
+        all_stats[series_key] = stats
+
+        logger.info(
+            "Series %s: %d points, avg=%.3fms, min=%.3fms, max=%.3fms, "
+            "out_of_range=%d",
+            series_key, len(timestamps), avg_delta, min_delta, max_delta,
+            len(out_of_range),
+        )
+
+        # Check individual intervals
+        if out_of_range:
+            pct = len(out_of_range) / len(deltas_ms) * 100
+            violations.append(
+                f"{series_key}: {len(out_of_range)}/{len(deltas_ms)} "
+                f"intervals ({pct:.1f}%) outside [{min_ms}, {max_ms}]ms"
+            )
+
+        # Check average interval
+        if abs(avg_delta - expected_interval_ms) > \
+                expected_interval_ms * avg_tolerance:
+            violations.append(
+                f"{series_key}: avg interval {avg_delta:.3f}ms deviates "
+                f"more than {avg_tolerance * 100}% from expected "
+                f"{expected_interval_ms}ms"
+            )
+
+    return {
+        "groups": all_stats,
+        "violations": violations,
+        "passed": len(violations) == 0,
+    }
