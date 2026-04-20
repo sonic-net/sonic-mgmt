@@ -57,7 +57,7 @@ class VlanPort(object):
         except Exception:
             pass
 
-        VlanPort.cmd('vconfig add %s %d' % (port, vlan_id))
+        VlanPort.cmd('ip link add link %s name %s type vlan id %d' % (port, vlan_port, vlan_id))
         VlanPort.iface_up(vlan_port)
 
         return
