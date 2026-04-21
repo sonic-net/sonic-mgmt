@@ -1,6 +1,15 @@
-## **Overview**
+# COPP IPv6 only Management Interface Test Plan
 
-This test plan validates that **Control Plane Policing (CoPP)** functions correctly when the SONiC device is configured with an **IPv6-only management interface**.
+- [Overview](#overview)
+    - [Scope](#scope)
+    - [Testbed](#testbed)
+- [Setup configuration](#setup-configuration)
+- [Test cases](#test-cases)
+
+
+## Overview
+
+This test plan validates that Control Plane Policing (CoPP) functions correctly when the device is configured with an IPv6-only management interface
 
 It ensures:
 
@@ -10,7 +19,7 @@ It ensures:
 
 ---
 
-## **Scope**
+### Scope
 
 * IPv6-only management interface (`eth0`)
 * CoPP behavior for:
@@ -25,15 +34,15 @@ It ensures:
 
 ---
 
-## **Testbed Requirements**
+### Testbed Requirements
 
-* DUT with management interface configured **IPv6-only**
+* DUT with management interface configured IPv6-only
 * PTF or test host capable of generating IPv6 traffic toward mgmt interface
 * CoPP configured with default or custom policy
 
 ---
 
-## **Setup Configuration**
+## Setup Configuration
 
 1. Configure management interface with IPv6 only:
 
@@ -52,22 +61,20 @@ It ensures:
 3. Ensure CoPP is enabled:
 
    ```
-   show copp status
+   show copp configuration
    ```
 
----
 
-# **Test Cases**
+## Test Cases**
 
----
 
-## **Test Case 1 – IPv6 Management Reachability Under CoPP**
+### Test Case 1 – IPv6 Management Reachability Under CoPP
 
-### **Objective**
+#### Test objective
 
 Verify that permitted control-plane IPv6 traffic is allowed when management interface is IPv6-only.
 
-### **Steps**
+Steps:
 
 1. Configure DUT with IPv6-only mgmt interface
 2. From test host, send:
@@ -75,31 +82,25 @@ Verify that permitted control-plane IPv6 traffic is allowed when management inte
    * ICMPv6 echo (ping)
    * SSH connection attempt to DUT IPv6 address
 
-### **Verification**
+Verification:
 
-* Ping response
-* SSH login prompt reachable
-* Check counters:
+1. Ping response
+2. SSH login prompt reachable
 
-  ```
-  show copp statistics
-  ```
+Expected Result:
 
-### **Expected Result**
+1. ICMPv6 and SSH traffic are permitted
+2. No unexpected drops in CoPP
+3. Counters reflect accepted traffic
 
-* ICMPv6 and SSH traffic are **permitted**
-* No unexpected drops in CoPP
-* Counters reflect accepted traffic
 
----
+### Test Case 2 – CoPP Policing for IPv6 Traffic
 
-## **Test Case 2 – CoPP Policing for IPv6 Traffic**
-
-### **Objective**
+#### Test objective
 
 Verify CoPP rate-limiting and drop behavior for IPv6 control-plane traffic on mgmt interface.
 
-### **Steps**
+Steps:
 
 1. Ensure IPv6-only mgmt configuration
 2. Generate high-rate IPv6 traffic toward DUT:
@@ -107,50 +108,9 @@ Verify CoPP rate-limiting and drop behavior for IPv6 control-plane traffic on mg
    * ICMPv6 flood OR TCP SYN flood (toward SSH port)
 3. Sustain traffic above CoPP threshold
 
-### **Verification**
+Expected Result:
 
-* Monitor:
-
-  ```
-  show copp statistics
-  ```
-* Observe CPU utilization (optional)
-
-### **Expected Result**
-
-* Excess IPv6 traffic is **rate-limited or dropped**
-* CoPP counters increment for drops
-* DUT remains responsive to legitimate traffic (e.g., SSH still accessible)
-* No control-plane crash or instability
-
----
-
-## **Key Validation Points (Why This Covers the Gap)**
-
-* Confirms CoPP works **without IPv4 dependency**
-* Validates both:
-
-  * **Allow path** (legitimate traffic)
-  * **Policing path** (rate-limited traffic)
-* Ensures **IPv6 parity with existing IPv4 CoPP tests**
-
----
-
-## **sonic-mgmt Integration Notes**
-
-* Likely location:
-
-  ```
-  tests/copp/
-  ```
-* Reuse existing CoPP test utilities:
-
-  * Traffic generators (PTF)
-  * CoPP counter verification helpers
-* Add parameter:
-
-  * `ipv6_only_mgmt = True`
-
----
-
-If you want, I can convert this into an actual **pytest test file (test_copp_ipv6_mgmt.py)** using existing copp test fixtures so it plugs directly into CI.
+1. Excess IPv6 traffic is rate-limited or dropped
+2. CoPP counters increment for drops
+3. DUT remains responsive to legitimate traffic (e.g., SSH still accessible)
+4. No control-plane crash or instability
