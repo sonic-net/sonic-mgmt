@@ -30,10 +30,12 @@ The test is targeting a running SONIC system with fully functioning configuratio
 
 ### Sample DUT configuration files
 Neighbor level configs:
+
     router bgp 65001
      neighbor Ethernet0 interface remote-as 65000
 
 Peer group level configs:
+
     router bgp 65001
      bgp router-id 1.1.1.1
     
