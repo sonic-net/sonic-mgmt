@@ -17,8 +17,6 @@ It ensures:
 * CoPP policies are enforced correctly for IPv6 traffic
 * No regression due to lack of IPv4 on management interface
 
----
-
 ### Scope
 
 * IPv6-only management interface (`eth0`)
@@ -32,15 +30,11 @@ It ensures:
   * ICMPv6
   * BGP (optional if mgmt used)
 
----
-
 ### Testbed Requirements
 
 * DUT with management interface configured IPv6-only
 * PTF or test host capable of generating IPv6 traffic toward mgmt interface
 * CoPP configured with default or custom policy
-
----
 
 ## Setup Configuration
 
@@ -64,11 +58,9 @@ It ensures:
    show copp configuration
    ```
 
+## Test Cases
 
-## Test Cases**
-
-
-### Test Case 1 – IPv6 Management Reachability Under CoPP
+### Test Case #1 – IPv6 Management Reachability Under CoPP
 
 #### Test objective
 
@@ -94,7 +86,7 @@ Expected Result:
 3. Counters reflect accepted traffic
 
 
-### Test Case 2 – CoPP Policing for IPv6 Traffic
+### Test Case #2 – CoPP Policing for IPv6 Traffic
 
 #### Test objective
 
