@@ -14,10 +14,15 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("t0"),
+    pytest.mark.disable_loganalyzer,
 ]
 
 
 SOUTHBOUND_PORTCHANNELS = ['PortChannel1031', 'PortChannel1032']
+GPU_PORTCHANNELS = [f'PortChannel10{i}' for i in range(31, 47)]
+GPU_RESOURCE_TYPE = "BMOffnetGPUV2"
+
+
 LOOPBACK_INTERFACE = 'Loopback6'
 STATE_DB_TABLE_NAME = 'LINK_STATE_TRACKER_TABLE'
 STATE_DB_INSTANCE_NAME = 'WLPoToLo6'
@@ -30,15 +35,19 @@ DOCKER_CONTAINER_NAME = 'session-monitor'
 SERVICE_NAME = 'link-state-tracker'
 
 
-def enable_session_monitor_container(duthost):
+def enable_session_monitor_container(duthost, resource_type):
     """
-    Update DEVICE_METADATA with deployment_id = 26 and enable session-monitor feature
+    Update DEVICE_METADATA with deployment_id = 26, resource_type (if provided) and enable session-monitor feature
     """
     duthost.fetch(src=CONFIG_DB_PATH, dest="/tmp/")
 
     with open(f"/tmp/{duthost.hostname}{CONFIG_DB_PATH}", "r") as config_file:
         data = json.load(config_file)
     data['DEVICE_METADATA']['localhost']['deployment_id'] = "26"
+    if resource_type:
+        data['DEVICE_METADATA']['localhost']['resource_type'] = resource_type
+    # config_db.json on a SONiC image will always have the FEATURE table
+    # with the container entry already defined when built correctly
     data['FEATURE'][DOCKER_CONTAINER_NAME]['state'] = "enabled"
 
     logger.info(f"Updating DEVICE_METADATA in config_db.json with deployment_id=26 and "
@@ -83,7 +92,7 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
     return vlan_id, available_ports
 
 
-def setup_test_portchannels(duthost, ptfhost, config_facts, tbinfo):
+def setup_test_portchannels(duthost, ptfhost, config_facts, tbinfo, southbound_portchannels):
     """
     Setup test portchannels for link state tracker testing.
 
@@ -108,18 +117,18 @@ def setup_test_portchannels(duthost, ptfhost, config_facts, tbinfo):
     duthost.remove_acl_table("EVERFLOWV6")
 
     # Create new portchannels for the test
-    vlan_id, ports = get_available_vlan_id_and_ports(config_facts, len(SOUTHBOUND_PORTCHANNELS))
-    pytest_assert(len(ports) == len(SOUTHBOUND_PORTCHANNELS),
-                  f"Found {len(ports)} available ports. Needed {len(SOUTHBOUND_PORTCHANNELS)} ports for the test.")
+    vlan_id, ports = get_available_vlan_id_and_ports(config_facts, len(southbound_portchannels))
+    pytest_assert(len(ports) == len(southbound_portchannels),
+                  f"Found {len(ports)} available ports. Needed {len(southbound_portchannels)} ports for the test.")
 
     cmds = []
     bond_port_mapping = {}
 
-    for i in range(len(SOUTHBOUND_PORTCHANNELS)):
+    for i in range(len(southbound_portchannels)):
         try:
             duthost.shell(f'config vlan member del {vlan_id} {ports[i]}')
-            duthost.shell(f'config portchannel add {SOUTHBOUND_PORTCHANNELS[i]}')
-            duthost.shell(f"config portchannel member add {SOUTHBOUND_PORTCHANNELS[i]} {ports[i]}")
+            duthost.shell(f'config portchannel add {southbound_portchannels[i]}')
+            duthost.shell(f"config portchannel member add {southbound_portchannels[i]} {ports[i]}")
 
             # Configure ptf port commands
             port_index = port_indexes[ports[i]]
@@ -207,20 +216,20 @@ def get_loopback_config_admin_status(duthost):
     return result['stdout'].strip()
 
 
-def reset_portchannels_state(duthost):
+def reset_portchannels_state(duthost, southbound_portchannels):
     """
     Set portchannels to admin up and oper up.
 
     Args:
         duthost: DUT host
     """
-    for portchannel in SOUTHBOUND_PORTCHANNELS:
+    for portchannel in southbound_portchannels:
         duthost.shell(f"config interface startup {portchannel}")
         set_portchannel_oper_status(duthost, portchannel, "up")
     time.sleep(10)  # Allow time for state to propagate
 
 
-def validate_link_state_tracker_enabled(duthost):
+def validate_link_state_tracker_enabled(duthost, southbound_portchannels):
     """
     Test link state tracker functionality when enabled.
 
@@ -234,39 +243,39 @@ def validate_link_state_tracker_enabled(duthost):
     logger.debug("Running link state tracker enabled test.")
 
     # Make sure portchannels start with admin and oper up
-    reset_portchannels_state(duthost)
+    reset_portchannels_state(duthost, southbound_portchannels)
 
     # Check link state tracker is enabled in state db
     is_enabled = get_link_state_tracker_state_db_entry(duthost, STATE_DB_SCRIPT_ENABLED_KEY)
     pytest_assert(is_enabled == "yes", "Link state tracker should be enabled")
 
     # Test loopback6 disabled when all portchannels go down
-    for i, portchannel in enumerate(SOUTHBOUND_PORTCHANNELS):
+    for i, portchannel in enumerate(southbound_portchannels):
         set_portchannel_oper_status(duthost, portchannel, "down")
         time.sleep(10)  # Allow time for state to propagate
 
         # Check southbound portchannels status in state db
         southbound_pc_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_SOUTHBOUND_PC_STATUS_KEY)
-        expected_southbound_status = "down" if i == len(SOUTHBOUND_PORTCHANNELS) - 1 else "up"
+        expected_southbound_status = "down" if i == len(southbound_portchannels) - 1 else "up"
         pytest_assert(southbound_pc_status == expected_southbound_status,
                       f"Southbound portchannels status should be {expected_southbound_status} "
                       f"after {i+1} portchannels down")
 
         # Check loopback status in state db
         loopback_status = get_link_state_tracker_state_db_entry(duthost, STATE_DB_LOOPBACK_STATUS_KEY)
-        expected_loopback = "disabled" if i == len(SOUTHBOUND_PORTCHANNELS) - 1 else "enabled"
+        expected_loopback = "disabled" if i == len(southbound_portchannels) - 1 else "enabled"
         pytest_assert(loopback_status == expected_loopback,
                       f"Loopback6 status should be {expected_loopback} after {i+1} portchannels down")
 
         # Check loopback admin status in CONFIG_DB
         config_admin_status = get_loopback_config_admin_status(duthost)
-        expected_config_admin = "down" if i == len(SOUTHBOUND_PORTCHANNELS) - 1 else "up"
+        expected_config_admin = "down" if i == len(southbound_portchannels) - 1 else "up"
         pytest_assert(config_admin_status == expected_config_admin,
                       f"Loopback6 CONFIG_DB admin_status should be {expected_config_admin} "
                       f"after {i+1} portchannels down")
 
     # Test loopback6 enabled when portchannel comes back up
-    set_portchannel_oper_status(duthost, SOUTHBOUND_PORTCHANNELS[0], "up")
+    set_portchannel_oper_status(duthost, southbound_portchannels[0], "up")
     time.sleep(10)
 
     # Check southbound portchannel status is up in state db
@@ -282,7 +291,7 @@ def validate_link_state_tracker_enabled(duthost):
     pytest_assert(config_admin_status == "up", "Loopback6 admin_status should be up in CONFIG_DB")
 
 
-def validate_link_state_tracker_disabled(duthost):
+def validate_link_state_tracker_disabled(duthost, southbound_portchannels):
     """
     Test behavior when link state tracker is disabled.
 
@@ -295,7 +304,7 @@ def validate_link_state_tracker_disabled(duthost):
     logger.debug("Running link state tracker disabled test.")
 
     # Make sure portchannels start with admin and oper up
-    reset_portchannels_state(duthost)
+    reset_portchannels_state(duthost, southbound_portchannels)
 
     # Check link state tracker is disabled in state db
     is_enabled = get_link_state_tracker_state_db_entry(duthost, STATE_DB_SCRIPT_ENABLED_KEY)
@@ -307,7 +316,7 @@ def validate_link_state_tracker_disabled(duthost):
     initial_admin_status = get_loopback_config_admin_status(duthost)
 
     # Test portchannel shutdown - states should not change when tracker is disabled
-    for portchannel in SOUTHBOUND_PORTCHANNELS:
+    for portchannel in southbound_portchannels:
         set_portchannel_oper_status(duthost, portchannel, "down")
 
     time.sleep(15)  # Allow time for any potential changes
@@ -353,8 +362,22 @@ def cleanup(duthost, ptfhost, bond_port_mapping):
         shutil.rmtree(f"/tmp/{duthost.hostname}")
 
 
+@pytest.fixture(params=["", GPU_RESOURCE_TYPE], ids=["oracle", "gpu"])
+def resource_type(request):
+    resource = request.param
+    scenario = "GPU" if resource == GPU_RESOURCE_TYPE else "Oracle"
+    logger.info(f"Running BGP session tracker test for {scenario} scenario (resource_type='{resource}')")
+    return resource
+
+
+@pytest.fixture
+def southbound_portchannels(resource_type):
+    return GPU_PORTCHANNELS if resource_type == GPU_RESOURCE_TYPE else SOUTHBOUND_PORTCHANNELS
+
+
 @pytest.fixture(scope="function")
-def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost):
+def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname,
+                              ptfhost, localhost, resource_type, southbound_portchannels):
     """
     Setup and cleanup entry for tests.
 
@@ -371,7 +394,7 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
     duthost.shell(f"cp {CONFIG_DB_PATH} {CONFIG_DB_PATH}.bak")
 
     # update device metadata in config_db.json
-    enable_session_monitor_container(duthost)
+    enable_session_monitor_container(duthost, resource_type)
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
     time.sleep(10)  # Allow time for config reload to complete
 
@@ -382,14 +405,14 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
     logger.debug("setup config_facts: {}".format(config_facts))
 
     # Setup test portchannels
-    bond_port_mapping = setup_test_portchannels(duthost, ptfhost, config_facts, tbinfo)
+    bond_port_mapping = setup_test_portchannels(duthost, ptfhost, config_facts, tbinfo, southbound_portchannels)
 
     # Create loopback interface if it doesn't exist
     duthost.shell(f"config loopback add {LOOPBACK_INTERFACE}", module_ignore_errors=True)
 
     # Wait for system to stabilize after setup
     time.sleep(15)
-    yield duthost
+    yield duthost, southbound_portchannels
 
     # Cleanup
     cleanup(duthost, ptfhost, bond_port_mapping)
@@ -399,25 +422,25 @@ def test_link_state_tracker(common_setup_and_teardown):
     """
     Entry point for running link state tracker tests.
     """
-    duthost = common_setup_and_teardown
+    duthost, southbound_portchannels = common_setup_and_teardown
 
     # Run tests
     # Test script works when enabled. Should be enabled by default.
-    validate_link_state_tracker_enabled(duthost)
+    validate_link_state_tracker_enabled(duthost, southbound_portchannels)
 
     # Disable link state tracker
     duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl stop {SERVICE_NAME}")
     time.sleep(10)
 
     # Test script doesn't do anything when disabled
-    validate_link_state_tracker_disabled(duthost)
+    validate_link_state_tracker_disabled(duthost, southbound_portchannels)
 
     # Enable link state tracker
     duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl start {SERVICE_NAME}")
     time.sleep(10)
 
     # Test script works when re-enabled
-    validate_link_state_tracker_enabled(duthost)
+    validate_link_state_tracker_enabled(duthost, southbound_portchannels)
 
 
 def test_link_state_tracker_rapid_state_changes(common_setup_and_teardown):
@@ -426,7 +449,7 @@ def test_link_state_tracker_rapid_state_changes(common_setup_and_teardown):
     This test validates that the tracker can handle rapid up/down state changes
     without losing state or creating race conditions
     """
-    duthost = common_setup_and_teardown
+    duthost, southbound_portchannels = common_setup_and_teardown
 
     # Ensure service is running
     duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl start {SERVICE_NAME}")
@@ -438,7 +461,7 @@ def test_link_state_tracker_rapid_state_changes(common_setup_and_teardown):
         logger.debug(f"Flapping test iteration {i+1}")
 
         # Bring all portchannels down
-        for pc in SOUTHBOUND_PORTCHANNELS:
+        for pc in southbound_portchannels:
             set_portchannel_oper_status(duthost, pc, "down")
         time.sleep(5)
 
@@ -447,7 +470,7 @@ def test_link_state_tracker_rapid_state_changes(common_setup_and_teardown):
         pytest_assert(loopback_status == "disabled", f"Loopback6 should be disabled on iteration {i+1}")
 
         # Bring one portchannel up
-        set_portchannel_oper_status(duthost, SOUTHBOUND_PORTCHANNELS[0], "up")
+        set_portchannel_oper_status(duthost, southbound_portchannels[0], "up")
         time.sleep(5)
 
         # Verify loopback enabled
@@ -459,16 +482,16 @@ def test_link_state_tracker_service_restart(common_setup_and_teardown):
     """
     Test link state tracker behavior after service restart.
     """
-    duthost = common_setup_and_teardown
+    duthost, southbound_portchannels = common_setup_and_teardown
 
     # Start with a known state
-    reset_portchannels_state(duthost)
+    reset_portchannels_state(duthost, southbound_portchannels)
     duthost.shell(f"docker exec {DOCKER_CONTAINER_NAME} supervisorctl start {SERVICE_NAME}")
     time.sleep(10)
 
     # Set specific state - one portchannel down, one up
-    set_portchannel_oper_status(duthost, SOUTHBOUND_PORTCHANNELS[0], "up")
-    set_portchannel_oper_status(duthost, SOUTHBOUND_PORTCHANNELS[1], "down")
+    set_portchannel_oper_status(duthost, southbound_portchannels[0], "up")
+    set_portchannel_oper_status(duthost, southbound_portchannels[1], "down")
     time.sleep(10)
 
     # Verify expected state before restart
