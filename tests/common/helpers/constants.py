@@ -24,6 +24,7 @@ UPSTREAM_NEIGHBOR_MAP = {
     "lt2": "ut2",
     "t1-isolated-d128": "t0",
     "t1-isolated-d32": "t0",
+    "c0": "m1"
 }
 
 # Describe ALL upstream neighbor of dut in different topos
@@ -37,7 +38,8 @@ UPSTREAM_ALL_NEIGHBOR_MAP = {
     "m0_vlan": ["m1"],
     "m0_l3": ["m1"],
     'lt2': ['ut2'],
-    'ft2': ['ut2']
+    'ft2': ['ut2'],
+    "c0": ["m1"]
 }
 
 # Describe downstream neighbor of dut in different topos
