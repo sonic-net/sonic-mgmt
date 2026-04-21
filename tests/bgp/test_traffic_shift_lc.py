@@ -19,7 +19,7 @@ from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 from tests.conftest import get_hosts_per_hwsku
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'drh')
 ]
 
 logger = logging.getLogger(__name__)

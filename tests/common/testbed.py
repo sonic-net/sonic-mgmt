@@ -276,7 +276,7 @@ class TestbedInfo(object):
     def get_testbed_type(self, topo_name):
         pattern = re.compile(
             r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|lt2|ft2|tgen|'
-            r'mgmttor|m0|mc0|mx|m1|c0|dpu|ptp|smartswitch|nut|bmc)'
+            r'mgmttor|m0|mc0|mx|m1|c0|dpu|ptp|smartswitch|nut|bmc|urh|lrh)'
         )
         match = pattern.match(topo_name)
         if match is None:
@@ -288,6 +288,8 @@ class TestbedInfo(object):
             tb_type = 't0'
         if tb_type in ['mc0']:
             tb_type = 'm0'
+        if tb_type in ['urh', 'lrh']:
+            tb_type = 'drh'
         return tb_type
 
     def _parse_dut_port_index(self, port):

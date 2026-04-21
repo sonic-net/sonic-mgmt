@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 # This test only runs on t2 systems.
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'drh')
 ]
 
 # This test checks the fabric link status.
