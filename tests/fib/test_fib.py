@@ -883,7 +883,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -939,7 +941,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=member_down_log_file,
         qlen=PTF_QLEN,
@@ -989,7 +993,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=member_up_log_file,
         qlen=PTF_QLEN,
