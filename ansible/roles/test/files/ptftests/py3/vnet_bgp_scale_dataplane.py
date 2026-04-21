@@ -103,7 +103,7 @@ class VnetBgpScaleDataplane(BaseTest):
             eth_dst=self.dut_mac,
             ip_src="8.8.8.8",
             ip_dst=self.dut_vtep,
-            udp_sport=1234,
+            udp_sport=1234 + flow_id + 1,
             udp_dport=self.vxlan_port,
             with_udp_chksum=False,
             vxlan_vni=VNI_BASE + vnet_id,
