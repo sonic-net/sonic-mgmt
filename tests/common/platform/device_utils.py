@@ -18,7 +18,6 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
-from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
 
 """
 Helper script for fanout switch operations
@@ -1079,10 +1078,12 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, duthost_mgmt_ip,  # noqa: F811
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname,
                                localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost_mgmt_ip['mgmt_ip']
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    dut_ip = duthost_mgmt_info['mgmt_ip']
+    dut_mgmt_ver = duthost_mgmt_info['version']
 
     res = localhost.wait_for(host=dut_ip,
                              port=SERVER_PORT,
@@ -1100,7 +1101,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
             'command=/usr/bin/python{} /opt/platform_api_server.py --port {} {}'.format(
                 '3' if py3_platform_api_available else '2',
                 SERVER_PORT,
-                '--ipv6' if duthost_mgmt_ip['version'] == 'v6' else ''),
+                '--ipv6' if dut_mgmt_ver == 'v6' else ''),
             'autostart=True',
             'autorestart=True',
             'stdout_logfile=syslog',
@@ -1119,7 +1120,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
         # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        if duthost_mgmt_ip['version'] == 'v6':
+        if dut_mgmt_ver == 'v6':
             duthost.command(IP6TABLES_PREPEND_RULE_CMD)
         else:
             duthost.command(IPTABLES_PREPEND_RULE_CMD)
@@ -1133,8 +1134,9 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
 
 
 @pytest.fixture(scope='function')
-def platform_api_conn(duthost_mgmt_ip, start_platform_api_service):  # noqa: F811
-    dut_ip = duthost_mgmt_ip['mgmt_ip']
+def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.get_mgmt_ip()["mgmt_ip"]
 
     conn = http.client.HTTPConnection(dut_ip, 8000)
     try:
