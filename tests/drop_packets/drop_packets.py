@@ -18,7 +18,6 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
 from tests.common.helpers.dut_utils import is_mellanox_fanout
-from tests.common.plugins.memory_utilization.memory_utilization import wait_memory_stable
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -271,11 +270,10 @@ EOF
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
     config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
     if duthost.facts["asic_type"] == "vpp":
-        # After config_reload the kernel page cache is empty so monit reports
-        # artificially low memory usage.  Wait for it to stabilize before the
-        # memory_utilization fixture captures its baseline.
-        if not wait_memory_stable(duthost):
-            logger.warning("Memory did not stabilize; baseline may be inaccurate")
+        # monit refreshes on a ~60s cycle, so wait one full cycle to let usage
+        # settle and ensure monit's next refresh captures the steady-state
+        # value for the next test's baseline.
+        time.sleep(65)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
