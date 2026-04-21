@@ -1,0 +1,156 @@
+## **Overview**
+
+This test plan validates that **Control Plane Policing (CoPP)** functions correctly when the SONiC device is configured with an **IPv6-only management interface**.
+
+It ensures:
+
+* Control-plane traffic over IPv6 is permitted as expected
+* CoPP policies are enforced correctly for IPv6 traffic
+* No regression due to lack of IPv4 on management interface
+
+---
+
+## **Scope**
+
+* IPv6-only management interface (`eth0`)
+* CoPP behavior for:
+
+  * Allowed control-plane traffic
+  * Rate-limited / dropped traffic
+* Protocols:
+
+  * SSH (TCP/22)
+  * ICMPv6
+  * BGP (optional if mgmt used)
+
+---
+
+## **Testbed Requirements**
+
+* DUT with management interface configured **IPv6-only**
+* PTF or test host capable of generating IPv6 traffic toward mgmt interface
+* CoPP configured with default or custom policy
+
+---
+
+## **Setup Configuration**
+
+1. Configure management interface with IPv6 only:
+
+   ```
+   config interface ip remove eth0 <IPv4_addr>
+   config interface ip add eth0 <IPv6_addr>/<prefix>
+   ```
+
+2. Verify:
+
+   ```
+   show ip interfaces
+   show ipv6 interfaces
+   ```
+
+3. Ensure CoPP is enabled:
+
+   ```
+   show copp status
+   ```
+
+---
+
+# **Test Cases**
+
+---
+
+## **Test Case 1 – IPv6 Management Reachability Under CoPP**
+
+### **Objective**
+
+Verify that permitted control-plane IPv6 traffic is allowed when management interface is IPv6-only.
+
+### **Steps**
+
+1. Configure DUT with IPv6-only mgmt interface
+2. From test host, send:
+
+   * ICMPv6 echo (ping)
+   * SSH connection attempt to DUT IPv6 address
+
+### **Verification**
+
+* Ping response
+* SSH login prompt reachable
+* Check counters:
+
+  ```
+  show copp statistics
+  ```
+
+### **Expected Result**
+
+* ICMPv6 and SSH traffic are **permitted**
+* No unexpected drops in CoPP
+* Counters reflect accepted traffic
+
+---
+
+## **Test Case 2 – CoPP Policing for IPv6 Traffic**
+
+### **Objective**
+
+Verify CoPP rate-limiting and drop behavior for IPv6 control-plane traffic on mgmt interface.
+
+### **Steps**
+
+1. Ensure IPv6-only mgmt configuration
+2. Generate high-rate IPv6 traffic toward DUT:
+
+   * ICMPv6 flood OR TCP SYN flood (toward SSH port)
+3. Sustain traffic above CoPP threshold
+
+### **Verification**
+
+* Monitor:
+
+  ```
+  show copp statistics
+  ```
+* Observe CPU utilization (optional)
+
+### **Expected Result**
+
+* Excess IPv6 traffic is **rate-limited or dropped**
+* CoPP counters increment for drops
+* DUT remains responsive to legitimate traffic (e.g., SSH still accessible)
+* No control-plane crash or instability
+
+---
+
+## **Key Validation Points (Why This Covers the Gap)**
+
+* Confirms CoPP works **without IPv4 dependency**
+* Validates both:
+
+  * **Allow path** (legitimate traffic)
+  * **Policing path** (rate-limited traffic)
+* Ensures **IPv6 parity with existing IPv4 CoPP tests**
+
+---
+
+## **sonic-mgmt Integration Notes**
+
+* Likely location:
+
+  ```
+  tests/copp/
+  ```
+* Reuse existing CoPP test utilities:
+
+  * Traffic generators (PTF)
+  * CoPP counter verification helpers
+* Add parameter:
+
+  * `ipv6_only_mgmt = True`
+
+---
+
+If you want, I can convert this into an actual **pytest test file (test_copp_ipv6_mgmt.py)** using existing copp test fixtures so it plugs directly into CI.
