@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 PROFILER_CONTAINER = "profiler"
 PROFILER_DIR = "/usr/bin/linux_deploy/azprof"
-PROFILER_CMD = "/usr/bin/linux_deploy/azprof/AzureProfiler /GroupName:SonicTest /Role:TestRole /IntervalMinutes:0"
+PROFILER_CMD = '/usr/bin/linux_deploy/azprof/AzureProfiler /GroupName:SonicTest /Role:"{}" /IntervalMinutes:0'
 
 
 def pytest_addoption(parser):
@@ -73,7 +73,8 @@ def azure_profiler(request):
         result = duthost.shell(
             "docker exec -e http_proxy={} -e https_proxy={} {} bash -c 'cd {} && chmod +x {} && nohup {} "
             "> /tmp/azureprofiler.log 2>&1 & echo $!'".format(
-                http_proxy, https_proxy, PROFILER_CONTAINER, PROFILER_DIR, PROFILER_CMD.split()[0], PROFILER_CMD),
+                http_proxy, https_proxy, PROFILER_CONTAINER, PROFILER_DIR, PROFILER_CMD.split()[0],
+                PROFILER_CMD.format(request.node.name)),
             module_ignore_errors=True)
         if result["rc"] != 0:
             logger.warning("AzureProfiler failed to launch in container '{}' on {}, rc={}, stderr={}".format(
