@@ -30,27 +30,27 @@ The test is targeting a running SONIC system with fully functioning configuratio
 
 ### Sample DUT configuration files
 Neighbor level configs:
-router bgp 65001
- neighbor Ethernet0 interface remote-as 65000
+    router bgp 65001
+     neighbor Ethernet0 interface remote-as 65000
 
 Peer group level configs:
-router bgp 65001
- bgp router-id 1.1.1.1
-
- neighbor SPINE peer-group
- neighbor SPINE remote-as 65000
- neighbor SPINE capability extended-nexthop
-
- neighbor Ethernet0 interface
- neighbor Ethernet0 peer-group SPINE
-
- address-family ipv4 unicast
-  neighbor SPINE activate
- exit-address-family
-
- address-family ipv6 unicast
-  neighbor SPINE activate
- exit-address-family
+    router bgp 65001
+     bgp router-id 1.1.1.1
+    
+     neighbor SPINE peer-group
+     neighbor SPINE remote-as 65000
+     neighbor SPINE capability extended-nexthop
+    
+     neighbor Ethernet0 interface
+     neighbor Ethernet0 peer-group SPINE
+    
+     address-family ipv4 unicast
+      neighbor SPINE activate
+     exit-address-family
+    
+     address-family ipv6 unicast
+      neighbor SPINE activate
+     exit-address-family
  
 ## Test structure
 ### Setup configuration
