@@ -121,10 +121,11 @@ show
 | No. | Test Name                                    | Purpose                                                               |
 |-----|----------------------------------------------|-----------------------------------------------------------------------|
 | 1   | test_rdma_hash_field_distribution            | Verify RDMA hash field impact on traffic distribution                 |
-| 2   | test_pkt_type_hash_priority_and_override     | Priority/override between default and per-pkt-type hash               |
-| 3   | test_pkt_type_hash_config_persistence_reload | Persistence of pkt_type_hash config after reboot/reload for ECMP/LAG  |
-| 4   | test_pkt_type_hash_warm_boot             | Validate warm boot with packet type hash for ECMP/LAG                 |
-| 5   | test_pkt_type_hash_fast_boot            | Validate fast boot with packet type hash for ECMP/LAG                 |
+| 2   | test_hash_field_distribution_ip              | Verify non-RDMA IP hash field impact on traffic distribution          |
+| 3   | test_pkt_type_hash_priority_and_override     | Priority/override between default and per-pkt-type hash               |
+| 4   | test_pkt_type_hash_config_persistence_reload | Persistence of pkt_type_hash config after reboot/reload for ECMP/LAG  |
+| 5   | test_pkt_type_hash_warm_boot                 | Validate warm boot with packet type hash for ECMP/LAG                 |
+| 6   | test_pkt_type_hash_fast_boot                 | Validate fast boot with packet type hash for ECMP/LAG                 |
 
 ### 4.2 Test case descriptions
 
@@ -145,7 +146,25 @@ show
 
 **Expected Result:**  Egress ports vary based on RDMA fields and distribution observed across members.
 
-#### 2. test_pkt_type_hash_priority_and_override
+#### 2. test_hash_field_distribution_ip
+---
+**Purpose:**  Configure standard (non-RDMA) IP hash fields for a supported packet type (IPv4 or IPv6) and verify that traffic distribution across ECMP/LAG paths varies based on the configured hash fields. The test is repeated for ECMP-only, LAG-only, and ECMP+LAG modes; in ECMP+LAG mode both are configured with the same field set (unified hash model).
+
+**Steps:**
+1. Query platform capabilities from STATE_DB and select the first supported non-RDMA IP packet type (IPv4 preferred, then IPv6). Skip if none are supported.
+1. For LAG-only or ECMP+LAG modes, verify that a multi-member LAG/portchannel exists; skip otherwise.
+1. Determine the hash field list by intersecting a base set of IP fields (`SRC_IP`, `DST_IP`, `L4_SRC_PORT`, `L4_DST_PORT`, `DST_MAC`) with the ASIC-supported hash fields for the selected mode. Skip if no compatible fields are available.
+1. Configure per-packet-type hash on the DUT for the selected mode:
+   - ECMP-only: `config switch-hash global ecmp-hash --packet-type <pkt-type> --action add <fields>`
+   - LAG-only: `config switch-hash global lag-hash --packet-type <pkt-type> --action add <fields>`
+   - ECMP+LAG: configure both ECMP and LAG with the same fields.
+1. Verify the packet-type hash configuration is correctly reflected in Config DB.
+1. Generate IP test traffic (matching the selected packet type) varying a chosen hash field (preferring `SRC_IP`) and send it through the PTF test framework.
+1. Observe egress port distribution across ECMP next-hops and/or LAG members.
+
+**Expected Result:**  Egress ports vary based on the configured IP hash fields, demonstrating that per-packet-type hash configuration correctly influences traffic distribution for non-RDMA IP traffic across ECMP and/or LAG paths.
+
+#### 3. test_pkt_type_hash_priority_and_override
 ---
 **Purpose:**  Configure default hash and per packet-type hash; generate matching/non-matching traffic and verify per packet-type config is prioritized for that traffic, default used otherwise.
 
@@ -163,7 +182,7 @@ show
 
 **Expected Result:**  Packet-type 1 traffic follows per packet-type hash and packet-type 2 traffic continues to use the default global hash.
 
-#### 3. test_pkt_type_hash_config_persistence_reload
+#### 4. test_pkt_type_hash_config_persistence_reload
 ---
 **Purpose:**  Configure various packet-type hashes, reload/reboot the switch and ensure configuration and data plane behavior persist.
 
@@ -176,7 +195,7 @@ show
 
 **Expected Result:**  All per packet-type configs are preserved after reboot.
 
-#### 4. test_pkt_type_hash_warm_boot
+#### 5. test_pkt_type_hash_warm_boot
 ---
 **Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations for selected packet types persist across a warm boot.
 **Steps:**
@@ -188,7 +207,7 @@ show
 
 **Expected Result:**   Packet-type hash behavior for ECMP/LAG is preserved for all selected packet types with no traffic loss.
 
-#### 5. test_pkt_type_hash_fast_boot
+#### 6. test_pkt_type_hash_fast_boot
 ---
 **Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations for all supported packet types persist across fast boot.
 
