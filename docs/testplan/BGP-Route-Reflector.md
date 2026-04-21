@@ -47,18 +47,18 @@ Client1 -------- RR -------- Client2
 ### Sample DUT configuration files
 Route Reflector Configuration
 
-router bgp 65001
- bgp router-id 1.1.1.1
-
- neighbor 10.0.0.1 remote-as 65001
- neighbor 10.0.0.1 route-reflector-client
-
- neighbor 10.0.0.2 remote-as 65001
- neighbor 10.0.0.2 route-reflector-client
-
- address-family ipv4 unicast
-  neighbor 10.0.0.1 activate
-  neighbor 10.0.0.2 activate
+    router bgp 65001
+     bgp router-id 1.1.1.1
+    
+     neighbor 10.0.0.1 remote-as 65001
+     neighbor 10.0.0.1 route-reflector-client
+    
+     neighbor 10.0.0.2 remote-as 65001
+     neighbor 10.0.0.2 route-reflector-client
+    
+     address-family ipv4 unicast
+      neighbor 10.0.0.1 activate
+      neighbor 10.0.0.2 activate
  
 ## Test structure
 ### Setup configuration
