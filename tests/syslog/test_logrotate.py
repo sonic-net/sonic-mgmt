@@ -158,6 +158,7 @@ def run_logrotate(duthost, force=False):
             )
         )
 
+
 def multiply_with_unit(logrotate_threshold, num):
     """
     Multiply logrotate_threshold with number, and return the value
