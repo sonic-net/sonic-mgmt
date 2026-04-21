@@ -63,8 +63,9 @@ router bgp 65001
 ## Test structure
 ### Setup configuration
 
-Ensure all nodes are reachable
-Configure iBGP sessions between RR and clients
+. Ensure all nodes are reachable
+. Configure iBGP sessions between RR and clients
+. Do not configure client-to-client peering
 
 ## Test cases
 ### Test case #1 - RR Neighbor Establishment 
