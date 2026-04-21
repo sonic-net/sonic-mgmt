@@ -72,7 +72,7 @@ def test_reboot_cause(duthosts, dpuhosts,
 
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
-
+    logging.info("sleep 60s before startup DPU"); time.sleep(60)
     logging.info("Starting UP the DPUs in parallel")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
     post_test_dpus_check(duthost, dpuhosts,
