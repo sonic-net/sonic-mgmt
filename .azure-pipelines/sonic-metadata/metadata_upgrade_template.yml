@@ -119,6 +119,11 @@ parameters:
   displayName: "Run multi-hop upgrade test"
   default: false
 
+- name: RUN_WARMBOOT_DATA_CONSISTENCY
+  type: boolean
+  displayName: "Run warmboot data consistency test"
+  default: false
+
 stages:
 - stage: SONiCMetadataUpgradeTest
   dependsOn: []
@@ -441,6 +446,40 @@ stages:
           METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
           RUN_REBOOT_CASE: "test_multi_hop_upgrade_path"
           TEST_TCAM_HOLE: ${{ parameters.TEST_TCAM_HOLE }}
+          ITERATIONS: [1]
+          SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+          POOL: ${{ parameters.POOL }}
+
+    # Warmboot data consistency test - conditionally run
+    - ${{ if eq(parameters.RUN_WARMBOOT_DATA_CONSISTENCY, true) }}:
+      - script: |
+          echo "=========================================="
+          echo "Starting WARMBOOT DATA CONSISTENCY TEST"
+          echo "=========================================="
+          echo "UPGRADE_TEST_TYPE: warmboot-data-consistency"
+          echo "FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}"
+          echo "FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}"
+          echo "TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}"
+          echo "TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}"
+          echo "SKIP_POSTUPGRADE_ACTIONS: true"
+          echo "RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: false"
+          echo "=========================================="
+        displayName: "Warmboot Data Consistency Parameters"
+
+      - template: upgrade_sonic_metadata.yml
+        parameters:
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          UPGRADE_TYPE: warm
+          UPGRADE_STRATEGY: ${{ parameters.UPGRADE_STRATEGY }}
+          VM_TYPE: ${{ parameters.VM_TYPE }}
+          UPGRADE_TEST_TYPE: warmboot-data-consistency
+          FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
+          FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
+          TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
+          TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+          SKIP_POSTUPGRADE_ACTIONS: true
+          RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: false
+          METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
           ITERATIONS: [1]
           SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
           POOL: ${{ parameters.POOL }}

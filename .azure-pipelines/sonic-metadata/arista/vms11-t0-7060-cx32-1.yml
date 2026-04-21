@@ -165,6 +165,11 @@ parameters:
   default: true
   displayName: "Run Multi-Hop Upgrade Test"
 
+- name: RUN_WARMBOOT_DATA_CONSISTENCY
+  type: boolean
+  default: true
+  displayName: "Run Warmboot Data Consistency Test"
+
 - name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS
   type: string
   displayName: "Additional Upgrade Hop Locations - (comma separated values zipped with image numbers e.g. IMAGE_BRCM_ABOOT_202405,IMAGE_BRCM_ABOOT_202411)"
@@ -211,3 +216,4 @@ stages:
       MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}
       MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}
       MULTI_HOP_BASE_UPGRADE_PATH: ${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}
+      RUN_WARMBOOT_DATA_CONSISTENCY: ${{ parameters.RUN_WARMBOOT_DATA_CONSISTENCY }}
