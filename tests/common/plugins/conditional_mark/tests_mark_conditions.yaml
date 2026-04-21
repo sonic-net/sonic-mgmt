@@ -2630,6 +2630,12 @@ generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_replacemen
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
+generic_config_updater/test_ecn_config_update.py:
+  skip:
+    reason: "ECN config updates rely on SWSS/orchagent; BMC SONiC image has no SWSS container"
+    conditions:
+      - "'bmc' in topo_type"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "WRED dynamic config updates not implemented in SAI for PAC/GR2 ASICs"
@@ -2645,6 +2651,12 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates[None-r
     reason: "Xfail due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/23597"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/23597 and platform in ['x86_64-nvidia_sn5640-r0']"
+
+generic_config_updater/test_eth_interface.py:
+  skip:
+    reason: "Ethernet interface config update tests require the PORT table; BMC SONiC image has no PORT table (no front-panel data ports)"
+    conditions:
+      - "'bmc' in topo_type"
 
 generic_config_updater/test_eth_interface.py::test_port_speed_change_oper_status:
   skip:
@@ -3008,6 +3020,24 @@ ha/test_ha_config_reload.py:
       - "topo_name not in 't1-smartswitch-ha'"
 
 ha/test_ha_dpu_power_down.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_dpu_process_crash.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_npu_process_crash.py:
   skip:
     conditions_logical_operator: or
     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
@@ -4140,6 +4170,30 @@ platform_tests/test_reboot.py:
     conditions:
       - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/26743"
 
+platform_tests/test_reboot.py::test_fast_reboot:
+  skip:
+    reason: "fast-reboot is not supported on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/test_reboot.py::test_soft_reboot:
+  skip:
+    reason: "soft-reboot is not supported on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/test_reboot.py::test_warm_reboot:
+  skip:
+    reason: "warm-reboot is not supported on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/test_reboot.py::test_watchdog_reboot:
+  skip:
+    reason: "watchdog reboot is not supported on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo or smartswitch platform"
@@ -4667,9 +4721,11 @@ reboot/test_reboot_blocking_mode.py:
 #######################################
 reset_factory/test_reset_factory.py:
   skip:
-    reason: "This case has a known issue which leaves the DUT in a bad state. Skipping until the issue is addressed."
+    reason: "This case has a known issue which leaves the DUT in a bad state. Skipping until the issue is addressed. Also skipped on BMC due to a system clock image issue."
+    conditions_logical_operator: or
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11103
+      - "'bmc' in topo_type"
 
 #######################################
 #####         restapi             #####
@@ -4929,6 +4985,12 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[c
     conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/15051
 
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_rate_limit_interval:
+  skip:
+    reason: "auto techsupport relies on the eventd service which is not available on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
     reason: "Test supported only on Nvidia(Mellanox) devices / auto techsupport on multi asic platforms doesnt work"
@@ -4936,6 +4998,12 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
     conditions:
       - "asic_type not in ['mellanox']"
       - "is_multi_asic==True"
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sanity:
+  skip:
+    reason: "auto techsupport relies on the eventd service which is not available on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
 
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
@@ -5316,6 +5384,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
+
+system_health/test_watchdog.py::test_orchagent_watchdog:
+  skip:
+    reason: "orchagent watchdog test requires SWSS/orchagent; BMC SONiC image has no orchagent"
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####           tacacs          #####
