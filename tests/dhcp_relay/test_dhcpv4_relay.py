@@ -523,10 +523,15 @@ def test_dhcp_relay_with_different_non_default_vrf(
         3. Bind VLAN interface to CLIENT_VRF_NAME and PortChannels to SERVER_VRF_NAME.
         4. Reassign IPs back to the interfaces.
         5. Add default routes in SERVER_VRF_NAME for DHCP server reachability.
-        6. Configure DHCP relay with vrf_selection and link_selection enabled.
-        7. Run the DHCP relay test from the PTF host.
-        8. Optionally validate DHCP relay logs using loganalyzer.
-        9. Cleanup: remove routes and VRF bindings, restore original config.
+        6. Rebind the source-interface Loopback into SERVER_VRF_NAME so the IP2ME
+           (CPU-trap) route for the Loopback IP lives in the same VRF that the
+           OFFER ingresses on (required on platforms that enforce strict per-VRF
+           IP2ME, e.g. Broadcom Helix4).
+        7. Configure DHCP relay with vrf_selection and link_selection enabled.
+        8. Run the DHCP relay test from the PTF host.
+        9. Optionally validate DHCP relay logs using loganalyzer.
+        10. Cleanup: remove routes and VRF bindings, restore original config
+            (including unbinding the Loopback from SERVER_VRF_NAME).
 
     Expected Results:
         - DHCP Discover, Offer, Request, and ACK messages are relayed successfully across different VRFs.
@@ -574,7 +579,40 @@ def test_dhcp_relay_with_different_non_default_vrf(
     duthost.shell(f"sudo config route add prefix vrf {SERVER_VRF_NAME} 0.0.0.0/0 nexthop"
                   f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}")
 
+    # Pre-initialize Loopback rebind locals so the finally block's existence
+    # check still works even if Step 6 itself raises before assigning them.
+    loopback_for_src = dut_dhcp_relay_data[0]['loopback_iface']
+    loopback_ip_key_prefix = "LOOPBACK_INTERFACE|{}|".format(loopback_for_src)
+    saved_loopback_ips = {}
+
+    # Move the try: to cover Step 6 as well so that any partial failure during
+    # the Loopback IP-strip / vrf bind / restore sequence still triggers the
+    # cleanup in the finally block.
     try:
+        # Step 6: Rebind the source-interface Loopback into SERVER_VRF_NAME for
+        # the duration of the test. This test passes --source-interface
+        # Loopback0, so dhcp4relay sets giaddr to the Loopback IP and a real
+        # DHCP server unicasts the OFFER back to that IP (this is exactly what
+        # PTF mocks once source_interface=True / link_selection=True are passed
+        # below). The OFFER ingresses on the server-facing PortChannel uplinks,
+        # which are bound to SERVER_VRF_NAME. If Loopback0 stays in the default
+        # VRF, platforms whose silicon enforces strict per-VRF IP2ME handling
+        # (for example, Broadcom Helix4) have no matching trap entry in
+        # SERVER_VRF_NAME and silently drop the OFFER. Rebinding the Loopback
+        # into SERVER_VRF_NAME co-locates the trap route with the OFFER ingress
+        # VRF so the test passes uniformly across platforms.
+        saved_loopback_ips = _save_interface_ip_entries(
+            duthost, "LOOPBACK_INTERFACE", loopback_for_src)
+        for key in list(saved_loopback_ips.keys()):
+            if key.startswith(loopback_ip_key_prefix):
+                ip_with_mask = key.split("|", 2)[2]
+                duthost.shell(
+                    f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
+                    module_ignore_errors=True)
+        duthost.shell(
+            f"sudo config interface vrf bind {loopback_for_src} {SERVER_VRF_NAME}")
+        _restore_interface_ip_entries(duthost, saved_loopback_ips)
+
         for dhcp_relay in dut_dhcp_relay_data:
             dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
             loopback_iface = dhcp_relay["loopback_iface"]    # noqa: F841
@@ -610,6 +648,16 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                "client_vrf": CLIENT_VRF_NAME,
                                "link_selection_ip": str(dhcp_relay['downlink_vlan_iface']['link_selection_ip']),
                                "server_vrf": True,
+                               # Tell PTF to mock a real DHCP server that honors giaddr.
+                               # Without these flags, create_dhcp_offer_packet() falls into
+                               # the elif branch and unicasts the OFFER to relay_iface_ip
+                               # (Vlan IP, in CLIENT_VRF) instead of switch_loopback_ip
+                               # (Loopback IP). Since this test's data plane crosses VRFs,
+                               # targeting the Vlan IP from the SERVER_VRF ingress means
+                               # the OFFER never matches any IP2ME entry on platforms that
+                               # enforce strict per-VRF IP2ME (e.g. Broadcom Helix4).
+                               "source_interface": True,
+                               "link_selection": True,
                                "portchannels_ip_list": dhcp_relay['portchannels_ip_list'],
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
                        log_file="/tmp/test_dhcp_relay_with_different_non_default_vrf.DHCPTest.log", is_python3=True)
@@ -620,6 +668,23 @@ def test_dhcp_relay_with_different_non_default_vrf(
 
     finally:
         duthost.shell(f"config dhcpv4_relay del {vlan_iface}", module_ignore_errors=True)
+
+        # Unbind the source-interface Loopback from SERVER_VRF_NAME before
+        # deleting the VRF so it has no remaining member interfaces. Restore
+        # the saved CONFIG_DB entries so all original Loopback IP attributes
+        # (IPv4, IPv6, secondary flag, etc.) come back.
+        if saved_loopback_ips:
+            for key in list(saved_loopback_ips.keys()):
+                if key.startswith(loopback_ip_key_prefix):
+                    ip_with_mask = key.split("|", 2)[2]
+                    duthost.shell(
+                        f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
+                        module_ignore_errors=True)
+            duthost.shell(
+                f"sudo config interface vrf unbind {loopback_for_src}",
+                module_ignore_errors=True)
+            _restore_interface_ip_entries(duthost, saved_loopback_ips)
+
         # VRF config cleanup
         duthost.shell(f"sudo config route del prefix vrf {SERVER_VRF_NAME} 0.0.0.0/0 nexthop"
                       f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}")
