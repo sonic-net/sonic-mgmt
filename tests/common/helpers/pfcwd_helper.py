@@ -433,49 +433,37 @@ def fetch_vendor_specific_diagnosis_re(duthost):
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
 
 
-def pfcwd_stats(dut):
-    result = dut.shell("show pfcwd stats", module_ignore_errors=True, verbose=False)
-    if result['rc'] != 0:
-        return {}
-    return parse_pfcwd_stats(result['stdout_lines'])
-
-
-def parse_pfcwd_stats(lines):
-    stats = {}
-    for line in lines:
-        tokens = line.split()
-        queue = tokens[0]
-        if queue.startswith('Ether'):
-            status = tokens[1]
-            stats[queue] = status
-    return stats
-
-
 def is_pfcwd_port_restored(dut, storm_port):
-    stats = pfcwd_stats(dut)
-    for queue, status in stats.items():
-        if queue.startswith(storm_port) and status == 'operational':
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    for item in pfcwd_stat_output:
+        port = item['queue'].split(':')[0]
+        if port == storm_port and item['status'] == 'operational':
             return True
     return False
 
 
 def wait_until_pfcwd_restored(dut, storm_port):
-    is_restored = wait_until(10 * 60, 5, 0, is_pfcwd_port_restored, dut, storm_port)
+    is_restored = wait_until(120, 5, 0, is_pfcwd_port_restored, dut, storm_port)
     pytest_assert(is_restored, f"Port {storm_port} did not restore storm!")
 
 
-def get_storm_detected_count(dut):
-    result = dut.shell("show pfcwd stats", module_ignore_errors=True, verbose=False)
-    if result['rc'] != 0:
-        return 0
-    lines = result['stdout_lines']
-    for line in lines:
-        tokens = line.split()
-        queue = tokens[0]
-        if queue.startswith('Ether'):
-            storm_detected_restored_count = tokens[2]
-            storm_detected_count = storm_detected_restored_count.split('/')[0]
-            return int(storm_detected_count)
+def get_storm_detected_count(dut, storm_port):
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    for item in pfcwd_stat_output:
+        port = item['queue'].split(':')[0]
+        if port == storm_port:
+            storm_detect_count = item['storm detected/restored'].split('/')[0]
+            return int(storm_detect_count)
+    return 0
+
+
+def get_storm_restored_count(dut, storm_port):
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    for item in pfcwd_stat_output:
+        port = item['queue'].split(':')[0]
+        if port == storm_port:
+            storm_restored_count = item['storm detected/restored'].split('/')[1]
+            return int(storm_restored_count)
     return 0
 
 
