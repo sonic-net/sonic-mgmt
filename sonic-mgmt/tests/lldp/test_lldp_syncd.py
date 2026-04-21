@@ -323,6 +323,18 @@ def verify_lldp_table(duthost):
         return False
 
 
+def is_sim(duthost):
+    """Check whether the DUT is running on SIM (VXR) or HW."""
+    try:
+        output = duthost.shell(
+            "cat /proc/cpuinfo | grep '^model name'",
+            module_ignore_errors=True
+        )["stdout"]
+        return "VXR" in output
+    except Exception:
+        return False
+
+
 def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces):
     def get_lldp_entry_content_with_retry():
         nonlocal entry_content
@@ -476,8 +488,9 @@ def test_lldp_entry_table_after_lldp_restart(
     # Restart the LLDP service
     for asic in duthost.asics:
         duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("lldp")))
+    lldp_wait_timeout = 120 if is_sim(duthost) else 60
     result = wait_until(
-        60, 2, 20, verify_lldp_table, duthost
+        lldp_wait_timeout, 2, 20, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
     pytest_assert(result, "no output for show lldp table after restarting lldp")
     for asic in duthost.asics:
