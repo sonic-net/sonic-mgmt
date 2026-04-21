@@ -90,6 +90,10 @@ def dscp_config(dscp_mode, duthost, loganalyzer):
 
     # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
     if asic_type == 'broadcom':
+        hwsku = duthost.facts.get("hwsku", "")
+        if dscp_mode == "pipe" and hwsku.startswith("Arista-7060CX"):
+            pytest.skip("Broadcom TH (Tomahawk 1) does not support IPIP pipe mode"
+                        " -- hardware always uses outer DSCP for egress queue selection")
         apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer)
         yield
         apply_dscp_cfg_teardown(duthost, loganalyzer)
@@ -493,10 +497,11 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
 
+    @pytest.mark.disable_loganalyzer
     def test_dscp_to_queue_mapping(self, ptfadapter, rand_selected_dut, localhost, dscp_config, dscp_mode,
                                    toggle_all_simulator_ports_to_rand_selected_tor, completeness_level,  # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor, route_config,
-                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer):  # noqa F811
+                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer, rotate_syslog):  # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" and "pipe" mode
         """

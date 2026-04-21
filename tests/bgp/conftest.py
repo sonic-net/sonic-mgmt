@@ -447,8 +447,12 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             interfaces = []
             used_subnets = set()
             asic_idx = 0
-            if mg_facts["minigraph_interfaces"]:
-                for intf in mg_facts["minigraph_interfaces"]:
+            mg_interfaces = mg_facts["minigraph_interfaces"]
+            if mg_interfaces:
+                if tbinfo["topo"]["name"] == "t2_single_node_min":
+                    mg_interfaces = sorted(mg_facts["minigraph_interfaces"],
+                                           key=lambda x: int(x['attachto'].replace("Ethernet", "")))
+                for intf in mg_interfaces:
                     if (is_matching_ip_version(intf["addr"])):
                         intf_asic_idx = duthost.get_port_asic_instance(intf["attachto"]).asic_index
                         if not interfaces:
@@ -603,7 +607,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
     duthost.shell("sonic-clear arp")
     duthost.shell('sudo config save -y')
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module")
@@ -672,6 +676,9 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     peer_addr = connection['neighbor_addr'].split("/")[0]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     asn = mg_facts['minigraph_bgp_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
+    if confed_asn:
+        asn = confed_asn
     # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
     logger.info("Configuring bgp monitor session on DUT")
     bgpmon_args = {
