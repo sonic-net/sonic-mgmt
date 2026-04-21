@@ -114,6 +114,28 @@ def create_temp_syslog_file(duthost, size):
     duthost.shell('sudo fallocate -l {} /var/log/syslog'.format(size))
 
 
+def get_oldest_syslog_checksum(duthost):
+    checksum = "0"
+
+    # 1. Get the oldest file
+    res = duthost.shell('sudo ls -lrt /var/log/syslog.*', module_ignore_errors=True)
+    if not res['stdout_lines']:
+        return checksum      # Return "0" if no syslog files found
+
+    line = res['stdout_lines'][0]
+    filename = line.split()[-1]
+
+    # 2. Get the checksum with error handling
+    md5_res = duthost.shell('sudo md5sum {}'.format(filename), module_ignore_errors=True)
+
+    # Check if the output is valid before splitting
+    if md5_res['rc'] == 0 and md5_res['stdout_lines']:
+        checksum = md5_res['stdout_lines'][0].split()[0]
+
+    logger.debug('=== {}: md5sum: {} === '.format(filename, checksum))
+    return checksum
+
+
 def run_logrotate(duthost, force=False):
     """
     Run logrotate command
@@ -137,7 +159,7 @@ def multiply_with_unit(logrotate_threshold, num):
     :param num: the number need to multiply with
     :return: value with unit, such as '512K'
     """
-    return str(int(logrotate_threshold[:-1]) * num) + logrotate_threshold[-1]
+    return str(int(int(logrotate_threshold[:-1]) * num)) + logrotate_threshold[-1]
 
 
 def validate_logrotate_function(duthost, logrotate_threshold, small_size):
@@ -157,20 +179,38 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size):
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.5))
         else:
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.9))
+
+        oldest_checksum_before_rotate = get_oldest_syslog_checksum(duthost)
         run_logrotate(duthost)
         syslog_number_no_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_no_rotate))
+        # For no rotation happen, both two conditions has to be satisfied
+        # 1. the number of syslog files keep the same
+        # 2. the oldest log file's checksum keep the same
         assert syslog_number_origin == syslog_number_no_rotate, \
+            'Unexpected logrotate happens, there should be no logrotate executed'
+        oldest_checksum_after_rotate = get_oldest_syslog_checksum(duthost)
+        assert oldest_checksum_before_rotate == oldest_checksum_after_rotate, \
             'Unexpected logrotate happens, there should be no logrotate executed'
 
     with allure.step('There will be logrotate process when rsyslog size is larger than threshold {}'.format(
             logrotate_threshold)):
         create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 1.1))
+        oldest_checksum_before_rotate = get_oldest_syslog_checksum(duthost)
         run_logrotate(duthost)
         syslog_number_with_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_with_rotate))
-        assert syslog_number_origin + 1 == syslog_number_with_rotate, \
-            'No logrotate happens, there should be one time logrotate executed'
+        oldest_checksum_after_rotate = get_oldest_syslog_checksum(duthost)
+        # For rotation happen,
+        # 1. If the number of syslog file the same, the oldest log file checksum has to be different
+        #    This is the corner case that number of syslog files reach the rotate limit.
+        # 2. Otherwise, number of log file has to increase by 1
+        if syslog_number_origin == syslog_number_with_rotate:
+            assert oldest_checksum_before_rotate != oldest_checksum_after_rotate, \
+                'No logrotate happens, both syslog file number and timestamp are the same'
+        else:
+            assert syslog_number_origin + 1 == syslog_number_with_rotate, \
+                'No logrotate happens, the number of syslog files does not increase by 1'
 
 
 def get_threshold_based_on_memory(duthost):
