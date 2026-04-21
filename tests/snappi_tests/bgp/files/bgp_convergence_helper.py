@@ -140,6 +140,7 @@ def run_rib_in_convergence_test(snappi_api,
         timeout: optional timeout in seconds for convergence steps (default: TIMEOUT)
         skip_duthost_bgp_config: Use existing config from config_db to run test.
     """
+
     if timeout is None:
         timeout = TIMEOUT
 
@@ -810,6 +811,22 @@ def get_rib_in_convergence(snappi_api,
     # Outstanding sonic-mgmt issue 23744.
     logger.info('Setting AS-SEQ manually via restPy')
     ix = snappi_api._ixnetwork
+    for topo in ix.Topology.find():
+        for dg in topo.DeviceGroup.find():
+            for ng in dg.NetworkGroup.find():
+                for ipp in ng.Ipv4PrefixPools.find():
+                    for bgp_prop in ipp.BgpIPRouteProperty.find():
+                        for seg in bgp_prop.BgpAsPathSegmentList.find():
+                            seg.SegmentType.Single('asseq')
+                for ipp in ng.Ipv6PrefixPools.find():
+                    for bgp_prop in ipp.BgpV6IPRouteProperty.find():
+                        for seg in bgp_prop.BgpAsPathSegmentList.find():
+                            seg.SegmentType.Single('asseq')
+
+    # Outstanding sonic-mgmt issue 23744.
+    logger.info('Setting AS-SEQ manually via restPy')
+    ix = snappi_api._ixnetwork
+
     for topo in ix.Topology.find():
         for dg in topo.DeviceGroup.find():
             for ng in dg.NetworkGroup.find():
