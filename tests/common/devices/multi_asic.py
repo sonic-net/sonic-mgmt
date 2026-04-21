@@ -100,6 +100,12 @@ class MultiAsicSonicHost(object):
         if is_dpu and 'snmp' in service_list:
             service_list.remove('snmp')
 
+        # BMC topology: snmp is not deployed on BMC image (SNMP runs on the host NOS,
+        # not on the management-plane BMC board), so exclude it from critical services.
+        is_bmc = 'bmc' in (self.topo_type or '')
+        if is_bmc and 'snmp' in service_list:
+            service_list.remove('snmp')
+
         # Update the asic service based on feature table state and asic flag
         filtered_asic_services = []
         for service in self.sonichost.DEFAULT_ASIC_SERVICES:
