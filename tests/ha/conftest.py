@@ -564,7 +564,7 @@ def setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server
 def remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
 
     for index, (name, data) in enumerate(ha_scope_per_dut):
         # Update the 'owner' key in the dictionary
