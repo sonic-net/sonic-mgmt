@@ -670,16 +670,16 @@
     },
     {
         "feature": "gnmi_e2e",
-        "owner": "Dawei Huang",
-        "email": "daweihuang@microsoft.com",
+        "owner": "Zain Budhwani",
+        "email": "zainbudhwani@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "gnmi_e2e.test_gnmi_auth",
                     "gnmi_e2e.test_telemetry_auth"
                 ],
-                "owner": "Dawei Huang",
-                "email": "daweihuang@microsoft.com"
+                "owner": "Zain Budhwani",
+                "email": "zainbudhwani@microsoft.com"
             }
         ]
     },
