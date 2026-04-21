@@ -691,12 +691,15 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
-    # Normalize nodeids: strip root directory prefix if present (pytest 9.0+ includes it)
+    # Normalize nodeids: strip root directory prefix and tests/ dir if present (pytest 9.0+ includes them)
     root_prefix = os.path.basename(str(session.config.rootpath)) + "/"
+    tests_prefix = "tests/"
     for item in items:
         nodeid = item.nodeid
         if nodeid.startswith(root_prefix):
             nodeid = nodeid[len(root_prefix):]
+        if nodeid.startswith(tests_prefix):
+            nodeid = nodeid[len(tests_prefix):]
         all_matches = find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
