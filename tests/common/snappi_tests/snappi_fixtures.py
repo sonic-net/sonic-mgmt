@@ -665,7 +665,7 @@ def check_if_ports_are_members_of_portchannel_or_vlan(duthost, snappi_ports):
     return True
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def setup_bgp_testbed(duthost):     # noqa: F811
     """
     Fixture to backup and restore config for bgp tests. This is required as we are making changes to
@@ -677,7 +677,6 @@ def setup_bgp_testbed(duthost):     # noqa: F811
     logger.info('Backing up the initial config to /etc/sonic/bgp_backup.json \n')
     yield
     logger.info('\n Restoring the initial config as part of teardown \n')
-    # duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y")
     error = duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y \n")['stderr']
     if 'Error' in error:
         pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/bgp_backup.json -y \n")['stderr'],
@@ -751,8 +750,8 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts):
             dut_port_info = dut_port_table.get(port['peer_port'], {})
             port['autoneg'] = dut_port_info.get('autoneg') == 'on'
             port['fec'] = str(dut_port_info.get('fec', '')).strip().lower().startswith('rs')
-            fec_value = str(dut_port_info.get('link_training', '')).strip().lower()
-            port['link_training'] = fec_value in ['on', 'true', 'yes', '1']
+            link_training_value = str(dut_port_info.get('link_training', '')).strip().lower()
+            port['link_training'] = link_training_value in ['on', 'true', 'yes', '1']
             port['speed'] = speed_type.get(str(port_speed), port['speed'])
             peer_port = port['peer_port']
             entry = bool(config_facts.get('INTERFACE', {}).get(peer_port))
