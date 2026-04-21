@@ -117,7 +117,12 @@ class SonicHost(AnsibleHostBase):
             self.DEFAULT_ASIC_SERVICES.remove("syncd")
             self.DEFAULT_ASIC_SERVICES.remove("teamd")
 
-        if (router_type == 'UpperSpineRouter') or (router_subtype in ['UpstreamLC', 'DownstreamLC']):
+        is_macsec_device = (router_type == 'UpperSpineRouter') or (router_subtype in ['UpstreamLC', 'DownstreamLC'])
+        # Append macsec only when enabled to avoid pretest failures on multi-ASIC devices
+        # where per-ASIC containers (macsec0, macsec1) do not exist when macsec is disabled.
+        # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
+        macsec_enabled = self._facts.get('features', {}).get('macsec', {}).get('state', 'disabled') == 'enabled'
+        if macsec_enabled and is_macsec_device:
             self.DEFAULT_ASIC_SERVICES.append("macsec")
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
