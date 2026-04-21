@@ -4193,6 +4193,12 @@ process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
 
+  skip:
+    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336, skipping on vs due to teardown would still runs and can't recover if we mark xfail"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+    - "asic_type in ['vs']"
+
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release.
