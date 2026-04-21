@@ -25,9 +25,9 @@ Minimum topology:
 
 Client1 -------- RR -------- Client2
 
-. All devices are in the same ASN (iBGP)
-. RR is configured with route-reflector-client
-. No direct peering between clients
+    All devices are in the same ASN (iBGP)
+    RR is configured with route-reflector-client
+    No direct peering between clients
 
 ### Related DUT CLI commands
 
@@ -63,9 +63,9 @@ router bgp 65001
 ## Test structure
 ### Setup configuration
 
-. Ensure all nodes are reachable
-. Configure iBGP sessions between RR and clients
-. Do not configure client-to-client peering
+    Ensure all nodes are reachable
+    Configure iBGP sessions between RR and clients
+    Do not configure client-to-client peering
 
 ## Test cases
 ### Test case #1 - RR Neighbor Establishment 
@@ -124,5 +124,5 @@ Steps:
 
 Expected Result:
 1. Next-hop behavior matches config:
-   . unchanged OR
-   . RR address if next-hop-self is configured
+    unchanged OR
+    RR address if next-hop-self is configured
