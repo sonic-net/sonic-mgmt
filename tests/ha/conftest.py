@@ -498,12 +498,12 @@ def setup_ha_config(duthosts, tbinfo):
 @pytest.fixture(scope="module")
 def ha_owner(dpuhosts):
     """
-    Fixture to parametrize HA owner type (dpu or npu) for the test.
+    Fixture to parametrize HA owner type (dpu or switch) for the test.
     """
     if 'pensando' in dpuhosts[0].facts['asic_type']:
         owner = "dpu"
     else:
-        owner = "npu"
+        owner = "switch"
     yield owner
 
 
@@ -675,7 +675,14 @@ def activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_ser
                 messages=ha_scope_messages,
             )
             # Verify HA state using fields
-            expected_state = "active"
+            if ha_owner == "dpu":
+                expected_state = "active"
+            else:
+                # Expect standby state on vDPU1
+                if key == "vdpu1_0:haset0_0":
+                    expected_state = "standby"
+                else:
+                    expected_state = "active"
             assert verify_ha_state(
                 duthost,
                 scope_key=key,
