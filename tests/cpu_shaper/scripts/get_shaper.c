@@ -15,7 +15,7 @@ int get_cosq_shaper(bcm_port_t port, bcm_cos_queue_t cosq, uint32 kbits_sec_min,
         return 0;
     }
     if (rv_gport != BCM_E_UNAVAIL) {
-        printf("bcm_cosq_gport_bandwidth_get failed for port=%d, cos=%d pps_max=%d rv=%d\n", port, cosq, kbits_sec_max, rv_gport);
+        printf("bcm_cosq_gport_bandwidth_get failed for port=%d, cos=%d, rv=%d\n", port, cosq, rv_gport);
         return rv_gport;
     }
     /* Fall back to port-based API (works on XGS only) */
@@ -28,7 +28,7 @@ int get_cosq_shaper(bcm_port_t port, bcm_cos_queue_t cosq, uint32 kbits_sec_min,
         return 0;
     }
     /* Both APIs failed, log both return codes for debugging */
-    printf("All cosq bandwidth APIs failed for port=%d, cos=%d pps_max=%d gport_rv=%d, legacy_rv=%d\n", port, cosq, kbits_sec_max, rv_gport, rv);
+    printf("All cosq bandwidth APIs failed for port=%d, cos=%d, gport_rv=%d, legacy_rv=%d\n", port, cosq, rv_gport, rv);
     return rv;
 }
 
