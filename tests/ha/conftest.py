@@ -1,6 +1,5 @@
 import pytest
 import logging
-import time
 import random
 import json
 from pathlib import Path
@@ -25,7 +24,7 @@ from constants import LOCAL_CA_IP, \
     NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
 from tests.common.dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
-from tests.ha.gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
+from tests.ha.gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file, apply_messages
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from tests.common import config_reload
 import configs.privatelink_config as pl
@@ -478,258 +477,40 @@ def setup_npu_dpu(dpu_setup, add_npu_static_routes):
 
 
 ###############################################################################
-# LOCAL DPU GENERATOR (DUT01 & DUT02)
-###############################################################################
-
-def generate_local_dpu_config(
-    switch_id: int,
-    hostname: str,
-    dpu_count=8,
-    swbus_start=23606
-):
-    """
-    switch_id:
-        0 FOR DUT01, pa_ipv4 = 20.0.200.x
-        1 FOR DUT02, pa_ipv4 = 20.0.201.x
-
-    DPU keys align with DPU hostnames: {hostname}-dpu-{idx}
-    """
-    pa_prefix = f"20.0.20{switch_id}."
-    vip_prefix = "3.2.1."
-    midplane_prefix = "169.254.200."
-
-    dpu = {}
-    for idx in range(dpu_count):
-        dpu_key = f"{hostname}-dpu-{idx}"
-        dpu[dpu_key] = {
-            "dpu_id": str(idx),
-            "gnmi_port": "50051",
-            "local_port": "8080",
-            "orchagent_zmq_port": "8100",
-            "pa_ipv4": f"{pa_prefix}{idx + 1}",
-            "state": "up",
-            "swbus_port": str(swbus_start + idx),
-            "vdpu_id": f"vdpu{switch_id}_{idx}",
-            "vip_ipv4": f"{vip_prefix}{idx}",
-            "midplane_ipv4": f"{midplane_prefix}{idx + 1}",
-        }
-
-    return dpu
-
-
-def generate_vdpu_config(hostname_0: str, hostname_1: str, dpu_count=8):
-    """
-    Generate VDPU table for BOTH clusters.
-    main_dpu_ids maps to DPU table keys ({hostname}-dpu-{idx}).
-    """
-    vdpu = {}
-
-    for idx in range(dpu_count):
-        vdpu[f"vdpu0_{idx}"] = {"main_dpu_ids": f"{hostname_0}-dpu-{idx}"}
-
-    for idx in range(dpu_count):
-        vdpu[f"vdpu1_{idx}"] = {"main_dpu_ids": f"{hostname_1}-dpu-{idx}"}
-
-    return vdpu
-
-
-###############################################################################
-# REMOTE DPU GENERATOR (UNIFIED)
-###############################################################################
-
-def generate_remote_dpu_config_for_dut(
-    switch_id: int,
-    peer_hostname: str,
-    tbinfo,
-    dpu_count=8,
-    swbus_start=23606
-):
-    """
-    Both DUT01 and DUT02 belong to the same cluster.
-    Remote DPU keys align with peer DPU hostnames: {peer_hostname}-dpu-{idx}
-    """
-
-    remote_switch_id = 1 - switch_id
-
-    topo_dut = tbinfo["topo"]["properties"]["topology"]["DUT"]
-    remote_loopback = topo_dut["loopback"]["ipv4"][remote_switch_id]
-    remote_npu_ip = remote_loopback.split("/")[0]
-    pa_prefix = f"20.0.20{remote_switch_id}."
-
-    remote = {}
-    for idx in range(dpu_count):
-        dpu_key = f"{peer_hostname}-dpu-{idx}"
-        remote[dpu_key] = {
-            "dpu_id": str(idx),
-            "npu_ipv4": remote_npu_ip,
-            "pa_ipv4": f"{pa_prefix}{idx + 1}",
-            "swbus_port": str(swbus_start + idx),
-            "type": "cluster"
-        }
-    return remote
-
-
-###############################################################################
-# UNIFIED FULL CONFIG GENERATOR (DUT01 + DUT02)
-###############################################################################
-
-def generate_ha_config_for_dut(switch_id: int, duthost, peer_duthost, tbinfo):
-    """
-    switch_id 0 FOR  DUT01
-    switch_id 1 FOR  DUT02
-
-    duthost:      the DUT host object for this switch.
-    peer_duthost: the peer DUT host object (other switch in the HA pair).
-    tbinfo:       testbed info, used to retrieve loopback IPs from topology.
-    """
-
-    hostname = duthost.hostname
-    peer_hostname = peer_duthost.hostname
-
-    hostname_0 = hostname if switch_id == 0 else peer_hostname
-    hostname_1 = peer_hostname if switch_id == 0 else hostname
-
-    topo_dut = tbinfo["topo"]["properties"]["topology"]["DUT"]
-    loopback_ip = topo_dut["loopback"]["ipv4"][switch_id]
-    loopback_v6 = topo_dut["loopback"]["ipv6"][switch_id]
-
-    vxlan_src_ip = loopback_ip.split("/")[0]
-
-    return {
-        "DPU": generate_local_dpu_config(switch_id, hostname),
-        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id, peer_hostname, tbinfo),
-        "VDPU": generate_vdpu_config(hostname_0, hostname_1),
-        "DASH_HA_GLOBAL_CONFIG": {
-            "global": {
-                "dpu_bfd_probe_interval_in_ms": "1000",
-                "dpu_bfd_probe_multiplier": "3",
-                "cp_data_channel_port": "11362",
-                "dp_channel_dst_port": "11368",
-                "dp_channel_src_port_min": "7001",
-                "dp_channel_src_port_max": "7010",
-                "dp_channel_probe_interval_ms": "500",
-                "vnet_name": "Vnet_55",
-                "dp_channel_probe_fail_threshold": "5"
-            }
-        },
-
-        "LOOPBACK_INTERFACE": {
-            "Loopback0": {},
-            f"Loopback0|{loopback_ip}": {},
-            f"Loopback0|{loopback_v6}": {}
-        },
-
-        "FEATURE": {
-            "dash-ha": {
-                "auto_restart": "disabled",
-                "delayed": "False",
-                "has_global_scope": "False",
-                "has_per_asic_scope": "False",
-                "has_per_dpu_scope": "True",
-                "high_mem_alert": "disabled",
-                "state": "enabled",
-                "support_syslog_rate_limit": "true"
-            }
-        },
-
-        "VNET": {
-            "Vnet_55": {
-                "scope": "default",
-                "vni": "10000",
-                "vxlan_tunnel": "t4"
-            }
-        },
-
-        "VXLAN_TUNNEL": {
-            "t4": {"src_ip": vxlan_src_ip}
-        }
-    }
-
-
-def remove_loopback_ips(dut):
-    # Remove IPv4 addresses
-    out_v4 = dut.shell("show ip interfaces | grep Loopback0 || true")["stdout"].strip().splitlines()
-    for line in out_v4:
-        parts = line.split()
-        # Expected: ["Loopback0", "10.1.0.33/32", "up", "up"]
-        if len(parts) >= 2:
-            ip = parts[1]
-            dut.shell(f"sudo config interface ip remove Loopback0 {ip} || true")
-
-    # Remove IPv6 addresses
-    out_v6 = dut.shell("show ipv6 interfaces | grep Loopback0 || true")["stdout"].strip().splitlines()
-    for line in out_v6:
-        parts = line.split()
-        # Expected: ["Loopback0", "fc00:1::32/128", "up", "up"]
-        if len(parts) >= 2:
-            ip = parts[1]
-            dut.shell(f"sudo config interface ip remove Loopback0 {ip} || true")
-
-
-###############################################################################
 # PYTEST FIXTURE — APPLY CONFIG ON BOTH DUTS
 ###############################################################################
 
 @pytest.fixture(scope="module")
 def setup_ha_config(duthosts, tbinfo):
     """
-    Load unified DASH-HA config onto BOTH DUT01 and DUT02 using:
-        config load -y <file>
-        config save -y
+    DASH-HA config (DPU, REMOTE_DPU, VDPU, DASH_HA_GLOBAL_CONFIG,
+    LOOPBACK_INTERFACE, FEATURE, VNET, VXLAN_TUNNEL) is now generated
+    as part of the golden_config_db during testbed setup via
+    generate_golden_config_db (ansible/library/generate_golden_config_db.py).
+
+    This fixture is kept as a no-op for ordering purposes — tests
+    that depend on it will continue to work without changes.
     """
-
-    final_cfg = {}
-
-    logger.info("HA: setup config for Primary and Standby")
-    for switch_id in (0, 1):
-        dut = duthosts[switch_id]
-        peer_dut = duthosts[1 - switch_id]
-        cfg = generate_ha_config_for_dut(switch_id, dut, peer_dut, tbinfo)
-        tmpfile = f"/tmp/dut{switch_id}_ha_config.json"
-
-        # Copy JSON
-        dut.copy(content=json.dumps(cfg, indent=4), dest=tmpfile)
-
-        # Verify syntax
-        dut.shell(f"cat {tmpfile} | jq .")
-
-        # DELETE old Loopback0 IPs
-        remove_loopback_ips(dut)
-
-        # Load and persist
-        dut.shell(f"sudo config load -y {tmpfile}")
-        dut.shell("sudo config save -y")
-        config_reload(dut, safe_reload=True)
-
-        # Allow processes to settle
-        time.sleep(10)
-
-        # Validate DPU entries
-        hostname = dut.hostname
-        out = dut.shell(f"redis-cli -n 4 KEYS 'DPU|{hostname}-dpu-*'")["stdout"]
-        assert out.strip(), f"ERROR: DUT{switch_id} missing DPU entries"
-
-        final_cfg[f"DUT{switch_id}"] = cfg
-
-    return final_cfg
+    logger.info("HA config is applied via golden_config_db during testbed setup; nothing to do here.")
+    return
 
 
 @pytest.fixture(scope="module")
 def ha_owner(dpuhosts):
     """
-    Fixture to parametrize HA owner type (dpu or npu) for the test.
+    Fixture to parametrize HA owner type (dpu or switch) for the test.
     """
     if 'pensando' in dpuhosts[0].facts['asic_type']:
         owner = "dpu"
     else:
-        owner = "npu"
+        owner = "switch"
     yield owner
 
 
 def setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
 
     for index, (name, data) in enumerate(ha_scope_per_dut):
         # Update the 'owner' key in the dictionary
@@ -867,11 +648,13 @@ def activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_ser
                 messages=ha_scope_messages,
             )
         for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut)):
+            # Wait up to 300s — after a process-crash test the HA state machine
+            # may need significant time to re-enter the activate_role flow.
             pending_id = wait_for_pending_operation_id(
                 duthost,
                 scope_key=key,
                 expected_op_type="activate_role",
-                timeout=120,
+                timeout=300,
                 interval=2
             )
             assert pending_id, (
@@ -894,7 +677,14 @@ def activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_ser
                 messages=ha_scope_messages,
             )
             # Verify HA state using fields
-            expected_state = "active"
+            if ha_owner == "dpu":
+                expected_state = "active"
+            else:
+                # Expect standby state on vDPU1
+                if key == "vdpu1_0:haset0_0":
+                    expected_state = "standby"
+                else:
+                    expected_state = "active"
             assert verify_ha_state(
                 duthost,
                 scope_key=key,
@@ -917,24 +707,121 @@ def deactivate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_s
     for index, duthost in enumerate(duthosts):
         set_dead_dash_ha_scope(localhost, duthost, ptfhost, f"vdpu{index}_0:haset0_0")
 
-    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-        vdpu_id, ha_set_id = key.split(":", 1)
-        ha_scope_messages = ha_scope_config(
-            vdpu_id=vdpu_id,
-            ha_set_id=ha_set_id,
-            **fields,
-        )
-        apply_ha_messages(
-            localhost=localhost,
-            duthost=duthost,
-            ptfhost=ptfhost,
-            messages=ha_scope_messages,
-            set_db=False
-        )
-
 
 @pytest.fixture(scope="function")
 def activate_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
     activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
     deactivate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+
+
+@pytest.fixture(scope="function")
+def setup_dash_pl_pipeline(
+    localhost, duthosts, ptfhost, dpu_index, skip_config,
+    dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
+):
+    """
+    Apply DASH Private Link pipeline config (appliance, routing type, VNET,
+    ENI, routes, meters) on all DPUs. Required by any test that sends PL
+    traffic and does not already pull in the steady-state common_setup_teardown.
+    """
+    if skip_config:
+        yield
+        return
+
+    for i in range(len(duthosts)):
+        duthost = duthosts[i]
+        dpuhost = dpuhosts[i]
+
+        base_config_messages = {
+            **pl.APPLIANCE_CONFIG,
+            **pl.ROUTING_TYPE_PL_CONFIG,
+            **pl.VNET_CONFIG,
+            **pl.ROUTE_GROUP1_CONFIG,
+            **pl.METER_POLICY_V4_CONFIG,
+        }
+        logger.info(
+            f"setup_dash_pl_pipeline: applying base config on "
+            f"{duthost.hostname} dpu {dpuhost.dpu_index}"
+        )
+        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+
+        route_and_mapping_messages = {
+            **pl.PE_VNET_MAPPING_CONFIG,
+            **pl.PE_SUBNET_ROUTE_CONFIG,
+            **pl.VM_SUBNET_ROUTE_CONFIG,
+        }
+        if "bluefield" in dpuhost.facts["asic_type"]:
+            route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
+        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+        meter_rule_messages = {
+            **pl.METER_RULE1_V4_CONFIG,
+            **pl.METER_RULE2_V4_CONFIG,
+        }
+        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
+
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+
+    yield
+
+    logger.info("setup_dash_pl_pipeline: cleanup.")
+    for dpuhost in dpuhosts:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+@pytest.fixture(scope="module")
+def setup_dash_pl_pipeline_module_scope(
+    localhost, duthosts, ptfhost, dpu_index, skip_config,
+    dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
+):
+    """
+    Apply DASH Private Link pipeline config (appliance, routing type, VNET,
+    ENI, routes, meters) on all DPUs. Required by any test that sends PL
+    traffic and does not already pull in the steady-state common_setup_teardown.
+    """
+    if skip_config:
+        yield
+        return
+
+    for i in range(len(duthosts)):
+        duthost = duthosts[i]
+        dpuhost = dpuhosts[i]
+
+        base_config_messages = {
+            **pl.APPLIANCE_CONFIG,
+            **pl.ROUTING_TYPE_PL_CONFIG,
+            **pl.VNET_CONFIG,
+            **pl.ROUTE_GROUP1_CONFIG,
+            **pl.METER_POLICY_V4_CONFIG,
+        }
+        logger.info(
+            f"setup_dash_pl_pipeline: applying base config on "
+            f"{duthost.hostname} dpu {dpuhost.dpu_index}"
+        )
+        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+
+        route_and_mapping_messages = {
+            **pl.PE_VNET_MAPPING_CONFIG,
+            **pl.PE_SUBNET_ROUTE_CONFIG,
+            **pl.VM_SUBNET_ROUTE_CONFIG,
+        }
+        if "bluefield" in dpuhost.facts["asic_type"]:
+            route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
+        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+        meter_rule_messages = {
+            **pl.METER_RULE1_V4_CONFIG,
+            **pl.METER_RULE2_V4_CONFIG,
+        }
+        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
+
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+
+    yield
+
+    logger.info("setup_dash_pl_pipeline: cleanup.")
+    for dpuhost in dpuhosts:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)

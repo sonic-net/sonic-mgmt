@@ -40,9 +40,6 @@
 {% endif %}
 {% endif %}
 {% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
-{% if 'ptp' in topo and (vlan_intfs is not defined or vlan_intfs | length == 0) %}
-{% set vlan_intfs = vm_topo_config['host_interfaces_by_dut'][dut_index|int] | map('extract', port_alias) | list %}
-{% endif %}
 {% for host_index in range(vlan_intfs | length) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -244,6 +241,8 @@
 {% set dev_type = 'BmcMgmtToRRouter' %}
 {% elif 'M0' in dev %}
 {% set dev_type = 'MgmtToRRouter' %}
+{% elif 'C0' in dev %}
+{% set dev_type = 'MiniTs' %}
 {% else %}
 {% set dev_type = 'Unknown' %}
 {% endif %}

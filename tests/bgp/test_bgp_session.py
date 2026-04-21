@@ -312,9 +312,10 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     # Inject the failure — cleanup is guaranteed by the fixture teardown
     failure_injection.inject(failure_type)
 
-    # default keepalive is 60 seconds, timeout 180 seconds. Hence wait for 180 seconds before timeout.
+    # default keepalive is 60 seconds, hold time 180 seconds. Use 240 seconds to provide a safety margin
+    # and avoid a race condition where BGP takes the full hold time (~180s) to go down.
     pytest_assert(
-        wait_until(180, 10, 0, verify_bgp_session_down, duthost, neighbor),
+        wait_until(240, 10, 0, verify_bgp_session_down, duthost, neighbor),
         "neighbor {} state is still established".format(neighbor)
     )
 

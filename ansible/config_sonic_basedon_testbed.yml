@@ -142,6 +142,7 @@
     - name: Set default dut index
       set_fact:
         dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
+      tags: always
 
     - name: set testbed_type
       set_fact:
@@ -189,6 +190,33 @@
         - is_ixia_testbed | bool
         - configure_l1 | default(false) | bool
 
+    - name: check if testbed is an stc testbed
+      set_fact:
+        is_stc_testbed: "{{ true if ptf_image | default('') == 'docker-stc-api-server' else false }}"
+
+    - block:
+        - name: Set L1 connection script path
+          set_fact:
+            script_path: "{{ playbook_dir }}/l1_port_mapper.py"
+            csv_dir: "{{ playbook_dir }}/files"
+
+        - name: Configure L1 switches
+          include_tasks: config_l1_testbed.yml
+          vars:
+            num_ports: "{{ num_ports_to_connect | default(3) }}"
+            target_sonic_host: "{{ sonic_hostname }}"
+          loop: "{{ groups['l1_switch'] }}"
+          loop_control:
+            loop_var: target_l1_switch
+          when:
+            - is_stc_testbed is defined
+            - is_stc_testbed | bool
+            - configure_l1 | default(false) | bool
+      when:
+        - is_stc_testbed is defined
+        - is_stc_testbed | bool
+        - configure_l1 | default(false) | bool
+
     - name: set vm
       set_fact:
         vm_base: "{% if 'vm_base' in testbed_facts and testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
@@ -211,7 +239,7 @@
   - name: override group_file for route-conv
     set_fact:
       conn_graph_group: "{{ testbed_facts['inv_name'] }}"
-    when: is_ixia_testbed
+    when: is_ixia_testbed or is_stc_testbed
 
   - name: get connection graph if defined for dut (ignore any errors)
     conn_graph_facts:
@@ -344,7 +372,7 @@
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:
       enable_tunnel_qos_remap: true
-    when: "(('leafrouter' == (vm_topo_config['dut_type'] | lower)) or ('backendleafrouter' == (vm_topo_config['dut_type'] | lower))) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
+    when: "(('leafrouter' == (vm_topo_config['dut_type'] | lower)) or ('backendleafrouter' == (vm_topo_config['dut_type'] | lower))) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed or is_stc_testbed)"
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
@@ -353,7 +381,7 @@
   - name: enable ComputeAI deployment
     set_fact:
       enable_compute_ai_deployment: true
-    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed) and 'isolated' in topo"
+    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed or is_stc_testbed) and 'isolated' in topo"
 
   - name: set default vm file path
     set_fact:
@@ -444,6 +472,16 @@
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
     delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
+
+  - name: Deep clean DUT filesystem (logs, cores, dumps)
+    shell: |
+      find /var/log/ -name '*.gz' | xargs rm -f
+      rm -f /var/core/*
+      rm -rf /var/dump/*
+      find /var/log/ -mtime +1 | xargs rm -f
+    become: true
+    ignore_errors: true
+    when: deep_clean is defined and deep_clean|bool == true
 
   - block:
     - name: Init telemetry keys
@@ -576,6 +614,11 @@
   - block:
       - name: Load variables from topology file for topo_{{ topo }}.yml
         include_vars: "vars/topo_{{ topo }}.yml"
+
+      - name: set BGP confd ASN facts
+        set_fact:
+          bgp_confd_asn: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_asn'] | default(None) }}"
+          bgp_confd_peers: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_peers'] | default(None) }}"
 
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
@@ -837,7 +880,13 @@
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"
+          bgp_confd_asn: "{{ bgp_confd_asn }}"
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
+          duts_list: "{{ testbed_facts['duts'] | default([]) }}"
+          dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
+          console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
         become: true
+        when: enable_macsec is not defined
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -856,8 +905,10 @@
           topo_name: "{{ topo }}"
           macsec_profile: "{{ macsec_profile }}"
           num_asics: "{{ num_asics }}"
+          bgp_confd_asn: "{{ bgp_confd_asn }}"
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
         become: true
-        when: "('t2' in topo) and (macsec_profile is defined)"
+        when: "('t2' in topo) and (enable_macsec is defined)"
 
       - name: Use minigraph case
         block:
