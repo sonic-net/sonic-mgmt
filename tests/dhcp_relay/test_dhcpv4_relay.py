@@ -422,7 +422,46 @@ def test_dhcp_relay_with_non_default_vrf(
     duthost.shell(f"sudo config route add prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
                   f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
 
+    # Pre-initialize Loopback rebind locals so the finally block's existence
+    # check still works even if Step 6 itself raises before assigning them.
+    loopback_for_src = dut_dhcp_relay_data[0]['loopback_iface']
+    loopback_ip_key_prefix = "LOOPBACK_INTERFACE|{}|".format(loopback_for_src)
+    saved_loopback_ips = {}
+
+    # Move the try: to cover Step 6 as well so that any partial failure during
+    # the Loopback IP-strip / vrf bind / restore sequence still triggers the
+    # cleanup in the finally block.
     try:
+        # Step 6: For the "source_intf" testcase only, rebind the
+        # source-interface Loopback into CLIENT_VRF_NAME.
+        #
+        # SONiC orchagent installs the IP2ME (trap-to-CPU) route per-VRF
+        # (intfsorch.cpp::addIp2MeRoute is called with
+        # vr_id = port.m_vr_id). The "source_intf" testcase passes
+        # --source-interface Loopback0 to the relay, so dhcp4relay sets
+        # giaddr to the Loopback IP and the server unicasts the OFFER back
+        # to that IP. If Loopback0 stays in the default VRF while the
+        # ingress interface is in CLIENT_VRF_NAME, platforms whose silicon
+        # enforces strict per-VRF IP2ME (for example, Broadcom Helix4) have
+        # no matching trap entry in CLIENT_VRF_NAME and silently drop the
+        # OFFER. Rebinding the Loopback into CLIENT_VRF_NAME co-locates the
+        # trap route with the ingress VRF so the test passes uniformly
+        # across platforms. The other testcases (vrf_selection,
+        # server_id_override) do not use --source-interface, so no rebind
+        # is required.
+        if testcase == "source_intf":
+            saved_loopback_ips = _save_interface_ip_entries(
+                duthost, "LOOPBACK_INTERFACE", loopback_for_src)
+            for key in list(saved_loopback_ips.keys()):
+                if key.startswith(loopback_ip_key_prefix):
+                    ip_with_mask = key.split("|", 2)[2]
+                    duthost.shell(
+                        f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
+                        module_ignore_errors=True)
+            duthost.shell(
+                f"sudo config interface vrf bind {loopback_for_src} {CLIENT_VRF_NAME}")
+            _restore_interface_ip_entries(duthost, saved_loopback_ips)
+
         for dhcp_relay in dut_dhcp_relay_data:
             dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
             duthost.shell(f'config dhcpv4_relay del {vlan_iface}')
@@ -483,6 +522,22 @@ def test_dhcp_relay_with_non_default_vrf(
 
     finally:
         duthost.shell(f"config dhcpv4_relay del {vlan_iface}", module_ignore_errors=True)
+
+        # Unbind the source-interface Loopback from CLIENT_VRF_NAME before
+        # deleting the VRF so it has no remaining member interfaces.
+        # Only needed when we rebound it (source_intf testcase).
+        if saved_loopback_ips:
+            loopback_ip_key_prefix = "LOOPBACK_INTERFACE|{}|".format(loopback_for_src)
+            for key in list(saved_loopback_ips.keys()):
+                if key.startswith(loopback_ip_key_prefix):
+                    ip_with_mask = key.split("|", 2)[2]
+                    duthost.shell(
+                        f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
+                        module_ignore_errors=True)
+            duthost.shell(
+                f"sudo config interface vrf unbind {loopback_for_src}",
+                module_ignore_errors=True)
+
         # VRF config cleanup
         duthost.shell(f"sudo config route del prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
                       f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
@@ -495,6 +550,7 @@ def test_dhcp_relay_with_non_default_vrf(
         # Instead, we save and restore the exact CONFIG_DB entries via redis-cli,
         # preserving all attributes (e.g. the secondary flag). intfmgrd then
         # automatically applies the restored entries to the kernel.
+        _restore_interface_ip_entries(duthost, saved_loopback_ips)
         _restore_interface_ip_entries(duthost, saved_vlan_ips)
         _restore_interface_ip_entries(duthost, saved_pc_ips)
         duthost.shell("sudo config save -y")
