@@ -1,0 +1,111 @@
+---
+# PSDEV-1108: Playbook for testing creation of metadata resources.
+- name: Test infini_notification_rule module
+  hosts: localhost
+  gather_facts: false  # Required for ansible_date_time
+  tasks:
+
+    - name: Delete a notification rule
+      infinidat.infinibox.infini_notification_rule:
+        name: "test-rule-to-target" # this need to be uniq
+        state: "absent"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: metadata_out
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: metadata_out
+
+    - name: Delete notification targets
+      infinidat.infinibox.infini_notification_target:
+        state: absent
+        name: testgraylog1
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: targets_out
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: targets_out
+
+    - name: Create notification targets
+      infinidat.infinibox.infini_notification_target:
+        state: present
+        name: testgraylog1
+        protocol: SYSLOG
+        host: 172.31.77.214
+        port: 8067
+        facility: LOCAL7
+        transport: TCP
+        visibility: CUSTOMER
+        post_test: true
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: targets_out
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: targets_out
+
+    - name: Create a new notification rule to a target
+      infinidat.infinibox.infini_notification_rule:
+        name: "test-rule-to-target" # this need to be uniq
+        event_level:
+          - ERROR
+          - CRITICAL
+        include_events:
+          - ACTIVATION_PAUSED
+        exclude_events:
+          - ACTIVE_DIRECTORY_ALL_DOMAIN_CONTROLLERS_DOWN
+          - ACTIVE_DIRECTORY_LEFT
+        target: testgraylog1
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: metadata_out
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: metadata_out
+
+    - name: Create a new notification rule with emails
+      infinidat.infinibox.infini_notification_rule:
+        name: "test-rule-with-emails" # this need to be uniq
+        event_level:
+          - ERROR
+          - CRITICAL
+        include_events:
+          - ACTIVATION_PAUSED
+        exclude_events:
+          - ACTIVE_DIRECTORY_ALL_DOMAIN_CONTROLLERS_DOWN
+          - ACTIVE_DIRECTORY_LEFT
+        recipients:
+          - wwang@infinidat.com
+          - wei.w.wang@gmail.com
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: metadata_out
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: metadata_out
+
+    # # Test any object_type
+    # - name: Delete a rule
+    #   infinidat.infinibox.infini_notification_rule:
+    #     name: "testw2" # this need to be uniq
+    #     state: "absent"
+    #     user: "{{ user }}"
+    #     password: "{{ password }}"
+    #     system: "{{ system }}"
+    #   register: metadata_out
+    #
+    # - name: Debug
+    #   ansible.builtin.debug:
+    #     var: metadata_out

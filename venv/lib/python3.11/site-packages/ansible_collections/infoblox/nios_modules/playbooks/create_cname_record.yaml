@@ -1,0 +1,19 @@
+---
+- name: Infoblox Member Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.36.118.2
+      username: cloudadmin
+      password: admin
+
+  connection: local
+  tasks:
+    - name: Create Nios CNAME record
+      infoblox.nios_modules.nios_cname_record:
+        name: cname.ansibletestzone.com
+        canonical: realhost.ansible.com
+        view: ansibleDnsView
+        comment: Created with Ansible
+        state: present
+        provider: "{{ nios_provider }}"

@@ -1,0 +1,2 @@
+bugfixes:
+  - CVO working environment clusterProperties is deprecated. Make changes accordingly. Add CVO update status check on ``instance_type`` change.

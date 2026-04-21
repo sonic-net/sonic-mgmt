@@ -1,0 +1,6 @@
+deprecated_features:
+- grafana_dashboard lookup - Providing a mangled version of the API key is no
+  longer preferred.
+bugfixes:
+- grafana_dashboard lookup - All valid API keys can be used, not just keys
+  ending in '=='.

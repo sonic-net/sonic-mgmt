@@ -1,0 +1,31 @@
+---
+- name: Event webhook create
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+
+  tasks:
+    - name: Test
+      cisco.dnac.event_webhook:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: true
+        description: "webhok description for iac2.0"
+        headers:
+          - defaultValue: string
+            encrypt: false
+            name: "X-Auth-Token"
+            value: "qejfkq;..."
+        method: "Put"
+        name: "TestwebHoodIac23"
+        trustCert: false
+        url: "url"
+      register: result
+
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

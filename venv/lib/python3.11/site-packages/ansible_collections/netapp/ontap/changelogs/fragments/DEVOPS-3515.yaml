@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume - report error when attempting to change the nas_application tiering control from disalllowed to required, or reciprocally.

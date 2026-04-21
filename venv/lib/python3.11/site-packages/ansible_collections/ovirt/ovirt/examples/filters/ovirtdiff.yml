@@ -1,0 +1,33 @@
+---
+- name: ovirtdiff
+  hosts: localhost
+  connection: local
+  vars_files:
+    # Contains encrypted `engine_password` varibale using ansible-vault
+    - passwords.yml
+  vars:
+    myvm: centos7
+  tasks:
+    - name: Login
+      ovirt.ovirt.ovirt_auth:
+        url: "https://ovirt-engine.example.com/ovirt-engine/api"
+        password: "{{ engine_password | default(omit) }}"
+        username: "admin@internal"
+
+    - name: Get VM myvm
+      ovirt.ovirt.ovirt_vm_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "name={{ myvm }}"
+        next_run: false
+      register: vm
+
+    - name: Get next_run of VM myvm
+      ovirt.ovirt.ovirt_vm_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "name={{ myvm }}"
+        next_run: true
+      register: vm_next_run
+
+    - name: Print what will be changed in next run of the VM
+      ansible.builtin.debug:
+        msg: "{{ vm.ovirt_vms[0] | ovirt.ovirt.ovirtdiff(vm_next_run.ovirt_vms[0]) }}"

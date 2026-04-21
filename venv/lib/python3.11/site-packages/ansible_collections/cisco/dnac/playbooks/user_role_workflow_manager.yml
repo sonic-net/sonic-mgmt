@@ -1,0 +1,37 @@
+---
+- name: Configure device credentials on Cisco Catalyst Center
+  hosts: localhost
+  vars_files:
+    - "credentials.yml"
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  tasks:
+    - name: User and Role Workflow Manager
+      cisco.dnac.user_role_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged
+        config:
+          user_details:
+            - username: ajithandrewj
+              first_name: ajith
+              last_name: Andrew
+              email: ajith@gmail.com
+              password: Example@0101
+              password_update: true
+              role_list:
+                - Test_role_1
+          role_details:
+            - role_name: Test_role_1
+              assurance:
+                - overall: write

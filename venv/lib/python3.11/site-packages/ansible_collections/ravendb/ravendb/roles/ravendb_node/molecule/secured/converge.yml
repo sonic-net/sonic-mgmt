@@ -1,0 +1,65 @@
+---
+- name: Secured
+  hosts: all
+  gather_facts: true
+
+  vars:
+    ravendb_state: present
+    ravendb_version: latest
+    ravendb_version_minor: 6.2
+    ravendb_release_channel: stable
+    ravendb_arch: linux-x64
+    ravendb_secured_enabled: true
+    ravendb_license_file: "/tmp/license.json"
+    ravendb_setup_package: "/tmp/setup_package.zip"
+    ravendb_settings_override:
+      ServerUrl: "https://0.0.0.0:4443"
+      ServerUrl.Tcp: "tcp://0.0.0.0:38888"
+      PublicServerUrl: "https://{{ ansible_hostname }}:4443"
+      PublicServerUrl.Tcp: "tcp://{{ ansible_hostname }}:38888"
+
+  tasks:
+    - name: "Include ravendb_node"
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+
+
+- name: Build docker hosts block on controller
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Inspect Docker network (controller)
+      command: docker network inspect ravendbnet
+      changed_when: false
+      register: ravendbnet_inspect
+
+    - name: Build hosts block using container names (controller)
+      set_fact:
+        docker_hosts_block: |-
+          {% set containers = (ravendbnet_inspect.stdout | from_json)[0].Containers | default({}) %}
+          {% for c in containers | dict2items | map(attribute='value') | list | sort(attribute='Name') %}
+          {{ c.IPv4Address.split('/')[0] }} {{ c.Name }}
+          {% endfor %}
+
+- name: Update /etc/hosts inside each container
+  hosts: all
+  gather_facts: no
+  become: true
+  tasks:
+    - name: Append docker hosts block into /etc/hosts (on target)
+      become: true
+      ansible.builtin.shell: |
+        {% for line in hostvars['localhost'].docker_hosts_block.splitlines() %}
+        grep -qxF "{{ line }}" /etc/hosts || echo "{{ line }}" >> /etc/hosts
+        {% endfor %}
+    
+    # ENABLE FOR CI / COMMENT OUT FOR LOCAL TESTING
+    - name: Update /etc/hosts on controller
+      delegate_to: localhost
+      run_once: true
+      become: true
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE RAVENDBNET"
+        block: "{{ hostvars['localhost'].docker_hosts_block | trim }}"

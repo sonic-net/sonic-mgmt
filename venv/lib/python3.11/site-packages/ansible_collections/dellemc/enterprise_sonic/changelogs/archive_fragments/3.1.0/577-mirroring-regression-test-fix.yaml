@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_mirroring - Fix mirroring regression test failures (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/577).

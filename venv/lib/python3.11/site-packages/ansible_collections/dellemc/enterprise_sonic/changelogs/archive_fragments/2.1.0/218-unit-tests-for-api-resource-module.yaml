@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_api - Add unit tests for api resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/218)

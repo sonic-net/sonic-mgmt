@@ -1,0 +1,56 @@
+---
+# Example Playbook: cisco.ucs.ucs_ucs_service_profile_association
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Change Service Profile Association to Existing Server
+      cisco.ucs.ucs_service_profile_association:
+        <<: *login_info
+        service_profile_name: auto-profile-2
+        server_assignment: server
+        server_dn: sys/chassis-6/blade-1
+      delegate_to: localhost
+      register: result
+      until: result.assign_state == 'assigned' and result.assoc_state == 'associated'
+      retries: 1
+      delay: 2
+      ignore_errors: true
+
+    - name: Change Service Profile Association to Pool
+      cisco.ucs.ucs_service_profile_association:
+        <<: *login_info
+        service_profile_name: auto-profile-2
+        server_assignment: pool
+        server_pool_name: default
+      delegate_to: localhost
+      register: result
+      until: result.assign_state == 'assigned' and result.assoc_state == 'associated'
+      retries: 1
+      delay: 2
+      ignore_errors: true
+
+    - name: Disassociate Service Profile
+      cisco.ucs.ucs_service_profile_association:
+        <<: *login_info
+        service_profile_name: auto-profile-2
+        state: absent
+      delegate_to: localhost
+      register: result
+      until: result.assign_state == 'unassigned' and result.assoc_state == 'unassociated'
+      retries: 1
+      delay: 2
+      ignore_errors: true

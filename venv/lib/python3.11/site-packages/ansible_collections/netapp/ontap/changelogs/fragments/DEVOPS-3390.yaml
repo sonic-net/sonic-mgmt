@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_qos_policy_group - new option ``is_shared`` for sharing QOS SLOs or not.

@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_export_policy_rule - Add ``from_rule_index`` for both REST and ZAPI. Change ``rule_index`` to required.

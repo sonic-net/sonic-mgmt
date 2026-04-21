@@ -1,0 +1,28 @@
+# TODO: change these variable values
+ontap_admin_ip: TBD
+# either username/passord credentials
+ontap_admin_username: admin
+ontap_admin_password: TBD
+# or SSL certificate authentication
+ontap_cert_filepath: "/home/TBD/test.pem"
+ontap_key_filepath: "/home/TBD/test.key"
+# we recommend to use https, but it requires a valid SSL certificate
+ontap_use_https: true
+ontap_validate_certs: false
+# Optionally, SVM credentials
+ontap_svm_admin_ip: TBD
+ontap_svm_admin_username: vsadmin
+ontap_svm_admin_password: TBD
+# Optionally, to upgrade disk, shelf, acp firmware
+ontap_firmware_url: TBD
+# DONE - do not change anything else
+#
+# To use this file:
+# option 1: use ansible-playbook command line argument --extra-vars=@<path to this file>
+#   for instance:
+#   ansible-playbook ansible_collections/netapp/ontap/playbooks/examples/
+#   na_ontap_pb_upgrade_firmware_with_extra_vars.yml --extra-vars=@/tmp/ansible/ontap_vars_file.yml
+# option 2: include this file in your playbook using vars_files:
+#   for instance:
+#     vars_files:
+#       - <path to vars file>

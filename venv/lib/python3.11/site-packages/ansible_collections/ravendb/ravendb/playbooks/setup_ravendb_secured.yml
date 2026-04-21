@@ -1,0 +1,41 @@
+##################################################################################################
+# playbooks/setup_ravendb_secured.yml
+#
+# Purpose: Install a RavenDB node in Let's Encrypt–secured mode using a prebuilt setup package
+#
+# What it does:
+
+#   - Installs OS prerequisites (apt/yum)
+#   - Detects distro/arch and downloads RavenDB (Ubuntu: DEB; others: tarball)
+#   - Creates ravendb user/group and required directories
+#   - Copies a pre-generated setup package ZIP to the host and unpacks it
+#   - Installs license file
+#   - Installs/updates binaries, writes systemd unit, sets CAP_NET_BIND_SERVICE
+#   - Starts/enables the ravendb systemd service
+#
+# Notes:
+#   - You must generate the setup package beforehand (via Setup Wizard or rvn see docs: https://docs.ravendb.net/6.0/start/installation/setup-wizard/),
+#   - Provide the path to the ZIP via 'ravendb_setup_package'
+#   - Provide a per-host 'node_tag' in inventory (e.g., `A`, `B`, `C`) and the controller-side, according to your setup.json. for example:
+#     # inventory.ini:
+#     [ravendb_nodes]
+#     192.168.100.14 ansible_user=user ansible_password=1111 ansible_become_password=111 node_tag=A
+#     192.168.100.15 ansible_user=user ansible_password=1111 ansible_become_password=111 node_tag=B
+#     192.168.100.16 ansible_user=user ansible_password=1111 ansible_become_password=111 node_tag=C
+#
+#   - This playbook does not register client certs back on the controller for you; handle
+#     client certificate distribution/registration separately.
+#   - This is for LE-secured installs only. for self-signed setup please refer to:  playbooks/setup_ravendb_secured_self_signed.yml
+###################################################################################################
+
+- name: Install/Upgrade RavenDB (Let's Encrypt - secured)
+  hosts: ravendb_nodes
+  remote_user: root
+  roles:
+    - role: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version_minor: 6.2
+        ravendb_secured_enabled: true
+        ravendb_license_file: "/home/user/license.json" # path to license file on the controller node
+        ravendb_setup_package: "/home/user/setup_package.zip" # path to setup package zip file on the controller node

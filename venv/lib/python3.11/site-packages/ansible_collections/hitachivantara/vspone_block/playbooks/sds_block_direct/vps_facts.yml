@@ -1,0 +1,57 @@
+---
+####################################################################
+# Example : VPS Facts Playbook
+####################################################################
+- name: VPS Facts
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all VPS
+    ####################################################################
+    - name: Get all VPS
+      hitachivantara.vspone_block.sds_block.hv_sds_block_vps_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get VPS by name
+    ####################################################################
+    - name: Get VPS by name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_vps_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "RKD_VPS_01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get VPS by id
+    ####################################################################
+    - name: Get VPS by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_vps_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "dab1fa60-5c41-486a-9551-ec41c74d9f01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

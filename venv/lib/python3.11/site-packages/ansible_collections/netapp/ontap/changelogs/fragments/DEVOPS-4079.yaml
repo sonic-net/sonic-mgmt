@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_active_directory - Fixed idempotency and traceback issues.
+  - na_ontap_info - Add active_directory_account_info.

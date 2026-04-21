@@ -1,0 +1,96 @@
+---
+####################################################################
+# Example :  Hitachi Universal Replicator (HUR) Facts Playbook
+####################################################################
+- name: HUR Facts
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+    secondary_connection_info:
+      address: "{{ secondary_storage_address }}"
+      username: "{{ vault_secondary_storage_username }}"
+      password: "{{ vault_secondary_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all HUR pairs
+    ####################################################################
+    - name: Get all HUR pairs
+      hitachivantara.vspone_block.vsp.hv_hur_facts:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get HUR pair using copy group
+    ####################################################################
+    - name: Get HUR pair using copy group
+      hitachivantara.vspone_block.vsp.hv_hur_facts:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          copy_group_name: "copy_group_name_1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get HUR pair using primary volume Id
+    ####################################################################
+    - name: Get HUR pair using only primary volume Id
+      hitachivantara.vspone_block.vsp.hv_hur_facts:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          primary_volume_id: 111
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get HUR pair using secondary volume Id
+    ####################################################################
+    - name: Get HUR pair using secondary volume Id
+      hitachivantara.vspone_block.vsp.hv_hur_facts:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          secondary_volume_id: 122
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get HUR pair using copy group and copy pair name
+    ####################################################################
+    - name: Get HUR pair using copy group and copy pair name
+      hitachivantara.vspone_block.vsp.hv_hur_facts:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          copy_group_name: "copy_group_name_1"
+          copy_pair_name: "copy_pair_name_1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

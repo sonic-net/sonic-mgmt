@@ -1,0 +1,23 @@
+---
+- name: Get list of VMs in cluster
+  ovirt.ovirt.ovirt_vm_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "cluster={{ cluster_name }}"
+  check_mode: "no"
+  register: vms_in_cluster
+
+- name: Create list of host IDs which has running non-migratable VM and are not down
+  ansible.builtin.set_fact:
+    host_ids_items: "{{ item.host.id }}"
+  with_items:
+    - "{{ vms_in_cluster.ovirt_vms | default([]) }}"
+  when:
+    - "item['placement_policy']['affinity'] != 'migratable'"
+    - "item.host is defined"
+  loop_control:
+    label: "{{ item.name }}"
+  register: host_ids_result
+
+- name: Create list of host IDs which has pinned VM
+  ansible.builtin.set_fact:
+    host_ids: "{{ host_ids_result.results | rejectattr('ansible_facts', 'undefined') | map(attribute='ansible_facts.host_ids_items') | list }}"

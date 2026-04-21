@@ -1,0 +1,128 @@
+---
+# Example Playbook: cisco.ucs.ucs_managed_objects
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        description: level1 org
+        state: present
+      delegate_to: localhost
+
+    - name: Configure Network Control Policy
+      cisco.ucs.ucs_managed_objects:
+        <<: *login_info
+        objects:
+        - module: ucsmsdk.mometa.nwctrl.NwctrlDefinition
+          class: NwctrlDefinition
+          properties:
+            parent_mo_or_dn: org-root/org-level1
+            cdp: enabled
+            descr: ''
+            lldp_receive: enabled
+            lldp_transmit: enabled
+            name: Enable-CDP-LLDP
+      delegate_to: localhost
+      
+    - name: Remove Network Control Policy
+      cisco.ucs.ucs_managed_objects:
+        <<: *login_info
+        objects:
+        - module: ucsmsdk.mometa.nwctrl.NwctrlDefinition
+          class: NwctrlDefinition
+          properties:
+            parent_mo_or_dn: org-root/org-level1
+            name: Enable-CDP-LLDP
+        state: absent
+      delegate_to: localhost
+      
+    - name: Configure Boot Policy Using JSON objects list with children
+      cisco.ucs.ucs_managed_objects:
+        <<: *login_info
+        objects:
+        - {
+              "module": "ucsmsdk.mometa.lsboot.LsbootPolicy",
+              "class": "LsbootPolicy",
+              "properties": {
+                  "parent_mo_or_dn": "org-root/org-level1",
+                  "name": "Python_SDS",
+                  "enforce_vnic_name": "yes",
+                  "boot_mode": "legacy",
+                  "reboot_on_update": "no"
+              },
+              "children": [
+                  {
+                      "module": "ucsmsdk.mometa.lsboot.LsbootVirtualMedia",
+                      "class": "LsbootVirtualMedia",
+                      "properties": {
+                          "access": "read-only-local",
+                          "lun_id": "0",
+                          "order": "2"
+                      }
+                  },
+                  {
+                      "module": "ucsmsdk.mometa.lsboot.LsbootStorage",
+                      "class": "LsbootStorage",
+                      "properties": {
+                          "order": "1"
+                      },
+                      "children": [
+                          {
+                              "module": "ucsmsdk.mometa.lsboot.LsbootLocalStorage",
+                              "class": "LsbootLocalStorage",
+                              "properties": {},
+                              "children": [
+                                  {
+                                      "module": "ucsmsdk.mometa.lsboot.LsbootDefaultLocalImage",
+                                      "class": "LsbootDefaultLocalImage",
+                                      "properties": {
+                                          "order": "1"
+                                      }
+                                  }
+                              ]
+                          }
+                      ]
+                  }
+              ]
+          }
+      delegate_to: localhost
+      
+    - name: Remove Boot Policy Using JSON objects list
+      cisco.ucs.ucs_managed_objects:
+        <<: *login_info
+        objects:
+        - {
+              "module": "ucsmsdk.mometa.lsboot.LsbootPolicy",
+              "class": "LsbootPolicy",
+              "properties": {
+                  "parent_mo_or_dn": "org-root/org-level1",
+                  "name": "Python_SDS"
+              }
+          }
+        state: absent
+      delegate_to: localhost
+
+    - name: Remove UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        state: absent
+      delegate_to: localhost

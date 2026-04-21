@@ -1,0 +1,16 @@
+---
+- name: oVirt shutdown env
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    # Contains encrypted `engine_password` varibale using ansible-vault
+    - passwords.yml
+
+  vars:
+    engine_url: https://ovirt.example.com/ovirt-engine/api
+    engine_user: admin@internal
+
+  roles:
+    - role: ovirt.ovirt.shutdown_env

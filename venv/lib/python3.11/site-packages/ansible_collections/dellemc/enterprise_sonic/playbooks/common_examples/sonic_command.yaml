@@ -1,0 +1,56 @@
+---
+- name: "Test SONiC CLI"
+  hosts: datacenter
+  gather_facts: false
+  connection: network_cli
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: Test SONiC single command
+      sonic_command:
+        commands: 'show interface status'
+      register: cmd_op
+    - name: Test SONiC single command with wait_for
+      sonic_command:
+        commands: 'show version'
+        wait_for:
+          - result[0] contains Del
+      register: cmd_op
+    - name: Test SONiC multiple command with wait_for
+      sonic_command:
+        commands:
+          - 'show version'
+          - 'show system'
+        wait_for:
+          - result[0] contains Dell
+          - result[1] contains Hostname
+      register: cmd_op
+    - name: Test SONiC commands with wait_for negative case
+      sonic_command:
+        commands:
+          - 'show version'
+          - 'show system'
+        wait_for:
+          - result[0] contains Fel
+          - result[1] contains Hostname
+      register: cmd_op
+      ignore_errors: true
+    - name: Test SONiC commands with wait_for and match=any
+      sonic_command:
+        commands:
+          - 'show version'
+          - 'show system'
+        wait_for:
+          - result[0] contains Fel
+          - result[1] contains Hostname
+        match: any
+        retries: 3
+        interval: 2
+      register: cmd_op
+    - name: Test SONiC command with prompt handling
+      sonic_command:
+        commands:
+          - command: 'image remove all'
+            prompt: '\[y/N\]:$'
+            answer: 'N'
+      register: cmd_op

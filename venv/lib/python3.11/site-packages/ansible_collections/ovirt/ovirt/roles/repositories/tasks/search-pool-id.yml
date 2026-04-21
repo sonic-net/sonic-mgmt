@@ -1,0 +1,19 @@
+---
+- name: Search pool ID for '{{ item }}'
+  ansible.builtin.command: subscription-manager list --available --pool-only --matches="{{ item }}"
+  changed_when: false
+  register: availible_pool
+
+- name: Search pool ID for '{{ item }}'
+  ansible.builtin.command: subscription-manager list --consumed --pool-only --matches="{{ item }}"
+  register: consumed_pool
+  when: availible_pool['stdout_lines'] | list | length == 0
+
+- name: Fail when could not find pool '{{ item }}'
+  ansible.builtin.fail:
+    msg: The pool '{{ item }}' could not be found.
+  when: availible_pool['stdout_lines'] | list | length == 0 and consumed_pool['stdout_lines'] | list | length == 0
+
+- name: Attach searched pool ids to ovirt_repositories_pool_ids
+  ansible.builtin.set_fact:
+    ovirt_repositories_pool_ids: "{{ availible_pool['stdout_lines'] + ovirt_repositories_pool_ids | default([]) }}"

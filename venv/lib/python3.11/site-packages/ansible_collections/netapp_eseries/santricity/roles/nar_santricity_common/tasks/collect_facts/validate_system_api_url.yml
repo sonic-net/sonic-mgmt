@@ -1,0 +1,34 @@
+- name: Validate storage system urls.
+  block:
+    - name: Collect storage system facts.
+      uri:
+        url: "{{ item | regex_replace('v2/?$', 'utils/about') }}"
+        headers:
+          Content-Type: "application/json"
+          Accept: "application/json"
+        validate_certs: false
+      ignore_errors: true
+      connection: local
+      register: about_results
+      loop: "{{ lookup('list', eseries_api_url_list) }}"
+
+    - name: Determine the first successful Web Services REST API url.
+      set_fact:
+        current_eseries_api_url: |-
+          {%- set valid_urls = [] %}
+          {%- for result in about_results["results"] if result["failed"] == false -%}
+            {%- if valid_urls.append(result['item']) %}{%- endif %}
+          {%- endfor %}
+          {{ valid_urls[0] | default("") }}
+
+    - name: Set Web Services REST API credentials.
+      set_fact:
+        current_eseries_api_is_proxy: False
+        current_eseries_ssid: "{{ current_eseries_ssid | default('1') }}"
+        current_eseries_api_username: "{{ eseries_system_username | default('admin') }}"
+        current_eseries_api_password: "{{ eseries_system_password }}"
+        current_eseries_validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+      when: current_eseries_api_url != ""
+      no_log: true
+  when: eseries_api_url_list is defined and eseries_api_url_list | length > 0
+  tags: always

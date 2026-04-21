@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_pgsched - Resolved idempotency issue with snap and replication enabled flags

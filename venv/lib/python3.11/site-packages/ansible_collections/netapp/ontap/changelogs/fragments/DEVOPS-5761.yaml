@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_snapmirror_policy - new option ``transfer_schedule`` for async policy types.
+  - na_ontap_snapmirror_policy - add support for cluster scoped policy with REST.
+bugfixes:
+  - na_ontap_snapmirror_policy - deleting all retention rules would trigger an error when the existing policy requires at least one rule.
+  - na_ontap_snapmirror_policy - index error on rules with ONTAP 9.12.1 as not all fields are present.

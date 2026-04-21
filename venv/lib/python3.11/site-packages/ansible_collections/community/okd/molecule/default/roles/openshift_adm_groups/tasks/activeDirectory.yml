@@ -1,0 +1,235 @@
+---
+- block:
+    - name: Get LDAP definition
+      set_fact:
+        ldap_entries: "{{ lookup('template', 'ad/definition.j2') | from_yaml }}"
+
+    - name: Delete openshift groups if existing
+      community.okd.k8s:
+        state: absent
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: "{{ item }}"
+      with_items:
+        - admins
+        - developers
+
+    - name: Delete existing LDAP Entries
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item.dn }}"
+        state: absent
+      with_items: "{{ ldap_entries.users + ldap_entries.units | reverse | list }}"
+
+    - name: Create LDAP Entries
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item.dn }}"
+        attributes: "{{ item.attr }}"
+        objectClass: "{{ item.class }}"
+      with_items: "{{ ldap_entries.units + ldap_entries.users }}"
+
+    - name: Load test configurations
+      set_fact:
+        sync_config: "{{ lookup('template', 'ad/sync-config.j2') | from_yaml }}"
+
+    - name: Synchronize Groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+      check_mode: yes
+      register: result
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+          - admins_group
+          - devs_group
+          - '"jane.smith@ansible.org" in admins_group.users'
+          - '"jim.adams@ansible.org" in admins_group.users'
+          - '"jordanbulls@ansible.org" in devs_group.users'
+          - admins_group.users | length == 2
+          - devs_group.users | length == 1
+      vars:
+        admins_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'admins') | first }}"
+        devs_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'developers') | first }}"
+
+    - name: Synchronize Groups (Remove check_mode)
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+      register: result
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+
+    - name: Read admins group
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: admins
+      register: result
+
+    - name: Validate group was created
+      assert:
+        that:
+          - result.resources | length == 1
+          - '"jane.smith@ansible.org" in result.resources.0.users'
+          - '"jim.adams@ansible.org" in result.resources.0.users'
+
+    - name: Read developers group
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: developers
+      register: result
+
+    - name: Validate group was created
+      assert:
+        that:
+          - result.resources | length == 1
+          - '"jordanbulls@ansible.org" in result.resources.0.users'
+
+    - name: Define user dn to delete
+      set_fact:
+        user_to_delete: "cn=Jane,ou=engineers,ou=activeD,{{ ldap_root }}"
+
+    - name: Delete 1 admin user
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ user_to_delete }}"
+        state: absent
+
+    - name: Synchronize Openshift groups using allow_groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+        allow_groups:
+          - developers
+        type: openshift
+      register: openshift_sync
+
+    - name: Validate that only developers group was sync
+      assert:
+        that:
+          - openshift_sync is changed
+          - openshift_sync.groups | length == 1
+          - openshift_sync.groups.0.metadata.name == "developers"
+
+    - name: Read admins group
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: admins
+      register: result
+
+    - name: Validate admins group content has not changed
+      assert:
+        that:
+          - result.resources | length == 1
+          - '"jane.smith@ansible.org" in result.resources.0.users'
+          - '"jim.adams@ansible.org" in result.resources.0.users'
+
+    - name: Synchronize Openshift groups using deny_groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+        deny_groups:
+          - developers
+        type: openshift
+      register: openshift_sync
+
+    - name: Validate that only admins group was sync
+      assert:
+        that:
+          - openshift_sync is changed
+          - openshift_sync.groups | length == 1
+          - openshift_sync.groups.0.metadata.name == "admins"
+
+    - name: Read admins group
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: admins
+      register: result
+
+    - name: Validate admins group contains only 1 user now
+      assert:
+        that:
+          - result.resources | length == 1
+          - result.resources.0.users == ["jim.adams@ansible.org"]
+
+    - name: Set users to delete (delete all developers users)
+      set_fact:
+        user_to_delete: "cn=Jordan,ou=engineers,ou=activeD,{{ ldap_root }}"
+
+    - name: Delete 1 admin user
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ user_to_delete }}"
+        state: absent
+
+    - name: Prune groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+        state: absent
+      register: result
+
+    - name: Validate result is changed (only developers group be deleted)
+      assert:
+        that:
+          - result is changed
+          - result.groups | length == 1
+
+    - name: Get developers group info
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: developers
+      register: result
+
+    - name: assert group was deleted
+      assert:
+        that:
+          - result.resources | length == 0
+
+    - name: Get admins group info
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: admins
+      register: result
+
+    - name: assert group was not deleted
+      assert:
+        that:
+          - result.resources | length == 1
+
+    - name: Prune groups once again (idempotency)
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+        state: absent
+      register: result
+
+    - name: Assert nothing was changed
+      assert:
+        that:
+          - result is not changed
+
+  always:
+    - name: Delete openshift groups if existing
+      community.okd.k8s:
+        state: absent
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: "{{ item }}"
+      with_items:
+        - admins
+        - developers

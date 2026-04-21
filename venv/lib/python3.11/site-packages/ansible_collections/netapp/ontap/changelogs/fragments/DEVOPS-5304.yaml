@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_license - return list of updated package names.
+bugfixes:
+  - na_ontap_license - fix intermittent KeyError when adding licenses with REST.

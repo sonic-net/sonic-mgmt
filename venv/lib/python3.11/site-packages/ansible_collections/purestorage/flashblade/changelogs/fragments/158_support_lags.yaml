@@ -1,0 +1,2 @@
+minor_changes:
+  - purefb_subnet - Add support for multiple LAGs.

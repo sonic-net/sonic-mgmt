@@ -1,0 +1,79 @@
+---
+# tasks file for mongodb_config
+- name: Include OS-specific vars
+  include_vars:
+    file: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      paths:
+        - "vars"
+      files:
+        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_version }}.yml"
+        - "{{ ansible_facts.os_family }}-{{ ansible_facts.distribution_major_version }}.yml"
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - default.yml
+  tags:
+    "vars"
+
+- name: Ensure mongod package is installed
+  package:
+    name: "{{ mongod_package }}"
+  register: _pkg
+  until: _pkg is succeeded
+  retries: 5
+  tags:
+    - "pkg"
+    - "setup"
+    - "mongodb"
+
+- name: Ensure db_path dir exists
+  file:
+    path: "{{ db_path }}"
+    state: directory
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+  tags:
+    - "setup"
+    - "mongodb"
+
+- name: Copy config file
+  template:
+    src: "{{ mongod_config_template }}"
+    dest: /etc/mongod.conf
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+  notify:
+    - Restart mongod service
+  tags:
+    - "setup"
+    - "mongodb"
+
+- name: Copy keyfile to host
+  copy:
+    content: |
+      {{ openssl_keyfile_content }}
+    dest: "{{ openssl_keyfile_path }}"
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+    mode: 0400
+  notify:
+    - Restart mongod service
+  tags:
+    - "setup"
+    - "mongodb"
+
+- name: Check for github override
+  set_fact:
+    x_github_override: "{{ lookup('env', 'X_GITHUB_OVERRIDE') | default('0', True) }}"
+  tags:
+    - "ci"
+
+- name: Start mongod service
+  service:
+    name: "{{ mongod_service }}"
+    state: started
+    enabled: yes
+  tags:
+    - "mongodb"
+    - "service"

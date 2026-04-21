@@ -1,0 +1,20 @@
+# connection libraries
+paramiko
+ansible-pylibssh
+
+# sanity tests
+pycodestyle
+pylint
+voluptuous
+
+# units
+pytest
+pytest-xdist
+pytest-mock
+mock
+
+# utils
+yamllint
+galaxy_importer
+antsibull-changelog
+setuptools

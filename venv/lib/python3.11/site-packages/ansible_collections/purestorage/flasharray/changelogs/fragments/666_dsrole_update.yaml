@@ -1,0 +1,3 @@
+minor_changes:
+ - purefa_info - Expose directory service role management access policies if they exist
+ - purefa_dsrole - Add support for non-system-defined directory service roles with new parameter `name`

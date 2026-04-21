@@ -1,0 +1,71 @@
+---
+- name: Resource group operations on PowerFlex array.
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    host_port: 443
+    resource_group_name_1: "ans_rg"
+    node_1: "vpi2170"
+    template_id: "c65d0172-8666-48ab-935e-9a0bf69ed66d"
+
+  tasks:
+    - name: Validate deployment of a resource group
+      register: result
+      dellemc.powerflex.resource_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        resource_group_name: "{{ resource_group_name_1 }}"
+        description: ans_rg
+        template_id: "{{ template_id }}"
+        firmware_repository_name: "PowerFlex 4.5.0.0"
+        validate: true
+
+    - name: Deploy a resource group
+      register: result
+      dellemc.powerflex.resource_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        resource_group_name: "{{ resource_group_name_1 }}"
+        description: ans_rg
+        template_id: "{{ template_id }}"
+        firmware_repository_name: "PowerFlex 4.5.0.0"
+
+    - name: Add a node to a resource group
+      dellemc.powerflex.resource_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        resource_group_name: "{{ resource_group_name_1 }}"
+        scaleup: true
+        clone_node: "{{ node_1 }}"
+        node_count: 2
+
+    - name: Modify a resource group
+      dellemc.powerflex.resource_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        resource_group_name: "{{ resource_group_name_1 }}"
+        new_resource_group_name: "new_resource_group_name"
+        description: "description new"
+
+    - name: Delete a resource group
+      register: result
+      dellemc.powerflex.resource_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        resource_group_name: "{{ resource_group_name_1 }}"
+        state: "absent"

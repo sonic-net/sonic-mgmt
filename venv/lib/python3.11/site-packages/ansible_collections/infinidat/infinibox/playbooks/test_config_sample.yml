@@ -1,0 +1,63 @@
+---
+# PSDEV-1108: Playbook for testing creation of metadata resources.
+- name: Test infini_config module
+  hosts: localhost
+  gather_facts: false  # Required for ansible_date_time
+  tasks:
+
+    # Test any object_type
+
+    - name: Set compression setting to true
+      infinidat.infinibox.infini_config:
+        config_group: "mgmt"
+        key: "pool.compression_enabled_default"
+        value: false
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: metadata_out
+    - name: Debug
+      ansible.builtin.debug:
+        var: metadata_out
+
+    - name: Check current compression setting
+      infinidat.infinibox.infini_config:
+        config_group: "mgmt"
+        key: "pool.compression_enabled_default"
+        state: "stat"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: metadata_out
+    - name: Debug
+      ansible.builtin.debug:
+        var: metadata_out
+
+
+    - name: Check 2 base
+      infinidat.infinibox.infini_config:
+        config_group: "mgmt"
+        key: "mgmt.is_decimal_capacity_converter" # True for Base 10, False for Base 2
+        state: "stat"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: metadata_out
+    - name: Debug
+      ansible.builtin.debug:
+        var: metadata_out
+
+    - name: Set Dataset capacity unit to Base 2
+      infinidat.infinibox.infini_config:
+        config_group: "mgmt"
+        key: "mgmt.is_decimal_capacity_converter" # True for Base 10, False for Base 2
+        value: false
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: metadata_out
+    - name: Debug
+      ansible.builtin.debug:
+        var: metadata_out

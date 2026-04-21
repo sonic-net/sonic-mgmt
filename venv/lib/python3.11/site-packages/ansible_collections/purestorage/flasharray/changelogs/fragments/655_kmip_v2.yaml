@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_info - Update KMIP information collection to use REST v2, exposing full certifcate content

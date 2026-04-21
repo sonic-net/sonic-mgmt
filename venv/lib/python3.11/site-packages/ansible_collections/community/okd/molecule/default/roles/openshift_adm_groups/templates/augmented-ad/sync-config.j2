@@ -1,0 +1,20 @@
+kind: LDAPSyncConfig
+apiVersion: v1
+url: "{{ ldap_server_uri }}"
+insecure: true
+augmentedActiveDirectory:
+    groupsQuery:
+        baseDN: "ou=category,ou=augmentedAD,{{ ldap_root }}"
+        scope: sub
+        derefAliases: never
+        pageSize: 0
+    groupUIDAttribute: dn 
+    groupNameAttributes: [ cn ]
+    usersQuery:
+        baseDN: "ou=employee,ou=augmentedAD,{{ ldap_root }}"
+        scope: sub
+        derefAliases: never
+        filter: (objectclass=inetOrgPerson)
+        pageSize: 0
+    userNameAttributes: [ mail ]
+    groupMembershipAttributes: [ businessCategory ]

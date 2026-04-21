@@ -1,0 +1,38 @@
+---
+- name: Get full hostname
+  ansible.builtin.command: hostname -f
+  changed_when: true
+  register: host_full_name
+- name: Set hostname variable if not defined
+  ansible.builtin.set_fact:
+    he_host_name: "{{ host_full_name.stdout_lines[0] }}"
+  when: he_host_name is none
+- name: Define host address variable if not defined
+  ansible.builtin.set_fact:
+    he_host_address: "{{ host_full_name.stdout_lines[0] }}"
+  when: he_host_address is none
+- name: Get host IP address
+  block:
+    - name: Choose IPv4, IPv6 or auto
+      ansible.builtin.import_tasks: ipv_switch.yml
+    - name: Get host address resolution
+      ansible.builtin.shell: getent {{ ip_key }} {{ he_host_address }} | grep STREAM | cut -d ' ' -f1
+      register: hostname_resolution_output
+      changed_when: true
+      ignore_errors: true
+    - name: Get host IP addresses
+      ansible.builtin.command: hostname -I
+      register: hostname_addresses_output
+      changed_when: true
+    - name: Check address resolution
+      ansible.builtin.fail:
+        msg: >
+          Unable to resolve address
+      when: hostname_resolution_output.rc != 0
+    - name: Parse host address resolution
+      ansible.builtin.set_fact:
+        he_host_ip: "{{ ( hostname_resolution_output.stdout.split() | intersect(hostname_addresses_output.stdout.split()) )[0] }}"
+- name: Fail if host's ip is empty
+  ansible.builtin.fail:
+    msg: Host has no IP address
+  when: he_host_ip is none

@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_info - Fixed issue trying to collect deleted volumes perfomance stats

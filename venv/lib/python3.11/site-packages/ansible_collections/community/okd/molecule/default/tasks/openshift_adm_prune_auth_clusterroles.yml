@@ -1,0 +1,313 @@
+---
+- block:
+    - set_fact:
+        test_sa: "clusterrole-sa"
+        test_ns: "clusterrole-ns"
+        test_tn: "clusterrole-tn"
+
+    - name: Ensure namespace
+      kubernetes.core.k8s:
+        kind: Namespace
+        name: "{{ test_ns }}"
+
+    - name: Get cluster information
+      kubernetes.core.k8s_cluster_info:
+      register: cluster_info
+      no_log: true
+
+    - set_fact:
+        cluster_host: "{{ cluster_info['connection']['host'] }}"
+
+    - name: Create Service account
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: "{{ test_sa }}"
+            namespace: "{{ test_ns }}"
+
+    - name: Create SA token
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ test_tn }}"
+            namespace: "{{ test_ns }}"
+            annotations:
+              kubernetes.io/service-account.name: "{{ test_sa }}"
+          type: kubernetes.io/service-account-token
+
+    - name: Get secret details
+      kubernetes.core.k8s_info:
+        kind: Secret
+        namespace: "{{ test_ns }}"
+        name: "{{ test_tn }}"
+      register: _secret
+
+    - set_fact:
+        api_token: "{{ _secret.resources[0]['data']['token'] | b64decode }}"
+
+    - name: list Node should failed (forbidden user)
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Node
+      register: error
+      ignore_errors: true
+
+    - assert:
+        that:
+          - '"nodes is forbidden: User" in error.msg'
+
+    - name: list Pod for all namespace should failed
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Pod
+      register: error
+      ignore_errors: true
+
+    - assert:
+        that:
+          - '"pods is forbidden: User" in error.msg'
+
+    - name: list Pod for test namespace should failed
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Pod
+        namespace: "{{ test_ns }}"
+      register: error
+      ignore_errors: true
+
+    - assert:
+        that:
+          - '"pods is forbidden: User" in error.msg'
+
+    - set_fact:
+        test_labels:
+          phase: dev
+        cluster_roles:
+          - name: pod-manager
+            resources:
+              - pods
+            verbs:
+              - list
+            api_version_binding: "authorization.openshift.io/v1"
+          - name: node-manager
+            resources:
+              - nodes
+            verbs:
+              - list
+            api_version_binding: "rbac.authorization.k8s.io/v1"
+
+    - name: Create cluster roles
+      kubernetes.core.k8s:
+        definition:
+          kind: ClusterRole
+          apiVersion: "rbac.authorization.k8s.io/v1"
+          metadata:
+            name: "{{ item.name }}"
+            labels: "{{ test_labels }}"
+          rules:
+            - apiGroups: [""]
+              resources: "{{ item.resources }}"
+              verbs: "{{ item.verbs }}"
+      with_items: '{{ cluster_roles }}'
+
+    - name: Create Role Binding (namespaced)
+      kubernetes.core.k8s:
+        definition:
+          kind: RoleBinding
+          apiVersion: "rbac.authorization.k8s.io/v1"
+          metadata:
+            name: "{{ cluster_roles[0].name }}-binding"
+            namespace: "{{ test_ns }}"
+            labels: "{{ test_labels }}"
+          subjects:
+            - kind: ServiceAccount
+              name: "{{ test_sa }}"
+              namespace: "{{ test_ns }}"
+              apiGroup: ""
+          roleRef:
+            kind: ClusterRole
+            name: "{{ cluster_roles[0].name }}"
+            apiGroup: ""
+
+    - name: list Pod for all namespace should failed
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Pod
+      register: error
+      ignore_errors: true
+
+    - assert:
+        that:
+          - '"pods is forbidden: User" in error.msg'
+
+    - name: list Pod for test namespace should succeed
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Pod
+        namespace: "{{ test_ns }}"
+      no_log: true
+
+    - name: Create Cluster role Binding
+      kubernetes.core.k8s:
+        definition:
+          kind: ClusterRoleBinding
+          apiVersion: "{{ item.api_version_binding }}"
+          metadata:
+            name: "{{ item.name }}-binding"
+            labels: "{{ test_labels }}"
+          subjects:
+            - kind: ServiceAccount
+              name: "{{ test_sa }}"
+              namespace: "{{ test_ns }}"
+              apiGroup: ""
+          roleRef:
+            kind: ClusterRole
+            name: "{{ item.name }}"
+            apiGroup: ""
+      with_items: "{{ cluster_roles }}"
+
+    - name: list Pod for all namespace should succeed
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Pod
+      no_log: true
+
+    - name: list Pod for test namespace should succeed
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Pod
+        namespace: "{{ test_ns }}"
+      no_log: true
+
+    - name: list Node using ServiceAccount
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Node
+        namespace: "{{ test_ns }}"
+      no_log: true
+
+    - name: Prune clusterroles (check mode)
+      community.okd.openshift_adm_prune_auth:
+        resource: clusterroles
+        label_selectors:
+          - phase=dev
+      register: check
+      check_mode: true
+
+    - name: validate clusterrole binding candidates for prune
+      assert:
+        that:
+          - 'item["name"]+"-binding" in check.cluster_role_binding'
+          - 'test_ns+"/"+cluster_roles[0].name+"-binding" in check.role_binding'
+      with_items: "{{ cluster_roles }}"
+
+    - name: Prune Cluster Role for managing Pod
+      community.okd.openshift_adm_prune_auth:
+        resource: clusterroles
+        name: "{{ cluster_roles[0].name }}"
+
+    - name: list Pod for all namespace should failed
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Pod
+      register: error
+      no_log: true
+      ignore_errors: true
+
+    - assert:
+        that:
+          - '"pods is forbidden: User" in error.msg'
+
+    - name: list Pod for test namespace should failed
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Pod
+        namespace: "{{ test_ns }}"
+      register: error
+      no_log: true
+      ignore_errors: true
+
+    - assert:
+        that:
+          - '"pods is forbidden: User" in error.msg'
+
+    - name: list Node using ServiceAccount
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Node
+        namespace: "{{ test_ns }}"
+      no_log: true
+
+    - name: Prune clusterroles (remaining)
+      community.okd.openshift_adm_prune_auth:
+        resource: clusterroles
+        label_selectors:
+          - phase=dev
+
+    - name: list Node using ServiceAccount should fail
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        kind: Node
+        namespace: "{{ test_ns }}"
+      register: error
+      ignore_errors: true
+
+    - assert:
+        that:
+          - '"nodes is forbidden: User" in error.msg'
+
+  always:
+    - name: Ensure namespace is deleted
+      kubernetes.core.k8s:
+        state: absent
+        kind: Namespace
+        name: "{{ test_ns }}"
+      ignore_errors: true
+
+    - name: Delete ClusterRoleBinding
+      kubernetes.core.k8s:
+        kind: ClusterRoleBinding
+        api_version: "rbac.authorization.k8s.io/v1"
+        name: "{{ item.name }}-binding"
+        state: absent
+      ignore_errors: true
+      with_items: "{{ cluster_roles }}"
+      when: cluster_roles is defined
+
+    - name: Delete ClusterRole
+      kubernetes.core.k8s:
+        kind: ClusterRole
+        api_version: "rbac.authorization.k8s.io/v1"
+        name: "{{ item.name }}"
+        state: absent
+      ignore_errors: true
+      with_items: "{{ cluster_roles }}"
+      when: cluster_roles is defined

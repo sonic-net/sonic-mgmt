@@ -1,0 +1,19 @@
+---
+- name: TB uninstallation
+  hosts: tb
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: "Uninstall powerflex TB"
+      register: powerflex_tb_uninstall_outputs
+      ansible.builtin.import_role:
+        name: "powerflex_tb"
+      vars:
+        powerflex_tb_state: 'absent'
+
+    - name: "Verifying remove the TB"
+      ansible.builtin.assert:
+        that:
+          - powerflex_tb_remove_primary_tb_output.stdout == "Successfully removed the standby MDM."
+      when: not ansible_check_mode and powerflex_tb_remove_primary_tb_output.changed

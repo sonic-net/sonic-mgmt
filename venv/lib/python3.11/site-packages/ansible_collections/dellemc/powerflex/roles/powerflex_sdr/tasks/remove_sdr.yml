@@ -1,0 +1,145 @@
+---
+- name: Get configured MDM IP addresses
+  dellemc.powerflex.mdm_cluster:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    validate_certs: "{{ validate_certs }}"
+    state: "present"
+  register: powerflex_sdr_mdm_ip_result
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Set fact - PowerFlex version
+  ansible.builtin.set_fact:
+    powerflex_sdr_array_version: "{{ powerflex_sdr_mdm_ip_result.mdm_cluster_details.master.versionInfo[1] }}"
+
+- name: Include the sdr_set_facts.yml
+  ansible.builtin.include_tasks: sdr_set_facts.yml
+
+- name: Login to mdm for PowerFlex version below 4.x
+  ansible.builtin.command: >
+    scli --login --mdm_ip {{ powerflex_sdr_mdm_primary_ip }}
+    --username admin
+    --password "{{ powerflex_mdm_password }}"
+    --approve_certificate
+  run_once: true
+  register: powerflex_initial_login
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+  changed_when: powerflex_initial_login.rc == 0
+  no_log: true
+  when: powerflex_sdr_array_version == "3"
+
+- name: Generate login certificate for PowerFlex version 4.x
+  block:
+    - name: Generate login certificate using management_system_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ hostname }} --username {{ username }} --password {{ password }}
+        --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_sdr_generate_login_certificate
+      changed_when: powerflex_sdr_generate_login_certificate.rc == 0
+      delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+      when: powerflex_sdr_array_version != "3"
+  rescue:
+    - name: Generate login certificate using primary_mdm_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ powerflex_sdr_mdm_primary_ip }} --username {{ username }}
+        --password {{ password }} --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_sdr_generate_login_certificate_mdm_ip
+      changed_when: powerflex_sdr_generate_login_certificate_mdm_ip.rc == 0
+      delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+      when: powerflex_sdr_array_version != "3"
+
+- name: Add certificate file for PowerFlex version 4.x
+  ansible.builtin.command: scli --add_certificate --certificate_file /opt/emc/scaleio/mdm/cfg/mgmt_ca.pem
+  run_once: true
+  register: powerflex_sdr_add_certificate
+  changed_when: powerflex_sdr_add_certificate.rc == 0
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+  when: powerflex_sdr_array_version != '3'
+
+- name: Login to MDM for PowerFlex version 4.x
+  ansible.builtin.command: scli --login --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }}
+  run_once: true
+  register: powerflex_sdr_login_output
+  changed_when: powerflex_sdr_login_output.rc == 0
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+  when: powerflex_sdr_array_version != "3"
+
+- name: Output msg of previous task login to mdm
+  ansible.builtin.debug:
+    var: powerflex_initial_login.stdout
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+
+- name: Checking if SDR already exists or not for PowerFlex version below 4.x
+  ansible.builtin.command: >
+    scli --mdm_ip {{ powerflex_sdr_mdm_primary_ip }}
+    --query_sdr
+    --sdr_name "{{ powerflex_sdr_hostname }}"
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+  register: check_sdr_exists
+  failed_when: false
+  changed_when: check_sdr_exists.rc == 0
+  when: powerflex_sdr_array_version == "3"
+
+- name: Checking if SDR already exists or not for PowerFlex version 4.x
+  ansible.builtin.command: >
+    scli --management_system_ip {{ hostname }}
+    --query_sdr
+    --sdr_name "{{ powerflex_sdr_hostname }}"
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+  register: check_sdr_exists
+  failed_when: false
+  changed_when: check_sdr_exists.rc == 0
+  when: powerflex_sdr_array_version != "3"
+
+- name: Skipping remove SDR if does not exist
+  ansible.builtin.debug:
+    msg: "SDR name {{ powerflex_sdr_hostname }} does not exist, will skip removing SDR."
+  when: check_sdr_exists.rc == 7
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+
+- name: Removing SDR for PowerFlex version below 4.x
+  ansible.builtin.command: >
+    scli --remove_sdr --mdm_ip {{ powerflex_sdr_mdm_primary_ip }}
+    --sdr_name "{{ powerflex_sdr_hostname }}"
+  register: powerflex_remove_sdr_output
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+  changed_when: powerflex_remove_sdr_output.rc == 0
+  when: check_sdr_exists.rc == 0 and powerflex_sdr_array_version == "3"
+
+- name: Removing SDR for PowerFlex version 4.x
+  ansible.builtin.command: >
+    scli --remove_sdr --management_system_ip {{ hostname }}
+    --sdr_name "{{ powerflex_sdr_hostname }}"
+  register: powerflex_remove_sdr_output
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+  changed_when: powerflex_remove_sdr_output.rc == 0
+  when: check_sdr_exists.rc == 0 and powerflex_sdr_array_version != "3"
+
+- name: Uninstall package
+  register: powerflex_sdr_uninstall_output
+  environment:
+    I_AM_SURE: "{{ i_am_sure | int }}"
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: "absent"
+  with_items:
+    - EMC-ScaleIO-sdr
+  when: ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+- name: Uninstall deb package
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - emc-scaleio-sdr
+  when: ansible_distribution == "Ubuntu"
+
+- name: Logging out of the mdm
+  ansible.builtin.command: scli --logout
+  register: powerflex_mdm_logout
+  run_once: true
+  delegate_to: "{{ powerflex_sdr_mdm_primary_hostname }}"
+  changed_when: powerflex_mdm_logout.rc == 0

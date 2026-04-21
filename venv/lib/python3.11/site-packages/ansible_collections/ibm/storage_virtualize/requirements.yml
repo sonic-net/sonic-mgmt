@@ -1,0 +1,5 @@
+# requirements.yml
+---
+collections:
+  - ibm.storage_virtualize
+  - ansible.windows

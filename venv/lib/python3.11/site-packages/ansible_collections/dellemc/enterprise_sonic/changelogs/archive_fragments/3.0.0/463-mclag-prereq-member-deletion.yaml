@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_mclag - Delete any remaining PortChannel members for an mclag domain before attempting to delete the mclag domain (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/463).

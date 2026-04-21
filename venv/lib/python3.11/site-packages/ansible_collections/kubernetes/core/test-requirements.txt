@@ -1,0 +1,9 @@
+kubernetes-validate
+coverage==4.5.4
+mock
+pytest
+pytest-xdist
+pytest-mock
+pytest-forked
+virtualenv
+pytest-ansible

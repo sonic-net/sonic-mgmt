@@ -1,0 +1,14 @@
+---
+- name: Converge
+  hosts: all
+  pre_tasks:
+    - name: Update package cache
+      ansible.builtin.package:
+        update_cache: "yes"
+      changed_when: false
+      register: task_result
+      until: task_result is success
+      retries: 10
+      delay: 2
+  roles:
+    - role: google.cloud.gcsfuse

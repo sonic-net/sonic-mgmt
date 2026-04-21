@@ -1,0 +1,72 @@
+---
+- name: Default to non-local install
+  ansible.builtin.set_fact:
+    __grafana_agent_local_install: false
+
+- name: Fail when grafana_agent_local_binary_file is defined but the file doesn't exist
+  when: grafana_agent_local_binary_file is defined and grafana_agent_local_binary_file | length > 0
+  block:
+    - name: Check if grafana_agent_local_binary_file exists
+      ansible.builtin.stat:
+        path: "{{ grafana_agent_local_binary_file }}"
+      register: __grafana_agent_local_binary_check
+      become: false
+      delegate_to: localhost
+      check_mode: false
+
+    - name: Fail when the grafana_agent_local_binary_file does not exist
+      ansible.builtin.fail:
+        msg: "The grafana_agent_local_binary_file ({{ grafana_agent_local_binary_file }}) was specified but does not exist"
+      when: not __grafana_agent_local_binary_check.stat.exists
+
+    - name: Change to local install
+      ansible.builtin.set_fact:
+        __grafana_agent_local_install: true
+
+- name: Fail when grafana_agent_provisioned_config_file is defined but the file doesn't exist
+  when: grafana_agent_provisioned_config_file is defined and grafana_agent_provisioned_config_file | length > 0
+  block:
+    - name: Check if grafana_agent_provisioned_config_file exists
+      ansible.builtin.stat:
+        path: "{{ grafana_agent_provisioned_config_file }}"
+      register: __grafana_agent_provisioned_config_file_check
+      become: false
+      delegate_to: localhost
+      check_mode: false
+
+    - name: Fail when the grafana_agent_provisioned_config_file does not exist
+      ansible.builtin.fail:
+        msg: "The grafana_agent_provisioned_config_file ({{ grafana_agent_provisioned_config_file }}) was specified but does not exist"
+      when: not __grafana_agent_provisioned_config_file_check.stat.exists
+
+- name: Check if grafana_agent is already installed on the host
+  ansible.builtin.stat:
+    path: "{{ grafana_agent_install_dir }}/{{ grafana_agent_binary }}"
+  register: __grafana_agent_is_installed
+  check_mode: false
+
+- name: Is Grafana Agent already installed on the host
+  ansible.builtin.debug:
+    var: __grafana_agent_is_installed.stat.exists
+
+- name: Install checks
+  when: __grafana_agent_is_installed.stat.exists and not __grafana_agent_local_install
+  block:
+    - name: Gather currently installed grafana-agent version from the host
+      ansible.builtin.shell:
+        cmd: |
+          {{ grafana_agent_install_dir }}/{{ grafana_agent_binary }} --version | \
+            head -n 1 | \
+            awk '{ print $3; }' | \
+            cut -d 'v' -f 2
+      changed_when: false
+      register: __grafana_agent_current_version_output
+      check_mode: false
+
+    - name: Set Grafana Agent installed version for the host
+      ansible.builtin.set_fact:
+        __grafana_agent_installed_version: "{{ __grafana_agent_current_version_output.stdout }}"
+
+    - name: Grafana Agent installed version on host
+      ansible.builtin.debug:
+        var: __grafana_agent_installed_version

@@ -1,0 +1,117 @@
+---
+- name: Using IBM Storage Virtualize collection to create rc consistency group
+  hosts: localhost
+  gather_facts: false
+  vars:
+    auxcluster: 'x.x.x.x'
+    ausername: 'ausername'
+    apassword: 'apassword'
+    clustername: 'clustername'
+    username: 'username'
+    password: 'password'
+    cgname: 'Group_cg11'
+    remotecluster: 'Cluster_x.x.x.x'
+    masterpool: 'site1pool1'
+    mastervol: 'master'
+    relname: 'scopy5'
+    auxvol: 'auxvol'
+  connection: local
+  tasks:
+    - name: Fetch authorization token for aux
+      register: auth
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ auxcluster }}"
+        username: "{{ ausername }}"
+        password: "{{ apassword }}"
+    - name: Create target volume
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ auxcluster }}"
+        token: "{{ auth.token }}"
+        pool: "{{ auxpool }}"
+        name: "{{ auxvol }}"
+        size: 10
+        unit: "gb"
+        state: present
+    - name: Fetch authorization token for master
+      register: results
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+    - name: Create remote copy cg
+      ibm.storage_virtualize.ibm_svc_manage_replicationgroup:
+        name: "{{ cgname }}"
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: present
+        remotecluster: "{{ remotecluster }}"
+    - name: Create source volume
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        pool: "{{ masterpool }}"
+        name: "{{ mastervol }}"
+        size: 1
+        unit: "gb"
+        state: present
+    - name: Create MM remote copy
+      ibm.storage_virtualize.ibm_svc_manage_replication:
+        name: "{{ relname }}"
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: present
+        remotecluster: "{{ remotecluster }}"
+        master: "{{ mastervol }}"
+        aux: "{{ auxvol }}"
+        copytype: metro
+        sync: true
+        consistgrp: "{{ cgname }}"
+    - name: Remove the remote copy from CG
+      ibm.storage_virtualize.ibm_svc_manage_replication:
+        name: "{{ relname }}"
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: present
+        remotecluster: "{{ remotecluster }}"
+        master: "{{ mastervol }}"
+        aux: "{{ auxvol }}"
+        copytype: metro
+        noconsistgrp: true
+    - name: Convert MM to GM
+      ibm.storage_virtualize.ibm_svc_manage_replication:
+        name: "{{ relname }}"
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: present
+        remotecluster: "{{ remotecluster }}"
+        master: "{{ mastervol }}"
+        aux: "{{ auxvol }}"
+        copytype: global
+    - name: Convert GM to GMCV
+      ibm.storage_virtualize.ibm_svc_manage_replication:
+        name: "{{ relname }}"
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: present
+        remotecluster: "{{ remotecluster }}"
+        master: "{{ mastervol }}"
+        aux: "{{ auxvol }}"
+        copytype: GMCV
+        consistgrp: "{{ cgname }}"
+    - name: Create/attach master change volume
+      ibm.storage_virtualize.ibm_svc_manage_cv:
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: present
+        rname: "{{ relname }}"
+        cvname: "{{ mastervolcv }}"
+        basevolume: "{{ mastervol }}"
+    - name: Create/attach aux change volume
+      ibm.storage_virtualize.ibm_svc_manage_cv:
+        clustername: "{{ auxcluster }}"
+        token: "{{ auth.token }}"
+        state: present
+        rname: "{{ relname }}"
+        cvname: "{{ auxvolcv }}"
+        basevolume: "{{ auxvol }}"
+        ismaster: false

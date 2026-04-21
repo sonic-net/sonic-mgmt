@@ -1,0 +1,43 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      release_summary: First release of the microsoft.iis collection
+    fragments:
+    - release-summary.yml
+    release_date: '2025-02-05'
+  1.0.1:
+    changes:
+      release_summary: Minor release for Galaxy/AH documention update
+    fragments:
+    - release-summary.yml
+    release_date: '2025-03-27'
+  1.0.2:
+    changes:
+      release_summary: Another minor release for Galaxy/AH documention update
+    fragments:
+    - release-summary.yml
+    release_date: '2025-03-27'
+  1.0.3:
+    changes:
+      bugfixes:
+      - website_info - fixed a crash when the specified iis site does not exist, ensuring
+        the module no longer inserts a ``null`` in the site list. (https://github.com/ansible-collections/microsoft.iis/pull/36)
+      release_summary: Release summary for v1.0.3
+    fragments:
+    - fix_website_info_iis_site_check.yaml
+    - release-summary.yml
+    release_date: '2025-07-22'
+  1.1.0:
+    changes:
+      bugfixes:
+      - website_info - Fix error when retrieving website information but none exist
+        - https://github.com/ansible-collections/microsoft.iis/issues/44
+      minor_changes:
+      - Add official support for Ansible 2.20
+      release_summary: Release summary for v1.1.0
+    fragments:
+    - ansible-2.20.yml
+    - release-summary.yml
+    - website-info-no-sites.yml
+    release_date: '2025-11-20'

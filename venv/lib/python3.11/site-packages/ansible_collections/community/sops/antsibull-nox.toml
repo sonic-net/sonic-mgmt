@@ -1,0 +1,355 @@
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[collection_sources]
+"community.internal_test_tools" = "git+https://github.com/ansible-collections/community.internal_test_tools.git,main"
+"community.general" = "git+https://github.com/ansible-collections/community.general.git,main"
+
+[collection_sources_per_ansible.'2.15']
+# community.general's main branch needs ansible-core >= 2.16
+"community.general" = "git+https://github.com/ansible-collections/community.general.git,stable-10"
+
+[collection_sources_per_ansible.'2.16']
+# community.general's main branch needs ansible-core >= 2.17
+"community.general" = "git+https://github.com/ansible-collections/community.general.git,stable-11"
+
+[vcs]
+vcs = "git"
+development_branch = "main"
+stable_branches = [ "stable-*" ]
+
+[sessions]
+
+[sessions.lint]
+run_isort = false
+run_black = false
+run_flake8 = false
+run_pylint = false
+run_yamllint = true
+yamllint_config = ".yamllint"
+yamllint_config_plugins = ".yamllint-docs"
+yamllint_config_plugins_examples = ".yamllint-examples"
+yamllint_config_extra_docs = ".yamllint-extra-docs"
+run_mypy = false
+
+[sessions.docs_check]
+validate_collection_refs="all"
+codeblocks_restrict_types = [
+    "ansible-output",
+    "console",
+    "ini",
+    "yaml",
+    "yaml+jinja",
+]
+codeblocks_restrict_type_exact_case = true
+codeblocks_allow_without_type = false
+codeblocks_allow_literal_blocks = false
+
+[sessions.license_check]
+
+[sessions.extra_checks]
+run_no_unwanted_files = true
+no_unwanted_files_module_extensions = [".py"]
+no_unwanted_files_yaml_extensions = [".yml"]
+run_action_groups = true
+run_no_trailing_whitespace = true
+run_avoid_characters = true
+
+[[sessions.extra_checks.avoid_character_group]]
+name = "tab"
+regex = "\\x09"
+skip_extensions = [
+    ".json",
+]
+skip_directories = [
+    "tests/integration/targets/filter_decrypt/files/",
+    "tests/integration/targets/lookup_sops/files/",
+    "tests/integration/targets/sops_encrypt/files/",
+]
+
+[sessions.build_import_check]
+run_galaxy_importer = true
+
+[sessions.ansible_test_sanity]
+include_devel = true
+
+[sessions.ansible_test_integration]
+
+[sessions.ansible_test_integration.ansible_vars]
+github_token = { type = "env", name = "GITHUB_TOKEN", unset_if_not_set = true }
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-main"
+description = "Meta-session for all ansible-test-integration-main-* sessions."
+session_name_template = "ansible-test-integration-main-{ansible_core}{dash_docker_short}{dash_override_sops_version}{dash_gha_arm_lower}"
+display_name_template = "main+Ⓐ{ansible_core}+SOPS-{override_sops_version}{plus_docker_short}{plus_py_python_version}{plus_gha_arm}"
+description_template = "Run main integration tests with ansible-core {ansible_core}, {docker_short}, SOPS {override_sops_version}{comma_gha_arm}"
+target = "gha/main/"
+gha_container = "ubuntu-latest"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+ansible_vars = { override_sops_version = "3.5.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+ansible_vars = { override_sops_version = "3.6.1" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+ansible_vars = { override_sops_version = "3.7.3" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+ansible_vars = { override_sops_version = "3.8.1" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+ansible_vars = { override_sops_version = "3.9.3" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = ["ubuntu2204", "ubuntu2404", "fedora42"]
+ansible_vars = { override_sops_version = "3.11.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.15"
+docker = "ubuntu2004"
+ansible_vars = { override_sops_version = "3.10.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.15"
+docker = "ubuntu2204"
+ansible_vars = { override_sops_version = "3.6.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.15"
+docker = "quay.io/ansible-community/test-image:debian-bullseye"
+python_version = "3.9"
+ansible_vars = { override_sops_version = "latest" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.16"
+docker = "ubuntu2004"
+ansible_vars = { override_sops_version = "3.7.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.16"
+docker = "ubuntu2204"
+ansible_vars = { override_sops_version = "3.7.3" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.17"
+docker = "ubuntu2204"
+ansible_vars = { override_sops_version = "3.8.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.17"
+docker = "fedora39"
+ansible_vars = { override_sops_version = "3.10.1" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.18"
+docker = "ubuntu2404"
+ansible_vars = { override_sops_version = "3.9.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.18"
+docker = "fedora40"
+ansible_vars = { override_sops_version = "3.9.2" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.19"
+docker = "ubuntu2404"
+ansible_vars = { override_sops_version = "3.10.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.19"
+docker = "fedora41"
+ansible_vars = { override_sops_version = "3.10.2" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2204"
+ansible_vars = { override_sops_version = "3.6.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2204"
+ansible_vars = { override_sops_version = "3.7.0" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2404"
+ansible_vars = { override_sops_version = "3.9.1" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "quay.io/ansible-community/test-image:archlinux"
+python_version = "3.13"
+ansible_vars = { override_sops_version = "latest" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "quay.io/ansible-community/test-image:debian-bookworm"
+python_version = "3.11"
+ansible_vars = { override_sops_version = "latest" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "quay.io/ansible-community/test-image:debian-13-trixie"
+python_version = "3.13"
+ansible_vars = { override_sops_version = "latest" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2404"
+gha_container = "ubuntu-24.04-arm"
+ansible_vars = { override_sops_version = "latest" }
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-install-1"
+description = "Meta-session for all ansible-test-integration-install-1-* sessions."
+session_name_template = "ansible-test-integration-install-1-{ansible_core}{dash_docker_short}{dash_gha_arm_lower}"
+display_name_template = "install-1+Ⓐ{ansible_core}{plus_docker_short}{plus_py_python_version}{plus_gha_arm}"
+description_template = "Run install role integration tests (specific SOPS version) with ansible-core {ansible_core}, {docker_short}{comma_gha_arm}"
+target = "gha/install/1/"
+gha_container = "ubuntu-latest"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.17"
+docker = ["ubuntu2204", "fedora39"]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.18"
+docker = ["ubuntu2404", "fedora40"]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.19"
+docker = ["ubuntu2404", "fedora41"]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2404"
+gha_container = "ubuntu-24.04-arm"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-install-2"
+description = "Meta-session for all ansible-test-integration-install-2-* sessions."
+session_name_template = "ansible-test-integration-install-2-{ansible_core}{dash_docker_short}{dash_gha_arm_lower}"
+display_name_template = "install-2+Ⓐ{ansible_core}{plus_docker_short}{plus_py_python_version}{plus_gha_arm}"
+description_template = "Run install role integration tests (localhost vs. remote host) with ansible-core {ansible_core}, {docker_short}{comma_gha_arm}"
+target = "gha/install/2/"
+gha_container = "ubuntu-latest"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2204"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2204"
+gha_container = "ubuntu-24.04-arm"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-install-3"
+description = "Meta-session for all ansible-test-integration-install-3-* sessions."
+session_name_template = "ansible-test-integration-install-3-{ansible_core}{dash_docker_short}{dash_gha_arm_lower}"
+display_name_template = "install-3+Ⓐ{ansible_core}{plus_docker_short}{plus_py_python_version}{plus_gha_arm}"
+description_template = "Run install role integration tests (latest SOPS version) with ansible-core {ansible_core}, {docker_short}{comma_gha_arm}"
+target = "gha/install/3/"
+gha_container = "ubuntu-latest"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "quay.io/ansible-community/test-image:archlinux"
+python_version = "3.13"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "quay.io/ansible-community/test-image:debian-13-trixie"
+python_version = "3.13"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "quay.io/ansible-community/test-image:debian-bookworm"
+python_version = "3.11"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.16"
+docker = "quay.io/ansible-community/test-image:debian-bullseye"
+python_version = "3.9"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.19"
+docker = "fedora41"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "fedora42"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2204"
+ansible_vars = { github_latest_detection = "api" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "ubuntu2404"
+ansible_vars = { github_latest_detection = "latest-release" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.19"
+docker = "alpine321"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "alpine322"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+docker = "alpine322"
+gha_container = "ubuntu-24.04-arm"
+ansible_vars = { github_latest_detection = "auto" }
+
+[[sessions.ee_check.execution_environments]]
+name = "devel-ubi-9"
+description = "ansible-core devel @ RHEL UBI 9"
+test_playbooks = ["tests/ee/all.yml"]
+config.images.base_image.name = "docker.io/redhat/ubi9:latest"
+config.dependencies.ansible_core.package_pip = "https://github.com/ansible/ansible/archive/devel.tar.gz"
+config.dependencies.ansible_runner.package_pip = "ansible-runner"
+config.dependencies.python_interpreter.package_system = "python3.12 python3.12-pip python3.12-wheel python3.12-cryptography"
+config.dependencies.python_interpreter.python_path = "/usr/bin/python3.12"
+config.additional_build_steps.append_final = [
+    "RUN ansible-playbook -v community.sops.install_localhost",
+]
+runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}
+
+[[sessions.ee_check.execution_environments]]
+name = "2.15-rocky-9"
+description = "ansible-core 2.15 @ Rocky Linux 9"
+test_playbooks = ["tests/ee/all.yml"]
+config.images.base_image.name = "quay.io/rockylinux/rockylinux:9"
+config.dependencies.ansible_core.package_pip = "https://github.com/ansible/ansible/archive/stable-2.15.tar.gz"
+config.dependencies.ansible_runner.package_pip = "ansible-runner"
+config.additional_build_steps.append_final = [
+    "RUN ansible-playbook -v community.sops.install_localhost",
+]
+runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}

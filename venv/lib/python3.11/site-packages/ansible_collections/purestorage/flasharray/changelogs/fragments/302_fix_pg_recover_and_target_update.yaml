@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_pg - Ensure deleted protection group can be correctly recovered
+ - purefa_pg - Corredt issue when target for protection group is not correctly amended

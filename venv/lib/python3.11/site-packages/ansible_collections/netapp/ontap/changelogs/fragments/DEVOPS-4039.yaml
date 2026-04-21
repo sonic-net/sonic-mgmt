@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_rest_info - add examples for ``parameters`` option.
+  - na_ontap_volume - show warning when resize is ignored because threshold is not reached.

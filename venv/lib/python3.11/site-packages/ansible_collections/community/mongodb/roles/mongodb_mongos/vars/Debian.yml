@@ -1,0 +1,5 @@
+---
+mongodb_user: "mongodb"
+mongodb_group: "mongodb"
+mongos_port: 27017
+mongos_service: "mongos"

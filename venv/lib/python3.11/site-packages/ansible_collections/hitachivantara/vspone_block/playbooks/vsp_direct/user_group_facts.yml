@@ -1,0 +1,58 @@
+---
+####################################################################
+# Example : User Group Facts Playbook
+####################################################################
+- name: User Group Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all User Groups
+    ####################################################################
+    - name: Get all User Groups
+      hitachivantara.vspone_block.vsp.hv_user_group_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get User Group by name
+    ####################################################################
+    - name: Get User Group by name
+      hitachivantara.vspone_block.vsp.hv_user_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "System User Group"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get User Group by ID
+    ####################################################################
+    - name: Get User Group by ID
+      hitachivantara.vspone_block.vsp.hv_user_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "System%20User%20Group"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

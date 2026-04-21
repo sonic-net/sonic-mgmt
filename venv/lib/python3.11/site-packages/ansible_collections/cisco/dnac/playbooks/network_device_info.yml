@@ -1,0 +1,37 @@
+---
+- name: Network device info
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Get Network Devices
+      cisco.dnac.network_device_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+      register: network_devices_result
+
+    - name: Show all network_devices
+      ansible.builtin.debug:
+        msg: "{{ network_devices_result }}"
+
+    - name: Get Network Device by id
+      cisco.dnac.network_device_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        id: ccb167e0-1ce2-4a03-853c-3f8d0dc47fee
+      register: network_device_result
+
+    - name: Show network_device
+      ansible.builtin.debug:
+        msg: "{{ network_device_result }}"

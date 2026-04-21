@@ -1,0 +1,42 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+DOCUMENTATION:
+  name: list_to_dict
+  short_description: Convert a list of arguments to a dictionary
+  version_added: 2.0.0
+  description:
+    - Convert a list of arguments to a dictionary.
+  options:
+    _input:
+      description:
+        - A list of assignments. Can be the result of the P(community.routeros.split#filter) filter.
+      type: list
+      elements: string
+      required: true
+    require_assignment:
+      description:
+        - Allows to accept arguments without values when set to V(false).
+      type: boolean
+      default: true
+    skip_empty_values:
+      description:
+        - Allows to skip arguments whose value is empty when set to V(true).
+      type: boolean
+      default: false
+  author:
+    - Felix Fontein (@felixfontein)
+
+EXAMPLES: |
+  ---
+  - name: Convert a list to a dictionary
+    ansible.builtin.set_fact:
+      dictionary: "{{ ['foo=bar', 'comment=foo is bar'] | community.routeros.list_to_dict }}"
+      # dictionary == {'foo': 'bar', 'comment': 'foo is bar'}
+
+RETURN:
+  _value:
+    description: A dictionary representation of the input data.
+    type: dictionary

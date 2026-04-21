@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_hg - Fixed issue when ``check_mode = true`` not reporting correct status when adding new hosts to hostgroup.

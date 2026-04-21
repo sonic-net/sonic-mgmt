@@ -1,0 +1,18 @@
+---
+- name: Template
+  hosts: dnacenter
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.dnac.application_sets_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+      retries: 10
+      delay: 1
+      register: result
+      until: result.status == 200

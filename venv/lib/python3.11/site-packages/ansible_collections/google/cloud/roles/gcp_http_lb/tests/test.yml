@@ -1,0 +1,6 @@
+---
+- name: Test gcp_http_lb role
+  hosts: localhost
+  remote_user: root
+  roles:
+    - gcp_http_lb

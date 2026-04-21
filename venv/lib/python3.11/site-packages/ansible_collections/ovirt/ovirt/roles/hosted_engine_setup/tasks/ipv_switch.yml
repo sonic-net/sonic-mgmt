@@ -1,0 +1,11 @@
+---
+- name: Choose IPv4, IPv6 or auto
+  when: ip_key is not defined
+  block:
+    - name: Fail if he_force_ip4 and he_force_ip6 are set at the same time
+      ansible.builtin.fail:
+        msg: he_force_ip4 and he_force_ip6 cannot be used at the same time
+      when: he_force_ip4 and he_force_ip6
+    - name: Prepare getent key
+      ansible.builtin.set_fact:
+        ip_key: "{{ 'ahostsv4' if he_force_ip4 else 'ahostsv6' if he_force_ip6 else 'ahosts' }}"

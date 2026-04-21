@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_net_port - new option ``up_admin`` to set administrative state.
+  - na_ontap_net_port - change option types to bool and int respectively for ``autonegotiate_admin`` and ``mtu``.

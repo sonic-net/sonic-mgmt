@@ -1,0 +1,57 @@
+---
+####################################################################
+# Example : Storage System Module
+####################################################################
+- name: Storage System Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Set date and time in Storage System with NTP disabled
+    ####################################################################
+    - name: Set date and time in Storage System with NTP disabled
+      hitachivantara.vspone_block.vsp.hv_storage_system:
+        connection_info: "{{ connection_info }}"
+        spec:
+          date_time:
+            is_ntp_enabled: false
+            time_zone_id: "Etc/GMT"
+            system_time: "2025-06-17T19:04:05Z"
+            synchronizes_now: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Set date and time in Storage System with NTP enabled
+    ####################################################################
+    - name: Set date and time in Storage System with NTP enabled
+      hitachivantara.vspone_block.vsp.hv_storage_system:
+        connection_info: "{{ connection_info }}"
+        spec:
+          date_time:
+            is_ntp_enabled: true
+            ntp_server_names:
+              - "ntp1.example.com"
+              - "ntp2.example.com"
+            time_zone_id: "Etc/GMT"
+            system_time: "2025-06-17T19:04:05Z"
+            synchronizes_now: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

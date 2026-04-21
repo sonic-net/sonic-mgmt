@@ -1,0 +1,48 @@
+---
+- name: Uninstall gateway
+  hosts: gateway
+  gather_facts: true
+  tasks:
+    - name: Uninstall powerflex gateway
+      ansible.builtin.import_role:
+        name: "powerflex_gateway"
+      vars:
+        powerflex_gateway_state: 'absent'
+
+    - name: Verifying uninstall package in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_gateway_uninstall_output.msg == "Check mode: No changes made, but would have if not in check mode"
+          - powerflex_gateway_uninstall_output.changed is true
+      when: ansible_check_mode and ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+    - name: Verifying uninstall package in converge
+      ansible.builtin.assert:
+        that:
+          - " 'Removed:' in powerflex_gateway_uninstall_output.results[0].results[0]"
+      when: not ansible_check_mode and powerflex_gateway_uninstall_output.changed and ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+    - name: Verifying uninstall package in Idempotency
+      ansible.builtin.assert:
+        that:
+          - powerflex_gateway_uninstall_output.results[0].msg == 'Nothing to do'
+      when: not ansible_check_mode and not powerflex_gateway_uninstall_output.changed and ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+    - name: Verifying uninstall package in check mode for ubuntu package
+      ansible.builtin.assert:
+        that:
+          - powerflex_gateway_uninstall_deb_output.msg == "Check mode: No changes made, but would have if not in check mode"
+          - powerflex_gateway_uninstall_deb_output.changed is true
+      when: ansible_check_mode and ansible_distribution == "Ubuntu"
+
+    - name: Verifying uninstall package in converge for ubuntu package
+      ansible.builtin.assert:
+        that:
+          - " 'Removed:' in powerflex_gateway_uninstall_deb_output.results[0].results[0]"
+      when: not ansible_check_mode and powerflex_gateway_uninstall_deb_output.changed and ansible_distribution == "Ubuntu"
+
+    - name: Verifying uninstall package in Idempotency for ubuntu package
+      ansible.builtin.assert:
+        that:
+          - powerflex_gateway_uninstall_deb_output.results[0].msg == 'Nothing to do'
+      when: not ansible_check_mode and not powerflex_gateway_uninstall_deb_output.changed and ansible_distribution == "Ubuntu"

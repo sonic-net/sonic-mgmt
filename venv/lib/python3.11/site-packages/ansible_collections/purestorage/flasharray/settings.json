@@ -1,0 +1,8 @@
+{
+    "id": "FlashArray-Collection",
+    "name": "Ansible Collection for FlashArray",
+    "filter": "devops",
+    "image": "http://code.purestorage.com/images/33_fa_collection.png",
+    "featured": 1,
+    "priority": 3
+}

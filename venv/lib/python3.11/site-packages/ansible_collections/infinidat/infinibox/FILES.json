@@ -1,0 +1,1041 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".gitlab-ci.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db7b4e418d35d2ef49312cfd1221842c21dac4caae0b43cb8ee9585d19db698d",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf1ea4b20039d56408bd9f6b593e15fc652d2785c2063586f2835b647c60c6f6",
+   "format": 1
+  },
+  {
+   "name": "README-DEV.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ce029d81999e60e7876d9202746f24e76f33a328bc1579c9265ea3c70a326b43",
+   "format": 1
+  },
+  {
+   "name": "requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "62f18d0b71e237e6ce05c76a970a709c43d962fa43f8a6801b7772c8ae1b4a05",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_certificate.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61d0e4c27e20f4d243dafd43b527184ea3e502d30b94d6026e60f514c038f1a7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_notification_rule.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db9a81d5adaf9ccae5a0454d651bf913c5ff361255922b9c22f6a17e990984fe",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_sso.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cbb5879bb0874d71dbf648f13c5a11c5767356cddd29c1239898b38141f4a3b4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_event.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "75124ec3c537c9e4db4e8bf97777ba2396939c264c73a9f8d1b10deb00b5d23a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_user.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "08f51eb7d0e643002fc713857d70b8ed2942f94d87d91d4e953171c0b62ca358",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_export_client.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8f82c0187d8be212f2da1590a1f1c5ca3ff0f508d6c7338405b618a86d1770a1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_infinimetrics.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cf245c21af83444cb6575045ae9927c09fd55c314d89b1b6564e83f6468d9783",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_notification_target.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d545f6a59abdcf7947f9a07b437bd1d4cecd19f4563e42348c2ed6a4dd2e4d68",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_network_space.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ae0362e206645d3ab06a9f5fc6b3769fd70f1004148feaf4ec0eba581c94a581",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_cluster.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cff08f680199863e095fae1c890cc17b65e15d263c1b84da859c170bb6c8cb82",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_metadata.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bc7ab7254f81b796a6f8f8f1b15b6df9ad6d3c581b82414b1f1adb54cde78038",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_host.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "96453b44cad54dcd36760356577b03cf63b436543612d36fe2340cd148044143",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_map.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f965ef038395328bcf0d83309c2801010773daa43a45c45700b3eac31c14e584",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_fs.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b107fd822d1a2347e3f1f8ef38445f4dda191661accb989254d807bf476e9e16",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_export.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5c207376a0995ba10858877af5076565dda8f9d5430a53222f178bf58a8dfb6c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_fibre_channel_switch.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d651158ae13d2f0f6a93fcb3c0af5aa283112dc630f45d8c28fcd8dbb04f331",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_vol.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "76e218365ec9b8dce9f4a0e7aba6eb1c9e27f15f36ef308f5044f714c3a19d0f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_port.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "09ed2ba4508b91df5c8a15d694463e8ea87615acd21e362ae1219b6e4bc1492f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b1f1fd399da6508c04d316abb3ef68528b886e24079eaaa8d17adb64e9478f13",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_users_repository.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bdd2b320b2da411ca81e79f94976856c94bc8e25cce439808119d72ef0764547",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/infini_pool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e1aee3951197de002baab7333f96141debcca4db25a0f7f686b0c2203be24e1",
+   "format": 1
+  },
+  {
+   "name": "plugins/filter",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/filter/psus_filters.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1320aad99ff8d66af7181faf2c57682bf281a717616e645e018c558b709a8c06",
+   "format": 1
+  },
+  {
+   "name": "plugins/filter/delta_time.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8d8fd570aa879ec7e5436d9981eb561e8fea5b30d12def6767043b0a25909506",
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/infinibox.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4d61eaaec4e9210f498596eddab5e8b66f5c4a1352665d462d0ec9e647b0598a",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/infinibox.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5305c2d4b169d70f50f01ed00a41bb1155163c5ba38c925e7ba6fd1277743132",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/hacking",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_vol_present_example.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "23e4089f3d750800a7c782a3d579a53f298d366f0b1f84431a02414c12b81160",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_network_space_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "69c3dcd9db6b1ec9f1519305d574843089ec93635a4a36ec89917bd480d19c1e",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_certificate_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6ca7947e40e561c010b57937c37459d7cec19ac3dca1341417654c43458b7fb5",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_fibre_channel_switch_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1793740680f859d1d9b3843022ad3c4dd3edcbcea4e1735f6d3cbdc042c650f7",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_rule_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "991bf9066974b9e425ff08e51b87d5a3aa943cd7fc8d0523a3b1d59a85f3f0e0",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_ldap_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "900827e9dcb11b09f2cf0d66a35c91008da5bbef33214b13dce7b7997841dbbe",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_ldap_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a5e47488388b4adf1131b3ac292e085fb368cc43e20c944ab715079335d3efd",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_simple_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7302bc1f22ffef2d3d3d820c12e2d213f76f11f5c6999e9108eca4bf905f4ab",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_host_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "62163ae985c74c994d939df982410f62336a71a2e0746b590b6fcdfc1a981887",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a5e47488388b4adf1131b3ac292e085fb368cc43e20c944ab715079335d3efd",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_fibre_channel_switch_rename.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5235ce26fd770ce6b0475312f7c74d8b503e29670e9d7aaee4d63b923394da57",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_ldap_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "548edd33acba531eb99b36accdd4018760246db0c7f40f835cf7680ca29b8345",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_sso_present_1521.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3ce0b66687616baa0fcbca91a53154a614165c7fb49621447246b89c6fa06d7d",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_metadata_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f0929531782eef2618229709b62dd265a12ef8f5d56ae1f9d8b6a2db60bc1e5b",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_cluster_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cf40ee2461bacade233f879634939d9c485121fcfdd128969c63ac6f44f77deb",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_vol_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "59b98186a2797ff06920187321f9ab763eb8d012de1478778073b058eb1337ac",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_sso_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ba0820095da29cfc3edba4d9b8cd8fbc042e9383dad9a5a6469c31f3602762b9",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_vol_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "77b56e87d0997981a21bf05f1c181b95d6e0d2bf2dca2b159ab9b40ddbd05206",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_pool_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8c7149260706e73ee4b57c9f3ad8f2905f94c82aa7251c4df5dd38b79ed5631b",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_infinimetrics_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ed4e2917ed47877b84191b4d8770047f2472a106be92b9b37fb4bb01b141bc83",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_ad_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "66310bafeceec53713f418fee6c5f332218158f248f4b73b9ddcdd2383b0356a",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_map_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "755679bd63d37303562c3d1a6303665baa14995bb5952d2ef87c72710584bb92",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_network_space_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a457a12bbbec4de0ca11181ae1d40b8af61e17007bf745d84f99712bf5eefd74",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_target_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9916f7e8cbd582191a2296d96daa982739fa261a49ba6d172832f4d3c8ae3dda",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_infinimetrics_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ca6acb2d421c89b6e8adb70723c0f937e9eed9ca1f37ab64b38ba43079dc9cab",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_cluster_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "332e3d2f2b3d76a419fddfbe38ab67b7d919d0f9cdaf728de22a3a200926b678",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ceb51d08936f7fcf907a5927d181a5c74b83d9951519450c7a2c71d601c2399",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_host_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5d031d6060abab6b88f28e6b5b589ae3937e36af924ef7d32406f36759a9436e",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_target_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bb79c89370e548d2661962c788ae7d78482716e68e103102867f68da94344e2e",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "66310bafeceec53713f418fee6c5f332218158f248f4b73b9ddcdd2383b0356a",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_ldap_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "694b3e8b89b598ae6fcc844de9c0fbb1137f22760025239aa81bdc17362a7898",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_infinimetrics_search_iboxes.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "582e6db79234824b1f12ed7feea27accbded582304f9c2fb36dead965c578248",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_ad_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95e6ca6225aa07f500acab0657d29642a047e3406690c25dcf2781e469e6b193",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_event_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3b5609fcd5e4d6634b50842337814aae85ef6a2fadeed491c73da99f2d2942ee",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_ldap_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ceb51d08936f7fcf907a5927d181a5c74b83d9951519450c7a2c71d601c2399",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_rule_absent_1521.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1625dc67e0cdb3f35aa45dde3595334c343b12fcf0e41dd9e114e9b2bc855556",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_certificate_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1ee672ec799ff626fc87b03894c6357b8dd9f0198dd07f55b1a3de3f5cc8d3c0",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_rule_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a6f1d3b769dd1e6cfc0458c9d81b2637d3b71503913f5ab9ba42fa87311f7150",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_fs_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8dc3f612f49ba283f3d851f34ee8440bf0bcdb06d198957c9da2c6e408a0b55d",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_rule_present_vibox.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "672faf6777e1f2e20330978ae22375d8fc2b964357d000dc628470795c0ac8d1",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_ldap_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "38a0658d1f2c2cbfccc3d10cf1b5acd2a68b8f1748caf0b30a6e0a93dbc51ea9",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_sso_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "10cc3063ad3a502f739c645c39a6275fc4b7261ed0ee7d955abd016446ae8470",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_pool_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f6d5b22375ad150dcfa5927c213f96f206ad0f5feee3e9da31da62a53a793750",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95e6ca6225aa07f500acab0657d29642a047e3406690c25dcf2781e469e6b193",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_metadata_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4ffc6ed89bc4d7bce3880715c7e0383aac4f34a03ae8965b998cdf29962f9c54",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_target_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d1285e2c98d6cd9cf3dec8442fd0df6d11fec090fe9381323f863d17a4eb1234",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_vol_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "382fa9517b73f3f92beae3273ab5764b0d5ed29315d021beacc5e1757078558b",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_map_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d499f2fb8cb7ae401db0b18e0cbe7ddfc4c30317d045aaea9882e6e04b922b51",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_fs_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "25f66e71989ffe55e860cab51760ab08edd0a1c9f0e59b1265795164a9eb06b7",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_map_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "747c16676033646f61d331b260a997c3d32052dffa5b276e4f868759f89e299b",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_simple_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4eff3c5e345ed1099bee586c6fab5c64b51eec1849f6533943c7a3b4236c6813",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_fs_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d6bfea20cd61cc73e6f30469b286de817f66b56c85ce3bf9d35b830cffff501d",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_metadata_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "88468dff8d22068c313abab95c8d298953f516deb0b8765a3c77a1926d373ab7",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_ad_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "75bcbe2bb4b9940f8fd433f7e114dbeff8a955622b3a12294a0dfeae7c875136",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_users_repository_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "75bcbe2bb4b9940f8fd433f7e114dbeff8a955622b3a12294a0dfeae7c875136",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_rule_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "672faf6777e1f2e20330978ae22375d8fc2b964357d000dc628470795c0ac8d1",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_simple_login.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cda0cfe5b280ed0b4d3eee7a8a6bb855e89d3a27315f0e04cd7345c06abf27e8",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_sso_present_vibox.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "10cc3063ad3a502f739c645c39a6275fc4b7261ed0ee7d955abd016446ae8470",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_rule_absent_vibox.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a6f1d3b769dd1e6cfc0458c9d81b2637d3b71503913f5ab9ba42fa87311f7150",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_metadata_search.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "72c8468316d98cd8d51761a7a2f6a1ed5f4f3de59aacff9be717bc89e7760c49",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_network_space_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "239afac59dfb48676e8ab1902d40513674ab2ce1e549610d882688543739a5d5",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_notification_rule_present_1521.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c823038faf18206b0e0ba4c7d9ea60d9147497a52298b34f9d71425ab9905d96",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "694b3e8b89b598ae6fcc844de9c0fbb1137f22760025239aa81bdc17362a7898",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_certificate_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b65562431780c519693ad1d0d7ba1c4e4756fb79ea6d88abb9aadd23bdee9bb0",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_sso_absent.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "41cd28c549880266675b63f2a16ef2fccf7e2a44faf527df4454d383cefef1c4",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_host_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5e3305f7d665127fcde2e8ca18297f08f7f204dc404062f2194b169d0c50f880",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_simple_stat.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a8ed6a296c3fc51afd5b174814860e1ecc417565d2e2fcad4e7172f892a631f",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_cluster_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b1fb6b3fbfd910049aad9a1d85e2e1e253da22f86783d465b08ddd5b43325c89",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_user_login.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cda0cfe5b280ed0b4d3eee7a8a6bb855e89d3a27315f0e04cd7345c06abf27e8",
+   "format": 1
+  },
+  {
+   "name": "tests/hacking/infini_pool_present.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99828cc60970be8032469217543281b94b43d74690e38cecfbfdf9dd3c786589",
+   "format": 1
+  },
+  {
+   "name": "tests/config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a009a349eaaf78c93ff56072d2ef171937bdb884e4976592ab5aaa9c68e1044",
+   "format": 1
+  },
+  {
+   "name": "docs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "docs/DEV_README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "793740dc81e2ab5861a5c026ec227f40b63eb8b71a5d8ba608cc9c16a9640723",
+   "format": 1
+  },
+  {
+   "name": "requirements-dev.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d2d183ca6ef47ed67ebb14ca1cd741933daca55d5838b93c08781312ed2ed4e4",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/execution-environment.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b03e59e1cf4341741306b8d290961e3295a92e7810c0028bb401f2ae1eca745",
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2af7f216ad53afd39bb0c11d4db64e18bc31056b50827d6791e9631978ac9048",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc9405faf5aa7aa9af717d8a1f4dad063a9103a7857b29d48775702e5ad79f02",
+   "format": 1
+  },
+  {
+   "name": "playbooks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_create_map_cluster.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "09ccf475f6692eb69732ed4f211e7f2ad9a99e54fe138ccaf8ceabff5ca88ac2",
+   "format": 1
+  },
+  {
+   "name": "playbooks/infinisafe_demo_teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8be2494710a5ea4fd7735cfe0ef52d8e9fd721a5a8d7a7e660f10040a88306c2",
+   "format": 1
+  },
+  {
+   "name": "playbooks/infinisafe_demo_runtest.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e082c88681f4080a3be10a9e3a30dc9bfd4f3f303b5eec573a4e2da6268561a7",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_notification_rules_sample.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3dc6ba9c5ca2870b1f6be35225c251d30c6cf748576bf5d01f03078c1f2481c1",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_remove_resources_demo.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "558978dfd6997a9c13e3a5af2ec74f5ee96c362a57803feb22f57438f5e685de",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_remove_metadata.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "893dffb4ea899a0fec1c3ebbe5a08c4f6d7ddfb78002ef79870a9eb219ea4a39",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_remove_network_spaces.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "93c179b4918a5aa94e23f83206f9cf891851e10beb212b05b715a31efab90f8d",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ansible.cfg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6946120d2926bdde34018f3507e119c2e5f7d08e74ab25fe42e9ab61c7d07e62",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_create_volumes.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7e1da86de6b914946140f28ffc7235418ca4817ac6a0f40a601b4d81d8bf53bc",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_create_snapshots.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8a3eecfb7b5badf77d674766b8366fe8846b9a11531e63044de07858a93cf64b",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_search_metadata.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8f7bb975ef5c04709fe56b977ef728dcc21e8e473a56ea2f93f01a388f1aacd9",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_create_metadata.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1059126c26f8e359c5532524202b52d19c33bc09d2f263b2630f710915a1eb86",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_config_sample.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "313404d41862db332f3a71a1c8092f25c581890cba992b131a7fe0a79a21b138",
+   "format": 1
+  },
+  {
+   "name": "playbooks/configure_array.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "966b5811b5bef88824f46ec7870fc199796ad892de0929f96f438c63cbafd66e",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_remove_map_cluster.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a3634e90f75e0bd7b430298fc03451754d13944d68204a98682879d2b78f5ca3",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_create_network_spaces.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1535c4029ab50a492deb5ccc5844f8db925943edea36dd8596928831fafb8141",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_persist_api_session.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7ff403192cac6f78ea85d0894e46ea404496f432eee0f9c2b61c4fb98d1c5802",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_remove_resources.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f87e839f7f19c9b3cd5c54366f1d6cf5bc210bd5726a8d691159b9b8dbc79286",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_create_resources_demo.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1ef72f653486c620e921fc2b5d5060e0a735d4012177113b48cf70705cc89bd9",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_create_resources.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc17069885d712f0186d0e1627f65014d713cea9b06593484506f6cbb405dfd3",
+   "format": 1
+  },
+  {
+   "name": "playbooks/infinisafe_demo_setup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d4a1ac66d47a7ff4a27c28da52d5eb325fa094c9906e7464fbd24169580c970",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_remove_users_repository.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4c98c2caa0f8720d5d08ac7362e1794dc2be3191b2e15d421183b1cc3bd77afb",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_remove_snapshots.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "173991de0060fe4ff62aed19e9eb638a640e4f52032e68534b69ad0cefbd0270",
+   "format": 1
+  },
+  {
+   "name": "playbooks/test_remove_volumes.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "728a42b2e20165389e133398db73e4d648390a63f2cbce79d75a94ecdb4fc25a",
+   "format": 1
+  },
+  {
+   "name": "playbooks/inventory",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f164a40b003a7fde993412caeff0d770199a1c3ee0cdc6c68735812c192766de",
+   "format": 1
+  },
+  {
+   "name": "LICENSE",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e77edcc69dd86480e3392a71e6be429cb9576ed59e49bbb2e9dac4a44b28068f",
+   "format": 1
+  },
+  {
+   "name": "ibox_vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "ibox_vars/iboxCICD.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "abc06a5ab98659985e610a5bc366e0a5ab526204da14292bf090d02af288c545",
+   "format": 1
+  },
+  {
+   "name": "ibox_vars/iboxNNNN_example.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ebb6a3939ac236fcd9b0a738c7ece0f9d5f1dd0a7f78aed17f2e94f00325e596",
+   "format": 1
+  },
+  {
+   "name": "ibox_vars/vibox.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e4ae8fa6d1847afea07159932c69b7975a96fe61d2e927561a11d98485299497",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e9550eec67ab5edce6cc0c508a172d674ad2aab508a4131d7f5224b6c13df94e",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

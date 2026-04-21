@@ -1,0 +1,60 @@
+---
+- name: Unregister entities main block
+  ignore_errors: "{{ dr_ignore_error_clean }}"
+  tags:
+    - fail_back
+  block:
+    - name: Obtain SSO token
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ vars['dr_sites_' + dr_source_map + '_url'] }}"
+        username: "{{ vars['dr_sites_' + dr_source_map + '_username'] }}"
+        password: "{{ vars['dr_sites_' + dr_source_map + '_password'] }}"
+        ca_file: "{{ vars['dr_sites_' + dr_source_map + '_ca_file'] }}"
+
+    # Get all the running VMs and shut them down
+    - name: Fetch running VMs in the setup
+      ovirt.ovirt.ovirt_vm_info:
+        pattern: status = up
+        auth: "{{ ovirt_auth }}"
+      register: vm_info
+
+    - name: Check whether file with running VMs info exists
+      ansible.builtin.stat:
+        path: "{{ dr_running_vms }}"
+      register: stat_result
+
+    - name: Fetch all data of running VMs from file, if exists
+      ansible.builtin.set_fact:
+        running_vms_fail_back: "{{ lookup('file', dr_running_vms) }}"
+      when: stat_result.stat.exists
+      ignore_errors: true
+
+    - name: Init list property for running_vms
+      ansible.builtin.set_fact:
+
+        res_ovirt_vms: "[]"
+    - name: Map all running VMs in fact
+      ansible.builtin.set_fact:
+        res_ovirt_vms: "{{ res_ovirt_vms + [ { 'id': item.id, 'name': item.name, 'high_availability': item.high_availability } ] }}"
+      with_items: "{{ vm_info.ovirt_vms }}"
+      when: item.id is defined
+
+    - name: Create file to obtain running VMs if file does not exist
+      ansible.builtin.file:
+        path: "{{ dr_running_vms }}"
+        state: touch
+        mode: "0644"
+      when: not stat_result.stat.exists|bool or running_vms_fail_back is not defined
+
+    - name: If no file exists which contains data of unregistered VMs, set the file with running VMs
+      ansible.builtin.copy:
+        content: "{{ res_ovirt_vms }}"
+        dest: "{{ dr_running_vms }}"
+        mode: "preserve"
+      when: running_vms_fail_back is not defined or (running_vms_fail_back is defined and running_vms_fail_back | length == 0)
+
+  always:
+    - name: Revoke the SSO token
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"

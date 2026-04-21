@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_ndmp - Added get method to generate and retrieve ndmp user passowrd in REST.

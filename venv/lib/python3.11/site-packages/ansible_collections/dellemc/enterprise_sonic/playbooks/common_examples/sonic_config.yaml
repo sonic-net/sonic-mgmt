@@ -1,0 +1,43 @@
+---
+- name: "Configure a SONiC device"
+  hosts: datacenter
+  connection: network_cli
+  gather_facts: false
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: "Configure SNMP community for SONiC device along with 'save'"
+      sonic_config:
+        commands: ['snmp-server community public group ro']
+        save: true
+
+    - name: "Configure interface description using 'parents' option on SONiC device"
+      sonic_config:
+        lines:
+          - description hi
+        parents: ['interface Eth1/3']
+
+    - name: "Configure bgp using multiple level 'parents' on SONiC device"
+      sonic_config:
+        lines:
+          - maximum-paths 4
+        parents: ['router bgp 4', 'address-family ipv4 unicast']
+
+    - name: "Configure ip access-list using 'before' and 'after' option on SONiC device"
+      sonic_config:
+        lines:
+          - seq 1 permit tcp any any ack
+        parents: ['ip access-list test']
+        before: ['no ip access-list test']
+        after: ['no ip access-list test']
+
+    - name: "Configure cli using source file"
+      sonic_config:
+        src: src.txt
+
+    - name: "Configure cli with prompts on SONiC device"
+      sonic_config:
+        commands:
+          - command: 'do image remove all'
+            prompt: '\[y/N\]:$'
+            answer: 'N'

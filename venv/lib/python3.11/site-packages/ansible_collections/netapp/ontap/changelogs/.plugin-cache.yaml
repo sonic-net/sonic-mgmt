@@ -1,0 +1,847 @@
+objects:
+  role: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  filter:
+    iso8601_duration_from_seconds:
+      description: Encode seconds as a ISO 8601 duration string
+      name: iso8601_duration_from_seconds
+      version_added: 21.24.0
+    iso8601_duration_to_seconds:
+      description: Decode a ISO 8601 duration string as seconds
+      name: iso8601_duration_to_seconds
+      version_added: 21.24.0
+  httpapi: {}
+  inventory: {}
+  lookup: {}
+  module:
+    na_ontap_active_directory:
+      description: NetApp ONTAP configure active directory
+      name: na_ontap_active_directory
+      namespace: ''
+      version_added: 20.9.0
+    na_ontap_active_directory_domain_controllers:
+      description: NetApp ONTAP configure active directory preferred domain controllers
+      name: na_ontap_active_directory_domain_controllers
+      namespace: ''
+      version_added: 22.7.0
+    na_ontap_aggregate:
+      description: NetApp ONTAP manage aggregates.
+      name: na_ontap_aggregate
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_autosupport:
+      description: NetApp ONTAP autosupport
+      name: na_ontap_autosupport
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_autosupport_invoke:
+      description: NetApp ONTAP send AutoSupport message
+      name: na_ontap_autosupport_invoke
+      namespace: ''
+      version_added: 20.4.0
+    na_ontap_autoupdate_support:
+      description: NetApp ONTAP enable auto update status.
+      name: na_ontap_autoupdate_support
+      namespace: ''
+      version_added: 23.1.0
+    na_ontap_bgp_config:
+      description: NetApp ONTAP network BGP configuration
+      name: na_ontap_bgp_config
+      namespace: ''
+      version_added: 22.13.0
+    na_ontap_bgp_peer_group:
+      description: NetApp ONTAP module to create, modify or delete bgp peer group.
+      name: na_ontap_bgp_peer_group
+      namespace: ''
+      version_added: 22.0.0
+    na_ontap_broadcast_domain:
+      description: NetApp ONTAP manage broadcast domains.
+      name: na_ontap_broadcast_domain
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_broadcast_domain_ports:
+      description: NetApp ONTAP manage broadcast domain ports
+      name: na_ontap_broadcast_domain_ports
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_cg_snapshot:
+      description: NetApp ONTAP manage consistency group snapshot
+      name: na_ontap_cg_snapshot
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_cifs:
+      description: NetApp ONTAP Manage cifs-share
+      name: na_ontap_cifs
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_cifs_acl:
+      description: NetApp ONTAP manage cifs-share-access-control
+      name: na_ontap_cifs_acl
+      namespace: ''
+      version_added: null
+    na_ontap_cifs_local_group:
+      description: NetApp Ontap - create, delete or modify CIFS local group.
+      name: na_ontap_cifs_local_group
+      namespace: ''
+      version_added: 22.1.0
+    na_ontap_cifs_local_group_member:
+      description: NetApp Ontap - Add or remove CIFS local group member
+      name: na_ontap_cifs_local_group_member
+      namespace: ''
+      version_added: 21.2.0
+    na_ontap_cifs_local_user:
+      description: NetApp ONTAP local CIFS user.
+      name: na_ontap_cifs_local_user
+      namespace: ''
+      version_added: 22.2.0
+    na_ontap_cifs_local_user_modify:
+      description: NetApp ONTAP modify local CIFS user.
+      name: na_ontap_cifs_local_user_modify
+      namespace: ''
+      version_added: 21.4.0
+    na_ontap_cifs_local_user_set_password:
+      description: NetApp ONTAP set local CIFS user password
+      name: na_ontap_cifs_local_user_set_password
+      namespace: ''
+      version_added: 21.8.0
+    na_ontap_cifs_privileges:
+      description: NetApp ONTAP CIFS privileges
+      name: na_ontap_cifs_privileges
+      namespace: ''
+      version_added: 22.13.0
+    na_ontap_cifs_server:
+      description: NetApp ONTAP CIFS server configuration
+      name: na_ontap_cifs_server
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_cifs_unix_symlink_mapping:
+      description: NetApp ONTAP module to manage UNIX symbolic link mapping for CIFS
+        clients.
+      name: na_ontap_cifs_unix_symlink_mapping
+      namespace: ''
+      version_added: 22.9.0
+    na_ontap_cli_timeout:
+      description: NetApp ONTAP module to set the CLI inactivity timeout value.
+      name: na_ontap_cli_timeout
+      namespace: ''
+      version_added: 22.9.0
+    na_ontap_cluster:
+      description: NetApp ONTAP cluster - create a cluster and add/remove nodes.
+      name: na_ontap_cluster
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_cluster_ha:
+      description: NetApp ONTAP Manage HA status for cluster
+      name: na_ontap_cluster_ha
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_cluster_peer:
+      description: NetApp ONTAP Manage Cluster peering
+      name: na_ontap_cluster_peer
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_command:
+      description: NetApp ONTAP Run any cli command, the username provided needs to
+        have console login permission.
+      name: na_ontap_command
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_debug:
+      description: NetApp ONTAP Debug netapp-lib import and connection.
+      name: na_ontap_debug
+      namespace: ''
+      version_added: 21.1.0
+    na_ontap_disk_options:
+      description: NetApp ONTAP modify storage disk options
+      name: na_ontap_disk_options
+      namespace: ''
+      version_added: 21.4.0
+    na_ontap_disks:
+      description: NetApp ONTAP Assign disks to nodes
+      name: na_ontap_disks
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_dns:
+      description: NetApp ONTAP Create, delete, modify DNS servers.
+      name: na_ontap_dns
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_domain_tunnel:
+      description: NetApp ONTAP domain tunnel
+      name: na_ontap_domain_tunnel
+      namespace: ''
+      version_added: 21.3.0
+    na_ontap_efficiency_policy:
+      description: NetApp ONTAP manage efficiency policies (sis policies)
+      name: na_ontap_efficiency_policy
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_ems_config:
+      description: NetApp ONTAP module to modify EMS configuration.
+      name: na_ontap_ems_config
+      namespace: ''
+      version_added: 22.8.0
+    na_ontap_ems_destination:
+      description: NetApp ONTAP configuration for EMS event destination
+      name: na_ontap_ems_destination
+      namespace: ''
+      version_added: 21.23.0
+    na_ontap_ems_filter:
+      description: NetApp ONTAP EMS Filter
+      name: na_ontap_ems_filter
+      namespace: ''
+      version_added: 22.4.0
+    na_ontap_export_policy:
+      description: NetApp ONTAP manage export-policy
+      name: na_ontap_export_policy
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_export_policy_rule:
+      description: NetApp ONTAP manage export policy rules
+      name: na_ontap_export_policy_rule
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_fcp:
+      description: NetApp ONTAP Start, Stop and Enable FCP services.
+      name: na_ontap_fcp
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_fdsd:
+      description: NetApp ONTAP create or remove a File Directory security descriptor.
+      name: na_ontap_fdsd
+      namespace: ''
+      version_added: 21.8.0
+    na_ontap_fdsp:
+      description: NetApp ONTAP create or delete a file directory security policy
+      name: na_ontap_fdsp
+      namespace: ''
+      version_added: 21.8.0
+    na_ontap_fdspt:
+      description: NetApp ONTAP create, delete or modify File Directory security policy
+        tasks
+      name: na_ontap_fdspt
+      namespace: ''
+      version_added: 21.8.0
+    na_ontap_fdss:
+      description: NetApp ONTAP File Directory Security Set.
+      name: na_ontap_fdss
+      namespace: ''
+      version_added: 21.8.0
+    na_ontap_file_directory_policy:
+      description: NetApp ONTAP create, delete, or modify vserver security file-directory
+        policy
+      name: na_ontap_file_directory_policy
+      namespace: ''
+      version_added: 20.8.0
+    na_ontap_file_security_permissions:
+      description: NetApp ONTAP NTFS file security permissions
+      name: na_ontap_file_security_permissions
+      namespace: ''
+      version_added: 22.0.0
+    na_ontap_file_security_permissions_acl:
+      description: NetApp ONTAP file security permissions ACL
+      name: na_ontap_file_security_permissions_acl
+      namespace: ''
+      version_added: 22.0.0
+    na_ontap_firewall_policy:
+      description: NetApp ONTAP Manage a firewall policy
+      name: na_ontap_firewall_policy
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_firmware_upgrade:
+      description: NetApp ONTAP firmware upgrade for SP, shelf, ACP, and disk.
+      name: na_ontap_firmware_upgrade
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_flexcache:
+      description: NetApp ONTAP FlexCache - create/delete relationship
+      name: na_ontap_flexcache
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_fpolicy_event:
+      description: NetApp ONTAP FPolicy policy event configuration
+      name: na_ontap_fpolicy_event
+      namespace: ''
+      version_added: 21.4.0
+    na_ontap_fpolicy_ext_engine:
+      description: NetApp ONTAP fPolicy external engine configuration.
+      name: na_ontap_fpolicy_ext_engine
+      namespace: ''
+      version_added: 21.4.0
+    na_ontap_fpolicy_policy:
+      description: NetApp ONTAP - Create, delete or modify an FPolicy policy.
+      name: na_ontap_fpolicy_policy
+      namespace: ''
+      version_added: 21.3.0
+    na_ontap_fpolicy_scope:
+      description: NetApp ONTAP - Create, delete or modify an FPolicy policy scope
+        configuration.
+      name: na_ontap_fpolicy_scope
+      namespace: ''
+      version_added: 21.4.0
+    na_ontap_fpolicy_status:
+      description: NetApp ONTAP - Enables or disables the specified fPolicy policy
+      name: na_ontap_fpolicy_status
+      namespace: ''
+      version_added: 21.4.0
+    na_ontap_igroup:
+      description: NetApp ONTAP iSCSI or FC igroup configuration
+      name: na_ontap_igroup
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_igroup_initiator:
+      description: NetApp ONTAP igroup initiator configuration
+      name: na_ontap_igroup_initiator
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_info:
+      description: NetApp information gatherer
+      name: na_ontap_info
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_interface:
+      description: NetApp ONTAP LIF configuration
+      name: na_ontap_interface
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_ipspace:
+      description: NetApp ONTAP Manage an ipspace
+      name: na_ontap_ipspace
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_iscsi:
+      description: NetApp ONTAP manage iSCSI service
+      name: na_ontap_iscsi
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_iscsi_security:
+      description: NetApp ONTAP Manage iscsi security.
+      name: na_ontap_iscsi_security
+      namespace: ''
+      version_added: 19.11.0
+    na_ontap_job_schedule:
+      description: NetApp ONTAP Job Schedule
+      name: na_ontap_job_schedule
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_kerberos_interface:
+      description: NetApp ONTAP module to modify kerberos interface.
+      name: na_ontap_kerberos_interface
+      namespace: ''
+      version_added: 22.6.0
+    na_ontap_kerberos_realm:
+      description: NetApp ONTAP vserver nfs kerberos realm
+      name: na_ontap_kerberos_realm
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_ldap:
+      description: NetApp ONTAP LDAP
+      name: na_ontap_ldap
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_ldap_client:
+      description: NetApp ONTAP LDAP client
+      name: na_ontap_ldap_client
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_license:
+      description: NetApp ONTAP protocol and feature license packages
+      name: na_ontap_license
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_local_hosts:
+      description: NetApp ONTAP local hosts
+      name: na_ontap_local_hosts
+      namespace: ''
+      version_added: 22.0.0
+    na_ontap_log_forward:
+      description: NetApp ONTAP Log Forward Configuration
+      name: na_ontap_log_forward
+      namespace: ''
+      version_added: 21.2.0
+    na_ontap_login_messages:
+      description: Setup login banner and message of the day
+      name: na_ontap_login_messages
+      namespace: ''
+      version_added: 20.1.0
+    na_ontap_lun:
+      description: NetApp ONTAP manage LUNs
+      name: na_ontap_lun
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_lun_copy:
+      description: NetApp ONTAP copy LUNs
+      name: na_ontap_lun_copy
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_lun_map:
+      description: NetApp ONTAP LUN maps
+      name: na_ontap_lun_map
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_lun_map_reporting_nodes:
+      description: NetApp ONTAP LUN maps reporting nodes
+      name: na_ontap_lun_map_reporting_nodes
+      namespace: ''
+      version_added: 21.2.0
+    na_ontap_mav_approval_group:
+      description: NetApp ONTAP multi-admin verification (MAV) approval group
+      name: na_ontap_mav_approval_group
+      namespace: ''
+      version_added: 23.0.0
+    na_ontap_mav_config:
+      description: NetApp ONTAP multi-admin verification (MAV) global setting
+      name: na_ontap_mav_config
+      namespace: ''
+      version_added: 23.0.0
+    na_ontap_mav_rule:
+      description: NetApp ONTAP multi-admin verification (MAV) rule
+      name: na_ontap_mav_rule
+      namespace: ''
+      version_added: 23.0.0
+    na_ontap_mcc_mediator:
+      description: NetApp ONTAP Add and Remove MetroCluster Mediator
+      name: na_ontap_mcc_mediator
+      namespace: ''
+      version_added: 20.9.0
+    na_ontap_metrocluster:
+      description: NetApp ONTAP set up a MetroCluster
+      name: na_ontap_metrocluster
+      namespace: ''
+      version_added: 20.9.0
+    na_ontap_metrocluster_dr_group:
+      description: NetApp ONTAP manage MetroCluster DR Group
+      name: na_ontap_metrocluster_dr_group
+      namespace: ''
+      version_added: 20.11.0
+    na_ontap_motd:
+      description: Setup motd
+      name: na_ontap_motd
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_name_mappings:
+      description: NetApp ONTAP name mappings
+      name: na_ontap_name_mappings
+      namespace: ''
+      version_added: 22.0.0
+    na_ontap_name_service_switch:
+      description: NetApp ONTAP Manage name service switch
+      name: na_ontap_name_service_switch
+      namespace: ''
+      version_added: null
+    na_ontap_ndmp:
+      description: NetApp ONTAP NDMP services configuration
+      name: na_ontap_ndmp
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_net_ifgrp:
+      description: NetApp Ontap modify network interface group
+      name: na_ontap_net_ifgrp
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_net_port:
+      description: NetApp ONTAP network ports.
+      name: na_ontap_net_port
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_net_routes:
+      description: NetApp ONTAP network routes
+      name: na_ontap_net_routes
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_net_subnet:
+      description: NetApp ONTAP Create, delete, modify network subnets.
+      name: na_ontap_net_subnet
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_net_vlan:
+      description: NetApp ONTAP network VLAN
+      name: na_ontap_net_vlan
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_nfs:
+      description: NetApp ONTAP NFS status
+      name: na_ontap_nfs
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_node:
+      description: NetApp ONTAP Modify or Rename a node.
+      name: na_ontap_node
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_ntfs_dacl:
+      description: NetApp Ontap create, delete or modify NTFS DACL (discretionary
+        access control list)
+      name: na_ontap_ntfs_dacl
+      namespace: ''
+      version_added: 20.4.0
+    na_ontap_ntfs_sd:
+      description: NetApp ONTAP create, delete or modify NTFS security descriptor
+      name: na_ontap_ntfs_sd
+      namespace: ''
+      version_added: 20.4.0
+    na_ontap_ntp:
+      description: NetApp ONTAP NTP server
+      name: na_ontap_ntp
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_ntp_key:
+      description: NetApp ONTAP NTP key
+      name: na_ontap_ntp_key
+      namespace: ''
+      version_added: 21.21.0
+    na_ontap_nvme:
+      description: NetApp ONTAP Manage NVMe Service
+      name: na_ontap_nvme
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_nvme_namespace:
+      description: NetApp ONTAP Manage NVME Namespace
+      name: na_ontap_nvme_namespace
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_nvme_subsystem:
+      description: NetApp ONTAP Manage NVME Subsystem
+      name: na_ontap_nvme_subsystem
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_object_store:
+      description: NetApp ONTAP manage object store config.
+      name: na_ontap_object_store
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_partitions:
+      description: NetApp ONTAP Assign partitions and disks to nodes.
+      name: na_ontap_partitions
+      namespace: ''
+      version_added: 21.8.0
+    na_ontap_ports:
+      description: NetApp ONTAP add/remove ports
+      name: na_ontap_ports
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_portset:
+      description: NetApp ONTAP Create/Delete portset
+      name: na_ontap_portset
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_publickey:
+      description: NetApp ONTAP publickey configuration
+      name: na_ontap_publickey
+      namespace: ''
+      version_added: 21.7.0
+    na_ontap_qos_adaptive_policy_group:
+      description: NetApp ONTAP Adaptive Quality of Service policy group.
+      name: na_ontap_qos_adaptive_policy_group
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_qos_policy_group:
+      description: NetApp ONTAP manage policy group in Quality of Service.
+      name: na_ontap_qos_policy_group
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_qtree:
+      description: NetApp ONTAP manage qtrees
+      name: na_ontap_qtree
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_quota_policy:
+      description: NetApp Ontap create, assign, rename or delete quota policy
+      name: na_ontap_quota_policy
+      namespace: ''
+      version_added: 19.11.0
+    na_ontap_quotas:
+      description: NetApp ONTAP Quotas
+      name: na_ontap_quotas
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_rest_cli:
+      description: NetApp ONTAP run any CLI command using REST api/private/cli/
+      name: na_ontap_rest_cli
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_rest_info:
+      description: NetApp ONTAP information gatherer using REST APIs
+      name: na_ontap_rest_info
+      namespace: ''
+      version_added: 20.5.0
+    na_ontap_restit:
+      description: NetApp ONTAP Run any REST API on ONTAP
+      name: na_ontap_restit
+      namespace: ''
+      version_added: 20.4.0
+    na_ontap_s3_buckets:
+      description: NetApp ONTAP S3 Buckets
+      name: na_ontap_s3_buckets
+      namespace: ''
+      version_added: 21.19.0
+    na_ontap_s3_groups:
+      description: NetApp ONTAP S3 groups
+      name: na_ontap_s3_groups
+      namespace: ''
+      version_added: 21.21.0
+    na_ontap_s3_policies:
+      description: NetApp ONTAP S3 Policies
+      name: na_ontap_s3_policies
+      namespace: ''
+      version_added: 21.21.0
+    na_ontap_s3_services:
+      description: NetApp ONTAP S3 services
+      name: na_ontap_s3_services
+      namespace: ''
+      version_added: 21.20.0
+    na_ontap_s3_users:
+      description: NetApp ONTAP S3 users
+      name: na_ontap_s3_users
+      namespace: ''
+      version_added: 21.20.0
+    na_ontap_security_certificates:
+      description: NetApp ONTAP manage security certificates.
+      name: na_ontap_security_certificates
+      namespace: ''
+      version_added: 20.7.0
+    na_ontap_security_config:
+      description: NetApp ONTAP modify security config for SSL.
+      name: na_ontap_security_config
+      namespace: ''
+      version_added: 21.3.0
+    na_ontap_security_ipsec_ca_certificate:
+      description: NetApp ONTAP module to add or delete ipsec ca certificate.
+      name: na_ontap_security_ipsec_ca_certificate
+      namespace: ''
+      version_added: 22.1.0
+    na_ontap_security_ipsec_config:
+      description: NetApp ONTAP module to configure IPsec config.
+      name: na_ontap_security_ipsec_config
+      namespace: ''
+      version_added: 22.1.0
+    na_ontap_security_ipsec_policy:
+      description: NetApp ONTAP module to create, modify or delete security IPsec
+        policy.
+      name: na_ontap_security_ipsec_policy
+      namespace: ''
+      version_added: 22.1.0
+    na_ontap_security_key_manager:
+      description: NetApp ONTAP security key manager.
+      name: na_ontap_security_key_manager
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_security_ssh:
+      description: NetApp ONTAP security ssh
+      name: na_ontap_security_ssh
+      namespace: ''
+      version_added: 21.24.0
+    na_ontap_service_policy:
+      description: NetApp ONTAP service policy configuration
+      name: na_ontap_service_policy
+      namespace: ''
+      version_added: 21.7.0
+    na_ontap_service_processor_network:
+      description: NetApp ONTAP service processor network
+      name: na_ontap_service_processor_network
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_snaplock_clock:
+      description: NetApp ONTAP Sets the snaplock compliance clock.
+      name: na_ontap_snaplock_clock
+      namespace: ''
+      version_added: 21.4.0
+    na_ontap_snapmirror:
+      description: NetApp ONTAP or ElementSW Manage SnapMirror
+      name: na_ontap_snapmirror
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_snapmirror_policy:
+      description: NetApp ONTAP create, delete or modify SnapMirror policies
+      name: na_ontap_snapmirror_policy
+      namespace: ''
+      version_added: 20.3.0
+    na_ontap_snapshot:
+      description: NetApp ONTAP manage Snapshots
+      name: na_ontap_snapshot
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_snapshot_policy:
+      description: NetApp ONTAP manage Snapshot Policy
+      name: na_ontap_snapshot_policy
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_snmp:
+      description: NetApp ONTAP SNMP user
+      name: na_ontap_snmp
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_snmp_config:
+      description: NetApp ONTAP module to modify SNMP configuration.
+      name: na_ontap_snmp_config
+      namespace: ''
+      version_added: 22.9.0
+    na_ontap_snmp_traphosts:
+      description: NetApp ONTAP SNMP traphosts.
+      name: na_ontap_snmp_traphosts
+      namespace: ''
+      version_added: 20.3.0
+    na_ontap_software_update:
+      description: NetApp ONTAP Update Software
+      name: na_ontap_software_update
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_ssh_command:
+      description: NetApp ONTAP Run any cli command over plain SSH using paramiko.
+      name: na_ontap_ssh_command
+      namespace: ''
+      version_added: 20.8.0
+    na_ontap_storage_auto_giveback:
+      description: Enables or disables NetApp ONTAP storage auto giveback for a specified
+        node
+      name: na_ontap_storage_auto_giveback
+      namespace: ''
+      version_added: 21.3.0
+    na_ontap_storage_failover:
+      description: Enables or disables NetApp Ontap storage failover for a specified
+        node
+      name: na_ontap_storage_failover
+      namespace: ''
+      version_added: 21.3.0
+    na_ontap_storage_unit:
+      description: NetApp ONTAP ASA r2 storage unit
+      name: na_ontap_storage_unit
+      namespace: ''
+      version_added: 23.0.0
+    na_ontap_storage_unit_snapshot:
+      description: NetApp ONTAP ASA r2 storage unit snapshot
+      name: na_ontap_storage_unit_snapshot
+      namespace: ''
+      version_added: 23.0.0
+    na_ontap_support_config_backup:
+      description: NetApp ONTAP support configuration backup
+      name: na_ontap_support_config_backup
+      namespace: ''
+      version_added: 23.0.0
+    na_ontap_svm:
+      description: NetApp ONTAP SVM
+      name: na_ontap_svm
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_svm_options:
+      description: NetApp ONTAP Modify SVM Options
+      name: na_ontap_svm_options
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_ucadapter:
+      description: NetApp ONTAP UC adapter configuration
+      name: na_ontap_ucadapter
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_unix_group:
+      description: NetApp ONTAP UNIX Group
+      name: na_ontap_unix_group
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_unix_user:
+      description: NetApp ONTAP UNIX users
+      name: na_ontap_unix_user
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_user:
+      description: NetApp ONTAP user configuration and management
+      name: na_ontap_user
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_user_role:
+      description: NetApp ONTAP user role configuration and management
+      name: na_ontap_user_role
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_volume:
+      description: NetApp ONTAP manage volumes.
+      name: na_ontap_volume
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_volume_autosize:
+      description: NetApp ONTAP manage volume autosize
+      name: na_ontap_volume_autosize
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_volume_clone:
+      description: NetApp ONTAP manage volume clones.
+      name: na_ontap_volume_clone
+      namespace: ''
+      version_added: 2.6.0
+    na_ontap_volume_efficiency:
+      description: NetApp ONTAP enables, disables or modifies volume efficiency
+      name: na_ontap_volume_efficiency
+      namespace: ''
+      version_added: 21.2.0
+    na_ontap_volume_snaplock:
+      description: NetApp ONTAP manage volume snaplock retention.
+      name: na_ontap_volume_snaplock
+      namespace: ''
+      version_added: 20.2.0
+    na_ontap_vscan:
+      description: NetApp ONTAP Vscan enable/disable.
+      name: na_ontap_vscan
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_vscan_on_access_policy:
+      description: NetApp ONTAP Vscan on access policy configuration.
+      name: na_ontap_vscan_on_access_policy
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_vscan_on_demand_task:
+      description: NetApp ONTAP Vscan on demand task configuration.
+      name: na_ontap_vscan_on_demand_task
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_vscan_scanner_pool:
+      description: NetApp ONTAP Vscan Scanner Pools Configuration.
+      name: na_ontap_vscan_scanner_pool
+      namespace: ''
+      version_added: 2.8.0
+    na_ontap_vserver_audit:
+      description: NetApp Ontap - create, delete or modify vserver audit configuration.
+      name: na_ontap_vserver_audit
+      namespace: ''
+      version_added: 22.3.0
+    na_ontap_vserver_cifs_security:
+      description: NetApp ONTAP vserver CIFS security modification
+      name: na_ontap_vserver_cifs_security
+      namespace: ''
+      version_added: 2.9.0
+    na_ontap_vserver_peer:
+      description: NetApp ONTAP Vserver peering
+      name: na_ontap_vserver_peer
+      namespace: ''
+      version_added: 2.7.0
+    na_ontap_vserver_peer_permissions:
+      description: NetApp Ontap - create, delete or modify vserver peer permission.
+      name: na_ontap_vserver_peer_permissions
+      namespace: ''
+      version_added: 22.3.0
+    na_ontap_wait_for_condition:
+      description: NetApp ONTAP wait_for_condition.  Loop over a get status request
+        until a condition is met.
+      name: na_ontap_wait_for_condition
+      namespace: ''
+      version_added: 20.8.0
+    na_ontap_wwpn_alias:
+      description: NetApp ONTAP set FCP WWPN Alias
+      name: na_ontap_wwpn_alias
+      namespace: ''
+      version_added: 20.4.0
+    na_ontap_zapit:
+      description: NetApp ONTAP Run any ZAPI on ONTAP
+      name: na_ontap_zapit
+      namespace: ''
+      version_added: 20.4.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  test: {}
+  vars: {}
+version: 23.2.0

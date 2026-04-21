@@ -1,0 +1,47 @@
+node0 ansible_host=10.1.1.1 ansible_port=22 ansible_ssh_pass=password ansible_user=root
+node1 ansible_host=10.x.x.x ansible_port=22 ansible_ssh_pass=password ansible_user=root
+node2 ansible_host=10.x.x.y ansible_port=22 ansible_ssh_pass=password ansible_user=root
+sdt1 ansible_host=10.x.x.x ansible_port=22 ansible_ssh_pass=password ansible_user=root
+sdt2 ansible_host=10.x.x.y ansible_port=22 ansible_ssh_pass=password ansible_user=root
+
+[activemq]
+node0
+node1
+
+[lia]
+node0
+node1
+node2
+
+[mdm]
+node0
+node1
+
+[gateway]
+node2
+
+[tb]
+node2
+
+[config]
+node1
+
+[sdc]
+node2
+
+[sds]
+node0
+node1
+node2
+
+[webui]
+node1
+
+[sdr]
+node0
+node1
+node2
+
+[sdt]
+sdt1
+sdt2

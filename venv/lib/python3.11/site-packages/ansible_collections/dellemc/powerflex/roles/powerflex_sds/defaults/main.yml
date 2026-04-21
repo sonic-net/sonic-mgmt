@@ -1,0 +1,4 @@
+---
+file_glob_name: sds
+i_am_sure: 1
+powerflex_sds_state: present

@@ -1,0 +1,167 @@
+---
+- name: List databases (initial)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases"
+    method: GET
+    status_code: 200
+    validate_certs: no
+  register: db_list_initial
+
+- name: Create DB (check mode)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_check }}"
+    replication_factor: 1
+    state: present
+  check_mode: yes
+  register: db_check_create
+
+- name: Assert would created DB msg (check mode)
+  ansible.builtin.assert:
+    that:
+      - db_check_create.changed
+      - "'would be created' in db_check_create.msg | lower"
+
+- name: Verify DB not created on check mode
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases"
+    method: GET
+    validate_certs: no
+  register: dbs_after_check_create
+
+- name: Assert DB not created
+  ansible.builtin.assert:
+    that:
+      - "db_check not in (dbs_after_check_create.json.Databases | map(attribute='Name') | list | default([]))"
+
+- name: Create DB
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    replication_factor: 1
+    database_settings:
+      Indexing.MapTimeoutAfterEtagReachedInMin: "20"
+    state: present
+  register: db_main_created
+
+- name: Assert DB created
+  ansible.builtin.assert:
+    that:
+      - db_main_created.changed
+      - "'created successfully' in db_main_created.msg | lower"
+
+- name: Verify DB created
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases"
+    method: GET
+    validate_certs: no
+  register: dbs_after_create
+
+- name: Assert DB present
+  ansible.builtin.assert:
+    that:
+      - "db_main in (dbs_after_create.json.Databases | map(attribute='Name') | list)"
+
+- name: Re-run create DB (idempotency)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    replication_factor: 1
+    state: present
+  register: db_main_again
+
+- name: Assert DB creation idempotent
+  ansible.builtin.assert:
+    that:
+      - "not db_main_again.changed"
+      - "'already exists' in db_main_again.msg | lower"
+      - "'no changes' in db_main_again.msg | lower"
+
+- name: Try create without replication_factor (should fail)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_missing_rf }}"
+    state: present
+  register: create_no_rf
+  ignore_errors: yes
+
+- name: Assert create without RF failed with proper message
+  ansible.builtin.assert:
+    that:
+      - create_no_rf is failed
+      - "'replication_factor is required when creating a database' in (create_no_rf.msg | lower)"
+
+- name: Try create without replication_factor in check mode (should fail)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_missing_rf }}"
+    state: present
+  check_mode: yes
+  register: create_no_rf_check
+  ignore_errors: yes
+
+- name: Assert create without RF failed in check mode with same message
+  ansible.builtin.assert:
+    that:
+      - create_no_rf_check is failed
+      - "'replication_factor is required when creating a database' in (create_no_rf_check.msg | lower)"
+
+- name: Existing DB present without RF (no-op)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    state: present
+  register: existing_no_rf
+
+- name: Assert existing DB without RF is no-op
+  ansible.builtin.assert:
+    that:
+      - not existing_no_rf.changed
+      - "'already exists' in (existing_no_rf.msg | lower)"
+      - "'no changes' in (existing_no_rf.msg | lower)"
+
+- name: Existing DB with different RF ( should be no-op)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    replication_factor: 3
+    state: present
+  register: existing_diff_rf
+
+- name: Assert RF ignored on existing DB
+  ansible.builtin.assert:
+    that:
+      - not existing_diff_rf.changed
+      - "'already exists' in (existing_diff_rf.msg | lower)"
+      - "'no changes' in (existing_diff_rf.msg | lower)"
+
+- name: Create with invalid replication_factor=0 (should fail)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_invalid_rf }}"
+    replication_factor: 0
+    state: present
+  register: invalid_rf_res
+  ignore_errors: yes
+
+- name: Assert invalid RF rejected
+  ansible.builtin.assert:
+    that:
+      - invalid_rf_res is failed
+      - "'invalid replication factor: 0' in (invalid_rf_res.msg | lower)"
+
+- name: Existing DB different RF in check mode (no-op)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    replication_factor: 99
+    state: present
+  check_mode: yes
+  register: existing_diff_rf_check
+
+- name: Assert existing DB no-op in check mode
+  ansible.builtin.assert:
+    that:
+      - not existing_diff_rf_check.changed
+      - "'already exists' in (existing_diff_rf_check.msg | lower)"
+      - "'no changes' in (existing_diff_rf_check.msg | lower)"

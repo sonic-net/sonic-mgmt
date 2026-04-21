@@ -1,0 +1,4 @@
+node0 ansible_host=10.2.2.2 ansible_port=22 ansible_ssh_pass=wrongpassword ansible_user=root
+
+[sdc]
+node0

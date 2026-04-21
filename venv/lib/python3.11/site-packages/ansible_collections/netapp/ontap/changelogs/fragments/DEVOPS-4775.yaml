@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_lun_map_reporting_nodes - added REST support.

@@ -1,0 +1,4 @@
+extra_vars:
+  CYBERARK_API_PASSWORD: '{{ password }}'
+  CYBERARK_API_URL: '{{ pvwa_url }}'
+  CYBERARK_API_USERNAME: '{{ username }}'

@@ -1,0 +1,22 @@
+---
+- name: Create user template
+  telekom_mms.icinga_director.icinga_user_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "foousertemplate"
+    enable_notifications: false
+    period: '24/7'
+    vars:
+      department: IT
+    zone: "foozone"
+- name: Update user template
+  telekom_mms.icinga_director.icinga_user_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "foousertemplate"
+    enable_notifications: true
+    append: true

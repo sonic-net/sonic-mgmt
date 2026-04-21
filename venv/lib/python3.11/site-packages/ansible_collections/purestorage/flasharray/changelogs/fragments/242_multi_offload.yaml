@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_offload - Add support for multiple, homogeneous, offload targets

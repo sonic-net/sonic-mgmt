@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_service_policy - update services for 9.11.1 - make it easier to add new services.
+  - na_ontap_service_policy - new options ``known_services`` and ``additional_services``.

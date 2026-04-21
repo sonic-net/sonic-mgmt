@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_s3_buckets - added new option `versioning_state`, requires ONTAP 9.11.1 or later.
+  - na_ontap_s3_buckets - updated `extends_documentation_fragment` & argument spec.

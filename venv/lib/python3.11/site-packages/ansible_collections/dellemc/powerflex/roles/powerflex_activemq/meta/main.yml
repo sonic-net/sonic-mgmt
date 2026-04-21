@@ -1,0 +1,27 @@
+---
+galaxy_info:
+  author: Pavan Mudunuri
+  description: Role to manage the installation and uninstallation of Powerflex ActiveMQ.
+  company: Dell Technologies
+  role_name: powerflex_activemq
+  namespace: dellemc
+
+  license: GPL-3.0-only
+
+  min_ansible_version: "2.14.0"
+
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+        - "8"
+    - name: Ubuntu
+      versions:
+        - jammy
+
+    - name: SLES
+      versions:
+        - "15SP3"
+        - "15SP4"
+
+  galaxy_tags: []

@@ -1,0 +1,229 @@
+---
+- name: SMB Share Module Operations in Unity
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    filesystem_name: "ansible_smb_share_fs"
+    snapshot_name: "ansible_smb_share_snap"
+    nas_server_name: "lglad071"
+    description: "Share is created using playbook"
+    new_description: "modified the description of share using playbook"
+    fs_share_name: "ansible_share_2"
+    snap_share_name: "ansible_share_21"
+  tasks:
+    - name: Create a SMB Share for Filesystem
+      register: smb_result
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ fs_share_name }}"
+        path: "/"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        umask: "000"
+        description: "Added description of filesystem SMB share during creation"
+        offline_availability: "PROGRAMS"
+        is_abe_enabled: true
+        is_branch_cache_enabled: true
+        is_continuous_availability_enabled: true
+        is_encryption_enabled: true
+        state: "present"
+
+    - name: Set Snapshot SMB Share ID
+      ansible.builtin.set_fact:
+        fs_share_id: "{{ smb_result.smb_share_details.id }}"
+
+    - name: Create a SMB Share for Filesystem Idempotency
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ fs_share_name }}"
+        path: "/"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        umask: "000"
+        description: "Added description of filesystem SMB share during creation"
+        offline_availability: "PROGRAMS"
+        is_abe_enabled: true
+        is_branch_cache_enabled: true
+        is_continuous_availability_enabled: true
+        is_encryption_enabled: true
+        state: "present"
+
+    - name: Get SMB Share Details using Name
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ fs_share_name }}"
+        filesystem_id: "fs_65"
+        state: "present"
+
+    - name: Update the details of the SMB share
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ fs_share_name }}"
+        filesystem_id: "fs_65"
+        umask: "777"
+        description: "updated description of filesystem SMB share"
+        offline_availability: "DOCUMENTS"
+        is_abe_enabled: false
+        is_branch_cache_enabled: false
+        is_continuous_availability_enabled: false
+        is_encryption_enabled: false
+        state: "present"
+
+    - name: Update the details of the SMB share Idempotency
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ fs_share_name }}"
+        filesystem_id: "fs_65"
+        umask: "777"
+        description: "updated description of filesystem SMB share"
+        offline_availability: "DOCUMENTS"
+        is_abe_enabled: false
+        is_branch_cache_enabled: false
+        is_continuous_availability_enabled: false
+        is_encryption_enabled: false
+        state: "present"
+
+    - name: Delete SMB share for Filesystem
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ fs_share_name }}"
+        filesystem_id: "fs_65"
+        state: "absent"
+
+    - name: Delete SMB share for Filesystem Idempotency
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ fs_share_name }}"
+        filesystem_id: "fs_65"
+        state: "absent"
+
+    # Snapshot Name and ID both are unique across Unity Array.
+    # Hence, NAS Server is not required for Unique Identification of Snapshot.
+    - name: Create a SMB Share for Snapshot
+      register: smb_result
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ snap_share_name }}"
+        path: "/"
+        snapshot_name: "{{ snapshot_name }}"
+        umask: "000"
+        description: "Added description of Snapshot SMB share during creation"
+        offline_availability: "PROGRAMS"
+        is_abe_enabled: true
+        is_branch_cache_enabled: true
+        is_continuous_availability_enabled: true
+        is_encryption_enabled: true
+        state: "present"
+
+    - name: Set Snapshot SMB Share ID for Snapshot
+      ansible.builtin.set_fact:
+        snap_share_id: "{{ smb_result.smb_share_details.id }}"
+
+    - name: Create a SMB Share for Snapshot Idempotency
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ snap_share_name }}"
+        path: "/"
+        snapshot_name: "{{ snapshot_name }}"
+        umask: "000"
+        description: "Added description of Snapshot SMB share during creation"
+        offline_availability: "PROGRAMS"
+        is_abe_enabled: true
+        is_branch_cache_enabled: true
+        is_continuous_availability_enabled: true
+        is_encryption_enabled: true
+        state: "present"
+
+    - name: Get SMB Share Details using Name for Snapshot
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ snap_share_name }}"
+        snapshot_name: "{{ snapshot_name }}"
+        state: "present"
+
+    - name: Update the details of the SMB share for Snapshot
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ snap_share_name }}"
+        snapshot_name: "{{ snapshot_name }}"
+        umask: "777"
+        description: "updated description of snapshot's SMB share"
+        offline_availability: "DOCUMENTS"
+        is_abe_enabled: false
+        is_branch_cache_enabled: false
+        is_continuous_availability_enabled: false
+        is_encryption_enabled: false
+        state: "present"
+
+    - name: Update the details of the SMB share for Snapshot Idempotency
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ snap_share_name }}"
+        snapshot_name: "{{ snapshot_name }}"
+        umask: "777"
+        description: "updated description of snapshot's SMB share"
+        offline_availability: "DOCUMENTS"
+        is_abe_enabled: false
+        is_branch_cache_enabled: false
+        is_continuous_availability_enabled: false
+        is_encryption_enabled: false
+        state: "present"
+
+    - name: Delete SMB share for Filesystem Snapshot
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_id: "{{ snap_share_id }}"
+        state: "absent"
+
+    - name: Delete SMB share for Filesystem Snapshot Idempotency
+      smbshare:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        share_name: "{{ snap_share_name }}"
+        snapshot_name: "{{ snapshot_name }}"
+        state: "absent"

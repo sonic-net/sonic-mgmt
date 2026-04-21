@@ -1,0 +1,24 @@
+---
+- name: Deploy Promtail to ship logs to the local Loki instance
+  hosts: all
+  become: true
+  roles:
+    - role: grafana.grafana.promtail
+  vars:
+    promtail_clients:
+      - url: http://localhost:3100/loki/api/v1/push
+    promtail_scrape_configs:
+      - job_name: system
+        static_configs:
+          - targets:
+              - localhost
+            labels:
+              job: messages
+              instance: "{{ ansible_facts['fqdn'] }}"
+              __path__: /var/log/messages
+          - targets:
+              - localhost
+            labels:
+              job: nginx
+              instance: "{{ ansible_facts['fqdn'] }}"
+              __path__: /var/log/nginx/*.log

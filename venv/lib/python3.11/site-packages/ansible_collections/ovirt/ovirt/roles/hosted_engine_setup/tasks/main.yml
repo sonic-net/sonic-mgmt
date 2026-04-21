@@ -1,0 +1,19 @@
+---
+- name: Deploy hosted-engine
+  ansible.builtin.import_tasks: full_execution.yml
+  tags: always
+
+- name: Execute just a specific set of steps
+  ansible.builtin.include_tasks: partial_execution.yml
+  tags:
+    - initial_clean
+    - final_clean
+    - bootstrap_local_vm
+    - create_storage_domain
+    - create_target_vm
+    - iscsi_discover
+    - iscsi_getdevices
+    - fc_getdevices
+    - get_network_interfaces
+    - validate_hostnames
+    - never

@@ -1,0 +1,4 @@
+interface Eth1/10
+ description hello
+ mtu 1800
+

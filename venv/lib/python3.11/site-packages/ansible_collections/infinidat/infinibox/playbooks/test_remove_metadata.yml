@@ -1,0 +1,80 @@
+---
+# PSDEV-1108: Playbook for testing cleanup of metadata resources.
+- name: Clean up test of infini_metadata
+  hosts: localhost
+  gather_facts: false  # Required for ansible_date_time
+
+  tasks:
+    - name: Remove system metadata key named sysfoo
+      infinidat.infinibox.infini_metadata:
+        object_type: "system"
+        key: "sysfoo"
+        state: "absent"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove volume named foo metadata key named volfoo
+      infinidat.infinibox.infini_metadata:
+        object_type: "vol"
+        object_name: "{{ auto_prefix }}vol"
+        key: "volfoo"
+        state: "absent"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: metadata_out
+
+    - name: Delete volume snapshot
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}volsnap"
+        pool: "{{ auto_prefix }}pool"
+        volume_type: "snapshot"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Delete volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol"
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    # TODO Delete fs snap. See psdev-1121.
+
+    - name: Delete file system
+      infinidat.infinibox.infini_fs:
+        name: "{{ auto_prefix }}fs"
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Delete host
+      infinidat.infinibox.infini_host:
+        name: "{{ auto_prefix }}host"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Delete cluster
+      infinidat.infinibox.infini_cluster:
+        name: "{{ auto_prefix }}cluster"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Delete pool
+      infinidat.infinibox.infini_pool:
+        name: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"

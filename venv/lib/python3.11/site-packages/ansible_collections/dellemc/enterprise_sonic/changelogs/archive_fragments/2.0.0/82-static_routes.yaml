@@ -1,0 +1,3 @@
+---
+major_changes:
+  - Added 'static_routes' module to collection (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/82).

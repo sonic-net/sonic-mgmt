@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_volume - new option `tiering_object_tags` added in REST.

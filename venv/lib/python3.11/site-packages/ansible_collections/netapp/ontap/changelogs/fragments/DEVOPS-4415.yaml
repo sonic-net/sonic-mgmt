@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_quotas - fix idempotency issue on ``disk_limit`` and ``soft_disk_limit``.

@@ -1,0 +1,3 @@
+---
+major_changes:
+  - sonic_logging - Added replaced and overridden states support for logging resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/150)

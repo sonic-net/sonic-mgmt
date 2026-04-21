@@ -1,0 +1,128 @@
+# ======================================
+# scenario: rolling-upgrade-cluster-connectivity-fails-on-b
+# gates used: node_alive, cluster_connectivity
+#
+# flow:
+# 1. setup 3 independent nodes with ravendb 5.4
+# 2. form a cluster out of them
+# 3. break cluster connectivity on B ( break only TCP, HTTP should work for node-alive gate)
+# 4. try to rolling upgrade to 6.2 serially:
+#    - roll A -> B -> C
+#    - pre-gate node_alive + cluster_connectivity
+#    - upgrade node to 6.2
+#    - post-gate node_alive + cluster_connectivity
+#
+# checkpoints:
+# - A pre-gate node healthy passes
+# - A pre-gate cluster_connectivity fails on detecting B is unreachable
+#
+# outcome:
+# - FAIL before upgrading A. A/B/C remain 5.4
+# - we catch the failure of pre-gate on A and stop the run
+# ======================================
+
+---
+- name: Form cluster (A,B,C) - pre-upgrade
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Add B as Member
+      ravendb.ravendb.node:
+        tag: "B"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-b:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Add C as Member
+      ravendb.ravendb.node:
+        tag: "C"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-c:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Let cluster stabilize
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Fetch topology
+      ansible.builtin.uri:
+        url: "http://ubuntu-bionic-node-a:8080/cluster/topology"
+        method: GET
+        status_code: 200
+        return_content: yes
+        validate_certs: no
+      register: topo
+
+    - name: Extract member tags
+      ansible.builtin.set_fact:
+        member_tags: "{{ topo.json.Topology.Members.keys() | list | unique }}"
+
+    - name: Assert B,C present in Members
+      ansible.builtin.assert:
+        that:
+          - "'B' in member_tags"
+          - "'C' in member_tags"
+
+
+- name: Sabotage B tcp connectivity
+  hosts: ubuntu-bionic-node-b
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Ensure iptables present
+      become: true
+      apt:
+        name: iptables
+        state: present
+        update_cache: yes
+
+    - name: Reject outbound cluster traffic
+      ansible.builtin.command: iptables -I INPUT -p tcp --dport 38888 -j REJECT
+
+
+- name: rolling Update to 6.2
+  hosts: all
+  gather_facts: true
+  serial: 1
+  tasks:
+    - name: Per-node gates pre upgrade
+      delegate_to: localhost
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive', 'cluster_connectivity']
+        max_time_to_wait: 6
+        retry_interval_seconds: 3
+      register: gate_result
+      failed_when: false
+      changed_when: false
+
+    - debug:
+        msg: "Gate result: {{ gate_result }}"
+
+    - name: Assert cluster_connectivity failed
+      delegate_to: localhost
+      ansible.builtin.assert:
+        that:
+          - "'cluster_connectivity failed:' in (gate_result.msg | default(''))"
+        fail_msg: "Expected 'cluster_connectivity failed:' in gate_result.msg. Full: {{ gate_result | to_nice_json }}"
+    
+    # - name: Restore cluster TCP from B (single rule delete)
+    #   hosts: ubuntu-bionic-node-b
+    #   become: true
+    #   gather_facts: false
+    #   tasks:
+    #     - ansible.builtin.command: iptables -D INPUT -p tcp --dport 38888 -j REJECT
+
+    - name: End play after expected failure
+      delegate_to: localhost
+      meta: end_play
+
+    - name: Upgrade node to 6.2
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version_minor: 6.2
+        ravendb_settings_preset: default
+  

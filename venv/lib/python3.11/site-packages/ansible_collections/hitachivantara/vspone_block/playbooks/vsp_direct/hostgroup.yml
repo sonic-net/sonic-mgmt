@@ -1,0 +1,232 @@
+---
+####################################################################
+# Example : Hostgroup Playbook
+####################################################################
+- name: Hostgroup Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create hostgroup
+    ####################################################################
+    - name: Create hostgroup
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "hostgroup-server1"
+          port: "CL1-C"
+          host_mode: "VMWARE_EXTENSION"
+          host_mode_options: [54, 63]
+          ldevs: [100, 200]
+          wwns:
+            - wwn: "1234567890ABCDE0"
+              nick_name: "Server1_WWN1"
+            - wwn: "1234567890ABCDE1"
+              nick_name: "Server1_WWN2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update host mode and host mode options
+    ####################################################################
+    - name: Update host mode and host mode options
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "set_host_mode_and_hmo"
+          name: "hostgroup-server1"
+          port: "CL1-C"
+          host_mode: "LINUX"
+          host_mode_options: [13]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add wwns to hostgroup
+    ####################################################################
+    - name: Add wwns to hostgroup
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "add_wwn"
+          name: "hostgroup-server1"
+          port: "CL1-C"
+          wwns:
+            - wwn: "1234567890ABCDE0"
+              nick_name: "Server1_WWN1"
+            - wwn: "1234567890ABCDE1"
+              nick_name: "Server1_WWN2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Remove wwns from hostgroup
+    ####################################################################
+    - name: Remove wwns from hostgroup
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "remove_wwn"
+          name: "hostgroup-server1"
+          port: "CL1-C"
+          wwns:
+            - wwn: "9876543210ABCDE0"
+            - wwn: "9876543210ABCDE1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Present ldevs to hostgroup
+    ####################################################################
+    - name: Present ldevs to hostgroup
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "present_ldev"
+          name: "hostgroup-server1"
+          port: "CL1-C"
+          ldevs: [300, 400]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Unpresent ldevs from hostgroup
+    ####################################################################
+    - name: Unpresent ldevs from hostgroup
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "unpresent_ldev"
+          name: "hostgroup-server1"
+          port: "CL1-C"
+          ldevs: [300, 400]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete hostgroup
+    ####################################################################
+    - name: Delete hostgroup
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: "hostgroup-server1"
+          port: "CL1-C"
+          should_delete_all_ldevs: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Change or unset nick name of a wwn (existing wwn)
+    ####################################################################
+    - name: Change or unset nick name of a wwn (existing wwn)
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "add_wwn"
+          name: "hostgroup-server1"
+          port: "CL1-C"
+          wwns:
+            - wwn: "1234567890ABCDE0"
+              nick_name: "new_nick_name"
+            - wwn: "1234567890ABCDE1"
+              nick_name: "" # unset nick name
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Asymmetric access priority level for ALUA host group.
+    ####################################################################
+    - name: Asymmetric access priority level for ALUA host group
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          host_group_number: 201
+          port: "CL1-C"
+          asymmetric_access_priority: "high"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #################################################################################
+    # Task Name : Release host reserve status of the LU mapped to all LU mapped path.
+    #################################################################################
+    - name: Release host reserve status of the LU mapped to all LU mapped path.
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          host_group_number: 150
+          port: "CL1-A"
+          should_release_host_reserve: true
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##################################################################################
+    # Task Name : Release the host reservation status by specifying the LU path.
+    ##################################################################################
+    - name: Release the host reservation status by specifying the LU path
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          host_group_number: 150
+          port: "CL1-A"
+          lun: 0
+          should_release_host_reserve: true
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

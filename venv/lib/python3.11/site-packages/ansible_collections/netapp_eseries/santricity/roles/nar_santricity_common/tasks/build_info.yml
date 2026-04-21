@@ -1,0 +1,38 @@
+- name: Collect storage system facts
+  uri:
+    url: |-
+      {%- if eseries_prefer_embedded == True -%}
+        {{- eseries_system_api_url | default(eseries_proxy_api_url) | regex_replace('v2/?$', 'utils/about') -}}
+      {%- else -%}
+        {{- eseries_proxy_api_url | default(eseries_system_api_url) | regex_replace('v2/?$', 'utils/about') -}}
+      {%- endif -%}
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+    validate_certs: false
+  connection: local
+  register: about
+  failed_when: false
+  when: eseries_proxy_api_url is defined or eseries_system_api_url is defined
+  tags: always
+
+- name: Determine whether SANtricity Web Services REST API is proxy and information
+  set_fact:
+    current_eseries_api_is_proxy: "{{ about['json']['runningAsProxy'] | default(False) }}"
+  tags: always
+
+- name: Collect Web Services information from either proxy or embedded with a preference for embedded.
+  include_tasks: collect_facts/prefer_embedded.yml
+  when: (current_eseries_api_is_proxy == True and eseries_prefer_embedded == True) or current_eseries_api_is_proxy == False
+  tags: always
+
+- name: Collect Web Services information from proxy.
+  include_tasks: collect_facts/prefer_proxy.yml
+  when: current_eseries_api_is_proxy == True and current_eseries_api_url is not defined
+  tags: always
+
+- name: Check whether current_eseries_api_url is defined
+  fail:
+    msg: "Could not determine or discover storage system contact information!"
+  when: current_eseries_api_url is not defined or current_eseries_ssid is not defined
+  tags: always

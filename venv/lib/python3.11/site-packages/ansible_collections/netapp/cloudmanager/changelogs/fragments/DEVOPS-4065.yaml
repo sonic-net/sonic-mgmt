@@ -1,0 +1,5 @@
+minor_changes:
+  - na_cloudmanager_cvo_aws - Support update on svm_password, tier_level, and aws_tag.
+  - na_cloudmanager_cvo_azure - Support update on svm_password, tier_level, and azure_tag.
+  - na_cloudmanager_cvo_gcp - Support update on svm_password, tier_level, and gcp_labels.
+  - Only these parameters will be modified on the existing CVOs. svm_passowrd will be updated on each run.

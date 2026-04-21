@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_bucket_access - Fixed typo in CORS rule definition

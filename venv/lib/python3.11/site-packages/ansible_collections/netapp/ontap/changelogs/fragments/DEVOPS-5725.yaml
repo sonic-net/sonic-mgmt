@@ -1,0 +1,9 @@
+---
+minor_changes:
+  - na_ontap_snapmirror_policy - new option ``copy_latest_source_snapshot``, ``create_snapshot_on_source`` and ``sync_type`` added in REST.
+  - na_ontap_snapmirror_policy - warn when replacing policy type ``async_mirror``, ``mirror_vault`` and ``vault`` with policy type
+    ``async`` and ``strict_sync_mirror``, ``sync_mirror`` with ``sync`` in REST.
+  - na_ontap_snapmirror_policy - Added unsupported options in ZAPI.
+  - na_ontap_snapmirror_policy - Added new choices sync and async for policy type in REST.
+bugfixes:
+  - na_ontap_snapmirror_policy - fix desired policy type not configured in cli with REST.

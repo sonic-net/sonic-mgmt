@@ -1,0 +1,21 @@
+  - name: Determine download url for latest version
+    set_fact:
+      ravendb_download_url: "https://hibernatingrhinos.com/downloads/RavenDB%20for%20Linux%20x64/latest?buildType={{ ravendb_release_channel }}&version={{ ravendb_version_minor }}"
+    when: ravendb_version == "latest"
+
+  - name: Determine download url for exact version
+    set_fact:
+      ravendb_download_url: "https://daily-builds.s3.amazonaws.com/RavenDB-{{ ravendb_version }}-{{ ravendb_arch }}.tar.bz2"
+    when: ravendb_version != "latest"
+
+  - name: Remove RavenDB previous download
+    ansible.builtin.file:
+      path: /tmp/ravendb.tar.bz2
+      state: absent
+
+  - name: Download RavenDB server binaries
+    ansible.builtin.get_url:
+        url: "{{ ravendb_download_url }}"
+        dest: /tmp/ravendb.tar.bz2
+        timeout: 30 
+    tags: download

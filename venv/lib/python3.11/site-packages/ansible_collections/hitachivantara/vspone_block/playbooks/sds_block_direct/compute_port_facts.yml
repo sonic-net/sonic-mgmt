@@ -1,0 +1,60 @@
+---
+####################################################################
+# Example : Compute Port Facts Playbook
+####################################################################
+- name: Compute Port Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all compute ports
+    ####################################################################
+    - name: Get all compute ports
+      hitachivantara.vspone_block.sds_block.hv_sds_block_port_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get compute ports by names
+    ####################################################################
+    - name: Get compute ports by names
+      hitachivantara.vspone_block.sds_block.hv_sds_block_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          names: ["iqn_1994-04_jp_co_hitachi:rsd_sph_t_0a85a_002"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task Name : Get compute port by nicknames
+    ##########################################################################
+    - name: Get compute port by nicknames
+      hitachivantara.vspone_block.sds_block.hv_sds_block_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          nicknames:
+            - "000-iSCSI-000"
+            - "001-iSCSI-001"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

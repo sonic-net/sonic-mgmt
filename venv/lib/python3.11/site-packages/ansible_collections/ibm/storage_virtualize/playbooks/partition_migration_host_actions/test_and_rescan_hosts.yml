@@ -1,0 +1,75 @@
+- name: Get details of each host
+  ibm.storage_virtualize.ibm_svc_info:
+    gather_subset: "host"
+    clustername: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ ansible_password }}"
+    objectname: "{{ item.id }}"
+    log_path: "{{ logpath }}"
+  changed_when: false
+  register: shared_targetports_output1
+  loop: "{{ lshost_output.Host }}"
+
+- name: Initialize extracted_hosts list
+  ansible.builtin.set_fact:
+    extracted_hosts1: []
+
+- name: Extract relevant data
+  ansible.builtin.set_fact:
+    extracted_hosts1: >-
+      {{
+        extracted_hosts1 | combine({
+          item.Host.id | int: {
+            "inventory_hostname": inventory_hostname,
+            "name": item.Host.name,
+            "wwpns": item.Host.nodes | default([]) | map(attribute='WWPN') | list,
+            "partition": item.Host.partition_name | default(""),
+            "discovery_status": item.Host.discovery_status
+          }
+        })
+      }}
+  loop: "{{ shared_targetports_output1.results }}"
+  when: item.Host.partition_name == partition_name and  item.Host.discovery_status != 'ready'
+
+
+- name: Extract all host names from extracted_hosts
+  ansible.builtin.set_fact:
+    extracted_host_names: "{{ extracted_hosts1.values() | map(attribute='name') | list }}"
+
+- name: Filter host_matched_list_processed based on extracted_hosts
+  ansible.builtin.set_fact:
+    filtered_host_matched_list: "{{ host_matched_list_processed | selectattr('fs_host_name', 'in', extracted_host_names) | list }}"
+
+- name: Debug filtered_host_matched_list
+  ansible.builtin.debug:
+    var: filtered_host_matched_list
+
+- name: Save filtered hosts to JSON file
+  ansible.builtin.copy:
+    content: "{{ filtered_host_matched_list | to_nice_json }}"
+    dest: "{{ file_path }}/matched_hosts.json"
+    mode: '0644'
+
+- name: Check and include rescan tasks if needed then rescan the multipth
+  ansible.builtin.command:
+    cmd: "ansible-playbook rescan_multipath_devices.yml -i {{ inventory_file }} -e 'file_name={{ file_path }}'"
+  changed_when: false
+  when: filtered_host_matched_list != []
+
+- name: Waiting for IO to stabilize.
+  ansible.builtin.wait_for:
+    timeout: "{{ io_stability_time | int }}"
+  when: filtered_host_matched_list != []
+
+- name: Run lspartition on flashsystem to verify the host discovry status
+  ibm.storage_virtualize.ibm_svcinfo_command:
+    clustername: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ ansible_password }}"
+    command: "lspartition -gui -json {{ partition_name }}"
+    log_path: "{{ logpath }}"
+  register: partition_in_progress_info_2
+
+- name: Clean the lspartition output
+  ansible.builtin.set_fact:
+    partition_in_progress_info_output_1: "{{ (partition_in_progress_info_2.stdout | from_json) }}"

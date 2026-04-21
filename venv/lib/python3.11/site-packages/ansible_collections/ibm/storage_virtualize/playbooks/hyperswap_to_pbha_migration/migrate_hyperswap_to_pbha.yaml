@@ -1,0 +1,564 @@
+---
+- name: Using the IBM Storage Virtualize collection
+  gather_facts: false
+  connection: local
+  hosts: localhost
+  vars_files:
+    - inventory.ini
+
+  vars:
+    ts_name: "{{ truststore_name | default('ts_0') }}"
+    existing_certificates: "{{ use_existing_certificates | default(true) }}"
+    vol_group_name: "{{ volume_group_name | default('ha_volume_grp_0') }}"
+    location1_iogrp: "{{ location_1_iogrp | default(0) }}"
+    location2_iogrp: "{{ location_2_iogrp | default(0) }}"
+    ha_rep_policy_name: "{{ ha_replication_policy_name | default('ha_rep_policy_0') }}"
+    partition_name: "{{ ha_partition_name | default('ha_partition') }}"
+    port_set_name: "{{ portset_name | default('hse1') }}"
+    partnership_type_for_rdma: "{{ rdma_partnership_type | default('ipv4') }}"
+    logpath: "HyperSwap_PBHA_migration.log"
+
+  tasks:
+
+    # =============================================================================================
+    # 3. Remove nodes from the cluster and create a new cluster; add these nodes to the new cluster.
+
+    # =============================================================================================
+    # Perform the Initial Setup
+
+    # Fetch Authentication token for both systems
+    - name: Retrieve authentication token for Primary Cluster
+      register: primary_cluster_auth_token
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ primary_clustername }}"
+        username: "{{ primary_cluster_username }}"
+        password: "{{ primary_cluster_password }}"
+        log_path: "{{ logpath }}"
+    - name: Retrieve authentication token for Secondary Cluster
+      register: secondary_cluster_auth_token
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ secondary_clustername }}"
+        username: "{{ secondary_cluster_username }}"
+        password: "{{ secondary_cluster_password }}"
+        log_path: "{{ logpath }}"
+
+    # Get system names for both systems
+    - name: Fetch system details for primary cluster
+      register: primary_system_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: system
+        log_path: "{{ logpath }}"
+    - name: Fetch system details for secondary cluster
+      register: secondary_system_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ secondary_clustername }}"
+        token: "{{ secondary_cluster_auth_token.token }}"
+        gather_subset: system
+        log_path: "{{ logpath }}"
+
+    # =============================================================================================
+    # Get HyperSwap Volumes
+
+    - name: Load HyperSwap volume info from JSON file
+      ansible.builtin.include_vars:
+        file: "./Hyperswap_volumes_of_{{ primary_system_info.System.name }}.json"
+        name: hyperswap_volumes
+
+    - name: Ensure HyperSwap volumes info is loaded correctly
+      ansible.builtin.fail:
+        msg: "No HyperSwap volumes found in the JSON file."
+      when: hyperswap_volumes is not defined or hyperswap_volumes | length == 0
+
+
+    # =============================================================================================
+    # 4. Switch the topology to standard.
+
+    - name: Change system topology to standard on primary system
+      ibm.storage_virtualize.ibm_svctask_command:
+        command: "svctask chsystem -topology standard"
+        clustername: "{{ primary_clustername }}"
+        username: "{{ primary_cluster_username }}"
+        password: "{{ primary_cluster_password }}"
+        log_path: "{{ logpath }}"
+      when: primary_system_info.System.topology != 'standard'
+
+
+    # =============================================================================================
+    # 5. Configure a partnership between the two clusters.
+
+    - name: Create FC partnership between clusters
+      when: partnership_type == "fc"
+      block:
+        - name: Create an FC partnership on primary cluster and start the partnership
+          ibm.storage_virtualize.ibm_sv_manage_fc_partnership:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            remote_clustername: "{{ secondary_clustername }}"
+            remote_token: "{{ secondary_cluster_auth_token.token }}"
+            remote_system: "{{ secondary_system_info.System.name }}"
+            linkbandwidthmbits: "{{ linkbandwidth_mbits }}"
+            backgroundcopyrate: "{{ background_copyrate }}"
+            start: true
+            state: present
+            log_path: "{{ logpath }}"
+
+        - name: Create an FC partnership secondary cluster and start the partnership
+          ibm.storage_virtualize.ibm_sv_manage_fc_partnership:
+            clustername: "{{ secondary_clustername }}"
+            token: "{{ secondary_cluster_auth_token.token }}"
+            remote_clustername: "{{ primary_clustername }}"
+            remote_token: "{{ primary_cluster_auth_token.token }}"
+            remote_system: "{{ primary_system_info.System.name }}"
+            linkbandwidthmbits: "{{ linkbandwidth_mbits }}"
+            backgroundcopyrate: "{{ background_copyrate }}"
+            start: true
+            state: present
+            log_path: "{{ logpath }}"
+
+        # Fetch partnership details
+        - name: Fetch Partnership details
+          register: fc_partnership_info
+          ibm.storage_virtualize.ibm_svc_info:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            gather_subset: partnership
+            objectname: "{{ secondary_system_info.System.name }}"
+
+        # Generate and Export System Certificates
+        - name: Create self signed certificates
+          when: not existing_certificates
+          block:
+            - name: Generate certificate on master
+              ibm.storage_virtualize.ibm_svctask_command:
+                clustername: "{{ primary_clustername }}"
+                username: "{{ primary_cluster_username }}"
+                password: "{{ primary_cluster_password }}"
+                command: "svctask chsystemcert -mksystemsigned"
+                log_path: "{{ logpath }}"
+            - name: Generate certificate on aux
+              ibm.storage_virtualize.ibm_svctask_command:
+                clustername: "{{ secondary_clustername }}"
+                username: "{{ secondary_cluster_username }}"
+                password: "{{ secondary_cluster_password }}"
+                command: "svctask chsystemcert -mksystemsigned"
+                log_path: "{{ logpath }}"
+
+        - name: Export system certificate on primary
+          ibm.storage_virtualize.ibm_sv_manage_ssl_certificate:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            certificate_type: "system"
+            log_path: "{{ logpath }}"
+        - name: Export system certificate on secondary
+          ibm.storage_virtualize.ibm_sv_manage_ssl_certificate:
+            clustername: "{{ secondary_clustername }}"
+            token: "{{ secondary_cluster_auth_token.token }}"
+            certificate_type: "system"
+            log_path: "{{ logpath }}"
+
+        # Create Truststores and Retrieve Certificates for Clusters
+        - name: Create Truststore on primary and get secondary certificate on primary
+          ibm.storage_virtualize.ibm_sv_manage_truststore_for_replication:
+            name: "{{ ts_name }}"
+            clustername: "{{ primary_clustername }}"
+            username: "{{ primary_cluster_username }}"
+            password: "{{ primary_cluster_password }}"
+            remote_clustername: "{{ secondary_clustername }}"
+            remote_username: "{{ secondary_cluster_username }}"
+            remote_password: "{{ secondary_cluster_password }}"
+            state: present
+            restapi: "on"
+            log_path: "{{ logpath }}"
+
+        - name: Create Truststore on secondary and get primary certificate on secondary
+          ibm.storage_virtualize.ibm_sv_manage_truststore_for_replication:
+            name: "{{ ts_name }}"
+            clustername: "{{ secondary_clustername }}"
+            username: "{{ secondary_cluster_username }}"
+            password: "{{ secondary_cluster_password }}"
+            remote_clustername: "{{ primary_clustername }}"
+            remote_username: "{{ primary_cluster_username }}"
+            remote_password: "{{ primary_cluster_password }}"
+            state: present
+            restapi: "on"
+            log_path: "{{ logpath }}"
+
+        # Enable PBR on partnership on both systems
+        - name: Enable PBR on primary cluster partnership
+          ibm.storage_virtualize.ibm_sv_manage_fc_partnership:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            remote_clustername: "{{ secondary_clustername }}"
+            remote_token: "{{ secondary_cluster_auth_token.token }}"
+            remote_system: "{{ secondary_system_info.System.name }}"
+            linkbandwidthmbits: "{{ fc_partnership_info.Partnership.link_bandwidth_mbits }}"
+            backgroundcopyrate: "{{ fc_partnership_info.Partnership.background_copy_rate }}"
+            state: present
+            start: true
+            pbrinuse: "yes"
+            log_path: "{{ logpath }}"
+
+        - name: Enable PBR on secondary cluster partnership
+          ibm.storage_virtualize.ibm_sv_manage_fc_partnership:
+            clustername: "{{ secondary_clustername }}"
+            token: "{{ secondary_cluster_auth_token.token }}"
+            remote_clustername: "{{ primary_clustername }}"
+            remote_token: "{{ primary_cluster_auth_token.token }}"
+            remote_system: "{{ primary_system_info.System.name }}"
+            linkbandwidthmbits: "{{ fc_partnership_info.Partnership.link_bandwidth_mbits }}"
+            backgroundcopyrate: "{{ fc_partnership_info.Partnership.background_copy_rate }}"
+            state: present
+            start: true
+            pbrinuse: "yes"
+            log_path: "{{ logpath }}"
+
+
+    - name: Create RDMA partnership between clusters
+      when: partnership_type == "rdma"
+      block:
+        - name: Create a portset on primary cluster
+          ibm.storage_virtualize.ibm_svc_manage_portset:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            name: "{{ port_set_name }}"
+            portset_type: highspeedreplication
+            state: present
+
+        - name: Create a portset on secondary cluster
+          ibm.storage_virtualize.ibm_svc_manage_portset:
+            clustername: "{{ secondary_clustername }}"
+            token: "{{ secondary_cluster_auth_token.token }}"
+            name: "{{ port_set_name }}"
+            portset_type: highspeedreplication
+            state: present
+
+        - name: Create IP provisioning for primary cluster
+          ibm.storage_virtualize.ibm_svc_manage_ip:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            node: "{{ primary_cluster_node_name }}"
+            port: "{{ primary_cluster_port_id }}"
+            portset: "{{ port_set_name }}"
+            ip_address: "{{ ip_for_primary_cluster }}"
+            subnet_prefix: "{{ primary_cluster_subnet_prefix }}"
+            vlan: 1234
+            state: present
+
+        - name: Create IP provisioning for secondary cluster
+          ibm.storage_virtualize.ibm_svc_manage_ip:
+            clustername: "{{ secondary_clustername }}"
+            token: "{{ secondary_cluster_auth_token.token }}"
+            node: "{{ secondary_cluster_node_name }}"
+            port: "{{ secondary_cluster_port_id }}"
+            portset: "{{ port_set_name }}"
+            ip_address: "{{ ip_for_secondary_cluster }}"
+            subnet_prefix: "{{ secondary_cluster_subnet_prefix }}"
+            vlan: 1234
+            state: present
+
+        - name: Fetch Partnership details
+          register: rdma_partnership_info
+          ibm.storage_virtualize.ibm_svc_info:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            gather_subset: partnership
+            objectname: "{{ secondary_system_info.System.name }}"
+
+        - name: Create an IP partnership between clusters
+          ibm.storage_virtualize.ibm_sv_manage_ip_partnership:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            remote_clustername: "{{ secondary_clustername }}"
+            remote_token: "{{ secondary_cluster_auth_token.token }}"
+            remote_clusterip: "{{ secondary_clustername }}"
+            type: "{{ partnership_type_for_rdma }}"
+            linkbandwidthmbits: "{{ linkbandwidth_mbits }}"
+            backgroundcopyrate: "{{ background_copyrate }}"
+            link1: "{{ port_set_name }}"
+            remote_link1: "{{ port_set_name }}"
+            state: "present"
+          when: rdma_partnership_info.Partnership == None
+
+        - name: Create self signed certificates
+          when: not existing_certificates
+          block:
+            - name: Generate certificate on master
+              ibm.storage_virtualize.ibm_svctask_command:
+                clustername: "{{ primary_clustername }}"
+                username: "{{ primary_cluster_username }}"
+                password: "{{ primary_cluster_password }}"
+                command: "svctask chsystemcert -mksystemsigned"
+                log_path: "{{ logpath }}"
+            - name: Generate certificate on aux
+              ibm.storage_virtualize.ibm_svctask_command:
+                clustername: "{{ secondary_clustername }}"
+                username: "{{ secondary_cluster_username }}"
+                password: "{{ secondary_cluster_password }}"
+                command: "svctask chsystemcert -mksystemsigned"
+                log_path: "{{ logpath }}"
+
+        - name: Export system certificate on primary
+          ibm.storage_virtualize.ibm_sv_manage_ssl_certificate:
+            clustername: "{{ primary_clustername }}"
+            token: "{{ primary_cluster_auth_token.token }}"
+            certificate_type: "system"
+            log_path: "{{ logpath }}"
+        - name: Export system certificate on secondary
+          ibm.storage_virtualize.ibm_sv_manage_ssl_certificate:
+            clustername: "{{ secondary_clustername }}"
+            token: "{{ secondary_cluster_auth_token.token }}"
+            certificate_type: "system"
+            log_path: "{{ logpath }}"
+
+        # Create Truststores and Retrieve Certificates for Clusters
+        - name: Create Truststore on primary and get secondary certificate on primary
+          ibm.storage_virtualize.ibm_sv_manage_truststore_for_replication:
+            name: "{{ ts_name }}"
+            clustername: "{{ primary_clustername }}"
+            username: "{{ primary_cluster_username }}"
+            password: "{{ primary_cluster_password }}"
+            remote_clustername: "{{ secondary_clustername }}"
+            remote_username: "{{ secondary_cluster_username }}"
+            remote_password: "{{ secondary_cluster_password }}"
+            state: present
+            restapi: "on"
+            log_path: "{{ logpath }}"
+
+        - name: Create Truststore on secondary and get primary certificate on secondary
+          ibm.storage_virtualize.ibm_sv_manage_truststore_for_replication:
+            name: "{{ ts_name }}"
+            clustername: "{{ secondary_clustername }}"
+            username: "{{ secondary_cluster_username }}"
+            password: "{{ secondary_cluster_password }}"
+            remote_clustername: "{{ primary_clustername }}"
+            remote_username: "{{ primary_cluster_username }}"
+            remote_password: "{{ primary_cluster_password }}"
+            state: present
+            restapi: "on"
+            log_path: "{{ logpath }}"
+
+        - name: Enable PBR on primary cluster partnership
+          ibm.storage_virtualize.ibm_svctask_command:
+            command: "svctask chpartnership -pbrinuse yes {{ secondary_system_info.System.name }}"
+            clustername: "{{ primary_clustername }}"
+            username: "{{ primary_cluster_username }}"
+            password: "{{ primary_cluster_password }}"
+
+        - name: Enable PBR on secondary cluster partnership
+          ibm.storage_virtualize.ibm_svctask_command:
+            command: "svctask chpartnership -pbrinuse yes {{ primary_system_info.System.name }}"
+            clustername: "{{ secondary_clustername }}"
+            username: "{{ secondary_cluster_username }}"
+            password: "{{ secondary_cluster_password }}"
+
+
+    # =============================================================================================
+    # 6. Create a pool on the second cluster and link it to the pool on Cluster1.
+
+    - name: Count number of unique pools used by HyperSwap volumes
+      ansible.builtin.set_fact:
+        hyperswap_vol_pools: "{{ hyperswap_volumes.Volume | map(attribute='parent_mdisk_grp_name') | select('defined') | unique | list }}"
+
+    - name: Fail if hyperswap_vol_pools length does not match drive_counts length
+      ansible.builtin.fail:
+        msg: >
+          The length of hyperswap_vol_pools ({{ hyperswap_vol_pools | length }}) does not match the length of
+          drive_counts ({{ drive_counts | length }}). Please ensure the input data is correct.
+      when: (hyperswap_vol_pools | length) != (drive_counts | length)
+
+    - name: Retrieve drive information from secondary cluster
+      register: drive_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ secondary_clustername }}"
+        token: "{{ secondary_cluster_auth_token.token }}"
+        gather_subset: drive
+        log_path: "{{ logpath }}"
+
+    - name: Change drive state to candidate on secondary cluster
+      ibm.storage_virtualize.ibm_sv_manage_drive:
+        clustername: "{{ secondary_clustername }}"
+        token: "{{ secondary_cluster_auth_token.token }}"
+        drive_id: "{{ item.id }}"
+        drive_state: candidate
+        log_path: "{{ logpath }}"
+      loop: "{{ drive_info.Drive }}"
+      when: item.use == 'unused'
+
+    - name: Wait for drive formatting to complete
+      register: drive_status
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ secondary_clustername }}"
+        token: "{{ secondary_cluster_auth_token.token }}"
+        gather_subset: drive
+      until: drive_status.Drive | selectattr("status", "equalto", "online") | list | length == drive_status.Drive | length
+      retries: 12
+      delay: 5
+      ignore_errors: false
+
+    - name: Create pool(s) on secondary cluster, matching primary cluster hyperswap pool(s)
+      ibm.storage_virtualize.ibm_svc_mdiskgrp:
+        clustername: "{{ secondary_clustername }}"
+        token: "{{ secondary_cluster_auth_token.token }}"
+        name: "pool_{{ item }}"
+        state: present
+        easytier: auto
+        ext: 1024
+        log_path: "{{ logpath }}"
+      loop: "{{ range(0, hyperswap_vol_pools | length) | list }}"
+      loop_control:
+        label: "Creating mdisk group for pool_{{ item }}"
+
+    - name: Allocate drives to pools/ Add storage to pools
+      ibm.storage_virtualize.ibm_svc_mdisk:
+        clustername: "{{ secondary_clustername }}"
+        token: "{{ secondary_cluster_auth_token.token }}"
+        name: "mdisk_{{ item.0 }}"
+        state: present
+        level: raid1
+        driveclass: 0
+        drivecount: "{{ item.1 }}"
+        encrypt: "no"
+        mdiskgrp: "{{ item.0 }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ hyperswap_vol_pools | zip(drive_counts) | list }}"
+      loop_control:
+        label: "Allocating drives to {{ item.0 }}"
+
+    - name: Fetch pool information from secondary cluster
+      register: secondary_pool_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ secondary_clustername }}"
+        token: "{{ secondary_cluster_auth_token.token }}"
+        gather_subset: "pool"
+        log_path: "{{ logpath }}"
+
+    - name: Link primary and secondary cluster pools
+      ibm.storage_virtualize.ibm_svc_mdiskgrp:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ hyperswap_vol_pools[item] }}"
+        state: present
+        replicationpoollinkuid: "{{ secondary_pool_info.Pool[item].replication_pool_link_uid }}"
+        replication_partner_clusterid: "{{ fc_partnership_info.Partnership.id }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ range(0, hyperswap_vol_pools | length) | list }}"
+      loop_control:
+        label: "Linking primary pool {{ hyperswap_vol_pools[item] }} with secondary pool pool_{{ item }}"
+      when: partnership_type == "fc"
+
+    - name: Link Pools from primary cluster to secondary cluster
+      ibm.storage_virtualize.ibm_svc_mdiskgrp:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ hyperswap_vol_pools[item] }}"
+        state: present
+        replicationpoollinkuid: "{{ secondary_pool_info.Pool[item].replication_pool_link_uid }}"
+        replication_partner_clusterid: "{{ rdma_partnership_info.Partnership.id }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ range(0, hyperswap_vol_pools | length) | list }}"
+      loop_control:
+        label: "Linking primary pool {{ hyperswap_vol_pools[item] }} with secondary pool pool_{{ item }}"
+      when: partnership_type == "rdma"
+
+    # =============================================================================================
+    # 7. Create a volume group and integrate the existing HyperSwap volumes.
+
+    - name: Create a new volume group
+      ibm.storage_virtualize.ibm_svc_manage_volumegroup:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ vol_group_name }}"
+        state: present
+        log_path: "{{ logpath }}"
+
+    - name: Add hyperswap volumes to volume group
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ item.name }}"
+        state: present
+        volumegroup: "{{ vol_group_name }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ hyperswap_volumes.Volume }}"
+
+    # =============================================================================================
+    # 8. Create a new partition, then either add the existing Sreplication policy or create a new one, and include the volume group in the new partition.
+
+    - name: Set up the quorum application on the secondary system
+      ibm.storage_virtualize.ibm_svctask_command:
+        command: "svctask mkquorumapp -partnersystem {{ secondary_system_info.System.name }}"
+        clustername: "{{ primary_clustername }}"
+        username: "{{ primary_cluster_username }}"
+        password: "{{ primary_cluster_password }}"
+        log_path: "{{ logpath }}"
+
+    # Once mkquorum is run and the quorum application is created, it needs to be executed on the host.
+    # To do this, it should be transferred to the host server (using scp) and then run through Java.
+
+    - name: Create a partition in draft state
+      ibm.storage_virtualize.ibm_sv_manage_storage_partition:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ partition_name }}"
+        state: present
+        draft: true
+        log_path: "{{ logpath }}"
+
+    - name: Create an HA replication policy between the primary and secondary systems
+      ibm.storage_virtualize.ibm_sv_manage_replication_policy:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ ha_rep_policy_name }}"
+        topology: 2-site-ha
+        location1system: "{{ primary_system_info.System.name }}"
+        location1iogrp: "{{ location1_iogrp }}"
+        location2system: "{{ secondary_system_info.System.name }}"
+        location2iogrp: "{{ location2_iogrp }}"
+        state: present
+        log_path: "{{ logpath }}"
+
+    - name: Add volume group to the draft partition
+      ibm.storage_virtualize.ibm_svc_manage_volumegroup:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ vol_group_name }}"
+        state: present
+        draftpartition: "{{ partition_name }}"
+        log_path: "{{ logpath }}"
+
+    - name: Publish draft partition
+      ibm.storage_virtualize.ibm_sv_manage_storage_partition:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ partition_name }}"
+        state: present
+        draft: false
+        log_path: "{{ logpath }}"
+
+    - name: Assign HA replication policy to the partition
+      ibm.storage_virtualize.ibm_sv_manage_storage_partition:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ partition_name }}"
+        state: present
+        replicationpolicy: "{{ ha_rep_policy_name }}"
+        log_path: "{{ logpath }}"
+
+    - name: Rename log file
+      ansible.builtin.command: >
+        mv "{{ logpath }}"
+        "HyperSwap_PBHA_migration_of_{{ primary_system_info.System.name ~ '_and_' ~ secondary_system_info.System.name }}.log"
+      register: rename_result
+      changed_when: rename_result.rc != 0
+
+    # Uncomment this task, if you want to remove HyperSwap volumes JSON file
+    # - name: Remove HyperSwap volumes JSON file
+    #   ansible.builtin.file:
+    #     path: "./Hyperswap_volumes_of_{{ primary_system_info.System.name }}.json"
+    #     state: absent
+
+    - name: Confirm Quorum setup and transfer to host
+      ansible.builtin.debug:
+        msg: "Quorum setup complete. Transfer to host and run the application."

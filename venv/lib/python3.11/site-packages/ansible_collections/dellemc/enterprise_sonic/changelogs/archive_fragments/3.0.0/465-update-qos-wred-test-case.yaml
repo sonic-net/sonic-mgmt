@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_qos_wred - Update QoS WRED regression test case based on SONiC code changes (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/465).

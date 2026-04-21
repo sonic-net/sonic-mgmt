@@ -1,0 +1,47 @@
+---
+####################################################################
+# Example : Event logs Facts Playbook
+####################################################################
+- name: Event logs Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ####################################################################
+  # Task Name : Get all Event logs
+  ####################################################################
+    - name: Get all Event logs
+      hitachivantara.vspone_block.sds_block.hv_sds_block_event_logs_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get Event logs by specifying optional parameters
+    ####################################################################
+    - name: Get Event logs by specifying optional parameters
+      hitachivantara.vspone_block.sds_block.hv_sds_block_event_logs_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          severity: "Info"
+          start_time: "2023-01-01T00:00:00Z"
+          end_time: "2023-12-31T23:59:59Z"
+          max_events: 10
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

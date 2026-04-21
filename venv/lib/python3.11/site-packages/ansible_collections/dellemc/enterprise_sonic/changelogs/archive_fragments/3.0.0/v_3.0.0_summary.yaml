@@ -1,0 +1,18 @@
+---
+release_summary: |
+        | Release Date: 2024-1121
+        |
+        | This release provides enhanced Dell Enterprise SONiC Ansible Collection support for SONiC 4.4.0
+        | and later images. It provides a new resource module for support of the SONiC SSH client configuration
+        | options introduced with the SONiC 4.4.1 release. It provides the "breaking" changes needed for
+        | full support of SONiC 4.4.0 features that were not fully supported by the 2.5.0 and 2.5.1
+        | minor and bugfix releases of this collection. It also provides the "breaking" changes needed for
+        | full support of the SONiC "aaa" server configuration options and the revised SONiC "vlan mapping"
+        | (QinQ) configuration options provided in SONiC release 4.4.0. Other "breaking" changes include
+        | enhanced support in the sonic_bgp_communities resource module for existing BGP communities
+        | configuration options and expansion of support for the route map "set ip/ipv6 next hop" configuration
+        | options.
+        | This release also provides support for several new features released in SONiC releases 4.1, 4.2,
+        | 4.4.0, and 4.4.1 as well as bug fixes and enhancements for support of features that were initially
+        | introduced in previous Enterprise SONiC Ansible releases. The changelog describes changes made to
+        | the modules included in this collection since release 2.5.0.

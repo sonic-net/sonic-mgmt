@@ -1,0 +1,58 @@
+powerflex_common_file_install_location: "/var/tmp"
+powerflex_common_esxi_files_location: "/tmp/"
+powerflex_common_win_package_location: "C:\\Windows\\Temp"
+powerflex_gateway_disable_gpg_check: true
+# powerflex sdc params
+powerflex_sdc_driver_sync_repo_address: 'ftp://ftp.emc.com/'
+powerflex_sdc_driver_sync_repo_user: 'QNzgdxXix'
+powerflex_sdc_driver_sync_repo_password: 'Aw3wFAwAq3'
+powerflex_sdc_driver_sync_repo_local_dir: '/bin/emc/scaleio/scini_sync/driver_cache/'
+powerflex_sdc_driver_sync_user_private_rsa_key_src: ''
+powerflex_sdc_driver_sync_user_private_rsa_key_dest: '/bin/emc/scaleio/scini_sync/scini_key'
+powerflex_sdc_driver_sync_repo_public_rsa_key_src: ''
+powerflex_sdc_driver_sync_repo_public_rsa_key_dest: '/bin/emc/scaleio/scini_sync/scini_repo_key.pub'
+powerflex_sdc_driver_sync_module_sigcheck: 1
+powerflex_sdc_driver_sync_emc_public_gpg_key_src: ../../../files/RPM-GPG-KEY-powerflex_2.0.*.0
+powerflex_sdc_driver_sync_emc_public_gpg_key_dest: '/bin/emc/scaleio/scini_sync/emc_key.pub'
+powerflex_sdc_driver_sync_sync_pattern: .*
+powerflex_sdc_state: present
+# powerflex mdm role params
+powerflex_mdm_state: present
+powerflex_mdm_password: 'Password123'
+powerflex_mdm_cert_password: 'Password123!'
+i_am_sure: 1
+powerflex_mdm_virtual_ip: ''
+# powerflex lia params
+powerflex_lia_state: present
+powerflex_lia_token: Cluster1!
+# powerflex tb params
+powerflex_tb_state: present
+powerflex_tb_cert_password: "{{ powerflex_mdm_cert_password }}"
+# powerflex sds params
+powerflex_sds_number: 1
+powerflex_sds_disks: { ansible_available_disks: ['/dev/sdb'] }
+powerflex_sds_disks_type: HDD
+powerflex_sds_protection_domain: domain1
+powerflex_sds_storage_pool: pool1
+powerflex_sds_role: all
+powerflex_sds_device_media_type: HDD
+powerflex_sds_device_name: '/dev/sdb'
+powerflex_sds_external_acceleration_type: ReadAndWrite
+powerflex_sds_state: present
+# powerflex webui params
+powerflex_webui_state: present
+# powerflex gateway role params
+powerflex_gateway_state: present
+powerflex_gateway_admin_password: Password123
+powerflex_gateway_http_port: 80
+powerflex_gateway_https_port: 443
+powerflex_gateway_is_redundant: false
+#powerflex sdr params
+powerflex_protection_domain_name: domain1
+powerflex_storage_pool_name: pool1
+#powerflex sdt params
+powerflex_sdt_storage_port: 12200
+powerflex_sdt_nvme_port: 4420
+powerflex_sdt_discovery_port: 8009
+powerflex_sdt_protection_domain: PD1
+powerflex_sdt_state: present

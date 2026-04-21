@@ -1,0 +1,66 @@
+---
+- name: "Test Enterprise SONiC BGP Community configurations"
+  hosts: datacenter
+  gather_facts: false
+  connection: httpapi
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: Add as_path_list configuration
+      sonic_bgp_as_paths:
+        config:
+          - name: test
+            members:
+              - "11"
+              - "22"
+              - "33"
+            permit: true
+          - name: test_1
+            members:
+              - "101.101"
+              - "201.201"
+              - "301.301"
+            permit: false
+        state: merged
+    - name: Add bgp_community configuration
+      sonic_bgp_communities:
+        config:
+          - name: test
+            type: expanded
+            permit: true
+            members:
+              regex:
+                - "11"
+                - "22"
+                - "33"
+          - name: test_1
+            type: expanded
+            permit: true
+            members:
+              regex:
+                - "101.101"
+                - "201.201"
+                - "301.301"
+        state: merged
+    - name: Add bgp_extcommunity configuration
+      sonic_bgp_ext_communities:
+        config:
+          - name: exp1
+            type: expanded
+            permit: true
+            members:
+              regex:
+                - "11"
+                - "22"
+                - "33"
+          - name: std1
+            type: standard
+            permit: true
+            members:
+              route_target:
+                - "101.101"
+                - "201.201"
+              route_origin:
+                - "301.301"
+                - "401.401"
+        state: merged

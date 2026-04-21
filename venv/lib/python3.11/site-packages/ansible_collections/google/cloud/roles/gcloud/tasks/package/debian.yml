@@ -1,0 +1,31 @@
+---
+# tasks that install gcloud on debian
+- name: Gcloud | Debian | Add an Apt signing key, uses whichever key is at the URL
+  ansible.builtin.apt_key:
+    url: "{{ gcloud_apt_key }}"
+    state: present
+
+- name: Gcloud | Debian | Add the gcloud repository
+  ansible.builtin.apt_repository:
+    repo: deb {{ gcloud_apt_url }} {{ gcloud_apt_repo }} main
+    state: present
+    filename: google-cloud-cli
+
+- name: Gcloud | Debian | Install the google-cloud-cli package
+  ansible.builtin.apt:
+    name: google-cloud-cli
+    update_cache: "yes"
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+
+- name: Gcloud | Debian | Install the google-cloud-cli additional components
+  ansible.builtin.apt:
+    name: google-cloud-cli-{{ item }}
+    update_cache: "yes"
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+  loop: "{{ gcloud_additional_components }}"

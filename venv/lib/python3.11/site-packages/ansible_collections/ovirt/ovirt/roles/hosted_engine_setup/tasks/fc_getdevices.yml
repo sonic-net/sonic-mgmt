@@ -1,0 +1,10 @@
+---
+- name: Auth sso
+  ansible.builtin.include_tasks: auth_sso.yml
+- name: Get Fibre Channel LUNs
+  ovirt.ovirt.ovirt_host_storage_info:
+    host: "{{ he_host_name }}"
+    fcp:
+      lun_id: -1  # currently it is unused and I use it to turn on FC filtering
+    auth: "{{ ovirt_auth }}"
+  register: otopi_fc_devices

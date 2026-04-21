@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_info - Fixed ``AttributeError`` for ``snapshot`` subset when snapshot had been created manually, rather than using a snapshot policy

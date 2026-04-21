@@ -1,0 +1,20 @@
+---
+- name: Uninstall web UI package
+  register: powerflex_webui_uninstall_output
+  environment:
+    I_AM_SURE: "{{ i_am_sure | int }}"
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: "absent"
+  with_items:
+    - EMC-ScaleIO-mgmt-server
+  when: ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+- name: Uninstall deb package
+  register: powerflex_webui_uninstall_deb_output
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - EMC-ScaleIO-mgmt-server
+  when: ansible_distribution == "Ubuntu"

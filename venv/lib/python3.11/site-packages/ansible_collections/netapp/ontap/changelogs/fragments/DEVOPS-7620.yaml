@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_nfs - new option `nfsv3_hide_snapdir` added in REST.

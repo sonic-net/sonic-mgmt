@@ -1,0 +1,4723 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/commands",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/commands/entry-point.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43e545bf9d80b1e91a98c5cf0188c07a1f04067e78639038f6b2f21e28a4576e",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/commands/lint.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb50a55aa4f4ef93d1dd909cf0d03e816d786bd7c1bdb7992a0086b34124fde2",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/commands/sanity.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0583bfdf73fd78acd74f91917fb5ef6e9c49949a0868917624d0469bca4d9e08",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/commands/units.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "56861f0a1bb5277793d5fa6b53a696e360069bf30d6aeac27d7b2d297965de6f",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/commands/windows.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e19ccf0b59936b433a132dc60a356e95bd295546fe7bcc80c0fd0f65900419ec",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/aggregate-coverage.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "820353ffde6fd3ad655118772547549d84ccf0a7ba951e8fb1325f912ef640a0",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/combine-coverage.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7f63147795374790515d34978943def6bae94ba2600154e06ec030478942e9c",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/process-results.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c03d7273fe58882a439b6723e92ab89f1e127772b5ce35aa67c546dd62659741",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/publish-codecov.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "105657789eb926d584544674855d9307f378b1247c6f364d8ecd66497f510e97",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/report-coverage.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f1589ee6101715046924f3b6af10dac6d9f05b324ece6bf114f27eae5512371c",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/run-tests.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cb08a3ec5715b00d476ae6d63ca22e11a9ad8887239439937d2a7ea342e5a623",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/time-command.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1491b7b97fd03c7f8b1448268aa5bd8c3590f70eea3079e908db4e02d8b14eb5",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/templates/coverage.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4754a1a1aea8eda5ef20dbd7bb7a21754e165464622c708e4aa3f0f2fad3005f",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/templates/matrix.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4fb0d3ffb2125d5806c7597e4f9d4b2af69cf8c337e9d57803081eddd4a6b081",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/templates/test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "68f10931265a0b1a70b65472161009cc9456cff2a90b734b95038ff3960caeb8",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/azure-pipelines.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "30bb02299b97f362729782fdb6cc96b19935c9b7017e31557891f40617634c29",
+   "format": 1
+  },
+  {
+   "name": ".github",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/docs-pr.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e053deefb0f0013fb1db9b37d14dd54aee6bfd72bb91e1a041fe426362e37b66",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/docs-push.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "03ca67a27ccec866f4be18faee64575c17722e4db7e3c4336532f68e2dad2482",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/stale.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "504e98827023f00fa37cd0bc7e8cab6e0eecbf080bdd87a99f4201ed34899026",
+   "format": 1
+  },
+  {
+   "name": ".github/BOTMETA.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c32ef45c7b616a43cad97d178397684e5b51fdef5bff9a4cd72f61854facc26",
+   "format": 1
+  },
+  {
+   "name": ".vscode",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".vscode/extensions.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "de7876569af783e48703301975f12738dc1d3394444a847848c285370c6acfc7",
+   "format": 1
+  },
+  {
+   "name": ".vscode/settings.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3696475b7c6f9a1085de7c88e450266341d2d9f045a30d5e9ca02ee45b505970",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/.keep",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f14d79f3fbe9278badcba3d8fe3b46665adf36c05a65c58e65afae9c784a3d36",
+   "format": 1
+  },
+  {
+   "name": "changelogs/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6891b73b4bb0d0c9e85070ec6a3976e347181b3c9cdd9456c0a7b85766b6422b",
+   "format": 1
+  },
+  {
+   "name": "docs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "docs/docsite",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "docs/docsite/links.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6ac5521793ff1da0855fc9d3aea10922713fe422acab264653448cd06940d83f",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e89350c7768323dd9386762a90aa9683359f88f7198a83d4441611d6f50d876f",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/action",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/action/win_pssession_configuration.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2553dc6599f28b0a11233216058a7fc800e8edea8c37999d9e9e91825438dd96",
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup/laps_password.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "af4a315b22cc2163eb87ac5c68f6672dc70cca01fd9e313e6770ebc131160c2f",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/_Tls.psm1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4a0e6fcbc5d456e3c461a407ab760a4d727dac4651dfc09ca22d7111ed88abf9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/psexec.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3550c01df25410b4161b0f663d5af6a969e5b27953cc594e3ced1274f4c99b48",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_data_deduplication.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c7aec5e19a625b7db6b3e4749ce4e315b901fa55995bf1770ded0fb8d60ac73",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_data_deduplication.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "da032fcac2beb3db04949a40f6977968d2190fd023620bc986aed1c5a0e3ee50",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_defrag.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7a89a620602e7d81e05104ccc98faa442c32d926f84cebfcd104d7726f8fcb4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_defrag.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c2fd032602138c5b914d2d51913dd07e13cbc7fcdcb4cbc459008797df7a3bb",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_disk_facts.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8793beb8afdc4cfa2da07912b4b21955e4339f810144f35abaa46ccb583d83ba",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_disk_facts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fe0e52927b9e1b45ebe8b08c6b8a6ffc4196fcf07a0ba6d67f7f6eb7af581900",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_disk_image.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e6dab7499231082ecf1504560bcee982840f92fb7e215bfaabdc138ad87a2960",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_disk_image.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7e25e48f4a3c493889f11a86c2298ef52ac8df1e558912535023f7c41c1b8fec",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_dotnet_ngen.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "575040cac9fa0d06a736fd60b11c610855dbe48f0cd6b8276e26a21ce593cf18",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_dotnet_ngen.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e79e4ea31cb8328067991f3baa436d8ff91478ec7c8da1e209662299571d0d74",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_eventlog_entry.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0603c52dc048ad9cb794f85527a876dd5fb62b4ddf29a260226d73c4ba647c4f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_eventlog_entry.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb7e39925162a3c37b79bde639c3e83281b817a2d5f53ea4095e42ce99a43d8f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_file_version.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d6fa39db49bf43a60d5350b917fbe2a2926a7e3087f745a3ab7f0aa07b2a8a87",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_file_version.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "08923a6f6e180e08997fe0129576d4b791bb7ec4519b2f5e1cddae6d3d42e99f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_firewall_rule.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ceef7482774115945c36c9f897d7f5af295989bd04d5375da5b3848e5758c8d7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_firewall_rule.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5e37f37c89ef99732ecd278c36d2a995203346b1d61c5d8f351caef56c5f5595",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_format.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b580d1c9cdd9451e44f85e56b3945f11b60b1ec32facf9458c4c2f83da104f11",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_format.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "226ef817525f7032b606013ba3299a879c831b8dbd0acfe5a667aaca126395db",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_virtualdirectory.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d5dfc54ae80e012f1bbb6a90e3a2f81e666412079c2605ef113f9ecafdb3c48e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_virtualdirectory.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4c1ba17ac83afb638235f714872749d714df43884e6598568adc385b1237776b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_webapplication.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43635ebe0d34651d13a76a86ec56fa734d349a97e0f76504d017adea1f56c115",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_webapplication.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d67a9d1dbf1a8757769237a8fa5e46d700e2b309734cc014b3be66d44501589",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_webapppool.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cab6e4319d637eeddbdf532ead9237ca958588c4863c310e41b733ffe71cf38a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_webapppool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b04974780efa1d654f63a9a2bfca7cb0b346c4d5539606eec7b454c06bcd0f21",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_webbinding.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "345e572661345211640ee961249336c86a21347d01568aa622a52a420207ab0c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_webbinding.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "20bb9a4ca980033238d575b5694d0a5010a8429c22d42aee9f3134a5fa3be472",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_website.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db6b98de531f0cd47f6bfdef85ba5c68df2f56cc919d80fcc1df545f5a711863",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_iis_website.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0007010924c04bbf95f978fd7dd5581243d817b5a07babef292db579d8ac4550",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_initialize_disk.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2d33664bc87c23be68b1d35f994897d570b64619ff545fd1dd3c5c52f2f51809",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_initialize_disk.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57d7657f2c6078eafd38b3c3ee45acd3764d2948f61aab957e32f704c5640d0a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_lineinfile.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "90dde4b7ed8330441baff092056d6bbc6266f08b30f6aa6b499854aae5295c17",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_lineinfile.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c372666d667f9629f7a0ac3e9c19d5dd3c0e4ffccd062a2eb48183618413415e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_msg.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "82442977c4579b272e4713ef61c17d3d2ab5d61a87e5cf95db303c1f562c5f12",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_msg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f1ca7f543f3adb170b757901fe94ff6b7f39f4596861d753c2b128415835590e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_net_adapter_feature.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "da2015c98e5c97d7a901b782956ddfe7b13498c9968bb08142d9980cd028e0d1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_net_adapter_feature.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "087412206374e40818c3405c1bacf01b6cc7c2490d6273a5bb25953e15f08cf3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_netbios.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a9ccdb143548dd60fd122160b10851f683bf093157a4009b8c4f0c1828e998a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_netbios.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f20f6f78fc8561e2eb92f87f376d915ca6465250d3957b09f3c6641bce742d64",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_nssm.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "10f9bcd315bc9a413eb1ff032c77865048091ff47e11dbb38e88535a3f7a1ebe",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_nssm.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "53988e41dd94f6c50d48cbcc68916189385bdf1b3ad43e448b3a13024468fc77",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_pagefile.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bfd77669240e024744d4808b371d2483c7811e18fd0a1899262200a81f95e09d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_pagefile.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a51385738ab617fe5ad8f765b0cbbe2f06e7bdd219399460553b3ace7ac8154",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_partition.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dba5c80d079a7479dc93c692792cbed0d4ddd6947293527f03ae0dee4d337a93",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_partition.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "27a2cf0c472062bab2d3164fba17ece5673981e353b7bdaa21cb2b750bd3b90e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_pester.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d57f926634d2a7a58f0eb07f185f35b414d879a8a7d6cdfcab5341de2557bc8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_pester.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "91a178ac5e9e31243466b9c5e9b2900946726b780c6b6d5194dbc12fa3f07c2e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_power_plan.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cb77fc811fe9cf9b6681b3e25d941bfe125599b3735d675bd295e71544ac11f2",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_power_plan.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b604d390f2e1f6619071e69ac70305806f7d8912d23546443120d6fcf9326e71",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psexec.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7db20eee19a35e5fa5a31d1ce3d6f189434ded006ee4ea59b44d42a554c0ad86",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psexec.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fcd3584d105887bad93ad218ffd0bd4ac30ff668ec6b5b9f96b1f0c3ea2a13bb",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psmodule.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8c36242bae8f5083a64fa5e713a3c42201e254c938fee97f0d899b574abbc1dd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psmodule.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4d16c818bf258261b697d1dbd8b18b8f0d4c5fbf528dbe9fe93997899322f0ab",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psmodule_info.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1d30f60c398b7b53f51df29944788a80d6a0f05ea983e8bcd4eeee080939a6c2",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psmodule_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "29e8a0936aa0c14e0a2ef9442eb72c33472b84beb96dae530781ac4c01c198b4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psrepository.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "62a4646974beaf64c875de186877920d0d61cb82fc9d2ee3f2fbb23ae8bac342",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psrepository.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bca71763a19c3067228296d1668d5c749008efa5355406b4dcdd1146ddde18f4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psrepository_copy.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "de33a9d3f97d96d1818460315be76ba804ca97a1823e1d336686cbfb3c0d4c17",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psrepository_copy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "28905bcc3c9dcd1e1a3400755bfb33439dfb87396ebab51063976f687751c756",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psrepository_info.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43fe9e358428d96c7b51af56148f8e7d368429879c476f980ac89205eecc8872",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psrepository_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "efa35baf89e0e88b97973070d92f0f47c97b9419f8bd58245e00e33d0ad00ab9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psscript.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "673c8da4deb307fbc66ec750635f8f04ee48deb6f244676e75af913627bf206c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psscript.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "843227311887bf2aeccf92d4669a6546f7f3326b7c4b2ae0ff3f84eb42571de1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psscript_info.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "945512e308cbcfba5f28ca5f417643784f337633a332b7e33006ebfcb2e97db8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_psscript_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bcfb73e1fe40d2afcfe4eba1c784a66f93d3fb1f34ddaf440ec4b8d920a0c7e0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_pssession_configuration.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c521cf7056fd6caa24ffc86ae9496f0a53f47f0f6b9703e5f0774ea0c3f4b6a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_pssession_configuration.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "13b34fff53317031202ac68066067224b8c7dc25363a89497b4b19e19e9d917b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_rabbitmq_plugin.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "12c9e534944d0ad3883c4dd5adec81867c86312077d2dce98e744c9e391f2dd1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_rabbitmq_plugin.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa62213b0b80ad9af291befd427c3fdfd41d77c65d1ad6a3baf5edab00d3b42f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_rds_cap.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6ed5194192f186289c286f4f59aaef3f42cda3845919abffb16f04ac83a417ea",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_rds_cap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "643cf4372f4ff7eb7baa59e30e374eea236b9dff926d74356bc96976067a1ae6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_rds_rap.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "818f11da75fd59f1acb92311d3d1c3aaa694818a20a3d65ff0bb346c544787bd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_rds_rap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "beeeae76c33588bf55c7ba3f9fb9da372475da741b39ca1c9a85a631606d0afa",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_rds_settings.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "baa24177579313f433c67c727ece10727073dc149c4c67a4c853ce3df3637e1f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_rds_settings.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "64c9cd29d9657b908b50b1ecd865ff3919ea36737da4d2c34691549e8b5220a5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_regmerge.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5bdcb076d4ec4daad3f3878ebf570249d06cd9aa2c73e5a5bac7766d9e690648",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_regmerge.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "16353c422cb513a4aa95557c50a661c0f9a81b3ce2ac60d7a47bda69540bb8e7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_robocopy.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0aab4398e3f5c84be878d111112b0b96400a976864e6d35a47fce968951fa253",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_robocopy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1b0a6c1193c82292b4d1a50e11889685277716a3aadd9a7858f297363416bd0d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_say.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1dfec9e2527c4f2250080076615a85b71feb64fd2ec6039d44f399b439b54ee7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_say.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "58df81350081b2385fd3e6c742cbde796126fd7ecbeba88fea51cbef1540d39c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_scheduled_task.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a24a38351245c1ecbb5c75d7bfbfe4ae48f10071f46f46bfe49a084c31cb7c28",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_scheduled_task.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "347a9cea991434f91938becb712c283f548c04de65382b6d67f1363b879a9b7b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_scheduled_task_stat.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f490d3f7fa6388ebd04eb303ee822de1cdce1e405dc280c2e7d62e14ca3e2127",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_scheduled_task_stat.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4138decb47384221b6f9e8a180a54c1e0c62d4fe638824f0bca481a44016118",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_scoop.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea1c9eeea3934760f0890eac935888eda1ec2f2c6c248e6d841b92c808aaf6cd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_scoop.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "37fb7a4b32c71fa655b81b6fddab4e7678e0b3e1d22ffbfa0a995641b7e2a216",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_scoop_bucket.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3b0cc33d792d47a4c05b7713329ed14e7f544e406651d2cce563455f2bc8c4b0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_scoop_bucket.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9301e60a9678088187977b9488da4847c8ab735cd0af2efc8a70c75ea25e418e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_security_policy.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2f91c88a8f685e1e92bab981b04024d12a1ce1b2215749496dc435ea8792a28d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_security_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c60e13b8be895948a8197017214f4da09dceaee71343e4b5b222ad42497c4f95",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_shortcut.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4702c7b2f83ae87ba102564ba40c931f42566df13530d4065c12f78131c903d7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_shortcut.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "822eee0293b7f729908e218ff2623d6ed3f6f72d9ae6418bc8566cd881485e83",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_snmp.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d4b8333c9e552cb8d40b293cf40350381c5a777b1451c5ffc82a0dba8bc2112d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_snmp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bfcee31a5cbfc68e82d852160c6a7f4c9f9c393ed40448825c449ca739994cb6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_toast.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5e57edb4f3eb59b9e8f04d7ccb55b2466ad2aad6b15317951690299c58ae29bf",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_toast.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6eae86e42a8d8fc3d48688214f2a7c1b3d023ee32e8f1eae7d5f0b5366bef27d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_unzip.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "38e9febc3e910631bc358a73cb08957f5695333cd96986e409dd0e86f5d54e3b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_unzip.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0cefd4e4023c7be1b9a1a5ab8d0925d96294f381206aa88c84d00dde28559be6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_wait_for_process.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e8427d9451ef01f633c8fc9d3d80b70af34c3142af862b7c75c61f0cb21b4664",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_wait_for_process.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "20db259f380c06193f19545c1b6ba37f51496f6016442a1d684f9dbb02f700b4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_wakeonlan.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "474da7897b5606cf41061d4274952b9320bbf57d45418ecbe6e53c3a6c34aa85",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_wakeonlan.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee9439ec381a284965803e1eb7801ac08ac8bb24c88b76ac6699d241a478ffe3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_webpicmd.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "36f22bcd5c1462cee9a8ac0bbce14332d6594da183194b9a70cdb3935b8bee37",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_webpicmd.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7cc1598a0cbc5004e25c7eabd58e9018335a63fd992c4c90386c018bf7336793",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_xml.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0138a0bdcda0da0333b93c4e4c96bdfc6c0cd69195136baa6498d40842fe184d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_xml.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "85ba2a4d80a7f656fd2a7b7d230e465ecdab681dcbd3518858484d96f65ff259",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_zip.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99fefe0ee51e179ab089da3b08fe537a36e9b554ac339930cff0b954cacd0957",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_zip.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "66129545080bcdd3151034ab258eeebc24459fb44c82f30b1176cbe4f09057de",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/psexec",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/psexec/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/psexec/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cd03243b9501bac681ccf4c2305907ea2ad30877c51319d3bc580f51efa4dd61",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/psexec/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dcbe4af550accc8de678a6b735b5b216271bc5af024a4763354f876935e6d88b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/psexec/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "00d4cd3047049c7eb0a2b3438d5aef7cd6801ecdb2acdc2db636c3b3e633655e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7d57ce61e6260a2323345c4a0d31313443d983e2c8c53f6b2f54cf4f3c6a3acf",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a2917674eb617cb07405eabb6e384f00655f265ea067c59113bd10011c5b0d46",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1e8d632f9db7209967c5b2f6d734bede09841acc7b898dafc19f31c72cee9929",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "47a062c0c69fbce36f3c25dfb63c900b7ff575bd730f3ac90152f6bd2fa06b6f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_http_tests/vars/httptester.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee7232593b60212e0e400015c9d479c5f5193f14c8868b044ceffceb7a54196a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6d772766d4d6bba55f757450a7024c5c7b63a85a2307ab6f12f3a159898e65f3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b015a5c462afb0dde4020c03cb9f4e1ee3e67a8e006dba73bf12d88001799dd1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_device",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_device/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_device/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "def30fca76ea4848d7411b1e0d6ad066d900fa35d8df447b5770bc56cd3a69f6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_device/library",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_device/library/win_device.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd14c9de24e7d4b98933ec647855943f9c7ce2bc3a620e7afdceab312967b6a3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_device/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_device/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "26290fb53d3f17e21eec6cdd02a33bf8e31d0f3257ffd209c87c3a62a81f2bd7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_psget",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_psget/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_psget/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92f2b42912355ba7fd19805552d4e3b15a5f55ecc473890e37a6ef48c7886b33",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_psget/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_psget/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1dcfbb5373a44c3cbf9c1dd98d6d608aa31972f3737dd8be9d50e0edf46f401d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7df6cd7eb977d8bebdc11bf664ed83e01fd821f94cbeae22309fca5a38014700",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e140d411afb8b79a7577198b20fe365c681d01055384a292d42806f668e6ddd2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/tasks/pre_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99f1637ea650578796bd4eee82135ee1ad6bb95b2aa16592aa48fcd48bf547c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d16192acca0e6ae9b3e44d3eaddd0bb1ebff18b67b4f50eff3687ea2df30f37f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/templates/partition_creation_script.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c06015e67cdb473a313de91d22f60d6e9aa1109d2b4ce79ce5b412b154d0d87d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/templates/partition_deletion_script.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f1319734e0deb3e19ae8c1f4c36557cf4a2c53189bdff2ac88fe315af8108877",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_data_deduplication/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_disk_facts",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_disk_facts/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_disk_facts/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e0ee323b8dc5a00d08437896e844ed7f5586d761baaca2689439df816384762a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_disk_facts/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "de52c7436521ef0ebda4fa9ce7c79c2ed72a61decad16a45893034e483b63ab6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_disk_facts/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1341fbf9f0e0665f9960fa59505be4ff8ccb45aedd059aa843f1845b5111f72d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_dotnet_ngen",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_dotnet_ngen/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_dotnet_ngen/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1055e179dd53666d89d7c5bcca5a63bebc8ce866e414273aadc7b836b692c492",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_dotnet_ngen/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3ee2224016a3c9f6cae6b003482f55995e88dc8dfffeb71f516da177d490d91c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry/library",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry/library/test_win_eventlog_entry.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aecdb7299a53de0eb112057280c39baba49920585fbcc6e4c872a1fcf65eb268",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "366a96b2c24c798698692d1a40f16434f9973c8bfb8fc95503d75beb802014a1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7ef7d2adf23009f3e78563b83f26b0c36f1d35d130416f09cb854eed2a271e37",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_eventlog_entry/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1afcc2aeb0a4a4786e8345e0738aef8df6eaee36d40e45e0d0e54a500de582d4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_firewall_rule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_firewall_rule/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_firewall_rule/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6e0ac5beee1747da450cf22b493270b9bcb56577f876a070262923ba3bcea7eb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_firewall_rule/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7df6cd7eb977d8bebdc11bf664ed83e01fd821f94cbeae22309fca5a38014700",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e1697f5d2174eace51fd9c5a9fd39e3b0f385d390b77b16714e9026e17e82423",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/tasks/pre_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "605dde22f21960667693488dc68a4af01fe646025a431482835dae4da6c3f7c7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "177c64bed75731ede09c0d74a1ed8e9a8bf273681e2c4cc61f63ba1a6e0dc62e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/templates/partition_creation_script.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c06015e67cdb473a313de91d22f60d6e9aa1109d2b4ce79ce5b412b154d0d87d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/templates/partition_deletion_script.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f1319734e0deb3e19ae8c1f4c36557cf4a2c53189bdff2ac88fe315af8108877",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_format/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7127ace6c1571fdf343a57b543cd35ed5b5181a330ab6e79ea892bf1ffff082",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ae00a524028be6bcbe590b533f7004343bec3022cc8125237cdf671c12aa8858",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e31974ae519d6c9a7fead704312d1ff982a51e14c2392c42e615b8f15383c5cb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "107f4a45e094aef0082f65368f57fbf815cc98d72ee61739babcd8508c4c2cc6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ca79db3b84b4df1d47c913f3df8f9958a642c386770ea5cc66ad7c8410efcc31",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_virtualdirectory/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e7125b8882592258dcd5bc1fb2eeade57228ca18412b216bb1be0d5c87970952",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "272b5bf53ee34a45461174bb3cf8c37cd0a24516818c5c1eb56d1c229f42f7d1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e31974ae519d6c9a7fead704312d1ff982a51e14c2392c42e615b8f15383c5cb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5f82762ca07329ac5ccb78e93221b81b147e2d2d3272368f8c362f80270d68d3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "919f4719886a17e7b7410bc01a9ac0c176c58b22936df949cc5773a8e280e04e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapplication/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ac575e5ffd4d79acff28e75071b58e0b8e33ab431e643f5722333a699082e3b9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapppool",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapppool/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapppool/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cfcc8ac7cbd65bfeb6b4930f406197ea9b90338d3f8ffdfe11c06a17b84057cc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapppool/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapppool/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d6f77944f44f4eca550a244b828631dfac528471b7a0f5009185a8719c256b4a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapppool/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "59f487fee8526011acd7d28271faa45fc2cb5818aeb2add95a97c1843f238a07",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webapppool/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2b2d15f249d25a18679ee27fc489c6b56565f920e4079fe6b8235f7225dd54ed",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/library",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/library/test_get_webbindings.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "041e1ab1537328f70ec764f11c80b3980dfdd18ee37152f02f02363a0cd6589e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/tasks/failures.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "73645d5c8ca35d93d23147a8061a96650398e147a2697a6650d57ef091651caa",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/tasks/http.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f19ee5437bd538943ffbc3b02df1dc4c25583d64b54066d0184a17895d50b4c7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/tasks/https-ge6.2.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3de3b1444b07b0f7a75f3b8c7b2033008f2167b58138dd4b1facb14564982218",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c38996e485290860cd73f8a07365e99054fc0a37232e201b324510a0bde1f855",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/tasks/setup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f35c0ff4a559039027034c19f7a9b3d72a3d04744c076f558973d9d0395ba720",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_iis_webbinding/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1aabf18b3e493a2bf65e8256494940c15795202c0132ef951482454ec995d2da",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "332884642a59dce2b746313aed56aa96b8af7b9fe9036fe1dcba9e10b56ffc2e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf6852c5596e05cc768a17b95ccb2b4f4d168918c252f6a9dbc9dd6f3d12e9f7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "210c0808c54da6d88b0a160ca1a75307a664d782b000f567f4fc0cfa58eb3acc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/templates/vhdx_creation_script.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6a0813286d132fa402e244572e0a486cb557d41467df9d2f9e501975552a56ed",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/templates/vhdx_deletion_script.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f1319734e0deb3e19ae8c1f4c36557cf4a2c53189bdff2ac88fe315af8108877",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_initialize_disk/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7127ace6c1571fdf343a57b543cd35ed5b5181a330ab6e79ea892bf1ffff082",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/.gitattributes",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8995c68e4bd285cc85c77999ce1b49c4211b0c8df796a2cfde5b978dbf69d3e3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/01_new_line_at_bof.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bd517f3e26cfc2f9c60bcd43aabe6e0e6c533cf1bb4c57e1a90329c407347bb1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/02_new_line_at_eof.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a6c5af83aadcef8cca9ebb45a9631404922d51f9601d7ae59856c33690ec84c6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/03_new_line_after_1.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0ee03d302c77aaf45dbb99a0a6bf5dfbf1a6af721561d3623a940ec0a73cf4a5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/04_new_line_before_5.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a8765a94c48a02423fa727a31a98c5a7788b084cac97cb9fe234309c4bd46043",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/05_new_line_at_REF.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ef25b1fb89743a1058018f82aefe1d59df584dc1e2e531663362acc25b2743f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/06_remove_middle_line.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a074640a30d13ed3100058b78433541d4a1e03d710db696005aa968c1dd9e597",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/07_remove_line_5.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "465ec27afcb58918c736e0cb43797dbc9d966bb16791a2101f2a213d4b9db4d6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/08_no_expected_change.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "465ec27afcb58918c736e0cb43797dbc9d966bb16791a2101f2a213d4b9db4d6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/09_new_file.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd96989d943734993ecd4dfc86a3b6809640f9690690ae5579044525316d03ef",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/10_no_eof_new_at_eof.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "880f0f704d165811d3e6975a87339cc7e52ad2b66ba869ceb0d9f1cdd45be661",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/11_multiline_at_eof.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ba45da2c94ac4b76f7e26898776eb5cea5f731ae32cab6139080c43450fe9674",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/12_empty_file_add_at_eof.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81e3662f3607b7b5ca97adec3365c2d6de35ae66860ace8a7e5d11f77887600f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/13_new_4_with_backref.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aeee21bec2b14d16485b08811bff8b83a7922da957b64806a52cf3741af57bbf",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/14_quoting_code.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81af518bdbedb356827f9dea5d8cd754e904dfa3d0652f8b0ca63812ede50ada",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/15_single_quote.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "53ffccc1fa9439f0f6811ea5c6f834158fbcb5715c1ef9914b03af3b50224a75",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/16_multiple_quotes.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f2e0461b7632f08507377c9c6503ed9138ce4b8c9b3aad7c7e1586beadefff59",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/17_new_file_win.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd96989d943734993ecd4dfc86a3b6809640f9690690ae5579044525316d03ef",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/18_sep_win.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f53d459a15aea59b560ba31908036eb35a96ac939630fec8a8ef2d5731b5ee75",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/19_new_file_unix.text",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd96989d943734993ecd4dfc86a3b6809640f9690690ae5579044525316d03ef",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/20_sep_unix.text",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f53d459a15aea59b560ba31908036eb35a96ac939630fec8a8ef2d5731b5ee75",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/21_utf8_no_bom.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eea8307d7d286dc302d27aee4f220529230b8b685299cb8d525dfbf871e52fd3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/22_utf8_no_bom_line_added.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "602793aa51daeea40a863c0fde3164046596e830f32752967d3657406f110d1d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/23_utf8_bom.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e288ba6d0ad07017683ae64d70c387093bf840df7b01c8fb8a89cf31f962338",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/24_utf8_bom_line_added.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3ebc31b1fdb215b69e44b1ace12b3c8f7158d2022cc2c1134e461015c69fb8b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/25_utf16.txt16",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1ee6c6f916e917665457efbd5dce45e2c730c74a4ca53fd8798ee847771e117e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/26_utf16_line_added.txt16",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e70a053e84d2f6360ac05617abb317fdb0852bf5b8d85f5091572a6d6fc5d944",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/27_utf32.txt32",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ba322779abd7736807013f4bce30807fc35ca843efcad76d224509f0d784781",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/28_utf32_line_added.txt32",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "361787e374a946cd3c6a35145c31106bea78213b38791bb04c32221b1801c8f1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/29_no_linebreak.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7acaabc4085318c0d69787f56879e28dde5dc83aa81e889e3e4a867334b4c204",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/30_linebreaks_checksum_bad.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ec611dbe789262dc7bd552debacf131585dc8a17af33ef7e6e3315b17d1074cf",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/31_relative_path.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bd517f3e26cfc2f9c60bcd43aabe6e0e6c533cf1bb4c57e1a90329c407347bb1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/expectations/99_README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e377b6b52a0a6c831991f01701b0f2942994edac023d62f1dd7e4259ceeb4e60",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/test.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "03682d50f56b19e914f97529261347ad0535cf7e76f27cc6638bd4986c50020c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/test_linebreak.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/test_quoting.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/testempty.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/files/testnoeof.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95316432dd51dbd60756051d85437e9e7326c70150157db4e6e33e3353d73521",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7df6cd7eb977d8bebdc11bf664ed83e01fd821f94cbeae22309fca5a38014700",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99cb0e8000bef81432d1ea43ab01c1d7eb56df5b33b1234ce23be67269e18cc2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_lineinfile/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_msg",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_msg/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_msg/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83682ea249e95a10e0e01af9045524221c4509057fc541597e2bb9b4e227fba3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_msg/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5a8d43061af195016cc364033092a9baebedb740008f0efbb07893eb34a8e3e3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_net_adapter_feature",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_net_adapter_feature/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_net_adapter_feature/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "807dbe52645ccba45e7de5a3d6d59e6d0d9ab64018d4489259707fbda7798a3b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_net_adapter_feature/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_net_adapter_feature/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3afac57daf4c3b40c691886282af47222d4a8532aeab4e44df42c20bfccb7e47",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_net_adapter_feature/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e29a727e00b609afe2915c73d075a52bcc32023b9ad6bd7b29fecc31605ae862",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_net_adapter_feature/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1afcc2aeb0a4a4786e8345e0738aef8df6eaee36d40e45e0d0e54a500de582d4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_netbios",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_netbios/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_netbios/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "807dbe52645ccba45e7de5a3d6d59e6d0d9ab64018d4489259707fbda7798a3b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_netbios/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_netbios/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ca2a252005ce5900d0adf890a91ba8654060eeacdbc214f9ecfa7e3a4ccfa901",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_netbios/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "297cffbd19ef579fc38544e416a10cd9afcb910b85cdf1720b4b573d7a83897a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_netbios/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1afcc2aeb0a4a4786e8345e0738aef8df6eaee36d40e45e0d0e54a500de582d4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f6395d2bf901dac05dc0716af48b34728b609766a860136700771ef2c267064e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92f2b42912355ba7fd19805552d4e3b15a5f55ecc473890e37a6ef48c7886b33",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9f2228434da5b3143046067b5877bb482c6b38746d20aa23fb569a9639401695",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7cbfa6b4edf95562b9e47afc6081d6d2a5f6c03897905cf0e7fadca86886b43e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_nssm/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1aabf18b3e493a2bf65e8256494940c15795202c0132ef951482454ec995d2da",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pagefile",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pagefile/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pagefile/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f5d8b2f2addd275197aabdee23beb0828f20ddfa085b7a635662d2002345d282",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pagefile/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8f86e04a63b77ef852a53d69c53b7cab329c1eb42abe50261745bc2b6f38d1b9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "67fdfa165667eb5df293ad6b9ae9131a49b22cecfc97a88943ac19b787eeade6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92f2b42912355ba7fd19805552d4e3b15a5f55ecc473890e37a6ef48c7886b33",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7f6faaa2b8815d0e608a72f50b1ae4acb36f9def21768645e22f61b22cbeb8e2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6f34446e8fbb09e5e8623ef1b0b1c5f0f10b8508b921367502054333bc1de2dd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/templates/vhdx_creation_script.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0b44b32d4809cdcb2fed1216911aaa76864b98b7e0624b726090ec0634928299",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/templates/vhdx_deletion_script.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f1319734e0deb3e19ae8c1f4c36557cf4a2c53189bdff2ac88fe315af8108877",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_partition/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6089883e66c66166da6e59fe6f2b572349021d3992689c8131ec5d3e9c6db769",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/files/fail.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e4e2c19642055d50c8c2d33e44c99e197e7725ab40fa23cdf742458ea0fcbb8a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/files/test01.tests.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e13d32f62de6e8f6b843279d6bb7b39cd4cbe7fbaf348266978bd737162157f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/files/test02.tests.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "032d51cab6f6002c4ba0e668d8871438d9146bcfe70de3d4680875943d68a0a3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/files/test03.tests.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "58c3dc91a7eda4d66c2f10354929b6c37be5f8682e7cb5afad1d9dfbc69ef6d8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/files/test04.tests.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb91c42351feba07c5178d16c43edfb2118e3cfbfcb72ba973198e12476e186",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a39e3370b70e8c6becdefb9af4678ac2fb094a0f8ab5f07e29637b413eb838a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/tasks/test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "285f1f83323fee51d3f707e0a189c1a49749dd741b4e1a787e87a60050abc203",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pester/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1aabf18b3e493a2bf65e8256494940c15795202c0132ef951482454ec995d2da",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_power_plan",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_power_plan/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_power_plan/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4de659a0b017e1382b0b6b651d18f608b805c349865a8930c1a4292adf9581c8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_power_plan/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1afcc2aeb0a4a4786e8345e0738aef8df6eaee36d40e45e0d0e54a500de582d4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psexec",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psexec/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psexec/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7df6cd7eb977d8bebdc11bf664ed83e01fd821f94cbeae22309fca5a38014700",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psexec/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psexec/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ad6501d6b2150da1bede8fe0b68013d61230aff6019eee46dc0a3cbd48dad678",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psexec/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7127ace6c1571fdf343a57b543cd35ed5b5181a330ab6e79ea892bf1ffff082",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files/module",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files/module/license.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3e61d673db4193e2e813b9345aa52ffc22b57cad28f9b82914aa5494aba776d1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files/module/template.nuspec",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fea6f0f6e013f70d6f54bc151d99d38c90beba688ee50c36af7cdd02d47e4085",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files/module/template.psd1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5a411be05c13817cfaab55b0b70616364d5c4278bc4e64863e760dc2edd141f3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files/module/template.psm1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9b49040430524eab09037994e7b0d8f2f6d0f843cd0f77d4081a2e6d81ab0a70",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files/openssl.conf",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9715d89a84b15cdb10a5b81bccc3aa1b778436dd88688cfbdf13cde2f5cef6ad",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files/setup_certs.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4b11bc1ba1c7d92fc8d9d9d4a544a76e4991ea5d00b3458a2d3f43f8f002f7b6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/files/setup_modules.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e7c6c6a7553f7c07ce0e5d4ef3c07324bf87f4d55e41ca53737bef27cfb56b2e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d572239c2904972ae301a78b1dfc004106af27e7cab9089b5b8b08a8ca68bdc0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4fbb079185ffb8e152e7f51eb8e04da6e07956253b49baf0f61daf7b3cb0ef77",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f9c5ee848b771149076768be9c678aed807c33c1f233f4a29eebd7f3fb5f5c16",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/tasks/setup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7ccb7644b101659b949b7836f7e0f7400b417b09f2b0d7d3c334ce9f8b898fe",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b04d0cf52c7f0bab54523594fc5a817b7ffcde294254ba45113071b36a34eb4c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "845e0a2e5969bb32652b9101d42fc5525d60a1b1c0d8e7002efda88ae9b6cc8f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/tasks/common.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a8327b3c3a8a3fb70ce72061d167b6057e0fbbd3aab4d661d60143ae370f62c3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/tasks/contains_all_fields.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2db1f43bd61c0287f7b8b033e8b209744168fd9140965a6f2e7614b58a66d4dd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "44800079fe03f8a6d09bc9e530ee1891831e87db114c05c47c303fedc46cf2d4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2f2cdaf24058c535eacd2f313b6ced70550ad72a1396ed6bc9a0e11a1805d98e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psmodule_info/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1aabf18b3e493a2bf65e8256494940c15795202c0132ef951482454ec995d2da",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a54fc717b702d668a1bfb5c1ba0ef59950422060c38c9c5a233c20ae6e8ab4af",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a41f3880442c3cda4be32c8567b990bacca9f46ad1b28be0cd0c58d5cdee99a2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/tasks/get_repo_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ddcf35e22dcc257a86bc35911633fa11dc3fdd56f1fb903a8b56217e24c09f4b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6cc925cbac984de7c57acd9d75e615c225b37a40dee6ae26f5997e1022776023",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "008ae753f3b80cc69c50bacfa3569afd96beb6d563dcd3702d6c67aaa588eb88",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/tasks/update_and_force.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8302a6fae785950091e5be722233b63b6e8e3ca6e630e6feaba7e55a57ad0485",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "322fece9c856917b28535870b072819d73561d65c8cb6c482f5d7946b18f1c26",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4bacd95c456df7d6310330f7443e5db34189c0a309673128cd10f0e838d1c699",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/files/SampleRepositories.xml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7502f482472c78cf7467f7fe3d17a5ce71881cfafde356a13f8c846428e6f081",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/files/UserCustomRepositories.xml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4989fca53591308e8da23f4f7d8a677c2cb1399ee01ee6cce68a104507ea2931",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "845e0a2e5969bb32652b9101d42fc5525d60a1b1c0d8e7002efda88ae9b6cc8f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "56826e15fb4d455b53090d5bfc5027202e26afd5f2e896e8241dbedb657a3a74",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/remove_test_profiles.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "35ce43a4e1eac04e52069b8d7e19abf1a67e8a95bbc0eed268f79cf764f27aad",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/reset.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5c3d76dd6aca1e527ca70e680e2b18bfb3abc40021adc4afead01f286e0e0ca0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/test_by_user.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa5a2aedebd5a3bd31a8f39d0ff56b0ed5c3feef581928a6dfd27cf769a2e863",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/test_exclude_profile.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "74150d8855aa3d7e1ed75614cf905b3af1945ecdacd659615123e0319d95eff1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/test_exclude_repo.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d38535b2b75fb2f4e7e6d5ac1512c0980f2d7fa0c80f8671fe6486ff87a5f8b7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/test_force_profiles.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6fd65e43769558696a663fe97142f91ea0f7bfd7041c9bce8516b6b75d6c3ffc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/test_include_profile.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c9a6e2f17d54e64d26a96099530674e477c84824ec64a848d6da5a59261500ee",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/test_include_repo.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb5d95da312820283745eb81aedb68d701e963a898b8b683801819a5c558ca03",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/tasks/test_system_users.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83a3c512a08614df2ffdc0358b6ed89df9be342213afff653d087764f3ec2d32",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_copy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1afcc2aeb0a4a4786e8345e0738aef8df6eaee36d40e45e0d0e54a500de582d4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7b9544dc6bbdd48bf1624137e662eaa3c38fc4459f53144ec016368d052972d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0c8b774943ae1182244f88b804c2a9609b0756ef7833fc2d6beb4ecff2b965b4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/tasks/contains_all_fields.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e4b5f00b10183982fb68c32739123b51a67ecbc61031975c745b74b7b2933fc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/tasks/empty.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a8aaf83fa8b3e0e33152574498e5f61e354f50d472376a13d06743926696d3f5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a5dbff8a1bc4064bc0d164ab53a29996f2d7b70e95c120295ec8f929751db81a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/tasks/multiple.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0754a2fce4cf30e924e4e17111aa033aebea8d786e80e5b7d5983dcfc45d83cf",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/tasks/single.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f606f69f870843d0144a7558ca0b14d087c96d6204b05c46295788fa32168ecc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psrepository_info/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eea80c0dec844bd560d4c6bfb07e5f82872a1843d889fdf38f17b826f6bde38a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c9054dcec38ca371dea8b0df1247625bf1859495173cc88b6648d7f435c8b279",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0a3029fb8aa7ae125500ea27af8c2d0d6a6647057ab5a9ec79ae5f871419ad0a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "845e0a2e5969bb32652b9101d42fc5525d60a1b1c0d8e7002efda88ae9b6cc8f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6931841d3173abfff02e1e3fab721605aa9ddd829e067664d408de21ca6055f3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/tasks/script_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "69af2fef7dbf26c17e3db8af0355381f285094c82b3625d5aa18394a608e383d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/tasks/setup_repos.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d9e9265fd79c53f6362598dd01b2e7025384d8c68a55dab18fdd8a80ef887f68",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "74947feb0266d3b89ae275204e2121c1e5361d281a60e3429bc34b61ac944610",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7127ace6c1571fdf343a57b543cd35ed5b5181a330ab6e79ea892bf1ffff082",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e923db01c06baf83ac9565c8eabe92e34b8ac7f11cae7a3a04dfa6610b7a868b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/files/install-git.1.0.5.nupkg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b65c33bb6e9ab4a0d3b7cb44ed8da3d6f66eec40acf07cfa734a55101aafbda",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/files/install-wmf3hotfix.1.0.0.nupkg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb9c5b85ac2d2415ce7beabf1cdebbff197039b14a4fcdfcd541fe7e6e5e9c57",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/files/test-rpc.1.0.0.nupkg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "01afede115916bd5fb098620c5fd370fc3524785609266f12d6b27b20e99d68b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/files/upgrade-powershell.1.0.0.nupkg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1747e2ac401698e46b08f6ad61174a0a1fa197b2dd8baa790e63a86f7382dd68",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "845e0a2e5969bb32652b9101d42fc5525d60a1b1c0d8e7002efda88ae9b6cc8f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/tasks/common.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3ec6651c1948fbd207fcfb6898224d40e6c98e5153955fac07a09a73397c2177",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/tasks/contains_all_fields.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2db1f43bd61c0287f7b8b033e8b209744168fd9140965a6f2e7614b58a66d4dd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2142d81208ca30e40b4deb28b86152020f7d2b1bb2e313c2cb8322a57ae28fa8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "29fd6f8c8f850a7101225ce02cbcd6f62acc349b9099baec4f15ac5a6b2113ce",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_psscript_info/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0032481091b74f5fcf14321eeef6cb709b8860e22a3d2f06d593a63ab1a39709",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0ec0577229ca35e2aa70ac93418a6243bf847b2812dbe4cc4fe3d9cf9deec62a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d6d4ce593ab5a0fa8929b41405061fa6c11bebeaf18733c00cafdb0cf24343b3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4be8cf53f7499d7d40fea58aab205adb0a684121ea489e57cda08e17ac6bcd51",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_pssession_configuration/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rabbitmq_plugin",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rabbitmq_plugin/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rabbitmq_plugin/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a39cb045a1ef3e2cd55696690b9759b6528f60b6df35a14516125ed36562bd0f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rabbitmq_plugin/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4df29eb09b67546f68f0329153e4cfca8b8d19548d147bd0ddae7bb14a754dbb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rabbitmq_plugin/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8025d5b6d7bc29f42636afb5c8bbab561ef4a099aa0c508c2ea14bac9dd399bd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "21ef25a8b17ce4238d4053d70eae0f19662b054b0e04f0dd7ab8778583acae44",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92f2b42912355ba7fd19805552d4e3b15a5f55ecc473890e37a6ef48c7886b33",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5776a1b7c4fba502b1e103ba1ad2059f04a4d7d7f9f7fb1e8383fd47f4875db2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/tasks/win_rds_cap.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d635b96b2de7ed2e103f05cd7d03bca764360197a1f5ed4f0f2f06ee5e980bd0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/tasks/win_rds_cap_tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "efed7e87c732b93ac76a9b78bed0b3fc13a56ece8ef863a2864a378efd7f42d9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/tasks/win_rds_rap.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d10658be2de14219858b7b32b6d212bcff1d752a78b9709724ad48faa664f524",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/tasks/win_rds_rap_tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aedc05bfdebc1c00f82b2591e6250990c4655801a2ed4c7c3310788967eecf67",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/tasks/win_rds_settings.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81196c3ef0208bab7e22e1a87dccf523297a139953b63f01b51a04827668a5e2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/tasks/win_rds_settings_tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "833217289bb01d4f1f0bc3c85af645c0fe2d47cc9a55ebeeb02693dcc8178798",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/templates/rds_base_cfg.xml.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e2ef6e1b50a0dfe0bd39e03d3e7a0562e7641a37332ec0f7f521d838e2fafb0b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_rds/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b0c52f35debc166c9da2709a0e40f18a088f1dad16449978bfb19e230f170601",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/files/settings1.reg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "936d9385cfdd32b6dc1ec2dbcc601dadb9320d5051ecb0d762452c7bb7cea9ab",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/files/settings1c.reg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9821422fa24c2ed02b15e97aeb9e71250a97a2f76edbc08dc688ce095cd97907",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/files/settings2.reg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5623892c77d8eed8a0880a9f7df8069ff70fa975a697f6a9a764001ef5fed06d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/files/settings3.reg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "76dbceb93973dc172e1ae17d9f62c48a4fbd19ae3ff080209b917a81f5c2449d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/files/settings3c.reg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "597165b8a39656ac0f00b52eaee83bd3f8913f33b6e77d692dbac94c528c6216",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7df6cd7eb977d8bebdc11bf664ed83e01fd821f94cbeae22309fca5a38014700",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3898860d5721005f107dbac08d111a16f2447d6b9b892eed76f65b45d54d14e4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/templates/win_line_ending.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6d8f28b50f247de57341be86bb6944cfd9b019b6fb5f19c665fae3f7bc4115cf",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9cb74160f3ba97cff957cea38dbe436aec4b1fdf3d7b47ee67df6bd2b5992fb3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_regmerge/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1aabf18b3e493a2bf65e8256494940c15795202c0132ef951482454ec995d2da",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_say",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_say/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_say/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8205635633623a7583e3e0da7605a93092490e2a4236a90958403f9a3b18a9e2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_say/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a9c5fb5d32be6ae4794c82dea757bebec24d62bb379c988cb5300a5629a941d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/tasks/clean.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3df7268a04005a6e548150a9a9957c83f3231ed0ed3136f1cbc675cecf4fb734",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/tasks/failures.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9c8b6c12249764c44c9c49e85f8865a04fa1cb9a1d72ecfa88b28dd735a2df11",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9179593a38b37f72a9527b6cb2ee53ee11b83b93118bcd7986a856e1fc9bac18",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/tasks/principals.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "14e54a1e11a955baa032a5f44de025606d147acdc0eca3751127789eba20dd40",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d71893bc44825fd38361773fa07420181af02fa650b4afbc01a858d49e3f1043",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/tasks/triggers.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95ca035a21af310338182001ea0e56b434c51d72665fcc287ab24c8f78466395",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7127ace6c1571fdf343a57b543cd35ed5b5181a330ab6e79ea892bf1ffff082",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task_stat",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task_stat/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task_stat/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "14d0cfe474bfdab3a4f9ba0b09aa652ae31268d1541d59731987c633558a7a23",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task_stat/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task_stat/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb58542712388a10a9235968ba4c188c492348e30f99fb4991e4c6e13bb5aac9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task_stat/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "06cc33be8fdf0d0190f68b4d792ee586ad55bc6172f98753801b0e409d81bb72",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scheduled_task_stat/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1aabf18b3e493a2bf65e8256494940c15795202c0132ef951482454ec995d2da",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e149a4b7cc799294e87b4c9290fa215b7277d9bdb66ac1f8a9a4afaecd99b901",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0a99edc0baeac96e03e79952458ac590f7121127918d4ea70e5409590361ce7c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "77726569ebf9d377f7a3bf3db2cb8e326429178a63a7394d1750201f05306f7e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop_bucket",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop_bucket/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop_bucket/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e31a5bc94b972e92f0454a3fd1153b882b5e63d8a25da5bae75613ed9788496b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop_bucket/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop_bucket/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "437ce69f730e0a56e5a9a7f6aeed6631634b265cd09f9cb3b73fa3a523a22f0f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop_bucket/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3dd57ba2ee17c98ab3d3cc56a6cc4d71a89ea06e7d91bc95fdd17adbdfb46f34",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_scoop_bucket/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1aabf18b3e493a2bf65e8256494940c15795202c0132ef951482454ec995d2da",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_security_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_security_policy/library",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_security_policy/library/test_win_security_policy.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e7be0283467be29dca02783fc7b1f55a5eaa4207eaea2ce403ec42151f3cd0b0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_security_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_security_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b2e2a3b25133c28afdfdc12e6f1fdb1439dbabbde6db6e96b6828ac3553c79d5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_security_policy/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "021220a33044bb45455d05fcca85e803360bc82d9acd9da66910fcbfea5fa410",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_security_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_shortcut",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_shortcut/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_shortcut/tasks/clean.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "722d7c2ed6f779938c74b65928976387779964d4e4d7e4e7318ac035b6086a38",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_shortcut/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2f4b6af62f620a93d63ab04f186f10267ab6bdadb2506e72e04f027feb688ff3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_shortcut/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8d309198d6ee0e546f6ba9489f8db44d15e3118a84fa23c8f19a09d1388f09c6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_shortcut/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/tasks/cleanup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a972b042376cdb918eaf0ba2ceab750e28e9245804bf3755e57596b5eb53b744",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/tasks/cleanup_using_module.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8a9ec3718442f1a628e89e96fba166f35544bf4f9e1ffe3e5250ef313bf2f450",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6693c7619fa952cafb43619cae244fdacb75b373641a0eea26857e26e0571dfe",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/tasks/output_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7c95c62d219a51e18244f63cb266c5c5a9739d57973cbbcf1c48b803f39a2002",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/tasks/snmp_community.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bee893eef71b6f2e0e24c21030b4896eade761a1984b17085f7131c441a8cdc3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/tasks/snmp_managers.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ebf2846caecdfcd9a130ecf9c4a155a914c4a112bb7cd2c1b8792675f25ef1a9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2fb738751e8143846bd31eec90ca19332ff6e2025f5d4551c6366d8862187ac1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_snmp/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_toast",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_toast/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_toast/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "903680bc48f5073a20dffc176b9d0462267a238ce492c7981a8c80324dff6b62",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_toast/tasks/setup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b447fdae35b1ea6039bd608db897bf07984006afe82e728989a22823b604e932",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_toast/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "208d60137e6aed14b636388d1a9f3ab0b568b9d6e1a0382489e2c1e78e63883e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_toast/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cce960c8aadf19e754f600b163c5acdbb2cb67a6f7c14fac02ca6cdc469b4d67",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c490cd82ce3871ef5de0f5297743167ff5a67996632247c982e907221e3e3af0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/files/create_crafty_zip_files.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a0da2d0011f1e5f08d64138fa79f624eff3231410b7f7e66b7df7a02dfd559ea",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/files/create_zip.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "54be0cb14739661c8eb4fad13d69fc34e19b4052be1d6a6d32a152b2ef1f31a7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7df6cd7eb977d8bebdc11bf664ed83e01fd821f94cbeae22309fca5a38014700",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c1e092d194520e6df39f77bb847575f0102981edc05e969e987bd584b8dee0c5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_unzip/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7127ace6c1571fdf343a57b543cd35ed5b5181a330ab6e79ea892bf1ffff082",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_wait_for_process",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_wait_for_process/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_wait_for_process/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0750428c8a47fceb84c2743033d1724977d792f2fb3f112597f066139723a519",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_wait_for_process/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1afcc2aeb0a4a4786e8345e0738aef8df6eaee36d40e45e0d0e54a500de582d4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_wakeonlan",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_wakeonlan/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_wakeonlan/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f8653f2b37f128be558da75080e0d4843c3cc099d9db6b42cabaf2b9e196430d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_wakeonlan/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/files/books.xml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "38df75a04da46b0867b55798f343c2e38bf9e0e6a51ef4297c031c18f5d9f26d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/files/config.xml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ac48bf5905e9ea640320878d224d36b68d2f9ff94a764129ef41f5697282b20a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/files/log4j.xml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ed8d276235d95fdd2d95d8252ce08fa21bfac45c126db516efdf835865894011",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/files/plane.zip",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "27e5385fb70940a1dc17a36057ab8c90d4135c5a4223942eda3436d49c14a2ec",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7df6cd7eb977d8bebdc11bf664ed83e01fd821f94cbeae22309fca5a38014700",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a8d9362363f888a3da186e403e0c79ecde6c93eeb97e4260c84d54647377f8ab",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_xml/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "758d23e7651820af7b1af35846b0a80daee9e3c321fd9e93a0f60b929035610f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_zip",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_zip/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_zip/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6023a332faadff97676aa9f6e9790f0a18b1ef02aa104469e05f8862ad90b300",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_zip/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_zip/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7df6cd7eb977d8bebdc11bf664ed83e01fd821f94cbeae22309fca5a38014700",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_zip/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_zip/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f8cc1b1f9c994a6af2679433d12ceaa9847fa97d65bba48d782753346c313628",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_zip/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "26e78414fbe1fd8a0602e3ff788789a0dfa5932636bf553948d524ee05ecc23e",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.16.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df129eeedeeb192fb32841602f2a9db85b1318a1e6d9c40b29a21fadf802604e",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.17.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df129eeedeeb192fb32841602f2a9db85b1318a1e6d9c40b29a21fadf802604e",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.18.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df129eeedeeb192fb32841602f2a9db85b1318a1e6d9c40b29a21fadf802604e",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.19.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df129eeedeeb192fb32841602f2a9db85b1318a1e6d9c40b29a21fadf802604e",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.20.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df129eeedeeb192fb32841602f2a9db85b1318a1e6d9c40b29a21fadf802604e",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.21.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df129eeedeeb192fb32841602f2a9db85b1318a1e6d9c40b29a21fadf802604e",
+   "format": 1
+  },
+  {
+   "name": "tests/unit",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/plugins/lookup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/plugins/lookup/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/plugins/lookup/test_laps_password.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "750dc241398eb37b8185e37e920df70a2dfca313ee677a8f8af802df6975d48b",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/plugins/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/conftest.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d53fa7efbf09b1639ac13de398a0bc326fdb0ee3d45643782d0b232d838cf277",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fff3d6ecd2e8d31e2117523ebad45325c0f8e4b9c0e44af19acd3421012553f7",
+   "format": 1
+  },
+  {
+   "name": "tests/.gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b5726d3ec9335a09c124469eca039523847a6b0f08a083efaefd002b83326600",
+   "format": 1
+  },
+  {
+   "name": "tests/requirements.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "199785f24015176de4faf3e17b97b378f68eaa26297010832c2d7babc35cc5fa",
+   "format": 1
+  },
+  {
+   "name": ".ansible-lint",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "33235ea099dc7bd2061e0271afcef60424799834d3023d14652b6296e3f133c2",
+   "format": 1
+  },
+  {
+   "name": ".git-blame-ignore-revs",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b4e007a74ae96df98a7c1aa868058a050ab7e757377fc70fd9e2613bae41be67",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c4ce16fac9734681d39e6a6b0def608ca5574a1a86e942d2751fa092e7876610",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "daf3eb55c6f022441c88937d3ca612e3455d1209110e6dd76f60cb9e06f67a9b",
+   "format": 1
+  },
+  {
+   "name": "COPYING",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0ae0485a5bd37a63e63603596417e4eb0e653334fa6c7f932ca3a0e85d4af227",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9151ac4fe0bf38e70e507f79d603b2340cfc80053a0472cac4ecc1e723a6108c",
+   "format": 1
+  },
+  {
+   "name": "codecov.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3abba7341d363dcaa8d7332a2ee93d6eeec46b3783e05faa9f5fb91f70dfbab1",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

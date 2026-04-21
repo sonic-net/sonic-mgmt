@@ -1,0 +1,16 @@
+---
+# defaults file for mongodb_linux
+
+# swappiness is 0-100; 60 is the default on many distros.
+# 0=disable swapping; 1=swap only to avoid OOM; 60=swap often; 100=swap aggressively
+swappiness: "1"
+
+nproc_and_nofile_limit: 64000
+# TODO: mongo suggests infinity here
+memlock_limit: 1024
+
+mongodb_ntp_package:
+mongodb_ntp_service:
+mongodb_gnu_c_lib:
+
+mongodb_enable_thp: false

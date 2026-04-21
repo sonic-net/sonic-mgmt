@@ -1,0 +1,2 @@
+minor_changes:
+  - na_sg_grid_ha_group - added check mode support in the module.

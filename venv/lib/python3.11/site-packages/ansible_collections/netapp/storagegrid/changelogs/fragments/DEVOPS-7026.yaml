@@ -1,0 +1,2 @@
+minor_changes:
+  - na_sg_grid_gateway - new option `enable_tenant_manager`, `enable_grid_manager` and `node_type` added to support management interfaces.

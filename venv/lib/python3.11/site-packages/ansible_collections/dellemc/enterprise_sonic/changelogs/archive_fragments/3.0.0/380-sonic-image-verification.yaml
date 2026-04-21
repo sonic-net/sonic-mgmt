@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_image_management - Add support for image GPG Key installation and verification feature in sonic_image_management module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/380).

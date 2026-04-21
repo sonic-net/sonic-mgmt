@@ -1,0 +1,46 @@
+---
+## https://github.com/ansible/ansible/issues/22397
+## Ansible 2.3 generates a WARNING when using {{ }} in default variables of role
+## these workarounds it until Ansible resolves the issue:
+- name: Initialize variables
+  ansible.builtin.set_fact:
+    data_center: "{{ data_center | mandatory }}"
+
+- name: Fetch hosts main block
+  block:
+    - name: Login to oVirt
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ engine_url | default(lookup('env','OVIRT_URL')) | default(omit) }}"
+        username: "{{ engine_user | default(lookup('env','OVIRT_USERNAME')) | default(omit) }}"
+        hostname: "{{ engine_fqdn | default(lookup('env','OVIRT_HOSTNAME')) | default(omit) }}"
+        password: "{{ engine_password | default(lookup('env','OVIRT_PASSWORD')) | default(omit) }}"
+        ca_file: "{{ engine_cafile | default(lookup('env','OVIRT_CAFILE')) | default(omit) }}"
+        token: "{{ engine_token | default(lookup('env','OVIRT_TOKEN')) | default(omit) }}"
+        insecure: "{{ engine_insecure | default(true) }}"
+      when: ovirt_auth is undefined or not ovirt_auth
+      register: login_result
+      tags:
+        - always
+
+    - name: Get datacenter hosts
+      ovirt.ovirt.ovirt_host_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "datacenter={{ data_center }}"
+      register: host_info
+
+    - name: Add hosts
+      ansible.builtin.add_host:
+        hostname: "{{ item.address }}"
+        groups: dc_hosts
+      with_items:
+        - "{{ host_info.ovirt_hosts }}"
+
+  always:
+    - name: Logout from oVirt
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      when:
+        - login_result.skipped is defined and not login_result.skipped
+      tags:
+        - always

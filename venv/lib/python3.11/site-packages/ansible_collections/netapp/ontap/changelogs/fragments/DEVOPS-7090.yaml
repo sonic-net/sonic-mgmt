@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_rest_info - removed example which has option `gather_subset` set to `all` from documentation.

@@ -1,0 +1,4 @@
+localhost ansible_connection=local ansible_python_interpreter="/usr/bin/env python"
+
+[engine]
+engine_centos7 image="katerinak/c7-systemd-utf8"

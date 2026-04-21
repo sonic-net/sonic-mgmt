@@ -1,0 +1,7 @@
+ansible
+ansible-core
+pycodestyle
+pylint
+pytest
+PyYAML
+black

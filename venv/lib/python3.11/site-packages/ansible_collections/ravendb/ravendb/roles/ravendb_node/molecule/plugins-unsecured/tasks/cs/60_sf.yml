@@ -1,0 +1,152 @@
+---
+
+- name: Snowflake CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "snowflake"
+    cs_type: "SNOWFLAKE"
+    properties:
+      connection_string: "account=myacct;user=myuser;password=mypass;warehouse=mywh;database=mydb;schema=public"
+    state: present
+  check_mode: yes
+  register: snowflake_check_create
+
+- name: Assert would created CS msg (check mode)
+  ansible.builtin.assert:
+    that:
+      - snowflake_check_create.changed
+      - "'would create' in ((snowflake_check_create.msg | default('')) | lower)"
+
+- name: Verify Snowflake CS not created on check mode
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: snowflake_after_check_create
+
+- name: Assert Snowflake CS not created
+  ansible.builtin.assert:
+    that:
+      - "'snowflake' not in (snowflake_after_check_create.json.SnowflakeConnectionStrings | default({}))"
+
+- name: Snowflake CS (create)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "snowflake"
+    cs_type: "SNOWFLAKE"
+    properties:
+      connection_string: "account=myacct;user=myuser;password=mypass;warehouse=mywh;database=mydb;schema=public"
+    state: present
+  register: snowflake_created
+
+- name: Assert Snowflake CS created
+  ansible.builtin.assert:
+    that:
+      - snowflake_created.changed
+      - "'created connection string' in ((snowflake_created.msg | default('')) | lower)"
+
+- name: Verify Snowflake CS created
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: snowflake_after_create
+
+- name: Assert Snowflake CS present
+  ansible.builtin.assert:
+    that:
+      - "'snowflake' in (snowflake_after_create.json.SnowflakeConnectionStrings | default({}))"
+
+- name: Snowflake CS (idempotency check)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "snowflake"
+    cs_type: "SNOWFLAKE"
+    properties:
+      connection_string: "account=myacct;user=myuser;password=mypass;warehouse=mywh;database=mydb;schema=public"
+    state: present
+  register: snowflake_created_again
+
+- name: Assert Snowflake CS creation idempotent
+  ansible.builtin.assert:
+    that:
+      - snowflake_created_again.changed == false
+      - "'already exists' in ((snowflake_created_again.msg | default('')) | lower)"
+      - "'no changes' in ((snowflake_created_again.msg | default('')) | lower)"
+
+- name: Attempt to modify existing Snowflake CS - should no-op
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "snowflake"
+    cs_type: "SNOWFLAKE"
+    properties:
+      connection_string: "account=myacct;user=other;password=other;warehouse=wh2;database=mydb;schema=public"
+    state: present
+  register: snowflake_modify_attempt
+
+- name: Assert modify attempt was a no-op
+  ansible.builtin.assert:
+    that:
+      - snowflake_modify_attempt is succeeded
+      - snowflake_modify_attempt.changed == false
+      - "'already exists' in ((snowflake_modify_attempt.msg | default('')) | lower)"
+      - "'no changes' in ((snowflake_modify_attempt.msg | default('')) | lower)"
+
+- name: Snowflake CS (check-mode delete)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "snowflake"
+    cs_type: "SNOWFLAKE"
+    state: absent
+  check_mode: yes
+  register: snowflake_check_delete
+
+- name: Assert would delete message (check mode)
+  ansible.builtin.assert:
+    that:
+      - snowflake_check_delete.changed
+      - "'would delete' in ((snowflake_check_delete.msg | default('')) | lower)"
+
+- name: Verify Snowflake CS still exists after check-mode delete
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: snowflake_after_check_delete
+
+- name: Assert Snowflake CS still present after check-mode delete
+  ansible.builtin.assert:
+    that:
+      - "'snowflake' in (snowflake_after_check_delete.json.SnowflakeConnectionStrings | default({}))"
+
+- name: Snowflake CS (delete)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "snowflake"
+    cs_type: "SNOWFLAKE"
+    state: absent
+  register: snowflake_deleted
+
+- name: Assert Snowflake CS deleted
+  ansible.builtin.assert:
+    that:
+      - snowflake_deleted.changed
+      - "'deleted connection string' in ((snowflake_deleted.msg | default('')) | lower)"
+
+- name: Verify Snowflake CS is gone
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: snowflake_after_delete
+
+- name: Assert Snowflake CS not present after delete
+  ansible.builtin.assert:
+    that:
+      - "'snowflake_dw' not in (snowflake_after_delete.json.SnowflakeConnectionStrings | default({}))"

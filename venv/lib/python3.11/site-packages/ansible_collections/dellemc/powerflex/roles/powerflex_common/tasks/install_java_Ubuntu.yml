@@ -1,0 +1,10 @@
+---
+- name: Install pre-requisite binutils
+  ansible.builtin.package:
+    name: "binutils"
+    state: "present"
+
+- name: Install pre-requisite java
+  ansible.builtin.package:
+    name: "openjdk-8-jdk"
+    state: "present"

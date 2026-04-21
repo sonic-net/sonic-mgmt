@@ -1,0 +1,261 @@
+---
+- name: Check if template is correct
+  ansible.builtin.fail:
+    msg: "mandatory parameter 'qcow_url' is not defined"
+  when: "qcow_url is undefined"
+
+- name: Check if {{ image_path }} is directory
+  ansible.builtin.stat:
+    path: "{{ image_path }}"
+  register: image_path_st
+
+- name: Download the qcow image
+  ansible.builtin.get_url:
+    url: "{{ qcow_url }}"
+    dest: "{{ image_path_st.stat.isdir is defined and image_path_st.stat.isdir | ternary(image_path~'/'~qcow_url.rpartition('/')[-1], image_path) | regex_replace('//',
+      '/') }}"  # noqa yaml[line-length]
+    force: "{{ not image_cache_download }}"
+    checksum: "{{ image_checksum | default(omit) }}"
+    timeout: "{{ image_download_timeout }}"
+    client_cert: "{{ qcow_url_client_cert | default(omit) }}"
+    client_key: "{{ qcow_curl_client_key | default(omit) }}"
+    mode: "0644"
+  register: downloaded_file
+  tags:
+    - ovirt-template-image
+
+- name: Check file type
+  ansible.builtin.command: "/usr/bin/file {{ downloaded_file.dest | quote }}"
+  changed_when: false
+  register: filetype
+  tags:
+    - ovirt-template-image
+
+- name: Fail if image is not qcow
+  ansible.builtin.fail:
+    msg: "The downloaded file is not valid QCOW file."
+  when: '"QCOW" not in filetype.stdout'
+  tags:
+    - ovirt-template-image
+
+- name: Calculate image size in GiB
+  ansible.builtin.set_fact:
+    qcow2_size: "{{ (filetype.stdout_lines[0].split()[5] | int / 2**30) | round(0, 'ceil') | int }}GiB"
+
+- name: Main block
+  block:
+    - name: Login to oVirt
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ engine_url | default(lookup('env','OVIRT_URL')) | default(omit) }}"
+        hostname: "{{ engine_fqdn | default(lookup('env','OVIRT_HOSTNAME')) | default(omit) }}"
+        username: "{{ engine_user | default(lookup('env','OVIRT_USERNAME')) | default(omit) }}"
+        password: "{{ engine_password | default(lookup('env','OVIRT_PASSWORD')) | default(omit) }}"
+        ca_file: "{{ engine_cafile | default(lookup('env','OVIRT_CAFILE')) | default(omit) }}"
+        insecure: "{{ engine_insecure | default(true) }}"
+      when: ovirt_auth is undefined or not ovirt_auth
+      register: loggedin
+      tags:
+        - always
+
+    - name: Fetch the datacenter name
+      ovirt.ovirt.ovirt_datacenter_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "Clusters.name = {{ template_cluster }}"
+      register: dc_info
+
+    - name: Fetch storages
+      ovirt.ovirt.ovirt_storage_domain_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "datacenter={{ dc_info.ovirt_datacenters[0].name }}"
+      register: sd_info
+      when: template_disk_storage is undefined
+      tags:
+        - ovirt-template-image
+
+    - name: Find data domain
+      ansible.builtin.set_fact:
+        disk_storage_domain: "{{ sd_info.ovirt_storage_domains | ovirt.ovirt.json_query(the_query) | list | first }}"  # noqa: jinja
+      when: template_disk_storage is undefined
+      vars:
+        the_query: "[?type=='data']"
+      tags:
+        - ovirt-template-image
+
+    - name: Check if template already exists
+      ovirt.ovirt.ovirt_template_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "name={{ template_name }} and datacenter={{ dc_info.ovirt_datacenters[0].name }}"
+      register: template_info
+      tags:
+        - ovirt-template-image
+
+    - name: Deploy the qcow image to oVirt engine
+      ovirt.ovirt.ovirt_disk:
+        auth: "{{ ovirt_auth }}"
+        name: "{{ template_disk_name | default(template_name) }}"
+        size: "{{ qcow2_size }}"
+        format: "{{ template_disk_format | default(omit) }}"
+        image_path: "{{ downloaded_file.dest }}"
+        storage_domain: "{{ template_disk_storage | default(disk_storage_domain.name) }}"
+        force: "{{ template_info.ovirt_templates | length == 0 }}"
+      register: ovirt_disk
+      when: template_info.ovirt_templates | length == 0
+      tags:
+        - ovirt-template-image
+
+    - name: Wait until the qcow image is unlocked by the oVirt engine
+      ovirt.ovirt.ovirt_disk_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "id={{ ovirt_disk.id }}"
+      register: disk_info
+      until: ((ovirt_disk is defined) and (ovirt_disk.disk.status != "locked")) or ((disk_info is defined) and (disk_info.ovirt_disks[0].status != "locked"))
+      retries: 20
+      delay: 3
+      when: template_info.ovirt_templates | length == 0
+      tags:
+        - ovirt-template-image
+
+    - name: Create vm block
+      when: template_info.ovirt_templates | length == 0
+
+      block:
+        - name: Generate SSH keys
+          ansible.builtin.command: "ssh-keygen -t rsa -f {{ tmp_private_key_file }} -N ''"
+          args:
+            creates: "{{ tmp_private_key_file }}"
+          when: template_prerequisites_tasks is defined
+          delegate_to: localhost
+
+        - name: Create vm
+          ovirt.ovirt.ovirt_vm:
+            auth: "{{ ovirt_auth }}"
+            name: "{{ vm_name }}"
+            state: "{{ 'running' if template_prerequisites_tasks is defined else 'stopped' }}"
+            cluster: "{{ template_cluster }}"
+            io_threads: "{{ template_io_threads | default(omit) }}"
+            memory: "{{ template_memory | default(omit) }}"
+            memory_guaranteed: "{{ template_memory_guaranteed | default(omit) }}"
+            memory_max: "{{ template_memory_max | default(omit) }}"
+            cpu_cores: "{{ template_cpu }}"
+            operating_system: "{{ template_operating_system }}"
+            type: "{{ template_type | default(omit) }}"
+            bios_type: "{{ template_bios_type | default(omit) }}"
+            cloud_init: "{{ {'user_name': 'root', 'authorized_ssh_keys': lookup('file', tmp_private_key_file~'.pub') } if template_prerequisites_tasks is defined
+              else omit }}"  # noqa yaml[line-length]
+            disks:
+              - id: "{{ disk_info.ovirt_disks[0].id }}"
+                bootable: true
+                interface: "{{ template_disk_interface }}"
+            nics: "{{ template_nics }}"
+
+        - name: Manage disks
+          ovirt.ovirt.ovirt_disk:
+            auth: "{{ ovirt_auth }}"
+            name: "{{ item.name | default(omit) }}"
+            size: "{{ item.size | default(omit) }}"
+            interface: "{{ item.interface | default(template_disk_interface) | default(omit) }}"
+            vm_name: "{{ vm_name }}"
+            format: "{{ item.format | default(template_disk_format) | default(omit) }}"
+            storage_domain: "{{ item.storage_domain | default(template_disk_storage) | default(omit) }}"
+            bootable: "{{ item.bootable | default(omit) }}"
+            wait: true
+          loop: "{{ template_disks }}"
+
+        - name: Wait for IPv4 block
+          when: template_prerequisites_tasks is defined
+
+          block:
+            - name: Wait for VMs IPv4
+              ovirt.ovirt.ovirt_vm_info:
+                auth: "{{ ovirt_auth }}"
+                pattern: "name={{ vm_name }}"
+                fetch_nested: true
+                nested_attributes: ips
+              register: vm_info
+              until: "vm_info.ovirt_vms | ovirt.ovirt.ovirtvmipv4 | length > 0"
+              retries: 10
+              delay: 5
+
+            - name: Set Ip of the VM
+              ansible.builtin.set_fact:
+                vm_ip: "{{ vm_info.ovirt_vms | ovirt.ovirt.ovirtvmipv4 }}"
+
+            - name: Include prerequisites tasks for VM
+              ansible.builtin.import_tasks: "{{ template_prerequisites_tasks if template_prerequisites_tasks is defined else 'empty.yml' }}"
+              delegate_to: "{{ vm_ip }}"
+              vars:
+                ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+                ansible_user: root
+                ansible_ssh_private_key_file: "{{ tmp_private_key_file | default(omit) }}"
+
+            - name: Remove SSH keys
+              ansible.builtin.file:
+                state: absent
+                path: "{{ item }}"
+              delegate_to: localhost
+              with_items:
+                - "{{ tmp_private_key_file }}"
+                - "{{ tmp_private_key_file }}.pub"
+
+            - name: Stop vm
+              ovirt.ovirt.ovirt_vm:
+                auth: "{{ ovirt_auth }}"
+                name: "{{ vm_name }}"
+                state: stopped
+
+    - name: Resize disk block
+      when:
+        - (template_disk_size | regex_replace('GiB') | int) > (qcow2_size | regex_replace('GiB') | int)
+        - template_info.ovirt_templates | length == 0
+      block:
+        - name: Resize disk if smaller than template_disk_size
+          ovirt.ovirt.ovirt_disk:
+            id: "{{ disk_info.ovirt_disks[0].id }}"
+            vm_name: "{{ vm_name }}"
+            auth: "{{ ovirt_auth }}"
+            size: "{{ template_disk_size }}"
+
+        - name: Wait for resize
+          ovirt.ovirt.ovirt_disk:
+            id: "{{ disk_info.ovirt_disks[0].id }}"
+            auth: "{{ ovirt_auth }}"
+          register: resized_disk
+          until: resized_disk.disk.provisioned_size != disk_info.ovirt_disks[0].provisioned_size
+          retries: "{{ (disk_resize_timeout / 3) | int }}"
+          delay: 3
+
+    - name: Create template
+      ovirt.ovirt.ovirt_template:
+        auth: "{{ ovirt_auth }}"
+        name: "{{ template_name }}"
+        vm: "{{ vm_name }}"
+        cluster: "{{ template_cluster }}"
+        timeout: "{{ template_timeout }}"
+        seal: "{{ template_seal }}"
+      when: template_info.ovirt_templates | length == 0
+      tags:
+        - ovirt-template-image
+
+  always:
+    - name: Remove downloaded image
+      ansible.builtin.file:
+        path: "{{ downloaded_file.dest }}"
+        state: absent
+      when: not image_cache_download
+
+    - name: Remove vm
+      ovirt.ovirt.ovirt_vm:
+        auth: "{{ ovirt_auth }}"
+        state: absent
+        name: "{{ vm_name }}"
+      when: template_info.ovirt_templates | length == 0
+      tags:
+        - ovirt-template-image
+
+    - name: Logout from oVirt
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      when: not loggedin.skipped | default(false)
+      tags:
+        - always

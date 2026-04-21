@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_name_mappings - added choices ``s3_win`` and ``s3_unix`` to ``direction``, requires ONTAP 9.12.1 or later.
+  - na_ontap_s3_buckets - new option ``nas_path`` added, requires ONTAP 9.12.1 or later.

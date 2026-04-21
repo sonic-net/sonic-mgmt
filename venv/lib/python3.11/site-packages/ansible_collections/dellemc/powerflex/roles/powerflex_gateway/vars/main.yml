@@ -1,0 +1,6 @@
+---
+file_glob_name: gateway
+file_gpg_name: RPM-GPG-KEY-ScaleIO
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_mdm_ips }}"
+  GATEWAY_ADMIN_PASSWORD: "{{ powerflex_gateway_admin_password }}"

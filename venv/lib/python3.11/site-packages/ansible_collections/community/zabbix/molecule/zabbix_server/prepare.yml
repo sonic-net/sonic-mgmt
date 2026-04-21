@@ -1,0 +1,27 @@
+---
+- name: Prepare
+  hosts: all
+
+  tasks:
+    # To prevent services from starting during package installations on a docker build,
+    # images normally come with this set to exit 101.
+    - name: "Allow services to start on install"
+      ansible.builtin.copy:
+        content: |
+          exit 0
+        dest: /usr/sbin/policy-rc.d
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: "Installing sudo"
+      ansible.builtin.package:
+        name:
+          - sudo
+        update_cache: "{{ (ansible_facts['os_family'] in ['Debian', 'Suse']) | ternary(true, omit) }}"
+      register: installation_dependencies
+      until: installation_dependencies is succeeded
+
+    - name: "Configure SUDO."
+      ansible.builtin.lineinfile:
+        dest: /etc/sudoers
+        line: "Defaults    !requiretty"
+        state: present

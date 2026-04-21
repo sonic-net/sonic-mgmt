@@ -1,0 +1,263 @@
+---
+# Copyright: (c) 2025, Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: website
+  short_description: Configures an IIS website
+  description:
+    - Creates, removes, and configures an IIS website.
+  requirements:
+    - IISAdministration PowerShell module
+  options:
+    application_pool:
+      description:
+        - Specifies the application pool in which the website runs.
+        - The application pool must already exist - otherwise the website will not start.
+      type: str
+    bindings:
+      description:
+        - Specifies the website bindings to add, remove or set.
+        - The combination of C(ip:port:hostname) is the binding unique identifier.
+        - The binding C(ip:port) must be available and not used by any other website on the server.
+        - To clear all website bindings, use O(bindings.set) with an empty list.
+      type: dict
+      default: {}
+      suboptions:
+        add:
+          description:
+            - Specifies a list of bindings to add to the website.
+          type: list
+          elements: dict
+          suboptions:
+            hostname:
+              description:
+                - The website binding hostname (DNS).
+                - Mandatory if O(bindings.add.use_sni=true) or O(bindings.add.use_ccs=true).
+              type: str
+            ip:
+              description: The website binding listen IP.
+              type: str
+            port:
+              description: The website binding listen port.
+              type: int
+            protocol:
+              description: The website used protocol (http, https).
+              type: str
+              default: http
+              choices: ["http", "https"]
+            use_sni:
+              description:
+                - Require Server Name Indication (SNI) for SSL certificates.
+                - Can be used only if protocol is https.
+                - When O(bindings.add.use_sni=true), the O(bindings.add.hostname) value must be set.
+              type: bool
+            use_ccs:
+              description:
+                - Use Centralized Certificate Store (CCS) for SSL certificates.
+                - Can be used only if O(bindings.add.protocol=https).
+                - When O(bindings.add.use_ccs=true), the O(bindings.add.hostname) value must be set.
+                - If V(true), O(bindings.add.certificate_hash) should not be used.
+              type: bool
+            certificate_hash:
+              description:
+                - Certificate hash (thumbprint) for the SSL binding. The certificate hash is the unique identifier for the certificate.
+                - You can only provide a certificate thumbprint when O(bindings.add.protocol=https).
+                - When using the Central Certificate Store feature, the certificate is automatically retrieved from the store rather than manually assigned to
+                  the binding.
+              type: str
+            certificate_store_name:
+              description:
+                - Name of the certificate store where the certificate for the binding is located.
+              type: str
+              default: "my"
+        remove:
+          description:
+            - Specifies a list of bindings to remove from the website.
+          type: list
+          elements: dict
+          suboptions:
+            hostname:
+              description: The website binding hostname (DNS).
+              type: str
+            ip:
+              description: The website binding listen IP.
+              type: str
+            port:
+              description: The website binding listen port.
+              type: int
+        set:
+          description:
+            - Specifies the exact list of bindings to set to the website.
+            - This will remove any existing bindings if not in the specified list.
+            - This will add any bindings in the specified list if it does not exist on the website.
+            - Set to an empty list to clear all the website bindings.
+          type: list
+          elements: dict
+          suboptions:
+            hostname:
+              description:
+                - The website binding hostname (DNS).
+                - Mandatory if O(bindings.set.use_sni=true) or O(bindings.set.use_ccs=true).
+              type: str
+            ip:
+              description: The website binding listen IP.
+              type: str
+            port:
+              description: The website binding listen port.
+              type: int
+            protocol:
+              description: The website used protocol (http, https).
+              type: str
+              default: http
+              choices: ["http", "https"]
+            use_sni:
+              description:
+                - Require Server Name Indication (SNI) for SSL certificates.
+                - Can be used only if O(bindings.set.protocol=https).
+                - When O(bindings.set.use_sni=true), the O(bindings.set.hostname) value must be set.
+              type: bool
+            use_ccs:
+              description:
+                - Use Centralized Certificate Store (CCS) for SSL certificates.
+                - Can be used only if O(bindings.set.protocol=https).
+                - When O(bindings.set.use_ccs=true), the O(bindings.set.hostname) value must be set.
+                - If V(true), O(bindings.set.certificate_hash) should not be used.
+              type: bool
+            certificate_hash:
+              description:
+                - Certificate hash (thumbprint) for the SSL binding. The certificate hash is the unique identifier for the certificate.
+                - You can only provide a certificate thumbprint when O(bindings.set.protocol=https).
+                - When using the Central Certificate Store feature, the certificate is automatically retrieved from the store rather than manually assigned to
+                  the binding.
+              type: str
+            certificate_store_name:
+              description:
+                - Name of the certificate store where the certificate for the binding is located.
+                - When using the Central Certificate Store feature, the certificate is automatically retrieved from the store rather than manually assigned to.
+              type: str
+              default: "my"
+    name:
+      description:
+        - The name of the website to manage.
+      required: true
+      type: str
+    physical_path:
+      description:
+        - Specifies the physical folder path on the remote host to use for the website.
+        - When create a new website physical_path is required.
+        - The specified folder must already exist.
+      type: str
+    site_id:
+      description:
+        - Explicitly set the IIS website numeric ID.
+        - Note that this value cannot be changed after the website has been created.
+        - The site ID must be available and not used by any other website on the server.
+      required: false
+      type: str
+    state:
+      description:
+        - State of the website.
+        - In order to start the website at least one binding should be configured.
+      type: str
+      default: started
+      choices: [absent, started, stopped, restarted]
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+  seealso:
+    - module: microsoft.iis.website_info
+    - module: microsoft.iis.web_app_pool
+  author:
+    - Shahar Golshani (@sgolshan)
+
+EXAMPLES: |
+  - name: Create a default website in 'Started' state
+    microsoft.iis.website:
+      name: WebSite
+      physical_path: C:\inetpub\wwwroot
+      state: started
+      bindings:
+        set:
+          - ip: 127.0.0.1
+            port: 80
+            hostname: my-website.com
+
+  - name: Create a website with two bindings, set all values and start it
+    microsoft.iis.website:
+      name: WebSite
+      site_id: 2
+      state: started
+      physical_path: C:\wwwroot\websites\my-website
+      application_pool: DefaultAppPool
+      bindings:
+        set:
+          - ip: 127.0.0.1
+            port: 8081
+            hostname: my-website.com
+          - ip: 127.0.0.2
+            port: 8082
+            hostname: my-website.net
+            protocol: https
+            use_sni: true
+            use_ccs: false
+            certificate_hash: 5409124040FA1C8FA74939BDA2EF8FD5975BD25B
+            certificate_store_name: MY
+
+  - name: Remove all the bindings from an existing website
+    microsoft.iis.website:
+      name: WebSite
+      bindings:
+        set: []
+
+  - name: Remove a specific binding from an existing website
+    microsoft.iis.website:
+      name: WebSite
+      bindings:
+        remove:
+          - ip: 127.0.0.1
+            port: 8081
+            hostname: my-website.com
+
+  - name: Add bindings to an existing website
+    microsoft.iis.website:
+      name: WebSite
+      bindings:
+        add:
+          - ip: 127.0.0.3
+            port: 8083
+            hostname: new-website.com
+          - ip: 127.0.0.4
+            port: 8084
+            hostname: new-website.net
+
+  - name: Stop a website
+    microsoft.iis.website:
+      name: WebSite
+      state: stopped
+
+  - name: Restart a website (non-idempotent)
+    microsoft.iis.website:
+      name: WebSite
+      state: restarted
+
+  - name: Change a website application pool
+    microsoft.iis.website:
+      name: WebSite
+      application_pool: NewAppPool
+
+  - name: Change a website physical path
+    microsoft.iis.website:
+      name: WebSite
+      physical_path: C:\wwwroot\websites\my-website
+
+# Null is needed for Galaxy/AH to not fall flat
+# https://github.com/ansible/ansible-hub-ui/blob/9b35b78f1f5c6a5ef2346d0470e431ba5f25d06b/src/components/render-plugin-doc.tsx#L226-L228
+RETURN: ~

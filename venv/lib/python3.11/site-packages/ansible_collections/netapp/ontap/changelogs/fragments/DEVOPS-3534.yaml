@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_cluster_peer - new option ``peer_options`` to use different credentials on peer.
+  - na_ontap_vserver_peer - new option ``peer_options`` to use different credentials on peer.
+bugfixes:
+  - na_ontap_cluster_peer - KeyError on username when using certicate.
+  - na_ontap_vserver_peer - KeyError on username when using certicate.

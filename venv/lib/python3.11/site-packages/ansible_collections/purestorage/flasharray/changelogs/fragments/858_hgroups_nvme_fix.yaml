@@ -1,0 +1,4 @@
+minor_changes:
+ - purefa_info - Added more data to hostgroup volume information to support NVMe connections
+bugfixes:
+ - purefa_info - Resolves issue with hostgroup info when NVMe connected volumes are in a hostgroup

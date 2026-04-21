@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_pg - Changed parameter `pgroup` to `name`. Allow `pgroup` as alias for backwards compatability.

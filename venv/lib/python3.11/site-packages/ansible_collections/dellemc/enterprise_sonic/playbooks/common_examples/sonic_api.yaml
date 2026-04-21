@@ -1,0 +1,36 @@
+---
+- name: Ansible resource module example
+  hosts: datacenter
+  gather_facts: false
+  connection: httpapi
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: "Test patch_api"
+      sonic_api:
+        url: data/openconfig-interfaces:interfaces/interface=Eth1%2f26/config/description
+        method: "PATCH"
+        status_code: 204
+        body: {"openconfig-interfaces:description": "hi "}
+    - name: "Test patch_api 2"
+      sonic_api:
+        url: data/openconfig-interfaces:interfaces/interface=Eth1%2f26/subinterfaces/subinterface=0/openconfig-if-ip:ipv4/
+        method: "PATCH"
+        status_code: 204
+        body: "{{ lookup('file', 'patch.txt') }}"
+    - name: "Test put_api"
+      sonic_api:
+        url: data/openconfig-network-instance:network-instances/network-instance=Vlan100
+        method: "PUT"
+        body: {"openconfig-network-instance:network-instance": [{"name": "Vlan100", "config": {"name": "Vlan100"}}]}
+        status_code: 204
+    - name: "Test get_api"
+      sonic_api:
+        url: data/openconfig-interfaces:interfaces/interface=Eth1%2f26
+        method: "GET"
+        status_code: 200
+    - name: "Test delete_api"
+      sonic_api:
+        url: data/openconfig-interfaces:interfaces/interface=Eth1%2f26/subinterfaces/subinterface=0/openconfig-if-ip:ipv4/addresses/address=131.1.1.1/config/prefix-length
+        method: "DELETE"
+        status_code: 204

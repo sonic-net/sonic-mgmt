@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_system - Added replaced and overridden states support for system resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/159)

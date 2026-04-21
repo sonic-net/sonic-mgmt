@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_mcc_mediator - improve error reporting when REST is not available.
+  - na_ontap_metrocluster - improve error reporting when REST is not available.
+  - na_ontap_wwpn_alias - improve error reporting when REST is not available.
+bugfixes:
+  - na_ontap_ipspace - invalid call in error reporting (double error).

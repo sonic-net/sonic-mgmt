@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_rest_info - Allowed the support of multiple subsets and warn when using ``**`` in fields.

@@ -1,0 +1,63 @@
+---
+- name: Create Policy
+  netapp.ontap.na_ontap_export_policy:
+    state: present
+    name: "{{ item.name }}"
+    vserver: "{{ item.vserver }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ nas }}"
+  when: item.protocol == "nfs"
+- name: Setup rules
+  netapp.ontap.na_ontap_export_policy_rule:
+    state: present
+    policy_name: "{{ item.name }}"
+    vserver: "{{ item.vserver }}"
+    client_match: "{{ item.client }}"
+    ro_rule: "{{ item.ro }}"
+    rw_rule: "{{ item.rw }}"
+    super_user_security: "{{ item.su }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ nas }}"
+  when: item.protocol == "nfs"
+- name: Create volume
+  netapp.ontap.na_ontap_volume:
+    state: present
+    name: "{{ item.name }}"
+    aggregate_name: "{{ item.aggr }}"
+    size: "{{ item.size }}"
+    size_unit: gb
+    policy: "{{ 'default' if item.protocol.lower() == 'cifs' else item.name }}"
+    junction_path: "/{{ item.name }}"
+    space_guarantee: "none"
+    vserver: "{{ item.vserver }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ nas }}"
+- name: Create Share
+  netapp.ontap.na_ontap_cifs:
+    state: present
+    share_name: "{{ item.share }}"
+    path: "/{{ item.name }}"
+    vserver: "{{ item.vserver }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ nas }}"
+  when: item.share is defined

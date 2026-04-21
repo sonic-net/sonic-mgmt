@@ -1,0 +1,127 @@
+---
+######################################################################################
+# Example :Snapshot group Pair Module playbook
+######################################################################################
+
+- name: Snapshot group Pair Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################################
+    # Task Name : Split the snapshot pairs using group name
+    ######################################################################################
+    - name: Split the snapshot pairs using group name
+      hitachivantara.vspone_block.vsp.hv_snapshot_group:
+        connection_info: "{{ connection_info }}"
+        state: "split"
+        spec:
+          snapshot_group_name: "snapshot-group-name-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Restore the snapshot pairs using group name
+    ######################################################################################
+    - name: Restore the snapshot pairs using group name
+      hitachivantara.vspone_block.vsp.hv_snapshot_group:
+        connection_info: "{{ connection_info }}"
+        state: "restore"
+        spec:
+          snapshot_group_name: "snapshot-group-name-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Restore the snapshot pairs using group name and auto split
+    ######################################################################################
+    - name: Restore the snapshot pairs using group name and auto split
+      hitachivantara.vspone_block.vsp.hv_snapshot_group:
+        connection_info: "{{ connection_info }}"
+        state: "restore"
+        spec:
+          snapshot_group_name: "snapshot-group-name-1"
+          auto_split: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Resync the snapshot pairs using group name
+    ######################################################################################
+    - name: Resync the snapshot pairs using group name
+      hitachivantara.vspone_block.vsp.hv_snapshot_group:
+        connection_info: "{{ connection_info }}"
+        state: "sync"
+        spec:
+          snapshot_group_name: "snapshot-group-name-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete the snapshot pairs using group name
+    ######################################################################################
+    - name: Delete the snapshot pairs using group name
+      hitachivantara.vspone_block.vsp.hv_snapshot_group:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          snapshot_group_name: "snapshot-group-name-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Set retention period of snapshots using group name
+    ######################################################################################
+    - name: Set retention period of snapshots using group name
+      hitachivantara.vspone_block.vsp.hv_snapshot_group:
+        connection_info: "{{ connection_info }}"
+        state: "split"
+        spec:
+          snapshot_group_name: "snapshot-group-name-1"
+          retention_period: 120
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Clone the snapshot pairs using group name
+    ######################################################################################
+    - name: Clone the snapshot pairs using group name
+      hitachivantara.vspone_block.vsp.hv_snapshot_group:
+        connection_info: "{{ connection_info }}"
+        state: "clone"
+        spec:
+          snapshot_group_name: "snapshot-group-name-1"
+          copy_speed: "SLOW"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

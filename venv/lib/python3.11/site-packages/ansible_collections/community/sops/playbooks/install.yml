@@ -1,0 +1,12 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+- name: Install SOPS
+  gather_facts: true
+  hosts: all
+  tasks:
+    - name: Install SOPS on remote hosts
+      ansible.builtin.include_role:
+        name: community.sops.install

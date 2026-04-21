@@ -1,0 +1,62 @@
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[collection_sources]
+"community.internal_test_tools" = "git+https://github.com/ansible-collections/community.internal_test_tools.git,main"
+
+[vcs]
+vcs = "git"
+development_branch = "stable-1"
+stable_branches = [ "stable-*" ]
+
+[sessions]
+
+[sessions.lint]
+isort_config = "tests/nox-config-isort.cfg"
+black_config = "tests/nox-config-black.toml"
+flake8_config = "tests/nox-config-flake8.ini"
+pylint_rcfile = "tests/nox-config-pylint.rc"
+yamllint_config = ".yamllint"
+yamllint_config_extra_docs = ".yamllint-docs"
+mypy_config = "tests/nox-config-mypy.ini"
+mypy_extra_deps = [
+    "types-mock",
+]
+
+[sessions.docs_check]
+validate_collection_refs = "all"
+codeblocks_restrict_types = [
+    "ansible-output",
+    "python",
+    "yaml",
+    "yaml+jinja",
+]
+codeblocks_restrict_type_exact_case = true
+codeblocks_allow_without_type = false
+codeblocks_allow_literal_blocks = false
+
+[sessions.license_check]
+
+[sessions.extra_checks]
+run_no_unwanted_files = true
+no_unwanted_files_module_extensions = [".py"]
+no_unwanted_files_yaml_extensions = [".yml"]
+no_unwanted_files_skip_paths = [
+    "plugins/plugin_utils/py.typed",
+]
+run_no_trailing_whitespace = true
+run_avoid_characters = true
+
+[[sessions.extra_checks.avoid_character_group]]
+name = "tab"
+regex = "\\x09"
+
+[sessions.build_import_check]
+run_galaxy_importer = true
+
+[sessions.ansible_test_sanity]
+include_devel = true
+
+[sessions.ansible_test_units]
+include_devel = true

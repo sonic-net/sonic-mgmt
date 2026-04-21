@@ -1,0 +1,176 @@
+---
+- name: Obtain the latest version from the GitHub repo
+  when: alloy_version == "latest"
+  block:
+    - name: Scrape Github API endpoint to obtain latest Alloy version
+      ansible.builtin.uri:
+        url: "{{ alloy_github_api_url }}"
+        method: GET
+        body_format: json
+      become: false
+      delegate_to: localhost
+      run_once: true
+      check_mode: false
+      register: __github_latest_version
+
+    - name: Latest available Alloy version
+      ansible.builtin.set_fact:
+        alloy_version: "{{ __github_latest_version.json.tag_name | regex_replace('^v?(\\d+\\.\\d+\\.\\d+)$', '\\1') }}"
+
+- name: Verify current deployed version
+  when: ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+  block:
+    - name: Check if Alloy binary is present
+      ansible.builtin.stat:
+        path: "/usr/bin/alloy"
+      register: __already_deployed
+
+    - name: Obtain current deployed Alloy version
+      ansible.builtin.command:
+        cmd: "/usr/bin/alloy --version"
+      changed_when: false
+      register: __current_deployed_version
+      when: __already_deployed.stat.exists | bool
+
+- name: Verify current deployed version on macOS
+  when: ansible_facts['os_family'] == 'Darwin'
+  block:
+    - name: Check if Alloy is installed via Homebrew
+      ansible.builtin.command: brew list --versions {{ __alloy_brew_package }}
+      register: __brew_alloy_version
+      failed_when: false
+      changed_when: false
+
+    - name: Extract current Alloy version on macOS
+      ansible.builtin.set_fact:
+        __current_deployed_version:
+          stdout: "{{ __brew_alloy_version.stdout }}"
+      when: __brew_alloy_version.rc == 0
+
+- name: Include RedHat/Rocky setup
+  ansible.builtin.include_tasks:
+    file: setup-RedHat.yml
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
+
+- name: Include Debian/Ubuntu setup
+  ansible.builtin.include_tasks:
+    file: setup-Debian.yml
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Include macOS/Darwin setup
+  ansible.builtin.include_tasks:
+    file: setup-Darwin.yml
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: Include SUSE setup
+  ansible.builtin.include_tasks:
+    file: setup-Suse.yml
+  when: ansible_facts['os_family'] == 'Suse'
+
+- name: Alloy systemd override
+  when:
+    - alloy_systemd_override | length > 0
+    - ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+  block:
+    - name: Ensure that Alloy systemd override path exist
+      ansible.builtin.file:
+        path: "/etc/systemd/system/alloy.service.d"
+        state: directory
+        owner: "root"
+        group: "root"
+        mode: "0750"
+      notify: restart alloy
+
+    - name: Template Alloy systemd override.conf - /etc/systemd/system/alloy.service.d/override.conf
+      ansible.builtin.template:
+        src: "override.conf.j2"
+        dest: "/etc/systemd/system/alloy.service.d/override.conf"
+        owner: "root"
+        group: "root"
+        mode: "0644"
+      notify: restart alloy
+
+- name: Template Alloy env file - {{ __alloy_env_file }}
+  ansible.builtin.template:
+    src: "alloy.j2"
+    dest: "{{ __alloy_env_file }}"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  notify: restart alloy
+  when: ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+
+- name: Template Alloy config - /etc/alloy/config.alloy
+  ansible.builtin.template:
+    src: "config.alloy.j2"
+    dest: "/etc/alloy/config.alloy"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  when:
+    - alloy_config | length > 0
+    - alloy_env_file_vars.CONFIG_FILE is not defined
+    - ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+  notify: restart alloy
+
+- name: Ensure that /etc/alloy/alloy.config is absent when a custom configuration file/dir is specified in alloy_env_file_vars.CONFIG_FILE
+  ansible.builtin.file:
+    path: "/etc/alloy/config.alloy"
+    state: absent
+  when:
+    - alloy_config | length < 1 or alloy_env_file_vars.CONFIG_FILE is defined
+    - ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+
+- name: Add the Alloy system user to additional group
+  ansible.builtin.user:
+    name: "alloy"
+    groups: "{{ item }}"
+    system: true
+    append: true
+    create_home: false
+    state: present
+  loop: "{{ alloy_user_groups }}"
+  when:
+    - alloy_user_groups | length > 0
+    - ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+
+- name: Get firewalld state
+  ansible.builtin.systemd:
+    name: "firewalld"
+  register: __firewalld_service_state
+  when: ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+
+- name: Enable firewalld rule to expose Alloy tcp port {{ __alloy_server_http_listen_port }}
+  ansible.posix.firewalld:
+    immediate: true
+    permanent: true
+    port: "{{ __alloy_server_http_listen_port }}/tcp"
+    state: enabled
+  when:
+    - ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+    - __firewalld_service_state.status.ActiveState == "active"
+    - alloy_expose_port | bool
+
+- name: Flush handlers after deployment
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure that Alloy is started (Linux)
+  ansible.builtin.systemd:
+    name: alloy.service
+    state: started
+  when:
+    - not ansible_check_mode
+    - ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']
+
+- name: Verify that Alloy URL is responding
+  ansible.builtin.uri:
+    url: "{{ alloy_readiness_check_use_https | ansible.builtin.ternary('https', 'http') }}://{{ __alloy_server_http_listen_address }}:{{ __alloy_server_http_listen_port }}/-/ready"
+    method: GET
+    use_proxy: "{{ alloy_readiness_check_use_proxy | bool }}"
+  register: __alloy_verify_url_status_code
+  retries: 5
+  delay: 8
+  until: __alloy_verify_url_status_code.status == 200
+  when:
+    - not ansible_check_mode
+    - ansible_facts['os_family'] in ['RedHat', 'Debian', 'Suse']

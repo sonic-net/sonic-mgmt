@@ -1,0 +1,30 @@
+---
+- name: IDX | Create (+ check mode & idempotency)
+  include_tasks:
+    file: index/10_create.yml
+    apply:
+      tags: [idx, idx:create]
+
+- name: IDX | Update (map, multi-map, deployment mode)
+  include_tasks:
+    file: index/20_update.yml
+    apply:
+      tags: [idx, idx:update]
+
+- name: IDX | Config (+ edge cases)
+  include_tasks:
+    file: index/30_config_and_edges.yml
+    apply:
+      tags: [idx, idx:config]
+
+- name: IDX | Modes (+ reset)
+  include_tasks:
+    file: index/40_modes_and_reset.yml
+    apply:
+      tags: [idx, idx:modes]
+
+- name: IDX | Delete (+ idempotency)
+  include_tasks:
+    file: index/50_delete.yml
+    apply:
+      tags: [idx, idx:delete]

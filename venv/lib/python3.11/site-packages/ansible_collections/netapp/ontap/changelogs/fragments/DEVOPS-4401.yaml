@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_cluster - add ``force`` option when deleting a node.
+bugfixes:
+  - na_ontap_cluster - switch to ZAPI when DELETE is required with ONTAP 9.6.

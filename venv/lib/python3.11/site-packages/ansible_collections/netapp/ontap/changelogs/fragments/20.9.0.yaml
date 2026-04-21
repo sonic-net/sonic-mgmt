@@ -1,0 +1,19 @@
+---
+minor_changes:
+  - na_ontap_cluster - ``node_name`` to set the node name when adding a node, or as an alternative to `cluster_ip_address`` to remove a node.
+  - na_ontap_cluster - ``state`` can be set to ``absent`` to remove a node identified with ``cluster_ip_address`` or ``node_name``.
+  - na_ontap_qtree - ``wait_for_completion`` and ``time_out`` to wait for qtree deletion when using REST.
+  - na_ontap_quotas - ``soft_disk_limit`` and ``soft_file_limit`` for the quota target.
+  - na_ontap_rest_info - Support for gather subsets - ``initiator_groups_info, san_fcp_services, san_iscsi_credentials,
+    san_iscsi_services, san_lun_maps, storage_luns_info, storage_NVMe_namespaces.``
+
+bugfixes:
+  - na_ontap_cluster - ``check_mode`` is now working properly.
+  - na_ontap_interface - ``home_node`` is not required in pre-cluster mode.
+  - na_ontap_interface - ``role`` is not required if ``service_policy`` is present and ONTAP version is 9.8.
+  - na_ontap_interface - traceback in get_interface if node is not reachable.
+  - na_ontap_job_schedule - allow ``job_minutes`` to set number to -1 for job creation with REST too.
+  - na_ontap_qtree - fixed ``None is not subscriptable`` exception on rename operation.
+  - na_ontap_volume - fixed ``KeyError`` exception on ``size`` when reporting creation error.
+  - na_ontap_* - change version_added from '2.6' to '2.6.0' where applicable to satisfy sanity checker.
+  - netapp.py - uncaught exception (traceback) on zapi.NaApiError.

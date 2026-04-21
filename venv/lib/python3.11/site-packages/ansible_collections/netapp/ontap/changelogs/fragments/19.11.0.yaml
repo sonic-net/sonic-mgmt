@@ -1,0 +1,19 @@
+---
+minor_changes:
+  - na_ontap_cluster - added single node cluster option, also now supports for modify cluster contact and location option.
+  - na_ontap_info - Now allow you use to vsadmin to get info (Must user ``vserver`` option).
+  - na_ontap_info - Added ``vscan_status_info``, ``vscan_scanner_pool_info``, ``vscan_connection_status_all_info``, ``vscan_connection_extended_stats_info``
+  - na_ontap_efficiency_policy - ``changelog_threshold_percent`` to set the percentage at which the changelog will be processed
+    for a threshold type of policy, tested once each hour.
+
+### Bug Fixes
+bugfixes:
+  - na_ontap_cluster - autosupport log pushed after cluster create is performed, removed license add or remove option.
+  - na_ontap_dns - report error if modify or delete operations are attempted on cserver when using REST.  Make create operation idempotent
+    for cserver when using REST.  Support for modify/delete on cserver when using REST will be added later.
+  - na_ontap_firewall_policy - portmap added as a valid service
+  - na_ontap_net_routes - REST does not support the ``metric`` attribute
+  - na_ontap_snapmirror - added initialize boolean option which specifies whether to initialize SnapMirror relation.
+  - na_ontap_volume - fixed error when deleting flexGroup volume with ONTAP 9.7.
+  - na_ontap_volume - tiering option requires 9.4 or later (error on volume-comp-aggr-attributes)
+  - na_ontap_vscan_scanner_pool - fix module only gets one scanner pool.

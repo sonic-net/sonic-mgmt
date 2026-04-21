@@ -1,0 +1,7 @@
+---
+- name: Set facts for powerflex primary ip and hostname for mdm and sdr
+  ansible.builtin.set_fact:
+    powerflex_sdr_mdm_primary_ip: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }}"
+    powerflex_sdr_mdm_primary_hostname: "{{ hostvars[groups['mdm'][0]]['inventory_hostname'] }}"
+    powerflex_sdr_ip: "{{ hostvars[inventory_hostname]['ansible_host'] }}"
+    powerflex_sdr_hostname: "{{ inventory_hostname }}"

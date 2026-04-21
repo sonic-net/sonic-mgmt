@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_bgp_af - Fixed issue with vnis and advertise modification for a single BGP AF (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/201)

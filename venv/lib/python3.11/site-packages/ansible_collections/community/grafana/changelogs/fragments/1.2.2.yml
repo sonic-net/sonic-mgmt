@@ -1,0 +1,7 @@
+bugfixes:
+- grafana_dashboard now explicitely fails if the folder doesn't exist upon creation.
+  It would previously silently pass but not create the dashboard.
+  (https://github.com/ansible-collections/community.grafana/issues/153)
+- grafana_team now able to handle spaces and other utf-8 chars in the name parameter.
+  (https://github.com/ansible-collections/community.grafana/issues/164)
+- Fix an issue with datasource uid now returned by the Grafana API (#176)

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_login_messages - fix idempotency issue in Cluster scope in REST.

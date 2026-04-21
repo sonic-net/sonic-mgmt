@@ -1,0 +1,9 @@
+# ansible-builder doesn't seem to properly handle "; python_version" type of constraints
+# requirements here are assuming python 3.6 or higher
+hvac >= 1.2.1
+urllib3 >= 1.15
+
+boto3       # these are only needed if inferring AWS credentials or
+botocore    # using a boto profile; including for completeness
+
+azure-identity  # only needed when using a servide principal or managed identity

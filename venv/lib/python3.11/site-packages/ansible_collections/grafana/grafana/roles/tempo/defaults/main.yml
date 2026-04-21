@@ -1,0 +1,73 @@
+---
+# defaults file for tempo
+tempo_version: "latest"
+tempo_uninstall: false
+__tempo_arch: "{{ arch_mapping[ansible_facts['architecture']] | default('amd64') }}"
+tempo_download_url_rpm: "https://github.com/grafana/tempo/releases/download/v{{ tempo_version }}/tempo_{{ tempo_version }}_linux_{{ __tempo_arch }}.rpm"
+tempo_download_url_deb: "https://github.com/grafana/tempo/releases/download/v{{ tempo_version }}/tempo_{{ tempo_version }}_linux_{{ __tempo_arch }}.deb"
+tempo_working_path: "/var/lib/tempo"
+tempo_http_listen_port: 3200
+tempo_http_listen_address: "0.0.0.0"
+tempo_log_level: warn
+tempo_report_usage: true
+tempo_multitenancy_enabled: false
+
+# Default Variables from /etc/tempo/config.yml
+tempo_server:
+  http_listen_port: "{{ tempo_http_listen_port }}"
+  http_listen_address: "{{ tempo_http_listen_address }}"
+  log_level: "{{ tempo_log_level }}"
+
+tempo_query_frontend:
+  search:
+    duration_slo: 5s
+    throughput_bytes_slo: 1.073741824e+09
+    metadata_slo:
+      duration_slo: 5s
+      throughput_bytes_slo: 1.073741824e+09
+  trace_by_id:
+    duration_slo: 5s
+
+tempo_distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "{{ tempo_http_listen_address }}:4317"
+
+tempo_metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: docker-compose
+  storage:
+    path: "{{ tempo_working_path }}/generator/wal"
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+  traces_storage:
+    path: "{{ tempo_working_path }}/generator/traces"
+
+tempo_storage:
+  trace:
+    backend: local                     # backend configuration to use
+    wal:
+      path: "{{ tempo_working_path }}/wal"             # where to store the wal locally
+    local:
+      path: "{{ tempo_working_path }}/blocks"
+
+tempo_overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics, local-blocks] # enables metrics generator
+      generate_native_histograms: both
+
+# Additional Config Variables for /etc/tempo/config.yml
+# tempo_ingester:
+# tempo_ingester_client:
+# tempo_metrics_generator_client:
+# tempo_querier:
+# tempo_compactor:
+# tempo_storage:
+# tempo_memberlist:
+# tempo_cache:

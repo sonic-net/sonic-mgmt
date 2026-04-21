@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_dhcp_relay - Added a common unit tests module and unit tests for dhcp relay module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/148)

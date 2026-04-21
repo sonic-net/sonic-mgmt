@@ -1,0 +1,7 @@
+---
+bugfixes:
+  - na_ontap_svm - skip modify validation when trying to delete svm.
+  - na_ontap_export_policy - fix cannot delete export policy if ``from_name`` option is set.
+minor_changes:
+  - na_ontap_broadcast_domain - skip checking modify when ``state`` is absent.
+  - na_ontap_export_policy - added ``name`` to modify in module output if export policy is renamed.

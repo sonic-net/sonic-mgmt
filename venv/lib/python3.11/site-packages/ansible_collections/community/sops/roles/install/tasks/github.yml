@@ -1,0 +1,50 @@
+---
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2022, Felix Fontein
+
+- name: Make sure that SOPS can be installed from GitHub
+  ansible.builtin.fail:
+    msg: >-
+      SOPS cannot be installed from GitHub for
+      {{ _community_sops_install_facts.distribution }} {{ _community_sops_install_facts.distribution_version }}.
+  when: not _community_sops_install_system_has_github
+
+- name: Start determining SOPS version
+  ansible.builtin.set_fact:
+    _community_sops_install_effective_sops_version: '{{ "" if sops_version == "latest" else sops_version }}'
+
+# This method uses the GitHub API, which is rate-limited.
+- name: Determine latest version (fallback)
+  when:
+    - _community_sops_install_effective_sops_version == ''
+    - sops_github_latest_detection in ['auto', 'api']
+  ansible.builtin.include_tasks: github_api.yml
+
+# This method asks GitHub for the latest release, which depends on the release to be
+# correctly marked as "latest" in the GitHub UI. Fortunately this is not as aggressively
+# rate-limited as the API (used in the fallback).
+- name: Determine latest version
+  when:
+    - _community_sops_install_effective_sops_version == ''
+    - sops_github_latest_detection in ['auto', 'latest-release']
+  ansible.builtin.include_tasks: github_latest_release.yml
+
+- name: Fail when latest version could not be selected
+  ansible.builtin.fail:
+    msg: Could not determine the latest GitHub release
+  when: _community_sops_install_effective_sops_version == ''
+
+- name: Show selected version
+  ansible.builtin.debug:
+    msg: The latest SOPS version is SOPS {{ _community_sops_install_effective_sops_version }}.
+  when: sops_version == 'latest'
+
+- name: Set variables
+  ansible.builtin.set_fact:
+    _community_sops_install_system_packages_actual: >-
+      {{ _community_sops_install_system_packages + _community_sops_install_system_packages_github }}
+    _community_sops_install_system_packages_unsigned_actual: >-
+      {{ _community_sops_install_system_packages_unsigned + _community_sops_install_system_packages_unsigned_github }}
+    _community_sops_install_system_package_deb_actual: >-
+      {{ _community_sops_install_system_package_deb_github }}

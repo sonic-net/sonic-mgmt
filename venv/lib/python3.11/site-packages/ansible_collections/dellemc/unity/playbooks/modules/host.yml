@@ -1,0 +1,180 @@
+---
+- name: Host Module Operations on Unity
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    host_name_1: "ansible-test-host-1"
+    host_name_2: "ansible-test-host-2"
+    host_name_3: "ansible-test-host"
+    new_host_name_1: "ansible-test-host-3"
+    new_host_name_2: "ansible-test-host-4"
+
+  tasks:
+    - name: Create empty Host "{{ host_name_1 }}"
+      register: result
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name_1 }}"
+        host_os: "Linux"
+        description: "ansible-test-host-1"
+        state: "present"
+
+    - name: Set host_id empty host
+      ansible.builtin.set_fact:
+        host_id_1: "{{ result.host_details.id }}"
+
+    - name: Create empty Host "{{ host_name_3 }}"
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name_3 }}"
+        host_os: "Linux"
+        description: "ansible-test-host"
+        state: "present"
+
+    - name: Create Host with Initiators "{{ host_name_2 }}"
+      register: result
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name_2 }}"
+        host_os: "Linux"
+        description: "ansible-test-host-2"
+        initiators:
+          - "20:00:00:90:FA:13:82:34:10:00:00:90:FA:13:82:34"
+          - "20:00:00:90:FA:13:81:8C:10:00:00:90:FA:13:81:8C"
+        initiator_state: "present-in-host"
+        state: "present"
+
+    - name: Set host_id
+      ansible.builtin.set_fact:
+        host_id_2: "{{ result.host_details.id }}"
+
+    - name: Get Host details using host_name.
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name_2 }}"
+        state: "present"
+
+    - name: Get Host details using host_id.
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_id: "{{ host_id_2 }}"
+        state: "present"
+
+    - name: Modify Host using host_name
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name_1 }}"
+        host_os: "Mac OS"
+        description: "ansible-test-host-1"
+        state: "present"
+
+    - name: Modify Host using host_id
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_id: "{{ host_id_2 }}"
+        new_host_name: "{{ new_host_name_1 }}"
+        host_os: "Mac OS"
+        description: "ansible-test-host-3"
+        state: "present"
+
+    - name: Add Initiators to Host.
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name_1 }}"
+        initiators:
+          - "20:00:00:90:FA:13:82:35:10:00:00:90:FA:13:82:35"
+          - "iqn.11-05.com.test:f14a6cef331b"
+        initiator_state: "present-in-host"
+        state: "present"
+
+    - name: Modify multiple attributes of Host.
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name_1 }}"
+        new_host_name: "{{ new_host_name_2 }}"
+        host_os: "Linux"
+        description: "ansible-test-host-4"
+        initiators:
+          - "iqn.11-05.com.test:24514718452e"
+        initiator_state: "present-in-host"
+        state: "present"
+
+    - name: Delete Host. {{ new_host_name_2 }}
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ new_host_name_2 }}"
+        state: "absent"
+
+    - name: Delete Host. {{ host_name_3 }}
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name_3 }}"
+        state: "absent"
+
+    - name: Delete Host. {{ new_host_name_1 }}
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ new_host_name_1 }}"
+        state: "absent"
+
+    - name: Add network address to Host.
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name }}"
+        network_address: "192.*.*.*"
+        network_address_state: "present-in-host"
+        state: "present"
+
+    - name: Delete network address from Host.
+      host:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        host_name: "{{ host_name }}"
+        network_address: "192.*.*.*"
+        network_address_state: "absent-in-host"
+        state: "present"

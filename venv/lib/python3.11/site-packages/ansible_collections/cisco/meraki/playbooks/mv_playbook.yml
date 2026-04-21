@@ -1,0 +1,50 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    serial_number: QBSD-8VXX-6QXX
+    network_id: L_828099381482770866
+  gather_facts: false
+  tasks:
+    - name: Update Camera name
+      cisco.meraki.devices:
+        serial: "{{ serial_number }}"
+        name: My Camera
+    - name: Update Camera video settings
+      cisco.meraki.devices_camera_video_settings:
+        serial: "{{ serial_number }}"
+        externalRtspEnabled: true
+    - name: Create a primary wireless profile
+      cisco.meraki.networks_camera_wireless_profiles:
+        networkId: "{{ network_id }}"
+        name: wireless profile A
+        ssid:
+          name: cameras ssid
+          authMode: psk
+          encryptionMode: wpa
+          psk: SuperSecretPreSharedKey
+      register: primary_profile
+    - name: Create a secondary wireless profile
+      cisco.meraki.networks_camera_wireless_profiles:
+        networkId: "{{ network_id }}"
+        name: wireless profile B
+        ssid:
+          name: cameras ssid 2
+          authMode: psk
+          encryptionMode: wpa
+          psk: SuperSecretPreSharedKey
+      register: secondary_profile
+    - name: Associate the camera with the wireless profile
+      cisco.meraki.devices_camera_wireless_profiles:
+        serial: "{{ serial_number }}"
+        ids:
+          primary: "{{ primary_profile['meraki_response']['id'] }}"
+          secondary: "{{ secondary_profile['meraki_response']['id'] }}"
+    - name: Update quality and retention settings
+      cisco.meraki.devices_camera_quality_and_retention:
+        serial: "{{ serial_number }}"
+        audioRecordingEnabled: true
+        motionBasedRetentionEnabled: true
+        motionDetectorVersion: 2
+        quality: High
+        resolution: 1920x1080
+        restrictedBandwidthModeEnabled: false

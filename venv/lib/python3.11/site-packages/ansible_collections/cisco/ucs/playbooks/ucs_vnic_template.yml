@@ -1,0 +1,108 @@
+---
+# Example Playbook: cisco.ucs.ucs_vnic_template
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        description: level1 org
+        state: present
+      delegate_to: localhost
+
+    - name: Configure vNIC template
+      cisco.ucs.ucs_vnic_template:
+        <<: *login_info
+        name: vNIC-A
+        org_dn: org-root/org-level1
+        fabric: A
+        vlans_list:
+        - name: default
+          native: 'yes'
+        - name: vlan200
+          native: 'no'
+          multicast_policy: default
+          fabric: A
+          id: '200'
+          sharing: none
+      delegate_to: localhost
+
+    - name: Remove VLAN from template
+      cisco.ucs.ucs_vnic_template:
+        <<: *login_info
+        name: vNIC-A
+        org_dn: org-root/org-level1
+        fabric: A
+        vlans_list:
+        - name: vlan200
+          state: absent
+      delegate_to: localhost
+
+    - name: Configure vNIC template for failover
+      cisco.ucs.ucs_vnic_template:
+        <<: *login_info
+        name: vNIC-A-B
+        org_dn: org-root/org-level1
+        fabric: A-B
+        redundancy_type: primary
+        vlans_list:
+        - name: default
+          native: 'yes'
+        - name: vlan200
+          native: 'no'
+      delegate_to: localhost
+
+    - name: Configure vNIC template for failover
+      cisco.ucs.ucs_vnic_template:
+        <<: *login_info
+        name: vNIC-B-A
+        org_dn: org-root/org-level1
+        fabric: B-A
+        redundancy_type: secondary
+        vlans_list:
+        - name: default
+          native: 'yes'
+        - name: vlan200
+          native: 'no'
+      delegate_to: localhost
+
+
+    - name: Remove vNIC template
+      cisco.ucs.ucs_vnic_template:
+        <<: *login_info
+        name: vNIC-A-B
+        org_dn: org-root/org-level1
+        state: absent
+      delegate_to: localhost
+
+    - name: Remove vNIC template
+      cisco.ucs.ucs_vnic_template:
+        <<: *login_info
+        name: vNIC-B-A
+        org_dn: org-root/org-level1
+        state: absent
+      delegate_to: localhost
+
+    - name: Remove UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        state: absent
+      delegate_to: localhost

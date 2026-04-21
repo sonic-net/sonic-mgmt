@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_host - Fixed Pydantic error when updating preferred_arrays

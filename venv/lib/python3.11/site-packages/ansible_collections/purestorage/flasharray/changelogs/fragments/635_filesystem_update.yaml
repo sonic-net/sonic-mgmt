@@ -1,0 +1,4 @@
+bugfixes:
+ - purefa_info - ``exports`` dict for each share changed to a list of dicts in ``filesystm`` subset
+minor_changes:
+ - purefa_info - Add ``policies` list of dicts to ``filesystem`` subset for each share.

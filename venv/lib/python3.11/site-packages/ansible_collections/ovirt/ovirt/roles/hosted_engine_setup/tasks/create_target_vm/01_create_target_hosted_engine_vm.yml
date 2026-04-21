@@ -1,0 +1,164 @@
+---
+- name: Create target Hosted Engine VM
+  block:
+    - ansible.builtin.include_tasks: ../auth_sso.yml
+    - name: Get local VM IP
+      ansible.builtin.shell: virsh -r net-dhcp-leases default | grep -i {{ he_vm_mac_addr }} | awk '{ print $5 }' | cut -f1 -d'/'
+      environment: "{{ he_cmd_lang }}"
+      register: local_vm_ip
+      changed_when: true
+    - name: Set the name for add_host
+      ansible.builtin.set_fact:
+        he_fqdn_ansible_host: "{{ local_vm_ip.stdout_lines[0] }}"
+    - ansible.builtin.import_tasks: ../add_engine_as_ansible_host.yml
+    - name: Fetch host facts
+      ovirt.ovirt.ovirt_host_info:
+        pattern: name={{ he_host_name }} status=up
+        auth: "{{ ovirt_auth }}"
+      register: host_result
+      until: host_result is succeeded and host_result.ovirt_hosts|length >= 1
+      retries: 50
+      delay: 10
+    - name: Fetch Cluster ID
+      ansible.builtin.set_fact:
+        cluster_id: "{{ host_result.ovirt_hosts[0].cluster.id }}"
+    - name: Fetch Cluster facts
+      ovirt.ovirt.ovirt_cluster_info:
+        auth: "{{ ovirt_auth }}"
+      register: cluster_facts
+    - name: Fetch Datacenter facts
+      ovirt.ovirt.ovirt_datacenter_info:
+        auth: "{{ ovirt_auth }}"
+      register: datacenter_facts
+    - name: Fetch Cluster name
+      ansible.builtin.set_fact:
+        cluster_name: "{{ cluster_facts.ovirt_clusters|ovirt.ovirt.json_query(\"[?id=='\" + cluster_id + \"'].name\")|first }}"
+    - name: Fetch Datacenter ID
+      ansible.builtin.set_fact:
+        datacenter_id: "{{ cluster_facts.ovirt_clusters|ovirt.ovirt.json_query(\"[?id=='\" + cluster_id + \"'].data_center.id\")|first }}"
+    - name: Fetch Datacenter name
+      ansible.builtin.set_fact:
+        datacenter_name: "{{ datacenter_facts.ovirt_datacenters|ovirt.ovirt.json_query(\"[?id=='\"+datacenter_id+\"'].name\")|first }}"
+    - name: Parse Cluster details
+      ansible.builtin.set_fact:
+        cluster_cpu: "{{ cluster_facts.ovirt_clusters|selectattr('id', 'match', '^'+cluster_id+'$')|map(attribute='cpu')|list|first }}"
+        cluster_version: "{{ cluster_facts.ovirt_clusters|selectattr('id', 'match', '^'+cluster_id+'$')| map(attribute='version')|list|first }}"
+    - name: Get server CPU list
+      ovirt.ovirt.ovirt_system_option_info:
+        auth: "{{ ovirt_auth }}"
+        name: ServerCPUList
+        version: "{{ cluster_version.major }}.{{ cluster_version.minor }}"
+      register: server_cpu_list
+    - name: Get cluster emulated machine list
+      ovirt.ovirt.ovirt_system_option_info:
+        name: ClusterEmulatedMachines
+        auth: "{{ ovirt_auth }}"
+        version: "{{ cluster_version.major }}.{{ cluster_version.minor }}"
+      register: emulated_machine_list
+    - name: Prepare for parsing server CPU list
+      ansible.builtin.set_fact:
+        server_cpu_dict: {}
+    - name: Parse server CPU list
+      ansible.builtin.set_fact:
+        server_cpu_dict: "{{ server_cpu_dict | combine({item.split(':')[1]: item.split(':')[3]}) }}"
+      with_items: >-
+        {{ server_cpu_list['ovirt_system_option']['values'][0]['value'].split('; ')|list|difference(['']) }}
+    - name: Convert CPU model name
+      ansible.builtin.set_fact:
+        cluster_cpu_model: "{{ server_cpu_dict[cluster_cpu.type] }}"
+    - name: Parse emulated_machine
+      ansible.builtin.set_fact:
+        emulated_machine: >-
+          {{ emulated_machine_list['ovirt_system_option']['values'][0]['value'].replace(
+          '[','').replace(']','').split(', ')|first }}
+    - name: Get storage domain details
+      ovirt.ovirt.ovirt_storage_domain_info:
+        pattern: name={{ he_storage_domain_name }} and datacenter={{ datacenter_name }}
+        auth: "{{ ovirt_auth }}"
+      register: storage_domain_details
+    - name: Add HE disks
+      ovirt.ovirt.ovirt_disk:
+        name: "{{ item.name }}"
+        size: "{{ item.size }}"
+        format: "{{ item.format }}"
+        sparse: "{{ item.sparse }}"
+        description: "{{ item.description }}"
+        content_type: "{{ item.content }}"
+        interface: virtio
+        storage_domain: "{{ he_storage_domain_name }}"
+        wait: true
+        timeout: 600
+        auth: "{{ ovirt_auth }}"
+      with_items:
+        - name: "he_virtio_disk"
+          description: "Hosted-Engine disk"
+          size: "{{ he_disk_size_GB }}GiB"
+          format: "raw"
+          sparse: "{{ false if he_domain_type == 'fc' or he_domain_type == 'iscsi' else true }}"
+          content: "hosted_engine"
+        - name: "he_sanlock"
+          description: "Hosted-Engine sanlock disk"
+          size: "1GiB"
+          format: "raw"
+          sparse: false
+          content: "hosted_engine_sanlock"
+        - name: "HostedEngineConfigurationImage"
+          description: "Hosted-Engine configuration disk"
+          size: "1GiB"
+          format: "raw"
+          sparse: false
+          content: "hosted_engine_configuration"
+        - name: "he_metadata"
+          description: "Hosted-Engine metadata disk"
+          size: "128MiB"
+          format: "raw"
+          sparse: false
+          content: "hosted_engine_metadata"
+      register: add_disks
+    - name: Register disk details
+      ansible.builtin.set_fact:
+        he_virtio_disk_details: "{{ add_disks.results[0] }}"
+        he_sanlock_disk_details: "{{ add_disks.results[1] }}"
+        he_conf_disk_details: "{{ add_disks.results[2] }}"
+        he_metadata_disk_details: "{{ add_disks.results[3] }}"
+    - name: Set VNC graphic protocol
+      ansible.builtin.set_fact:
+        he_graphic_protocols: [vnc]
+    - name: Check if FIPS is enabled
+      ansible.builtin.command: sysctl -n crypto.fips_enabled
+      register: he_fips_enabled
+      changed_when: false
+    - name: Add VM
+      ovirt.ovirt.ovirt_vm:
+        state: stopped
+        cluster: "{{ cluster_name }}"
+        name: "{{ he_vm_name }}"
+        description: "Hosted Engine Virtual Machine"
+        memory: "{{ he_mem_size_MB }}Mib"
+        cpu_cores: "{{ he_vcpus }}"
+        cpu_sockets: 1
+        graphical_console:
+          headless_mode: false
+          protocol: "{{ he_graphic_protocols }}"
+        serial_console: false
+        operating_system: rhel_8x64
+        bios_type: q35_sea_bios
+        type: server
+        high_availability_priority: 1
+        high_availability: false
+        delete_protected: true
+        # timezone: "{{ he_time_zone }}" # TODO: fix with the right parameter syntax
+        disks:
+          - id: "{{ he_virtio_disk_details.disk.id }}"
+        nics:
+          - name: vnet0
+            profile_name: "{{ he_mgmt_network }}"
+            interface: virtio
+            mac_address: "{{ he_vm_mac_addr }}"
+        auth: "{{ ovirt_auth }}"
+      register: he_vm_details
+    - name: Register external local VM uuid
+      ansible.builtin.shell: virsh -r domuuid {{ he_vm_name }}Local | head -1
+      environment: "{{ he_cmd_lang }}"
+      register: external_local_vm_uuid
+      changed_when: true

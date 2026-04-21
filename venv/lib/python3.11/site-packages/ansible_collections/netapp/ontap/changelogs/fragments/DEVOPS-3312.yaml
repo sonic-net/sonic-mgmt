@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_firmware_upgrade - fix ValueError issue when processing URL error.

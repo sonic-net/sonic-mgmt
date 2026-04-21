@@ -1,0 +1,3 @@
+---
+trivial:
+  - changelogs - Provide changelog updates for release 2.5.0 (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/432).

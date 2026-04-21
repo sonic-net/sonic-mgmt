@@ -1,0 +1,37 @@
+release_summary: |
+  | Release Date: 2020-08-08
+  | This changlelog describes all changes made to the modules and plugins included in this collection since Ansible 2.9.0
+
+major_changes:
+  - purefa_console - manage Console Lock setting for the FlashArray
+  - purefa_endpoint - manage VMware protocol-endpoints on the FlashArray
+  - purefa_eula - sign, or resign, FlashArray EULA
+  - purefa_inventory - get hardware inventory information from a FlashArray
+  - purefa_network - manage the physical and virtual network settings on the FlashArray
+  - purefa_pgsched - manage protection group snapshot and replication schedules on the FlashArray
+  - purefa_pod - manage ActiveCluster pods in FlashArrays
+  - purefa_pod_replica - manage ActiveDR pod replica links in FlashArrays
+  - purefa_proxy - manage the phonehome HTTPS proxy setting for the FlashArray
+  - purefa_smis - manage SMI-S settings on the FlashArray
+  - purefa_subnet - manage network subnets on the FlashArray
+  - purefa_timeout - manage the GUI idle timeout on the FlashArray
+  - purefa_vlan - manage VLAN interfaces on the FlashArray
+  - purefa_vnc - manage VNC for installed applications on the FlashArray
+  - purefa_volume_tags - manage volume tags on the FlashArray
+
+minor_changes:
+  - purefa_info - return dict names changed from ``ansible_facts`` to ``ra_info`` and ``user_info`` in approproate sections
+  - purefa_info - new options added for information collection
+  - purefa_info - Certificate times changed to human readable rather than time since epoch
+  - purefa_host - Add support for Cloud Block Store
+  - purefa_host - Add volume disconnection support
+  - purefa_host - Add CHAP support
+  - purefa_hg - All LUN ID to be set for single volume
+  - purefa_offload - Add support for Azure
+  - purefa_pgsnap - Add offload support
+  - purefa_snap - Allow recovery of deleted snapshot
+  - purefa_vg - Add QoS support
+
+bugfixes:
+  - purefa_host - resolve issue found when using in Pure Storage Test Drive
+  - purefa_host - resolve hostname case inconsistencies

@@ -1,0 +1,26 @@
+- name: Devices Appliance Uplinks Settings
+  hosts: localhost
+  gather_facts: false
+  tasks:
+
+    - name: Set MX WAN 1 IP
+      cisco.meraki.devices_appliance_uplinks_settings:
+        state: present
+        meraki_suppress_logging: false
+        interfaces:
+          wan1:
+            enabled: false
+            pppoe:
+              enabled: false
+            svis:
+              ipv4:
+                address: 3.2.3.4/28
+                assignmentMode: static
+                gateway: 3.2.3.1
+                nameservers:
+                  addresses:
+                    - 8.8.8.8
+                    - 1.1.1.1
+            vlanTagging:
+              enabled: false
+        serial: QBSA-D8CD-5LR6

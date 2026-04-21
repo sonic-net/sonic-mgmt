@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_security_config - added warning for missing `supported_cipher_suites` to maintain idempotency in REST.

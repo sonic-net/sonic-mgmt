@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - na_ontap_cifs_server - fix ``service_state`` is stopped when trying to modify cifs server in REST.
+minor_changes:
+  - na_ontap_cifs_server - skip ``service_state`` option if not set in create.

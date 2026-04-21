@@ -1,0 +1,2 @@
+bugfixes:
+- na_ontap_ems_config - fix issue with support check mode when proxy_password is not set in REST.

@@ -1,0 +1,56 @@
+---
+####################################################################
+# Example : Storage Pool Estimated Capacity Facts Playbook
+####################################################################
+- name: Storage Pool Estimated Capacity Facts Playbook
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ################################################################################################
+  # Task Name : Get storage pool estimated capacity for specified configuration
+  # Note : This feature is available only with a Floating base license and for the AWS cloud model.
+  ################################################################################################
+    - name: Get storage pool estimated capacity for specified configuration
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool_estimated_capacity_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "5b2d757a-ffec-42f0-979c-4d5d7b8af05e"
+          number_of_storage_nodes: 2
+          number_of_drives: 6
+          number_of_tolerable_drive_failures: 0
+          query: "specified_configuration"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################################
+    # Task Name : Get storage pool estimated capacity for updated configuration
+    # Note : This feature is available only with a Floating base license and for the AWS cloud model.
+    ################################################################################################
+    - name: Get storage pool estimated capacity for specified configuration
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool_estimated_capacity_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "5b2d757a-ffec-42f0-979c-4d5d7b8af05e"
+          number_of_storage_nodes: 2
+          number_of_drives: 6
+          number_of_tolerable_drive_failures: 0
+          query: "updated_configuration"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,19 @@
+---
+- name: Create user group
+  telekom_mms.icinga_director.icinga_user_group:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "onCall"
+    disabled: false
+    zone: "foozone"
+- name: Update user group
+  telekom_mms.icinga_director.icinga_user_group:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "onCall"
+    display_name: "on call group"
+    append: true

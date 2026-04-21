@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_cifs - Added ``unix_symlink`` option in REST.

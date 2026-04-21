@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_ds - Convert to REST v2 removing all parameters used unsupported Purity versions

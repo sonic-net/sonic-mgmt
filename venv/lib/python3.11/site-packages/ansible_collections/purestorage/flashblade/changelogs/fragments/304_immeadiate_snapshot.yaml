@@ -1,0 +1,4 @@
+bugfixes:
+ - purefb_snap - Fix issue with immeadiate remote snapshots not executing
+minor_changes:
+ - purefb_snap - Change ``targets`` to ``target` and from ``list`` to ``str``. ``targets`` added as alias and code to ensure existing list in playbooks is translated as a string.

@@ -1,0 +1,3 @@
+---
+trivial:
+  - test_reports - Eliminate redundant order n-squared regression test logging by logging all facts only one time (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/584).

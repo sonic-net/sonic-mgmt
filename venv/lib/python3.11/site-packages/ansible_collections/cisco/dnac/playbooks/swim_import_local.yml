@@ -1,0 +1,24 @@
+---
+- name: Swim import local
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Import Local
+      cisco.dnac.swim_import_local:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        # headers: "{{my_headers | from_json}}"
+        isThirdParty: false
+        thirdPartyVendor: "string"
+        thirdPartyImageFamily: "string"
+        thirdPartyApplicationType: "string"
+        filePath: "./tests/test-1592357065255.csv"
+      register: result

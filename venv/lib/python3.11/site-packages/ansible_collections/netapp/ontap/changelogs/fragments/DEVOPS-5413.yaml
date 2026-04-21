@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - na_ontap_kerberos_realm - fix cannot modify ``comment`` option in ZAPI.
+minor_changes:
+  - na_ontap_kerberos_realm - change ``kdc_port`` option type to int.

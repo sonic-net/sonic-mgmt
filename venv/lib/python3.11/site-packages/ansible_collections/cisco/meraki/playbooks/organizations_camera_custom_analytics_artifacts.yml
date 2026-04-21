@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.organizations_camera_custom_analytics_artifacts:
+        meraki_suppress_logging: true
+        state: present
+        name: Test Ansible 2
+        organizationId: "828099381482762270"
+        artifactId: "828099381482750058"

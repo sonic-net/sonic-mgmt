@@ -1,0 +1,26 @@
+---
+- name: Icinga_endpoint
+  icinga_endpoint:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ endpoint.state | default(omit) }}"
+    object_name: "{{ endpoint.name }}"
+    host: "{{ endpoint.host | default(omit) }}"
+    port: "{{ endpoint.port | default(omit) }}"
+    log_duration: "{{ endpoint.log_duration | default(omit) }}"
+    zone: "{{ endpoint.zone | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_endpoints }}"
+  loop_control:
+    loop_var: endpoint
+  tags: endpoint
+  notify: config_deploy

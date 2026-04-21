@@ -1,0 +1,52 @@
+---
+argument_specs:
+  main:
+    short_description: Role to manage the installation and uninstallation of Powerflex web UI.
+    description:
+      - Role to manage the installation and uninstallation of Powerflex web UI.
+    options:
+      hostname:
+        required: true
+        type: str
+        description: IP or FQDN of the PowerFlex gateway.
+      username:
+        required: true
+        type: str
+        description: The username of the PowerFlex gateway.
+      password:
+        required: true
+        type: str
+        description: The password of the PowerFlex gateway.
+      port:
+        type: int
+        description: Port of the PowerFlex gateway.
+        default: 443
+      validate_certs:
+        description:
+          - If C(false), the SSL certificates will not be validated.
+          - Configure C(false) only on personally controlled sites where self-signed certificates are used.
+        type: bool
+        default: false
+      timeout:
+        description: Time after which connection will get terminated.
+        type: int
+        default: 120
+      powerflex_common_file_install_location:
+        description:
+          - Location of installation, compatible installation software package
+            based on the operating system of the node.
+          - The files can be downloaded from the Dell Product support page for PowerFlex software.
+        type: path
+        default: /var/tmp
+      powerflex_webui_skip_java:
+        type: bool
+        description: Specifies whether to install java or not.
+        default: false
+      powerflex_webui_state:
+        description:
+          - Specifies the state of the web UI.
+          - present will install the web UI if not already installed.
+          - absent will uninstall the web UI if installed.
+        type: str
+        choices: ['absent', 'present']
+        default: present

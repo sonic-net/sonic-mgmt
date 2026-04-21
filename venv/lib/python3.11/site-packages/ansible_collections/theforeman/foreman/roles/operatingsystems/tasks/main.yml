@@ -1,0 +1,35 @@
+---
+- name: 'Create Operatingsystems'  # noqa: args[module]
+  theforeman.foreman.operatingsystem:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    name: "{{ item.name }}"
+    architectures: "{{ item.architectures | default(omit) }}"
+    description: "{{ item.description | default(omit) }}"
+    major: "{{ item.major | default(omit) }}"
+    media: "{{ item.media | default(omit) }}"
+    minor: "{{ item.minor | default(omit) }}"
+    os_family: "{{ item.os_family | default(omit) }}"
+    parameters: "{{ item.parameters | default(omit) }}"
+    password_hash: "{{ item.password_hash | default(omit) }}"
+    provisioning_templates: "{{ item.provisioning_templates | default(omit) }}"
+    ptables: "{{ item.ptables | default(omit) }}"
+    release_name: "{{ item.release_name | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ foreman_operatingsystems }}"
+
+- name: 'Set default templates for Operatingsystems'
+  vars:
+    __foreman_default_os_name: "{{ item.0.name }} {{ item.0.major }}.{{ item.0.minor | default('0') }}"
+  theforeman.foreman.os_default_template:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    operatingsystem: "{{ item.0.description | default(__foreman_default_os_name) }}"
+    provisioning_template: "{{ item.1.provisioning_template | default(omit) }}"
+    template_kind: "{{ item.1.template_kind }}"
+    state: "{{ item.1.state | default('present') }}"
+  loop: "{{ foreman_operatingsystems | subelements('default_templates', {'skip_missing': True}) }}"

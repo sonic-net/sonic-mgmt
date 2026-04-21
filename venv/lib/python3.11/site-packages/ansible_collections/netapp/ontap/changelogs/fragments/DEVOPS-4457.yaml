@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_vserver_delete role - do not report an error if the vserver does not exist.
+bugfixes:
+  - na_ontap_vserver_delete role - report error if ONTAP version is 9.6 or older.

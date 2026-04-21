@@ -1,0 +1,2 @@
+minor_changes:
+ - plugins/module_utils/purefa.py - Removed ``get_system`` function as REST v1 no longer supported by Collection

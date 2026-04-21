@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_policy - Add new policy type of ``worm`` which is availble from Purity//FB 4.5.0

@@ -1,0 +1,585 @@
+ancestor: null
+releases:
+  0.1.0:
+    changes:
+      release_summary: It's a release! First version to publish to Ansible Galaxy.
+    fragments:
+    - v0.1.0_summary.yml
+    modules:
+    - description: Configures a SQL Agent job.
+      name: agent_job
+      namespace: ''
+    - description: Configures a SQL Agent job category.
+      name: agent_job_category
+      namespace: ''
+    - description: Configures a SQL Agent job schedule.
+      name: agent_job_schedule
+      namespace: ''
+    - description: Configures a SQL Agent job step.
+      name: agent_job_step
+      namespace: ''
+    - description: Creates and configures a database.
+      name: database
+      namespace: ''
+    - description: Configures a login for the target SQL Server instance.
+      name: login
+      namespace: ''
+    - description: Install/update Maintenance Solution
+      name: maintenance_solution
+      namespace: ''
+    - description: Sets the maximum memory for a SQL Server instance.
+      name: memory
+      namespace: ''
+    - description: Executes a generic nonquery.
+      name: nonquery
+      namespace: ''
+    - description: Configures the resource governor on a SQL Server instance.
+      name: resource_governor
+      namespace: ''
+    - description: Configures a resource pool for use by the Resource Governor.
+      name: rg_resource_pool
+      namespace: ''
+    - description: Configures a workload group for use by the Resource Governor.
+      name: rg_workload_group
+      namespace: ''
+    - description: Make instance level system configuration changes via sp_configure.
+      name: sp_configure
+      namespace: ''
+    - description: Install/update sp_whoisactive by Adam Mechanic.
+      name: sp_whoisactive
+      namespace: ''
+    - description: Enable or disable global trace flags on a SQL  Server instance.
+      name: traceflag
+      namespace: ''
+    release_date: '2022-03-30'
+  0.1.1:
+    changes:
+      release_summary: Add database tag for Galaxy
+    fragments:
+    - v0.1.1_summary.yml
+    release_date: '2022-03-31'
+  0.10.0:
+    changes:
+      minor_changes:
+      - Update minimum required DBATools version universally to 1.1.108 to accommodate
+        new tcp module.
+      release_summary: The first_responder_kit and tcp_port modules, along with a
+        bump in the required dbatools version.
+    fragments:
+    - 105-update-dbatools-version.yml
+    - v0-10-0-release-summary.yml
+    modules:
+    - description: Install/update the First Responder Kit scripts.
+      name: first_responder_kit
+      namespace: ''
+    - description: Sets the TCP port for the instance.
+      name: tcp_port
+      namespace: ''
+    release_date: '2022-06-27'
+  0.10.1:
+    changes:
+      bugfixes:
+      - Fix change detection in resource_governor module.
+      release_summary: Bug fix for resource_governor.
+    fragments:
+    - 108-rg-bug-fix.yml
+    - v0-10-1-release-summary.yml
+    release_date: '2022-06-28'
+  0.11.0:
+    changes:
+      release_summary: Adding new dbops module.
+    fragments:
+    - 0-11-0-release-summary.yml
+    modules:
+    - description: Runs migration scripts against a database.
+      name: install_script
+      namespace: ''
+    release_date: '2022-07-03'
+  0.11.1:
+    changes:
+      bugfixes:
+      - Fix `availability_group` module so that NUL backups can be properly taken
+        if needed.
+      - Fix incorrect examples in `availability_group` module documentation.
+      - Fix incorrect examples in `install_script` module documentation.
+      - Fix incorrect examples in `spn` module documentationb.
+      - Fixed bugs where adding replica did not work properly for several reasons.
+      release_summary: Bug fixes for AlwaysOn related modules and fixing errors in
+        some documentation examples.
+    fragments:
+    - 0-11-1-release-summary.yml
+    - 113-fix-ag-module.yml
+    - x-fix-spn-docs.yml
+    release_date: '2022-07-06'
+  0.11.2:
+    changes:
+      release_summary: Bumping required dbatools version to ensure the `restore` module
+        works on MacOS PowerShell Core (https://github.com/dataplat/dbatools/pull/8435).
+    fragments:
+    - 0-11-2-release-summary.yml
+    release_date: '2022-07-09'
+  0.2.0:
+    changes:
+      minor_changes:
+      - Add DbaTools module requirement to documentation and fix missing examples.
+        (https://github.com/lowlydba/lowlydba.sqlserver/pull/47)
+      - Utilize PowerShell Requires for dbatools min version needs instead of custom
+        function. Consolidate/standardize credential setup and serialization. (https://github.com/lowlydba/lowlydba.sqlserver/pull/48)
+      release_summary: Code cleanup, testing improvements, new _info module!
+    fragments:
+    - 47-improve-module-documentation.yml
+    - 48-cleanup-utils.yml
+    modules:
+    - description: Returns basic information for a SQL Server instance.
+      name: instance_info
+      namespace: ''
+    release_date: '2022-04-04'
+  0.3.0:
+    changes:
+      minor_changes:
+      - Fix logic to properly pass password policy options to function in the login
+        module.
+      release_summary: New sa module and fixes for login related modules.
+    fragments:
+    - 55-fix-login-param.yml
+    - v0.3.0-release-summary.yml
+    modules:
+    - description: Configure the 'sa' login for security best practices.
+      name: sa
+      namespace: ''
+    release_date: '2022-04-05'
+  0.4.0:
+    changes:
+      breaking_changes:
+      - All modules should use a bool 'enabled' instead of a string 'status' to control
+        object state.
+      minor_changes:
+      - Test for 'Name' property for sa module after dbatools release 1.1.95 standardizes
+        command outputs. (https://github.com/dataplat/dbatools/releases/tag/v1.1.95)
+      release_summary: Two new AlwaysOn modules and a few consistency fixes!
+    fragments:
+    - 0.4.0-release-summary.yml
+    - 56-test-for-login-name.yml
+    - 60-standardize-enabled-option.yml
+    modules:
+    - description: Configures availability group(s).
+      name: availability_group
+      namespace: ''
+    - description: Enable or disable HADR.
+      name: hadr
+      namespace: ''
+    release_date: '2022-04-27'
+  0.5.0:
+    changes:
+      minor_changes:
+      - Remove CI support for Ansible 2.10
+      release_summary: CI and testing improvements, along with the final availability
+        group module ag_replica.
+    fragments:
+    - 70-deprecate-ansible-2.10.yml
+    - release-summary.yml
+    modules:
+    - description: Configures an availability group listener.
+      name: ag_listener
+      namespace: ''
+    - description: Configures an availability group replica.
+      name: ag_replica
+      namespace: ''
+    release_date: '2022-05-11'
+  0.6.0:
+    changes:
+      release_summary: Adding new SPN module
+    fragments:
+    - release-summary-0-6-0.yml
+    modules:
+    - description: Configures SPNs for SQL Server.
+      name: spn
+      namespace: ''
+    release_date: '2022-05-20'
+  0.7.0:
+    changes:
+      release_summary: Add module for DBA Multitool.
+    fragments:
+    - release-summary-0-7-0.yml
+    modules:
+    - description: Install/update the DBA Multitool suite by John McCAll
+      name: dba_multitool
+      namespace: ''
+    release_date: '2022-05-21'
+  0.8.0:
+    changes:
+      bugfixes:
+      - Fix inability to enable an agent job schedule after it has been disabled.
+      minor_changes:
+      - Standardize use of 'database' vs 'database_name' in all documentation and
+        options specs. Not a breaking change.
+      release_summary: A few small fixes and the new 'backup' module.
+    fragments:
+    - 83-fix-agent-schedule.yml
+    - 84-standardize-database-option.yml
+    modules:
+    - description: Performs a backup operation.
+      name: backup
+      namespace: ''
+    release_date: '2022-05-31'
+  0.9.0:
+    changes:
+      bugfixes:
+      - backup - Only use blocksize when specified.
+    fragments:
+    - 90-fix-backup-blocksize.yml
+    modules:
+    - description: Performs a restore operation.
+      name: restore
+      namespace: ''
+    release_date: '2022-06-18'
+  0.9.1:
+    changes:
+      bugfixes:
+      - Allow agent job steps to be removed by specifying the step ID only. This is
+        likely needed in cleanup of steps from previous job configurations.
+      release_summary: Bugfix!
+    fragments:
+    - 0-9-1-release_sumary.yml
+    - 95-fix-agent-job-step-removal.yml
+    release_date: '2022-06-21'
+  0.9.2:
+    changes:
+      bugfixes:
+      - agent_job - Fix incorrectly reported change status when no change occurred.
+      - agent_job_schedule - Fix incorrectly reported change status when no change
+        occurred.
+      - agent_job_step - Fix incorrectly reported change status when no change occurred.
+      release_summary: Bugfixes for agent related modules that incorrectly reported
+        change statuses.
+    fragments:
+    - 97-fix-agent-related-status.yml
+    - 97-release-summary.yml
+    release_date: '2022-06-22'
+  0.9.3:
+    changes:
+      bugfixes:
+      - memory - Fix improper changed detection.
+      release_summary: More change detection fixing.
+    fragments:
+    - 100-fix-memory.yml
+    - v0-9-3-release-summary.yml
+    release_date: '2022-06-22'
+  1.0.0:
+    changes:
+      release_summary: "Bumping to version 1.0.0 now that this collection is being
+        used in production in at least one place \U0001F389"
+    fragments:
+    - v1-release-summary.yml
+    release_date: '2022-08-03'
+  1.0.1:
+    changes:
+      bugfixes:
+      - Fixed bug in how the classifier function name is being assigned to the variable
+        in the resource_governor module.
+      release_summary: Minor bug fix.
+    fragments:
+    - 1-0-1-release_summary.yml
+    - resource_governor.yml
+    release_date: '2022-08-20'
+  1.0.2:
+    changes:
+      bugfixes:
+      - _SqlServerUtils module_util - added explicit license to private module util
+        (https://github.com/lowlydba/lowlydba.sqlserver/pull/119).
+      - meta/runtime.yml - updated out of date runtime version info (https://github.com/lowlydba/lowlydba.sqlserver/pull/119).
+      - most modules - fixed alignment, formatting, and typos in module documentation
+        (https://github.com/lowlydba/lowlydba.sqlserver/pull/119).
+      release_summary: Minor documentation bugfixes and enhancements as requested
+        in the Ansible inclusion process.
+    fragments:
+    - 119-doc-updates.yml
+    - v1-0-2-release-summary.yml
+    release_date: '2022-08-29'
+  1.0.3:
+    changes:
+      bugfixes:
+      - Minor documentation fixes (https://github.com/lowlydba/lowlydba.sqlserver/pull/122).
+      release_summary: Minor documentation fixes from the second Ansible inclusion
+        review.
+    fragments:
+    - 122-doc-fixes.yml
+    - v1-0-3-release-summary.yml
+    release_date: '2022-09-03'
+  1.0.4:
+    changes:
+      bugfixes:
+      - Fix cleanup_time default to match documentation default & lint fixes (https://github.com/lowlydba/lowlydba.sqlserver/pull/127).
+      release_summary: Minor fixes to resolve new dlevel sanity checks.
+    fragments:
+    - 127-fix-doc-check.yml
+    - release-summary.yml
+    release_date: '2022-11-05'
+  1.1.0:
+    changes:
+      release_summary: Adding a new user module.
+    modules:
+    - description: Configures a user within a database
+      name: user
+      namespace: ''
+    release_date: '2022-11-12'
+  1.1.1:
+    changes:
+      minor_changes:
+      - modules - all modules now document their platform and support for check mode
+        in their attributes documentation (https://github.com/lowlydba/lowlydba.sqlserver/pull/134).
+    fragments:
+    - 137-add-attributes.yml
+    release_date: '2022-11-28'
+  1.1.2:
+    changes:
+      bugfixes:
+      - Removed the default value for xp_dirtree to allow compatibility with Azure
+        SQL Mangaed instances (https://github.com/lowlydba/lowlydba.sqlserver/pull/141)
+      release_summary: Bug fix for Azure Database Managed Instance compatibility.
+    fragments:
+    - 1-1-2-release-summary.yml
+    - xpdirtree_sql_mi_bugfix.yml
+    release_date: '2022-12-02'
+  1.1.3:
+    changes:
+      bugfixes:
+      - Removed default value for reuse_source_folder_structure to fix compatability
+        with SQL MI (https://github.com/lowlydba/lowlydba.sqlserver/pull/145)
+      release_summary: Another minor fix to increase SQL Managed Instance support.
+    fragments:
+    - reuse_source_folder_structure_sql_mi_bugfix.yml
+    - v1-1-3-release-summary.yml
+    release_date: '2022-12-05'
+  1.2.0:
+    changes:
+      bugfixes:
+      - Removed default value for ReplaceDbNameInFile to fix compatability with SQL
+        MI (https://github.com/lowlydba/lowlydba.sqlserver/pull/148)
+      minor_changes:
+      - Fixed typo in the traceflag module's documentation. (https://github.com/lowlydba/lowlydba.sqlserver/pull/150)
+      - Return "RestartRequired" when a module performs changes that require an addition
+        service restart to take effect. (https://github.com/lowlydba/lowlydba.sqlserver/pull/150/)
+      release_summary: Azure SQL MI compatibility fixes & indicating required restarts
+        for settings changes.
+    fragments:
+    - 1-2-0-release-summary.yml
+    - 150-restart-indicator.yml
+    - ReplaceDbNameInFile_sql_mi_bugfix.yml
+    release_date: '2022-12-05'
+  1.2.1:
+    changes:
+      bugfixes:
+      - Added missing mapping for UseDestinationDefaultDirectories (https://github.com/lowlydba/lowlydba.sqlserver/pull/153)
+      - Removed default value for KeepCDC to fix compatability with SQL MI (https://github.com/lowlydba/lowlydba.sqlserver/pull/153)
+      - Removed default value for UseDestinationDefaultDirectories to fix compatability
+        with SQL MI (https://github.com/lowlydba/lowlydba.sqlserver/pull/153)
+      release_summary: More Azure SQL Managed Instance compatibility fixes.
+    fragments:
+    - 1-2-1-release_summary.yml
+    - 153-additional_sql_mi_fixes.yml
+    release_date: '2022-12-06'
+  1.3.0:
+    changes:
+      minor_changes:
+      - Adding a new credential module
+      release_summary: New module to manage credentials added!
+    fragments:
+    - 1-3-0-release_summary.yml
+    - add_credential_module.yml
+    modules:
+    - description: Configures a credential on a SQL server
+      name: credential
+      namespace: ''
+    release_date: '2022-12-09'
+  1.3.1:
+    changes:
+      bugfixes:
+      - Fixes to incorrect variable reference in Login module (https://github.com/lowlydba/lowlydba.sqlserver/pull/161)
+      minor_changes:
+      - Update login module documentation to indicate result will always be changed
+        when a password is supplied. (https://github.com/lowlydba/lowlydba.sqlserver/pull/167)
+      release_summary: Small bugfixes and documentation enhancements.
+    fragments:
+    - 1-3-1-release_summary.yml
+    - 167-update-login-docs.yml
+    - fix_sa.yml
+    release_date: '2022-12-18'
+  2.0.0:
+    changes:
+      breaking_changes:
+      - Updating minimum DBATools version to v2.0.0 to allow for pwsh 7.3+ compatibility.
+        There may also be breaking change behavior in DBATools, see https://blog.netnerds.net/2023/03/whats-new-dbatools-2.0/.
+        (https://github.com/lowlydba/lowlydba.sqlserver/pull/181)
+      release_summary: A major version bump of DBATools to version 2+. This will guarantee
+        compatibility with PowerShell Core versions 7.3+ and future SQL Server versions.
+        For more information on that release, see https://blog.netnerds.net/2023/03/whats-new-dbatools-2.0/.
+        Outside of major problems, new changes to this collection will not be backported
+        to v1.
+    fragments:
+    - dbatools-v2.yml
+    - release-summary-v2.yml
+    release_date: '2023-04-30'
+  2.1.0:
+    changes:
+      minor_changes:
+      - Add refresh workaround for agent schedule bug where properties returned are
+        stale. (https://github.com/lowlydba/lowlydba.sqlserver/pull/185)
+      - Added SID as an optional parameter to the login module (https://github.com/lowlydba/lowlydba.sqlserver/pull/189)
+      release_summary: Add sid to login, thanks @OsirisDBA!
+    fragments:
+    - 185-fix-agent-schedule.yml
+    - 189-add-sid-to-login.yml
+    - 2-1-0-release.yml
+    release_date: '2023-08-11'
+  2.2.0:
+    changes:
+      minor_changes:
+      - Added only_accessible as an optional parameter to the database module (https://github.com/lowlydba/lowlydba.sqlserver/pull/198)
+      release_summary: Bug fix in the database module.
+    fragments:
+    - 198-add-onlyaccessible-param-to-database.yml
+    - 2-2-0-release-summary.yml
+    release_date: '2023-08-26'
+  2.2.1:
+    changes:
+      minor_changes:
+      - Fixes error handling for Remove-DbaDatabase when joined to AvailabilityGroup,
+        exception was not being thrown so we have to parse Status
+      release_summary: Bugfix for database module in the context of availability groups.
+    fragments:
+    - 2-2-1-release-summary.yml
+    - 200-remove-dbadatabase-exception-handling.yml
+    release_date: '2023-08-29'
+  2.2.3:
+    changes:
+      bugfixes:
+      - Add ActiveStartDate to the compare properties so this item is marked accurately
+        as changed.
+      - Fixed the formatting of the SPN by updating the backslash to a forward-slash
+        for the $spn var (lowlydba.sqlserver.spn)
+      release_summary: Minor bugfixes.
+    fragments:
+    - 214-fix-schedule-activestartdate.yml
+    - 219-spn-format-fix.yml
+    - release-summary-2-2-3.yml
+    release_date: '2024-02-07'
+  2.3.0:
+    changes:
+      minor_changes:
+      - Add ability to prevent changing login's password, even if password supplied.
+      release_summary: New feature from @OsirisDBA for skipping login password resets!
+    fragments:
+    - 2-2-4-release-summary.yml
+    - 227-skip-pwd-reset.yml
+    release_date: '2024-02-10'
+  2.3.1:
+    changes:
+      minor_changes:
+      - Add new input strings to be compatible with dbops v0.9.x (https://github.com/lowlydba/lowlydba.sqlserver/pull/231)
+      release_summary: Update the install script feature to accommodate the latest
+        minor DbOps release (v0.9.x)
+    fragments:
+    - 2-3-1-release-summary.yml
+    - 231-dbops-v09.yml
+    release_date: '2024-02-24'
+  2.3.2:
+    changes:
+      bugfixes:
+      - Update documentation for agent_job_schedule to reflect proper input formatting.
+        (https://github.com/lowlydba/lowlydba.sqlserver/pull/229)
+      release_summary: Small fix for documentation and upstream fix available in dbatools
+        v2.1.9.
+    fragments:
+    - 2-3-2-release-summary.yml
+    - 229-docs-update.yml
+    release_date: '2024-03-09'
+  2.3.3:
+    changes:
+      bugfixes:
+      - fixed the expected type of the ip_address, subnet_ip, and subnet_mask parameters
+        to be lists instead of strings (lowlydba.sqlserver.ag_listener)
+      release_summary: Minor bugfix for ag listener input types, thanks @daarrn for
+        the contribution!
+    fragments:
+    - 2-3-3-release-summary.yml
+    - 245-ag_listener-ip_address-fix.yml
+    release_date: '2024-06-06'
+  2.3.4:
+    changes:
+      bugfixes:
+      - Include warning logs in failure output for the restore module to indicate
+        root causes (https://github.com/lowlydba/lowlydba.sqlserver/pull/266).
+      release_summary: Minor bugfix for failed database restores.
+    fragments:
+    - 266-restore-warnings.yaml
+    release_date: '2024-10-06'
+  2.3.5:
+    changes:
+      bugfixes:
+      - Fix error that occurred when creating a login with `skip_password_reset` as
+        true. (https://github.com/lowlydba/lowlydba.sqlserver/pull/287)
+      release_summary: Bugfix for login module when creating new logins.
+    fragments:
+    - 287-login-bugfix.yml
+    release_date: '2024-12-08'
+  2.3.6:
+    changes:
+      bugfixes:
+      - Fix error when creating an agent job schedule with `enabled` as true. (https://github.com/lowlydba/lowlydba.sqlserver/pull/288)
+      release_summary: Bugfix for creating agent job schedules as explicitly enabled.
+    fragments:
+    - 288-fix-agent-schedule.yml
+    release_date: '2024-12-08'
+  2.4.0:
+    changes:
+      minor_changes:
+      - Add new user_role module to manage users' membership to database roles (https://github.com/lowlydba/lowlydba.sqlserver/pull/292).
+      release_summary: New role user_role added to allow adding/removing database
+        roles for users!
+    fragments:
+    - 292-add-user-role-module.yml
+    modules:
+    - description: Configures a user's role in a database.
+      name: user_role
+      namespace: ''
+    release_date: '2024-12-15'
+  2.5.0:
+    changes:
+      minor_changes:
+      - Add new `login_role` module to add/remove server roles for logins (https://github.com/lowlydba/lowlydba.sqlserver/pull/293).
+      release_summary: New login_role module for managing server role members!
+    fragments:
+    - 293-login-role-module.yml
+    modules:
+    - description: Configures a login's  server roles.
+      name: login_role
+      namespace: ''
+    release_date: '2024-12-15'
+  2.6.0:
+    changes:
+      minor_changes:
+      - Added support for contained Availability Groups using dbatools 2.1.15 (https://github.com/lowlydba/lowlydba.sqlserver/pull/249).
+      release_summary: Added support for contained Availability Groups using dbatools
+        2.1.15 - thanks @DorBreger!
+    fragments:
+    - noop.yml
+    release_date: '2025-04-06'
+  2.6.1:
+    changes:
+      minor_changes:
+      - Added support for Ansible 2.19
+      - Updated the test matrix to include Ansible 2.19 and remove Ansible 2.16
+      release_summary: Testing updates for Ansible 2.19 compatibility.
+    fragments:
+    - 314-ansible-2-19-compatibility.yml
+    release_date: '2025-05-03'
+  2.7.0:
+    changes:
+      minor_changes:
+      - agent_job_step - Added ``output_file`` parameter to specify the output file
+        path for SQL Agent job steps (https://github.com/lowlydba/lowlydba.sqlserver/pull/329).
+      release_summary: Added output file support for SQL Agent job steps.
+    fragments:
+    - 329-add-agent-outputfile.yml
+    release_date: '2025-08-16'

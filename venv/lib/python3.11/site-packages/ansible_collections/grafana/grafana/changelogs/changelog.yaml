@@ -1,0 +1,442 @@
+ancestor: null
+releases:
+  0.0.1:
+    changes:
+      release_summary: It's a release! First version to publish to Ansible Galaxy
+    release_date: '2022-08-09'
+  0.0.2:
+    changes:
+      release_summary: Updated input parameters description for all modules
+    release_date: '2022-08-10'
+  0.0.3:
+    changes:
+      release_summary: Documentation update and code cleanup
+    release_date: '2022-08-10'
+  0.0.4:
+    changes:
+      bugfixes:
+      - Fix an issue with `cloud_stack` idempotency
+    release_date: '2022-08-10'
+  0.0.5:
+    changes:
+      release_summary: Documentation update and code cleanup
+    release_date: '2022-08-10'
+  0.0.6:
+    changes:
+      minor_changes:
+      - Idempotency updates to cloud_api_key and datasource modules
+    release_date: '2022-08-10'
+  0.0.7:
+    changes:
+      release_summary: Documentation update for return values in `grafana.grafana.dashboard`
+    release_date: '2022-08-11'
+  1.0.0:
+    changes:
+      release_summary: CI and testing improvements
+    release_date: '2022-08-16'
+  1.0.1:
+    changes:
+      release_summary: Documentation updates with updated examples
+    release_date: '2022-08-23'
+  1.0.2:
+    changes:
+      release_summary: Documentation updates with updated description for modules
+    release_date: '2022-08-30'
+  1.0.3:
+    changes:
+      minor_changes:
+      - Add a fail method to modules source code if `requests` library is not present
+      - Fixed markup for arg option in Documentation
+      - Updated Documentation with `notes` to specify if the check_mode feature is
+        supported by modules
+      - removed `supports_check_mode=True` from source code of modules
+    release_date: '2022-10-20'
+  1.0.4:
+    changes:
+      bugfixes:
+      - Fixed cases where cloud_stack and alert_contact_point modules do not return
+        a tuple when nothing in loop matches
+      major_changes:
+      - All modules except dashboard and datasource modules now support idempotency
+      minor_changes:
+      - All modules use `missing_required_lib`` to compose the message for module.fail_json()
+        when required library is missing from host
+      release_summary: Bug fixes and idempotency fixes for modules
+    release_date: '2022-11-01'
+  1.0.5:
+    changes:
+      minor_changes:
+      - Added Note to datasource and dashboard module about not supporting Idempotency
+      release_summary: Add Note to modules which don't support Idempotency
+    release_date: '2022-11-10'
+  1.1.0:
+    changes:
+      major_changes:
+      - Added Role for Grafana Agent
+      release_summary: Added Role to deploy Grafana Agent on linux hosts
+    release_date: '2022-11-22'
+  1.1.1:
+    changes:
+      minor_changes:
+      - Updated the return message in grafana.grafana.folder module
+      release_summary: Updated return description and value for grafana.grafana.folder
+        module
+    release_date: '2023-02-08'
+  2.0.0:
+    changes:
+      major_changes:
+      - Added Lint support
+      - Configs for server, metrics, logs, traces, and integrations
+      - Installation of the latest version
+      - Local installations when internet connection is not allowed
+      - Only download binary to controller once instead of hosts
+      - Skip install if the agent is already installed and the version is the same
+        as the requested version
+      - Support for Grafana Agent Flow
+      - Validation of variables
+      release_summary: Updated Grafana Agent Role
+    release_date: '2023-03-27'
+  2.1.0:
+    changes:
+      major_changes:
+      - Addition of Grafana Server role by @gardar
+      - Configurable agent user groups by @NormanJS
+      - Grafana Plugins support on-prem Grafana installation by @ishanjainn
+      - Updated Service for flow mode by @bentonam
+      minor_changes:
+      - Ability to configure date format in grafana server role by @RomainMou
+      - Avoid using shell for fetching latest version in Grafana Agent Role by @gardar
+      - Fix for invalid yaml with datasources list enclosed in quotes by @elkozmon
+      - Remove agent installation custom check by @VLZZZ
+      - Remove explicit user creation check by @v-zhuravlev
+      release_summary: Add Grafana Server role and plugins support on-prem Grafana
+    release_date: '2023-06-26'
+  2.1.1:
+    changes:
+      minor_changes:
+      - Update Download tasks in Grafana Agent Role
+      release_summary: Update Download tasks in Grafana Agent Role
+    release_date: '2023-06-26'
+  2.1.2:
+    changes:
+      minor_changes:
+      - Fix Deleting datasources
+      - Fix alert_notification_policy failing on fresh instance
+      - Making Deleting folders idempotent
+      - Remove trailing slash automatically from grafana_url
+      release_summary: Idempotency Updates and minor api_url fixes
+    release_date: '2023-06-27'
+  2.1.3:
+    changes:
+      minor_changes:
+      - indentation and Lint fixes to modules
+      release_summary: Update modules to fix failing Sanity Tests
+    release_date: '2023-06-27'
+  2.1.4:
+    changes:
+      minor_changes:
+      - Datasource test updates and minor fixes
+      release_summary: Update Datasource Tests and minor fixes
+    release_date: '2023-06-27'
+  2.1.5:
+    changes:
+      minor_changes:
+      - Add Grafana Agent Version and CPU Arch to Downloaded ZIP in Grafana Agent
+        Role
+      - Move _grafana_agent_base_download_url from /vars to /defaults in Grafana Agent
+        Role
+      release_summary: Update Grafana Agent Download varibale and ZIP file
+    release_date: '2023-08-10'
+  2.1.6:
+    changes:
+      minor_changes:
+      - Add overrides.conf with CAP_NET_BIND_SERVICE for grafana-server unit
+      - Fix Grafana Dashboard Import for Grafana Role
+      - Make grafana_agent Idempotent
+      - Provisioning errors in YAML
+      - Use new standard to configure Grafana APT source for Grafana Role
+      release_summary: Grafana and Grafana Agent role updates
+    release_date: '2023-09-11'
+  2.1.7:
+    changes:
+      minor_changes:
+      - YAML Fixes
+      release_summary: YAML Fixes
+    release_date: '2023-09-11'
+  2.1.8:
+    changes:
+      minor_changes:
+      - Fix grafana dashboard import in Grafana Role
+      release_summary: Fix grafana dashboard import in Grafana Role
+    release_date: '2023-09-12'
+  2.1.9:
+    changes:
+      minor_changes:
+      - Add check for Curl and failure step if Agent Version is not retrieved
+      - Bump cryptography from 39.0.2 to 41.0.3
+      - Bump semver from 5.7.1 to 5.7.2
+      - Bump word-wrap from 1.2.3 to 1.2.5
+      - Create local dashboard directory in check mode
+      - Update CI Testing
+      - Update Cloud Stack Module failures
+      release_summary: Security Updates and Grafana Agent Version failure fixes
+    release_date: '2023-09-19'
+  2.2.0:
+    changes:
+      minor_changes:
+      - Use 'ansible_system' env variable to detect os typ in Grafana Agent Role
+      - hange grafana Agent Wal and Positions Directory in Grafana Agent Role
+      release_summary: Grafana Agent Role Updates
+    release_date: '2023-09-20'
+  2.2.1:
+    changes:
+      minor_changes:
+      - Allow alert resource provisioning in Grafana Role
+      release_summary: Allow alert resource provisioning in Grafana Role
+    release_date: '2023-09-27'
+  2.2.2:
+    changes:
+      minor_changes:
+      - Bump cryptography from 41.0.3 to 41.0.4
+      - Create missing notification directory in Grafana Role
+      - Remove check_mode from create local directory task in Grafana Role
+      release_summary: Grafana Role bug fixes and security updates
+    release_date: '2023-09-29'
+  2.2.3:
+    changes:
+      minor_changes:
+      - Remove dependency on local-fs.target from Grafana Agent role
+      release_summary: Remove dependency on local-fs.target from Grafana Agent role
+    release_date: '2023-10-05'
+  2.2.4:
+    changes:
+      minor_changes:
+      - Bump cryptography from 41.0.4 to 41.0.6 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/126
+      - Drop curl check by @v-zhuravlev in https://github.com/grafana/grafana-ansible-collection/pull/120
+      - Fix check mode for grafana role by @Boschung-Mecatronic-AG-Infrastructure
+        in https://github.com/grafana/grafana-ansible-collection/pull/125
+      - Fix check mode in Grafana Agent by @AmandaCameron in https://github.com/grafana/grafana-ansible-collection/pull/124
+      - Update tags in README by @ishanjainn in https://github.com/grafana/grafana-ansible-collection/pull/121
+      release_summary: Grafana and Agent Role bug fixes and security updates
+    release_date: '2023-12-08'
+  2.2.5:
+    changes:
+      minor_changes:
+      - Add 'run_once' to download&unzip tasks by @v-zhuravlev in https://github.com/grafana/grafana-ansible-collection/pull/136
+      - Adding `oauth_allow_insecure_email_lookup` to fix oauth user sync error by
+        @hypery2k in https://github.com/grafana/grafana-ansible-collection/pull/132
+      - Bump ansible-core from 2.15.4 to 2.15.8 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/137
+      - Bump ansible-lint from 6.13.1 to 6.14.3 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/139
+      - Bump ansible-lint from 6.14.3 to 6.22.2 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/142
+      - Bump ansible-lint from 6.22.2 to 24.2.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/150
+      - Bump jinja2 from 3.1.2 to 3.1.3 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/129
+      - Bump pylint from 2.16.2 to 3.0.3 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/141
+      - Bump yamllint from 1.29.0 to 1.33.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/140
+      - Bump yamllint from 1.29.0 to 1.33.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/143
+      - Bump yamllint from 1.33.0 to 1.34.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/151
+      - Change handler to systemd by @v-zhuravlev in https://github.com/grafana/grafana-ansible-collection/pull/135
+      - Fix links in grafana_agent/defaults/main.yaml by @PabloCastellano in https://github.com/grafana/grafana-ansible-collection/pull/134
+      - Topic/grafana agent idempotency by @ohdearaugustin in https://github.com/grafana/grafana-ansible-collection/pull/147
+      release_summary: Grafana and Agent Role bug fixes and security updates
+    release_date: '2024-02-13'
+  3.0.0:
+    changes:
+      major_changes:
+      - Add an Ansible role for OpenTelemetry Collector by @ishanjainn in https://github.com/grafana/grafana-ansible-collection/pull/138
+      minor_changes:
+      - Bump pylint from 3.0.3 to 3.1.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/158
+      - Bump pylint from 3.0.3 to 3.1.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/161
+      - Bump the pip group across 1 directories with 1 update by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/156
+      - Bump yamllint from 1.33.0 to 1.35.1 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/155
+      - Bump yamllint from 1.33.0 to 1.35.1 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/159
+      - ExecStartPre and EnvironmentFile settings to system unit file by @fabiiw05
+        in https://github.com/grafana/grafana-ansible-collection/pull/157
+      - datasources url parameter fix by @dergudzon in https://github.com/grafana/grafana-ansible-collection/pull/162
+    release_date: '2024-03-12'
+  4.0.0:
+    changes:
+      major_changes:
+      - Add an Ansible role for Grafana Alloy by @ishanjainn in https://github.com/grafana/grafana-ansible-collection/pull/169
+      minor_changes:
+      - Bump ansible-lint from 24.2.0 to 24.2.1 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/164
+      - Update description to match module by @brmurphy in https://github.com/grafana/grafana-ansible-collection/pull/179
+      - Clarify grafana-server configuration in README by @VGerris in https://github.com/grafana/grafana-ansible-collection/pull/177
+      - Bump ansible-lint from 24.2.0 to 24.2.1 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/168
+      - Bump black from 24.1.1 to 24.3.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/165
+      - Apply correct uid + gid for imported dashboards by @hypery2k in https://github.com/grafana/grafana-ansible-collection/pull/167
+    release_date: '2024-04-10'
+  5.0.0:
+    changes:
+      major_changes:
+      - Add Grafana Mimir role by @GVengelen in https://github.com/grafana/grafana-ansible-collection/pull/183
+      - Add Grafana Loki role by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/188
+    release_date: '2024-04-29'
+  5.1.0:
+    changes:
+      major_changes:
+      - Uninstall Step for Loki and Mimir by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/193
+    release_date: '2024-05-07'
+  5.2.0:
+    changes:
+      major_changes:
+      - Bump ansible-lint from 24.2.2 to 24.2.3 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/195
+      - Add promtail role by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/197
+      - Add a new config part to configure KeyCloak based auth by @he0s in https://github.com/grafana/grafana-ansible-collection/pull/191
+    release_date: '2024-05-13'
+  5.3.0:
+    changes:
+      major_changes:
+      - Add support for configuring feature_toggles in grafana role by @LexVar in https://github.com/grafana/grafana-ansible-collection/pull/173
+      - Bump pylint from 3.1.0 to 3.1.1 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/200
+      - Add a config check before restarting mimir by @panfantastic in https://github.com/grafana/grafana-ansible-collection/pull/198
+      - Bump pylint from 3.1.1 to 3.2.2 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/208
+      - Bump ansible-lint from 24.2.3 to 24.5.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/207
+      - Fix env file location by @v-zhuravlev in https://github.com/grafana/grafana-ansible-collection/pull/211
+      - Support adding alloy user to extra groups by @v-zhuravlev in https://github.com/grafana/grafana-ansible-collection/pull/212
+      - Backport post-setup healthcheck from agent to alloy by @v-zhuravlev in https://github.com/grafana/grafana-ansible-collection/pull/213
+      - readme styling & language improvements by @tigattack in https://github.com/grafana/grafana-ansible-collection/pull/214
+      - Bump ansible-lint from 24.5.0 to 24.6.0 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/216
+      - Bump pylint from 3.2.2 to 3.2.3 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/217
+      - Bump braces from 3.0.2 to 3.0.3 in the npm_and_yarn group across 1 directory by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/218
+      - Change from config.river to config.alloy by @cardasac in https://github.com/grafana/grafana-ansible-collection/pull/225
+      - Updated result.json['message'] to result.json()['message'] by @CPreun in https://github.com/grafana/grafana-ansible-collection/pull/223
+      - Bump pylint from 3.2.3 to 3.2.5 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/234
+      - Fix Grafana Configuration for Unified and Legacy Alerting Based on Version by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/215
+    release_date: '2024-07-12'
+  5.4.0:
+    changes:
+      major_changes:
+      - Use a variable to control uninstall behavior instead of tags by @dobbi84 in https://github.com/grafana/grafana-ansible-collection/pull/253
+    release_date: '2024-08-09'
+  5.4.1:
+    changes:
+      major_changes:
+      - Updated promtail arch map for aarch64 matching by @gianmarco-mameli in https://github.com/grafana/grafana-ansible-collection/pull/257
+    release_date: '2024-08-13'
+  5.5.0:
+    changes:
+      major_changes:
+      - mimir molecule should use ansible core 2.16 by @GVengelen in https://github.com/grafana/grafana-ansible-collection/pull/254
+      - add support for extra args by @harryfinbow in https://github.com/grafana/grafana-ansible-collection/pull/259
+    release_date: '2024-08-16'
+  5.5.1:
+    changes:
+      bugfixes:
+      - 'Add check_mode: false to Loki "Scrape GitHub" Task by @winsmith in https://github.com/grafana/grafana-ansible-collection/pull/262'
+    release_date: '2024-09-13'
+  5.6.0:
+    changes:
+      major_changes:
+      - Update Alloy variables to use the `grafana_alloy_` namespace so they are unique by @Aethylred in https://github.com/grafana/grafana-ansible-collection/pull/209
+      - Allow alloy_user_groups variable again by @pjezek in https://github.com/grafana/grafana-ansible-collection/pull/276
+      - Update README.md by @aioue in https://github.com/grafana/grafana-ansible-collection/pull/275
+      - Update main.yml by @aioue in https://github.com/grafana/grafana-ansible-collection/pull/274
+      - Update README.md by @aioue in https://github.com/grafana/grafana-ansible-collection/pull/272
+      - Ensure check-mode works for otel collector by @pieterlexis-tomtom in https://github.com/grafana/grafana-ansible-collection/pull/264
+      - Bump pylint from 3.2.5 to 3.3.1 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/273
+      - Bump ansible-lint from 24.6.0 to 24.9.2 by @dependabot in https://github.com/grafana/grafana-ansible-collection/pull/270
+      - Alloy Role Improvements by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/281
+      - Fix message argument of dashboard task by @Nemental in https://github.com/grafana/grafana-ansible-collection/pull/256
+      - add grafana_plugins_ops to defaults and docs by @weakcamel in https://github.com/grafana/grafana-ansible-collection/pull/251
+      - fix ansible-lint warnings on Forbidden implicit octal value "0640" by @copolycube in https://github.com/grafana/grafana-ansible-collection/pull/279
+      - add option to populate google_analytics_4_id value by @copolycube in https://github.com/grafana/grafana-ansible-collection/pull/249
+      - Adding "distributor" section support to mimir config file by @HamzaKhait in https://github.com/grafana/grafana-ansible-collection/pull/247
+    release_date: '2024-10-21'
+  5.7.0:
+    changes:
+      major_changes:
+      - Fix 'dict object' has no attribute 'path' when running with --check by @JMLX42 in https://github.com/grafana/grafana-ansible-collection/pull/283
+      - Ability to set custom directory path for \*.alloy config files by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/294
+      - grafana.ini yaml syntax by @intermittentnrg in https://github.com/grafana/grafana-ansible-collection/pull/232
+      - Update grafana template by @santilococo in https://github.com/grafana/grafana-ansible-collection/pull/300
+      - Add tests and support version latest by @pieterlexis-tomtom in https://github.com/grafana/grafana-ansible-collection/pull/299
+      - add loki bloom support by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/298
+    release_date: '2024-12-05'
+  6.0.0:
+    changes:
+      major_changes:
+      - use ansible_facts instead of ansible_* variables by @kleini in https://github.com/grafana/grafana-ansible-collection/pull/296
+      - Fix the markdown code fences for install command by @benmatselby in https://github.com/grafana/grafana-ansible-collection/pull/306
+      - Grafana fix facts in main.yml by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/315
+      - add catalog-info file for internal dev catalog by @theSuess in https://github.com/grafana/grafana-ansible-collection/pull/317
+      - Fix sectionless items edge case by @santilococo in https://github.com/grafana/grafana-ansible-collection/pull/303
+      - Fix loki_operational_config section not getting rendered in config.yml by @olegkaspersky in https://github.com/grafana/grafana-ansible-collection/pull/330
+      - Fix tags Inherit default vars by @MJurayev in https://github.com/grafana/grafana-ansible-collection/pull/341
+      - add publish step to GitHub Actions workflow for Ansible Galaxy by @thelooter in https://github.com/grafana/grafana-ansible-collection/pull/340
+      - force temporary directory even in check mode for  dashboards.yml by @cmehat in https://github.com/grafana/grafana-ansible-collection/pull/339
+      - Make systemd create /var/lib/otel-collector by @pieterlexis-tomtom in https://github.com/grafana/grafana-ansible-collection/pull/336
+      - Validate config by @pieterlexis-tomtom in https://github.com/grafana/grafana-ansible-collection/pull/327
+      - Add foldersFromFilesStructure option by @root-expert in https://github.com/grafana/grafana-ansible-collection/pull/326
+      - Do not log grafana.ini contents when setting facts by @root-expert in https://github.com/grafana/grafana-ansible-collection/pull/325
+      - Add tempo role by @CSTDev in https://github.com/grafana/grafana-ansible-collection/pull/323
+      - Make dashboard imports more flexible by @torfbolt in https://github.com/grafana/grafana-ansible-collection/pull/308
+      - integrate sles legacy init-script support by @floerica in https://github.com/grafana/grafana-ansible-collection/pull/184
+      - add user module to create/update/delete grafana users by @mvalois in https://github.com/grafana/grafana-ansible-collection/pull/178
+      - management of the config.river with the conversion of the config.yaml by @lbrule in https://github.com/grafana/grafana-ansible-collection/pull/149
+    release_date: '2025-04-24'
+  6.0.1:
+    changes:
+      minor_changes:
+      - Remove Node modules from Ansible Collection build
+    release_date: '2025-05-06'
+  6.0.2:
+    changes:
+      major_changes:
+      - Update when statement to test for dashboard files found by @hal58th in https://github.com/grafana/grafana-ansible-collection/pull/363
+      - Fix Mimir URL verify task by @parcimonic in https://github.com/grafana/grafana-ansible-collection/pull/358
+      - properly validate config by @pieterlexis-tomtom in https://github.com/grafana/grafana-ansible-collection/pull/354
+      - alloy_readiness_check_use_https by @piotr-g in https://github.com/grafana/grafana-ansible-collection/pull/359
+      - use ansible_facts instead of variables by @kleini in https://github.com/grafana/grafana-ansible-collection/pull/365
+      - Use become false in find task by @santilococo in https://github.com/grafana/grafana-ansible-collection/pull/368
+      - Don't use a proxy when doing Alloy readiness check by @benoitc-croesus in https://github.com/grafana/grafana-ansible-collection/pull/375
+      - mark configuration deployment task with `no_log` by @kkantonop in https://github.com/grafana/grafana-ansible-collection/pull/380
+      - Don't override defaults by @56quarters in https://github.com/grafana/grafana-ansible-collection/pull/382
+      - Add delete protection by @KucicM in https://github.com/grafana/grafana-ansible-collection/pull/381
+      - declare collection dependencies by @kleini in https://github.com/grafana/grafana-ansible-collection/pull/386
+      - Fix some regression introduced by v6 by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/376
+      - template ingester and querier section by @Gufderald in https://github.com/grafana/grafana-ansible-collection/pull/371
+      - ensure alerting provisioning directory exists by @derhuerst in https://github.com/grafana/grafana-ansible-collection/pull/364
+    release_date: '2025-06-23'
+  6.0.3:
+    changes:
+      major_changes:
+      - declare collection dependencies by @ishanjainn in https://github.com/grafana/grafana-ansible-collection/pull/390
+      - improve mimir/alloy examples playbook by @smCloudInTheSky in https://github.com/grafana/grafana-ansible-collection/pull/369
+      - Changes for issue #383. Added alloy_github_api_url varaible. by @ILikePhysics in https://github.com/grafana/grafana-ansible-collection/pull/393
+      - store APT key with .asc extension by @derhuerst in https://github.com/grafana/grafana-ansible-collection/pull/394
+      - declare collection dependencies by @kleini in https://github.com/grafana/grafana-ansible-collection/pull/392
+      - Bump ansible-lint from 24.9.2 to 25.6.1 by @dependabot[bot] in https://github.com/grafana/grafana-ansible-collection/pull/391
+      - Bump brace-expansion from 1.1.11 to 1.1.12 in the npm_and_yarn group across 1 directory by @dependabot[bot] in https://github.com/grafana/grafana-ansible-collection/pull/396
+      - ensure IP assert returns boolean result by @aardbol in https://github.com/grafana/grafana-ansible-collection/pull/398
+      - Update Mimir README.md by @Gufderald in https://github.com/grafana/grafana-ansible-collection/pull/397
+    release_date: '2025-07-29'
+  6.0.4:
+    changes:
+      major_changes:
+      - Fixes to foldersFromFilesStructure option by @root-expert in https://github.com/grafana/grafana-ansible-collection/pull/351
+      - add macOS support to alloy role by @l50 in https://github.com/grafana/grafana-ansible-collection/pull/418
+      - replace None with [] for safe length checks by @voidquark in https://github.com/grafana/grafana-ansible-collection/pull/426
+      - Add SUSE support to Alloy role by @pozsa in https://github.com/grafana/grafana-ansible-collection/pull/423
+      - Migrate RedHat install to ansible.builtin.package by @r65535 in https://github.com/grafana/grafana-ansible-collection/pull/431
+    release_date: '2025-09-27'
+  6.0.5:
+    changes:
+      major_changes:
+      - Fixes issue by @digiserg in https://github.com/grafana/grafana-ansible-collection/pull/421
+      - use deb822 for newer debian versions by @Lukas-Heindl in https://github.com/grafana/grafana-ansible-collection/pull/440
+      - fix datasource documentation by @jeremad in https://github.com/grafana/grafana-ansible-collection/pull/437
+      - update catalog info by @Duologic in https://github.com/grafana/grafana-ansible-collection/pull/434
+      - Fix Mimir config file validation task by @Windos in https://github.com/grafana/grafana-ansible-collection/pull/428
+      - Import custom dashboards only when directory exists by @mahendrapaipuri in https://github.com/grafana/grafana-ansible-collection/pull/430
+      - fix mimir_download_url_deb & mimir_download_url_rpm by @germebl in https://github.com/grafana/grafana-ansible-collection/pull/400
+      - Use credentials from grafana_ini when importing dashboards by @root-expert in https://github.com/grafana/grafana-ansible-collection/pull/402
+      - Fallback to empty dict in case grafana_ini is undefined by @root-expert in https://github.com/grafana/grafana-ansible-collection/pull/403
+      - do not skip scrape latest github version even in check_mode by @cmehat in https://github.com/grafana/grafana-ansible-collection/pull/408
+      - Updated YUM repo urls from `packages.grafana.com` to `rpm.grafana.com` by @DejfCold in https://github.com/grafana/grafana-ansible-collection/pull/414
+    release_date: '2025-10-11'
+  6.0.6:
+    changes:
+      major_changes:
+      - Restore default listen address and port in Mimir by @56quarters in https://github.com/grafana/grafana-ansible-collection/pull/456
+      - fix broken Grafana apt repository addition by @kleini in https://github.com/grafana/grafana-ansible-collection/pull/454
+    release_date: '2025-10-22'

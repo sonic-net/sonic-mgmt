@@ -1,0 +1,52 @@
+---
+# defaults file for promtail
+promtail_version: "latest"
+promtail_uninstall: false
+promtail_http_listen_port: 9080
+promtail_http_listen_address: "0.0.0.0"
+promtail_expose_port: false
+promtail_positions_path: "/var/lib/promtail"
+promtail_runtime_mode: "acl"  # Supported "root" or "acl"
+promtail_extra_flags: []
+# promtail_extra_flags:
+#   - "-server.enable-runtime-reload"
+#   - "-config.expand-env=true"
+
+promtail_user_append_groups:
+  - "systemd-journal"
+
+promtail_download_url_rpm: "https://github.com/grafana/loki/releases/download/v{{ promtail_version }}/promtail-{{ promtail_version }}.{{ __promtail_arch }}.rpm"
+promtail_download_url_deb: "https://github.com/grafana/loki/releases/download/v{{ promtail_version }}/promtail_{{ promtail_version }}_{{ __promtail_arch }}.deb"
+
+# default variables for /etc/promtail/config.yml
+promtail_server:
+  http_listen_port: "{{ promtail_http_listen_port }}"
+  http_listen_address: "{{ promtail_http_listen_address }}"
+
+promtail_positions:
+  filename: "{{ promtail_positions_path }}/positions.yaml"
+
+promtail_clients: []
+# promtail_clients:
+#   - url: http://localhost:3100/loki/api/v1/push
+
+promtail_scrape_configs: []
+# promtail_scrape_configs:
+#   - job_name: system
+#     static_configs:
+#       - targets:
+#           - localhost
+#         labels:
+#           job: messages
+#           instance: "{{ ansible_facts['fqdn'] }}"
+#           __path__: /var/log/messages
+#       - targets:
+#           - localhost
+#         labels:
+#           job: nginx
+#           instance: "{{ ansible_facts['fqdn'] }}"
+#           __path__: /var/log/nginx/*.log
+
+# not set by default
+# promtail_limits_config:
+# promtail_target_config:

@@ -1,0 +1,287 @@
+---
+- name: Update index definition (map changed)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_updated_map }}"
+    state: present
+  register: ix_updated_map
+
+- name: Assert changed
+  ansible.builtin.assert:
+    that:
+      - ix_updated_map.changed
+      - "'created successfully' in ix_updated_map.msg | lower"
+
+- name: Fetch ALL indexes (after updating map definition)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_all_after_map
+  changed_when: false
+
+- name: Normalize list (after updating map definition)
+  ansible.builtin.set_fact:
+    ix_list_after_modifying_map: "{{ ix_all_after_map.json.Results | default(ix_all_after_map.json) | default([]) }}"
+
+- name: Pick our index (after updating map definition)
+  ansible.builtin.set_fact:
+    ix_after_map_pick:  "{{ (ix_list_after_modifying_map | selectattr('Name','equalto', idx_name) | list | first) }}"
+
+- name: Extract map strings (after updating map definition)
+  ansible.builtin.set_fact:
+    ix_maps_after_map: "{{ ix_after_map_pick.Maps | default([]) }}"
+
+- name: Assert map contains 'count = 13'
+  ansible.builtin.assert:
+    that:
+      - ix_maps_after_map | length > 0
+      - "(ix_maps_after_map | join('\n')) is search('count\\s*=\\s*13')"
+
+- name: Convert to multi-map
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_multimap }}"
+    state: present
+  register: ix_updated_multimap
+
+- name: Assert changed
+  ansible.builtin.assert:
+    that:
+      - ix_updated_multimap.changed
+
+- name: Fetch ALL indexes (after multi-map)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_all_after_multimap
+  changed_when: false
+
+- name: Normalize list (after multi-map)
+  ansible.builtin.set_fact:
+    ix_list_after_multimap: "{{ ix_all_after_multimap.json.Results | default(ix_all_after_multimap.json) | default([]) }}"
+
+- name: Pick our index (after multi-map)
+  ansible.builtin.set_fact:
+    ix_def_after_multimap: "{{ (ix_list_after_multimap | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Extract maps (after multi-map)
+  ansible.builtin.set_fact:
+    ix_maps_after_multimap: "{{ ix_def_after_multimap.Maps | default([]) | map('string') | list }}"
+
+- name: Assert both map clauses present
+  ansible.builtin.assert:
+    that:
+      - ix_maps_after_multimap | length == 2
+      - "ix_maps_after_multimap | select('search','from c in docs\\.Users') | list | length == 1"
+      - "ix_maps_after_multimap | select('search','from o in docs\\.Orders') | list | length == 1"
+
+- name: Map clause
+  ansible.builtin.set_fact:
+    _map_clause: "from c in docs.Users select new { c.name }"
+
+- name: Define deployment mode variants
+  set_fact:
+    idx_def_dm_rolling:
+      map: ["{{ _map_clause }}"]
+      deployment_mode: rolling
+    idx_def_dm_parallel:
+      map: ["{{ _map_clause }}"]
+      deployment_mode: parallel
+
+- name: Apply index with deployment_mode=rolling
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_dm_rolling }}"
+    state: present
+  register: ix_dm_roll
+
+- name: Assert changed on rolling apply (create or update)
+  ansible.builtin.assert:
+    that:
+      - ix_dm_roll.changed | bool
+      - "'created successfully' in ix_dm_roll.msg | lower"
+
+- name: Fetch ALL indexes (DM=rolling)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_dm_roll_api
+  changed_when: false
+
+- name: Normalize list (DM=rolling)
+  ansible.builtin.set_fact:
+    ix_list_dm_roll: "{{ ix_dm_roll_api.json.Results | default(ix_dm_roll_api.json) | default([]) }}"
+
+- name: Pick definition (DM=rolling)
+  ansible.builtin.set_fact:
+    ix_def_dm_roll: "{{ (ix_list_dm_roll | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Extract deployment_mode (DM=rolling)
+  ansible.builtin.set_fact:
+    ix_dm_roll_value: "{{ (ix_def_dm_roll.DeploymentMode | default(ix_def_dm_roll.deploymentMode) | default(ix_def_dm_roll.deployment_mode) | string) | lower }}"
+
+- name: Assert DM=rolling
+  ansible.builtin.assert:
+    that:
+      - ix_dm_roll_value == 'rolling'
+
+- name: Re-apply deployment_mode=rolling (idempotent)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_dm_rolling }}"
+    state: present
+  register: ix_dm_roll_idem
+
+- name: Assert unchanged on re-apply rolling
+  ansible.builtin.assert:
+    that:
+      - not ix_dm_roll_idem.changed | bool
+
+- name: Switch deployment_mode -> parallel
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_dm_parallel }}"
+    state: present
+  register: ix_dm_par
+
+- name: Assert changed on parallel switch
+  ansible.builtin.assert:
+    that:
+      - ix_dm_par.changed | bool
+
+- name: Fetch ALL indexes (DM=parallel)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_dm_par_api
+  changed_when: false
+
+- name: Normalize list (DM=parallel)
+  ansible.builtin.set_fact:
+    ix_list_dm_par: "{{ ix_dm_par_api.json.Results | default(ix_dm_par_api.json) | default([]) }}"
+
+- name: Pick definition (DM=parallel)
+  ansible.builtin.set_fact:
+    ix_def_dm_par: "{{ (ix_list_dm_par | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Extract deployment_mode (DM=parallel)
+  ansible.builtin.set_fact:
+    ix_dm_par_value: "{{ (ix_def_dm_par.DeploymentMode | default(ix_def_dm_par.deploymentMode) | default(ix_def_dm_par.deployment_mode) | string) | lower }}"
+
+- name: Assert DM=parallel
+  ansible.builtin.assert:
+    that:
+      - ix_dm_par_value == 'parallel'
+
+- name: Apply index without deployment_mode (should preserve parallel)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    state: present
+    index_definition:
+      map: ["{{ _map_clause }}"]
+  register: ix_dm_omit
+
+- name: Assert no change on omit
+  ansible.builtin.assert:
+    that:
+      - not ix_dm_omit.changed | bool
+
+- name: Fetch ALL indexes (after omit)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_dm_omit_api
+  changed_when: false
+
+- name: Normalize list (after omit)
+  ansible.builtin.set_fact:
+    ix_list_dm_omit: "{{ ix_dm_omit_api.json.Results | default(ix_dm_omit_api.json) | default([]) }}"
+
+- name: Pick definition (after omit)
+  ansible.builtin.set_fact:
+    ix_def_dm_omit: "{{ (ix_list_dm_omit | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Extract deployment_mode (after omit)
+  ansible.builtin.set_fact:
+    ix_dm_omit_value: "{{ (ix_def_dm_omit.DeploymentMode | default(ix_def_dm_omit.deploymentMode) | default(ix_def_dm_omit.deployment_mode) | string) | lower }}"
+
+- name: Assert still parallel (after omit)
+  ansible.builtin.assert:
+    that:
+      - ix_dm_omit_value == 'parallel'
+
+- name: Would switch to rolling (check mode)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_dm_rolling }}"
+    state: present
+  check_mode: yes
+  register: ix_dm_ck
+
+- name: Assert check-mode reports change
+  ansible.builtin.assert:
+    that:
+      - ix_dm_ck.changed | bool
+
+- name: Fetch ALL indexes (post check-mode)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_dm_ck_api
+  changed_when: false
+
+- name: Normalize list (post check-mode)
+  ansible.builtin.set_fact:
+    ix_list_dm_ck: "{{ ix_dm_ck_api.json.Results | default(ix_dm_ck_api.json) | default([]) }}"
+
+- name: Pick definition (post check-mode)
+  ansible.builtin.set_fact:
+    ix_def_dm_ck: "{{ (ix_list_dm_ck | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Extract deployment_mode (post check-mode)
+  ansible.builtin.set_fact:
+    ix_dm_ck_value: "{{ (ix_def_dm_ck.DeploymentMode | default(ix_def_dm_ck.deploymentMode) | default(ix_dm_ck.deployment_mode) | string) | lower }}"
+
+- name: Assert still parallel (post check-mode)
+  ansible.builtin.assert:
+    that:
+      - ix_dm_ck_value == 'parallel'
+
+- name: Invalid deployment_mode -> expect failure
+  block:
+    - name: Apply invalid deployment_mode
+      ravendb.ravendb.index:
+        url: "{{ base_url }}"
+        database_name: "{{ db_ix }}"
+        index_name: "{{ idx_name }}"
+        index_definition:
+          map: ["{{ _map_clause }}"]
+          deployment_mode: invalid_value
+        state: present
+      register: ix_dm_invalid
+      failed_when: false
+
+- name: Assert invalid mode message present
+  ansible.builtin.assert:
+    that:
+      - "'unknown deployment_mode' in (ix_dm_invalid.msg | lower)"

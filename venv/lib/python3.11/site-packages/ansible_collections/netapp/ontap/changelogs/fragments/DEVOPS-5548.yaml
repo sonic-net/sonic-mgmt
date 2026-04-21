@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume - ``snapdir_access`` is not supported by REST and will currently inform you now if you try to use it with REST.

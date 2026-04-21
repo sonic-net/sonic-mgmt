@@ -1,0 +1,269 @@
+---
+- name: Prune deployments
+  block:
+    - set_fact:
+        dc_name: "hello"
+        deployment_ns: "prune-deployments"
+        deployment_ns_2: "prune-deployments-2"
+
+    - name: Ensure namespace
+      community.okd.k8s:
+        kind: Namespace
+        name: '{{ deployment_ns }}'
+
+    - name: Create deployment config
+      community.okd.k8s:
+        namespace: '{{ deployment_ns }}'
+        definition:
+          kind: DeploymentConfig
+          apiVersion: apps.openshift.io/v1
+          metadata:
+            name: '{{ dc_name }}'
+          spec:
+            replicas: 1
+            selector:
+              name: '{{ dc_name }}'
+            template:
+              metadata:
+                labels:
+                  name: '{{ dc_name }}'
+              spec:
+                containers:
+                  - name: hello-openshift
+                    imagePullPolicy: IfNotPresent
+                    image: python:3.7-alpine
+                    command: [ "/bin/sh", "-c", "while true;do date;sleep 2s; done"]
+        wait: yes
+
+    - name: prune deployments (no candidate DeploymentConfig)
+      community.okd.openshift_adm_prune_deployments:
+        namespace: "{{ deployment_ns }}"
+      register: test_prune
+
+    - assert:
+        that:
+          - test_prune is not changed
+          - test_prune.replication_controllers | length == 0
+
+    - name: Update DeploymentConfig - set replicas to 0
+      community.okd.k8s:
+        namespace: "{{ deployment_ns }}"
+        definition:
+          kind: DeploymentConfig
+          apiVersion: "apps.openshift.io/v1"
+          metadata:
+            name: "{{ dc_name }}"
+          spec:
+            replicas: 0
+            selector:
+              name: "{{ dc_name }}"
+            template:
+              metadata:
+                labels:
+                  name: "{{ dc_name }}"
+              spec:
+                containers:
+                  - name: hello-openshift
+                    imagePullPolicy: IfNotPresent
+                    image: python:3.7-alpine
+                    command: [ "/bin/sh", "-c", "while true;do date;sleep 2s; done"]
+        wait: yes
+
+    - name: Wait for ReplicationController candidate for pruning
+      kubernetes.core.k8s_info:
+        kind: ReplicationController
+        namespace: "{{ deployment_ns }}"
+      register: result
+      retries: 10
+      delay: 30
+      until:
+        - result.resources.0.metadata.annotations["openshift.io/deployment.phase"] in ("Failed", "Complete")
+
+    - name: Prune deployments - should delete 1 ReplicationController
+      community.okd.openshift_adm_prune_deployments:
+        namespace: "{{ deployment_ns }}"
+      check_mode: yes
+      register: test_prune
+
+    - name: Read ReplicationController
+      kubernetes.core.k8s_info:
+        kind: ReplicationController
+        namespace: "{{ deployment_ns }}"
+      register: replications
+
+    - name: Assert that Replication controller was not deleted
+      assert:
+        that:
+          - replications.resources | length == 1
+          - replications.resources.0.metadata.name is match(dc_name+"-*")
+
+    - name: Assure that candidate ReplicationController was found for pruning
+      assert:
+        that:
+          - test_prune is changed
+          - test_prune.replication_controllers | length == 1
+          - test_prune.replication_controllers.0.metadata.name == replications.resources.0.metadata.name
+          - test_prune.replication_controllers.0.metadata.namespace == replications.resources.0.metadata.namespace
+
+    - name: Prune deployments - keep younger than 45min (check_mode)
+      community.okd.openshift_adm_prune_deployments:
+        keep_younger_than: 45
+        namespace: "{{ deployment_ns }}"
+      check_mode: true
+      register: keep_younger
+
+    - name: assert no candidate was found
+      assert:
+        that:
+          - keep_younger is not changed
+          - keep_younger.replication_controllers == []
+
+    - name: Ensure second namespace is created
+      community.okd.k8s:
+        kind: Namespace
+        name: '{{ deployment_ns_2 }}'
+
+    - name: Create deployment config from 2nd namespace
+      community.okd.k8s:
+        namespace: '{{ deployment_ns_2 }}'
+        definition:
+          kind: DeploymentConfig
+          apiVersion: apps.openshift.io/v1
+          metadata:
+            name: '{{ dc_name }}2'
+          spec:
+            replicas: 1
+            selector:
+              name: '{{ dc_name }}2'
+            template:
+              metadata:
+                labels:
+                  name: '{{ dc_name }}2'
+              spec:
+                containers:
+                  - name: hello-openshift
+                    imagePullPolicy: IfNotPresent
+                    image: python:3.7-alpine
+                    command: [ "/bin/sh", "-c", "while true;do date;sleep 2s; done"]
+        wait: yes
+
+    - name: Stop deployment config - replicas = 0
+      community.okd.k8s:
+        namespace: '{{ deployment_ns_2 }}'
+        definition:
+          kind: DeploymentConfig
+          apiVersion: apps.openshift.io/v1
+          metadata:
+            name: '{{ dc_name }}2'
+          spec:
+            replicas: 0
+            selector:
+              name: '{{ dc_name }}2'
+            template:
+              metadata:
+                labels:
+                  name: '{{ dc_name }}2'
+              spec:
+                containers:
+                  - name: hello-openshift
+                    imagePullPolicy: IfNotPresent
+                    image: python:3.7-alpine
+                    command: [ "/bin/sh", "-c", "while true;do date;sleep 2s; done"]
+        wait: yes
+
+    - name: Wait for ReplicationController candidate for pruning
+      kubernetes.core.k8s_info:
+        kind: ReplicationController
+        namespace: "{{ deployment_ns_2 }}"
+      register: result
+      retries: 10
+      delay: 30
+      until:
+        - result.resources.0.metadata.annotations["openshift.io/deployment.phase"] in ("Failed", "Complete")
+
+    # Prune from one namespace should not have any effect on others namespaces
+    - name: Prune deployments from 2nd namespace
+      community.okd.openshift_adm_prune_deployments:
+        namespace: "{{ deployment_ns_2 }}"
+      check_mode: yes
+      register: test_prune
+
+    - name: Assure that candidate ReplicationController was found for pruning
+      assert:
+        that:
+          - test_prune is changed
+          - test_prune.replication_controllers | length == 1
+          - "test_prune.replication_controllers.0.metadata.namespace == deployment_ns_2"
+
+    # Prune without namespace option
+    - name: Prune from all namespace should update more deployments
+      community.okd.openshift_adm_prune_deployments:
+      check_mode: yes
+      register: no_namespace_prune
+
+    - name: Assure multiple ReplicationController were found for pruning
+      assert:
+        that:
+          - no_namespace_prune is changed
+          - no_namespace_prune.replication_controllers | length == 2
+
+    # Execute Prune from 2nd namespace
+    - name: Read ReplicationController before Prune operation
+      kubernetes.core.k8s_info:
+        kind: ReplicationController
+        namespace: "{{ deployment_ns_2 }}"
+      register: replications
+
+    - assert:
+        that:
+          - replications.resources | length == 1
+
+    - name: Prune DeploymentConfig from 2nd namespace
+      community.okd.openshift_adm_prune_deployments:
+        namespace: "{{ deployment_ns_2 }}"
+      register: _prune
+
+    - name: Assert DeploymentConfig was deleted
+      assert:
+        that:
+          - _prune is changed
+          - _prune.replication_controllers | length == 1
+          - _prune.replication_controllers.0.details.name == replications.resources.0.metadata.name
+
+    # Execute Prune without namespace option
+    - name: Read ReplicationController before Prune operation
+      kubernetes.core.k8s_info:
+        kind: ReplicationController
+        namespace: "{{ deployment_ns }}"
+      register: replications
+
+    - assert:
+        that:
+          - replications.resources | length == 1
+
+    - name: Prune from all namespace should update more deployments
+      community.okd.openshift_adm_prune_deployments:
+      register: _prune
+
+    - name: Assure multiple ReplicationController were found for pruning
+      assert:
+        that:
+          - _prune is changed
+          - _prune.replication_controllers | length > 0
+
+  always:
+    - name: Delete 1st namespace
+      community.okd.k8s:
+        state: absent
+        kind: Namespace
+        name: "{{ deployment_ns }}"
+      ignore_errors: yes
+      when: deployment_ns is defined
+
+    - name: Delete 2nd namespace
+      community.okd.k8s:
+        state: absent
+        kind: Namespace
+        name: "{{ deployment_ns_2 }}"
+      ignore_errors: yes
+      when: deployment_ns_2 is defined

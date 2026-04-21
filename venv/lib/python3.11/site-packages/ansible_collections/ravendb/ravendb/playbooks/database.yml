@@ -1,0 +1,192 @@
+##################################################################################################
+# playbooks/database.yml
+#
+# Purpose: Demonstrate common usage patterns for the RavenDB database module
+#
+# What it does:
+#   - Shows simple database lifecycle tasks:
+#       * Create a new database (HTTP/S)
+#       * Delete an existing database
+#   - Demonstrates use of check mode for dry-runs
+#   - Covers secure environments:
+#       * Let's Encrypt–secured clusters (using combined admin client PEM)
+#       * Self-signed secured clusters (with server certificate and CA trust chain)
+#   - Provides encrypted database flows:
+#       * Generate a new encryption key and export to file
+#       * Use a pre-provisioned encryption key for new database creation
+#   - Illustrates how to apply database-level configuration overrides
+#   - Provides database placement examples across specific nodes (topology members)
+#
+# Notes:
+#   - Replace URLs, cert paths, and names to match your environment
+#   - Secured endpoints must use HTTPS (port 443 typically)
+#   - Encryption examples require a secured cluster; RavenDB does not support encryption in unsecured mode
+#   - All snippets here support check mode and can be run with `check_mode: yes`
+#
+# See the module documentation for more details: plugins/modules/database.py
+##################################################################################################
+
+# -----------------------------------------------------------------------------------------------
+# 1) Simple create / delete (HTTP)
+# -----------------------------------------------------------------------------------------------
+
+- name: Ensure RavenDB database is present
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    replication_factor: 3
+    state: present
+
+- name: Ensure RavenDB database is absent
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# 2) Simple create / delete - CHECK MODE (supports check mode)
+# -----------------------------------------------------------------------------------------------
+
+- name: Ensure RavenDB database is present (check mode)
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    replication_factor: 3
+    state: present
+  check_mode: yes
+
+- name: Ensure RavenDB database is absent (check mode)
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    state: absent
+  check_mode: yes
+
+# -----------------------------------------------------------------------------------------------
+# 3) Create / delete - Let's Encrypt secured (HTTPS)
+# -----------------------------------------------------------------------------------------------
+
+- name: Ensure RavenDB database is present (LE-secured)
+  ravendb.ravendb.database:
+    url: "https://a.ravendbansible.development.run:443"
+    certificate_path: "/home/user/setup_package/admin.client.combined.pem"
+    database_name: "my_database"
+    replication_factor: 3
+    state: present
+
+- name: Ensure RavenDB database is absent (LE-secured)
+  ravendb.ravendb.database:
+    url: "https://a.ravendbansible.development.run:443"
+    certificate_path: "/home/user/setup_package/admin.client.combined.pem"
+    database_name: "my_database"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# 4) Create / delete - Self-signed secured (HTTPS)
+# -----------------------------------------------------------------------------------------------
+
+- name: Ensure RavenDB database is present with secure connection (self-signed)
+  ravendb.ravendb.database:
+    url: "https://192.168.100.15:443"            # NOTE: use https for secured endpoint
+    database_name: "my_secured_database"
+    replication_factor: 1
+    certificate_path: "/home/user/combined_raven_cert.pem"
+    ca_cert_path: "/home/user/ca_certificate.pem"
+    state: present
+
+- name: Ensure RavenDB database is absent with secure connection (self-signed)
+  ravendb.ravendb.database:
+    url: "https://192.168.100.15:443"
+    database_name: "my_secured_database"
+    certificate_path: "/home/user/combined_raven_cert.pem"
+    ca_cert_path: "/home/user/ca_certificate.pem"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# 5) Encrypted databases (HTTPS) - generate key / provide key
+# -----------------------------------------------------------------------------------------------
+
+- name: Create encrypted DB with key generation
+  ravendb.ravendb.database:
+    url: "https://a.ravendbansible.development.run:443"
+    certificate_path: "/home/user/setup_package/admin.client.combined.pem"
+    database_name: "my_encrypted_db"
+    replication_factor: 3
+    encrypted: true
+    generate_encryption_key: true
+    encryption_key_output_path: "/home/user/my_encrypted_db.key"
+    state: present
+
+- name: Create encrypted DB with provided key
+  ravendb.ravendb.database:
+    url: "https://a.ravendbansible.development.run:443"
+    certificate_path: "/home/user/setup_package/admin.client.combined.pem"
+    database_name: "my_encrypted_db_from_file"
+    replication_factor: 3
+    encrypted: true
+    encryption_key: "/home/user/my_key.key"
+    state: present
+
+# -----------------------------------------------------------------------------------------------
+# 6) Simple create with database settings
+# -----------------------------------------------------------------------------------------------
+
+- name: Apply database settings on create/update
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    replication_factor: 1
+    state: present
+    database_settings:
+      Indexing.MapBatchSize: "128"
+
+# -----------------------------------------------------------------------------------------------
+# 7) Database placement on specific nodes (topology members) - CHECK MODE
+# -----------------------------------------------------------------------------------------------
+- name: Create DB on specific nodes (A, C) (check_mode)
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "db_a_c"
+    replication_factor: 2
+    topology_members:
+      - "A"
+      - "C"
+    state: present
+  check_mode: yes
+
+# -----------------------------------------------------------------------------------------------
+# 8) Database placement on specific nodes (A, C)
+# -----------------------------------------------------------------------------------------------
+- name: Create DB on specific nodes (A, C)
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "db_a_c"
+    replication_factor: 2
+    topology_members:
+      - "A"
+      - "C"
+    state: present
+
+# -----------------------------------------------------------------------------------------------
+# 7) Database on all nodes (explicit members)
+# -----------------------------------------------------------------------------------------------
+- name: Create DB on all nodes (explicit)
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "db_a_b_c_explicit"
+    replication_factor: 3
+    topology_members:
+      - "A"
+      - "B"
+      - "C"
+    state: present
+
+# -----------------------------------------------------------------------------------------------
+# 8) Database on all nodes (members omitted -> default placement)
+# -----------------------------------------------------------------------------------------------
+- name: Create DB on all nodes (members omitted)
+  ravendb.ravendb.database:
+    url: "http://192.168.100.15:8080"
+    database_name: "db_a_b_c_omitted"
+    replication_factor: 3
+    state: present

@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_cluster_peer - Added REST support to the cluster_peer module.
+bugfixes:
+  - na_ontap_cluster_peer - Fixed KeyError if both ``source_intercluster_lifs`` and ``dest_intercluster_lifs`` not present in cluster create.

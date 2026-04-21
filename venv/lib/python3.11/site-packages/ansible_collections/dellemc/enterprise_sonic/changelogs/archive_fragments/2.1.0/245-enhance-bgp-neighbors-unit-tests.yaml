@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_bgp_neighbors - Enhance unit tests for BGP Neighbors resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/245)

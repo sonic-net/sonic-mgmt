@@ -1,0 +1,20 @@
+---
+powerflex_common_win_package_location: "C:\\Windows\\Temp"
+powerflex_sdc_driver_sync_repo_address: 'ftp://ftp.emc.com/'
+powerflex_sdc_driver_sync_repo_user: 'QNzgdxXix'
+powerflex_sdc_driver_sync_repo_password: 'Aw3wFAwAq3'
+powerflex_sdc_driver_sync_repo_local_dir: '/bin/emc/scaleio/scini_sync/driver_cache/'
+powerflex_sdc_driver_sync_user_private_rsa_key_src: ''
+powerflex_sdc_driver_sync_user_private_rsa_key_dest: '/bin/emc/scaleio/scini_sync/scini_key'
+powerflex_sdc_driver_sync_repo_public_rsa_key_src: ''
+powerflex_sdc_driver_sync_repo_public_rsa_key_dest: '/bin/emc/scaleio/scini_sync/scini_repo_key.pub'
+powerflex_sdc_driver_sync_module_sigcheck: 1
+powerflex_sdc_driver_sync_emc_public_gpg_key_src: ../../../files/RPM-GPG-KEY-powerflex_2.0.*.0
+powerflex_sdc_driver_sync_emc_public_gpg_key_dest: '/bin/emc/scaleio/scini_sync/emc_key.pub'
+powerflex_sdc_driver_sync_sync_pattern: .*
+powerflex_sdc_state: present
+powerflex_sdc_name: sdc_test
+powerflex_sdc_performance_profile: Compact
+file_glob_name: sdc
+i_am_sure: 1
+powerflex_role_environment:

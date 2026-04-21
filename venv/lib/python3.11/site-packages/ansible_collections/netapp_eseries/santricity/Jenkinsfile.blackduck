@@ -1,0 +1,57 @@
+// Copyright 2022 NetApp, Inc. All Rights Reserved.
+// Licensed under the BSD-3-Clause.
+
+// Set up build parameters so any branch can be manually rebuilt with different values.
+properties([
+    parameters([
+        string(name: 'hubProjectVersion', defaultValue: '', description: 'Set this to force a BlackDuck scan and ' +
+               'manually tag it to a particular BlackDuck version (e.g. 1.0.1).')
+    ])
+])
+
+hubProjectName = 'esg-ansible-santricity-collection'
+hubProjectVersion = 'master'
+if (params.hubProjectVersion != '') {
+    // Tag the manually selected version if the hubProjectVersion build parameter is set.
+    hubProjectVersion = params.hubProjectVersion
+}
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        timeout(time: 3, unit: 'HOURS')
+        buildDiscarder(logRotator(artifactNumToKeepStr: '15'))
+    }
+
+    stages {
+        stage("BlackDuck Scan") {
+            options {
+                timeout(time: 60, unit: 'MINUTES')
+            }
+
+            steps {
+
+
+                echo "Performing BlackDuck scanning..."
+                synopsys_detect detectProperties: """
+                    --detect.project.name=${hubProjectName} \
+                    --detect.project.version.name=${hubProjectVersion} \
+                    --detect.cleanup=false \
+                    --detect.project.code.location.unmap=true \
+                    --detect.detector.search.depth=50 \
+                    --detect.code.location.name=${hubProjectName}_${hubProjectVersion}_code \
+                    --detect.bom.aggregate.name=${hubProjectName}_${hubProjectVersion}_bom \
+                    --detect.excluded.directories=blackduck/ \
+                    --detect.output.path=blackduck
+                """
+            }
+            post {
+                success {
+                    archiveArtifacts(artifacts: 'blackduck/runs/**')
+                }
+            }
+        }
+    }
+}

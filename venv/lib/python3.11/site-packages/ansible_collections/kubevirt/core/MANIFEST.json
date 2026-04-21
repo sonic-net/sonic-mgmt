@@ -1,0 +1,38 @@
+{
+ "collection_info": {
+  "namespace": "kubevirt",
+  "name": "core",
+  "version": "2.2.3",
+  "authors": [
+   "KubeVirt Project (kubevirt.io)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "api",
+   "k8s",
+   "kubernetes",
+   "kubevirt",
+   "virtualization",
+   "cloud",
+   "infrastructure"
+  ],
+  "description": "Lean Ansible bindings for KubeVirt",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {
+   "kubernetes.core": ">=5.2.0,<7.0.0"
+  },
+  "repository": "https://github.com/kubevirt/kubevirt.core",
+  "documentation": "https://kubevirt.github.io/kubevirt.core",
+  "homepage": "https://kubevirt.io",
+  "issues": "https://github.com/kubevirt/kubevirt.core/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "fd9447d9fd6c10c6f90cde695bd5d9ca94f344f4a2da451e75cfd37c632b7b03",
+  "format": 1
+ },
+ "format": 1
+}

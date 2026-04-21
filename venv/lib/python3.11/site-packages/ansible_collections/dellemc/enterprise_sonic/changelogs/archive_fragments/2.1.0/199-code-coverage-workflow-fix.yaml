@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - workflows-Fixed dependency installation issue in the code coverage workflow (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/199)

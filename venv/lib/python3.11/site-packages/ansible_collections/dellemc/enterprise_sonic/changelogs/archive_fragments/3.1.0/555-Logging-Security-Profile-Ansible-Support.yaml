@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_logging - Add support for 'security_profile' option (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/555).

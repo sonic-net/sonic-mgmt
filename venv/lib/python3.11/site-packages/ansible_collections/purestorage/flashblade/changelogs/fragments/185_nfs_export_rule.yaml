@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_policy - Fix incorrect API call for NFS export policy rule creation

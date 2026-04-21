@@ -1,0 +1,173 @@
+---
+- block:
+    - name: Get LDAP definition
+      set_fact:
+        ldap_entries: "{{ lookup('template', 'augmented-ad/definition.j2') | from_yaml }}"
+
+    - name: Delete openshift groups if existing
+      community.okd.k8s:
+        state: absent
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: "{{ item }}"
+      with_items:
+        - banking
+        - insurance
+
+    - name: Delete existing LDAP entries
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item.dn }}"
+        state: absent
+      with_items: "{{ ldap_entries.users + ldap_entries.groups + ldap_entries.units | reverse | list }}"
+
+    - name: Create LDAP Entries
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item.dn }}"
+        attributes: "{{ item.attr }}"
+        objectClass: "{{ item.class }}"
+      with_items: "{{ ldap_entries.units + ldap_entries.groups + ldap_entries.users }}"
+
+    - name: Load test configurations
+      set_fact:
+        sync_config: "{{ lookup('template', 'augmented-ad/sync-config.j2') | from_yaml }}"
+
+    - name: Synchronize Groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+      check_mode: yes
+      register: result
+
+    - name: Validate that 'banking' and 'insurance' groups were created
+      assert:
+        that:
+          - result is changed
+          - banking_group
+          - insurance_group
+          - '"james-allan@ansible.org" in banking_group.users'
+          - '"gordon-kane@ansible.org" in banking_group.users'
+          - '"alice-courtney@ansible.org" in insurance_group.users'
+          - banking_group.users | length == 2
+          - insurance_group.users | length == 1
+      vars:
+        banking_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'banking') | first }}"
+        insurance_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'insurance') | first }}"
+
+    - name: Synchronize Groups (Remove check_mode)
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+      register: result
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+
+    - name: Define facts for group to create
+      set_fact:
+        ldap_groups:
+          - name: banking
+            users:
+              - "james-allan@ansible.org"
+              - "gordon-kane@ansible.org"
+          - name: insurance
+            users:
+              - "alice-courtney@ansible.org"
+
+    - name: Read 'banking' openshift group
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: banking
+      register: result
+
+    - name: Validate group info
+      assert:
+        that:
+          - result.resources | length == 1
+          - '"james-allan@ansible.org" in result.resources.0.users'
+          - '"gordon-kane@ansible.org" in result.resources.0.users'
+
+    - name: Read 'insurance' openshift group
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: insurance
+      register: result
+
+    - name: Validate group info
+      assert:
+        that:
+          - result.resources | length == 1
+          - 'result.resources.0.users == ["alice-courtney@ansible.org"]'
+
+    - name: Delete employee from 'insurance' group
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "cn=Alice,ou=employee,ou=augmentedAD,{{ ldap_root }}"
+        state: absent
+
+    - name: Prune groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+        state: absent
+      register: result
+
+    - name: Validate result is changed (only insurance group be deleted)
+      assert:
+        that:
+          - result is changed
+          - result.groups | length == 1
+
+    - name: Get 'insurance' openshift group info
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: insurance
+      register: result
+
+    - name: assert group was deleted
+      assert:
+        that:
+          - result.resources | length == 0
+
+    - name: Get 'banking' openshift group info
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: banking
+      register: result
+
+    - name: assert group was not deleted
+      assert:
+        that:
+          - result.resources | length == 1
+
+    - name: Prune groups once again (idempotency)
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ sync_config }}"
+        state: absent
+      register: result
+
+    - name: Assert no change was made
+      assert:
+        that:
+          - result is not changed
+
+  always:
+    - name: Delete openshift groups if existing
+      community.okd.k8s:
+        state: absent
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: "{{ item }}"
+      with_items:
+        - banking
+        - insurance

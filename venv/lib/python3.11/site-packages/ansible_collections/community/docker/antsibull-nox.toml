@@ -1,0 +1,276 @@
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2025 Felix Fontein <felix@fontein.de>
+
+[collection_sources]
+"ansible.posix" = "git+https://github.com/ansible-collections/ansible.posix.git,main"
+"community.general" = "git+https://github.com/ansible-collections/community.general.git,main"
+"community.internal_test_tools" = "git+https://github.com/ansible-collections/community.internal_test_tools.git,main"
+"community.library_inventory_filtering_v1" = "git+https://github.com/ansible-collections/community.library_inventory_filtering.git,stable-1"
+
+[collection_sources_per_ansible.'2.15']
+# community.crypto's main branch needs ansible-core >= 2.17
+"community.crypto" = "git+https://github.com/ansible-collections/community.crypto.git,stable-2"
+# community.general's main branch needs ansible-core >= 2.16
+"community.general" = "git+https://github.com/ansible-collections/community.general.git,stable-10"
+
+[collection_sources_per_ansible.'2.16']
+# community.crypto's main branch needs ansible-core >= 2.17
+"community.crypto" = "git+https://github.com/ansible-collections/community.crypto.git,stable-2"
+# community.general's main branch needs ansible-core >= 2.17
+"community.general" = "git+https://github.com/ansible-collections/community.general.git,stable-11"
+
+[vcs]
+vcs = "git"
+development_branch = "main"
+stable_branches = [ "stable-*" ]
+
+[sessions]
+
+[sessions.lint]
+run_isort = false
+run_black = false
+run_flake8 = false
+run_pylint = false
+run_yamllint = true
+yamllint_config = ".yamllint"
+yamllint_config_plugins = ".yamllint-docs"
+yamllint_config_plugins_examples = ".yamllint-examples"
+run_mypy = false
+
+[sessions.docs_check]
+validate_collection_refs="all"
+codeblocks_restrict_types = [
+    "ansible-output",
+    "console",
+    "yaml",
+    "yaml+jinja",
+]
+codeblocks_restrict_type_exact_case = true
+codeblocks_allow_without_type = false
+codeblocks_allow_literal_blocks = false
+
+[sessions.license_check]
+
+[sessions.extra_checks]
+run_no_unwanted_files = true
+no_unwanted_files_module_extensions = [".py"]
+no_unwanted_files_yaml_extensions = [".yml"]
+run_action_groups = true
+run_no_trailing_whitespace = true
+run_avoid_characters = true
+
+[[sessions.extra_checks.action_groups_config]]
+name = "docker"
+pattern = "^.*$"
+exclusions = [
+    "current_container_facts",
+    "docker_context_info",
+]
+doc_fragment = "community.docker.attributes.actiongroup_docker"
+
+[[sessions.extra_checks.avoid_character_group]]
+name = "tab"
+regex = "\\x09"
+skip_directories = [
+    "tests/images/",
+]
+
+[sessions.build_import_check]
+run_galaxy_importer = true
+
+[sessions.ansible_test_sanity]
+include_devel = false
+max_version = "2.20"
+
+[sessions.ansible_test_units]
+include_devel = false
+max_version = "2.20"
+
+[sessions.ansible_test_integration]
+session_name_template = "ansible-test-integration-{ansible_core}{dash_docker_short}{dash_remote}{dash_python_version}{dash_target_dashized}"
+display_name_template = "main+Ⓐ{ansible_core}{plus_docker_short}{plus_remote}{plus_py_python_version}{plus_target}{plus_force_docker_sdk_for_python_dev}{plus_force_docker_sdk_for_python_pypi}"
+description_template = "Run main integration tests with ansible-core {ansible_core}{comma_docker_short}{comma_remote}{comma_py_python_version}{comma_target}{comma_force_docker_sdk_for_python_dev}{comma_force_docker_sdk_for_python_pypi}"
+
+[sessions.ansible_test_integration.ansible_vars]
+force_docker_sdk_for_python_dev = { type = "value", value = false, template_value = "" }
+force_docker_sdk_for_python_pypi = { type = "value", value = false, template_value = "" }
+
+##################################################################################################
+
+# Ansible-core 2.15:
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-2.15"
+description = "Meta session for running all ansible-test-integration-2.15-* sessions."
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.15"
+target = [ "azp/4/", "azp/5/" ]
+docker = [ "fedora37" ]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.15"
+target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
+remote = [ "rhel/9.1", "rhel/8.7", "rhel/7.9" ]
+
+# Ansible-core 2.16:
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-2.16"
+description = "Meta session for running all ansible-test-integration-2.16-* sessions."
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.16"
+target = [ "azp/4/", "azp/5/" ]
+docker = [ "fedora38", "opensuse15", "alpine3" ]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.16"
+target = [ "azp/4/", "azp/5/" ]
+docker = [ "centos7" ]
+# "centos7" does not work in GHA:
+tags = [ "no-gha" ]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.16"
+target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
+remote = [ "rhel/8.8", "rhel/7.9" ]
+
+# Ansible-core 2.17:
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-2.17"
+description = "Meta session for running all ansible-test-integration-2.17-* sessions."
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.17"
+target = [ "azp/4/", "azp/5/" ]
+docker = [ "fedora39", "ubuntu2004", "alpine319" ]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.17"
+target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
+remote = [ "rhel/9.3" ]
+
+# Ansible-core 2.18:
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-2.18"
+description = "Meta session for running all ansible-test-integration-2.18-* sessions."
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.18"
+target = [ "azp/4/", "azp/5/" ]
+docker = [ "fedora40", "ubuntu2204", "alpine320" ]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.18"
+target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
+remote = [ "rhel/9.4" ]
+
+# Ansible-core 2.19:
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-2.19"
+description = "Meta session for running all ansible-test-integration-2.19-* sessions."
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.19"
+target = [ "azp/4/", "azp/5/" ]
+docker = [ "fedora42", "alpine321" ]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.19"
+target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
+remote = [ "rhel/9.5", "ubuntu/22.04" ]
+
+# Ansible-core 2.20:
+
+[[sessions.ansible_test_integration.groups]]
+session_name = "ansible-test-integration-2.20"
+description = "Meta session for running all ansible-test-integration-2.20-* sessions."
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+target = [ "azp/4/", "azp/5/" ]
+docker = [ "fedora42", "ubuntu2204", "ubuntu2404", "alpine322" ]
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+target = [ "azp/4/", "azp/5/" ]
+python_version = "3.9"
+docker = "quay.io/ansible-community/test-image:debian-bullseye"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+target = [ "azp/4/", "azp/5/" ]
+python_version = "3.11"
+docker = "quay.io/ansible-community/test-image:debian-bookworm"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+target = [ "azp/4/", "azp/5/" ]
+python_version = "3.13"
+docker = "quay.io/ansible-community/test-image:debian-13-trixie"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+target = [ "azp/4/", "azp/5/" ]
+python_version = "3.13"
+docker = "quay.io/ansible-community/test-image:archlinux"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
+remote = [ "rhel/9.6" ]
+ansible_vars = { force_docker_sdk_for_python_dev = { type = "value", value = true, template_value = "sdk-dev-latest" } }
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "2.20"
+target = [ "azp/1/", "azp/2/", "azp/3/", "azp/4/", "azp/5/" ]
+remote = [
+    "rhel/10.0",
+    # For some reason, Ubuntu 24.04 is *extremely* slower than RHEL 9.6
+    # "ubuntu/24.04",
+]
+
+##################################################################################################
+
+[[sessions.ee_check.execution_environments]]
+name = "devel-ubi-9"
+description = "ansible-core devel @ RHEL UBI 9"
+test_playbooks = ["tests/ee/all.yml"]
+config.images.base_image.name = "docker.io/redhat/ubi9:latest"
+config.dependencies.ansible_core.package_pip = "https://github.com/ansible/ansible/archive/devel.tar.gz"
+config.dependencies.ansible_runner.package_pip = "ansible-runner"
+config.dependencies.python_interpreter.package_system = "python3.12 python3.12-pip python3.12-wheel python3.12-cryptography"
+config.dependencies.python_interpreter.python_path = "/usr/bin/python3.12"
+runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}
+runtime_container_options = [
+    # Mount Docker socket into the container so we can talk to Docker outside the container
+    "-v",
+    "/var/run/docker.sock:/var/run/docker.sock",
+    # Need to be root so we can access /var/run/docker.sock, which usually isn't accessible by the user,
+    # but only by the group the user is in (but that group membership isn't there in the container)
+    "--user",
+    "0",
+]
+
+[[sessions.ee_check.execution_environments]]
+name = "2.15-rocky-9"
+description = "ansible-core 2.15 @ Rocky Linux 9"
+test_playbooks = ["tests/ee/all.yml"]
+config.images.base_image.name = "quay.io/rockylinux/rockylinux:9"
+config.dependencies.ansible_core.package_pip = "https://github.com/ansible/ansible/archive/stable-2.15.tar.gz"
+config.dependencies.ansible_runner.package_pip = "ansible-runner"
+runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}
+runtime_container_options = [
+    # Mount Docker socket into the container so we can talk to Docker outside the container
+    "-v",
+    "/var/run/docker.sock:/var/run/docker.sock",
+    # Need to be root so we can access /var/run/docker.sock, which usually isn't accessible by the user,
+    # but only by the group the user is in (but that group membership isn't there in the container)
+    "--user",
+    "0",
+]

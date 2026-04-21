@@ -1,0 +1,133 @@
+---
+- name: "Remove conflicting grafana packages"
+  ansible.builtin.package:
+    name: grafana-data
+    state: absent
+
+- name: "Install dependencies"
+  ansible.builtin.package:
+    name: "{{ _grafana_dependencies }}"
+    state: present
+    update_cache: true
+  when:
+   - _grafana_dependencies is defined
+   - _grafana_dependencies | length > 0
+
+- name: "Prepare zypper"
+  when:
+    - "ansible_facts['pkg_mgr'] == 'zypper'"
+    - "(grafana_manage_repo)"
+  environment: "{{ grafana_environment }}"
+  block:
+    - name: import Grafana RPM Key
+      ansible.builtin.rpm_key:
+        state: present
+        key: "{{ grafana_yum_key }}"
+
+    - name: "Add Grafana zypper repository"
+      community.general.zypper_repository:
+        name: grafana
+        description: grafana
+        repo: "{{ grafana_yum_repo }}"
+        enabled: true
+        disable_gpg_check : "{{ false if (grafana_yum_key) else omit }}"
+        runrefresh: true
+      when: "(not grafana_rhsm_repo)"
+
+- name: "Prepare yum/dnf"
+  when:
+    - "ansible_facts['pkg_mgr'] in ['yum', 'dnf']"
+    - "(grafana_manage_repo)"
+  environment: "{{ grafana_environment }}"
+  block:
+    - name: "Add Grafana yum/dnf repository"
+      ansible.builtin.yum_repository:
+        name: grafana
+        description: grafana
+        baseurl: "{{ grafana_yum_repo }}"
+        enabled: true
+        gpgkey: "{{ grafana_yum_key | default(omit) }}"
+        repo_gpgcheck: "{{ true if (grafana_yum_key) else omit }}"
+        gpgcheck: "{{ true if (grafana_yum_key) else omit }}"
+      when: "(not grafana_rhsm_repo)"
+
+    - name: "Attach RHSM subscription"
+      when: "(grafana_rhsm_subscription)"
+      block:
+        - name: "Check if Grafana RHSM subscription is enabled"
+          ansible.builtin.command:
+            cmd: "subscription-manager list --consumed --matches={{ grafana_rhsm_subscription | quote }} --pool-only"
+          register: __subscription_manager_consumed
+          changed_when: false
+          when: (grafana_rhsm_subscription)
+
+        - name: "Find RHSM repo subscription pool id"
+          ansible.builtin.command:
+            cmd: "subscription-manager list --available --matches={{ grafana_rhsm_subscription | quote }} --pool-only"
+          register: __subscription_manager_available
+          changed_when: false
+          when:
+            - "(grafana_rhsm_subscription)"
+            - "__subscription_manager_consumed.stdout | length <= 0"
+
+        - name: "Attach RHSM subscription"
+          ansible.builtin.command:
+            cmd: "subscription-manager attach --pool={{ __subscription_manager_available.stdout }}"
+          register: __subscription_manager_attach
+          changed_when: "__subscription_manager_attach.stdout is search('Successfully attached a subscription')"
+          failed_when: "__subscription_manager_attach.stdout is search('could not be found')"
+          when:
+            - "(grafana_rhsm_subscription)"
+            - "__subscription_manager_consumed.stdout | default() | length <= 0"
+            - "__subscription_manager_available.stdout | default() | length > 0"
+
+    - name: "Enable RHSM repository"
+      community.general.rhsm_repository:
+        name: "{{ grafana_rhsm_repo }}"
+        state: enabled
+      when: (grafana_rhsm_repo)
+
+- name: "Prepare apt"
+  when:
+    - "ansible_facts['pkg_mgr'] == 'apt'"
+    - "(grafana_manage_repo)"
+  environment: "{{ grafana_environment }}"
+  block:
+    - name: "Use deb822 format?"
+      ansible.builtin.set_fact:
+        __use_deb822: "{{ (ansible_facts['distribution'] == 'Debian' and (ansible_facts['distribution_major_version'] | int) >= 12) or
+                          (ansible_facts['distribution'] == 'Ubuntu' and (ansible_facts['distribution_major_version'] | int) >= 24) }}"
+    - name: "Import Grafana apt gpg key"
+      ansible.builtin.get_url:
+        url: "{{ grafana_apt_key }}"
+        dest: /usr/share/keyrings/grafana.asc
+        mode: "0644"
+      when: not __use_deb822
+    - name: "Add Grafana apt repository"
+      when: not __use_deb822
+      ansible.builtin.apt_repository:
+        repo: "{{ grafana_apt_repo }}"
+        update_cache: true
+    - name: "Add Grafana apt repository"
+      when: __use_deb822
+      ansible.builtin.deb822_repository:
+        name: "{{ grafana_apt_name }}"
+        types: deb
+        uris: "{{ grafana_apt_repo_uri }}"
+        suites: "{{ grafana_apt_release_channel }}"
+        components:
+          - main
+        architectures:
+          - "{{ grafana_apt_arch }}"
+        signed_by: "{{ grafana_apt_key }}"
+      register: __update_cache
+    - name: "Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+      when: __update_cache is defined and __update_cache.changed
+
+- name: "Install Grafana"
+  ansible.builtin.package:
+    name: "{{ grafana_package }}"
+    state: "{{ (grafana_version == 'latest') | ternary('latest', 'present') }}"
+  notify: restart_grafana

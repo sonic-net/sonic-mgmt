@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_pg - Changing target for PG no longer requires a ``FixedReference``

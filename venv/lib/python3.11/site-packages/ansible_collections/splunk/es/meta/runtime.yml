@@ -1,0 +1,49 @@
+---
+plugin_routing:
+  action:
+    correlation_search:
+      redirect: splunk.es.splunk
+    correlation_searches:
+      redirect: splunk.es.splunk
+    data_input_monitor:
+      redirect: splunk.es.splunk
+    data_inputs_monitor:
+      redirect: splunk.es.splunk
+    data_input_network:
+      redirect: splunk.es.splunk
+    data_inputs_network:
+      redirect: splunk.es.splunk
+    adaptive_response_notable_event:
+      redirect: splunk.es.splunk
+    adaptive_response_notable_events:
+      redirect: splunk.es.splunk
+  modules:
+    correlation_search:
+      deprecation:
+        removal_date: "2024-09-01"
+        warning_text: See the plugin documentation for more details
+      redirect: splunk.es.splunk_correlation_search
+    correlation_searches:
+      redirect: splunk.es.splunk_correlation_searches
+    data_input_monitor:
+      deprecation:
+        removal_date: "2024-09-01"
+        warning_text: See the plugin documentation for more details
+      redirect: splunk.es.splunk_data_input_monitor
+    data_inputs_monitor:
+      redirect: splunk.es.splunk_data_inputs_monitor
+    data_input_network:
+      deprecation:
+        removal_date: "2024-09-01"
+        warning_text: See the plugin documentation for more details
+      redirect: splunk.es.splunk_data_input_network
+    data_inputs_network:
+      redirect: splunk.es.splunk_data_inputs_network
+    adaptive_response_notable_event:
+      deprecation:
+        removal_date: "2024-09-01"
+        warning_text: See the plugin documentation for more details
+      redirect: splunk.es.splunk_adaptive_response_notable_event
+    adaptive_response_notable_events:
+      redirect: splunk.es.splunk_adaptive_response_notable_events
+requires_ansible: ">=2.15.0"

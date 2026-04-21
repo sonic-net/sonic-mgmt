@@ -1,0 +1,1318 @@
+ancestor: null
+releases:
+  2.0.0:
+    changes:
+      breaking_changes:
+        - meraki_device - Changed tags from string to list
+        - meraki_device - Removed serial_lldp_cdp parameter
+        - meraki_device - Removed serial_uplink parameter
+        - meraki_intrusion_prevention - Rename whitedlisted_rules to allowed_rules
+        - meraki_mx_l3_firewall - Rule responses are now in a `rules` list
+        - meraki_mx_l7_firewall - Rename blacklisted_countries to blocked_countries
+        - meraki_mx_l7_firewall - Rename whitelisted_countries to allowed_countries
+        - meraki_network - Local and remote status page settings cannot be set during
+          network creation
+        - meraki_network - `disableRemoteStatusPage` response is now `remote_status_page_enabled`
+        - meraki_network - `disable_my_meraki_com` response is now `local_status_page_enabled`
+        - meraki_network - `disable_my_meraki` has been deprecated
+        - meraki_network - `enable_my_meraki` is now called `local_status_page_enabled`
+        - meraki_network - `enable_remote_status_page` is now called `remote_status_page_enabled`
+        - meraki_network - `enabled` response for VLAN status is now `vlans_enabled`
+        - meraki_network - `tags` and `type` now return a list
+        - meraki_snmp - peer_ips is now a list
+        - meraki_switchport - `access_policy_number` is now an int and not a string
+        - meraki_switchport - `tags` is now a list and not a string
+        - meraki_webhook - Querying test status now uses state of query.
+      bugfixes:
+        - Remove unnecessary files from the collection package, significantly reduces
+          package size
+        - meraki_admin - Fix error when adding network privileges to admin using network
+          name
+        - meraki_switch_stack - Fix situation where module may crash due to switch being
+          in or not in a stack already
+        - meraki_webhook - Proper response is shown when creating webhook test
+      major_changes:
+        - Rewrite requests method for version 1.0 API and improved readability
+        - meraki_mr_rf_profile - Configure wireless RF profiles.
+        - meraki_mr_settings - Configure network settings for wireless.
+        - meraki_ms_l3_interface - New module
+        - meraki_ms_ospf - Configure OSPF.
+      minor_changes:
+        - meraki - Add optional debugging for is_update_required() method.
+        - meraki_admin - Update endpoints for API v1
+        - meraki_alert - Manage network wide alert settings.
+        - meraki_device - Added query parameter
+        - meraki_intrusion_prevention - Change documentation to show proper way to clear
+          rules
+        - meraki_malware - Update documentation to show how to allow multiple URLs at
+          once.
+        - meraki_mx_l2_interface - Configure physical interfaces on MX appliances.
+        - meraki_mx_uplink - Renamed to meraki_mx_uplink_bandwidth
+        - meraki_ssid - Add `WPA3 Only` and `WPA3 Transition Mode`
+        - meraki_switchport - Add support for `access_policy_type` parameter
+      security_fixes:
+        - meraki_webhook - diff output may show data for values set to not display
+    fragments:
+      - add-build-ignore.yml
+      - diff_secret_fix.yml
+      - is_update_debug.yml
+      - malware_docs.yml
+      - malware_mx_l2_interface.yml
+      - meraki_admin.yml
+      - meraki_alert.yml
+      - meraki_content_filtering.yml
+      - meraki_device.yml
+      - meraki_firewalled_services.yml
+      - meraki_intrusion_prevention.yml
+      - meraki_malware.yml
+      - meraki_management_interface.yml
+      - meraki_mr_l3_firewall.yml
+      - meraki_mr_rf_profile.yml
+      - meraki_mr_settings.yml
+      - meraki_ms_l3_interface.yml
+      - meraki_ms_ospf.yml
+      - meraki_mx_l3_firewall.yml
+      - meraki_mx_l7_firewall.yml
+      - meraki_mx_uplink.yml
+      - meraki_nat.yml
+      - meraki_network_update.yml
+      - meraki_site_to_site_vpn.yml
+      - meraki_snmp.yml
+      - meraki_ssid.yml
+      - meraki_static_route.yml
+      - meraki_switch_stack.yml
+      - meraki_switch_storm_control.yml
+      - meraki_switchport.yml
+      - meraki_syslog.yml
+      - meraki_vlan.yml
+      - meraki_webhook.yml
+      - requests-rewrite.yml
+      - ssid-tags-fix.yml
+      - ssid_wpa3.yml
+    release_date: "2020-08-27"
+  2.1.0:
+    modules:
+      - description: Manage alerts in the Meraki cloud
+        name: meraki_alert
+        namespace: ""
+      - description: Configure MX layer 2 interfaces
+        name: meraki_mx_l2_interface
+        namespace: ""
+    release_date: "2020-10-16"
+  2.1.1:
+    changes:
+      bugfixes:
+        - meraki_management_interface - Fix crash when modifying a non-MX management
+          interface.
+    fragments:
+      - management_ms_fix.yml
+    release_date: "2020-11-02"
+  2.1.2:
+    changes:
+      bugfixes:
+        - Remove test output as it made the collection, and Ansible, huge.
+    fragments:
+      - size_fix.yml
+    release_date: "2020-11-04"
+  2.1.3:
+    changes:
+      bugfixes:
+        - meraki_device - Support pagination. This allows for more than 1,000 devices
+          to be listed at a time.
+        - meraki_network - Support pagination. This allows for more than 1,000 networks
+          to be listed at a time.
+    fragments:
+      - pagination.yml
+    release_date: "2020-12-16"
+  2.10.0:
+    changes:
+      minor_changes:
+        - meraki_network - Add support for `copy_from_network_id`.
+    fragments:
+      - 335-net_copy.yml
+      - rename_method.yml
+    release_date: "2022-07-06"
+  2.10.1:
+    changes:
+      minor_changes:
+        - Change shebang in Sublime utils to point to env instead of direct to the path
+    fragments:
+      - changelog-frags.yml
+      - sublime-utils.yml
+    release_date: "2022-07-16"
+  2.11.0:
+    changes:
+      minor_changes:
+        - Add GPLv3 license. Always was GPLv3, but didn't have the file.
+        - Change shebang in Sublime utils to point to env instead of direct to the path
+        - meraki_alert - Change type for opbject to alert_type in examples
+        - meraki_ms_access_policies - New module to create, delete, update Access Policies
+          in the Switch settings
+        - meraki_ssid - Add support for `ap_availability_tags`.
+        - meraki_ssid - Add support for `available_on_all_aps`
+        - meraki_ssid - Add support for `lan_isolation_enabled`.
+        - meraki_ssid - Add support for `visible`.
+    fragments:
+      - add-meraki_ms_access_policy.yml
+      - alert_examples.yml
+      - amend_meraki_network.yml
+      - changelog-frags.yml
+      - license.yml
+      - meraki_mr_ssid.yaml
+      - meraki_mr_ssid_availability_tags.yaml
+      - meraki_mr_ssid_lan_isolation.yaml
+      - shebang.yml
+      - ssid_test_fix.yml
+      - sublime-utils.yml
+    release_date: "2022-09-12"
+  2.12.0:
+    changes:
+      bugfixes:
+        - Update defaults in documentation for new sanity tests
+        - meraki_device - Fix URL for LLDP and CDP lookups
+      major_changes:
+        - meraki_webhook_payload_template - New module
+    fragments:
+      - 2.15-docs.yml
+      - 2.15-prep.yml
+      - device_lldp.yml
+      - fix-meraki-mr-radio-tests.yml
+      - meraki_ms_switch_pollicy_doc.yml
+      - meraki_webhook_payload_template.yml
+      - warnings-.yml
+      - warnings-meraki_action_batch.yml
+      - warnings-meraki_admin.yml
+      - warnings-meraki_alert.yml
+      - warnings-meraki_config_template.yml
+      - warnings-meraki_device.yml
+      - warnings-meraki_management_interface.yml
+      - warnings-meraki_mr_l3_firewall.yml
+      - warnings-meraki_mr_radio.yml
+      - warnings-meraki_mr_rf_profile.yml
+    release_date: "2022-11-21"
+  2.13.0:
+    changes:
+      major_changes:
+        - meraki_mr_l7_firewall - New module
+    fragments:
+      - meraki_mr_l7_firewall.yml
+    release_date: "2022-11-21"
+  2.14.0:
+    changes:
+      bugfixes:
+        - Fix checkmode on merak webhook payload template update
+        - meraki_webhook - First error when updating URL in a webhook
+      minor_changes:
+        - meraki_webhook - Add payload template parameter
+    fragments:
+      - bugfixes-meraki_webhook_payload_template.yml
+      - warnings-meraki_mr_settings.yml
+      - warnings-meraki_ms_access_list.yml
+      - warnings-meraki_ms_storm_control.yml
+      - webhook-diff.yml
+      - webhook-plus-payload-templates.yml
+    release_date: "2023-01-05"
+  2.15.0:
+    changes:
+      bugfixes:
+        - Resolved issue
+        - Update pipeline to use newer version of action to detect changed files.
+        - meraki_alert - Fix situation where specifying emails may crash.
+        - meraki_mx_site_to_site_vpn - Check mode should no longer apply changes when
+          enabled.
+      known_issues:
+        - meraki_network - Updated documentation for `local_status_page_enabled` and
+          `remote_status_page_enabled` as these no longer work.
+      minor_changes:
+        - New module - meraki_network_settings - Configure detailed settings of a network.
+    fragments:
+      - 412-meraki_network-settings.yaml
+      - 412-network-settings.yaml
+      - 414-alert-emails.yaml
+      - issue-meraki_mx_content_filtering.yml
+      - mx-s2s.yaml
+      - pipeline-changelog.yaml
+      - warnings-meraki_ms_ospf.yml
+      - warnings-meraki_ms_stack.yml
+      - warnings-meraki_ms_switchport.yml
+      - warnings-meraki_mx_content_filtering.yml
+      - warnings-meraki_mx_intrusion_prevention.yml
+      - warnings-meraki_mx_l2_interface.yml
+      - warnings-meraki_ssid.yml
+      - workflow-ansible-lint.yml
+    release_date: "2023-01-24"
+  2.15.1:
+    changes:
+      bugfixes:
+        - Corrects constraints applied to local and remote status page settings to align
+          with API behaviour (https://github.com/CiscoDevNet/ansible-meraki/issues/437)
+        - Enables meraki_network query by net_id (https://github.com/CiscoDevNet/ansible-meraki/issues/441)
+        - Resolved an issue where an empty response from the API triggered an exception
+          in module meraki_webhook (https://github.com/CiscoDevNet/ansible-meraki/issues/433)
+        - Resolves issues with meraki_webhook shared_secret defaulting to null; (https://github.com/CiscoDevNet/ansible-meraki/issues/439);
+          Also adds Test Coverage for shared secret idempotency and resolves test file
+          lint issues.
+    fragments:
+      - 433_Resolve_meraki_webhook_fail_when_none_defined.yml
+      - Resolve_local_and_remote_status_pages_constraint.yml
+      - Resolve_meraki_network_query_by_ID_returns_empty_data_object.yml
+      - Resolve_shared_secret_defaulting_to_null.yml
+      - warnings-meraki_ms_link_aggregation.yml
+    release_date: "2023-02-15"
+  2.15.2:
+    changes:
+      bugfixes:
+        - Resolved the issue with link negotation at meraki_ms_switchport
+      minor_changes:
+        - meraki_mx_site_to_site_firewall - Fix updating VPN rules per issue 302.
+    fragments:
+      - 302-firewallorder.yaml
+      - 445-unused-imports.yml
+      - ignore-216.yml
+      - issue-451.yml
+      - warnings-meraki_mx_l3_firewall.yml
+    release_date: "2023-07-01"
+  2.15.3:
+    changes:
+      bugfixes:
+        - meraki_devices - Fix endpoints due to breaking change in Meraki API v1.33
+    fragments:
+      - cicd-3.10.yaml
+      - device-urls.yaml
+      - mxs2sfw-sanity.yaml
+      - organization-sanity.yaml
+      - snmp-sanity.yaml
+      - syslog-sanity.yaml
+      - webhook-sanity.yaml
+    release_date: "2023-07-16"
+  2.2.0:
+    changes:
+      bugfixes:
+        - meraki_network - Fix bug where local or remote settings always show changed.
+      minor_changes:
+        - meraki_network - Update documentation to show querying of local or remote
+          settings.
+        - meraki_ssid - Add Cisco ISE as a splash page option.
+    fragments:
+      - network_settings_changed.yml
+      - ssid_ise.yml
+    release_date: "2021-02-01"
+  2.2.1:
+    changes:
+      bugfixes:
+        - meraki_mx_content_filtering - Fix crash with idempotent condition due to improper
+          sorting
+    fragments:
+      - 222.yml
+    release_date: "2021-02-22"
+  2.3.0:
+    changes:
+      bugfixes:
+        - meraki_ms_switchport - access_policy_types choices are incorrect causing failures.
+          (https://github.com/CiscoDevNet/ansible-meraki/issues/227).
+      minor_changes:
+        - meraki_ms_switchport - Adding additional functionality to support the access_policy_types
+          "MAC allow list" and "Sticky MAC allow list" port security configuration options.
+          (https://github.com/CiscoDevNet/ansible-meraki/issues/227).
+        - meraki_mx_intrusion_prevention - Rename message to rule_message to avoid conflicts
+          with internal Ansible variables.
+    fragments:
+      - 228-switchport-module-additions.yml
+      - msg.yaml
+    release_date: "2021-05-12"
+  2.3.1:
+    changes:
+      bugfixes:
+        - meraki_ms_switchport - link_negotiation choice for 100 Megabit Auto is incorrect
+          causing failures. (https://github.com/CiscoDevNet/ansible-meraki/issues/235).
+    fragments:
+      - CHANGELOG.yml
+    release_date: "2021-05-19"
+  2.4.0:
+    changes:
+      bugfixes:
+        - Allow a state of absent in voice vlan to allow the value to be nulled out(https://github.com/CiscoDevNet/ansible-meraki/issues/238)
+      minor_changes:
+        - meraki_mx_switchport - Improve documentation for response
+    fragments:
+      - 0238-vvlan-allow-null.yml
+      - switchport-docs.yaml
+    release_date: "2021-06-07"
+  2.4.2:
+    changes:
+      bugfixes:
+        - Fix some flake8 sanity errors as reported by Ansible Galaxy. Should be no
+          functional change.
+    fragments:
+      - sanity-fixes.yml
+    release_date: "2021-06-22"
+  2.5.0:
+    changes:
+      minor_changes:
+        - meraki_mr_l3_firewall - Return each MR L3 firewall rule's values in lowercase.
+        - meraki_mr_ssid - Add support for radius_proxy_enabled SSID setting.
+        - meraki_mx_l3_firewall - Return each MX L3 firewall rule's values in lowercase.
+        - meraki_mx_vlan - Fix dhcp_boot_options_enabled parameter
+    fragments:
+      - dhcp_boot_options_enabled.yaml
+      - lowercase-firewall-rule-values.yml
+      - radius_proxy_enabled.yaml
+    release_date: "2021-10-14"
+  2.6.0:
+    changes:
+      bugfixes:
+        - meraki_mr_ssid - Fix issue with SSID removal idempotency when ID doesn't exist
+      major_changes:
+        - meraki_mr_radio - New module
+      minor_changes:
+        - meraki_mx_l7_firewall - Allow passing an empty ruleset to delete all rules
+        - meraki_utils - Add debugging output for failed socket connections
+    fragments:
+      - delete-ssid-idempotency.yml
+      - docs-m-reference.yml
+      - meraki_mr_radio.yml
+      - mx_l7_firewall_empty_list.yaml
+    release_date: "2021-12-27"
+  2.6.1:
+    changes:
+      bugfixes:
+        - meraki_mr_rf_profile - Fix issue with idempotency and creation of RF Profiles
+          by name only
+        - meraki_syslog - Improve reliability for multiple roles or capitalization.
+      minor_changes:
+        - meraki_ssid - Add support for enterprise_admin_access and splash_guest_sponsor_domains
+          with the latter required for creating a sponsor portal.
+    fragments:
+      - 288-syslog_idempotency.yml
+      - 290-sponsor.yml
+      - docs-contributing.yml
+      - rf-profile-create-idempotency.yml
+      - sanity_fixes.yaml
+    release_date: "2022-03-28"
+  2.6.2:
+    changes:
+      bugfixes:
+        - meraki_alert - Updates now properly set default destination webhook
+        - meraki_syslog -  Fix crash due to incorrect dictionary reference
+      minor_changes:
+        - Add execution-environment.yml in meta as the base to a Meraki ee
+        - meraki_network - Add Products to net_type list
+    fragments:
+      - 288-fix-dict.yml
+      - 310-alert-webhook.yml
+      - ee.yml
+      - net_type-list.yml
+    release_date: "2022-05-16"
+  2.7.0:
+    changes:
+      bugfixes:
+        - meraki_mx_static_route - Add support for gateway_vlan_id otherwise requests
+          could error
+      minor_changes:
+        - meraki_mx_network_vlan_settings - New module to enable or disable VLANs on
+          a network
+        - meraki_mx_third_party_vpn_peers - New module for managing third party VPM
+          peers
+    fragments:
+      - meraki_mx_network_vlan_settings.yml
+      - mx_static_route.yaml
+      - s2s_peers.yaml
+    release_date: "2022-06-14"
+  2.8.0:
+    changes:
+      minor_changes:
+        - meraki_action_batch - New module for CRUD operations on Meraki Action Batches
+        - meraki_switchport - Add support for flexible stacking
+    fragments:
+      - 327-switchport-flex.yaml
+      - action_batch.yaml
+    release_date: "2022-06-24"
+  2.9.0:
+    changes:
+      bugfixes:
+        - meraki_switchport - Setting VLAN to 0 on trunk port clears the VLAN.
+    fragments:
+      - 331-switchport_clear_vlan.yml
+    release_date: "2022-07-04"
+  2.16.0:
+    changes:
+      minor_changes:
+        - administered_identities_me_info - new plugin.
+        - devices_appliance_performance_info - new plugin.
+        - devices_appliance_uplinks_settings_info - new plugin.
+        - devices_appliance_uplinks_settings - new plugin.
+        - devices_appliance_vmx_authentication_token - new plugin.
+        - devices_blink_leds - new plugin.
+        - devices_camera_analytics_live_info - new plugin.
+        - devices_camera_custom_analytics_info - new plugin.
+        - devices_camera_custom_analytics - new plugin.
+        - devices_camera_generate_snapshot - new plugin.
+        - devices_camera_quality_and_retention_info - new plugin.
+        - devices_camera_quality_and_retention - new plugin.
+        - devices_camera_sense_info - new plugin.
+        - devices_camera_sense - new plugin.
+        - devices_camera_video_link_info - new plugin.
+        - devices_camera_video_settings_info - new plugin.
+        - devices_camera_video_settings - new plugin.
+        - devices_camera_wireless_profiles_info - new plugin.
+        - devices_camera_wireless_profiles - new plugin.
+        - devices_cellular_gateway_lan_info - new plugin.
+        - devices_cellular_gateway_lan - new plugin.
+        - devices_cellular_gateway_port_forwarding_rules_info - new plugin.
+        - devices_cellular_gateway_port_forwarding_rules - new plugin.
+        - devices_cellular_sims_info - new plugin.
+        - devices_cellular_sims - new plugin.
+        - devices_info - new plugin.
+        - devices_live_tools_ping_device_info - new plugin.
+        - devices_live_tools_ping_device - new plugin.
+        - devices_live_tools_ping_info - new plugin.
+        - devices_live_tools_ping - new plugin.
+        - devices_lldp_cdp_info - new plugin.
+        - devices_management_interface_info - new plugin.
+        - devices_management_interface - new plugin.
+        - devices_sensor_relationships_info - new plugin.
+        - devices_sensor_relationships - new plugin.
+        - devices_switch_ports_cycle - new plugin.
+        - devices_switch_ports_info - new plugin.
+        - devices_switch_ports_statuses_info - new plugin.
+        - devices_switch_ports - new plugin.
+        - devices_switch_routing_interfaces_dhcp_info - new plugin.
+        - devices_switch_routing_interfaces_dhcp - new plugin.
+        - devices_switch_routing_interfaces_info - new plugin.
+        - devices_switch_routing_interfaces - new plugin.
+        - devices_switch_routing_static_routes_info - new plugin.
+        - devices_switch_routing_static_routes - new plugin.
+        - devices_switch_warm_spare_info - new plugin.
+        - devices_switch_warm_spare - new plugin.
+        - devices_wireless_bluetooth_settings_info - new plugin.
+        - devices_wireless_bluetooth_settings - new plugin.
+        - devices_wireless_connection_stats_info - new plugin.
+        - devices_wireless_latency_stats_info - new plugin.
+        - devices_wireless_radio_settings_info - new plugin.
+        - devices_wireless_radio_settings - new plugin.
+        - devices_wireless_status_info - new plugin.
+        - devices - new plugin.
+        - networks_alerts_history_info - new plugin.
+        - networks_alerts_settings_info - new plugin.
+        - networks_alerts_settings - new plugin.
+        - networks_appliance_connectivity_monitoring_destinations_info - new plugin.
+        - networks_appliance_connectivity_monitoring_destinations - new plugin.
+        - networks_appliance_content_filtering_categories_info - new plugin.
+        - networks_appliance_content_filtering_info - new plugin.
+        - networks_appliance_content_filtering - new plugin.
+        - networks_appliance_firewall_cellular_firewall_rules_info - new plugin.
+        - networks_appliance_firewall_cellular_firewall_rules - new plugin.
+        - networks_appliance_firewall_firewalled_services_info - new plugin.
+        - networks_appliance_firewall_firewalled_services - new plugin.
+        - networks_appliance_firewall_inbound_firewall_rules_info - new plugin.
+        - networks_appliance_firewall_inbound_firewall_rules - new plugin.
+        - networks_appliance_firewall_l3_firewall_rules_info - new plugin.
+        - networks_appliance_firewall_l3_firewall_rules - new plugin.
+        - networks_appliance_firewall_l7_firewall_rules_application_categories_info - new plugin.
+        - networks_appliance_firewall_l7_firewall_rules_info - new plugin.
+        - networks_appliance_firewall_l7_firewall_rules - new plugin.
+        - networks_appliance_firewall_one_to_many_nat_rules_info - new plugin.
+        - networks_appliance_firewall_one_to_many_nat_rules - new plugin.
+        - networks_appliance_firewall_one_to_one_nat_rules_info - new plugin.
+        - networks_appliance_firewall_one_to_one_nat_rules - new plugin.
+        - networks_appliance_firewall_port_forwarding_rules_info - new plugin.
+        - networks_appliance_firewall_port_forwarding_rules - new plugin.
+        - networks_appliance_firewall_settings_info - new plugin.
+        - networks_appliance_firewall_settings - new plugin.
+        - networks_appliance_ports_info - new plugin.
+        - networks_appliance_ports - new plugin.
+        - networks_appliance_prefixes_delegated_statics_info - new plugin.
+        - networks_appliance_prefixes_delegated_statics - new plugin.
+        - networks_appliance_security_intrusion_info - new plugin.
+        - networks_appliance_security_intrusion - new plugin.
+        - networks_appliance_security_malware_info - new plugin.
+        - networks_appliance_security_malware - new plugin.
+        - networks_appliance_settings_info - new plugin.
+        - networks_appliance_settings - new plugin.
+        - networks_appliance_single_lan_info - new plugin.
+        - networks_appliance_single_lan - new plugin.
+        - networks_appliance_ssids_info - new plugin.
+        - networks_appliance_ssids - new plugin.
+        - networks_appliance_traffic_shaping_custom_performance_classes - new plugin.
+        - networks_appliance_traffic_shaping_info - new plugin.
+        - networks_appliance_traffic_shaping_rules_info - new plugin.
+        - networks_appliance_traffic_shaping_rules - new plugin.
+        - networks_appliance_traffic_shaping_uplink_bandwidth_info - new plugin.
+        - networks_appliance_traffic_shaping_uplink_bandwidth - new plugin.
+        - networks_appliance_traffic_shaping_uplink_selection_info - new plugin.
+        - networks_appliance_traffic_shaping_uplink_selection - new plugin.
+        - networks_appliance_traffic_shaping - new plugin.
+        - networks_appliance_vlans_info - new plugin.
+        - networks_appliance_vlans_settings_info - new plugin.
+        - networks_appliance_vlans_settings - new plugin.
+        - networks_appliance_vlans - new plugin.
+        - networks_appliance_vpn_bgp_info - new plugin.
+        - networks_appliance_vpn_bgp - new plugin.
+        - networks_appliance_vpn_site_to_site_vpn_info - new plugin.
+        - networks_appliance_vpn_site_to_site_vpn - new plugin.
+        - networks_appliance_warm_spare_info - new plugin.
+        - networks_appliance_warm_spare_swap - new plugin.
+        - networks_appliance_warm_spare - new plugin.
+        - networks_bind - new plugin.
+        - networks_bluetooth_clients_info - new plugin.
+        - networks_camera_quality_retention_profiles_info - new plugin.
+        - networks_camera_quality_retention_profiles - new plugin.
+        - networks_camera_wireless_profiles_info - new plugin.
+        - networks_camera_wireless_profiles - new plugin.
+        - networks_cellular_gateway_connectivity_monitoring_destinations_info - new plugin.
+        - networks_cellular_gateway_connectivity_monitoring_destinations - new plugin.
+        - networks_cellular_gateway_dhcp_info - new plugin.
+        - networks_cellular_gateway_dhcp - new plugin.
+        - networks_cellular_gateway_subnet_pool_info - new plugin.
+        - networks_cellular_gateway_subnet_pool - new plugin.
+        - networks_cellular_gateway_uplink_info - new plugin.
+        - networks_cellular_gateway_uplink - new plugin.
+        - networks_clients_info - new plugin.
+        - networks_clients_overview_info - new plugin.
+        - networks_clients_policy_info - new plugin.
+        - networks_clients_policy - new plugin.
+        - networks_clients_provision - new plugin.
+        - networks_clients_splash_authorization_status_info - new plugin.
+        - networks_clients_splash_authorization_status - new plugin.
+        - networks_devices_claim_vmx - new plugin.
+        - networks_devices_claim - new plugin.
+        - networks_devices_remove - new plugin.
+        - networks_events_event_types_info - new plugin.
+        - networks_events_info - new plugin.
+        - networks_firmware_upgrades_info - new plugin.
+        - networks_firmware_upgrades_rollbacks - new plugin.
+        - networks_firmware_upgrades_staged_events_defer - new plugin.
+        - networks_firmware_upgrades_staged_events_info - new plugin.
+        - networks_firmware_upgrades_staged_events_rollbacks - new plugin.
+        - networks_firmware_upgrades_staged_events - new plugin.
+        - networks_firmware_upgrades_staged_groups_info - new plugin.
+        - networks_firmware_upgrades_staged_groups - new plugin.
+        - networks_firmware_upgrades_staged_stages_info - new plugin.
+        - networks_firmware_upgrades_staged_stages - new plugin.
+        - networks_firmware_upgrades - new plugin.
+        - networks_floor_plans_info - new plugin.
+        - networks_floor_plans - new plugin.
+        - networks_group_policies_info - new plugin.
+        - networks_group_policies - new plugin.
+        - networks_health_alerts_info - new plugin.
+        - networks_info - new plugin.
+        - networks_insight_applications_health_by_time_info - new plugin.
+        - networks_meraki_auth_users_info - new plugin.
+        - networks_meraki_auth_users - new plugin.
+        - networks_mqtt_brokers - new plugin.
+        - networks_netflow_info - new plugin.
+        - networks_netflow - new plugin.
+        - networks_pii_pii_keys_info - new plugin.
+        - networks_pii_requests_delete - new plugin.
+        - networks_pii_requests_info - new plugin.
+        - networks_pii_sm_devices_for_key_info - new plugin.
+        - networks_pii_sm_owners_for_key_info - new plugin.
+        - networks_policies_by_client_info - new plugin.
+        - networks_sensor_alerts_current_overview_by_metric_info - new plugin.
+        - networks_sensor_alerts_overview_by_metric_info - new plugin.
+        - networks_sensor_alerts_profiles_info - new plugin.
+        - networks_sensor_alerts_profiles - new plugin.
+        - networks_sensor_mqtt_brokers_info - new plugin.
+        - networks_sensor_mqtt_brokers - new plugin.
+        - networks_sensor_relationships_info - new plugin.
+        - networks_settings_info - new plugin.
+        - networks_settings - new plugin.
+        - networks_sm_bypass_activation_lock_attempts_info - new plugin.
+        - networks_sm_bypass_activation_lock_attempts - new plugin.
+        - networks_sm_devices_cellular_usage_history_info - new plugin.
+        - networks_sm_devices_certs_info - new plugin.
+        - networks_sm_devices_checkin - new plugin.
+        - networks_sm_devices_connectivity_info - new plugin.
+        - networks_sm_devices_desktop_logs_info - new plugin.
+        - networks_sm_devices_device_command_logs_info - new plugin.
+        - networks_sm_devices_device_profiles_info - new plugin.
+        - networks_sm_devices_fields - new plugin.
+        - networks_sm_devices_info - new plugin.
+        - networks_sm_devices_lock - new plugin.
+        - networks_sm_devices_modify_tags - new plugin.
+        - networks_sm_devices_move - new plugin.
+        - networks_sm_devices_network_adapters_info - new plugin.
+        - networks_sm_devices_performance_history_info - new plugin.
+        - networks_sm_devices_refresh_details - new plugin.
+        - networks_sm_devices_security_centers_info - new plugin.
+        - networks_sm_devices_unenroll - new plugin.
+        - networks_sm_devices_wipe - new plugin.
+        - networks_sm_devices_wlan_lists_info - new plugin.
+        - networks_sm_profiles_info - new plugin.
+        - networks_sm_target_groups_info - new plugin.
+        - networks_sm_target_groups - new plugin.
+        - networks_sm_trusted_access_configs_info - new plugin.
+        - networks_sm_user_access_devices_delete - new plugin.
+        - networks_sm_user_access_devices_info - new plugin.
+        - networks_sm_users_device_profiles_info - new plugin.
+        - networks_sm_users_info - new plugin.
+        - networks_sm_users_softwares_info - new plugin.
+        - networks_snmp_info - new plugin.
+        - networks_snmp - new plugin.
+        - networks_split - new plugin.
+        - networks_switch_access_control_lists_info - new plugin.
+        - networks_switch_access_control_lists - new plugin.
+        - networks_switch_access_policies_info - new plugin.
+        - networks_switch_access_policies - new plugin.
+        - networks_switch_alternate_management_interface_info - new plugin.
+        - networks_switch_alternate_management_interface - new plugin.
+        - networks_switch_dhcp_server_policy_arp_inspection_trusted_servers_info - new plugin.
+        - networks_switch_dhcp_server_policy_arp_inspection_trusted_servers - new plugin.
+        - networks_switch_dhcp_server_policy_arp_inspection_warnings_by_device_info - new plugin.
+        - networks_switch_dhcp_server_policy_info - new plugin.
+        - networks_switch_dhcp_server_policy - new plugin.
+        - networks_switch_dhcp_v4_servers_seen_info - new plugin.
+        - networks_switch_dscp_to_cos_mappings_info - new plugin.
+        - networks_switch_dscp_to_cos_mappings - new plugin.
+        - networks_switch_link_aggregations_info - new plugin.
+        - networks_switch_link_aggregations - new plugin.
+        - networks_switch_mtu_info - new plugin.
+        - networks_switch_mtu - new plugin.
+        - networks_switch_port_schedules_info - new plugin.
+        - networks_switch_port_schedules - new plugin.
+        - networks_switch_qos_rules_order_info - new plugin.
+        - networks_switch_qos_rules_order - new plugin.
+        - networks_switch_routing_multicast_info - new plugin.
+        - networks_switch_routing_multicast_rendezvous_points_info - new plugin.
+        - networks_switch_routing_multicast_rendezvous_points - new plugin.
+        - networks_switch_routing_multicast - new plugin.
+        - networks_switch_routing_ospf_info - new plugin.
+        - networks_switch_routing_ospf - new plugin.
+        - networks_switch_settings_info - new plugin.
+        - networks_switch_settings - new plugin.
+        - networks_switch_stacks_add - new plugin.
+        - networks_switch_stacks_info - new plugin.
+        - networks_switch_stacks_remove - new plugin.
+        - networks_switch_stacks_routing_interfaces_dhcp_info - new plugin.
+        - networks_switch_stacks_routing_interfaces_dhcp - new plugin.
+        - networks_switch_stacks_routing_interfaces_info - new plugin.
+        - networks_switch_stacks_routing_interfaces - new plugin.
+        - networks_switch_stacks_routing_static_routes_info - new plugin.
+        - networks_switch_stacks_routing_static_routes - new plugin.
+        - networks_switch_stacks - new plugin.
+        - networks_switch_storm_control_info - new plugin.
+        - networks_switch_storm_control - new plugin.
+        - networks_switch_stp_info - new plugin.
+        - networks_switch_stp - new plugin.
+        - networks_syslog_servers_info - new plugin.
+        - networks_syslog_servers - new plugin.
+        - networks_topology_link_layer_info - new plugin.
+        - networks_traffic_analysis_info - new plugin.
+        - networks_traffic_analysis - new plugin.
+        - networks_traffic_shaping_application_categories_info - new plugin.
+        - networks_traffic_shaping_dscp_tagging_options_info - new plugin.
+        - networks_unbind - new plugin.
+        - networks_webhooks_http_servers_info - new plugin.
+        - networks_webhooks_http_servers - new plugin.
+        - networks_webhooks_payload_templates_info - new plugin.
+        - networks_webhooks_payload_templates - new plugin.
+        - networks_webhooks_webhook_tests_info - new plugin.
+        - networks_wireless_alternate_management_interface_info - new plugin.
+        - networks_wireless_alternate_management_interface - new plugin.
+        - networks_wireless_billing_info - new plugin.
+        - networks_wireless_billing - new plugin.
+        - networks_wireless_bluetooth_settings_info - new plugin.
+        - networks_wireless_bluetooth_settings - new plugin.
+        - networks_wireless_channel_utilization_history_info - new plugin.
+        - networks_wireless_client_count_history_info - new plugin.
+        - networks_wireless_clients_connection_stats_info - new plugin.
+        - networks_wireless_clients_latency_stats_info - new plugin.
+        - networks_wireless_connection_stats_info - new plugin.
+        - networks_wireless_data_rate_history_info - new plugin.
+        - networks_wireless_devices_connection_stats_info - new plugin.
+        - networks_wireless_failed_connections_info - new plugin.
+        - networks_wireless_latency_history_info - new plugin.
+        - networks_wireless_latency_stats_info - new plugin.
+        - networks_wireless_mesh_statuses_info - new plugin.
+        - networks_wireless_rf_profiles_info - new plugin.
+        - networks_wireless_rf_profiles - new plugin.
+        - networks_wireless_settings_info - new plugin.
+        - networks_wireless_settings - new plugin.
+        - networks_wireless_signal_quality_history_info - new plugin.
+        - networks_wireless_ssids_bonjour_forwarding_info - new plugin.
+        - networks_wireless_ssids_bonjour_forwarding - new plugin.
+        - networks_wireless_ssids_device_type_group_policies_info - new plugin.
+        - networks_wireless_ssids_device_type_group_policies - new plugin.
+        - networks_wireless_ssids_eap_override_info - new plugin.
+        - networks_wireless_ssids_eap_override - new plugin.
+        - networks_wireless_ssids_firewall_l3_firewall_rules_info - new plugin.
+        - networks_wireless_ssids_firewall_l3_firewall_rules - new plugin.
+        - networks_wireless_ssids_firewall_l7_firewall_rules_info - new plugin.
+        - networks_wireless_ssids_firewall_l7_firewall_rules - new plugin.
+        - networks_wireless_ssids_hotspot20_info - new plugin.
+        - networks_wireless_ssids_hotspot20 - new plugin.
+        - networks_wireless_ssids_identity_psks_info - new plugin.
+        - networks_wireless_ssids_identity_psks - new plugin.
+        - networks_wireless_ssids_info - new plugin.
+        - networks_wireless_ssids_schedules_info - new plugin.
+        - networks_wireless_ssids_schedules - new plugin.
+        - networks_wireless_ssids_splash_settings_info - new plugin.
+        - networks_wireless_ssids_splash_settings - new plugin.
+        - networks_wireless_ssids_traffic_shaping_rules_info - new plugin.
+        - networks_wireless_ssids_traffic_shaping_rules - new plugin.
+        - networks_wireless_ssids_vpn_info - new plugin.
+        - networks_wireless_ssids_vpn - new plugin.
+        - networks_wireless_ssids - new plugin.
+        - networks_wireless_usage_history_info - new plugin.
+        - networks - new plugin.
+        - networks_appliance_static_routes_info  - new plugin.
+        - networks_appliance_static_routes  - new plugin.
+        - organizations_action_batches_info - new plugin.
+        - organizations_action_batches - new plugin.
+        - organizations_adaptive_policy_acls_info - new plugin.
+        - organizations_adaptive_policy_acls - new plugin.
+        - organizations_adaptive_policy_groups_info - new plugin.
+        - organizations_adaptive_policy_groups - new plugin.
+        - organizations_adaptive_policy_overview_info - new plugin.
+        - organizations_adaptive_policy_policies_info - new plugin.
+        - organizations_adaptive_policy_policies - new plugin.
+        - organizations_adaptive_policy_settings_info - new plugin.
+        - organizations_adaptive_policy_settings - new plugin.
+        - organizations_admins_info - new plugin.
+        - organizations_admins - new plugin.
+        - organizations_alerts_profiles - new plugin.
+        - organizations_api_requests_info - new plugin.
+        - organizations_api_requests_overview_info - new plugin.
+        - organizations_api_requests_overview_response_codes_by_interval_info - new plugin.
+        - organizations_appliance_security_intrusion_info - new plugin.
+        - organizations_appliance_security_intrusion - new plugin.
+        - organizations_appliance_vpn_third_party_vpnpeers_info - new plugin.
+        - organizations_appliance_vpn_third_party_vpnpeers - new plugin.
+        - organizations_appliance_vpn_vpn_firewall_rules_info - new plugin.
+        - organizations_appliance_vpn_vpn_firewall_rules - new plugin.
+        - organizations_branding_policies_info - new plugin.
+        - organizations_branding_policies_priorities_info - new plugin.
+        - organizations_branding_policies_priorities - new plugin.
+        - organizations_branding_policies - new plugin.
+        - organizations_camera_custom_analytics_artifacts_info - new plugin.
+        - organizations_camera_custom_analytics_artifacts - new plugin.
+        - organizations_cellular_gateway_uplink_statuses_info - new plugin.
+        - organizations_claim - new plugin.
+        - organizations_clients_bandwidth_usage_history_info - new plugin.
+        - organizations_clients_overview_info - new plugin.
+        - organizations_clients_search_info - new plugin.
+        - organizations_clone - new plugin.
+        - organizations_config_templates_info - new plugin.
+        - organizations_config_templates_switch_profiles_info - new plugin.
+        - organizations_config_templates_switch_profiles_ports_info - new plugin.
+        - organizations_config_templates_switch_profiles_ports - new plugin.
+        - organizations_config_templates - new plugin.
+        - organizations_devices_availabilities_info - new plugin.
+        - organizations_devices_info - new plugin.
+        - organizations_devices_power_modules_statuses_by_device_info - new plugin.
+        - organizations_devices_provisioning_statuses_info - new plugin.
+        - organizations_devices_statuses_info - new plugin.
+        - organizations_devices_statuses_overview_info - new plugin.
+        - organizations_devices_uplinks_addresses_by_device_info - new plugin.
+        - organizations_devices_uplinks_loss_and_latency_info - new plugin.
+        - organizations_early_access_features_info - new plugin.
+        - organizations_early_access_features_opt_ins_info - new plugin.
+        - organizations_early_access_features_opt_ins - new plugin.
+        - organizations_firmware_upgrades_by_device_info - new plugin.
+        - organizations_firmware_upgrades_info - new plugin.
+        - organizations_info - new plugin.
+        - organizations_insight_applications_info - new plugin.
+        - organizations_insight_monitored_media_servers_info - new plugin.
+        - organizations_insight_monitored_media_servers - new plugin.
+        - organizations_inventory_claim - new plugin.
+        - organizations_inventory_devices_info - new plugin.
+        - organizations_inventory_onboarding_cloud_monitoring_export_events - new plugin.
+        - organizations_inventory_onboarding_cloud_monitoring_imports_info - new plugin.
+        - organizations_inventory_onboarding_cloud_monitoring_imports - new plugin.
+        - organizations_inventory_onboarding_cloud_monitoring_networks_info - new plugin.
+        - organizations_inventory_onboarding_cloud_monitoring_prepare - new plugin.
+        - organizations_inventory_release - new plugin.
+        - organizations_licenses_assign_seats - new plugin.
+        - organizations_licenses_info - new plugin.
+        - organizations_licenses_move_seats - new plugin.
+        - organizations_licenses_move - new plugin.
+        - organizations_licenses_overview_info - new plugin.
+        - organizations_licenses_renew_seats - new plugin.
+        - organizations_licenses - new plugin.
+        - organizations_licensing_coterm_licenses_info - new plugin.
+        - organizations_licensing_coterm_licenses_move - new plugin.
+        - organizations_login_security_info - new plugin.
+        - organizations_login_security - new plugin.
+        - organizations_networks_combine - new plugin.
+        - organizations_openapi_spec_info - new plugin.
+        - organizations_policy_objects_groups_info - new plugin.
+        - organizations_policy_objects_groups - new plugin.
+        - organizations_policy_objects_info - new plugin.
+        - organizations_policy_objects - new plugin.
+        - organizations_saml_idps_info - new plugin.
+        - organizations_saml_idps - new plugin.
+        - organizations_saml_info - new plugin.
+        - organizations_saml_roles_info - new plugin.
+        - organizations_saml_roles - new plugin.
+        - organizations_saml - new plugin.
+        - organizations_sensor_readings_history_info - new plugin.
+        - organizations_sensor_readings_latest_info - new plugin.
+        - organizations_sm_apns_cert_info - new plugin.
+        - organizations_sm_vpp_accounts_info - new plugin.
+        - organizations_snmp_info - new plugin.
+        - organizations_snmp - new plugin.
+        - organizations_summary_top_appliances_by_utilization_info - new plugin.
+        - organizations_summary_top_clients_by_usage_info - new plugin.
+        - organizations_summary_top_clients_manufacturers_by_usage_info - new plugin.
+        - organizations_summary_top_devices_by_usage_info - new plugin.
+        - organizations_summary_top_devices_models_by_usage_info - new plugin.
+        - organizations_summary_top_ssids_by_usage_info - new plugin.
+        - organizations_summary_top_switches_by_energy_usage_info - new plugin.
+        - organizations_switch_devices_clone - new plugin.
+        - organizations_switch_ports_by_switch_info - new plugin.
+        - organizations_uplinks_statuses_info - new plugin.
+        - organizations_users - new plugin.
+        - organizations_webhooks_logs_info - new plugin.
+        - organizations_wireless_devices_ethernet_statuses_info - new plugin.
+        - organizations - new plugin.
+    release_date: "2023-09-05"
+
+  2.16.1:
+    changes:
+      bugfixes:
+        - Updating collection docs link.
+    release_date: "2023-09-21"
+  2.16.2:
+    changes:
+      bugfixes:
+        - Updating documentation, yml fixes - Documentation Broken.
+    release_date: "2023-09-21"
+  2.16.3:
+    changes:
+      bugfixes:
+        - Removing ignores.
+    release_date: "2023-09-26"
+  2.16.4:
+    changes:
+      bugfixes:
+        - cisco.meraki.networks_devices_claim - got an unexpected keyword argument 'network_id', bug with parameter naming.
+    release_date: "2023-09-28"
+  2.16.5:
+    changes:
+      bugfixes:
+        - cisco.meraki.organizations_login_security module will not update org api authentication - fixing for look at organizations_login_security.
+    release_date: "2023-10-10"
+  2.16.6:
+    changes:
+      bugfixes:
+        - runtime updated requires_ansible from 2.9.10 to '>=2.14.0'.
+    release_date: "2023-10-17"
+  2.16.7:
+    changes:
+      bugfixes:
+        - Sanity fixes.
+    release_date: "2023-10-17"
+  2.16.8:
+    changes:
+      bugfixes:
+        - Returning requires_ansible to 2.9.10
+    release_date: "2023-10-17"
+  2.16.10:
+    changes:
+      bugfixes:
+        - Returning requires_ansible to >=2.14.0
+        - Bad naming `networkId` parameter in `networks_devices_remove` and `networks_devices_claim_vmx`
+    release_date: "2023-10-26"
+  2.16.11:
+    changes:
+      bugfixes:
+        - Bad naming `networkId` parameter in `networks_appliance_traffic_shaping_custom_performance_classes`.
+        - Bad naming `networkId` parameter in `networks_appliance_warm_spare_swap`.
+        - Bad naming `networkId` parameter in `networks_bind`.
+        - Bad naming `networkId` parameter in `networks_clients_provision`.
+        - Bad naming `networkId` parameter in `networks_firmware_upgrades_rollbacks`.
+        - Bad naming `networkId` parameter in `networks_firmware_upgrades_staged_events_rollbacks`.
+        - Bad naming `networkId` parameter in `networks_mqtt_brokers`.
+        - Bad naming `networkId` parameter in `networks_pii_requests_delete`.
+        - Bad naming `networkId` parameter in `networks_sm_devices_checkin`.
+        - Bad naming `networkId` parameter in `networks_sm_devices_lock`.
+        - Bad naming `networkId` parameter in `networks_sm_devices_modify_tags`.
+        - Bad naming `networkId` parameter in `networks_sm_devices_move`.
+        - Bad naming `networkId` parameter in `networks_sm_devices_refresh_details`.
+        - Bad naming `networkId` parameter in `networks_sm_devices_unenroll`.
+        - Bad naming `networkId` parameter in `networks_sm_devices_wipe`.
+        - Bad naming `networkId` parameter in `networks_sm_user_access_devices_delete`.
+        - Bad naming `networkId` parameter in `networks_split`.
+        - Bad naming `networkId` parameter in `networks_switch_stacks_add`.
+        - Bad naming `networkId` parameter in `networks_switch_stacks_remove`.
+        - Bad naming `networkId` parameter in `networks_unbind`.
+        - Bad naming `networkId` parameter in `networks_sm_devices_fields`.
+    release_date: "2023-10-26"
+  2.16.12:
+    changes:
+      bugfixes:
+        - New condition added to Meraki Compare Equality.
+        - Devices module documentation fixed.
+    release_date: "2023-10-26"
+  2.16.13:
+    changes:
+      bugfixes:
+        - Meraki Compare Equality 2 added.
+    release_date: "2023-10-30"
+  2.16.14:
+    changes:
+      bugfixes:
+        - Adding condition to avoid error on exists on devices.
+    release_date: "2023-11-07"
+  2.16.15:
+    changes:
+      bugfixes:
+        - Adding `network_clients_info` and `network_client_info`.
+        - Adding `platform_meraki.rst` to docs.
+    release_date: "2023-11-14"
+  2.16.16:
+    changes:
+      bugfixes:
+        - Idempotency bugs fixed in devices_switch_ports.
+        - Adding `product_types` for update request on networks.
+        - networks_syslog_servers is now just an Update action to API.
+        - Parameter`organization_id` change to `organizationId` organizations_claim.
+        - Parameter`organization_id` change to `organizationId` organizations_clone.
+        - Parameter`organization_id` change to `organizationId` organizations_inventory_claim.
+        - Parameter`organization_id` change to `organizationId` organizations_inventory_onboarding_cloud_monitoring_export_events.
+        - Parameter`organization_id` change to `organizationId` organizations_inventory_onboarding_cloud_monitoring_prepare.
+        - Parameter`organization_id` change to `organizationId` organizations_inventory_release.
+        - Parameter`organization_id` change to `organizationId` organizations_licenses_assign_seats.
+        - Parameter`organization_id` change to `organizationId` organizations_licenses_move.
+        - Parameter`organization_id` change to `organizationId` organizations_licenses_move_seats.
+        - Parameter`organization_id` change to `organizationId` organizations_licenses_renew_seats.
+        - Parameter`organization_id` change to `organizationId` organizations_licensing_coterm_licenses_move.
+        - Parameter`organization_id` change to `organizationId` organizations_networks_combine.
+        - Parameter`organization_id` change to `organizationId` organizations_switch_devices_clone.
+        - Parameter`organization_id` change to `organizationId` organizations_users.
+        - Removing logs in meraki.py.
+    release_date: "2023-11-30"
+
+  2.16.17:
+    changes:
+      bugfixes:
+        - Adding support to ansible.utils >=3.0
+    release_date: "2023-12-04"
+
+  2.17.0:
+    changes:
+      minor_changes:
+        - Adding support to ansible.utils ">=2.0.0, <4.00".
+    release_date: "2023-12-05"
+  2.17.1:
+    changes:
+      bugfixes:
+        - Adding build_ignore property to galaxy file.
+    release_date: "2023-12-07"
+  2.17.2:
+    changes:
+      bugfixes:
+        - Adding `smartquotes = False` to `conf.py` and romoving `'` from rst files.
+    release_date: "2023-12-19"
+  2.18.0:
+    changes:
+      minor_changes:
+        - Ansible collection now support v1.44.1 of Dashboard Api.
+        - administered_licensing_subscription_entitlements_info - new plugin.
+        - administered_licensing_subscription_subscriptions_bind - new plugin.
+        - administered_licensing_subscription_subscriptions_claim_key_validate - new plugin.
+        - administered_licensing_subscription_subscriptions_claim - new plugin.
+        - administered_licensing_subscription_subscriptions_compliance_statuses_info - new plugin.
+        - administered_licensing_subscription_subscriptions_info - new plugin.
+        - devices_appliance_radio_settings_info - new plugin.
+        - devices_appliance_radio_settings - new plugin.
+        - devices_live_tools_arp_table_info - new plugin.
+        - devices_live_tools_arp_table - new plugin.
+        - devices_live_tools_cable_test_info - new plugin.
+        - devices_live_tools_cable_test - new plugin.
+        - devices_live_tools_throughput_test_info - new plugin.
+        - devices_live_tools_throughput_test - new plugin.
+        - devices_live_tools_wake_on_lan_info - new plugin.
+        - devices_live_tools_wake_on_lan - new plugin.
+        - devices_wireless_alternate_management_interface_ipv6 - new plugin.
+        - networks_appliance_rf_profiles_info - new plugin.
+        - networks_appliance_rf_profiles - new plugin.
+        - networks_appliance_traffic_shaping_vpn_exclusions - new plugin.
+        - networks_sm_devices_install_apps - new plugin.
+        - networks_sm_devices_reboot - new plugin.
+        - networks_sm_devices_shutdown - new plugin.
+        - networks_sm_devices_uninstall_apps - new plugin.
+        - networks_vlan_profiles_assignments_by_device_info - new plugin.
+        - networks_vlan_profiles_assignments_reassign - new plugin.
+        - networks_vlan_profiles_info - new plugin.
+        - networks_vlan_profiles - new plugin.
+        - networks_wireless_ethernet_ports_profiles_assign - new plugin.
+        - networks_wireless_ethernet_ports_profiles_info - new plugin.
+        - networks_wireless_ethernet_ports_profiles_set_default - new plugin.
+        - networks_wireless_ethernet_ports_profiles - new plugin.
+        - organizations_appliance_traffic_shaping_vpn_exclusions_by_network_info - new plugin.
+        - organizations_appliance_uplinks_statuses_overview_info - new plugin.
+        - organizations_appliance_uplinks_usage_by_network_info - new plugin.
+        - organizations_camera_boundaries_areas_by_device_info - new plugin.
+        - organizations_camera_boundaries_lines_by_device_info - new plugin.
+        - organizations_camera_detections_history_by_boundary_by_interval_info - new plugin.
+        - organizations_camera_permissions_info - new plugin.
+        - organizations_camera_roles_info - new plugin.
+        - organizations_camera_roles - new plugin.
+        - organizations_devices_availabilities_change_history_info - new plugin.
+        - organizations_devices_boots_history_info - new plugin.
+        - organizations_sm_admins_roles_info - new plugin.
+        - organizations_sm_admins_roles - new plugin.
+        - organizations_sm_sentry_policies_assignments_by_network_info - new plugin.
+        - organizations_sm_sentry_policies_assignments - new plugin.
+        - organizations_summary_top_networks_by_status_info - new plugin.
+        - organizations_webhooks_callbacks_statuses_info - new plugin.
+        - organizations_wireless_devices_channel_utilization_by_device_info - new plugin.
+        - organizations_wireless_devices_channel_utilization_by_network_info - new plugin.
+        - organizations_wireless_devices_channel_utilization_history_by_device_by_interval_info - new plugin.
+        - organizations_wireless_devices_channel_utilization_history_by_network_by_interval_info - new plugin.
+        - organizations_wireless_devices_packet_loss_by_client_info - new plugin.
+        - organizations_wireless_devices_packet_loss_by_device_info - new plugin.
+        - organizations_wireless_devices_packet_loss_by_network_info - new plugin.
+  2.18.1:
+    changes:
+      minor_changes:
+        - The `id` parameter is now required for `networks_appliance_vlans` module.
+        - The `id` parameter is change type to an `integer` in `networks_appliance_vlans` module.
+        - Fixing problem of naming in `organizations_appliance_vpn_third_party_vpnpeers_info`.
+        - Removing `state` from allowed parameters for `networks_syslog_servers` module.
+  2.18.2:
+    changes:
+      minor_changes:
+        - Include networks_appliance_traffic_shaping_custom_performance_classes_info plugin.
+  2.19.0:
+    changes:
+      bugfixes:
+        - Ansible utils requirements updated.
+        - cisco.meraki.networks_switch_stacks delete stack not working, fixing path parameters.
+        - cisco.meraki.networks_clients_info - incorrect API endpoint, fixing info module.
+  2.20.0:
+    changes:
+      minor_changes:
+        - administered_identities_me_api_keys_info - new plugin.
+        - administered_identities_me_api_keys_revoke - new plugin.
+        - devices_live_tools_leds_blink - new plugin.
+        - devices_wireless_electronic_shelf_label - new plugin.
+        - devices_wireless_electronic_shelf_label_info - new plugin.
+        - networks_appliance_sdwan_internet_policies - new plugin.
+        - networks_cancel - new plugin.
+        - networks_floor_plans_auto_locate_jobs_batch - new plugin.
+        - networks_floor_plans_devices_batch_update - new plugin.
+        - networks_publish - new plugin.
+        - networks_recalculate - new plugin.
+        - networks_wireless_air_marshal_rules - new plugin.
+        - networks_wireless_air_marshal_rules_delete - new plugin.
+        - networks_wireless_air_marshal_rules_update - new plugin.
+        - networks_wireless_air_marshal_settings - new plugin.
+        - networks_wireless_electronic_shelf_label - new plugin.
+        - organizations_assets - new plugin.
+        - organizations_assurance_alerts_info - new plugin.
+        - organizations_assurance_alerts_overview_by_network_info - new plugin.
+        - organizations_assurance_alerts_overview_by_type_info - new plugin.
+        - organizations_assurance_alerts_overview_historical_info - new plugin.
+        - organizations_assurance_alerts_overview_info - new plugin.
+        - organizations_assurance_alerts_restore - new plugin.
+        - organizations_cellular_gateway_esims_inventory_info - new plugin.
+        - organizations_cellular_gateway_esims_service_providers_accounts - new plugin.
+        - organizations_cellular_gateway_esims_service_providers_accounts_communication_plans_info - new plugin.
+        - organizations_cellular_gateway_esims_service_providers_accounts_info - new plugin.
+        - organizations_cellular_gateway_esims_service_providers_accounts_rate_plans_info - new plugin.
+        - organizations_cellular_gateway_esims_service_providers_info - new plugin.
+        - organizations_cellular_gateway_esims_swap - new plugin.
+        - organizations_devices_details_bulk_update - new plugin.
+        - organizations_devices_overview_by_model_info - new plugin.
+        - organizations_floor_plans_auto_locate_devices_info - new plugin.
+        - organizations_floor_plans_auto_locate_statuses_info - new plugin.
+        - organizations_splash_themes - new plugin.
+        - organizations_splash_themes_info - new plugin.
+        - organizations_summary_top_applications_by_usage_info - new plugin.
+        - organizations_summary_top_applications_categories_by_usage_info - new plugin.
+        - organizations_switch_ports_clients_overview_by_device_info - new plugin.
+        - organizations_switch_ports_overview_info - new plugin.
+        - organizations_switch_ports_statuses_by_switch_info - new plugin.
+        - organizations_switch_ports_topology_discovery_by_device_info - new plugin.
+        - organizations_wireless_air_marshal_rules_info - new plugin.
+        - organizations_wireless_air_marshal_settings_by_network_info - new plugin.
+        - organizations_wireless_clients_overview_by_device_info - new plugin.
+        - organizations_wireless_controller_clients_overview_history_by_device_by_interval_info - new plugin.
+        - organizations_wireless_controller_connections_info - new plugin.
+        - organizations_wireless_controller_devices_interfaces_l2_by_device_info - new plugin.
+        - organizations_wireless_controller_devices_interfaces_l2_statuses_change_history_by_device_info - new plugin.
+        - organizations_wireless_controller_devices_interfaces_l2_usage_history_by_interval_info - new plugin.
+        - organizations_wireless_controller_devices_interfaces_l3_by_device_info - new plugin.
+        - organizations_wireless_controller_devices_interfaces_l3_statuses_change_history_by_device_info - new plugin.
+        - organizations_wireless_controller_devices_interfaces_l3_usage_history_by_interval_info - new plugin.
+        - organizations_wireless_controller_devices_interfaces_packets_overview_by_device_info - new plugin.
+        - organizations_wireless_controller_devices_interfaces_usage_history_by_interval_info - new plugin.
+        - organizations_wireless_controller_devices_redundancy_failover_history_info - new plugin.
+        - organizations_wireless_controller_devices_redundancy_statuses_info - new plugin.
+        - organizations_wireless_controller_devices_system_utilization_history_by_interval_info - new plugin.
+        - organizations_wireless_controller_overview_by_device_info - new plugin.
+        - organizations_wireless_devices_wireless_controllers_by_device_info - new plugin.
+        - organizations_wireless_radio_auto_rf_channels_recalculate - new plugin.
+        - organizations_wireless_rf_profiles_assignments_by_device_info - new plugin.
+        - organizations_wireless_ssids_statuses_by_device_info - new plugin.
+  2.20.1:
+    changes:
+      minor_changes:
+        - Sanity and CI fixes.
+  2.20.2:
+    changes:
+      bugfixes:
+        - runtime updated requires_ansible from 2.14.0 to '>=2.15.0'.
+    release_date: "2025-01-06"
+  2.20.3:
+    changes:
+      bugfixes:
+        - README fixes.
+    release_date: "2025-01-07"
+  2.20.4:
+    changes:
+      bugfixes:
+        - Issue fixes for workflow-ansible-lint.
+        - Change alias 'message' to 'message_rule' due is a reserved ansible word in meraki_mx_intrusion_prevention module.
+        - Old playbook tests removed.
+    release_date: "2025-01-08"
+  2.20.5:
+    changes:
+      bugfixes:
+        - cisco.meraki.networks_devices_claim failed with error unexpected keyword argument 'add_atomically' - bad naming solved.
+        - cisco.meraki.networks_appliance_firewall_l3_firewall_rules fails with "Unexpected failure
+          during module execution 'rules' - specific 'rules' extraction has been removed.
+        - cisco.meraki.networks_appliance_vlans_settings fails with "msg" "Object does not exists,
+          plugin only has update" - specific 'vlansEnabled' extraction has been removed.
+    release_date: "2025-01-08"
+  2.20.6:
+    changes:
+      bugfixes:
+        - cisco.meraki.devices_switch_ports idempotency error fixed.
+    release_date: "2025-02-06"
+  2.20.7:
+    changes:
+      bugfixes:
+        - cisco.meraki.networks_appliance_traffic_shaping_rules Always Pushes Configuration Even When Unchanged.
+        - Changes at compare equality function.
+        - Unable to create Syslog Server Object. Action module manually fixing.
+    release_date: "2025-02-11"
+  2.20.8:
+    changes:
+      bugfixes:
+        - cisco.meraki.organizations_login_security module update organization security settings.
+    release_date: "2025-02-18"
+  2.20.9:
+    changes:
+      bugfixes:
+        - Fixed parameter handling for `update_by_id_params` in cisco.meraki.networks_wireless_ssids to correctly map the following parameters
+          - `perClientBandwidthLimitDown`
+          - `perClientBandwidthLimitUp`
+          - `perSsidBandwidthLimitDown`
+          - `perSsidBandwidthLimitUp`
+          - `defaultVlanId`
+          - `radiusAccountingInterimInterval`
+          - `radiusGuestVlanId`
+          - `vlanId`
+          - `radiusServerAttemptsLimit`
+          - `radiusServerTimeout`
+        - Added validation for `radiusServerAttemptsLimit` with choices `[1, 2, 3, 4, 5]`.
+        - Added validation for `radiusServerTimeout` with a range of valid values `[1-10]`.
+        - cisco.meraki.devices_wireless_radio_settings changed compare equality method to use `meraki_compare_equality`
+    release_date: "2025-04-16"
+  2.20.10:
+    changes:
+      bugfixes:
+        - cisco.meraki.networks_wireless_ssids refactor parameter handling to avoid None values
+    release_date: "2025-04-21"
+  2.21.0:
+    changes:
+      minor_changes:
+        - plugins/action/devices_sensor_commands - new plugin.
+        - plugins/action/devices_sensor_commands_info - new plugin.
+        - plugins/action/networks_appliance_firewall_multicast_forwarding - new plugin.
+        - plugins/action/organizations_appliance_dns_local_profiles - new plugin.
+        - plugins/action/organizations_appliance_dns_local_profiles_assignments_bulk_create - new plugin.
+        - plugins/action/organizations_appliance_dns_local_profiles_assignments_bulk_delete - new plugin.
+        - plugins/action/organizations_appliance_dns_local_profiles_assignments_info - new plugin.
+        - plugins/action/organizations_appliance_dns_local_profiles_info - new plugin.
+        - plugins/action/organizations_appliance_dns_local_records - new plugin.
+        - plugins/action/organizations_appliance_dns_local_records_info - new plugin.
+        - plugins/action/organizations_appliance_dns_split_profiles - new plugin.
+        - plugins/action/organizations_appliance_dns_split_profiles_assignments_bulk_create - new plugin.
+        - plugins/action/organizations_appliance_dns_split_profiles_assignments_bulk_delete - new plugin.
+        - plugins/action/organizations_appliance_dns_split_profiles_assignments_info - new plugin.
+        - plugins/action/organizations_appliance_dns_split_profiles_info - new plugin.
+        - plugins/action/organizations_appliance_firewall_multicast_forwarding_by_network_info - new plugin.
+        - plugins/action/organizations_devices_controller_migrations - new plugin.
+        - plugins/action/organizations_devices_controller_migrations_info - new plugin.
+        - plugins/action/organizations_devices_system_memory_usage_history_by_interval_info - new plugin.
+        - plugins/action/organizations_integrations_xdr_networks_disable - new plugin.
+        - plugins/action/organizations_integrations_xdr_networks_enable - new plugin.
+        - plugins/action/organizations_integrations_xdr_networks_info - new plugin.
+        - plugins/action/organizations_switch_ports_usage_history_by_device_by_interval_info - new plugin.
+        - plugins/action/organizations_wireless_devices_power_mode_history_info - new plugin.
+        - plugins/action/organizations_wireless_devices_system_cpu_load_history_info - new plugin.
+        - plugins/action/organizations_wireless_ssids_firewall_isolation_allowlist_entries - new plugin.
+        - plugins/action/organizations_wireless_ssids_firewall_isolation_allowlist_entries_info - new plugin.
+  2.21.1:
+    changes:
+      bugfixes:
+        - cisco.meraki.devices_switch_ports - fix get_object_by_name method.
+    release_date: "2025-05-07"
+  2.21.2:
+    changes:
+      bugfixes:
+        - cisco.meraki.networks_appliance_firewall_l7_firewall_rules - fix idempotency error.
+    release_date: "2025-05-07"
+  2.21.3:
+    changes:
+      bugfixes:
+        - cisco.meraki.devices_cellular_sims - fix idempotency error.
+    release_date: "2025-06-10"
+  2.21.4:
+    changes:
+      bugfixes:
+        - cisco.meraki.networks_appliance_traffic_shaping_uplink_bandwidth - fix idempotency error.
+    release_date: "2025-06-10"
+  2.21.5:
+    changes:
+      bugfixes:
+        - cisco.meraki.devices_appliance_uplinks_settings - fix idempotency error.
+    release_date: "2025-09-10"
+  2.21.6:
+    changes:
+      bugfixes:
+        - "Fixed function name typo in organizations_appliance_vpn_third_party_vpnpeers
+          changed 'getOrganizationApplianceVpnThirdPartyVpnpeers' to 'getOrganizationApplianceVpnThirdPartyVPNPeers'"
+        - "Fixed function name typo in organizations_appliance_vpn_third_party_vpnpeers
+           changed 'updateOrganizationApplianceVpnThirdPartyVpnpeers' to 'updateOrganizationApplianceVpnThirdPartyVPNPeers'"
+        - "Fixed comparison function call in networks_switch_dscp_to_cos_mappings
+           changed 'meraki_compare_equality2' to 'meraki_compare_equality'"
+        - "Fixed VLAN parameter handling in networks_switch_qos_rules_order
+           changed name parameter to vlan parameter for proper object lookup"
+        - "Improved dictionary comparison logic in meraki.py plugin utils to handle nested dictionaries correctly"
+      features:
+        - "Added new organizations_appliance_vpn_stats_info module and action plugin for retrieving
+          VPN history statistics for networks in an organization"
+        - "Added new playbook for networks_switch_dscp_to_cos_mappings configuration"
+        - "Added new playbook for organizations_appliance_vpn_third_party_vpnpeers configuration"
+        - "Enhanced networks_switch_qos_rules_order with improved VLAN handling and debugging capabilities"
+
+    release_date: "2025-01-10"
+  2.21.7:
+    changes:
+      bugfixes:
+        - "Enhanced networks_switch_qos_rules_order object lookup logic to properly match QoS rules by vlan, protocol, srcPort, and dstPort parameters"
+        - "Fixed parameter handling in networks_switch_qos_rules_order to use qosRuleId instead of id for object identification"
+        - "Improved meraki_compare_equality2 function to handle None value comparisons more accurately"
+        - "Updated networks_switch_qos_rules_order playbook with corrected parameter values and VLAN configuration"
+    release_date: "2025-01-10"
+  2.21.8:
+    changes:
+      bugfixes:
+        - "networks_switch_qos_rules_order: extend object lookup to include srcPortRange and dstPortRange when matching existing QoS rules
+          to improve idempotency"
+    release_date: "2025-06-10"
+  2.21.9:
+    changes:
+      bugfixes:
+        - "administered_licensing_subscription_subscriptions_bind - Fixed parameter naming from 'subscription_id' to 'subscriptionId'
+          for proper API compatibility"
+        - "networks_appliance_content_filtering - Enhanced idempotency by extracting category IDs from blockedUrlCategories
+          before comparison"
+        - "meraki.py plugin utils - Added type checking in has_diff_elem2 function to prevent errors when comparing lists
+          of non-dictionary elements"
+    release_date: "2025-11-26"

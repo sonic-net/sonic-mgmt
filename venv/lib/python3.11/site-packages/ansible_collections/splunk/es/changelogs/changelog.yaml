@@ -1,0 +1,103 @@
+ancestor: null
+releases:
+  1.0.0:
+    modules:
+      - description: Manage Splunk Enterprise Security Notable Event Adaptive Responses
+        name: splunk.es.adaptive_response_notable_event
+        namespace: ""
+      - description: Manage Splunk Enterprise Security Correlation Searches
+        name: splunk.es.correlation_search
+        namespace: ""
+      - description: Manage Splunk Enterprise Security Correlation Searches
+        name: splunk.es.correlation_search_info
+        namespace: ""
+      - description: Manage Splunk Data Inputs of type Monitor
+        name: splunk.es.data_input_monitor
+        namespace: ""
+      - description: Manage Splunk Data Inputs of type TCP or UDP
+        name: splunk.es.data_input_network
+        namespace: ""
+    release_date: "2020-06-22"
+  1.0.1:
+    changes:
+      release_summary: Releasing 1.0.1 with updated changelog.
+    release_date: "2020-08-28"
+  1.0.2:
+    changes:
+      release_summary: Re-releasing 1.0.1 with updated galaxy file.
+  2.0.0:
+    changes:
+      bugfixes:
+        - Fix ansible test sanity failures and fix flake8 issues.
+      major_changes:
+        - Minimum required ansible.netcommon version is 2.5.1.
+        - Updated base plugin references to ansible.netcommon.
+    fragments:
+      - fix_sanity_issues.yaml
+      - netcommon_ref_update.yaml
+      - update_tests_unit_black_requirements.yaml
+    release_date: "2022-04-29"
+  2.1.0:
+    changes:
+      minor_changes:
+        - Added adaptive_response_notable_events resource module
+        - Added correlation_searches resource module
+        - Added data_inputs_monitors resource module
+        - Added data_inputs_networks resource module
+    fragments:
+      - data_inputs_monitors.yaml
+      - data_inputs_networks.yaml
+      - fix_adaptive_response_ne_description.yaml
+      - fix_doc_for_sanity_failures.yaml
+      - splunk_adaptive_response_notable_events.yaml
+    modules:
+      - description: Manage Adaptive Responses notable events resource module
+        name: splunk_adaptive_response_notable_events
+        namespace: ansible_collections.splunk.es.plugins.modules
+      - description: Splunk Enterprise Security Correlation searches resource module
+        name: splunk_correlation_searches
+        namespace: ansible_collections.splunk.es.plugins.modules
+      - description: Splunk Data Inputs of type Monitor resource module
+        name: splunk_data_inputs_monitor
+        namespace: ansible_collections.splunk.es.plugins.modules
+      - description: Manage Splunk Data Inputs of type TCP or UDP resource module
+        name: splunk_data_inputs_network
+        namespace: ansible_collections.splunk.es.plugins.modules
+    release_date: "2022-09-07"
+  2.1.1:
+    changes:
+      release_summary: Releasing version 2.1.1, featuring various maintenance updates.
+    release_date: "2023-11-17"
+  2.1.2:
+    changes:
+      bugfixes:
+        - Fixed argspec validation for plugins with empty task attributes when run with
+          Ansible 2.9.
+    fragments:
+      - module_plugins_bug_fix.yml
+    release_date: "2023-11-29"
+  3.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.14.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        this collection requires is `2.14.0`. The last known version compatible with
+        ansible-core<2.14 is `v2.1.2`.
+    fragments:
+      - prep_300.yaml
+    release_date: "2023-12-01"
+  4.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.15.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        "With this release, the minimum required version of `ansible-core`
+        for this collection is `2.15.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.15` is v3.0.0."
+    fragments:
+      - bump215.yml
+      - unittestsfix.yml
+    release_date: "2024-06-11"

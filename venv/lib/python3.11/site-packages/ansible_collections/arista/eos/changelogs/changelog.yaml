@@ -1,0 +1,737 @@
+ancestor: null
+releases:
+  1.0.0:
+    modules:
+      - description: ACL interfaces resource module
+        name: eos_acl_interfaces
+        namespace: ""
+      - description: ACLs resource module
+        name: eos_acls
+        namespace: ""
+      - description: Manage multiline banners on Arista EOS devices
+        name: eos_banner
+        namespace: ""
+      - description: Run arbitrary commands on an Arista EOS device
+        name: eos_command
+        namespace: ""
+      - description: Manage Arista EOS configuration sections
+        name: eos_config
+        namespace: ""
+      - description: Manage and configure Arista EOS eAPI.
+        name: eos_eapi
+        namespace: ""
+      - description: Collect facts from remote devices running Arista EOS
+        name: eos_facts
+        namespace: ""
+      - description: Interfaces resource module
+        name: eos_interfaces
+        namespace: ""
+      - description: L2 interfaces resource module
+        name: eos_l2_interfaces
+        namespace: ""
+      - description: L3 interfaces resource module
+        name: eos_l3_interfaces
+        namespace: ""
+      - description: LACP resource module
+        name: eos_lacp
+        namespace: ""
+      - description: LACP interfaces resource module
+        name: eos_lacp_interfaces
+        namespace: ""
+      - description: LAG interfaces resource module
+        name: eos_lag_interfaces
+        namespace: ""
+      - description: Manage LLDP configuration on Arista EOS network devices
+        name: eos_lldp
+        namespace: ""
+      - description: LLDP resource module
+        name: eos_lldp_global
+        namespace: ""
+      - description: LLDP interfaces resource module
+        name: eos_lldp_interfaces
+        namespace: ""
+      - description: OSPFv2 resource module
+        name: eos_ospfv2
+        namespace: ""
+      - description: Static routes resource module
+        name: eos_static_routes
+        namespace: ""
+      - description: Manage the system attributes on Arista EOS devices
+        name: eos_system
+        namespace: ""
+      - description: Manage the collection of local users on EOS devices
+        name: eos_user
+        namespace: ""
+      - description: VLANs resource module
+        name: eos_vlans
+        namespace: ""
+      - description: Manage VRFs on Arista EOS network devices
+        name: eos_vrf
+        namespace: ""
+    plugins:
+      cliconf:
+        - description: Use eos cliconf to run command on Arista EOS platform
+          name: eos
+          namespace: null
+      httpapi:
+        - description: Use eAPI to run command on eos platform
+          name: eos
+          namespace: null
+    release_date: "2020-06-23"
+  1.0.1:
+    changes:
+      bugfixes:
+        - Fixes mismatch in documentation and code for using eos_lag_interfaces where
+          the code required 'Port-Channel\d.*:' but the docs did not document this.
+          The module now supports both 'Port-Channel\d.*:' and '\d.*:'.
+        - Make `src`, `backup` and `backup_options` in eos_config work when module alias
+          is used (https://github.com/ansible-collections/arista.eos/pull/85).
+      minor_changes:
+        - Add round trip testcases to the 2.9 resource modules.
+        - Add unit testcases to the eos_l3_interfaces resource modules.
+        - Add unit testcases to the eos_lag_interfaces resource modules.
+        - Sorted the list of params of ip address before forming the tuple.
+        - Updated docs.
+    fragments:
+      - 68-fix-sort-l3-int.yaml
+      - 72-add-rtt.yaml
+      - 80-linkagg-name-parameter.yaml
+      - 89-add-ut-l3_interfaces.yaml
+      - 90-add-ut-lag-interfaces.yaml
+      - 93-update-docs.yaml
+      - fix_src_backup_with_module_alias.yaml
+    release_date: "2020-07-31"
+  1.0.2:
+    fragments:
+      - 1.0.2.yaml
+    release_date: "2020-08-06"
+  1.0.3:
+    changes:
+      bugfixes:
+        - Added error pattern to the terminal plugin to handle change mode error seen
+          in lag interfaces config.
+    fragments:
+      - 96-changemode-terminalerror.yaml
+    release_date: "2020-08-26"
+  1.1.0:
+    changes:
+      bugfixes:
+        - Added 'mode' key to eos_interfaces to handle the layer2/3 switchport mode
+          of an interface.
+        - Added fix to maintain the idempotency while using overridden operation.
+        - Check for existing configuration when trunk_allowed_vlans is issued, is added.
+        - Fixed typo and index out of range errors while handling protocol_options.
+          (https://github.com/ansible-collections/arista.eos/pull/115)
+      minor_changes:
+        - Added 'mode' to examples in documentation of eos_l2_interfaces.
+        - Added eos ospfv3 resource module (https://github.com/ansible-collections/arista.eos/pull/109).
+        - Added unit test cases for eos_lldp_global module.
+    fragments:
+      - 105-switchport-mode-interfaces.yaml
+      - 106-lldp_global_unittest.yaml
+      - 109-eos-ospfv3-resource-module.yaml
+      - 113-add-mode-to-examples.yaml
+      - 115-protocol-options-acls.yaml
+      - 116-acls-overridden-idempotent.yaml
+      - 119-idempotent-l2-interfaces.yaml
+    modules:
+      - description: OSPFv3 resource module
+        name: eos_ospfv3
+        namespace: ""
+    release_date: "2020-09-30"
+  1.2.0:
+    changes:
+      bugfixes:
+        - updated config dict, with duplex key when speed changes from 'x' to 'forced
+          x' (https://github.com/ansible-collections/arista.eos/pull/120).
+      minor_changes:
+        - Added ospf_interfaces resource module. (https://github.com/ansible-collections/arista.eos/pull/125)
+        - Documented the necessity to use eos_interfaces and eos_l2_interfaces (for
+          l2 configs) in eos_l3_interfaces module.
+        - modify short description in ospfv3 resource module.
+        - stop integration testing of local connection as it is deprecated.
+    fragments:
+      - 101-l3_interfaces_documentation.yaml
+      - 120-forcedspeed-interfaces-config.yaml
+      - 123-ospfv3-description.yaml
+      - 125-ospf_interfaces_resource_module.yaml
+      - 127-drop-local-connection-testing.yaml
+    modules:
+      - description: OSPF Interfaces Resource Module.
+        name: eos_ospf_interfaces
+        namespace: ""
+    release_date: "2020-10-30"
+  1.3.0:
+    changes:
+      bugfixes:
+        - Add version key to galaxy.yaml to work around ansible-galaxy bug
+        - Fix yaml formatting errors in documentation.
+        - Uncap required ansible version in our collection.
+        - Update default values in module argspec and docs (https://github.com/ansible-collections/arista.eos/pull/154).
+        - Update docs to clarify the idemptonecy releated caveat and add it in the output
+          warnings (https://github.com/ansible-collections/ansible.netcommon/pull/189)
+        - fixes eos interfaces rm where interface in description resulted in failure
+          (https://github.com/ansible-collections/arista.eos/issues/86).
+        - replace list.copy() with list[:] to support python 2.7  and fix idempotent
+          issue with replaced and overridden (https://github.com/ansible-collections/arista.eos/pull/142).
+    fragments:
+      - acls_idempotent_issue.yaml
+      - add_bgp_af_rm.yaml
+      - bgp_global_resource_module.yaml
+      - eos_config_diff_doc_update.yaml
+      - fixes_eos_interfaces_rm_where_interface_in_description_resulted_in_failure.yaml
+      - galaxy-version.yaml
+      - requires-ansible.yaml
+      - update_docs_default_values.yaml
+    modules:
+      - description: Manages BGP address family resource module
+        name: eos_bgp_address_family
+        namespace: ""
+      - description: Manages BGP global resource module
+        name: eos_bgp_global
+        namespace: ""
+    release_date: "2021-02-01"
+  10.0.0:
+    changes:
+      bugfixes:
+        - Ensure IPv6 static route definitions are correctly filtered during facts gathering.
+        - This fix make sure to fetch timer with `lldp` string at the start.
+        - Update integration tests for parse operations to ensure that ordering or address
+          family (AF) does not affect assertions.
+        - Update the filter to accurately retrieve relevant static route configurations.
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.15.0` due to the end-of-life status of
+          previous `ansible-core` versions.
+      release_summary:
+        With this release, the minimum required version of `ansible-core`
+        for this collection is `2.15.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.15` is v9.0.0.
+    fragments:
+      - bump215.yaml
+      - fix_statis_routes_ds_issue.yaml
+      - lldp_timer_bugfixes.yaml
+    release_date: "2024-06-10"
+  10.0.1:
+    changes:
+      bugfixes:
+        - Adds a missing word in the 'bgp client-to-client reflection' command in eos_bgp_global
+          module.
+        - Fixes a typo in always-compare-med attribute in eos_bgp_global module.
+        - Handles exception when translating an unknown port to its service name.
+      doc_changes:
+        - Includes a new support related section in the README.
+    fragments:
+      - bgp_client.yaml
+      - fix_typo.yaml
+      - ignore_219.yaml
+      - port_exception.yaml
+      - pylint_fix.yaml
+      - readme.yaml
+    release_date: "2024-10-21"
+  10.1.1:
+    changes:
+      bugfixes:
+        - Fixed an issue in the `compare_configs` method where unnecessary negate commands
+          were generated for ACL entries already present in both `have` and `want` configurations.
+        - Improved validation logic for ACL sequence numbers and content matching to
+          ensure idempotency.
+        - Prevented redundant configuration updates for Access Control Lists.
+        - fix facts gathering for ebgp-multihop attribute.
+      minor_changes:
+        - Adds a new module `eos_vrf_global` in favor of `eos_vrf` legacy module to
+          manage VRF global configurations on Arista EOS devices.
+    fragments:
+      - add_vrf_global.yaml
+      - fix_acls_config_drift.yaml
+      - fix_eos_bgp_global.yaml
+    release_date: "2025-02-12"
+  11.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.16.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        With this release, the minimum required version of `ansible-core`
+        for this collection is `2.16.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.16` is v10.1.1.
+    fragments:
+      - bump216.yaml
+    release_date: "2025-04-11"
+  11.0.1:
+    changes:
+      bugfixes:
+        - Fix route map community handling to include missing community_attributes level
+          in the dictionary
+        - Fixed idempotency regarding logging port in differing versions of EOS
+        - Fixed idempotency when using `replaced` state on host with multiple ACLs present.
+        - Fixed parsing of relative route-map metric adjustments in when extracting
+          settings from device output.
+        - Support colon-delimited format in BGP community strings
+        - Update route_maps to correctly handle ipv6 next-hop address
+    fragments:
+      - data_tag.yml
+      - fix_acls_replace_idemp.yaml
+      - fix_route_map_community.yaml
+      - fix_route_maps_metric.yaml
+      - fix_sanity.yaml
+      - logging_global.yml
+      - route_maps_ipv6.yaml
+    release_date: "2025-07-01"
+  12.0.0:
+    changes:
+      bugfixes:
+        - Add unit and integration tests to verify the change
+        - Fix regex in route_map module to support match community with or without exact-match
+        - Update the ACL module to support using protocol names for source port
+        - arista.eos.eos_interfaces - Improved handling of the `enabled` state to prevent
+          incorrect `shutdown` or `no shutdown` commands during configuration changes
+    fragments:
+      - acl_protocol_name.yaml
+      - eos_interfaces.yaml
+      - route_map_community.yaml
+    release_date: "2025-08-19"
+  2.0.0:
+    changes:
+      bugfixes:
+        - Add 'virtual' key to denote the existence of virtual address on an interface.(https://github.com/ansible-collections/arista.eos/pull/170).
+        - Fixed the regex to parse the running config correctly.(https://github.com/ansible-collections/arista.eos/issues/150)
+        - cliconf plugin - Prevent `get_capabilities()` from getting larger every time
+          it is called
+      major_changes:
+        - Requires ansible.netcommon v2.0.0+ to support `ansible_network_single_user_mode`
+          and `ansible_network_import_modules` - Please refer to ansible.netcommon `changelog
+          <https://github.com/ansible-collections/ansible.netcommon/blob/main/changelogs/CHANGELOG.rst#ansible-netcommon-collection-release-notes>`_
+          for more details.
+      minor_changes:
+        - Add support for configuration caching (single_user_mode).
+        - Add support for syntax changes in ospf bfd command in 4.23 (https://github.com/ansible-collections/arista.eos/pull/134/)
+        - Move eos_config idempotent warning message with the task response under `warnings`
+          key if `changed` is `True`
+        - Re-use device_info dictionary in cliconf
+    fragments:
+      - acl_interfaces_parse_issue.yaml
+      - add_ignore_txt.yaml
+      - add_virtual_interface.yaml
+      - change_import_resoure_module.yaml
+      - config_module_warning_msg.yaml
+      - major_release_2.yaml
+      - ospf_bfd_command_syntax_4_23.yaml
+      - single_user_mode.yaml
+      - unbloat-rpc.yaml
+    release_date: "2021-02-24"
+  2.0.1:
+    changes:
+      bugfixes:
+        - Add _remove_config before starting every integration test.
+        - galaxy.yml - change wrong dependency ``ansible.netcommon`` from ``2.0.0``
+          to ``>= 2.0.0`` (https://github.com/ansible-collections/overview/issues/43).
+    fragments:
+      - 177-remove_tests_sanity_requirements.yml
+      - 183-check_required_if.yaml
+      - add_remove_config_integrationtests.yml
+    release_date: "2021-03-30"
+  2.1.1:
+    changes:
+      bugfixes:
+        - Modify the split pattern while checking for eapi url in eos_eapi.
+        - Normalize interface name before any operaion.
+        - Skip when there are alpha values present following vlan keyword.
+      minor_changes:
+        - Add eos_route_maps resource module.
+        - Add support for available_network_resources key, which allows to fetch the
+          available resources for a platform (https://github.com/ansible-collections/arista.eos/issues/184).
+      security_fixes:
+        - Mask values of sensitive keys in module result.
+    fragments:
+      - 184_available_network_resources.yaml
+      - 196-fix-caching-test-failure.yaml
+      - 197-add_ignore_txt.yml
+      - 200-add-eos-route-maps.yaml
+      - l3_interfaces_normalize_interface_name.yml
+      - no_log_mask.yaml
+      - split_eapi_url.yml
+      - vlan_id_alpha_configs.yml
+    release_date: "2021-04-27"
+  2.1.2:
+    changes:
+      bugfixes:
+        - Add support to accomodate change in username config cli in latest eos software
+          version.
+        - Fix regex for password prompt.
+        - argspec key 'shut_down' changed to 'shutdown'.
+    fragments:
+      - black.yaml
+      - changelog_doc_path_update.yaml
+      - fix_password_regex.yaml
+      - fix_typo_bgp_global.yaml
+      - sshkey_cli_change.yaml
+    release_date: "2021-05-18"
+  2.2.0:
+    changes:
+      bugfixes:
+        - Add alias to neighbor and network in bgp_global so that lists of objects are
+          plural.
+        - Fix typo in eos_bgp_address_family redirection.
+      minor_changes:
+        - Add eos_prefix_lists resource module.
+    fragments:
+      - add-eos-prefix-lists.yaml
+      - add_aliases.yml
+      - fix_redirection_typo.yml
+      - update_readme.yml
+    modules:
+      - description: Manages Prefix lists resource module
+        name: eos_prefix_lists
+        namespace: ""
+    release_date: "2021-06-22"
+  3.0.0:
+    changes:
+      breaking_changes:
+        - Arista released train 4.23.X and newer and along with it replaced and deprecated
+          lots of commands. This PR adds support for syntax changes in release train
+          4.23 and after. Going forward the eos modules will not support eos sw version
+          < 4.23.
+      bugfixes:
+        - Added fix to support multiple keys under ip and ipv6 dict in parser template.
+        - fix issue in prefix_lists facts code when prefix_lists facts are empty.
+        - fix issue in route-maps facts code when route-maps facts are empty.
+      minor_changes:
+        - Add eos_logging_global resource module.
+        - Add new keys to vrf->route_target in bgp modules.
+        - Change cli 'bgp listen limit' to 'dynamic peer max' ( cli changes in eos 4.23
+          ).
+        - Fix ospf3 to be ospfv3 in bgp config.
+        - Update BGP neighbor peer group syntax.
+    fragments:
+      - 225-safe-eval-no-concat.yml
+      - 230_empty_config_facts.yml
+      - add_keys_bgp_route_target.yml
+      - arguments-renamed-pylint-issue.yaml
+      - bgp_cli_change.yaml
+      - bgp_listen_limit_cli_change.yml
+      - bgp_peer_group_cli_change.yaml
+      - disable_integration_tests.yaml
+      - enable_interface_test.yaml
+      - eos_bgp_deprecation.yml
+      - eos_logging_global_module.yml
+      - pylint_upgrade_sanity_fix.yml
+      - remove_expected_config.yml
+      - remove_intent_testcase.yaml
+      - support_cli_syntax_change.yaml
+      - support_multiple_key_ip_dict_route_maps.yml
+    modules:
+      - description: Manages logging resource module
+        name: eos_logging_global
+        namespace: ""
+    release_date: "2021-08-27"
+  3.1.0:
+    changes:
+      bugfixes:
+        - Changed access_group parameter to type list, to enable multiple access-groups
+          configuration.
+        - Fix logic error while executing replaced and overridden operations on bgp
+          neighbors.
+        - Fix typo and logic errors in bgp_global, to skip other routing protocol configs
+          from running-config.
+        - command template fixed supporting Jinja version for centos-8 EEs.
+      deprecated_features:
+        - Remove testing with provider for ansible-test integration jobs. This helps
+          prepare us to move to network-ee integration tests.
+      minor_changes:
+        - Add eos_ntp_global module.
+    fragments:
+      - bgp_global_access_group_list.yaml
+      - bgp_global_neighbor_replaced.yaml
+      - bgp_global_typo_fix.yaml
+      - cleanup_tags_for_tests.yaml
+      - deprecation_biannually.yaml
+      - eos_ntp_global_module.yaml
+      - remove_debug_from_tests.yaml
+      - remove_provider_from_tests.yaml
+      - set_allow_duplicates.yaml
+      - template_to_support_jinja2.10.3.yaml
+    modules:
+      - description: Manages ntp resource module
+        name: eos_ntp_global
+        namespace: ""
+    release_date: "2021-09-24"
+  4.0.0:
+    changes:
+      breaking_changes:
+        - eos_command - new suboption ``version`` of parameter ``command``, which controls
+          the JSON response version. Previously the value was assumed to be "latest"
+          for network_cli and "1" for httpapi, but the default will now be "latest"
+          for both connections. This option is also available for use in modules making
+          their own device requests with ``plugins.module_utils.network.eos.eos.run_commands()``
+          with the same new default behavior. (https://github.com/ansible-collections/arista.eos/pull/258).
+      minor_changes:
+        - Add eos_snmp_server resource module.
+    fragments:
+      - 0-copy_ignore_txt.yml
+      - 280-command-spec.yaml
+      - eos_snmp_server.yaml
+      - remove_2.6_ignores.yml
+      - support_version_parameter.yaml
+    modules:
+      - description: Manages snmp_server resource module
+        name: eos_snmp_server
+        namespace: ""
+    release_date: "2021-12-07"
+  4.1.0:
+    changes:
+      bugfixes:
+        - eos_acls - fixes state replaced where new ACEs are not all added
+      minor_changes:
+        - Add eos_hostname resource module.
+        - eos_acls - Fix examples typos
+    fragments:
+      - 295-eos-acls-examples-fix.yaml
+      - 297-eos-acl-fix-replaced.yaml
+      - add_eos_hostname.yaml
+    modules:
+      - description: Manages hostname resource module
+        name: eos_hostname
+        namespace: ""
+    release_date: "2022-01-31"
+  4.1.1:
+    changes:
+      bugfixes:
+        - Add check mode support to bgp_global and bgp_address_family
+        - Add logic to skip unwanted configs from running-config, to collect bgp af
+          facts.
+        - Fixed an invalid parameter used in example for eos_l2_interfaces
+    fragments:
+      - bgp_check_mode_support.yml
+      - fix_documentation_eos_l2_interfaces.yml
+      - skip_unwanted_configs_bgp_af.yaml
+    release_date: "2022-02-28"
+  4.1.2:
+    changes:
+      bugfixes:
+        - Add symlink of modules under plugins/action.
+        - eos_bgp_global - Add alias for peer -  neighbor_address
+    fragments:
+      - add_alias_bgp_global_peer.yaml
+      - add_symlink_redirection.yml
+    release_date: "2022-03-29"
+  5.0.0:
+    changes:
+      breaking_changes:
+        - httpapi - the ``eos_use_sessions`` option is now a boolean instead of an integer.
+      bugfixes:
+        - Add and fix bgp_global neighbor parsers.
+        - Fix added to change snmp communities with or without acl.
+        - Fix parser to parse maximum-paths ecmp command correctly.
+        - arista.eos.eos_acls - fixed issue that would cause a key value error on `aces`
+          element when no ACEs exist in the access-list.
+        - arista.eos.eos_acls - fixed issue where protcol_options were rendered to command
+          line using the key _underscore_ value rather than the hyphen nominclature.
+        - httpapi - detect session support more robustly when ``eos_use_sessions`` is
+          not specified.
+      major_changes:
+        - Minimum required ansible.netcommon version is 2.5.1.
+        - Updated base plugin references to ansible.netcommon.
+        - "`eos_facts` - change default gather_subset to `min` from `!config` (https://github.com/ansible-collections/arista.eos/issues/306)."
+    fragments:
+      - 0-ignore.yml
+      - 346-httpapi.yaml
+      - add_bgp_global_neighor_bfd.yaml
+      - eos_facts_remove_warning.yaml
+      - eos_facts_update.yaml
+      - fix_bgp_global_ecmp_render.yaml
+      - fix_eos_acls_protocol_options.yml
+      - fix_snmp_server_communities.yaml
+      - netcommon_ref_update.yaml
+    release_date: "2022-04-26"
+  5.0.1:
+    changes:
+      bugfixes:
+        - Add logic to add new interface using overridden.
+        - Automatiaclly named sessions (ansible_XXXXXXXXX) now use two digits of sub-second
+          precision (if available). This is to work around tasks reusing a session if
+          the previous task completed very quickly.
+        - Fix the logic to add new aces using replaced and overriden state.
+        - Normalize interface name from want before comaparing with the interface in
+          have.
+        - Normalize ntp server source interface.
+    fragments:
+      - fast_sessions.yaml
+      - fix_acls_replaced.yaml
+      - l3_interfaces_overridden_new_int.yaml
+      - normalize_ntp_server_source.yaml
+      - pre-commit.yaml
+    release_date: "2022-05-25"
+  6.0.0:
+    changes:
+      major_changes:
+        - Remove following EOS dprecated modules
+        - "Use of connection: local and the provider option are no longer valid on any
+          modules in this collection."
+        - eos_interface
+        - eos_l2_interface
+        - eos_l3_interface
+        - eos_linkagg
+        - eos_static_route
+        - eos_vlan
+      minor_changes:
+        - Add support for setting encryption_password for BGP neighbors in bgp_global
+          module
+        - Add validate_config option to diff_against in eos_config
+    fragments:
+      - bgp_global_neighbor_password.yml
+      - diff_against_validate_config.yaml
+      - github_actions.yaml
+      - net_remove.yaml
+      - remove_deprecated_modules.yaml
+      - remove_provider.yaml
+      - sanity.yaml
+    release_date: "2022-10-13"
+  6.0.1:
+    changes:
+      bugfixes:
+        - fix ntp_global authenticate config.
+        - https://github.com/ansible-collections/arista.eos/issues/399.
+    fragments:
+      - fix_linting_failures.yaml
+      - fix_ntp_global_authenticate.yaml
+      - rm_base.yaml
+      - sanity_fixes.yaml
+      - trivial_changes.yaml
+    release_date: "2023-04-10"
+  6.1.0:
+    changes:
+      doc_changes:
+        - Update bgp examples with yaml callback result
+        - Update bgp_global examples with yaml callback result
+        - Update examples for ospfv3
+        - Update examples with yaml formatted output in ospf_interfaces.
+        - Update ospf_interfaces examples with yaml callback result
+        - Update ospfv2 examples with yaml callback result
+        - Update ospfv3 examples with yaml callback result
+        - Updateb bgp_address_family examples with yaml callback result
+      minor_changes:
+        - Add support for overridden operation in bgp_global resource module.
+    fragments:
+      - add_gha_periodic.yaml
+      - black.yaml
+      - boolean_normalization.yaml
+      - no-provider.yaml
+      - ospfv3_docs.yaml
+      - update_docs.yaml
+      - update_ospf_intefaces_docs.yaml
+    release_date: "2023-09-06"
+  6.1.1:
+    changes:
+      bugfixes:
+        - fix sanity issues w.r.t python27
+    fragments:
+      - fix_27_sanity.yaml
+      - sanity_fix.yaml
+    release_date: "2023-09-12"
+  6.1.2:
+    changes:
+      bugfixes:
+        - Skip compile testing for python <3.6.
+    fragments:
+      - conpile_test36.yaml
+    release_date: "2023-09-14"
+  6.2.0:
+    changes:
+      bugfixes:
+        - Fix command generated for local-interface with in ntp server attribute.
+        - Fix command generation for source_interface attribute.
+        - Fix secondary ip address parsing.
+        - fix line attribute fact generation and placement in ACE, when ACE is not fully
+          parsed.
+      doc_changes:
+        - Fix docs for static_routes and prefix_lists Resource modules.
+        - eos_interfaces - update examples and use YAML output for better readability.
+        - eos_l2_interfaces - update examples and use YAML output for better readability.
+        - eos_l3_interfaces - update examples and use YAML output for better readability.
+      minor_changes:
+        - arista_config - Relax restrictions on I(src) parameter so it can be used more
+          like I(lines).
+    fragments:
+      - Fix_config.yaml
+      - docs_fix.yaml
+      - eos_interface_l2_l3.yaml
+      - fix_logging_global_replaced.yaml
+      - fix_tox.yaml
+      - fix_virtual_ip_facts_issue.yaml
+      - ipv6_acl_facts_gather_fix.yaml
+      - lint_fixtures.yaml
+      - ntp_global_local_interface_fix.yaml
+      - sanity_job_fix.yaml
+      - trivial_lint.yaml
+    release_date: "2023-10-30"
+  6.2.1:
+    changes:
+      release_summary: Rereleased 6.2.0 with updated galaxy reference.
+    fragments:
+      - rerelease.yaml
+    release_date: "2023-10-30"
+  6.2.2:
+    changes:
+      bugfixes:
+        - correct the reference of string attribute 'reference_bandwith'.
+    fragments:
+      - ospf_v2_reference_bandwidth_fix.yaml
+    release_date: "2023-11-27"
+  7.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.14.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        this collection requires is `2.14.0`. The last known version compatible with
+        ansible-core<2.14 is `v6.2.2`.
+    fragments:
+      - fix_downstream_tests.yaml
+    release_date: "2023-11-30"
+  7.1.0:
+    changes:
+      bugfixes:
+        - This fix is needed because static_routes and vlans are not returning anything
+          when resources are not configured.
+        - This got noticed in this issue (https://github.com/network-automation/toolkit/issues/47)
+        - correct a missing whitespace and add 'auth' string.
+        - correct the parsing of the elements in 'name_servers' in 'eos_system' module.
+        - when static_routes and vlans are not confirgured then return empty list.
+      doc_changes:
+        - eos_lag_interface - Updated examples for lag_interface module.
+    fragments:
+      - bugfixes_return_empty_data_structure_for_no_facts.yaml
+      - eos_system_element_parsing_fix.yaml
+      - lag_interface_docupdate.yml
+      - snmp_missing_whitespace_and_authentication_fix.yaml
+      - tests_trivial.yaml
+      - trivial_tests.yaml
+    release_date: "2024-03-06"
+  8.0.0:
+    changes:
+      major_changes:
+        - This release removes previously deprecated modules and attributes from this
+          collection. Please refer to the **Removed Features** section for details.
+      removed_features:
+        - Remove depreacted eos_bgp module which is replaced with eos_bgp_global and
+          eos_bgp_address_family.
+        - Remove deprecated eos_logging module which is replaced with eos_logging_global
+          resource module.
+        - Remove deprecated timers.throttle attribute.
+    fragments:
+      - remove_deprecated.yaml
+      - trivial_tests_updates.yaml
+    release_date: "2024-03-27"
+  9.0.0:
+    changes:
+      major_changes:
+        - Update the netcommon base version 6.1.0 to support cli_restore plugin.
+      minor_changes:
+        - Add support for cli_restore functionality.
+        - Please refer the PR to know more about core changes (https://github.com/ansible-collections/ansible.netcommon/pull/618).
+        - cli_restore module is part of netcommon.
+    fragments:
+      - 218sanity.yml
+      - add_restore_support.yaml
+    release_date: "2024-04-13"

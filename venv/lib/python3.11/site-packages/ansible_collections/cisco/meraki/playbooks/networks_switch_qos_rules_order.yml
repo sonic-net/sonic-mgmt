@@ -1,0 +1,15 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.networks_switch_qos_rules_order:
+        meraki_suppress_logging: false
+        state: present
+        dscp: -1
+        # dstPort: 3000
+        dstPortRange: ANY
+        networkId: L_828099381482771185
+        protocol: UDP
+        srcPort: 2001
+        vlan: 10

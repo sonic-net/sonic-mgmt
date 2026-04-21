@@ -1,0 +1,2 @@
+bugfixes:
+  - na_sg_org_user - fix where existing users with no groups attached were not getting any groups added.

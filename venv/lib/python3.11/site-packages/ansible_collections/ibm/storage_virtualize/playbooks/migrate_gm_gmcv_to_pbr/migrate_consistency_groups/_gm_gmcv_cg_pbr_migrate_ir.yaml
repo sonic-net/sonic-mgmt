@@ -1,0 +1,35 @@
+- name: Fetch individual relationship details
+  register: gm_ir_details
+  ibm.storage_virtualize.ibm_svc_info:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    gather_subset: rcrelationship
+    objectname: "{{ cg_gm_ir.RC_rel_name }}"
+    log_path: "{{ logpath }}"
+- name: Migrate source volumes to desired pool
+  ibm.storage_virtualize.ibm_svc_manage_migration:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    type_of_migration: across_pools
+    source_volume: "{{ gm_ir_details.RemoteCopy.master_vdisk_name }}"
+    new_pool: "{{ master_pool_name }}"
+    log_path: "{{ logpath }}"
+- name: Wait till volume is migrated
+  register: migr_vol
+  ibm.storage_virtualize.ibm_svc_info:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    gather_subset: vol
+    objectname: "{{ gm_ir_details.RemoteCopy.master_vdisk_name }}"
+    log_path: "{{ logpath }}"
+  until: migr_vol.Volume[0].mdisk_grp_name == master_pool_name
+  retries: 60
+  delay: 10 # in seconds
+- name: Add source volume to volume group
+  ibm.storage_virtualize.ibm_svc_manage_volume:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    name: "{{ gm_ir_details.RemoteCopy.master_vdisk_name }}"
+    state: present
+    volumegroup: "{{ volume_group_name_prefix }}{{ consistency_group }}"
+    log_path: "{{ logpath }}"

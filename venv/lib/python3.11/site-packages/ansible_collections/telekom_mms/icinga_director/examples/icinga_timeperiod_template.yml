@@ -1,0 +1,29 @@
+---
+- name: Create timeperiod template
+  telekom_mms.icinga_director.icinga_timeperiod_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "timeperiod_template"
+    imports: []
+    disabled: false
+    prefer_includes: false
+    ranges:
+      monday: "00:00-23:59"
+      tuesday: "00:00-23:59"
+      wednesday: "00:00-23:59"
+      thursday: "00:00-23:59"
+      friday: "00:00-23:59"
+      saturday: "00:00-23:59"
+      sunday: "00:00-23:59"
+    update_method: "LegacyTimePeriod"
+- name: Update timeperiod template
+  telekom_mms.icinga_director.icinga_timeperiod_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "timeperiod_template"
+    display_name: "timeperiod template"
+    append: true

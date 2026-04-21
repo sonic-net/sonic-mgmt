@@ -1,0 +1,75 @@
+---
+- name: Stop Alloy service
+  ansible.builtin.systemd:  # noqa ignore-errors
+    name: alloy
+    state: stopped
+  ignore_errors: true
+
+- name: Stop Alloy service on macOS
+  ansible.builtin.command: "brew services stop {{ __alloy_brew_package }}"
+  when: ansible_facts['os_family'] == 'Darwin'
+  failed_when: false
+
+- name: Uninstall Alloy rpm package
+  ansible.builtin.package:
+    name: "alloy"
+    state: absent
+    autoremove: true
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
+
+- name: Uninstall Alloy deb package
+  ansible.builtin.apt:
+    name: "alloy"
+    state: absent
+    purge: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Uninstall Alloy via Homebrew
+  community.general.homebrew:
+    name: "{{ __alloy_brew_package }}"
+    state: absent
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: Uninstall Alloy rpm package (SUSE)
+  community.general.zypper:
+    name: "alloy"
+    state: absent
+  when: ansible_facts['os_family'] == 'Suse'
+
+- name: Ensure that Alloy firewalld rule is not present - tcp port {{ __alloy_server_http_listen_port }}
+  ansible.posix.firewalld:  # noqa ignore-errors
+    immediate: true
+    permanent: true
+    port: "{{ __alloy_server_http_listen_port }}/tcp"
+    state: disabled
+  ignore_errors: true
+
+- name: Remove Alloy directories
+  ansible.builtin.file:
+    path: "{{ remove_me }}"
+    state: absent
+  loop:
+    - "/etc/alloy"
+    - "/etc/systemd/system/alloy.service.d"
+    - "/var/lib/alloy"
+    - "/etc/sysconfig/alloy"
+    - "/etc/default/alloy"
+  loop_control:
+    loop_var: remove_me
+
+- name: Remove Alloy config directory on macOS
+  ansible.builtin.file:
+    path: "{{ __alloy_config_path_default }}"
+    state: absent
+  when: ansible_facts['os_family'] == 'Darwin'
+
+- name: Remove the Alloy system user
+  ansible.builtin.user:
+    name: "alloy"
+    force: true
+    state: absent
+
+- name: Remove Alloy system group
+  ansible.builtin.group:
+    name: "alloy"
+    state: absent

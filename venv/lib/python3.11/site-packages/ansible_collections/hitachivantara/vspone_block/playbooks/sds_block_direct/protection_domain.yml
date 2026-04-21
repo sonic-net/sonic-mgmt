@@ -1,0 +1,64 @@
+---
+####################################################################
+# Example : Protection Domain Playbook
+####################################################################
+- name: Protection Domain Configuration
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ################################################################################################
+    # Task Name : Configure protection domain settings
+    ################################################################################################
+    - name: Configure protection domain settings
+      hitachivantara.vspone_block.sds_block.hv_sds_block_protection_domain:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          id: "acbdd59e-9e96-4268-84f8-8a933ad9950a"
+          async_processing_resource_usage_rate: "high"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # ################################################################################################
+    # # Task Name : Resume drive data relocation for protection domain
+    # ################################################################################################
+    - name: Resume drive data relocation for protection domain
+      hitachivantara.vspone_block.sds_block.hv_sds_block_protection_domain:
+        connection_info: "{{ connection_info }}"
+        state: resume_drive_data_relocation
+        spec:
+          id: "acbdd59e-9e96-4268-84f8-8a933ad9950a"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # ################################################################################################
+    # # Task Name : Suspend drive data relocation for protection domain
+    # ################################################################################################
+    - name: Suspend drive data relocation for protection domain
+      hitachivantara.vspone_block.sds_block.hv_sds_block_protection_domain:
+        connection_info: "{{ connection_info }}"
+        state: suspend_drive_data_relocation
+        spec:
+          id: "acbdd59e-9e96-4268-84f8-8a933ad9950a"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

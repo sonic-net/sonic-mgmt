@@ -1,0 +1,109 @@
+---
+# Copyright: (c) 2024, Hen Yaish <hyaish@redhat.com>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: virtual_directory_info
+  short_description: Retrive information on a virtual directory in IIS
+  description:
+    - Retrive information on a virtual directory in IIS.
+  requirements:
+    - IISAdministration PowerShell module
+  options:
+    application:
+      description:
+        - The name of the IIS web application to retrieve the virtual
+          directories from. If unset, all website virtual directories will be
+          returned.
+      type: str
+    name:
+      description:
+        - The name of the virtual directory to get the information for. If
+          unset, all virtual directories will be returned.
+      type: str
+    site:
+      description:
+        - The name of the IIS website to retrieve the virtual directories from.
+          If unset, all website virtual directories will be returned.
+      type: str
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+  seealso:
+    - module: microsoft.iis.virtual_directory
+  author:
+    - Hen Yaish (@hyaish)
+
+EXAMPLES: |
+  - name: Get information for all virtual directories
+    microsoft.iis.virtual_directory_info:
+    register: vdir_info
+
+  - name: Get information for virtual directory on a specific site
+    microsoft.iis.virtual_directory_info:
+      site: somesite
+      name: somedirectory
+    register: vdir_info
+
+  - name: Get information for virtual directory on a specific site and application
+    microsoft.iis.virtual_directory_info:
+      site: somesite
+      name: somedirectory
+      application: someapplication
+    register: vdir_info
+
+RETURN:
+  exists:
+    description:
+      - Whether any virtual directories were found.
+    returned: success
+    type: bool
+    sample: true
+  directories:
+    description:
+      - List of virtual directories found.
+    returned: success
+    type: list
+    elements: dict
+    sample: '[
+      {
+        "name": "somedirectory",
+        "site": "Test Site",
+        "physical_path": "C:\\Users\\ansibleAdmin\\AppData\\Local\\Temp\\ansible.sgivydkm.qid.test",
+        "application": null,
+        "username": ""
+      }
+    ]'
+    contains:
+      name:
+        description:
+          - Name of the virtual directory.
+        type: str
+        sample: somedirectory
+      site:
+        description:
+          - Site name where the virtual directory exists.
+        type: str
+        sample: Test Site
+      physical_path:
+        description:
+          - Physical path of the virtual directory.
+        type: str
+        sample: C:\Users\ansibleAdmin\AppData\Local\Temp\ansible.sgivydkm.qid.test
+      application:
+        description:
+          - Application name under which the virtual directory exists.
+        type: str
+        sample: null
+      username:
+        description:
+          - Username for the virtual directory when using specific user authentication.
+        type: str
+        sample: ""

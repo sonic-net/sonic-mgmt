@@ -1,0 +1,24 @@
+---
+- name: oVirt cluster upgrade
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    # Contains encrypted `engine_password` varibale using ansible-vault
+    - passwords.yml
+
+  vars:
+    engine_fqdn: ovirt.example.com
+    engine_user: admin@internal
+
+    cluster_name: mycluster
+    stop_non_migratable_vms: true
+    host_statuses:
+      - up
+    host_names:
+      - myhost1
+      - myhost2
+
+  roles:
+    - ovirt.ovirt.cluster_upgrade

@@ -1,0 +1,2 @@
+bugfixes:
+  - na_ontap_snapmirror - fix delete snapmirror timeout issue by retrying in REST.

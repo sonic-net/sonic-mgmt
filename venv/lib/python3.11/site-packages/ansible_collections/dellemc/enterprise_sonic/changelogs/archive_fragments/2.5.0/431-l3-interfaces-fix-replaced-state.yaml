@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_l3_interfaces - Fix replaced state handling (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/431)

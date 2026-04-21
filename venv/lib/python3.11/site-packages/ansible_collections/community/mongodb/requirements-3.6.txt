@@ -1,0 +1,9 @@
+ansible==2.9.20
+ansible-lint==4.2.0
+docker==4.1.0
+flake8==3.7.9
+molecule>=2.22,<3.0
+pytest==5.3.4
+python-vagrant==0.5.15
+sh==1.13.1
+pymongo

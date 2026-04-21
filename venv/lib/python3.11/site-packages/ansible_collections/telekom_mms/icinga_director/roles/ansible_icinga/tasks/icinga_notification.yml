@@ -1,0 +1,32 @@
+---
+- name: Icinga_notification
+  icinga_notification:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ notification.state | default(omit) }}"
+    object_name: "{{ notification.name }}"
+    notification_interval: "{{ notification.notification_interval | default(omit) }}"
+    states: "{{ notification.states | default(omit) }}"
+    types: "{{ notification.types | default(omit) }}"
+    users: "{{ notification.users | default(omit) }}"
+    user_groups: "{{ notification.user_groups | default(omit) }}"
+    apply_to: "{{ notification.apply_to | default(omit) }}"
+    assign_filter: "{{ notification.assign_filter | default(omit) }}"
+    imports: "{{ notification.imports | default(omit) }}"
+    period: "{{ notification.period | default(omit) }}"
+    vars: "{{ notification.vars | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_notifications }}"
+  loop_control:
+    loop_var: notification
+  tags: notification
+  notify: config_deploy

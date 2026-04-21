@@ -1,0 +1,2 @@
+bugfixes:
+  - purefb_connect - Ensure changing encryption status on array connection is performed correctly

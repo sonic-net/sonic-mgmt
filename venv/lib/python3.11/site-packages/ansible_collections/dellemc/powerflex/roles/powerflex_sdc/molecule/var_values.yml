@@ -1,0 +1,7 @@
+---
+vol_name: "sdc_test_vol_1"
+storage_pool_name: "pool1"
+protection_domain_name: "domain1"
+vol_size: 8
+sdc_name: sdc_test_demo_1
+access_mode: "READ_WRITE"

@@ -1,0 +1,66 @@
+---
+- name: SDR uninstallation
+  hosts: sdr
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+
+  tasks:
+    - name: Uninstall powerflex SDR
+      register: powerflex_sdr_uninstall_outputs
+      ansible.builtin.import_role:
+        name: powerflex_sdr
+      vars:
+        powerflex_sdr_state: absent
+
+    - name: Verifying uninstall package in converge
+      ansible.builtin.assert:
+        that:
+          - " 'Removed:' in powerflex_sdr_uninstall_output.results[0].results[0]"
+      when:
+        - not ansible_check_mode
+        - powerflex_sdr_uninstall_output.changed
+        - ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+    - name: Verifying uninstall package in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdr_uninstall_output.msg == "Check mode: No changes made"
+          - powerflex_sdr_uninstall_output.changed
+          - ansible_distribution in ("RedHat", "CentOS", "SLES")
+      when: ansible_check_mode
+
+    - name: Verifying remove the sdr in normal mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_remove_sdr_output.sdr_details is None
+      when:
+        - not ansible_check_mode
+        - powerflex_remove_sdr_output.changed
+        - ansible_distribution == "Ubuntu"
+
+    - name: Verifying uninstall package in Idempotency
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdr_uninstall_output.results[0].msg == 'Nothing to do'
+          - ansible_distribution in ("RedHat", "CentOS", "SLES")
+      when:
+        - not ansible_check_mode
+        - not powerflex_sdr_uninstall_output.changed
+        - ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+    - name: Verifying remove the sdr in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_remove_sdr_output.msg == "Check mode: No changes made"
+          - powerflex_remove_sdr_output.changed
+          - ansible_distribution == "Ubuntu"
+      when: ansible_check_mode
+
+    - name: Verifying remove the sdr in Idempotency
+      ansible.builtin.assert:
+        that:
+          - powerflex_remove_sdr_output.sdr_details is None
+      when:
+        - not ansible_check_mode
+        - not powerflex_remove_sdr_output.changed
+        - ansible_distribution == "Ubuntu"

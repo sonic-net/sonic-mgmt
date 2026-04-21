@@ -1,0 +1,37 @@
+---
+- name: Install cryptography python package
+  ansible.builtin.command:
+    cmd: pip install cryptography>=1.2.3
+  register: cmd_output
+  changed_when: cmd_output.rc == 0
+  failed_when: cmd_output.rc != 0
+  check_mode: false
+
+- name: Install OpenSSL package (RHEL/CentOS/AlmaLinux/Rocky)
+  ansible.builtin.package:
+    name: openssl
+    state: present
+  check_mode: false
+  no_log: false
+
+- name: Generate private RSA key using OpenSSL (certified-compliant)
+  ansible.builtin.command: >
+    openssl genpkey -algorithm RSA
+    -out "{{ lookup('env', 'path_for_import_cert') }}/cert.key"
+    -pkeyopt rsa_keygen_bits:2048
+  args:
+    creates: "{{ lookup('env', 'path_for_import_cert') }}/cert.key"
+  no_log: false
+  check_mode: false
+
+- name: Generate self-signed certificate using OpenSSL
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -new -nodes
+      -key "{{ lookup('env', 'path_for_import_cert') }}/cert.key"
+      -sha256 -days 365
+      -out "{{ lookup('env', 'path_for_import_cert') }}/cert.pem"
+      -subj "/CN=localhost"
+  check_mode: false
+  no_log: false
+  changed_when: true

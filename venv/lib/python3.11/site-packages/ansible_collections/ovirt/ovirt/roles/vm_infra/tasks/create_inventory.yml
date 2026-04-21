@@ -1,0 +1,44 @@
+---
+- name: Fetch created VMs
+  ovirt.ovirt.ovirt_vm_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "name={{ vms | map(attribute='name') | join(' or name=') }}"
+    fetch_nested: true
+    nested_attributes:
+      - ips
+      - name
+  register: created_vms_info
+
+- name: Set ovirt_vms
+  ansible.builtin.set_fact:
+    ovirt_vms: "{{ created_vms_info.ovirt_vms }}"
+
+- name: Create inventory of VMs IPv4
+  no_log: true
+  ansible.builtin.add_host:
+    name: "{{ item.name }}"
+    ansible_host: "{{ item | ovirt.ovirt.ovirtvmipv4(network_ip=wait_for_ip_range) }}"
+    groups: "{{ (['ovirt_tag_'] * item.tags | length) | zip(item.tags | map(attribute='name') | list) | map('join') | list + ['ovirt_vm'] }}"
+    ansible_user: root
+    ansible_password: "{{ vms_passwords | ovirt.ovirt.filtervalue('name', item.name) | map(attribute='root_password') | first | default(omit) }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+  with_items: "{{ ovirt_vms }}"
+  changed_when: false
+  when: "wait_for_ip_version == 'v4'"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create inventory of VMs IPv6
+  no_log: true
+  ansible.builtin.add_host:
+    name: "{{ item.name }}"
+    ansible_host: "{{ item | ovirt.ovirt.ovirtvmipv6 }}"
+    groups: "{{ (['ovirt_tag_'] * item.tags | length) | zip(item.tags | map(attribute='name') | list) | map('join') | list + ['ovirt_vm'] }}"
+    ansible_user: root
+    ansible_password: "{{ vms_passwords | ovirt.ovirt.filtervalue('name', item.name) | map(attribute='root_password') | first | default(omit) }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+  with_items: "{{ ovirt_vms }}"
+  changed_when: false
+  when: "wait_for_ip_version == 'v6'"
+  loop_control:
+    label: "{{ item.name }}"

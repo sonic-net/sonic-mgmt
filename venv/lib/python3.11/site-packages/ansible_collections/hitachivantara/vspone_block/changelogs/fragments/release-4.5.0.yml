@@ -1,0 +1,43 @@
+---
+release_summary: |
+  This release introduces comprehensive encryption management capabilities for VSP One SDS Block and Cloud systems,
+  including new modules for encryption environment settings, key management, and enhanced security features.
+  The release also adds support for the latest software version 01.18.02 and expands system management
+  functionality with protection domains, remote path groups, sessions, SNMP settings, spare nodes,
+  user groups, and web server configurations.
+minor_changes:
+  - Added support for latest software version 01.18.02 for VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_encryption_environment_settings" module to enable or disable encryption functionality on VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_encryption_environment_setting_facts" module to retrieve encryption environment configuration settings from VSP One SDS Block and Cloud
+    systems.
+  - Added a new "hv_sds_block_encryption_key" module to create and delete encryption keys on VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_encryption_key_count_facts" module to retrieve information about the number of encryption keys from VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_encryption_key_facts" module to retrieve detailed information about encryption keys from VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_protection_domain" module to manage protection domains including creation, modification, and data relocation operations on VSP One SDS
+    Block and Cloud systems.
+  - Added a new "hv_sds_block_remote_path_group" module to create remote path group, add remote path to a remote path group, remove remote path from remote path group,
+    and delete remote path group on VSP One SDS Block systems.
+  - Added a new "hv_sds_block_remote_path_group_facts" module to retrieve information about remote path groups from VSP One SDS Block systems.
+  - Added a new "hv_sds_block_session" module to generate and discard session on VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_session_facts" module to retrieve information about sessions on VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_snmp_settings" module to manage SNMP settings including agent enablement, version configuration, trap settings, authentication settings,
+    and system group information on VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_snmp_settings_facts" module to retrieve SNMP settings including agent status, version configuration, trap settings, authentication settings,
+    and system group information from VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_spare_node" module to manage spare node configuration including node identification, fault domain assignment, network configuration,
+    and BMC settings on VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_spare_node_facts" module to retrieves spare node information and configuration details from VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_storage_system" module to manage storage system configuration including certificate management, cache settings, and other system-level
+    configurations on VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_user_group" module to Create and update user groups on VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_user_group_facts" module to retrieve user groups from VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_web_server" module to manages the web server access setting for VSP One SDS Block and Cloud systems.
+  - Added a new "hv_sds_block_web_server_facts" module to retrieve the web server access setting from VSP One SDS Block and Cloud systems.
+  - Added support to "Enable encryption for storage pool by ID" to hv_sds_block_storage_pool module.
+  - Added support to "Enable encryption for storage pool by name" to hv_sds_block_storage_pool module.
+  - Added support to "Disable encryption for storage pool" to hv_sds_block_storage_pool module.
+  - Added support to "Disable encryption for storage pool using ID" to hv_sds_block_storage_pool module.
+  - Added support to "Update user settings" to hv_sds_block_user module.
+  - Added support to "Delete a user" to hv_sds_block_user module.
+  - Added support to "Add user to user groups" to hv_sds_block_user module.
+  - Added support to "Remove user from user groups" to hv_sds_block_user module.

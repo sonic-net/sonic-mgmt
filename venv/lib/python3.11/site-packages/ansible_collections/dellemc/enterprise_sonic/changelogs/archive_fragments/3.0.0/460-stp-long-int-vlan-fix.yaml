@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_stp - Change the criteria for converting vlans and vlan ranges to handle vlan IDs with more than one digit (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/460).

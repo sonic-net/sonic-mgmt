@@ -1,0 +1,2 @@
+bugfixes:
+  - na_ontap_volume - fix idempotency issue with `nas_application_template` and `size_change_threshold`.

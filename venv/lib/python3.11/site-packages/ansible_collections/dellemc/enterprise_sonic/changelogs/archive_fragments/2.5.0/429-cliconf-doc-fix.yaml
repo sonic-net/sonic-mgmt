@@ -1,0 +1,3 @@
+---
+trivial:
+  - cliconf - Change inherited OS10 references in description to SONiC (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/429).

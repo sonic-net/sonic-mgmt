@@ -1,0 +1,7 @@
+---
+release_summary: "This bugfix release addresses authentication, compatibility, and data retrieval issues."
+bugfixes:
+  - Fixed multiple session authentication issue for direct connect type.
+  - Fixed compatibility issues with older Python versions.
+  - Fixed incorrect compute node information retrieval in `hv_sds_block_compute_node_facts`.
+  - Fixed LDEV ID retrieval issue in `hv_lun_facts`.

@@ -1,0 +1,8 @@
+---
+- name: DNF - Install Alloy from remote URL
+  ansible.builtin.package:
+    name: "{{ alloy_download_url_rpm }}"
+    state: present
+    disable_gpg_check: true
+  notify: restart alloy
+  when: __current_deployed_version.stdout is not defined or alloy_version not in __current_deployed_version.stdout

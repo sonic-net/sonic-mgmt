@@ -1,0 +1,27 @@
+---
+- name: Global Pool
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Find discovery
+      cisco.dnac.global_pool:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        # id: 1bf5ecf3-be14-48fb-b724-df801bc61172
+        settings:
+          ippool:
+            - IpAddressSpace: string
+              dhcpServerIps: []
+              dnsServerIps: []
+              gateway: ""
+              ipPoolCidr: 30.0.0.0/8
+              ipPoolName: v4pool-test2
+              type: Generic
+      register: discovery_range_result

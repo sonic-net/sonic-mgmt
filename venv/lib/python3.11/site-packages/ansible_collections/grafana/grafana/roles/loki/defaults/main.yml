@@ -1,0 +1,110 @@
+---
+# defaults file for loki
+loki_version: "latest"
+loki_uninstall: false
+loki_http_listen_port: 3100
+loki_http_listen_address: "0.0.0.0"
+loki_expose_port: false
+loki_download_url_rpm: "https://github.com/grafana/loki/releases/download/v{{ loki_version }}/loki-{{ loki_version }}.{{ __loki_arch }}.rpm"
+loki_download_url_deb: "https://github.com/grafana/loki/releases/download/v{{ loki_version }}/loki_{{ loki_version }}_{{ __loki_arch }}.deb"
+loki_working_path: "/var/lib/loki"
+loki_ruler_alert_path: "{{ loki_working_path }}/rules/fake"
+
+# Default Variables for /etc/loki/config.yml
+loki_auth_enabled: false
+loki_target: "all"
+loki_ballast_bytes: 0
+
+loki_server:
+  http_listen_address: "{{ loki_http_listen_address }}"
+  http_listen_port: "{{ loki_http_listen_port }}"
+  grpc_listen_port: 9096
+
+loki_common:
+  instance_addr: 127.0.0.1
+  path_prefix: "{{ loki_working_path }}"
+  storage:
+    filesystem:
+      chunks_directory: "{{ loki_working_path }}/chunks"
+      rules_directory: "{{ loki_working_path }}/rules"
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+loki_query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+loki_schema_config:
+  configs:
+    - from: 2020-10-24
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+loki_ruler:
+  storage:
+    type: local
+    local:
+      directory: "{{ loki_working_path }}/rules"
+  rule_path: "{{ loki_working_path }}/rules_tmp"
+  ring:
+    kvstore:
+      store: inmemory
+  enable_api: true
+  enable_alertmanager_v2: true
+  alertmanager_url: http://localhost:9093
+
+loki_analytics:
+  reporting_enabled: false
+
+# Alerting Rules Variables
+# loki_ruler_alerts:
+#   - name: Logs.Nextcloud
+#     rules:
+#     - alert: NextcloudLoginFailed
+#       expr: |
+#         count by (filename,env,job) (count_over_time({job=~"nextcloud"} | json | message=~"Login failed.*" [10m])) > 4
+#       for: 0m
+#       labels:
+#         severity: critical
+#       annotations:
+#         summary: "{% raw %}On {{ $labels.job }} in log {{ $labels.filename }} failed login detected.{% endraw %}"
+#   - name: Logs.sshd
+#     rules:
+#     - alert: SshLoginFailed
+#       expr: |
+#         count_over_time({job=~"secure"} |="sshd[" |~": Failed|: Invalid|: Connection closed by authenticating user" | __error__="" [15m]) > 15
+#       for: 0m
+#       labels:
+#         severity: critical
+#       annotations:
+#         summary: "{% raw %}SSH authentication failure (instance {{ $labels.instance }}).{% endraw %}"
+
+# Additional Config Variables for /etc/loki/config.yml
+# loki_distributor:
+# loki_querier:
+# loki_query_scheduler:
+# loki_frontend:
+# loki_ingester_client:
+# loki_ingester:
+# loki_index_gateway:
+# loki_storage_config:
+# loki_chunk_store_config:
+# loki_compactor:
+# loki_limits_config:
+# loki_frontend_worker:
+# loki_table_manager:
+# loki_memberlist:
+# loki_runtime_config:
+# loki_operational_config:
+# loki_tracing:
+# loki_bloom_build:
+# loki_bloom_gateway:

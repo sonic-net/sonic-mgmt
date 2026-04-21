@@ -1,0 +1,196 @@
+---
+# version of the agent to install
+grafana_agent_version: latest
+
+# base download url. Github or mirror to download from
+grafana_agent_base_download_url: "https://github.com/{{ _grafana_agent_github_org }}/{{ _grafana_agent_github_repo }}/releases/download"
+
+# directory to install the binary to
+grafana_agent_install_dir: /opt/grafana-agent/bin
+
+# name to use for the binary
+grafana_agent_binary: grafana-agent
+
+# directory to store the configuration files in
+grafana_agent_config_dir: /etc/grafana-agent
+
+# name of the configuration file for the agent
+grafana_agent_config_filename: config.yaml
+
+# name of the environment file loaded by the system unit file
+grafana_agent_env_file: service.env
+
+# dictionary of additional custom settings for the systemd service file
+grafana_agent_service_extra: {}
+
+# temporary directory to create on the controller/localhost where the archive will be downloaded to
+grafana_agent_local_tmp_dir: /tmp/grafana-agent
+
+# data directory to create for the wal and positions
+grafana_agent_data_dir: /var/lib/grafana-agent
+
+# wal directory to use, should be a sub-folder of grafana_agent_data_dir, will automatically be created when the agent starts
+grafana_agent_wal_dir: "{{ grafana_agent_data_dir }}/wal"
+
+# positions directory to use, should be a sub-folder of grafana_agent_data_dir, will automatically be created when the agent starts
+grafana_agent_positions_dir: "{{ grafana_agent_data_dir }}/positions"
+
+# mode to run Grafana Agent in. Can be "flow" or "static".
+# Docs: https://grafana.com/docs/agent/latest/flow/
+grafana_agent_mode: static
+
+# os user to create for the agent to run as
+grafana_agent_user: grafana-agent
+
+# os user group to create for the agent
+grafana_agent_user_group: grafana-agent
+
+# Configurable user groups that the grafana agent can be put in so that it can access logs
+# (See https://github.com/grafana/grafana-ansible-collection/issues/40)
+grafana_agent_user_groups: []
+
+# the shell for the user
+grafana_agent_user_shell: /usr/sbin/nologin
+
+# whether or not to create a home directory for the user
+grafana_agent_user_createhome: false
+
+# full path to the local binary if already downloaded or built on the controller
+# this should only be set, if ansible is not downloading the binary and you have
+# manually downloaded the binary
+grafana_agent_local_binary_file: ""
+
+# dictionary of additional command-line flags, run grafana-agent --help for a complete list
+# Docs: https://grafana.com/docs/agent/latest/static/configuration/flags/
+grafana_agent_flags_extra:
+  config.expand-env: 'true'
+  config.enable-read-api: 'false'
+  server.register-instrumentation: 'true'
+  server.http.address: 127.0.0.1:12345
+  server.grpc.address: 127.0.0.1:12346
+
+# sets Environment variables in the systemd service configuration.
+grafana_agent_env_vars: {}
+
+# dictionary of key/pair values to write to the environment file that is loaded by the service, with the flag --config.expand-env=true
+# any generated config files will support the expansion of environment variables at runtime by referencing ${ENVVAR}.
+# be aware of boolean values, when output they will result in the proper-cased string "True" and "False"
+grafana_agent_env_file_vars: {}
+
+# path to a config file on the controller that will be used instead of the provided configs below if specified.
+grafana_agent_provisioned_config_file: ""
+
+#################################################################################################
+#              Configures the server of the Agent used to enable self-scraping                  #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/static/configuration/server-config/
+# the entire dictionary value for this object is copied to the server: block in the config file
+grafana_agent_server_config:
+  # Log only messages with the given severity or above. Supported values [debug,
+  # info, warn, error]. This level affects logging for all Agent-level logs, not
+  # just the HTTP and gRPC server.
+  #
+  # Note that some integrations use their own loggers which ignore this
+  # setting.
+  log_level: info
+
+#################################################################################################
+#                             Configures metric collection                                      #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/static/configuration/metrics-config/
+# the entire dictionary value for this object is copied to the metrics: block in the config file
+grafana_agent_metrics_config:
+  # Configure values for all Prometheus instances
+  # Docs: https://grafana.com/docs/agent/latest/static/configuration/metrics-config/#global_config
+  global:
+    # How frequently should Prometheus instances scrape.
+    scrape_interval: 1m
+
+    # How long to wait before timing out a scrape from a target.
+    scrape_timeout: 10s
+
+    # A dictionary of key/pair static labels to add for all metrics.
+    external_labels: {}
+
+    # Default set of remote_write endpoints. If an instance doesn't define any
+    # remote_writes, it will use this list.
+    # Docs: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write
+    remote_write: []
+
+  # The list of Prometheus instances to launch with the agent.
+  # Docs: https://grafana.com/docs/agent/latest/static/configuration/metrics-config/#metrics_instance_config
+  configs: []
+  #  - name: name-of-scrape-job
+  #    # Docs: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
+  #    scrape_configs: []
+  #    # Optional list of remote_write targets, if not specified metrics.global.remote_write is used
+  #    # Docs: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write
+  #    remote_write: []
+
+  # Configure the directory used by instances to store their WAL.
+  #
+  # The Grafana Agent assumes that all folders within wal_directory are managed by
+  # the agent itself.
+  wal_directory: "{{ grafana_agent_wal_dir }}"
+  # Configures how long ago an abandoned (not associated with an instance) WAL
+  # may be written to before being eligible to be deleted
+  wal_cleanup_age: 12h
+  # Configures how often checks for abandoned WALs to be deleted are performed.
+  # A value of 0 disables periodic cleanup of abandoned WALs
+  wal_cleanup_period: 30m
+
+#################################################################################################
+#                              Configures logs collection                                       #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/static/configuration/logs-config/
+# the entire dictionary value for this object is copied to the logs: block in the config file
+grafana_agent_logs_config:
+  # Directory to store Loki Promtail positions files in. Positions files are
+  # required to read logs, and are used to store the last read offset of log
+  # sources. The positions files will be stored in
+  # <positions_directory>/<logs_instance_config.name>.yml.
+  #
+  # Optional only if every config has a positions.filename manually provided.
+  #
+  # This directory will be automatically created if it doesn't exist.
+  positions_directory: "{{ grafana_agent_positions_dir }}"
+  # Configure values for all Loki Promtail instances.
+  global:
+    # Docs: https://grafana.com/docs/agent/latest/static/configuration/logs-config/#logs_instance_config
+    clients: []
+
+#################################################################################################
+#                             Configures traces collection                                      #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/static/configuration/traces-config/
+# the entire dictionary value for this object is copied to the traces: block in the config file
+grafana_agent_traces_config:
+  # Docs: https://grafana.com/docs/agent/latest/static/configuration/traces-config/#traces_instance_config
+  configs: []
+
+#################################################################################################
+#                          Configures integrations for the agent                                #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/static/configuration/integrations/
+# the entire dictionary value for this object is copied to the integrations: block in the config file
+grafana_agent_integrations_config:
+  # Automatically collect metrics from enabled integrations. If disabled,
+  # integrations will be run but not scraped and thus not remote_written. Metrics
+  # for integrations will be exposed at /integrations/<integration_key>/metrics
+  # and can be scraped by an external process.
+  scrape_integrations: true
+  # Controls the Agent integration
+  agent:
+    # Enables the Agent integration, allowing the Agent to automatically
+    # collect and send metrics about itself.
+    enabled: true
+    # Allows for relabeling labels on the target.
+    relabel_configs: []
+    # Relabel metrics coming from the integration, allowing to drop series
+    # from the integration that you don't care about.
+    metric_relabel_configs: []
+
+  # Controls the node_exporter integration
+  # Docs: https://grafana.com/docs/agent/latest/static/configuration/integrations/node-exporter-config/
+  node_exporter:
+    enabled: true

@@ -1,0 +1,4 @@
+minor_changes:
+  - na_cloudmanager_cvo_aws - Add unit tests for capacity based license support.
+  - na_cloudmanager_cvo_azure - Add unit tests for capacity based license support.
+  - na_cloudmanager_cvo_gcp - Add unit tests for capacity based license support and delete cvo.

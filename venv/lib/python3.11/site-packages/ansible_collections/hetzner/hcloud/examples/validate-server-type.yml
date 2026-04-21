@@ -1,0 +1,35 @@
+---
+- name: Validate server type
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Fetch location info
+      hetzner.hcloud.location_info:
+        name: fsn1
+      register: location
+
+    - name: Fetch server type info
+      hetzner.hcloud.server_type_info:
+        name: cx22
+      register: server_type
+
+    - name: Ensure server type exists
+      ansible.builtin.assert:
+        fail_msg: server type does not exists
+        that:
+          - server_type.hcloud_server_type_info | count == 1
+
+    - name: Extract server type location info
+      ansible.builtin.set_fact:
+        server_type_location: >
+          {{
+            server_type.hcloud_server_type_info[0].locations
+            | selectattr("name", "eq", location.hcloud_location_info[0].name)
+            | first
+          }}
+
+    - name: Ensure server type is not deprecated
+      ansible.builtin.assert:
+        fail_msg: server type is deprecated in location
+        that:
+          - server_type_location.deprecation is none

@@ -1,0 +1,45 @@
+---
+- name: Configuration Template Version Create
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Create Configuration Template Version
+      cisco.dnac.configuration_template_version_create:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        # comments: string
+        templateId: 2121f1d7-d9ea-4eea-8f83-45af2941f5f9
+      register: configuration_template_version_create_result
+
+    - name: Get task info
+      cisco.dnac.task_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        taskId: "{{ configuration_template_version_create_result.dnac_response.response.taskId }}"
+      when:
+        - configuration_template_version_create_result.dnac_response is defined
+        - configuration_template_version_create_result.dnac_response.response is defined
+        - configuration_template_version_create_result.dnac_response.response.taskId is defined
+      register: task_result
+
+    - name: Show new configuration_template_version
+      ansible.builtin.debug:
+        msg: "{{ configuration_template_version_create_result }}"
+      when:
+        - configuration_template_version_create_result is defined
+
+    - name: Show retrieved task
+      ansible.builtin.debug:
+        msg: "{{ task_result.dnac_response.response }}"
+      when:
+        - task_result is defined
+        - task_result.dnac_response is defined

@@ -1,0 +1,6 @@
+---
+- name: Deploy Loki using the default configuration
+  hosts: all
+  become: true
+  roles:
+    - role: grafana.grafana.loki

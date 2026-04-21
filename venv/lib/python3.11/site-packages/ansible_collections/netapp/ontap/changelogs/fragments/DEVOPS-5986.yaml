@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_iscsi_security - error module if use_rest never is set.
+  - na_ontap_iscsi_security - fix KeyError on ``outbound_username`` option.

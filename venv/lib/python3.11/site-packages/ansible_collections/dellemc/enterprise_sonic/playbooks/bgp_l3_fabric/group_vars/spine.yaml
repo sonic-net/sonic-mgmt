@@ -1,0 +1,88 @@
+---
+loopback_inf0: Loopback0
+
+sonic_interfaces:
+  - name: "{{ spine_leaf1_inf1 }}"
+    description: "{{ spine_leaf1_inf1 }} Leaf1"
+    enabled: true
+  - name: "{{ spine_leaf2_inf2 }}"
+    description: "{{ spine_leaf2_inf2 }} Leaf2"
+    enabled: true
+  - name: "{{ spine_leaf25_inf3 }}"
+    description: "{{ spine_leaf25_inf3 }} Leaf25"
+    enabled: true
+  - name: "{{ spine_leaf26_inf4 }}"
+    description: "{{ spine_leaf26_inf4 }} Leaf26"
+    enabled: true
+  - name: "{{ loopback_inf0 }}"
+
+sonic_l3_interfaces:
+  - name: "{{ loopback_inf0 }}"
+    ipv4:
+      addresses:
+        - address: "{{ loopback0_ip }}"
+  - name: "{{ spine_leaf1_inf1 }}"
+    ipv6:
+      enabled: true
+  - name: "{{ spine_leaf2_inf2 }}"
+    ipv6:
+      enabled: true
+  - name: "{{ spine_leaf25_inf3 }}"
+    ipv6:
+      enabled: true
+  - name: "{{ spine_leaf26_inf4 }}"
+    ipv6:
+      enabled: true
+
+sonic_bgp:
+  - bgp_as: "{{ bgp_asn }}"
+    router_id: "{{ loopback0_ip.split('/')[0] }}"
+    bestpath:
+      as_path:
+        multipath_relax: true
+
+sonic_bgp_af:
+  - bgp_as: "{{ bgp_asn }}"
+    address_family:
+      afis:
+        - afi: l2vpn
+          safi: evpn
+          advertise_all_vni: true
+        - afi: ipv4
+          safi: unicast
+          redistribute:
+            - protocol: connected
+
+sonic_bgp_neighbors:
+  - bgp_as: "{{ bgp_asn }}"
+    peer_group:
+      - name: LEAF
+        remote_as:
+          peer_type: external
+        advertisement_interval: 5
+        timers:
+          keepalive: 3
+          holdtime: 9
+        bfd:
+          check_failure: true
+          enabled: true
+          profile: 'profile1'
+        capability:
+          extended_nexthop: true
+        address_family:
+          afis:
+            - afi: l2vpn
+              safi: evpn
+              activate: true
+            - afi: ipv4
+              safi: unicast
+              activate: true
+    neighbors:
+      - neighbor: "{{ spine_leaf1_inf1 }}"
+        peer_group: LEAF
+      - neighbor: "{{ spine_leaf2_inf2 }}"
+        peer_group: LEAF
+      - neighbor: "{{ spine_leaf25_inf3 }}"
+        peer_group: LEAF
+      - neighbor: "{{ spine_leaf26_inf4 }}"
+        peer_group: LEAF

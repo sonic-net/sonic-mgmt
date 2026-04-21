@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_cifs_server - new option `is_multichannel_enabled` added in REST, requires ONTAP 9.10 or later.

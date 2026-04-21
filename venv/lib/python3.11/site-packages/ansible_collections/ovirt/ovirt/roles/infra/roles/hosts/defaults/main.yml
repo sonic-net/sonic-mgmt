@@ -1,0 +1,3 @@
+---
+ovirt_hosts_max_timeout: 2100
+ovirt_hosts_add_timeout: 1800

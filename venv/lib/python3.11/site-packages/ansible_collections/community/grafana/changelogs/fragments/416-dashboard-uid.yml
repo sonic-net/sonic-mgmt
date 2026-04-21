@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - grafana_dashboard - add uid to payload

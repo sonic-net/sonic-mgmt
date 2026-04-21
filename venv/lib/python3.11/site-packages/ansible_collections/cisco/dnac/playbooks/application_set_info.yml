@@ -1,0 +1,21 @@
+---
+- name: Application Set Info
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Get application sets local-services
+      cisco.dnac.application_sets_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        name: local-services
+        # limit: 3
+        # offset: 2
+      register: result
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

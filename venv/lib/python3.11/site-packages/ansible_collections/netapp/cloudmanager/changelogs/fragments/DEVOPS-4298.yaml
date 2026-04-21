@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_connector_aws - Fix default ami not based on the region in resource file

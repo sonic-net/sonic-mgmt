@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_command - Fix bugs in handling of CLI commands involving a prompt and answer sequence (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/76/files).

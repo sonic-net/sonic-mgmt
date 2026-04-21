@@ -1,0 +1,381 @@
+---
+requires_ansible: ">=2.15.0"
+action_groups:
+  vmware_rest:
+    - appliance_access_consolecli_info
+    - appliance_access_consolecli
+    - appliance_access_dcui_info
+    - appliance_access_dcui
+    - appliance_access_shell_info
+    - appliance_access_shell
+    - appliance_access_ssh_info
+    - appliance_access_ssh
+    - appliance_health_applmgmt_info
+    - appliance_health_database_info
+    - appliance_health_databasestorage_info
+    - appliance_health_load_info
+    - appliance_health_mem_info
+    - appliance_health_softwarepackages_info
+    - appliance_health_storage_info
+    - appliance_health_swap_info
+    - appliance_health_system_info
+    - appliance_infraprofile_configs_info
+    - appliance_infraprofile_configs
+    - appliance_localaccounts_globalpolicy_info
+    - appliance_localaccounts_globalpolicy
+    - appliance_localaccounts_info
+    - appliance_monitoring_info
+    - appliance_monitoring_query
+    - appliance_networking_dns_domains_info
+    - appliance_networking_dns_domains
+    - appliance_networking_dns_hostname_info
+    - appliance_networking_dns_hostname
+    - appliance_networking_dns_servers_info
+    - appliance_networking_dns_servers
+    - appliance_networking_firewall_inbound_info
+    - appliance_networking_firewall_inbound
+    - appliance_networking_info
+    - appliance_networking_interfaces_info
+    - appliance_networking_interfaces_ipv4_info
+    - appliance_networking_interfaces_ipv4
+    - appliance_networking_interfaces_ipv6_info
+    - appliance_networking_interfaces_ipv6
+    - appliance_networking_noproxy_info
+    - appliance_networking_noproxy
+    - appliance_networking_proxy_info
+    - appliance_networking_proxy
+    - appliance_networking
+    - appliance_ntp_info
+    - appliance_ntp
+    - appliance_services_info
+    - appliance_services
+    - appliance_shutdown_info
+    - appliance_shutdown
+    - appliance_system_globalfips_info
+    - appliance_system_globalfips
+    - appliance_system_storage_info
+    - appliance_system_storage
+    - appliance_system_time_info
+    - appliance_system_time_timezone_info
+    - appliance_system_time_timezone
+    - appliance_system_version_info
+    - appliance_timesync_info
+    - appliance_timesync
+    - appliance_update_info
+    - appliance_vmon_service_info
+    - appliance_vmon_service
+    - content_configuration_info
+    - content_configuration
+    - content_library_info
+    - content_library_item_info
+    - content_library_subscriptions_info
+    - content_locallibrary_info
+    - content_locallibrary
+    - content_subscribedlibrary_info
+    - content_subscribedlibrary
+    - vcenter_cluster_info
+    - vcenter_datacenter_info
+    - vcenter_datacenter
+    - vcenter_datastore_info
+    - vcenter_folder_info
+    - vcenter_host_info
+    - vcenter_host
+    - vcenter_network_info
+    - vcenter_ovf_libraryitem
+    - vcenter_resourcepool_info
+    - vcenter_resourcepool
+    - vcenter_storage_policies_info
+    - vcenter_vm_guest_customization
+    - vcenter_vm_guest_filesystem_directories
+    - vcenter_vm_guest_identity_info
+    - vcenter_vm_guest_localfilesystem_info
+    - vcenter_vm_guest_networking_info
+    - vcenter_vm_guest_networking_interfaces_info
+    - vcenter_vm_guest_networking_routes_info
+    - vcenter_vm_guest_operations_info
+    - vcenter_vm_guest_power_info
+    - vcenter_vm_guest_power
+    - vcenter_vm_hardware_adapter_sata_info
+    - vcenter_vm_hardware_adapter_sata
+    - vcenter_vm_hardware_adapter_scsi_info
+    - vcenter_vm_hardware_adapter_scsi
+    - vcenter_vm_hardware_boot_device_info
+    - vcenter_vm_hardware_boot_device
+    - vcenter_vm_hardware_boot_info
+    - vcenter_vm_hardware_boot
+    - vcenter_vm_hardware_cdrom_info
+    - vcenter_vm_hardware_cdrom
+    - vcenter_vm_hardware_cpu_info
+    - vcenter_vm_hardware_cpu
+    - vcenter_vm_hardware_disk_info
+    - vcenter_vm_hardware_disk
+    - vcenter_vm_hardware_ethernet_info
+    - vcenter_vm_hardware_ethernet
+    - vcenter_vm_hardware_floppy_info
+    - vcenter_vm_hardware_floppy
+    - vcenter_vm_hardware_info
+    - vcenter_vm_hardware_memory_info
+    - vcenter_vm_hardware_memory
+    - vcenter_vm_hardware_parallel_info
+    - vcenter_vm_hardware_parallel
+    - vcenter_vm_hardware
+    - vcenter_vm_hardware_serial_info
+    - vcenter_vm_hardware_serial
+    - vcenter_vm_info
+    - vcenter_vm_libraryitem_info
+    - vcenter_vm_power_info
+    - vcenter_vm_power
+    - vcenter_vm
+    - vcenter_vm_storage_policy_compliance_info
+    - vcenter_vm_storage_policy_compliance
+    - vcenter_vm_storage_policy_info
+    - vcenter_vm_storage_policy
+    - vcenter_vmtemplate_libraryitems_info
+    - vcenter_vmtemplate_libraryitems
+    - vcenter_vm_tools_info
+    - vcenter_vm_tools_installer_info
+    - vcenter_vm_tools_installer
+    - vcenter_vm_tools
+
+plugin_routing:
+  modules:
+    content_library_item_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.content_library_item_info instead.
+
+    vcenter_vmtemplate_libraryitems_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.content_library_item_info instead.
+
+    vcenter_vm_hardware_memory_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vm_resource_info instead.
+
+    vcenter_vm_hardware_cpu_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vm_resource_info instead.
+
+    vcenter_vm_guest_networking_interfaces_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vm_portgroup_info instead.
+
+    vcenter_host:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.esxi_host instead.
+
+    vcenter_cluster_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.cluster_info instead.
+
+    content_subscribedlibrary:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.subscribed_content_library instead.
+
+    content_locallibrary:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.local_content_library instead.
+
+    appliance_networking_firewall_inbound:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_networking_firewall_inbound_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_access_consolecli:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_access_consolecli_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_access_ssh:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_access_ssh_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_access_shell:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_access_shell_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_access_dcui:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_access_dcui_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_networking_proxy:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_networking_proxy_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_networking_noproxy:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_networking_noproxy_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_ntp:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_ntp_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_timesync:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_timesync_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_networking_dns_domains:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_networking_dns_domains_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_networking_dns_servers:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_networking_dns_servers_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_networking_dns_hostname:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_networking_dns_hostname_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_system_time_timezone:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_system_time_timezone_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    appliance_system_globalfips:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vcsa_settings instead.
+
+    appliance_system_globalfips_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.appliance_info instead.
+
+    vcenter_vm_guest_power:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vm_powerstate instead.
+
+    vcenter_vm_power:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.vm_powerstate instead.
+
+    vcenter_vm_libraryitem_info:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.content_library_item_info instead.
+
+  lookup:
+    cluster_moid:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.moid_from_path instead.
+
+    datacenter_moid:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.moid_from_path instead.
+
+    datastore_moid:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.moid_from_path instead.
+
+    folder_moid:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.moid_from_path instead.
+
+    host_moid:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.moid_from_path instead.
+
+    network_moid:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.moid_from_path instead.
+
+    resource_pool_moid:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.moid_from_path instead.
+
+    vm_moid:
+      deprecation:
+        removal_version: 5.0.0
+        warning_text: Use vmware.vmware.moid_from_path instead.

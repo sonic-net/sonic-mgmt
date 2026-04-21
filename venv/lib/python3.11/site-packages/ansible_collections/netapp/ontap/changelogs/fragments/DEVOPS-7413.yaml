@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_cluster_peer - new options `local_name_for_peer` and `local_name_for_source` added in REST.

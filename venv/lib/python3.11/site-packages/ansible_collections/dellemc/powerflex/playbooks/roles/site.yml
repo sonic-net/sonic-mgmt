@@ -1,0 +1,64 @@
+---
+- name: "Install PowerFlex Common"
+  hosts: all
+  roles:
+    - powerflex_common
+
+- name: Install and configure PowerFlex MDM
+  hosts: mdm
+  roles:
+    - powerflex_mdm
+
+- name: Install and configure PowerFlex gateway
+  hosts: gateway
+  roles:
+    - powerflex_gateway
+
+- name: Install and configure PowerFlex TB
+  hosts: tb
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_tb
+
+- name: Configure protection domain, fault set and storage pool.
+  hosts: config
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_config
+
+- name: Install and configure PowerFlex Web UI
+  hosts: webui
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_webui
+
+- name: Install and configure PowerFlex SDC
+  hosts: sdc
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_sdc
+
+- name: Install and configure PowerFlex LIA
+  hosts: lia
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_lia
+
+- name: Install and configure PowerFlex SDS
+  hosts: sds
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_sds
+
+- name: Install PowerFlex SDR
+  hosts: sdr
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_sdr

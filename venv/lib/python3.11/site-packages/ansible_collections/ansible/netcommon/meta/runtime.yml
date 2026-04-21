@@ -1,0 +1,14 @@
+---
+requires_ansible: ">=2.16.0"
+plugin_routing:
+  modules:
+    grpc_config:
+      action_plugin: ansible.netcommon.grpc
+    grpc_get:
+      action_plugin: ansible.netcommon.grpc
+    netconf_config:
+      action_plugin: ansible.netcommon.netconf
+    netconf_get:
+      action_plugin: ansible.netcommon.netconf
+    netconf_rpc:
+      action_plugin: ansible.netcommon.netconf

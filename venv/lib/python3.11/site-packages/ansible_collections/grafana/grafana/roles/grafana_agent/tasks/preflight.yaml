@@ -1,0 +1,12 @@
+---
+- name: Preflight variable checks
+  ansible.builtin.import_tasks: preflight/vars.yaml
+
+- name: Systemd variable checks
+  ansible.builtin.import_tasks: preflight/systemd.yaml
+
+- name: Install variable checks
+  ansible.builtin.import_tasks: preflight/install.yaml
+
+- name: Download variable checks
+  ansible.builtin.import_tasks: preflight/download.yaml

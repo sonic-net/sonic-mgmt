@@ -1,0 +1,91 @@
+---
+# Example Playbook: cisco.ucs.ucs_wwn_pool
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        description: level1 org
+        state: present
+      delegate_to: localhost
+
+    - name: Configure WWNN pool
+      cisco.ucs.ucs_wwn_pool:
+        <<: *login_info
+        name: WWNN-Pool
+        org_dn: org-root/org-level1
+        purpose: node
+        first_addr: 20:00:00:25:B5:48:00:00
+        last_addr: 20:00:00:25:B5:48:00:0F
+      delegate_to: localhost
+
+    - name: Configure WWPN A pool
+      cisco.ucs.ucs_wwn_pool:
+        <<: *login_info
+        name: WWPN-Pool-A
+        org_dn: org-root/org-level1
+        purpose: port
+        order: sequential
+        first_addr: 20:00:00:25:B5:48:0A:00
+        last_addr: 20:00:00:25:B5:48:0A:0F
+      delegate_to: localhost
+
+    - name: Configure WWPN Bpool
+      cisco.ucs.ucs_wwn_pool:
+        <<: *login_info
+        name: WWPN-Pool-B
+        org_dn: org-root/org-level1
+        purpose: port
+        order: sequential
+        first_addr: 20:00:00:25:B5:48:0B:00
+        last_addr: 20:00:00:25:B5:48:0B:0F
+      delegate_to: localhost
+
+    - name: Remove WWNN pool
+      cisco.ucs.ucs_wwn_pool:
+        <<: *login_info
+        org_dn: org-root/org-level1
+        name: WWNN-Pool
+        state: absent
+      delegate_to: localhost
+
+    - name: Remove WWPN pool
+      cisco.ucs.ucs_wwn_pool:
+        <<: *login_info
+        name: WWPN-Pool-A
+        org_dn: org-root/org-level1
+        state: absent
+      delegate_to: localhost
+
+    - name: Remove WWPN pool
+      cisco.ucs.ucs_wwn_pool:
+        <<: *login_info
+        name: WWPN-Pool-B
+        org_dn: org-root/org-level1
+        state: absent
+      delegate_to: localhost
+
+    - name: Remove UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        state: absent
+      delegate_to: localhost

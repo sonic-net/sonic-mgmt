@@ -1,0 +1,35 @@
+---
+- name: Set TB count
+  ansible.builtin.set_fact:
+    powerflex_tb_count: "{{ groups['tb'] | length }}"
+    powerflex_tb_mdm_count: "{{ groups['mdm'] | length }}"
+
+- name: Set fact - powerflex_tb_mdm_primary_ip and powerflex_tb_mdm_secondary_ip
+  ansible.builtin.set_fact:
+    powerflex_tb_mdm_primary_ip: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }}"
+    powerflex_tb_mdm_primary_hostname: "{{ hostvars[groups['mdm'][0]]['inventory_hostname'] }}"
+    powerflex_tb_mdm_secondary_ip: "{{ hostvars[groups['mdm'][1]]['ansible_host'] }}"
+    powerflex_tb_mdm_secondary_hostname: "{{ hostvars[groups['mdm'][1]]['inventory_hostname'] }}"
+
+- name: Set fact - powerflex_tb_primary
+  ansible.builtin.set_fact:
+    powerflex_tb_primary_ip: "{{ hostvars[groups['tb'][0]]['ansible_host'] }}"
+    powerflex_tb_primary_hostname: "{{ hostvars[groups['tb'][0]]['inventory_hostname'] }}"
+
+- name: Set fact - powerflex_tb_device_management_system_ip_address
+  ansible.builtin.set_fact:
+    powerflex_tb_device_management_system_ip_address: "{{ powerflex_tb_mdm_primary_ip }}, {{ powerflex_tb_mdm_secondary_ip }}, {{ powerflex_tb_primary_ip }}"
+
+- name: Set fact - powerflex_tb_primary
+  ansible.builtin.set_fact:
+    powerflex_tb_secondary_ip: "{{ hostvars[groups['tb'][1]]['ansible_host'] }}"
+    powerflex_tb_secondary_hostname: "{{ hostvars[groups['tb'][1]]['inventory_hostname'] }}"
+    powerflex_tb_device_management_system_ip_address: "{{ powerflex_tb_device_management_system_ip_address }}, {{ powerflex_tb_secondary_ip }}"
+  when: "powerflex_tb_count | int > 1"
+
+- name: Set fact - powerflex_tb_mdm_tertiary_ip
+  ansible.builtin.set_fact:
+    powerflex_tb_mdm_tertiary_ip: "{{ hostvars[groups['tb'][2]]['ansible_host'] }}"
+    powerflex_tb_mdm_tertiary_hostname: "{{ hostvars[groups['tb'][2]]['inventory_hostname'] }}"
+    powerflex_tb_device_management_system_ip_address: "{{ powerflex_tb_device_management_system_ip_address }}, {{ powerflex_tb_mdm_tertiary_ip }}"
+  when: "powerflex_tb_mdm_count | int > 2"

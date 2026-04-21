@@ -1,0 +1,4 @@
+---
+collections:
+  - name: kubernetes.core
+    version: '>=3.0.0'

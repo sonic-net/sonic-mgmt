@@ -1,0 +1,4 @@
+minor_changes:
+ - purefa_pod - Convert to REST v2.
+ - purefa_pod - Add ``delete_contents`` parameter for eradication of pods.
+ - purefa_pod - Add support for ``throttle`` parameter from REST 2.31.

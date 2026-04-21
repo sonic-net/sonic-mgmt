@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_aggregate - Added ``disk_class`` option for REST and ZAPI.
+  - na_ontap_aggregate - Extended accepted ``disk_type`` values for ZAPI.

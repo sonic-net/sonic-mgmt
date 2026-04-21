@@ -1,0 +1,46 @@
+---
+- name: "SELinux | Debian | Install related SELinux packages"
+  ansible.builtin.package:
+    name:
+      - policycoreutils-python-utils
+    update_cache: true
+    install_recommends: "{{ zabbix_apt_install_recommends | default(_zabbix_agent_install_recommends | default(omit)) }}"
+  environment:
+    http_proxy: "{{ zabbix_http_proxy | default('') }}"
+    https_proxy: "{{ zabbix_https_proxy | default('') }}"
+  register: zabbix_agent_selinux_installed
+  until: zabbix_agent_selinux_installed is succeeded
+  become: true
+  when: ansible_facts['os_family'] == "Debian"
+  tags:
+    - install
+
+- name: "SELinux | RedHat | Install related SELinux packages"
+  ansible.builtin.package:
+    name:
+      - python3-libsemanage
+      - python3-policycoreutils
+      - zabbix-selinux-policy
+  environment:
+    http_proxy: "{{ zabbix_http_proxy | default('') }}"
+    https_proxy: "{{ zabbix_https_proxy | default('') }}"
+  register: zabbix_agent_selinux_installed
+  until: zabbix_agent_selinux_installed is succeeded
+  when: ansible_facts['os_family'] == "RedHat"
+  become: true
+  tags:
+    - install
+
+- name: "SELinux | Set booleans"
+  when: item.is_available
+  ansible.posix.seboolean:
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+    persistent: true
+  become: true
+  tags:
+    - config
+  loop:
+    - name: zabbix_run_sudo
+      state: "{{ selinux_allow_zabbix_run_sudo | bool }}"
+      is_available: "{{ ansible_facts['os_family'] in ['RedHat'] }}"

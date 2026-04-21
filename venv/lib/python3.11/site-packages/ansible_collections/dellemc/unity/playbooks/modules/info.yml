@@ -1,0 +1,220 @@
+---
+- name: Info Module Operations on Unity
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+
+  tasks:
+    - name: Get detailed list of Unity entities.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - host
+          - fc_initiator
+          - iscsi_initiator
+          - cg
+          - storage_pool
+          - vol
+          - snapshot_schedule
+          - nas_server
+          - file_system
+          - snapshot
+          - nfs_export
+          - smb_share
+          - user_quota
+          - tree_quota
+          - disk_group
+
+    - name: Get information of Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+
+    - name: Get list of Unity hosts.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - host
+
+    - name: Get list of FC initiators on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - fc_initiator
+
+    - name: Get list of ISCSI initiators on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - iscsi_initiator
+
+    - name: Get list of consistency groups on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - cg
+
+    - name: Get list of storage pools on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - storage_pool
+
+    - name: Get list of volumes on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - vol
+
+    - name: Get list of snapshot schedules on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - snapshot_schedule
+
+    - name: Get list of NAS Servers on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - nas_server
+
+    - name: Get list of File Systems on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - file_system
+
+    - name: Get list of Snapshots on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - snapshot
+
+    - name: Get list of NFS exports on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - nfs_export
+
+    - name: Get list of SMB shares on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - smb_share
+
+    - name: Get list of user quota on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - user_quota
+
+    - name: Get list of quota tree on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - tree_quota
+
+    - name: Get details of Disk Group.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - disk_group
+
+    - name: Get list of NFS Servers on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - nfs_server
+
+    - name: Get list of CIFS Servers on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - cifs_server
+
+    - name: Get list of ethernet ports on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - ethernet_port
+
+    - name: Get list of file interfaces on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - file_interface
+
+    - name: Get list of replication sessions on Unity array.
+      info:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - replication_session

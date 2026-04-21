@@ -1,0 +1,17 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.organizations_adaptive_policy_acls:
+        meraki_suppress_logging: true
+        state: present
+        description: Blocks sensitive web traffic
+        ipVersion: ipv6
+        name: Block sensitive web traffic
+        organizationId: "828099381482762270"
+        rules:
+          - dstPort: 22-30
+            policy: deny
+            protocol: tcp
+            srcPort: 1,33

@@ -1,0 +1,20 @@
+---
+- name: "Find content view versions of {{ foreman_cv.name }}"
+  theforeman.foreman.resource_info:
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    resource: content_view_versions
+    params:
+      content_view_id: "{{ foreman_cv.id }}"
+  register: __foreman_versions
+
+- name: "Delete unused content view versions of {{ foreman_cv.name }}"  # noqa: jinja[spacing]
+  ansible.builtin.include_tasks: delete_cv_versions.yml
+  vars:
+    foreman_cv_name: "{{ foreman_cv.name }}"
+    foreman_cv_versions: "{{ (__foreman_versions.resources | rejectattr('environments') | rejectattr('composite_content_view_ids') |
+      rejectattr('published_in_composite_content_view_ids') | map(attribute='version') | map('float') | sort |
+      map('string') | reverse | list)[(foreman_content_view_version_cleanup_keep | int):] }}"

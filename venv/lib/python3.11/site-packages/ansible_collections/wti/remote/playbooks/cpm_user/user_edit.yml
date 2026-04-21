@@ -1,0 +1,37 @@
+# ansible-playbook ./user_edit.yml -e ansible_hosts=nameofhost
+- name: Edit Exiting User
+  hosts: "{{ansible_hosts}}"  # pass as -e ansible_hosts=wti_demo on the commandline
+  collections:
+     - wti.remote
+  connection: local
+  gather_facts: False
+
+  vars_prompt:
+  - name: "user_name"
+    prompt: "Enter Username"
+    private: no
+  - name: "user_pass"
+    prompt: "Enter Password"
+
+  tasks:
+    - set_fact: use_https=True
+      when: use_https is undefined
+    - set_fact: validate_certs=True
+      when: validate_certs is undefined
+
+    - name: Run Edit Existing User
+      cpm_user:
+        cpm_action: "edituser"
+        cpm_url: "{{ansible_host}}"
+        cpm_username: "{{ansible_user}}"
+        cpm_password: "{{ansible_pw}}"
+        user_name: "{{user_name}}"  # pass as -e user_name=sammy on the commandline
+        user_pass: "{{user_pass}}"  # pass as -e user_pass=sammy on the commandline
+        user_accesslevel: 3
+        use_https: "{{use_https}}"
+        validate_certs: false
+
+      register: testout
+    - name: dump test output
+      debug:
+        msg: "{{ testout['data'] }}"

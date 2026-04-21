@@ -1,0 +1,4 @@
+---
+# tasks file for mongodb_repository
+- name: Include OS-specific tasks
+  include_tasks: "{{ ansible_facts.os_family }}.yml"

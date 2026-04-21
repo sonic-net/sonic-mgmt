@@ -1,0 +1,3 @@
+bugfixes:
+- Fix a bug that causes a fatal error when using `url` parameter in
+  `grafana_dashboard` and `grafana_notification_channel` modules.

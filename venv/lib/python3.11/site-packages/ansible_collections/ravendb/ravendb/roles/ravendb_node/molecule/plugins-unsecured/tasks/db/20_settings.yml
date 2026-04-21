@@ -1,0 +1,123 @@
+---
+- name: Apply settings on created DB (check mode)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    replication_factor: 1
+    state: present
+    database_settings:
+      Indexing.MapBatchSize: "128"
+  check_mode: yes
+  register: db_settings_check
+
+- name: Assert settings would apply (check-mode)
+  ansible.builtin.assert:
+    that:
+      - db_settings_check.changed
+      - "'would apply settings' in db_settings_check.msg | lower"
+      - "'indexing.mapbatchsize' in db_settings_check.msg | lower"
+
+- name: Verify DB settings not really applied
+  ansible.builtin.uri:
+    url: "{{ base_url }}/admin/databases?name={{ db_main }}"
+    method: GET
+    validate_certs: no
+  register: db_record
+
+- name: Extract db settings (pre-apply)
+  ansible.builtin.set_fact:
+    db_settings_map: >-
+      {{ db_record.json.Settings
+         | default( db_record.json.Results[0].Settings | default({}) ) }}
+
+- name: Assert key not applied yet
+  ansible.builtin.assert:
+    that:
+      - "'Indexing.MapBatchSize' not in db_settings_map"
+
+- name: Settings apply
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    replication_factor: 1
+    state: present
+    database_settings:
+      Indexing.MapBatchSize: "128"
+  register: db_settings_apply
+
+- name: Assert settings applied
+  ansible.builtin.assert:
+    that:
+      - db_settings_apply.changed
+      - "'applied settings' in db_settings_apply.msg | lower"
+      - "'indexing.mapbatchsize' in db_settings_apply.msg | lower"
+
+- name: Verify db settings applied
+  ansible.builtin.uri:
+    url: "{{ base_url }}/admin/databases?name={{ db_main }}"
+    method: GET
+    validate_certs: no
+  register: db_record
+
+- name: Extract db settings (post-apply)
+  ansible.builtin.set_fact:
+    db_settings_map: >-
+      {{ db_record.json.Settings
+         | default( db_record.json.Results[0].Settings | default({}) ) }}
+
+- name: Assert key applied (128)
+  ansible.builtin.assert:
+    that:
+      - "'Indexing.MapBatchSize' in db_settings_map"
+      - "db_settings_map['Indexing.MapBatchSize'] | string == '128'"
+
+- name: Re-run settings (idempotency)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    replication_factor: 1
+    state: present
+    database_settings:
+      Indexing.MapBatchSize: "128"
+  register: db_settings_again
+
+- name: Assert idempotent (no changes)
+  ansible.builtin.assert:
+    that:
+      - "not db_settings_again.changed"
+      - "'no changes' in db_settings_again.msg | lower"
+
+- name: Modify setting to new value
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    replication_factor: 1
+    state: present
+    database_settings:
+      Indexing.MapBatchSize: "256"
+  register: db_settings_modified
+
+- name: Assert modified
+  ansible.builtin.assert:
+    that:
+      - db_settings_modified.changed
+      - "'applied settings' in db_settings_modified.msg | lower"
+
+- name: Verify DB settings changed
+  ansible.builtin.uri:
+    url: "{{ base_url }}/admin/databases?name={{ db_main }}"
+    method: GET
+    validate_certs: no
+  register: db_record
+
+- name: Extract DB settings (post-modify)
+  ansible.builtin.set_fact:
+    db_settings_map: >-
+      {{ db_record.json.Settings
+         | default( db_record.json.Results[0].Settings | default({}) ) }}
+
+- name: Assert expected value (256)
+  ansible.builtin.assert:
+    that:
+      - "'Indexing.MapBatchSize' in db_settings_map"
+      - "db_settings_map['Indexing.MapBatchSize'] | string == '256'"

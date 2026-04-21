@@ -1,0 +1,124 @@
+---
+# Copyright: (c) 2024, Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: web_app_pool
+  short_description: Configure IIS Web Application Pools
+  description:
+    - Creates, removes and configures an IIS Web Application Pool.
+  requirements:
+    - IISAdministration PowerShell module
+  options:
+    attributes:
+      description:
+        - This field is a free form dictionary value for the application pool attributes.
+        - These attributes are based on the naming standard at
+          U(https://www.iis.net/configreference/system.applicationhost/applicationpools/add#005),
+          see the examples section for more details on how to set this.
+        - You can also set the attributes of child elements like cpu and processModel, see the examples
+          to see how it is done.
+        - While you can use the numeric values for enums it is recommended to use
+          the enum name itself, e.g., use SpecificUser instead of 3 for processModel.identityType.
+        - managedPipelineMode may be either "Integrated" or "Classic".
+        - startMode may be either "OnDemand" or "AlwaysRunning".
+        - Use O(state) to modify the state of the app pool.
+        - When trying to set C(processModel.password) and you receive a 'Value does fall within the
+          expected range' error, you have a corrupted keystore. Please follow
+          U(http://structuredsight.com/2014/10/26/im-out-of-range-youre-out-of-range/) to help fix your host.
+      type: dict
+      default: {}
+    name:
+      description:
+        - Name of the application pool.
+      type: str
+      required: true
+    state:
+      description:
+        - The state of the application pool.
+        - If V(absent) will ensure the app pool is removed.
+        - If V(present) will ensure the app pool is configured and exists.
+        - If V(restarted) will ensure the app pool exists and will restart, this is never idempotent.
+        - If V(started) will ensure the app pool exists and is started.
+        - If V(stopped) will ensure the app pool exists and is stopped.
+      type: str
+      choices: [absent, present, restarted, started, stopped]
+      default: present
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+  seealso:
+    - module: microsoft.iis.web_app_pool_info
+  author:
+    - Henrik Wallström (@henrikwallstrom)
+    - Jordan Borean (@jborean93)
+
+EXAMPLES: |
+  - name: Create a new application pool in 'Started' state
+    microsoft.iis.web_app_pool:
+      name: AppPool
+      state: started
+
+  - name: Stop an application pool
+    microsoft.iis.web_app_pool:
+      name: AppPool
+      state: stopped
+
+  - name: Restart an application pool (non-idempotent)
+    microsoft.iis.web_app_pool:
+      name: AppPool
+      state: restarted
+
+  - name: Change application pool attributes using new dict style
+    microsoft.iis.web_app_pool:
+      name: AppPool
+      attributes:
+        managedRuntimeVersion: v4.0
+        autoStart: false
+
+  - name: Creates an application pool, sets attributes and starts it
+    microsoft.iis.web_app_pool:
+      name: AnotherAppPool
+      state: started
+      attributes:
+        managedRuntimeVersion: v4.0
+        autoStart: false
+
+  - name: Creates an application pool with "No Managed Code" for .Net compatibility
+    microsoft.iis.web_app_pool:
+      name: AnotherAppPool
+      state: started
+      attributes:
+        managedRuntimeVersion: ''
+        autoStart: false
+
+  - name: Manage child element and set identity of application pool
+    microsoft.iis.web_app_pool:
+      name: IdentitiyAppPool
+      state: started
+      attributes:
+        managedPipelineMode: Classic
+        processModel.identityType: SpecificUser
+        processModel.userName: "{{ ansible_user }}"
+        processModel.password: "{{ ansible_password }}"
+        processModel.loadUserProfile: true
+
+  - name: Manage a timespan attribute
+    microsoft.iis.web_app_pool:
+      name: TimespanAppPool
+      state: started
+      attributes:
+        recycling.periodicRestart.time: "00:00:05:00.000000"
+        recycling.periodicRestart.schedule: ["00:10:00", "05:30:00"]
+        processModel.pingResponseTime: "00:03:00"
+
+# Null is needed for Galaxy/AH to not fall flat
+# https://github.com/ansible/ansible-hub-ui/blob/9b35b78f1f5c6a5ef2346d0470e431ba5f25d06b/src/components/render-plugin-doc.tsx#L226-L228
+RETURN: ~

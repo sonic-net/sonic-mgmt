@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_vrfs - Fixed spacing issue in CLI test case (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/257)

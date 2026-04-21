@@ -1,0 +1,73 @@
+---
+####################################################################
+# Example : iSCSI Target Facts Playbook
+####################################################################
+- name: Iscsi Target Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all iscsi targets
+    ####################################################################
+    - name: Get all iscsi targets
+      hitachivantara.vspone_block.vsp.hv_iscsi_target_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get iscsi targets by ports
+    ####################################################################
+    - name: Get iscsi targets by ports
+      hitachivantara.vspone_block.vsp.hv_iscsi_target_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-A", "CL1-B", "CL2-A", "CL2-B"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get iscsi targets by ports and name
+    ####################################################################
+    - name: Get iscsi targets by ports and name
+      hitachivantara.vspone_block.vsp.hv_iscsi_target_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "iscsi-target-server-1"
+          ports: ["CL1-A", "CL1-B"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get iscsi targets by iscsi Id
+    ####################################################################
+    - name: Get iscsi targets by iscsi Id
+      hitachivantara.vspone_block.vsp.hv_iscsi_target_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          iscsi_id: 14
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,2 @@
+bugfixes:
+  - URL encode issue in grafana_organization.py (method get_actual_org ) fixed.

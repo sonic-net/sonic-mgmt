@@ -1,0 +1,38 @@
+{
+ "collection_info": {
+  "namespace": "hitachivantara",
+  "name": "vspone_object",
+  "version": "1.1.1",
+  "authors": [
+   "Hitachi Vantara Ansible Team"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "hitachi",
+   "hv",
+   "hitachi_vantara",
+   "vspone_object",
+   "vsp",
+   "vsp_one",
+   "storage"
+  ],
+  "description": "Ansible modules to manage Hitachi Virtual Storage Platform One Object Storage systems using the VSP One platform. These modules provide a simplified and automated way to configure and manage VSP One Object storage systems, enabling seamless integration with Ansible playbooks and workflows.\n",
+  "license": [
+   "GPL-3.0-or-later"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/hitachi-vantara/vspone-object-ansible",
+  "documentation": "https://github.com/hitachi-vantara/vspone-object-ansible",
+  "homepage": null,
+  "issues": "https://github.com/hitachi-vantara/vspone-object-ansible/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "02608c65560f42a21d80e5e32582d3e20ad2ec07a234f5e0a8fa1bb057e5a1fc",
+  "format": 1
+ },
+ "format": 1
+}

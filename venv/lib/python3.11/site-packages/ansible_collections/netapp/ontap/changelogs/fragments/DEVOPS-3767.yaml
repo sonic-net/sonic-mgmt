@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_lun - ignore small increase (lower than provisioned) and small decrease (< 10%) in ``total_size``.
+bugfixes:
+  - na_ontap_lun - SAN application is not supported on 9.6 and only partially supported on 9.7 (no modify).

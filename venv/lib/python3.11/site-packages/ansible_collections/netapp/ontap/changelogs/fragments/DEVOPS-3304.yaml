@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_software_update - add `force_update` option to ignore current version.
+
+bugfixes:
+  - na_ontap_software_update - module is not idempotent.

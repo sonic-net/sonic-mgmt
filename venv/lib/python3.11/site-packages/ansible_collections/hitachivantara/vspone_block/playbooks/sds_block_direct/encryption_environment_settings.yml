@@ -1,0 +1,58 @@
+---
+####################################################################
+# Example : Encryption Environment Settings Playbook
+####################################################################
+- name: Encryption Environment Settings
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Enable encryption environment
+    ####################################################################
+    - name: Enable encryption environment
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_environment_settings:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          is_encryption_enabled: true
+      register: result
+
+    - name: Get encryption environment settings after enable
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_environment_setting_facts:
+        connection_info: "{{ connection_info }}"
+      register: facts_result
+
+    - name: Debug the encryption environment setting
+      ansible.builtin.debug:
+        var: facts_result.ansible_facts.encryption_environment_settings
+
+    ####################################################################
+    # Task Name : Disable encryption environment
+    ####################################################################
+    - name: Disable encryption environment
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_environment_settings:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          is_encryption_enabled: false
+      register: result
+
+    - name: Get encryption environment settings after disable
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_environment_setting_facts:
+        connection_info: "{{ connection_info }}"
+      register: facts_result
+
+    - name: Debug the encryption environment setting
+      ansible.builtin.debug:
+        var: facts_result.ansible_facts.encryption_environment_settings

@@ -1,0 +1,62 @@
+{
+ "collection_info": {
+  "namespace": "community",
+  "name": "digitalocean",
+  "version": "1.27.0",
+  "authors": [
+   "Ansible (https://github.com/ansible)",
+   "BondAnthony (https://github.com/BondAnthony)",
+   "Akasurde (https://github.com/Akasurde)",
+   "pmarques (https://github.com/pmarques)",
+   "geerlingguy (https://www.jeffgeerling.com/)",
+   "Andres Hermosilla (https://github.com/rezen)",
+   "Luis (https://github.com/lalvarezguillen)",
+   "grzs (https://github.com/grzs)",
+   "Lucas Basquerotto (https://github.com/lucasbasquerotto)",
+   "Tadej Borov\u0161ak (https://github.com/tadeboro)",
+   "Mark Mercado (https://github.com/mamercad)",
+   "Mike Pontillo (https://github.com/mpontillo)",
+   "Felix Fontein (https://github.com/felixfontein)",
+   "Andrew Starr-Bochicchio (https://github.com/andrewsomething)",
+   "Sam Pinkus (https://github.com/sgpinkus)",
+   "Luis (https://github.com/lalvarezguillen)",
+   "John R Barker (https://github.com/gundalow)",
+   "Andrew Klychkov (https://github.com/Andersson007)",
+   "Tyler Auerbeck (https://github.com/tylerauerbeck)",
+   "Angel Aviel Domaoan (https://github.com/tenshiAMD)",
+   "Max Truxa (https://github.com/maxtruxa)",
+   "Franco Posa (https://github.com/francoposa)",
+   "magicrobotmonkey (https://github.com/magicrobotmonkey)",
+   "radioactive73 (https://github.com/radioactive73)",
+   "danxg87 (https://github.com/danxg87)",
+   "Sviatoslav Sydorenko (https://github.com/webknjaz)",
+   "Vitaly Khabarov (https://github.com/vitkhab)",
+   "Onur G\u00fczel (https://github.com/onurguzel)",
+   "Shuaib Munshi (https://github.com/shuaibmunshi)",
+   "Corey Wright (https://github.com/coreywright)",
+   "Raman Babich (https://github.com/raman-babich)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "digitalocean",
+   "cloud",
+   "droplet"
+  ],
+  "description": "DigitalOcean Ansible Collection.",
+  "license": [],
+  "license_file": "COPYING",
+  "dependencies": {},
+  "repository": "https://github.com/ansible-collections/community.digitalocean",
+  "documentation": "https://docs.ansible.com/ansible/latest/collections/community/digitalocean/",
+  "homepage": "https://github.com/ansible-collections/community.digitalocean",
+  "issues": "https://github.com/ansible-collections/community.digitalocean/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "81ecc8c246ef26e984b5198f8fb34803cc056853972f2be977993d2a6ae9f7f7",
+  "format": 1
+ },
+ "format": 1
+}

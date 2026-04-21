@@ -1,0 +1,39 @@
+---
+{{ ansible_managed | comment }}
+
+#################################################################################################
+#              Configures the server of the Agent used to enable self-scraping                  #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/configuration/server-config/
+server:
+  {{ grafana_agent_server_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2) }}
+
+#################################################################################################
+#                             Configures metric collection                                      #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/configuration/metrics-config/
+metrics:
+  {{ grafana_agent_metrics_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2) }}
+
+#################################################################################################
+#                              Configures logs collection                                       #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/configuration/logs-config/
+logs:
+  {{ grafana_agent_logs_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2) }}
+
+{% if grafana_agent_mode == 'static' %}
+#################################################################################################
+#                             Configures traces collection                                      #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/configuration/traces-config/
+traces:
+  {{ grafana_agent_traces_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2) }}
+{% endif %}
+
+#################################################################################################
+#                          Configures integrations for the agent                                #
+#################################################################################################
+# Docs: https://grafana.com/docs/agent/latest/configuration/integrations/
+integrations:
+  {{ grafana_agent_integrations_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2) }}

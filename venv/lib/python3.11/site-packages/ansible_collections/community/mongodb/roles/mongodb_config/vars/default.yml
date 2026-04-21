@@ -1,0 +1,5 @@
+---
+config_port: 27019
+mongodb_user: "mongod"
+mongodb_group: "mongod"
+mongod_service: "mongod"

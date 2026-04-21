@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_vg - Fixed issue where VG QoS updates were being ignored

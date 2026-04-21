@@ -1,0 +1,30 @@
+---
+####################################################################
+# Example :  Getting information about the transfer destinations of audit log files
+####################################################################
+- name: Getting information about the transfer destinations of audit log files
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Getting information about the transfer destinations of audit log files
+    ####################################################################
+    - name: Getting information about the transfer destinations of audit log files
+      hitachivantara.vspone_block.vsp.hv_audit_log_transfer_dest_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

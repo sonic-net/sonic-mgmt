@@ -1,0 +1,48 @@
+---
+####################################################################
+# Example : External Volume facts Playbook
+####################################################################
+- name: External Volume facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all External Volume for specific ldev_id
+    ####################################################################
+    - name: Get all External Volume for specific ldev_id
+      hitachivantara.vspone_block.vsp.hv_external_volume_facts:
+        connection_info: "{{ connection_info }}"
+
+        spec:
+          external_storage_serial: "410109"
+          external_ldev_id: 1354
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get all External Volumes
+    ####################################################################
+    - name: Get all External Volumes
+      hitachivantara.vspone_block.vsp.hv_external_volume_facts:
+        connection_info: "{{ connection_info }}"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

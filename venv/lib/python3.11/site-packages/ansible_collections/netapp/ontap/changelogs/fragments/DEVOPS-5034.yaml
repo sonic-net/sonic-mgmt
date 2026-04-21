@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - na_ontap_interface - rename fails with 'inconsistency in rename action' for cluster interface with REST.
+minor_changes:
+  - na_ontap_interface - use REST when ``use_rest`` is set to ``auto``.

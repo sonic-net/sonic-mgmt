@@ -1,0 +1,34 @@
+---
+argument_specs:
+  main:
+    short_description: Role to manage installation and uninstallation Powerflex SDR
+    description:
+      - Role to manage installation and uninstallation Powerflex SDR.
+    options:
+      powerflex_common_file_install_location:
+        description:
+          - Location of installation and rpm gpg files to be installed.
+          - The required, compatible installation software package based on the operating system of the node.
+          - The files can be downloaded from the Dell Product support page for PowerFlex software.
+        type: path
+        default: /var/tmp
+      powerflex_sdr_state:
+        description:
+          - Specifies the state of SDR.
+        type: str
+        choices: ['absent', 'present']
+        default: present
+      powerflex_protection_domain_name:
+        description: The name of the protection domain to which the SDR will be added.
+        type: str
+      powerflex_storage_pool_name:
+        description: The name of the storage pool to which the device will be added.
+        type: str
+      powerflex_sdr_repl_journal_capacity_max_ratio:
+        description: Maximum capacity percentage to be allocated for journal capacity.
+        type: int
+        default: 10
+      powerflex_mdm_password:
+        required: true
+        type: str
+        description: Password for the Powerflex MDM.

@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_ds - Fix issue with SDK returning empty data for data directory services even when it does exist

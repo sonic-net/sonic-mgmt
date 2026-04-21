@@ -1,0 +1,6 @@
+release_summary: Stable release for Ansible 2.10 and beyond
+major_changes:
+- grafana_datasource ; adding additional_json_data param
+- Add changelog management for ansible 2.10 (#112)
+known_issues:
+- grafana_datasource doesn't set password correctly (#113)

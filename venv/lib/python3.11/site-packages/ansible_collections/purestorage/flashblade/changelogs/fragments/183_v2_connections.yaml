@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_connect - Resolve connection issues between two FBs that are throttling capable

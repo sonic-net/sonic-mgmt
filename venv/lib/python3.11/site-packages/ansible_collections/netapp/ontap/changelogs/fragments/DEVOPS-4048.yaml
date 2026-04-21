@@ -1,0 +1,10 @@
+---
+bugfixes:
+  - na_ontap_snapmirror - support for SSL certificate authentication for both sides when using ONTAP.
+  - na_ontap_snapmirror - fix issues where there was no wait on quiesce before aborting.
+  - na_ontap_snapmirror - fix issues where there was no wait on the relationship to end transferring.
+minor_changes:
+  - na_ontap_snapmirror - new option ``peer_options`` to define source connection parameters.
+  - na_ontap_snapmirror - new option ``transferring_time_out`` to define how long to wait for transfer to complete on create or initialize.
+  - na_ontap_snapmirror - when deleting, attempt to delete even when the relationship cannot be broken.
+  - na_ontap_snapmirror - rewrite update for REST using POST to initiate transfer.

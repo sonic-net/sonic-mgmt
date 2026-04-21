@@ -1,0 +1,2 @@
+bugfixes:
+  - purefb_connect - Fix breaking change created in purity_fb SDK 1.9.2 for deletion of array connections

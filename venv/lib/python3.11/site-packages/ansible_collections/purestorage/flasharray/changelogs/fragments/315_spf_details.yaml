@@ -1,0 +1,3 @@
+minor_changes:
+ - purefa_inventory - Add REST 2.x support and SFP details for Purity//FA 6.3.4 and higher
+ - purefa_inventory - Change response dict name to `purefa_inv` so doesn't clash with info module response dict

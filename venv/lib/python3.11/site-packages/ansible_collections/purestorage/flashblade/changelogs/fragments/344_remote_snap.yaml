@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_snap - Add support to delete/eradicate remote snapshots, including the latest replica

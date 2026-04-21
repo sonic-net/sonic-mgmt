@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_host - Fix issue with no VLAN provided when Purity//FA is a recent version.
+ - purefa_host - Fix issue with setting preferred_arrays for a host.

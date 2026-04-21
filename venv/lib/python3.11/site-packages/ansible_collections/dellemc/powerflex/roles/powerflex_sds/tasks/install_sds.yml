@@ -1,0 +1,144 @@
+---
+- name: Get configured MDM IP addresses
+  dellemc.powerflex.mdm_cluster:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    port: "{{ port }}"
+    validate_certs: "{{ validate_certs }}"
+    state: "present"
+  register: powerflex_sds_mdm_ip_result
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Set fact - PowerFlex version
+  ansible.builtin.set_fact:
+    powerflex_sds_array_version: "{{ powerflex_sds_mdm_ip_result.mdm_cluster_details.master.versionInfo[1] }}"
+
+- name: Set fact - powerflex_sds_mdm_ips
+  ansible.builtin.set_fact:
+    powerflex_sds_mdm_ips: "{{ powerflex_sds_mdm_ip_result.mdm_cluster_details.mdmAddresses | join(',') }}"
+    powerflex_sds_primary_mdm_hostname: "{{ hostvars[groups['mdm'][0]]['inventory_hostname'] }}"
+    powerflex_sds_primary_mdm_ip: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }}"
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml
+
+- name: Collect only facts about hardware
+  ansible.builtin.setup:
+    gather_subset:
+      - hardware
+
+- name: Find disks
+  ansible.builtin.set_fact:
+    disks: hostvars[inventory_hostname].ansible_devices.keys() | list
+
+- name: Use local disk variable
+  when: powerflex_sds_disks
+  ansible.builtin.set_fact:
+    disks: "{{ powerflex_sds_disks }}"
+
+- name: Generate login certificate for PowerFlex version 4.x
+  block:
+    - name: Generate login certificate using management_system_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ hostname }} --username {{ username }} --password {{ password }}
+        --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_sds_generate_login_certificate
+      changed_when: powerflex_sds_generate_login_certificate.rc == 0
+      delegate_to: "{{ powerflex_sds_primary_mdm_hostname }}"
+      when: powerflex_sds_array_version != "3"
+  rescue:
+    - name: Generate login certificate using primary_mdm_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ powerflex_sds_primary_mdm_ip }} --username {{ username }}
+        --password {{ password }} --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_sds_generate_login_certificate_mdm_ip
+      changed_when: powerflex_sds_generate_login_certificate_mdm_ip.rc == 0
+      delegate_to: "{{ powerflex_sds_primary_mdm_hostname }}"
+      when: powerflex_sds_array_version != "3"
+
+- name: Add certificate file for PowerFlex version 4.x
+  ansible.builtin.command: scli --add_certificate --certificate_file /opt/emc/scaleio/mdm/cfg/mgmt_ca.pem
+  run_once: true
+  register: powerflex_sds_add_certificate
+  changed_when: powerflex_sds_add_certificate.rc == 0
+  delegate_to: "{{ powerflex_sds_primary_mdm_hostname }}"
+  when: powerflex_sds_array_version != '3'
+
+- name: Login to MDM for PowerFlex version 4.x
+  ansible.builtin.command: scli --login --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }}
+  run_once: true
+  register: powerflex_sds_login_output
+  changed_when: powerflex_sds_login_output.rc == 0
+  delegate_to: "{{ powerflex_sds_primary_mdm_hostname }}"
+  when: powerflex_sds_array_version != "3"
+
+- name: Login to MDM for PowerFlex version below 4.x
+  ansible.builtin.command: scli --login --username {{ username }} --password {{ password }} --approve_certificate
+  run_once: true
+  register: powerflex_sds_login_output
+  changed_when: powerflex_sds_login_output.rc == 0
+  delegate_to: "{{ powerflex_sds_primary_mdm_hostname }}"
+  when: powerflex_sds_array_version == "3"
+
+- name: Create SDS
+  dellemc.powerflex.sds:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    validate_certs: "{{ validate_certs }}"
+    sds_name: "{{ inventory_hostname }}"
+    protection_domain_name: "{{ powerflex_sds_protection_domain }}"
+    sds_ip_list:
+      - ip: "{{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}"
+        role: "{{ powerflex_sds_role }}"
+    sds_ip_state: "present-in-sds"
+    state: "present"
+  register: powerflex_sds_result
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  when: powerflex_sds_fault_set is not defined
+
+- name: Add SDS with fault set for PowerFlex version 4.x
+  ansible.builtin.command:
+    scli --add_sds --management_system_ip {{ hostname }}
+    --sds_ip {{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}
+    --storage_pool_name {{ powerflex_sds_storage_pool }} --sds_name "{{ inventory_hostname }}"
+    --protection_domain_name {{ powerflex_sds_protection_domain }} --fault_set_name {{ powerflex_sds_fault_set }}
+  register: add_sds
+  changed_when: ('already in use' in add_sds.stderr) or (add_sds.rc == 0)
+  delegate_to: "{{ powerflex_sds_primary_mdm_hostname }}"
+  ignore_errors: true
+  when: powerflex_sds_fault_set is defined and powerflex_sds_array_version != "3"
+
+- name: Add SDS with fault set for PowerFlex version below 4.x
+  ansible.builtin.command:
+    scli --add_sds --mdm_ip {{ powerflex_sds_mdm_ips }}
+    --sds_ip {{ hostvars[inventory_hostname]['ansible_default_ipv4']['address'] }}
+    --storage_pool_name {{ powerflex_sds_storage_pool }} --sds_name "{{ inventory_hostname }}"
+    --protection_domain_name {{ powerflex_sds_protection_domain }} --fault_set_name {{ powerflex_sds_fault_set }}
+  register: add_sds
+  changed_when: ('already in use' in add_sds.stderr) or (add_sds.rc == 0)
+  delegate_to: "{{ powerflex_sds_primary_mdm_hostname }}"
+  ignore_errors: true
+  when: powerflex_sds_fault_set is defined and powerflex_sds_array_version == "3"
+
+- name: Add a device
+  dellemc.powerflex.device:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    validate_certs: "{{ validate_certs }}"
+    port: "{{ port }}"
+    current_pathname: "{{ disks.ansible_available_disks | join(',') }}"
+    sds_name: "{{ inventory_hostname }}"
+    media_type: "{{ powerflex_sds_device_media_type }}"
+    device_name: "{{ powerflex_sds_device_name }}"
+    storage_pool_name: "{{ powerflex_sds_storage_pool }}"
+    protection_domain_name: "{{ powerflex_sds_protection_domain }}"
+    external_acceleration_type: "{{ powerflex_sds_external_acceleration_type }}"
+    force: true
+    state: "present"
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  when: disks.ansible_available_disks | length > 0

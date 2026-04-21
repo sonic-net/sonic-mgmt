@@ -1,0 +1,3 @@
+---
+trivial:
+  - unittest - Update config requests validation (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/344).

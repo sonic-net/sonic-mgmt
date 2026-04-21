@@ -1,0 +1,118 @@
+# See: https://github.com/ansible-community/antsibull-changelog/blob/main/docs/changelog.yaml-format.md
+ancestor: null
+releases:
+  1.5.3:
+    release_date: '2024-09-30'
+    changes:
+      release-summary: |
+        1.5.3 - Update minimum ansible-core to >=2.15.0
+      documentation:
+      - Bump requires_ansible version to >=2.15.0
+  1.5.2:
+    release_date: '2024-09-26'
+    changes:
+      release_summary: |
+        1.5.2 - Bugfixes and documentation updates
+      bugfixes:
+      - win_chocolatey - task crashes if PATH contains multiple choco.exe on the target machine
+      minor_changes:
+      - Remove support for End of Life ansible-core 2.13, 2.14
+      documentation:
+      - win_chocolatey - documentation example uses environment incorrectly
+      - win_chocolatey - Add unit to timeout parameter in docs
+      - Fix documentation errors in win_chocolatey and win_chocolatey_facts
+      - Update Collection README to match new Ansible Certified Collections README Template
+  1.5.1:
+    release_date: '2023-07-10'
+    changes:
+      release_summary: |
+        1.5.1 - Bugfixes
+      bugfixes:
+      - win-chocolatey - unable to install packages if a license is already installed and chocolatey.extension is not installed
+  1.5.0:
+    release_date: '2023-06-27'
+    changes:
+      release_summary: |
+        1.5.0 - Chocolatey CLI v2 compatibility, add checksum and fact subset options, documentation fixes
+      major_changes:
+      - win_chocolatey - add options for specifying checksums
+      - win_chocolatey_facts - add filter / gather_subset option
+      minor_changes:
+      - All modules - Ensure modules are compatible with both Chocolatey CLI v2.x and v1.x
+      - win_chocolatey - Improve error messages when installation of Chocolatey CLI v2.x fails due to unmet .NET Framework 4.8 dependency on client
+      documentation:
+      - All modules - Use true/false for all booleans in module docs
+      - win_chocolatey - see_also contains references to wrong collection
+      - win_chocolatey - Improve docs around install_args and package_params
+  1.4.0:
+    release_date: '2022-12-15'
+    changes:
+      release_summary: |
+        1.4.0 - Deprecate side by side installs, bug fixes, and adding TLS options for bootstrapping.
+      major_changes:
+      - win_chocolatey - Allow users to select the TLS versions used for bootstrapping Chocolatey installation.
+      deprecated_features:
+      - win_chocolatey - Deprecate side-by-side installs.
+      bugfixes:
+      - win_chocolatey - Module fails to execute if powershell version is older than version 5.
+  1.3.1:
+    release_date: '2022-10-12'
+    changes:
+      release_summary: |
+        1.3.1 - Bugfix for an issue introduced in collection version 1.3.0
+      bugfixes:
+      - win_chocolatey - Collection version 1.3.0 fails to install packages with explicit version number and state set to present.
+  1.3.0:
+    release_date: '2022-06-28'
+    changes:
+      release_summary: |
+        1.3.0 - Add support for bootstrap_script and returning outdated packages
+      major_changes:
+      - win_chocolatey - Added bootstrap_script option to allow users to target a script URL for installing Chocolatey on clients.
+      - win_chocolatey_facts - Added outdated packages list to data returned.
+      minor_changes:
+      - All collection modules - assorted style/linting fixes in documentation and scripts.
+  1.2.0:
+    release_date: '2022-02-09'
+    changes:
+      release_summary: |
+        1.2.0 - Bugfixes, support for choco_args and state: upgrade
+      major_changes:
+      - win_chocolatey - Added choco_args option to pass additional arguments directly to Chocolatey.
+      minor_changes:
+      - 'win_chocolatey - Added state: upgrade as an alias for state: latest.'
+      - win_chocolatey - Improved automatic URL handling for getting the install.ps1 script from a custom source URL.
+      - 'win_chocolatey - Removed warning for installing Chocolatey if when specifically installing it with `name: chocolatey`.'
+      - win_chocolatey - Improved handling of Chocolatey bootstrapping installation script.
+      - All modules - Ported away from the Ansible.Legacy format, using Ansible.Basic.Module instead.
+  1.1.0:
+    release_date: '2021-04-05'
+    changes:
+      release_summary: |
+        1.1.0 - Bugfixes, behaviour reworks, support for --remove-dependencies
+      minor_changes:
+      - win_chocolatey - Support for removing dependencies added with remove_dependencies option.
+      bugfixes:
+      - win_chocolatey - Module can now handle uninstallation correctly for both side-by-side and normal package installations.
+      - All modules - Added fallback to default choco install path for auxiliary modules to workaround issue in OpenSSH library under Windows. (https://github.com/PowerShell/Win32-OpenSSH#1329)
+  1.0.0:
+    release_date: '2020-03-30'
+    changes:
+      release_summary: |
+        Initial Release
+    modules:
+      - name: win_chocolatey
+        description: Manage packages using chocolatey
+        namespace: ''
+      - name: win_chocolatey_config
+        description: Manages Chocolatey config settings
+        namespace: ''
+      - name: win_chocolatey_facts
+        description: Create a facts collection for Chocolatey
+        namespace: ''
+      - name: win_chocolatey_feature
+        description: Manages Chocolatey features
+        namespace: ''
+      - name: win_chocolatey_source
+        description: Manages Chocolatey sources
+        namespace: ''

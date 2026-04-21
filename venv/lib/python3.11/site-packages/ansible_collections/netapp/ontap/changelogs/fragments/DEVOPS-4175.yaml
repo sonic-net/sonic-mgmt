@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_svm - new REST options of svm admin_state ``stopped`` and ``running`` added.

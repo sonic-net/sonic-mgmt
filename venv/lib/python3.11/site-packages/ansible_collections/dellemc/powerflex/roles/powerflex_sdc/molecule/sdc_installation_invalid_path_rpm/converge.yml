@@ -1,0 +1,54 @@
+---
+- name: Converge
+  hosts: sdc
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: "Install and configure powerflex SDC with no rpm"
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      vars:
+        powerflex_common_file_install_location: "/opt/empty"
+        powerflex_sdc_state: present
+      register: powerflex_sdc_result_molecule
+      ignore_errors: true
+
+    - name: "Verifying failure of install package with respect to no rpm file"
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_package_file.files | length == 0
+
+    - name: "Install and configure powerflex SDC with wrong file path"
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      vars:
+        powerflex_common_file_install_location: "/opt/aaab"
+        powerflex_sdc_state: present
+      register: powerflex_sdc_result_molecule
+      ignore_errors: true
+
+    - name: "Verifying failure of install package with wrong file path"
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_package_file.files | length == 0
+
+    - name: "Install and configure powerflex SDC with wrong rpm version"
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      vars:
+        powerflex_common_file_install_location: "/opt/wrong_rpm"
+        powerflex_sdc_state: present
+      ignore_errors: true
+      register: powerflex_sdc_wrong_rpm_version
+
+    - name: "Verifying failure of install package with wrong rpm version"
+      ansible.builtin.assert:
+        that:
+          - " 'Depsolve Error occurred: ' in powerflex_common_install_package_output.msg"
+
+    - name: "Uninstall powerflex SDC"
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      vars:
+        powerflex_sdc_state: absent

@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_security_key_manager - indicate that ``node`` is not used and is deprecated.
+bugfixes:
+  - na_ontap_security_key_manager - fix KeyError on ``node``.

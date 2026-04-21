@@ -1,0 +1,66 @@
+[environment:default]
+OVEHOSTED_CORE/screenProceed=bool:True
+OVEHOSTED_CORE/deployProceed=bool:True
+OVEHOSTED_CORE/confirmSettings=bool:True
+OVEHOSTED_NETWORK/fqdn=str:{{ he_fqdn }}
+OVEHOSTED_NETWORK/bridgeName=str:{{ he_mgmt_network }}
+OVEHOSTED_NETWORK/firewallManager=str:iptables
+OVEHOSTED_NETWORK/gateway=str:{{ he_gateway }}
+OVEHOSTED_ENGINE/clusterName=str:{{ he_cluster }}
+{# TODO: FIX #}
+OVEHOSTED_STORAGE/storageDatacenterName=str:hosted_datacenter
+OVEHOSTED_STORAGE/domainType=str:{{ he_domain_type }}
+{# TODO: FIX #}
+OVEHOSTED_STORAGE/connectionUUID=str:e29cf818-5ee5-46e1-85c1-8aeefa33e95d
+OVEHOSTED_STORAGE/LunID={{ 'str' if he_lun_id else 'none' }}:{{ he_lun_id if he_lun_id else 'None' }}
+OVEHOSTED_STORAGE/imgSizeGB=str:{{ he_disk_size_GB }}
+OVEHOSTED_STORAGE/mntOptions={{ 'str' if he_mount_options else 'none' }}:{{ he_mount_options if he_mount_options else 'None' }}
+OVEHOSTED_STORAGE/iSCSIPortalIPAddress={{ 'str' if he_iscsi_portal_addr else 'none' }}:{{ he_iscsi_portal_addr if he_iscsi_portal_addr else 'None' }}
+OVEHOSTED_STORAGE/metadataVolumeUUID=str:{{ he_metadata_disk_details.disk.image_id }}
+OVEHOSTED_STORAGE/sdUUID=str:{{ storage_domain_details.ovirt_storage_domains[0].id }}
+OVEHOSTED_STORAGE/iSCSITargetName={{ 'str' if he_iscsi_target else 'none' }}:{{ he_iscsi_target if he_iscsi_target else 'None' }}
+OVEHOSTED_STORAGE/metadataImageUUID=str:{{ he_metadata_disk_details.disk.id }}
+OVEHOSTED_STORAGE/lockspaceVolumeUUID=str:{{ he_sanlock_disk_details.disk.image_id }}
+OVEHOSTED_STORAGE/iSCSIPortalPort={{ 'str' if he_iscsi_portal_port else 'none' }}:{{ he_iscsi_portal_port if he_iscsi_portal_port else 'None' }}
+OVEHOSTED_STORAGE/imgUUID=str:{{ he_virtio_disk_details.disk.id }}
+OVEHOSTED_STORAGE/confImageUUID=str:{{ he_conf_disk_details.disk.id }}
+OVEHOSTED_STORAGE/spUUID=str:00000000-0000-0000-0000-000000000000
+OVEHOSTED_STORAGE/lockspaceImageUUID=str:{{ he_sanlock_disk_details.disk.id }}
+{# TODO: FIX #}
+OVEHOSTED_ENGINE/enableHcGlusterService=none:None
+OVEHOSTED_STORAGE/storageDomainName=str:{{ he_storage_domain_name }}
+OVEHOSTED_STORAGE/iSCSIPortal={{ 'str' if he_iscsi_tpgt else 'none' }}:{{ he_iscsi_tpgt if he_iscsi_tpgt else 'None' }}
+OVEHOSTED_STORAGE/volUUID=str:{{ he_virtio_disk_details.disk.image_id }}
+{# TODO: FIX #}
+OVEHOSTED_STORAGE/vgUUID=none:None
+OVEHOSTED_STORAGE/confVolUUID=str:{{ he_conf_disk_details.disk.image_id }}
+{% if he_domain_type=="nfs" or he_domain_type=="glusterfs" %}
+OVEHOSTED_STORAGE/storageDomainConnection=str:{{ he_storage_domain_addr }}:{{ he_storage_domain_path }}
+{% else %}
+OVEHOSTED_STORAGE/storageDomainConnection=str:{{ he_storage_domain_addr }}
+{% endif %}
+OVEHOSTED_STORAGE/iSCSIPortalUser={{ 'str' if he_iscsi_username else 'none' }}:{{ he_iscsi_username if he_iscsi_username else 'None' }}
+{# TODO: fix it #}
+OVEHOSTED_VDSM/consoleType=str:vnc
+OVEHOSTED_VM/vmMemSizeMB=int:{{ he_mem_size_MB }}
+OVEHOSTED_VM/vmUUID=str:{{ he_vm_details.vm.id }}
+OVEHOSTED_VM/vmMACAddr=str:{{ he_vm_mac_addr }}
+OVEHOSTED_VM/emulatedMachine=str:{{ he_emulated_machine }}
+OVEHOSTED_VM/vmVCpus=str:{{ he_vcpus }}
+OVEHOSTED_VM/ovfArchive=str:{{ he_appliance_ova }}
+OVEHOSTED_VM/vmCDRom=none:None
+OVEHOSTED_VM/automateVMShutdown=bool:True
+OVEHOSTED_VM/cloudInitISO=str:generate
+OVEHOSTED_VM/cloudinitInstanceDomainName={{ 'str' if he_cloud_init_domain_name else 'none' }}:{{ he_cloud_init_domain_name if he_cloud_init_domain_name else 'None' }}
+OVEHOSTED_VM/cloudinitInstanceHostName={{ 'str' if he_cloud_init_host_name else 'none' }}:{{ he_cloud_init_host_name if he_cloud_init_host_name else 'None' }}
+OVEHOSTED_VM/rootSshPubkey={{ 'str' if he_root_ssh_pubkey else 'none' }}:{{ he_root_ssh_pubkey if he_root_ssh_pubkey else 'None' }}
+OVEHOSTED_VM/cloudinitExecuteEngineSetup=bool:True
+OVEHOSTED_VM/cloudinitVMStaticCIDR={{ 'str' if he_vm_ip_addr is not none else 'none' }}:{{ he_vm_ip_addr if he_vm_ip_addr is not none else 'None' }}
+OVEHOSTED_VM/cloudinitVMTZ={{ 'str' if he_time_zone else 'none' }}:{{ he_time_zone if he_time_zone else 'None' }}
+OVEHOSTED_VM/rootSshAccess=str:yes
+OVEHOSTED_VM/cloudinitVMETCHOSTS=bool:{{ he_vm_etc_hosts }}
+OVEHOSTED_VM/cloudinitVMDNS={{ 'str' if he_dns_addr else 'none' }}:{{ he_dns_addr if he_dns_addr else 'None' }}
+OVEHOSTED_NOTIF/smtpPort=str:{{ he_smtp_port }}
+OVEHOSTED_NOTIF/smtpServer=str:{{ he_smtp_server }}
+OVEHOSTED_NOTIF/sourceEmail=str:{{ he_source_email }}
+OVEHOSTED_NOTIF/destEmail=str:{{ he_dest_email }}

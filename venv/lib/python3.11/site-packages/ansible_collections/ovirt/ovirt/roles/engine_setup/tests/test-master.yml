@@ -1,0 +1,8 @@
+---
+- name: Import containers-deploy.yml
+  import_playbook: containers-deploy.yml
+- name: Import engine-deploy.yml
+  import_playbook: engine-deploy.yml
+  vars:
+    ovirt_engine_setup_version: "4.5"
+    ovirt_release_rpm: "http://plain.resources.ovirt.org/pub/yum-repo/ovirt-release-master.rpm"

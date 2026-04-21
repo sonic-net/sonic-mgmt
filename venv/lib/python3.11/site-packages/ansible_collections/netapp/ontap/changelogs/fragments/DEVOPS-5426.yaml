@@ -1,0 +1,32 @@
+---
+minor_changes:
+  - All REST GET's up to and including 9.11.1 that do not require a UUID/KEY to be past in are now supported
+  - na_ontap_rest_info - support added for cluster.
+  - na_ontap_rest_info - support added for cluster/counter/tables.
+  - na_ontap_rest_info - support added for cluster/licensing/capacity-pools.
+  - na_ontap_rest_info - support added for cluster/licensing/license-managers.
+  - na_ontap_rest_info - support added for cluster/metrocluster/svms.
+  - na_ontap_rest_info - support added for cluster/sensors.
+  - na_ontap_rest_info - support added for name-services/cache/group-membership/settings.
+  - na_ontap_rest_info - support added for name-services/cache/host/settings.
+  - na_ontap_rest_info - support added for name-services/cache/netgroup/settings.
+  - na_ontap_rest_info - support added for name-services/cache/setting.
+  - na_ontap_rest_info - support added for name-services/cache/unix-group/settings.
+  - na_ontap_rest_info - support added for name-services/ldap-schemas.
+  - na_ontap_rest_info - support added for network/fc/fabrics.
+  - na_ontap_rest_info - support added for network/fc/interfaces.
+  - na_ontap_rest_info - support added for network/fc/interfaces.
+  - na_ontap_rest_info - support added for network/ip/subnets.
+  - na_ontap_rest_info - support added for protocols/cifs/connections.
+  - na_ontap_rest_info - support added for protocols/cifs/netbios.
+  - na_ontap_rest_info - support added for protocols/cifs/session/files.
+  - na_ontap_rest_info - support added for protocols/cifs/shadow-copies.
+  - na_ontap_rest_info - support added for protocols/cifs/shadowcopy-sets.
+  - na_ontap_rest_info - support added for protocols/nfs/connected-client-maps.
+  - na_ontap_rest_info - support added for security.
+  - na_ontap_rest_info - support added for security/multi-admin-verify.
+  - na_ontap_rest_info - support added for security/multi-admin-verify/approval-groups.
+  - na_ontap_rest_info - support added for security/multi-admin-verify/requests.
+  - na_ontap_rest_info - support added for security/multi-admin-verify/rules.
+  - na_ontap_rest_info - support added for storage/file/moves.
+  - na_ontap_rest_info - support added for storage/pools.

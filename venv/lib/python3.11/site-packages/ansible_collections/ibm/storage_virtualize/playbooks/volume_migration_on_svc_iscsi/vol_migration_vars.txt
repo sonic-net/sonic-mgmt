@@ -1,0 +1,33 @@
+src_cluster_name: Master
+src_cluster_ip: x.x.x.x
+src_cluster_username: src_username
+src_cluster_password: src_password
+
+dest_cluster_name: Aux_far
+dest_cluster_ip: y.y.y.y
+dest_cluster_username: dest_username
+dest_cluster_password: dest_password
+dest_cluster_pool_name: mdiskgrp0
+
+application_host_ip: a.b.c.d
+application_host_username: host_username
+application_host_iqn: "iqn.1111-11.com.redhat:1a11a1111a11"
+
+application_iscsi_ip:
+    - node_name: node1
+      portset: portset0
+      ip_address: p.p.p.p
+      subnet_prefix: 24
+      gateway: p.p.p.1
+      port: 6
+    - node_name: node2
+      portset: portset0
+      ip_address: q.q.q.q
+      subnet_prefix: 24
+      gateway: q.q.q.1
+      port: 6
+
+src_vol_name: vdisk_application1
+host_name: linux_host
+dest_vol_name: vdisk_application1
+rel_name: r1

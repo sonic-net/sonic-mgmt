@@ -1,0 +1,178 @@
+---
+requires_ansible: '>=2.17.0'
+plugin_routing:
+  modules:
+    aaa:
+      redirect: dellemc.enterprise_sonic.sonic_aaa
+    acl_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_acl_interfaces
+    api:
+      redirect: dellemc.enterprise_sonic.sonic_api
+    ars:
+      redirect: dellemc.enterprise_sonic.sonic_ars
+    bfd:
+      redirect: dellemc.enterprise_sonic.sonic_bfd
+    bgp:
+      redirect: dellemc.enterprise_sonic.sonic_bgp
+    bgp_af:
+      redirect: dellemc.enterprise_sonic.sonic_bgp_af
+    bgp_as_paths:
+      redirect: dellemc.enterprise_sonic.sonic_bgp_as_paths
+    bgp_communities:
+      redirect: dellemc.enterprise_sonic.sonic_bgp_communities
+    bgp_ext_communities:
+      redirect: dellemc.enterprise_sonic.sonic_bgp_ext_communities
+    bgp_neighbors:
+      redirect: dellemc.enterprise_sonic.sonic_bgp_neighbors
+    bgp_neighbors_af:
+      redirect: dellemc.enterprise_sonic.sonic_bgp_neighbors_af
+    br_l2pt:
+      redirect: dellemc.enterprise_sonic.sonic_br_l2pt
+    command:
+      redirect: dellemc.enterprise_sonic.sonic_command
+    config:
+      redirect: dellemc.enterprise_sonic.sonic_config
+    copp:
+      redirect: dellemc.enterprise_sonic.sonic_copp
+    dcbx:
+      redirect: dellemc.enterprise_sonic.sonic_dcbx
+    dhcp_relay:
+      redirect: dellemc.enterprise_sonic.sonic_dhcp_relay
+    dhcp_snooping:
+      redirect: dellemc.enterprise_sonic.sonic_dhcp_snooping
+    drop_counter:
+      redirect: dellemc.enterprise_sonic.sonic_drop_counter
+    ecmp_load_share:
+      redirect: dellemc.enterprise_sonic.sonic_ecmp_load_share
+    evpn_esi_multihome:
+      redirect: dellemc.enterprise_sonic.sonic_evpn_esi_multihome
+    facts:
+      redirect: dellemc.enterprise_sonic.sonic_facts
+    fbs_classifiers:
+      redirect: dellemc.enterprise_sonic.sonic_fbs_classifiers
+    fbs_groups:
+      redirect: dellemc.enterprise_sonic.sonic_fbs_groups
+    fbs_policies:
+      redirect: dellemc.enterprise_sonic.sonic_fbs_policies
+    fips:
+      redirect: dellemc.enterprise_sonic.sonic_fips
+    image_management:
+      redirect: dellemc.enterprise_sonic.sonic_image_management
+    interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_interfaces
+    ip_neighbor:
+      redirect: dellemc.enterprise_sonic.sonic_ip_neighbor
+    ip_neighbor_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_ip_neighbor_interfaces
+    ipv6_router_advertisement:
+      redirect: dellemc.enterprise_sonic.sonic_ipv6_router_advertisement
+    l2_acls:
+      redirect: dellemc.enterprise_sonic.sonic_l2_acls
+    l2_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_l2_interfaces
+    l3_acls:
+      redirect: dellemc.enterprise_sonic.sonic_l3_acls
+    l3_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_l3_interfaces
+    lag_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_lag_interfaces
+    ldap:
+      redirect: dellemc.enterprise_sonic.sonic_ldap
+    lldp_global:
+      redirect: dellemc.enterprise_sonic.sonic_lldp_global
+    lldp_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_lldp_interfaces
+    logging:
+      redirect: dellemc.enterprise_sonic.sonic_logging
+    login_lockout:
+      redirect: dellemc.enterprise_sonic.sonic_login_lockout
+    lst:
+      redirect: dellemc.enterprise_sonic.sonic_lst
+    mac:
+      redirect: dellemc.enterprise_sonic.sonic_mac
+    mclag:
+      redirect: dellemc.enterprise_sonic.sonic_mclag
+    mgmt_servers:
+      redirect: dellemc.enterprise_sonic.sonic_mgmt_servers
+    mirroring:
+      redirect: dellemc.enterprise_sonic.sonic_mirroring
+    network_policy:
+      redirect: dellemc.enterprise_sonic.sonic_network_policy
+    ntp:
+      redirect: dellemc.enterprise_sonic.sonic_ntp
+    ospf_area:
+      redirect: dellemc.enterprise_sonic.sonic_ospf_area
+    ospfv2:
+      redirect: dellemc.enterprise_sonic.sonic_ospfv2
+    ospfv2_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_ospfv2_interfaces
+    ospfv3:
+      redirect: dellemc.enterprise_sonic.sonic_ospfv3
+    ospfv3_area:
+      redirect: dellemc.enterprise_sonic.sonic_ospfv3_area
+    ospfv3_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_ospfv3_interfaces
+    pim_global:
+      redirect: dellemc.enterprise_sonic.sonic_pim_global
+    pim_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_pim_interfaces
+    pki:
+      redirect: dellemc.enterprise_sonic.sonic_pki
+    pms:
+      redirect: dellemc.enterprise_sonic.sonic_pms
+    poe:
+      redirect: dellemc.enterprise_sonic.sonic_poe
+    port_breakout:
+      redirect: dellemc.enterprise_sonic.sonic_port_breakout
+    port_group:
+      redirect: dellemc.enterprise_sonic.sonic_port_group
+    prefix_lists:
+      redirect: dellemc.enterprise_sonic.sonic_prefix_lists
+    ptp_port_ds:
+      redirect: dellemc.enterprise_sonic.sonic_ptp_port_ds
+    ptp_default_ds:
+      redirect: dellemc.enterprise_sonic.sonic_ptp_default_ds
+    qos_buffer:
+      redirect: dellemc.enterprise_sonic.sonic_qos_buffer
+    qos_interfaces:
+      redirect: dellemc.enterprise_sonic.sonic_qos_interfaces
+    qos_maps:
+      redirect: dellemc.enterprise_sonic.sonic_qos_maps
+    qos_pfc:
+      redirect: dellemc.enterprise_sonic.sonic_qos_pfc
+    qos_scheduler:
+      redirect: dellemc.enterprise_sonic.sonic_qos_scheduler
+    qos_wred:
+      redirect: dellemc.enterprise_sonic.sonic_qos_wred
+    radius_server:
+      redirect: dellemc.enterprise_sonic.sonic_radius_server
+    roce:
+      redirect: dellemc.enterprise_sonic.sonic_roce
+    route_maps:
+      redirect: dellemc.enterprise_sonic.sonic_route_maps
+    sflow:
+      redirect: dellemc.enterprise_sonic.sonic_sflow
+    ssh:
+      redirect: dellemc.enterprise_sonic.sonic_ssh
+    ssh_server:
+      redirect: dellemc.enterprise_sonic.sonic_ssh_server
+    static_routes:
+      redirect: dellemc.enterprise_sonic.sonic_static_routes
+    stp:
+      redirect: dellemc.enterprise_sonic.sonic_stp
+    system:
+      redirect: dellemc.enterprise_sonic.sonic_system
+    tacacs_server:
+      redirect: dellemc.enterprise_sonic.sonic_tacacs_server
+    users:
+      redirect: dellemc.enterprise_sonic.sonic_users
+    vlan_mapping:
+      redirect: dellemc.enterprise_sonic.sonic_vlan_mapping
+    vlans:
+      redirect: dellemc.enterprise_sonic.sonic_vlans
+    vrfs:
+      redirect: dellemc.enterprise_sonic.sonic_vrfs
+    vrrp:
+      redirect: dellemc.enterprise_sonic.sonic_vrrp
+    vxlans:
+      redirect: dellemc.enterprise_sonic.sonic_vxlans

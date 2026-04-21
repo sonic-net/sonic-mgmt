@@ -1,0 +1,17 @@
+---
+# handlers file for alloy
+- name: Restart alloy
+  listen: "restart alloy"
+  ansible.builtin.systemd:
+    daemon_reload: true
+    name: alloy.service
+    state: restarted
+    enabled: true
+  when: not ansible_check_mode
+
+- name: Restart alloy macos
+  listen: "restart alloy macos"
+  ansible.builtin.command: "brew services restart {{ __alloy_brew_package }}"
+  when:
+    - not ansible_check_mode
+    - ansible_facts['os_family'] == 'Darwin'

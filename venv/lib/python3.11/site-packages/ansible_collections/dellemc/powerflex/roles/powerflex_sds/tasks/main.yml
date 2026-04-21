@@ -1,0 +1,8 @@
+---
+- name: Install SDS
+  ansible.builtin.include_tasks: install_sds.yml
+  when: powerflex_sds_state == 'present'
+
+- name: Remove SDS
+  ansible.builtin.include_tasks: uninstall_sds.yml
+  when: powerflex_sds_state == 'absent'

@@ -1,0 +1,5 @@
+minor_changes:
+  - na_cloudmanager_connector_aws - make the module idempotent for create and delete.
+  - na_cloudmanager_connector_aws - automatically fetch client_id and instance_id for delete.
+  - na_cloudmanager_connector_aws - report client_id and instance_id if connector already exists.
+  - na_cloudmanager_info - new subsets - account_info, agents_info, active_agents_info

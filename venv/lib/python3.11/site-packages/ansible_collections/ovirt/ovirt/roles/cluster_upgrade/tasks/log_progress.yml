@@ -1,0 +1,41 @@
+---
+# vars:
+#  progress: % complete
+#  cluster_name: (if available) what cluster is being worked on
+#  host_name: (if avaiable) what host in the cluster is being worked on
+#  description: what part of the process is actually done
+
+- name: Log process block
+  block:
+    - name: Log progress as an event
+      vars:
+        message:
+          - "Cluster upgrade progress: {{ progress }}%"
+          - "{{ ', Cluster: ' + cluster_name if (cluster_name is defined and cluster_name) else '' }}"
+          - "{{ ', Host: ' + host_name if (host_name is defined and host_name) else '' }}"
+          - " [{{ description }}]"
+      ovirt.ovirt.ovirt_event:
+        auth: "{{ ovirt_auth }}"
+        state: present
+        severity: normal
+        custom_id: "{{ 2147483647 | random | int }}"
+        origin: "cluster_upgrade"
+        description: "{{ message | join('') }}"
+        cluster: "{{ cluster_id | default(omit) }}"
+
+    - name: Update the upgrade progress on the cluster
+      no_log: false
+      ansible.builtin.uri:
+        url: "{{ ovirt_auth.url }}/clusters/{{ cluster_id }}/upgrade"
+        method: POST
+        body_format: json
+        validate_certs: false
+        headers:
+          Authorization: "Bearer {{ ovirt_auth.token }}"
+          Correlation-Id: "{{ engine_correlation_id | default(omit) }}"
+        body:
+          upgrade_action: update_progress
+          upgrade_percent_complete: "{{ progress }}"
+      when:
+        - api_gt45 is defined and api_gt45
+        - upgrade_set is defined

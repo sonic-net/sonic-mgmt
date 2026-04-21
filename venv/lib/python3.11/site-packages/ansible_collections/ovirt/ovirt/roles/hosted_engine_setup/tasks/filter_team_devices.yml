@@ -1,0 +1,33 @@
+---
+- name: Collect interface types
+  ansible.builtin.shell: set -euo pipefail && nmcli -g GENERAL.TYPE device show {{ nic }}
+  with_items:
+    - "{{ host_net }}"
+  loop_control:
+    loop_var: nic
+  changed_when: true
+  register: interface_types
+- name: Check for Team devices
+  ansible.builtin.set_fact:
+    is_team: "{{ nic_if.stdout.find('team') > 0 }}"
+  when: nic_if.stdout.find('team') != -1
+  with_items:
+    - "{{ interface_types.results }}"
+  loop_control:
+    loop_var: nic_if
+  register: team_list
+- name: Get list of Team devices
+  ansible.builtin.set_fact:
+    team_if: "{{  team_list.results | reject('skipped') | map(attribute='nic_if.nic') | list }}"
+- name: Collect Team devices
+  ansible.builtin.set_fact:
+    team_if: "{{  team_list.results | reject('skipped') | map(attribute='nic_if.nic') | list }}"
+- name: Filter team devices
+  ansible.builtin.set_fact:
+    team_if_diff: "{{ host_net | difference(team_if) }}"
+- name: Fail if only team devices are available
+  ansible.builtin.fail:
+    msg: >-
+      Only Team devices {{ team_if | join(', ') }} are present.
+      Teaming is unsupported.
+  when: (team_if_diff | length == 0)

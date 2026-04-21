@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_interface - fix error where an ``address`` with an IPV6 ip would try to modify each time playbook was run.

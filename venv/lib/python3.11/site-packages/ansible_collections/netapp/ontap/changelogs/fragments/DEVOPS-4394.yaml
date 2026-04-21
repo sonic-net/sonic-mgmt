@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_security_certificates - ``intermediate_certificates`` option was ignored.
+  - four modules (mediator, metrocluster, security_certificates, wwpn_alias) would report a None error when REST is not available.

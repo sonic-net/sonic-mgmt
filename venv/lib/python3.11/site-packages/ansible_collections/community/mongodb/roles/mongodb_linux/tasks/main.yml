@@ -1,0 +1,230 @@
+---
+# tasks file for mongodb_linux
+
+- name: Include OS-specific vars
+  include_vars:
+    file: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      paths:
+        - "vars"
+      files:
+        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_version }}.yml"
+        - "{{ ansible_facts.os_family }}-{{ ansible_facts.distribution_major_version }}.yml"
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - default.yml
+  tags:
+    - "vars"
+
+- name: "Override variables from OS-specific configuration"
+  set_fact:
+    ntp_package: "{{ mongodb_ntp_package | default(ntp_package, true) }}"
+    ntp_service: "{{ mongodb_ntp_service | default(ntp_service, true) }}"
+    gnu_c_lib: "{{ mongodb_gnu_c_lib | default(gnu_c_lib, true) }}"
+
+- name: See if we are in docker
+  when:
+    - "ansible_facts.virtualization_role == 'guest'"
+    - not in_docker # defined in vars
+  block:
+    - name: Check if we are in docker (based on /.dockerenv file)
+      stat:
+        path: /.dockerenv
+      register: dockerenv_file
+      tags:
+        - "ci"
+    - name: Update in_docker var
+      set_fact:
+        in_docker: "{{ dockerenv_file.stat.exists }}"
+      tags:
+        - "ci"
+
+
+# Tasks based on: https://docs.mongodb.com/manual/administration/production-notes/
+
+- name: Set swappiness
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "{{ swappiness }}"
+    state: present
+  tags:
+    - "linux"
+    - "setup"
+
+- name: Ensure ntp service is installed
+  package:
+    name: "{{ ntp_package }}"
+    state: present
+  register: _pkg
+  until: _pkg is succeeded
+  retries: 5
+  tags:
+    - "linux"
+    - "setup"
+    - "pkg"
+
+- name: Update perms on chrony pid dir on RedHat 8+
+  file:
+    path: /run/chrony/
+    owner: root
+    group: root
+    state: directory
+  when:
+    - ansible_facts.os_family == "RedHat"
+    - ansible_facts.distribution_major_version|int >= 8
+  tags:
+    - "linux"
+    - "setup"
+    - "redhat"
+
+- name: Ensure override directory exists for systemd-timesyncd.service
+  file:
+    path: /lib/systemd/system/systemd-timesyncd.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: 
+    - ansible_facts.distribution == "Debian"
+
+- name: Create override.conf to disable ConditionVirtualization for systemd-timesyncd.service
+  copy:
+    dest: /lib/systemd/system/systemd-timesyncd.service.d/override.conf
+    content: |
+      [Unit]
+      ConditionVirtualization=
+    owner: root
+    group: root
+    mode: '0644'
+  when: 
+    - ansible_facts.distribution == "Debian"
+  register: timesync
+
+- name: Reload systemd manager configuration
+  command: systemctl daemon-reload
+  changed_when: false  
+  when: timesync.changed
+
+- name: Ensure ntp service is configured
+  service:
+    name: "{{ ntp_service }}"
+    state: started
+    enabled: yes
+  tags:
+    - "linux"
+    - "setup"
+    - "service"
+
+- name: Ensure GNU C Library is the latest
+  package:
+    name: "{{ gnu_c_lib }}"
+    state: latest
+  register: _pkg
+  until: _pkg is succeeded
+  retries: 5
+  tags:
+    - "linux"
+    - "setup"
+    - "pkg"
+
+- name: Ensure NUMA zone reclaim is disabled
+  ansible.posix.sysctl:
+    name: vm.zone_reclaim_mode
+    value: "0"
+    state: present
+    reload: yes
+  when: not in_docker|bool
+  tags:
+    - "linux"
+    - "setup"
+
+# https://docs.mongodb.com/manual/tutorial/transparent-huge-pages/
+- name: Ensure manage-transparent-huge-pages service exists
+  copy:
+    src: "{{ mongodb_enable_thp | ternary('thp-enable.service', 'thp-disable.service') }}"
+    dest: /etc/systemd/system/manage-transparent-huge-pages.service
+    owner: root
+    group: root
+  register: thp
+  tags:
+    - "linux"
+    - "setup"
+
+- name: Reload systemd
+  systemd:
+    daemon_reexec: yes
+  when: thp is changed
+  tags:
+    - "linux"
+    - "setup"
+    - "service"
+
+- name: Check if transparent_hugepage is enabled in the kernel
+  stat:
+    path: /sys/kernel/mm/transparent_hugepage
+  register: sys_thp
+
+- name: Enable manage-transparent-huge-pages service
+  service:
+    name: manage-transparent-huge-pages
+    state: started
+    enabled: yes
+  when: thp.changed
+  tags:
+    - "linux"
+    - "service"
+    - "setup"
+
+# Tasks based on: https://docs.mongodb.com/manual/reference/ulimit/
+
+- name: Set pam limits (nproc and nofile)
+  community.general.pam_limits:
+    domain: "{{ item[0] }}"
+    limit_type: "{{ item[1] }}"
+    limit_item: "{{ item[2] }}"
+    value: "{{ item[3] }}"
+  with_nested:
+    - ["root", "mongodb"]
+    - ["hard", "soft"]
+    - ["nproc", "nofile"]
+    - ["{{ nproc_and_nofile_limit }}"]
+  tags:
+    - "linux"
+    - "setup"
+
+- name: Set pam limits (memlock)
+  community.general.pam_limits:
+    domain: "{{ item[0] }}"
+    limit_type: "{{ item[1] }}"
+    limit_item: "{{ item[2] }}"
+    value: "{{ item[3] }}"
+  with_nested:
+    - ["root", "mongodb"]
+    - ["hard", "soft"]
+    - ["memlock"]
+    - ["{{ memlock_limit }}"]
+  tags:
+    - "linux"
+    - "setup"
+
+# Other tuning settings
+
+- name: Set sysctl values
+  ansible.posix.sysctl:
+    name: "{{ item['name'] }}"
+    value: "{{ item['value'] }}"
+    state: present
+  loop:
+    # TODO: These may need to be configurable for different usage patterns.
+    - { "name": "vm.dirty_ratio", "value": "15" }
+    - { "name": "vm.dirty_background_ratio", "value": "5" }
+    - { "name": "vm.max_map_count", "value": "128000" }
+    - { "name": "net.core.somaxconn ", "value": "4096" }
+    - { "name": "net.ipv4.tcp_fin_timeout", "value": "30" }
+    - { "name": "net.ipv4.tcp_keepalive_intvl", "value": "30" }
+    - { "name": "net.ipv4.tcp_keepalive_time", "value": "120" }
+    - { "name": "net.ipv4.tcp_max_syn_backlog ", "value": "4096" }
+  tags:
+    - "linux"
+    - "setup"

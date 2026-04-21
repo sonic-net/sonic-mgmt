@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_interface - attempt to set interface_type to ``ip`` when ``protocols`` is set to "none".

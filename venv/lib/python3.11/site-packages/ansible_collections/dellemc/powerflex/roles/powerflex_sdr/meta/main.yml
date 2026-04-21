@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: powerflex_sdr
+  namespace: dellemc
+  author: Abhishek Sinha
+  description: The role to manage installation and uninstallation PowerFlex SDR.
+  company: Dell Technologies
+  license: GPL-3.0-only
+  min_ansible_version: "2.14.0"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+        - "8"
+    - name: Ubuntu
+      versions:
+        - jammy
+    - name: SLES
+      versions:
+        - "15SP3"
+        - "15SP4"

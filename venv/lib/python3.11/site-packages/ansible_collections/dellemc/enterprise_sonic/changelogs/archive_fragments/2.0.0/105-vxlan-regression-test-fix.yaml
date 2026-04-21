@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - vxlan - update Vxlan test cases to comply with SONiC behavior (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/105).

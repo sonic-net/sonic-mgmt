@@ -1,0 +1,33 @@
+{
+ "collection_info": {
+  "namespace": "community",
+  "name": "windows",
+  "version": "3.1.0",
+  "authors": [
+   "Jordan Borean @jborean93",
+   "Matt Davis @nitzmahone"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "windows"
+  ],
+  "description": "Ansible collection for community Windows plugins.\n",
+  "license": [],
+  "license_file": "COPYING",
+  "dependencies": {
+   "ansible.windows": ">=3.0.0,<4.0.0"
+  },
+  "repository": "https://github.com/ansible-collections/community.windows",
+  "documentation": "https://docs.ansible.com/ansible/devel/collections/community/windows",
+  "homepage": "https://github.com/ansible-collections/community.windows",
+  "issues": "https://github.com/ansible-collections/community.windows/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "40c0eeeb2c5ccb60a31cc5f48cdf9c541cde1b5148a3cc2d9b494ebce08e8b46",
+  "format": 1
+ },
+ "format": 1
+}

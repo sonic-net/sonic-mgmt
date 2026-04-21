@@ -1,0 +1,95 @@
+---
+argument_specs:
+  main:
+    short_description: The main entry point for the ravendb_node role.
+    options:
+      ravendb_release_channel:
+        type: str
+        required: false
+        default: "stable"
+        choices:
+          - "stable"
+          - "nightly"
+        description: "Defines the release channel for RavenDB installation."
+
+      ravendb_version_minor:
+        type: float
+        required: false
+        default: 6.2
+        description: "Minor version of RavenDB to install."
+
+      ravendb_settings_preset:
+        type: str
+        required: false
+        default: "default"
+        description: "Predefined configuration preset for RavenDB."
+
+      ravendb_hostname:
+        type: str
+        required: false
+        default: "{{ ansible_host | default('localhost') }}"
+        description: "Hostname for the RavenDB node."
+
+      ravendb_license_file:
+        type: path
+        required: false
+        default: "license.json"
+        description: "Path to the RavenDB license file."
+
+      ravendb_settings_override:
+        type: dict
+        required: false
+        description: "Dictionary of settings to override default RavenDB settings."
+
+      ravendb_arch:
+        type: str
+        required: false
+        default: "linux-x64"
+        choices:
+          - "linux-x64"
+          - "linux-arm64"
+        description: "Specifies the target architecture for the RavenDB installation."
+
+      # secured args
+      ravendb_secured_enabled:
+        type: bool
+        required: false
+        default: false
+        description: "Enable or disable secure RavenDB setup."
+
+      ravendb_setup_package:
+        type: str
+        required: false
+        description: "Controller-side path to prebuilt setup_package.zip."
+
+      # secured_self_signed args
+      ravendb_secured_self_signed_enabled:
+        type: bool
+        required: false
+        default: false
+        description: "Enable or disable self-signed certificate setup."
+
+      ravendb_certificate_file:
+        type: path
+        required: false
+        default: "server.pfx"
+        description: "Path to the SSL certificate file for a secure setup."
+
+      ravendb_certificate_password:
+        type: str
+        required: false
+        no_log: true
+        default: ""
+        description: "Password for the SSL certificate."
+
+      ravendb_ca_certificate_file:
+        type: path
+        required: false
+        default: "ca_cert.pem"
+        description: "Path to the CA certificate file."
+
+      ravendb_ca_key_file:
+        type: path
+        required: false
+        default: "ca_key.pem"
+        description: "Path to the CA key file."

@@ -1,0 +1,66 @@
+---
+- name: Add service apply rule to icinga
+  telekom_mms.icinga_director.icinga_service_apply:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "SERVICE_dummy"
+    assign_filter: 'host.name="foohost"'
+    check_command: hostalive
+    display_name: "dummy process"
+    check_interval: "10m"
+    check_period: "24/7"
+    check_timeout: "1m"
+    enable_active_checks: true
+    enable_event_handler: true
+    enable_notifications: true
+    enable_passive_checks: false
+    enable_perfdata: false
+    event_command: restart_httpd
+    max_check_attempts: "5"
+    retry_interval: "3m"
+    imports:
+      - fooservicetemplate
+    groups:
+      - fooservicegroup
+    vars:
+      http_address: "$address$"
+      http_port: "9080"
+      http_uri: "/ready"
+      http_string: "Ready"
+      http_expect: "Yes"
+- name: Add service apply rule with command_endpoint
+  telekom_mms.icinga_director.icinga_service_apply:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "SERVICE_dummy"
+    assign_filter: 'host.name="foohost"'
+    check_command: hostalive
+    display_name: "dummy process"
+    check_interval: "10m"
+    check_period: "24/7"
+    check_timeout: "1m"
+    enable_active_checks: true
+    enable_event_handler: true
+    enable_notifications: true
+    enable_passive_checks: false
+    event_command: restart_httpd
+    max_check_attempts: "5"
+    retry_interval: "3m"
+    command_endpoint: "fooendpoint"
+    imports:
+      - fooservicetemplate
+    groups:
+      - fooservicegroup
+- name: Update service apply rule with command_endpoint
+  telekom_mms.icinga_director.icinga_service_apply:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "SERVICE_dummy"
+    enable_perfdata: true
+    append: true

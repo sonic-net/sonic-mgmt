@@ -1,0 +1,65 @@
+---
+argument_specs:
+  main:
+    short_description: Role to manage the installation and uninstallation of Powerflex TB.
+    description:
+      - Role to manage the installation and uninstallation of Powerflex TB.
+    options:
+      hostname:
+        required: true
+        type: str
+        description: IP or FQDN of the PowerFlex gateway.
+      username:
+        required: true
+        type: str
+        description: The username of the PowerFlex gateway.
+      password:
+        required: true
+        type: str
+        description: The password of the PowerFlex gateway.
+      port:
+        type: int
+        description: Port of the PowerFlex gateway.
+        default: 443
+      validate_certs:
+        description:
+          - If C(false), the SSL certificates will not be validated.
+          - Configure C(false) only on personally controlled sites where self-signed certificates are used.
+        type: bool
+        default: false
+      timeout:
+        description: Timeout.
+        type: int
+        default: 120
+      powerflex_common_file_install_location:
+        description:
+          - Location of installation and rpm gpg files to be installed.
+          - The required, compatible installation software package based on the operating system of the node.
+        type: str
+        default: /var/tmp
+      powerflex_tb_state:
+        description:
+          - Specify state of TB.
+        type: str
+        choices: ['absent', 'present']
+        default: present
+      powerflex_tb_primary_name:
+        description:
+          - Name of the primary TB.
+        type: str
+        default: 'primary_tb'
+      powerflex_tb_secondary_name:
+        description:
+          - Name of the secondary TB.
+        type: str
+        default: 'secondary_tb'
+      powerflex_tb_cluster_mode:
+        description:
+          - Mode of the cluster.
+        choices: ['ThreeNodes', 'FiveNodes']
+        type: str
+        default: 'ThreeNodes'
+      powerflex_tb_cert_password:
+        description:
+          - The CLI certificate password for login to the primary MDM.
+        type: str

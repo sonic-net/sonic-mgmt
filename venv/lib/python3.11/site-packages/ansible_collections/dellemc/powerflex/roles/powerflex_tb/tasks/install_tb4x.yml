@@ -1,0 +1,76 @@
+---
+- name: Set fact - powerflex_mdm_ips
+  ansible.builtin.set_fact:
+    powerflex_tb_mdm_ips: "{{ powerflex_tb_mdm_primary_ip }},{{ powerflex_tb_mdm_secondary_ip }}"
+  when: powerflex_tb_mdm_count | int == 2
+
+- name: Set fact - powerflex_mdm_ips
+  ansible.builtin.set_fact:
+    powerflex_tb_mdm_ips: "{{ powerflex_tb_mdm_primary_ip }},{{ powerflex_tb_mdm_secondary_ip }},{{ powerflex_tb_mdm_tertiary_ip }}"
+  when: powerflex_tb_mdm_count | int > 2
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml
+
+- name: Login to primary MDM node
+  ansible.builtin.command: >
+    scli --login --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ powerflex_tb_cert_password }}
+  run_once: true
+  register: powerflex_tb_login_output
+  changed_when: powerflex_tb_login_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+
+- name: Extract System ID
+  ansible.builtin.set_fact:
+    powerflex_tb_system_id: "{{ powerflex_tb_login_output.stdout | regex_search('System ID is (\\w+)', '\\1') | first }}"
+
+- name: Add primary TB
+  ansible.builtin.command: >
+    scli --add_standby_mdm
+    --new_mdm_ip {{ powerflex_tb_primary_ip }}
+    --mdm_role tb
+    --new_mdm_name {{ powerflex_tb_primary_name }}
+    --new_mdm_management_ip {{ powerflex_tb_primary_ip }}
+  run_once: true
+  register: powerflex_tb_primary_output
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_primary_ip is defined
+  ignore_errors: true
+  changed_when: powerflex_tb_primary_output.rc == 0
+
+- name: Add secondary TB
+  ansible.builtin.command: >
+    scli --add_standby_mdm
+    --new_mdm_ip {{ powerflex_tb_secondary_ip }}
+    --mdm_role tb
+    --new_mdm_name {{ powerflex_tb_secondary_name }}
+    --new_mdm_management_ip {{ powerflex_tb_secondary_ip }}
+  register: powerflex_tb_secondary_output
+  run_once: true
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_secondary_ip is defined
+  ignore_errors: true
+  changed_when: powerflex_tb_secondary_output.rc == 0
+
+- name: Switch to cluster three node
+  ansible.builtin.command: |
+    scli --switch_cluster_mode --cluster_mode "3_node" --add_secondary_mdm_ip
+    "{{ powerflex_tb_mdm_secondary_ip }}" --add_tb_ip "{{ powerflex_tb_primary_ip }}"
+  run_once: true
+  register: powerflex_tb_cluster_to_three_output
+  changed_when: powerflex_tb_cluster_to_three_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_mdm_cluster_mode[0] != "3_node" and powerflex_tb_cluster_mode == "ThreeNodes"
+
+- name: Switch to cluster five node
+  ansible.builtin.command: |
+    scli --switch_cluster_mode --cluster_mode "5_node" --add_secondary_mdm_ip
+    "{{ powerflex_tb_mdm_secondary_ip }}","{{ powerflex_tb_mdm_tertiary_ip }}" --add_tb_ip "{{ powerflex_tb_primary_ip }}","{{ powerflex_tb_secondary_ip }}"
+  run_once: true
+  register: powerflex_tb_cluster_to_five_output
+  changed_when: powerflex_tb_cluster_to_five_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_mdm_cluster_mode[0] != "5_node" and powerflex_tb_cluster_mode == "FiveNodes"
+
+- name: Connect MDM cluster
+  ansible.builtin.include_tasks: connect_mdm_cluster.yml

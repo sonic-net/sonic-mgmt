@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_lun_map - fixed bugs resulting in REST support to not work.

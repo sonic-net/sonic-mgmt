@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_info - better reporting on KeyError traceback, option to ignore error.

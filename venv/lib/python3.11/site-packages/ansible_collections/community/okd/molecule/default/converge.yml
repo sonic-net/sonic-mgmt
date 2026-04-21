@@ -1,0 +1,89 @@
+---
+- name: Converge
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    ansible_python_interpreter: '{{ virtualenv_interpreter }}'
+  vars_files:
+    - vars/main.yml
+  tasks:
+    # OpenShift Resources
+    - name: Create a project
+      community.okd.k8s:
+        name: testing
+        kind: Project
+        api_version: project.openshift.io/v1
+        apply: no
+      register: output
+
+    - name: show output
+      debug:
+        var: output
+
+    - name: Create deployment
+      community.okd.k8s:
+        state: present
+        name: hello-world
+        namespace: testing
+        definition: '{{ okd_dc_template }}'
+        wait: yes
+      vars:
+        k8s_pod_name: hello-world
+        k8s_pod_image: python
+        k8s_pod_command:
+          - python
+          - '-m'
+          - http.server
+        k8s_pod_env:
+          - name: TEST
+            value: test
+        okd_dc_triggers:
+          - type: ConfigChange
+      register: output
+
+    - name: Show output
+      debug:
+        var: output
+
+    - vars:
+        image: docker.io/python
+        image_name: python
+        image_tag: latest
+        k8s_pod_image: python
+        k8s_pod_command:
+          - python
+          - '-m'
+          - http.server
+        namespace: idempotence-testing
+      block:
+        - name: Create a namespace
+          community.okd.k8s:
+            name: '{{ namespace }}'
+            kind: Namespace
+            api_version: v1
+
+        - name: Create imagestream
+          community.okd.k8s:
+            namespace: '{{ namespace }}'
+            definition: '{{ okd_imagestream_template }}'
+
+        - name: Create Deployment to reference ImageStream
+          community.okd.k8s:
+            name: '{{ k8s_pod_name }}'
+            namespace: '{{ namespace }}'
+            definition: '{{ k8s_deployment_template | combine(metadata)  }}'
+            wait: true
+          vars:
+            k8s_pod_annotations:
+              "alpha.image.policy.openshift.io/resolve-names": "*"
+            k8s_pod_name: is-idempotent-deployment
+            annotation:
+              - from:
+                  kind: ImageStreamTag
+                  name: "{{ image_name }}:{{ image_tag}}}"
+                fieldPath: 'spec.template.spec.containers[?(@.name=="{{ k8s_pod_name }}")].image}'
+            metadata:
+              metadata:
+                annotations:
+                  image.openshift.io/triggers: '{{ annotation | to_json }}'

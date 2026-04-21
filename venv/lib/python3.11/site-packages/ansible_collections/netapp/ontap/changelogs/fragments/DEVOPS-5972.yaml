@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_snapmirror - error if identity_preservation set in ZAPI.
+  - na_ontap_snapmirror - Added option ``identity_preservation`` support from ONTAP 9.11.1 in REST.

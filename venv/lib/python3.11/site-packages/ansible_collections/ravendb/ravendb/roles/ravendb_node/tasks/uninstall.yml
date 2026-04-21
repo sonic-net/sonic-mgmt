@@ -1,0 +1,76 @@
+- name: Message
+  debug:
+    msg: "Uninstalling RavenDB..."
+  
+- name: Remove RavenDB Installation
+  block:
+    - name: Populate service facts
+      service_facts:
+
+    - name: Stop RavenDB service
+      become: true
+      ansible.builtin.systemd:
+        name: ravendb
+        state: stopped
+      when: "'ravendb.service' in ansible_facts.services"
+      ignore_errors: true
+
+    - name: Disable RavenDB service
+      become: true
+      ansible.builtin.systemd:
+        name: ravendb
+        enabled: no
+      when: "'ravendb.service' in ansible_facts.services"
+      ignore_errors: true
+
+    - name: Reset failed systemd services
+      become: true
+      ansible.builtin.command: systemctl reset-failed
+
+    - name: Remove RavenDB service file
+      become: true
+      ansible.builtin.file:
+        path: /etc/systemd/system/ravendb.service
+        state: absent
+
+    - name: Purge RavenDB package from dpkg
+      become: true
+      ansible.builtin.command:
+        cmd: dpkg --purge ravendb
+      ignore_errors: true
+      changed_when: false
+
+    - name: Remove RavenDB binaries and directories
+      become: true
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/usr/lib/ravendb"
+        - "/var/lib/ravendb"
+        - "/etc/ravendb"
+        - "/var/log/ravendb"
+        - "/tmp/ravendb.tar.bz2"
+        - "/tmp/ravendb.deb"
+      
+    - name: Remove RavenDB user
+      become: true
+      ansible.builtin.user:
+        name: ravendb
+        state: absent
+        remove: yes 
+
+    - name: Remove RavenDB group
+      become: true
+      ansible.builtin.group:
+        name: ravendb
+        state: absent
+    
+    - name: Update system dynamic linker runtime bindings
+      become: true
+      command:
+        cmd: ldconfig
+      changed_when: false
+
+    - name: Clean up Python prerequisites`
+      import_tasks: ravendb_python_client_prerequisites_uninstall.yml

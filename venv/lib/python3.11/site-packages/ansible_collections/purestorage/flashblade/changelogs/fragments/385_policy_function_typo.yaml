@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_policy - Fixed typo when calling object store policy rule deletion

@@ -1,0 +1,41 @@
+##################################################################################################
+# playbooks/setup_ravendb_secured_self_signed.yml
+#
+# Purpose: Install a RavenDB node secured with a self-signed certificate bundle
+#
+# What it does:
+#   - Installs OS prerequisites (apt/yum)
+#   - Detects distro/arch and downloads RavenDB (Ubuntu: DEB; others: tarball)
+#   - Creates ravendb user/group and required directories
+#   - Copies your provided server PFX + CA cert/key to the host
+#   - extracts cert/key, fixes permissions, installs CA into system trust
+#   - Installs license file
+#   - Installs/updates binaries, writes systemd unit, sets CAP_NET_BIND_SERVICE
+#   - Starts/enables the ravendb systemd service
+#
+# Notes:
+#   - Provide the path to the ZIP via 'ravendb_setup_package'
+#       * ravendb_certificate_file   -> server PFX (e.g., server.pfx)
+#       * ravendb_ca_certificate_file -> CA PEM (public)
+#       * ravendb_ca_key_file         -> CA private key (only if your flow needs it on node)
+#   - The role **does not generate** certificates; it only installs what you supply.
+#   - This playbook does not register client certs back on the controller for you; handle
+#     client certificate distribution/registration separately.
+#   - This is for self-signed-secured installs only. for LE-secured setup please refer to:  playbooks/setup_ravendb_secured.yml
+#################################################################################################
+
+- name: Install/Upgrade RavenDB (Self-signed - secured)
+  hosts: ravendb_nodes
+  remote_user: root
+  roles:
+    - role: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_secured_self_signed_enabled: true
+        ravendb_certificate_file: "/home/user/server.pfx"
+        ravendb_certificate_password: "raven"     # just for demo puposes - use Ansible vault
+        ravendb_ca_certificate_file: "/home/user/ca_cert.pem"
+        ravendb_ca_key_file: "/home/user/ca_key.pem"
+        ravendb_license_file: "/home/user/license.json"
+        ravendb_hostname: "{{ ansible_host }}"
+        ravendb_settings_preset: default

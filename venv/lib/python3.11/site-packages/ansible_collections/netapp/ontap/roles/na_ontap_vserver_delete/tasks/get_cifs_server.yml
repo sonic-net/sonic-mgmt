@@ -1,0 +1,31 @@
+---
+# tasks file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
+
+- name: Collect CIFS server names for vserver - we expect a list of one
+  tags: gather
+  netapp.ontap.na_ontap_rest_info:
+    gather_subset:
+      - protocols/cifs/services
+    parameters:
+      svm.name: "{{ vserver_name }}"
+      fields: name
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+  register: ontap
+- name: Debug
+  ansible.builtin.debug:
+    var: ontap
+  when: debug_level > 1
+- name: Extract cifs_server
+  ansible.builtin.set_fact:
+    cifs_server: "{{ ontap.ontap_info | json_query(get_attrs) }}"
+  vars:
+    # double quotes around storage/volumes to escape the /
+    get_attrs: '"protocols/cifs/services".records[].name'
+- name: Debug
+  ansible.builtin.debug:
+    var: protocols/cifs/services
+  when: debug_level > 0

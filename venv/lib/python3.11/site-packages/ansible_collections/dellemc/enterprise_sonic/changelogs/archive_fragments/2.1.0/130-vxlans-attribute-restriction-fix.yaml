@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_vxlans - Removed required_together restriction for evpn_nvo and source_ip attributes (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/130)

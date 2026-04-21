@@ -1,0 +1,3 @@
+minor_changes:
+ - purefb_info - Add new parameter to provide details on admin users
+ - purefb_info - Add information regarding filesystem multiprotocol (where available)

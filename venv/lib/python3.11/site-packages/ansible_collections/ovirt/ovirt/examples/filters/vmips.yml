@@ -1,0 +1,77 @@
+---
+- name: vmips
+  hosts: localhost
+  connection: local
+  vars:
+    myvm: centos8*
+  tasks:
+    - name: Get VMs
+      ovirt.ovirt.ovirt_vm_info:
+        auth:
+          url: "https://ovirt-engine.example.com/ovirt-engine/api"
+          username: "admin@internal"
+          password: "123456"
+          insecure: true
+        pattern: "name={{ myvm }}"
+        fetch_nested: true
+        nested_attributes: ips
+      register: vms
+    - name: Print VM IP
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmip }}"
+
+    - name: Print VM all IPs
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmips }}"
+
+    - name: Print VM IPv4
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipv4 }}"
+
+    - name: Print VM all IPv4
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipsv4 }}"
+
+    - name: Print VM all IPv4 from specific network
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipsv4(network_ip='192.168.2.0/24') }}"
+
+    - name: Print VM IPv6
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipv6 }}"
+
+    - name: Print VM all IPv6
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipsv6 }}"
+
+    # *********************************************************
+    # *********************************************************
+    - name: "----"
+      ansible.builtin.debug:
+        msg: "-------------------------------------"
+    # *********************************************************
+    # Print VM IPs as dictionaries with name as key
+    # *********************************************************
+    - name: Print VM IP
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmip(attr='name') }}"
+
+    - name: Print VM all IPs
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmips(attr='name') }}"
+
+    - name: Print VM IPv4
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipv4(attr='name') }}"
+
+    - name: Print VM all IPv4
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipsv4(attr='name') }}"
+
+    - name: Print VM IPv6
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipv6(attr='name') }}"
+
+    - name: Print VM all IPv6
+      ansible.builtin.debug:
+        msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipsv6(attr='name') }}"

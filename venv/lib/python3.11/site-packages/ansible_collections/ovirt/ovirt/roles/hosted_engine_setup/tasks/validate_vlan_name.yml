@@ -1,0 +1,30 @@
+---
+- name: Collect VLAN devices naming convention pattern
+  ansible.builtin.shell: set -eo pipefail && nmcli -g VLAN.PARENT,VLAN.ID device show {{ vlan_if.nic_if.nic }} | paste -sd '.'
+  with_items:
+    - "{{ vlan_list.results | reject('skipped') | list }}"
+  loop_control:
+    loop_var: vlan_if
+  changed_when: true
+  register: vlan_pattern_list
+- name: Check VLAN devices with bad naming
+  ansible.builtin.set_fact:
+    vlan_invalid_pattern: "{{ vlan_pattern.vlan_if.nic_if.nic }}"
+  when: vlan_pattern.vlan_if.nic_if.nic != vlan_pattern.stdout
+  with_items:
+    - "{{ vlan_pattern_list.results }}"
+  loop_control:
+    loop_var: vlan_pattern
+  register: bn_vlan_filtered
+- name: Collect VLAN devices with invalid naming convention
+  ansible.builtin.set_fact:
+    bad_vlan_names_list: "{{ bn_vlan_filtered.results | reject('skipped') | map(attribute='vlan_pattern.vlan_if.nic_if.nic') | list }}"
+- name: Filter VLAN devices with invalid naming convention
+  ansible.builtin.set_fact:
+    bad_vlan_names_if_diff: "{{ host_net | difference(bad_vlan_names_list) }}"
+- name: Fail if only VLAN devices with invalid naming convention are available
+  ansible.builtin.fail:
+    msg: >-
+      Only VLAN devices {{ bad_vlan_names_list | join(', ') }} with invalid naming convention are present.
+      Supported VLAN naming convention is: VLAN_PARENT.VLAN_ID
+  when: (bad_vlan_names_if_diff | length == 0)

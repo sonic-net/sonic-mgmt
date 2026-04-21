@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_volume - ``logical_space_enforcement`` to specifies whether to perform logical space accounting on the volume.
+  - na_ontap_volume - ``logical_space_reporting`` to specifies whether to report space logically on the volume.

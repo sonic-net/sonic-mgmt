@@ -1,0 +1,31 @@
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2025 Felix Fontein <felix@fontein.de>
+
+line-length = 160
+
+[lint]
+# https://docs.astral.sh/ruff/rules/
+
+select = ["A", "B", "E", "F", "FA", "FLY", "UP", "SIM"]
+ignore = [
+    # Better keep ignored (for now)
+    "F811",  # Redefinition of unused `xxx` (happens a lot for fixtures in unit tests)
+    "E402",  # Module level import not at top of file
+    "E741",  # Ambiguous variable name
+    "UP012",  # unnecessary-encode-utf8
+    "UP015",  # Unnecessary mode argument
+    "SIM105",  # suppressible-exception
+    "SIM108",  # if-else-block-instead-of-if-exp
+    # To fix later:
+    "B905",  # zip-without-explicit-strict - needs Python 3.10+
+    # To fix:
+    "UP024",  # Replace aliased errors with `OSError`
+]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed or starting with dummy
+dummy-variable-rgx = "^(_|dummy).*$"

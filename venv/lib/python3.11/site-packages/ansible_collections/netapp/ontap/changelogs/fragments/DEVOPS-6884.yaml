@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_quotas - fix error with `quota_target` while trying to set default user quota rule in REST.

@@ -1,0 +1,41 @@
+---
+- name: Add dependency apply to icinga
+  telekom_mms.icinga_director.icinga_dependency_apply:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foodependencyapply
+    imports:
+      - footdependencytemplate
+    apply_to: host
+    assign_filter: 'host.name="foohost"'
+- name: Add dependency apply to icinga with customization
+  telekom_mms.icinga_director.icinga_dependency_apply:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foodependencyapplycustom
+    imports:
+      - footdependencytemplate
+    apply_to: host
+    parent_host: $host.vars.variable$
+    assign_filter: 'host.name="foohost"'
+    disable_checks: true
+    disable_notifications: true
+    ignore_soft_states: false
+    period: "24/7"
+    zone: master
+    states:
+      - Critical
+      - Warning
+- name: Update dependency apply rule with ignore_soft_states
+  telekom_mms.icinga_director.icinga_dependency_apply:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foodependencyapply
+    ignore_soft_states: true
+    append: true

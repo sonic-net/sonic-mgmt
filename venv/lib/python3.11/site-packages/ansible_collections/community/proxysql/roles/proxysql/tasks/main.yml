@@ -1,0 +1,24 @@
+---
+- import_tasks: setvars.yml
+  tags:
+    - always
+
+- block:
+
+    - import_tasks: users.yml
+      tags:
+        - users
+        - config
+    - import_tasks: install.yml
+      when: not proxysql_mysql_use_custom_build
+      tags:
+        - install
+
+  become: true
+  become_user: root
+
+- import_tasks: config.yml
+  tags:
+    - config
+  become: true
+  become_user: root

@@ -1,0 +1,21 @@
+[FORMAT]
+
+# Maximum number of characters on a single line.
+max-line-length=140
+
+[DESIGN]
+
+# Maximum number of arguments for function / method
+max-args=5
+
+# Maximum number of locals for function / method body
+max-locals=55
+
+# Maximum number of statements in function / method body
+max-statements=50
+
+# Maximum number of branch for function / method body
+max-branches=12
+
+# Disabled checks
+disable=too-many-positional-arguments,wrong-import-position,missing-function-docstring,global-statement,import-error,missing-class-docstring,missing-module-docstring,invalid-name

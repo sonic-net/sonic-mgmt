@@ -1,0 +1,3 @@
+minor_changes:
+ - purefa_snap - Added new parameter to support snapshot throttling
+ - purefa_pgsnap - Added new parameter to support snapshot throttling

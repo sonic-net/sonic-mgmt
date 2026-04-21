@@ -1,0 +1,39 @@
+---
+- name: Configure device credentials on Cisco Catalyst Center
+  hosts: localhost
+  vars_files:
+    - "credentials.yml"
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Create application policy
+      cisco.dnac.application_policy_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged
+        config:
+          - application_policy:
+              - name: "test_policy_1"
+                policy_status: "deployed"
+                site_names: ["Global/Chennai/LTTS/FLOOR11"]
+                device_type: "wired"
+                application_queuing_profile_name: "a5"
+                clause:
+                  - clause_type: "BUSINESS_RELEVANCE"
+                    relevance_details:
+                      - relevance: "BUSINESS_RELEVANT"
+                        application_set_name: ["file-sharing"]
+                      - relevance: "BUSINESS_IRRELEVANT"
+                        application_set_name: ["email", "backup-and-storage"]
+                      - relevance: "DEFAULT"
+                        application_set_name: ["collaboration-apps", "tunneling", "general-media"]

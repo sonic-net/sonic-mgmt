@@ -1,0 +1,34 @@
+---
+- name: Infoblox Nameserver Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.36.118.2
+      username: cloudadmin
+      password: admin
+
+  connection: local
+  tasks:
+    - name: Create infoblox nameserver forwarding member group with external forwarders
+      infoblox.nios_modules.nios_nsgroup_forwardingmember:
+        name: my-forwardingmember-group
+        comment: this is a forwarding member nameserver group with external forwarders
+        extattrs:
+          Site: Test Site
+        forwarding_servers:
+          - name: infoblox.cloud-ansible-client-nios-gm
+            use_override_forwarders: true
+            forwarders_only: true
+            forward_to:
+              - name: ns1
+                address: 192.168.10.1
+              - name: ns2
+                address: 192.168.10.2
+          - name: infoblox.cloud-ansible-client-nios-mem1
+            use_override_forwarders: true
+            forwarders_only: false
+            forward_to:
+              - name: ns3
+                address: 192.168.10.3
+        state: present
+        provider: "{{ nios_provider }}"

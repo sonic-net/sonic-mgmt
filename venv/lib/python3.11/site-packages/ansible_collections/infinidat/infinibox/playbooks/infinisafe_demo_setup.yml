@@ -1,0 +1,49 @@
+---
+- name: Setup for Infinisafe demo
+  hosts: localhost
+  gather_facts: true  # Required for ansible_date_time
+  vars:
+    network_space: InfiniSafe-Fenced-Network # iSCSI
+    service: ISCSI_SERVICE
+    pool: infinisafe
+    volume: app_vol
+    snap: app_snap
+    host: forensic-validation-host
+    host_iqn: iqn.1993-08.org.debian:01:62ebda3b76cc # io-wt-35
+  tasks:
+
+    - name: Create pool
+      infinidat.infinibox.infini_pool:
+        name: "{{ pool }}"
+        size: 1TB
+        vsize: 1TB
+        state: present
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Create volume in pool
+      infinidat.infinibox.infini_vol:
+        name: "{{ volume }}"
+        size: 1GB
+        pool: "{{ pool }}"
+        state: present
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Create and lock (1 minute) snapshot from volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ snap }}"
+        state: present
+        volume_type: snapshot
+        parent_volume_name: "{{ volume }}"
+        snapshot_lock_expires_at: "{{ ansible_date_time.iso8601_micro | to_datetime(fmt) | infinidat.infinibox.delta_time(minutes=1) }}"
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      vars:
+        fmt: "%Y-%m-%dT%H:%M:%S.%fZ"

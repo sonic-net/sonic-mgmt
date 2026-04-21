@@ -1,0 +1,155 @@
+---
+# Upgrade uses a block to keep the variables local to the block.  Vars are defined after tasks.
+- name: Upgrade block
+  vars:
+    host_name: "{{ host.name }}"
+    my_step: "{{ ansible_loop.index | int }}"
+    progress_host_step_size: "{{ ((progress_end - progress_start) / ansible_loop.length) | round | int }}"
+    progress_host_start: "{{ progress_start | int + (progress_host_step_size | int * (my_step | int - 1)) }}"
+    progress_host_end: "{{ progress_start | int + (progress_host_step_size | int * my_step | int) }}"
+  block:
+    - name: Start prep host ovirt job step
+      ovirt.ovirt.ovirt_job:
+        auth: "{{ ovirt_auth }}"
+        description: "Upgrading hosts in {{ cluster_name }}"
+        steps:
+          - description: "Preparing host for upgrade: {{ host_name }}"
+
+    - name: progress - prepare host for upgrade (upgrade can't start until no VMs are running on the host)
+      ansible.builtin.include_tasks: log_progress.yml
+      vars:
+        progress: "{{ progress_host_start | int }}"
+        description: "preparing host for upgrade"
+
+    - name: Get list of VMs in host
+      ovirt.ovirt.ovirt_vm_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "cluster={{ cluster_name }} and host={{ host_name }} and status=up"
+      register: vms_in_host
+      check_mode: "no"
+
+    - name: Move user migratable vms
+      ovirt.ovirt.ovirt_vm:
+        auth: "{{ ovirt_auth }}"
+        force_migrate: true
+        migrate: true
+        state: running
+        name: "{{ item.name }}"
+      register: resp
+      when:
+        - "item['placement_policy']['affinity'] == 'user_migratable'"
+      with_items:
+        - "{{ vms_in_host.ovirt_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: progress - done migrating VMs (host 10% complete)
+      ansible.builtin.include_tasks: log_progress.yml
+      vars:
+        progress: "{{ (progress_host_start | int + (progress_host_step_size | int * 0.10)) | int }}"
+        description: "status=up VMs migrated off host"
+
+    - name: Shutdown non-migratable VMs
+      ovirt.ovirt.ovirt_vm:
+        auth: "{{ ovirt_auth }}"
+        state: stopped
+        force: true
+        name: "{{ item.name }}"
+      with_items:
+        - "{{ vms_in_host.ovirt_vms }}"
+      when:
+        - "item['placement_policy']['affinity'] == 'pinned'"
+      loop_control:
+        label: "{{ item.name }}"
+      register: pinned_to_host_vms
+
+    - name: Create list of VM names which have been shut down
+      ansible.builtin.set_fact:
+        pinned_vms_names: "{{ pinned_vms_names + pinned_to_host_vms.results | selectattr('changed') | map(attribute='vm.name') | list }}"
+
+    - name: progress - done shutting down pinned VMs (host 20% complete)
+      ansible.builtin.include_tasks: log_progress.yml
+      vars:
+        progress: "{{ (progress_host_start | int + (progress_host_step_size | int * 0.20)) | int }}"
+        description: "pinned VMs shutdown"
+
+    # noqa: command-instead-of-module
+    - name: Gather self-heal facts about all gluster hosts in the cluster
+      ansible.builtin.command: gluster volume heal {{ volume_item.name }} info
+      register: self_heal_status
+      retries: "{{ healing_in_progress_checks }}"
+      delay: "{{ healing_in_progress_check_delay }}"
+      until: >
+        self_heal_status.stdout_lines is defined and
+        self_heal_status.stdout_lines | select('match','^(Number of entries: )[0-9]+') | map('last') | map('int') | sum == 0
+      delegate_to: "{{ host_info.ovirt_hosts[0].address }}"
+      connection: ssh
+      with_items:
+        - "{{ cluster_info.ovirt_clusters[0].gluster_volumes }}"
+      loop_control:
+        loop_var: volume_item
+      when: cluster_info.ovirt_clusters[0].gluster_service | bool
+
+    - name: Refresh gluster heal info entries to database
+      ansible.builtin.uri:
+        url: "{{ ovirt_auth.url }}/clusters/{{ cluster_id }}/refreshglusterhealstatus"
+        method: POST
+        body_format: json
+        validate_certs: false
+        headers:
+          Authorization: "Bearer {{ ovirt_auth.token }}"
+        body: "{}"
+      when:
+        - cluster_info.ovirt_clusters[0].gluster_service | bool
+        - api_info.ovirt_api.product_info.version.major >= 4 and api_info.ovirt_api.product_info.version.minor >= 4
+
+    - name: progress - host is ready for upgrade (host 30% complete)
+      ansible.builtin.include_tasks: log_progress.yml
+      vars:
+        progress: "{{ (progress_host_start | int + (progress_host_step_size | int * 0.30)) | int }}"
+        description: "host is ready for upgrade"
+
+    - name: Finish prep host ovirt job step
+      ovirt.ovirt.ovirt_job:
+        auth: "{{ ovirt_auth }}"
+        description: "Upgrading hosts in {{ cluster_name }}"
+        steps:
+          - description: "Preparing host for upgrade: {{ host_name }}"
+            state: finished
+
+    - name: Start upgrade host ovirt job step
+      ovirt.ovirt.ovirt_job:
+        auth: "{{ ovirt_auth }}"
+        description: "Upgrading hosts in {{ cluster_name }}"
+        steps:
+          - description: "Upgrading host: {{ host_name }}"
+
+    - name: Upgrade host
+      ovirt.ovirt.ovirt_host:
+        auth: "{{ ovirt_auth }}"
+        name: "{{ host_name }}"
+        state: upgraded
+        check_upgrade: "{{ check_upgrade }}"
+        reboot_after_upgrade: "{{ reboot_after_upgrade }}"
+        timeout: "{{ upgrade_timeout }}"
+
+    - name: Delay in minutes to wait to finish gluster healing process after successful host upgrade
+      ansible.builtin.pause:
+        minutes: "{{ wait_to_finish_healing }}"
+      when:
+        - cluster_info.ovirt_clusters[0].gluster_service | bool
+        - host_info.ovirt_hosts | length > 1
+
+    - name: progress - host upgrade complete (host 100% complete)
+      ansible.builtin.include_tasks: log_progress.yml
+      vars:
+        progress: "{{ (progress_host_start | int + (progress_host_step_size | int * 1.00)) | int }}"
+        description: "host upgrade complete"
+
+    - name: Finish upgrade host ovirt job step
+      ovirt.ovirt.ovirt_job:
+        auth: "{{ ovirt_auth }}"
+        description: "Upgrading hosts in {{ cluster_name }}"
+        steps:
+          - description: "Upgrading host: {{ host_name }}"
+            state: finished

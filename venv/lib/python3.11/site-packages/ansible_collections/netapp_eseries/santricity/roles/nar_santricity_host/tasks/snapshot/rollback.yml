@@ -1,0 +1,41 @@
+- name: Roll volumes back to expected point-in-time.
+  na_santricity_snapshot:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: rollback
+    group_name: "{{ item['group_name'] }}"
+    pit_name: "{{ item['pit_name'] | default(omit) }}"
+    pit_timestamp: "{{ item['pit_timestamp'] | default(omit) }}"
+    rollback_priority: "{{ item['rollback_priority'] | default(omit) }}"
+    rollback_backup: "{{ item['rollback_backup'] | default(omit) }}"
+    volumes: "{{ item['volumes'] | default(omit) }}"
+  connection: local
+  loop: "{{ consistency_group_rollbacks }}"
+  vars:
+    consistency_group_rollbacks: |-
+      {%- set consistency_group_rollbacks = [] -%}
+      {%- for rollback in eseries_snapshot_rollbacks | default([]) -%}
+        {%- set rollback_info = {"group_name": rollback["group_name"]} -%}
+        {%- if "pit_name" in (rollback.keys() | list) and rollback_info.update({"pit_name": rollback["pit_name"]}) -%}{%- endif -%}
+        {%- if "pit_timestamp" in (rollback.keys() | list) and rollback_info.update({"pit_timestamp": rollback["pit_timestamp"]}) -%}{%- endif -%}
+
+        {%- if "rollback_priority" in (rollback.keys() | list) or eseries_snapshot_rollback_priority is defined -%}
+          {%- if rollback_info.update({"rollback_priority": rollback["rollback_priority"] | default(eseries_snapshot_rollback_priority)}) -%}{%- endif -%}
+        {%- endif -%}
+        {%- if "rollback_backup" in (rollback.keys() | list) or eseries_snapshot_rollback_backup is defined -%}
+          {%- if rollback_info.update({"rollback_backup": rollback["rollback_backup"] | default(eseries_snapshot_rollback_backup)}) -%}{%- endif -%}
+        {%- endif -%}
+
+        {%- if "volumes" in (rollback.keys() | list) -%}
+          {%- if rollback_info.update({"volumes": []}) -%}{%- endif -%}
+          {%- for volume in rollback["volumes"] -%}
+            {%- if rollback_info["volumes"].append({"volume": volume}) -%}{%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+
+        {%- if consistency_group_rollbacks.append(rollback_info) -%}{%- endif -%}
+      {%- endfor -%}
+      {{- consistency_group_rollbacks -}}

@@ -1,0 +1,16 @@
+vmId={{ he_vm_details.vm.id }}
+memSize={{ he_mem_size_MB }}
+display={{ he_console_type }}
+devices={index:2,iface:ide,address:{ controller:0, target:0,unit:0, bus:1, type:drive},specParams:{},readonly:true,deviceId:{{ he_cdrom_uuid }},path:{{ he_cdrom }},device:cdrom,shared:false,type:disk}
+devices={index:0,iface:virtio,format:raw,poolID:00000000-0000-0000-0000-000000000000,volumeID:{{ he_virtio_disk_details.disk.image_id }},imageID:{{ he_virtio_disk_details.disk.id }},specParams:{},readonly:false,domainID:{{ storage_domain_details.ovirt_storage_domains[0].id }},optional:false,deviceId:{{ he_virtio_disk_details.disk.image_id }},address:{bus:0x00, slot:0x06, domain:0x0000, type:pci, function:0x0},device:disk,shared:exclusive,propagateErrors:off,type:disk,bootOrder:1}
+devices={device:scsi,model:virtio-scsi,type:controller}
+devices={nicModel:pv,macAddr:{{ he_vm_mac_addr }},linkActive:true,network:{{ he_mgmt_network }},specParams:{},deviceId:{{ he_nic_uuid }},address:{bus:0x00, slot:0x03, domain:0x0000, type:pci, function:0x0},device:bridge,type:interface}
+devices={device:console,type:console}
+devices={device:{{ he_video_device }},alias:video0,type:video}
+devices={device:{{ he_graphic_device }},type:graphics}
+vmName={{ he_vm_name }}
+smp={{ he_vcpus }}
+maxVCpus={{ he_maxvcpus }}
+cpuType={{ cluster_cpu_model }}
+emulatedMachine={{ he_emulated_machine }}
+devices={device:virtio,specParams:{source:urandom},model:virtio,type:rng}

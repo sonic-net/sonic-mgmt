@@ -1,0 +1,4 @@
+minor_changes:
+  - na_cloudmanager_cvo_aws - Return newly created AWS working_environment_id.
+  - na_cloudmanager_cvo_azure - Return newly created AZURE working_environment_id.
+  - na_cloudmanager_cvo_gcp - Return newly created GCP working_environment_id.

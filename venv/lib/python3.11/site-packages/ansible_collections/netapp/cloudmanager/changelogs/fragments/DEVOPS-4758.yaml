@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_connector_gcp - when using the user application default credential authentication by running the command gcloud auth application-default login, ``gcp_service_account_path`` is not needed.

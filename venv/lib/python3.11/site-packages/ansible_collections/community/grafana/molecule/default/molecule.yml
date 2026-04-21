@@ -1,0 +1,21 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: instance
+    image: ghcr.io/dev-sec/docker-debian12-ansible:latest
+    command: ${MOLECULE_DOCKER_COMMAND:-/lib/systemd/systemd}
+    env:
+      container: docker
+    pre_build_image: true
+    platform: amd64
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      interpreter_python: auto_silent
+      callback_whitelist: profile_tasks, timer, yaml
+verifier:
+  name: ansible

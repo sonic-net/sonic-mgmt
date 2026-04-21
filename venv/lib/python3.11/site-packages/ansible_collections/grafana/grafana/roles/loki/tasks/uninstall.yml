@@ -1,0 +1,51 @@
+---
+# tasks file for loki uninstall
+
+- name: Stop Loki service
+  ansible.builtin.systemd:  # noqa ignore-errors
+    name: loki
+    state: stopped
+  ignore_errors: true
+
+- name: Uninstall Loki rpm package
+  ansible.builtin.dnf:
+    name: "loki"
+    state: absent
+    autoremove: true
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
+
+- name: Uninstall Loki deb package
+  ansible.builtin.apt:
+    name: "loki"
+    state: absent
+    purge: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Ensure that Loki firewalld rule is not present - tcp port {{ loki_http_listen_port }}
+  ansible.posix.firewalld:  # noqa ignore-errors
+    immediate: true
+    permanent: true
+    port: "{{ loki_http_listen_port }}/tcp"
+    state: disabled
+  ignore_errors: true
+
+- name: Remove Loki directories"
+  ansible.builtin.file:
+    path: "{{ remove_me }}"
+    state: absent
+  loop:
+    - "/etc/loki"
+    - "{{ loki_working_path }}"
+  loop_control:
+    loop_var: remove_me
+
+- name: Remove the Loki system user
+  ansible.builtin.user:
+    name: "loki"
+    force: true
+    state: absent
+
+- name: Remove Loki system group
+  ansible.builtin.group:
+    name: "loki"
+    state: absent

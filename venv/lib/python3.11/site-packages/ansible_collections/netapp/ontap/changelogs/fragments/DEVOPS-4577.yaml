@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_user - Fixed lock state is not set if password is not changed.
+  - na_ontap_user - Fixed TypeError 'tuple' object does not support item assignment.

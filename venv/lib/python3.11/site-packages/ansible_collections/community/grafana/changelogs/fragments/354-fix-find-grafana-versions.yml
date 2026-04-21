@@ -1,0 +1,3 @@
+---
+trivial:
+  - fix find grafana versions python script comparation

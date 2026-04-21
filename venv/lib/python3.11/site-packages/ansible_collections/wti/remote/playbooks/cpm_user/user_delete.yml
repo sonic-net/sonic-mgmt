@@ -1,0 +1,33 @@
+# ansible-playbook ./user_delete.yml -e ansible_hosts=nameofhost
+- name: Delete Exiting User
+  hosts: "{{ansible_hosts}}"  # pass as -e ansible_hosts=wti_demo on the commandline
+  collections:
+     - wti.remote
+  connection: local
+  gather_facts: False
+
+  vars_prompt:
+  - name: "user_name"
+    prompt: "Enter Username"
+    private: no
+
+  tasks:
+    - set_fact: use_https=True
+      when: use_https is undefined
+    - set_fact: validate_certs=True
+      when: validate_certs is undefined
+
+    - name: run Delete Exiting User
+      cpm_user:
+        cpm_action: "deleteuser"
+        cpm_url: "{{ansible_host}}"
+        cpm_username: "{{ansible_user}}"
+        cpm_password: "{{ansible_pw}}"
+        user_name: "{{user_name}}"  # pass as -e user_name=sammy on the commandline
+        use_https: "{{use_https}}"
+        validate_certs: false
+
+      register: output
+    - name: dump JSON output
+      debug:
+        msg: "{{ output.data }}"

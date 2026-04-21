@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - all ZAPI modules - optimize Basic Authentication by adding Authorization header proactively.
+  - all ZAPI modules - new ``classic_basic_authorization`` feature_flag to disable adding Authorization header proactively.

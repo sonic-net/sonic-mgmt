@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_info - deprecate ``state`` option.
+  - na_ontap_rest_info - deprecate ``state`` option.
+bugfixes:
+  - na_ontap_rest_info - ``changed`` was set to "False" rather than boolean False.

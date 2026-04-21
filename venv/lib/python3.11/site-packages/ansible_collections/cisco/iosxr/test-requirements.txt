@@ -1,0 +1,6 @@
+google-api-python-client
+grpcio
+protobuf
+pytest-ansible
+pytest-xdist
+pytest-cov

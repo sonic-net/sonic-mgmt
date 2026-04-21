@@ -1,0 +1,150 @@
+---
+####################################################################
+# Example : VSP One Port Playbook
+####################################################################
+- name: VSP One Port Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Configure basic port settings (port security and speed)
+    ####################################################################
+    - name: Configure basic port settings (port security and speed)
+      hitachivantara.vspone_block.vsp.hv_vsp_one_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port_id: "CL1-B"
+          port_speed_in_gbps: 32
+          enable_port_security: false
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Configure FC port with all settings
+    ####################################################################
+    - name: Configure FC port with all settings
+      hitachivantara.vspone_block.vsp.hv_vsp_one_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port_id: "CL1-B"
+          port_speed_in_gbps: 16
+          enable_port_security: true
+          fc_settings:
+            al_pa: "EF"
+            should_enable_fabric_switch_setting: true
+            connection_type: "Point_To_Point"
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # ####################################################################
+    # # Task Name : Configure iSCSI port with comprehensive settings
+    # ####################################################################
+    - name: Configure iSCSI port with comprehensive settings
+      hitachivantara.vspone_block.vsp.hv_vsp_one_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port_id: "CL1-C"
+          port_speed_in_gbps: 25
+          enable_port_security: true
+          iscsi_settings:
+            enable_vlan_use: true
+            add_vlan_id: 100
+            ip_mode: "ipv4v6"
+            ipv4_configuration:
+              address: "172.25.59.215"
+              subnet_mask: "255.255.255.0"
+              default_gateway: "172.25.59.1"
+            ipv6_configuration:
+              linklocal: "fe80::2"
+              global: "2001:db8::10"
+              default_gateway: "2001:db8::1"
+            tcp_port: 3260
+            enable_selective_ack: true
+            enable_delayed_ack: false
+            window_size: "NUMBER_256K"
+            mtu_size: "NUMBER_9000"
+            keep_alive_timer: 300
+            enable_isns_server_mode: true
+            isns_server_ip_address: "192.168.1.200"
+            isns_server_port: 3205
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # ####################################################################
+    # # Task Name : Configure NVMe over TCP port with all parameters
+    # ####################################################################
+    - name: Configure NVMe over TCP port with all parameters
+      hitachivantara.vspone_block.vsp.hv_vsp_one_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port_id: "CL3-D"
+          port_speed_in_gbps: 100
+          nvme_tcp_settings:
+            enable_vlan_use: true
+            add_vlan_id: 200
+            ip_mode: "ipv4"
+            ipv4_configuration:
+              address: "10.0.1.50"
+              subnet_mask: "255.255.255.0"
+              default_gateway: "10.0.1.1"
+            ipv6_configuration:
+              linklocal: "fe80::2"
+              global_: "2001:db8:1::50"
+              default_gateway: "2001:db8:1::1"
+            tcp_port: 4420
+            discovery_tcp_port: 8009
+            enable_selective_ack: true
+            enable_delayed_ack: true
+            window_size: "NUMBER_512K"
+            mtu_size: "NUMBER_4500"
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # ####################################################################
+    # # Task Name : Remove VLAN from iSCSI port
+    # ####################################################################
+    - name: Remove VLAN from iSCSI port
+      hitachivantara.vspone_block.vsp.hv_vsp_one_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port_id: "CL1-C"
+          iscsi_settings:
+            delete_vlan_id: 100
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # ####################################################################
+    # # Task Name : Configure port with minimal settings
+    # ####################################################################
+    - name: Configure port with minimal settings
+      hitachivantara.vspone_block.vsp.hv_vsp_one_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port_id: "CL1-A"
+          port_speed_in_gbps: 0 # Auto speed
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

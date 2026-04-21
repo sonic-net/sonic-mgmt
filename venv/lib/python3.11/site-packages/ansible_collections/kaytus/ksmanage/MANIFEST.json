@@ -1,0 +1,36 @@
+{
+ "collection_info": {
+  "namespace": "kaytus",
+  "name": "ksmanage",
+  "version": "2.0.0",
+  "authors": [
+   "Baoshan Wang <wangbaoshan@ieisystem.com>"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "kaytus",
+   "ksmanage",
+   "server",
+   "manager",
+   "tools"
+  ],
+  "description": "kaytus Server supports ansible management device.",
+  "license": [
+   "GPL-2.0-or-later"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/ieisystem/kaytus.ksmanage",
+  "documentation": "https://ieisystem.github.io/kaytus.ksmanage-docs/index.html",
+  "homepage": "https://github.com/ieisystem/kaytus.ksmanage",
+  "issues": "https://github.com/ieisystem/kaytus.ksmanage/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "1956e1e518b9f6d094adb5530906a525f90b5d6737edcc986384ba3c50b659a1",
+  "format": 1
+ },
+ "format": 1
+}

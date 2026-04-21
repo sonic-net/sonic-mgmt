@@ -1,0 +1,3 @@
+---
+trivial:
+  - sonic_tacacs_server - Change the host name format used in regression tests to match new SONiC host name criteria (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/493).

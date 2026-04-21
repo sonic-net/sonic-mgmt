@@ -1,0 +1,108 @@
+---
+- name: Test creating snapshots using infini_vol module
+  hosts: localhost
+  gather_facts: true  # Required for ansible_date_time
+  tasks:
+
+    - name: POSITIVE test -> Create pool
+      infinidat.infinibox.infini_pool:
+        name: "{{ auto_prefix }}pool"
+        size: "{{ pool_size }}"
+        vsize: "{{ pool_size }}"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create thin volume under pool
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol"
+        size: 1GB
+        pool: "{{ auto_prefix }}pool"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create snapshot from volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_snap"
+        state: present
+        volume_type: snapshot
+        parent_volume_name: "{{ auto_prefix }}vol"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: DEBUG test -> Find the current date-time. Time marks when the playbook gathered facts.
+      ansible.builtin.debug:
+        var: ansible_date_time.iso8601_micro
+
+    # Note: For collection filters, Ansible does not honor the
+    # collections list at the top of this file.
+    # One must use a FQCN for filters such as
+    # infinidat.infinibox.delta_time.
+    - name: POSITIVE test -> Create and lock for 2 minutes snapshot from volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_snap_locked"
+        state: present
+        volume_type: snapshot
+        parent_volume_name: "{{ auto_prefix }}vol"
+        snapshot_lock_expires_at: "{{ ansible_date_time.iso8601_micro | to_datetime(fmt) | infinidat.infinibox.delta_time(minutes=2) }}"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      vars:
+        fmt: "%Y-%m-%dT%H:%M:%S.%fZ"
+
+    - name: POSITIVE test -> Extend lock to 3 minutes for snapshot without refresh
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_snap_locked"
+        state: present
+        volume_type: snapshot
+        parent_volume_name: "{{ auto_prefix }}vol"
+        snapshot_lock_expires_at: "{{ ansible_date_time.iso8601_micro | to_datetime(fmt) | infinidat.infinibox.delta_time(minutes=3) }}"
+        snapshot_lock_only: true
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      vars:
+        fmt: "%Y-%m-%dT%H:%M:%S.%fZ"
+
+    - name: NEGATIVE test -> Attempt to create snapshot locked for 31 days. Exceeds 30 day maximum lock time enforced by infini_vol module (not API)
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_snap_locked_too_long"
+        state: present
+        volume_type: snapshot
+        parent_volume_name: "{{ auto_prefix }}vol"
+        snapshot_lock_expires_at: "{{ ansible_date_time.iso8601_micro | to_datetime(fmt) | infinidat.infinibox.delta_time(days=31) }}"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: result
+      failed_when: "not result.msg | regex_search('snapshot_lock_expires_at exceeds.*days in the future')"
+      vars:
+        fmt: "%Y-%m-%dT%H:%M:%S.%fZ"
+
+    - name: NEGATIVE test -> Attempt to remove locked snapshot
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_snap_locked"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: result
+      failed_when: "'Cannot delete snapshot. Locked' not in result.msg"
+
+    - name: POSITIVE test -> Wait for lock on snapshot to expire
+      ansible.builtin.pause:
+        seconds: 181
+        prompt: Waiting for {{ auto_prefix }}vol_snap_locked to expire
+
+    - name: POSITIVE test -> Lock expired. Remove snapshot.
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_snap_locked"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"

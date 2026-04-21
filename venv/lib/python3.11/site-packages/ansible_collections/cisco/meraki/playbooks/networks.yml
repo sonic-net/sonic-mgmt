@@ -1,0 +1,17 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    org_id: 828099381482762270
+  gather_facts: false
+  tasks:
+    - name: Createa a new network
+      cisco.meraki.networks:
+        meraki_suppress_logging: false
+        state: present
+        name: New network by Ansible
+        notes: Additional description of the network
+        organizationId: "{{ org_id }}"
+        productTypes:
+          - appliance
+          - switch
+        timeZone: America/Los_Angeles

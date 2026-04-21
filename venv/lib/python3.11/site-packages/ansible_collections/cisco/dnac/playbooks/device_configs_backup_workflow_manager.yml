@@ -1,0 +1,127 @@
+---
+- name: Sample playbook for Device Configs Backup Module
+  hosts: dnac_servers
+  gather_facts: false
+
+  vars_files:
+    - "credentials.yml"
+
+  vars:
+    dnac_login: &dnac_login
+      dnac_host: "{{ dnac_host }}"
+      dnac_username: "{{ dnac_username }}"
+      dnac_password: "{{ dnac_password }}"
+      dnac_verify: "{{ dnac_verify }}"
+      dnac_port: "{{ dnac_port }}"
+      dnac_version: "{{ dnac_version }}"
+      dnac_debug: "{{ dnac_debug }}"
+      dnac_log: true
+      dnac_log_level: INFO
+      dnac_log_append: false
+      config_verify: true
+
+  tasks:
+    - name: Take backup of all devices in the Cisco Catalyst Center
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - file_password: qsaA12!asdasd
+
+    - name: Take backup of device(s) using hostname(s)
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - hostname_list: ["DC-T-9300.cisco.local", "NY-BN-9300.cisco.local"]
+            file_path: backup
+            unzip_backup: false
+
+    - name: Take backup of device(s) using hostname(s) and provide file password
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - hostname_list: ["DC-T-9300.cisco.local"]
+            file_path: backup
+            file_password: qsaA12!asdasd
+            unzip_backup: true
+
+    - name: Take backup of all devices in a site(s)
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - site_list: ["Global/USA/RTP/BLD10", "Global/USA/New York/BLDNYC/FLOOR1"]
+            file_path: backup
+
+    - name: Take backup of device(s) using IP Address List
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - ip_address_list: ["204.1.2.5", "204.1.2.4", "204.1.2.2"]
+            file_path: backup
+
+    - name: Take backup of device(s) using MAC Address List
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - mac_address_list: ["d4:ad:bd:c1:67:00", " 00:b6:70:32:b8:00", "0c:75:bd:42:c3:80", "90:88:55:07:59:00"]
+            file_path: backup
+            unzip_backup: false
+
+    - name: Take backup of device(s) using Serial Number List
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - serial_number_list: ["FCW2225C020", "FJB2334D06N", "FJC2327U0S2", "FJC2721271T"]
+            file_path: backup
+
+    - name: Take backup of device(s) using Family List
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - family_list: ["Switches and Hubs", "Routers"]
+            file_path: backup
+            unzip_backup: true
+
+    - name: Take backup of device(s) using Device Family Type List
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - type_list: ["Cisco Catalyst 9300 Switch"]
+            file_path: backup
+            unzip_backup: false
+
+    - name: Take backup of device(s) using Device Series
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - series_list: ["Cisco Catalyst 9300 Series Switches"]
+            file_path: backup
+
+    - name: Take backup of devices with certain Collection Status
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - collection_status_list: ["Managed"]
+            file_path: backup
+
+    - name: Take backup of device(s) in a site and also that meet other parameters
+      cisco.dnac.device_configs_backup_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - site_list: ["Global"]
+            family_list: ["Switches and Hubs"]
+            series_list: ["Cisco Catalyst 9300 Series Switches"]
+            ip_address_list: ["204.1.2.5"]
+            file_path: backup
+            unzip_backup: false

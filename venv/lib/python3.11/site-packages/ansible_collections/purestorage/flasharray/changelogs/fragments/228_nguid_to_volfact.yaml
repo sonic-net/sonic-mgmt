@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_volume - Add NVMe NGUID to response dict

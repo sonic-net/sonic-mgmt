@@ -1,0 +1,16 @@
+---
+- name: Find existing Disks
+  ovirt.ovirt.ovirt_disk_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "datacenter={{ data_center_name }}"
+  register: disk_info
+
+- name: Remove Disks
+  ovirt.ovirt.ovirt_disk:
+    state: absent
+    id: "{{ ovirt_item.id }}"
+    auth: "{{ ovirt_auth }}"
+  with_items: "{{ disk_info.ovirt_disks }}"
+  when: ovirt_item.name != 'OVF_STORE'
+  loop_control:
+    loop_var: ovirt_item

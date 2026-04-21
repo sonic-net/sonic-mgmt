@@ -1,0 +1,46 @@
+---
+- name: Test infini_network_space module
+  hosts: localhost
+  gather_facts: false
+  vars:
+    service_name: iSCSI
+    service: ISCSI_SERVICE
+  tasks:
+
+    - name: POSITIVE test -> Create network space
+      infinidat.infinibox.infini_network_space:
+        name: "{{ service_name }}"
+        state: present
+        interfaces:
+          - 1680
+          - 1679
+          - 1678
+        service: "{{ service }}"
+        netmask: 19
+        network: 172.31.32.0
+        default_gateway: 172.31.63.254
+        # rate_limit: 8
+        # mtu: 1280
+        ips:
+          - 172.31.32.145
+          - 172.31.32.146
+          - 172.31.32.147
+          - 172.31.32.148
+          - 172.31.32.149
+          - 172.31.32.150
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: create_out
+
+    - name: Debug
+      ansible.builtin.debug:
+        var: create_out
+
+    - name: POSITIVE test -> Stat network space named
+      infinidat.infinibox.infini_network_space:
+        name: "{{ service_name }}"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"

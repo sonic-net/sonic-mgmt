@@ -1,0 +1,9 @@
+---
+bugfixes:
+  - na_ontap_user_role - fix AttributeError 'NetAppOntapUserRole' object has no attribute 'name'.
+  - na_ontap_user_role - fix duplicate entry error in ZAPI.
+  - na_ontap_user_role - fix entry does not exist error when trying to delete privilege in REST.
+  - na_ontap_user_role - fix KeyError on ``vserver``, ``command_directory_name`` in ZAPI and ``path``, ``query`` in REST.
+minor_changes:
+  - na_ontap_user_role - ``path`` is required if ``privileges`` set in REST.
+  - na_ontap_user_role - ``command_directory_name`` is required if ``privileges`` not set in REST.

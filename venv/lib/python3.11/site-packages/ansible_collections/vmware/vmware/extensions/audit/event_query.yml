@@ -1,0 +1,42 @@
+---
+vmware.vmware.guest_info:
+  query: >-
+    .guests[] | {
+      name: .moid,
+      canonical_facts: {
+        instance_uuid: .instance_uuid,
+        bios_uuid: .hw_product_uuid,
+        moid: .moid,
+        esxi: .hw_esxi_host
+      },
+      facts: {
+        infra_type: "PrivateCloud",
+        infra_bucket: "Compute",
+        device_type: "VM"
+      }
+    }
+
+####
+# Catch all query
+####
+vmware.vmware.*:
+  query: >-
+    (
+      {"vm": "VM", "host": "ESXi", "vcsa": "vCenter Appliance", "cluster": "Cluster"} as $mapping |
+      . as $data |
+      ($data | with_entries(select(.key | in($mapping))) | keys | first) as $node_type |
+      select(($node_type != null) and ($data[$node_type].name != null) and ($data[$node_type].moid != null)) |
+      {
+        name: $data[$node_type].moid,
+        canonical_facts: {
+          name: $data[$node_type].name,
+          id: $data[$node_type].moid,
+          node_type: $node_type
+        },
+        facts: {
+          infra_type: "PrivateCloud",
+          infra_bucket: "Compute",
+          device_type: ($mapping[$node_type] // "UNKNOWN")
+        }
+      }
+    )

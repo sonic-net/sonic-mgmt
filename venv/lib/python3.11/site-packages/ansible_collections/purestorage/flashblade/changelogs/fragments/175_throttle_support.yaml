@@ -1,0 +1,3 @@
+minor_changes:
+  - purefb_connect - Add support for array connections to have bandwidth throttling defined
+  - purefb_info - Show array connections bandwidth throttle information

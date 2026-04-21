@@ -1,0 +1,9 @@
+- name: Deploy Tempo service
+  ansible.builtin.include_tasks:
+    file: "deploy.yml"
+  when: not tempo_uninstall
+
+- name: Uninstall Tempo service
+  ansible.builtin.include_tasks:
+    file: "uninstall.yml"
+  when: tempo_uninstall

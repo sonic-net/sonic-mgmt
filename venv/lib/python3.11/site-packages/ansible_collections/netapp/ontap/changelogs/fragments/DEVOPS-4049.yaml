@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_export_policy_rule - change ``anonymous_user_id`` type to str to accept user name and user
+    id.   (A warning is now triggered when a number is not quoted.)

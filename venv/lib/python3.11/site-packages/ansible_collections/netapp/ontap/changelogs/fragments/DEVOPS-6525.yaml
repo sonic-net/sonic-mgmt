@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_cluster - new option `certificate.uuid` added in REST, requires ONTAP 9.10 or later.
+
+bugfixes:
+  - na_ontap_security_certificates - fix error with ontap_info returned in module output in REST.

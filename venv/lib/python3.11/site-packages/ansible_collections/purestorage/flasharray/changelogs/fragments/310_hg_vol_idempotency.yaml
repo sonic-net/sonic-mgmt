@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_hg - Ensure volume disconnection from a hostgroup is idempotent

@@ -1,0 +1,10 @@
+---
+minor_changes:
+  - na_ontap_volume_efficiency - new option to allow volume efficiency to be started and stopped 'volume_efficiency'.
+  - na_ontap_volume_efficiency - new option 'start_ve_scan_all' scan the entire volume without applying share block optimization.
+  - na_ontap_volume_efficiency - new option 'start_ve_build_metadata' scan the entire and generate fingerprint database.
+  - na_ontap_volume_efficiency - new option 'start_ve_delete_checkpoint' delete checkpoint and start the operation from the begining.
+  - na_ontap_volume_efficiency - new option 'start_ve_queue_operation' queue if an exisitng operation is already running.
+  - na_ontap_volume_efficiency - new option 'start_ve_scan_old_data' scan the file system to process all the existing data.
+  - na_ontap_volume_efficiency - new option 'start_ve_qos_policy' defines the QoS policy for the operation.
+  - na_ontap_volume_efficiency - new option 'stop_ve_all_operations' all running and queued operations to be stopped.

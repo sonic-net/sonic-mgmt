@@ -1,0 +1,241 @@
+---
+- name: Volume Operations
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    vol_name: "Ansible_vol1_test"
+    new_vol_name: "New_Ansible_vol1_test"
+    size: 2
+    pool_name: "Ansible_Unity_SP_2"
+    cap_gb: "GB"
+    description: "Ansible demo"
+    snap_schedule: "Ansible_vol_snap_schedule1"
+    io_limit_policy: "Ansible_IO_limit1"
+    tiering_policy: "LOWEST"
+    is_thin: true
+    compression: true
+    sp: "SPA"
+    host_name: "10.*.*.*"
+    host_id: "Host_929"
+    vol_hosts:
+      - host_name: "10.*.*.*"
+        hlu: 1
+      - host_id: "Host_929"
+        hlu: 3
+    hlu: 2
+    state_present: "present"
+    state_absent: "absent"
+    state_mapped: "mapped"
+    state_unmapped: "unmapped"
+
+  tasks:
+    - name: Create Volume
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ vol_name }}"
+        description: "{{ description }}"
+        pool_name: "{{ pool_name }}"
+        size: "{{ size }}"
+        cap_unit: "{{ cap_gb }}"
+        tiering_policy: "{{ tiering_policy }}"
+        is_thin: true
+        compression: true
+        advanced_dedup: true
+        state: "{{ state_present }}"
+      register: vol_result
+
+    - name: Create Volume - Idempotency
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ vol_name }}"
+        description: "{{ description }}"
+        pool_name: "{{ pool_name }}"
+        size: "{{ size }}"
+        cap_unit: "{{ cap_gb }}"
+        tiering_policy: "{{ tiering_policy }}"
+        is_thin: true
+        compression: true
+        advanced_dedup: true
+        state: "{{ state_present }}"
+
+    - name: Set vol_id
+      ansible.builtin.set_fact:
+        vol_id: "{{ vol_result.volume_details.id }}"
+
+    - name: Expand Volume by volume id
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        size: 5
+        cap_unit: "{{ cap_gb }}"
+        state: "{{ state_present }}"
+
+    - name: Modify Volume attributes
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ vol_name }}"
+        tiering_policy: "AUTOTIER"
+        snap_schedule: "{{ snap_schedule }}"
+        io_limit_policy: "{{ io_limit_policy }}"
+        is_thin: true
+        compression: true
+        advanced_dedup: true
+        state: "{{ state_present }}"
+
+    - name: Modify Volume attributes - Idempotency
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ vol_name }}"
+        tiering_policy: "AUTOTIER"
+        snap_schedule: "{{ snap_schedule }}"
+        io_limit_policy: "{{ io_limit_policy }}"
+        is_thin: true
+        compression: true
+        advanced_dedup: true
+        state: "{{ state_present }}"
+
+    - name: Remove snap_schedule from a Volume
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ vol_name }}"
+        snap_schedule: ""
+        state: "{{ state_present }}"
+
+    - name: Map Host by host_name to Volume
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        host_name: "{{ host_name }}"
+        hlu: "{{ hlu }}"
+        mapping_state: "{{ state_mapped }}"
+        state: "{{ state_present }}"
+
+    - name: Map Host by host_name to Volume- Idempotency
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        host_name: "{{ host_name }}"
+        hlu: 2
+        mapping_state: "{{ state_mapped }}"
+        state: "{{ state_present }}"
+
+    - name: Unmap Host by host_name from Volume
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        host_name: "{{ host_name }}"
+        mapping_state: "{{ state_unmapped }}"
+        state: "{{ state_present }}"
+
+    - name: Unmap Host by host_name from Volume -Idempotency
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        host_name: "{{ host_name }}"
+        mapping_state: "{{ state_unmapped }}"
+        state: "{{ state_present }}"
+
+    - name: Map Multiple Hosts to a Volume
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        hosts: "{{ vol_hosts }}"
+        mapping_state: "{{ state_mapped }}"
+        state: "{{ state_present }}"
+
+    - name: Map Multiple Hosts to a Volume - Idempotency
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        hosts: "{{ vol_hosts }}"
+        mapping_state: "{{ state_mapped }}"
+        state: "{{ state_present }}"
+
+    - name: Unmap Hosts from Volume
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        hosts: "{{ vol_hosts }}"
+        mapping_state: "{{ state_unmapped }}"
+        state: "{{ state_present }}"
+
+    - name: Unmap Hosts from Volume - Idempotency
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        hosts: "{{ vol_hosts }}"
+        mapping_state: "{{ state_unmapped }}"
+        state: "{{ state_present }}"
+
+    - name: Get details of volume using id
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        state: "present"
+
+    - name: Delete a volume using id
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        state: "absent"
+
+    - name: Delete a volume using id -Idempotency
+      volume:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        state: "absent"

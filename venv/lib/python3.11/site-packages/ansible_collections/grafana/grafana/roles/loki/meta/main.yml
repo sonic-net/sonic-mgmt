@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  role_name: loki
+  author: voidquark
+  description: Manage Grafana Loki Application
+  license: "GPL-3.0-or-later"
+  min_ansible_version: "2.10"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+    - name: Fedora
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - loki
+    - grafana
+    - logging
+    - monitoring
+
+dependencies: []

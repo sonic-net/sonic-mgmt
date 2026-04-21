@@ -1,0 +1,352 @@
+---
+- name: Load host list Output from File on Localhost
+  hosts: localhost
+  gather_facts: true
+  tasks:
+
+    - name: Read data povided by host_identification.yml playbook from file.
+      ansible.builtin.slurp:
+        src: "{{ file_name }}/matched_hosts.json"
+      register: vmd_host_matched_list
+
+    - name: Parse Output to read content.
+      ansible.builtin.set_fact:
+        host_matched_list_processed: "{{ vmd_host_matched_list['content'] | b64decode | from_json }}"
+
+    - name: Extract inventory_hostnames from input list
+      ansible.builtin.set_fact:
+        vmd_host_matched_list_processed: "{{ host_matched_list_processed | map(attribute='inventory_hostname') | list }}"
+
+
+- name: Rescan and verify SCSI devices and multipath
+  hosts: "{{ hostvars['localhost'].vmd_host_matched_list_processed | default([]) }}"
+  vars_files:
+    - vars.yml
+  serial: 1
+  tasks:
+
+    - name: Gather facts for all hosts.
+      ansible.builtin.setup:
+      register: system_info
+
+    - name: Read and parse JSON file
+      delegate_to: localhost
+      ansible.builtin.slurp:
+        src: "{{ file_name }}/vmd_output.json"
+      register: json_file
+
+    - name: Convert JSON content to dictionary
+      ansible.builtin.set_fact:
+        targetports_output_tgt: "{{ json_file.content | b64decode | from_json }}"
+
+    - name: Convert WWNN values to lowercase
+      ansible.builtin.set_fact:
+        targetports_output_tgt: "{{
+          targetports_output_tgt | combine({item: targetports_output_tgt[item] |
+          combine({'WWNN': targetports_output_tgt[item].WWNN | lower})}, recursive=True) }}"
+      loop: "{{ targetports_output_tgt.keys() | list }}"
+
+      # Sample multipath -ll output
+      # mpathps (36005076810da8186b800000000000000) dm-3 IBM,2145
+      # size=20G features='1 queue_if_no_path' hwhandler='1 alua' wp=rw
+      # |-+- policy='service-time 0' prio=50 status=active
+      # | `- 7:0:37:0 sdc 8:32 active ready running
+      # `-+- policy='service-time 0' prio=10 status=enabled
+      #   `- 7:0:39:0 sdb 8:16 active ready running
+
+      # Output from task: 'Clean multipath_lines'
+      # "mpathps (36005076810da8186b800000000000000) dm-3 IBM,2145",
+      #   "size=20G features='1 queue_if_no_path' hwhandler='1 alua' wp=rw",
+      #   "+- policy='service-time 0' prio=50 status=active",
+      #   "7:0:37:0 sdc 8:32 active ready running",
+      #   "+- policy='service-time 0' prio=10 status=enabled",
+      #   "7:0:39:0 sdb 8:16 active ready running"
+
+      # Output from task 'Run CLI multipath -ll -v 3'
+      # "Apr 23 19:58:05 | sda: tgt_node_name = ",
+      # "Apr 23 19:58:05 | sdc: tgt_node_name = 0x50050768100030d7",
+      # "Apr 23 19:58:05 | sdb: tgt_node_name = 0x50050768100030d5"
+
+      # convert output from task: Run CLI multipath -ll -v 3 as below from task: Extract WWNN mapping from multipath_v3_output
+      # "wwnn_map": {
+      #       "sda": "",
+      #       "sdb": "0x50050768100030d5",
+      #       "sdc": "0x50050768100030d7"
+      #   }
+
+      # in task: Iterate over multipath lines, task is iterating over each line on output from task: Clean multipath_lines
+      # example:
+      # input line: "7:0:39:0 sdb 8:16 active ready running"
+      # output:
+      #   [
+      #     {
+      #         "dm": "dm-3",
+      #         "line": "7:0:37:0 sdc 8:32 active ready running",
+      #         "parts": [
+      #             "7:0:37:0",
+      #             "sdc",
+      #             "8:32",
+      #             "active",
+      #             "ready",
+      #             "running"
+      #         ],
+      #         "status": "active",
+      #         "wwid": "(36005076810da8186b800000000000000)"
+      #     }
+      # ]
+
+      # in task: Build multipath dictionary, creating dictionary template using above output
+      #  {
+      #       "(36005076810da8186b800000000000000)": {
+      #           "active": {},
+      #           "dm": "dm-3",
+      #           "inactive": {}
+      #       }
+      #   }
+
+      # in task: Assign devices to WWNN map, will fill the values of active and inactive paths,
+      # by comparing output from task: Iterate over multipath lines and from output task: Extract WWNN mapping from multipath_v3_output
+      #   {
+      #     "(36005076810da8186b800000000000000)": {
+      #         "active": {
+      #             "0x50050768100030d5": [
+      #                 "sdb"
+      #             ],
+      #             "0x50050768100030d7": [
+      #                 "sdc"
+      #             ]
+      #         },
+      #         "dm": "dm-3",
+      #         "inactive": {}
+      #     }
+      # }
+
+
+    # Linux-specific (RHEL) tasks
+    - name: Linux tasks
+      when: system_info.ansible_facts.ansible_system == "Linux"
+      block:
+
+        - name: Run CLI multipath -ll
+          ansible.builtin.command: multipath -ll
+          register: multapth
+          changed_when: false
+          failed_when: multapth.rc != 0
+
+        - name: Clean multipath_lines
+          ansible.builtin.set_fact:
+            multipath_lines_cleaned: "{{ multapth.stdout_lines | map('regex_replace', '^\\s*\\|?\\s*[\\`\\|-]+\\s*', '') | list }}"
+
+        - name: Run CLI multipath -ll -v 3    # noqa: risky-shell-pipe
+          ansible.builtin.shell: |
+           multipath -ll -v3 2>&1 | grep tgt_node_name
+          changed_when: false
+          register: multipath_v3
+
+        - name: Set fact for multipath_v3
+          ansible.builtin.set_fact:
+            multipath_v3_output: "{{ multipath_v3.stdout_lines }}"
+
+        - name: Extract WWNN mapping from multipath_v3_output
+          ansible.builtin.set_fact:
+            wwnn_map: "{{ wwnn_map | default({}) | combine({item.split(': ')[0].split()[-1]: item.split('=')[-1].strip()}) }}"
+          loop: "{{ multipath_v3_output }}"
+          when: item is search('tgt_node_name')
+
+        - name: Initialize multipath data
+          ansible.builtin.set_fact:
+            multipath_data: {}
+
+        - name: Parse multipath lines
+          ansible.builtin.set_fact:
+            parsed_multipath: []
+
+        - name: Iterate over multipath lines
+          ansible.builtin.set_fact:
+            parsed_multipath: >-
+              {{ parsed_multipath + [{
+                'line': item,
+                'parts': item.split(),
+                'wwid': (
+                  item.split()[1]
+                  if item.startswith('mpath')
+                  else (parsed_multipath[-1]['wwid'] if parsed_multipath else '')
+                ),
+                'dm': (
+                  item.split()[2]
+                  if item.startswith('mpath')
+                  else (parsed_multipath[-1]['dm'] if parsed_multipath else '')
+                ),
+                'status': (
+                  'active' if 'active ready' in item
+                  else ('inactive' if 'failed faulty' in item else '')
+                )
+              }] }}
+          loop: "{{ multipath_lines_cleaned }}"
+
+        - name: Build multipath dictionary
+          ansible.builtin.set_fact:
+            multipath_data: >-
+              {{
+                multipath_data |
+                combine({
+                  item.wwid: multipath_data.get(item.wwid, {'dm': item.dm, 'active': {}, 'inactive': {}})
+                })
+              }}
+          loop: "{{ parsed_multipath }}"
+          when: item.wwid != ""
+
+        - name: Assign devices to WWNN map
+          ansible.builtin.set_fact:
+            multipath_data: >-
+              {{
+                multipath_data |
+                combine({
+                  item.wwid: multipath_data[item.wwid] |
+                  combine({
+                    item.status: multipath_data[item.wwid][item.status] |
+                    combine({
+                      wwnn_map[item.parts[1]]: multipath_data[item.wwid][item.status].get(wwnn_map[item.parts[1]], []) + [item.parts[1]]
+                    }) if wwnn_map[item.parts[1]] else multipath_data[item.wwid][item.status]
+                  })
+                })
+              }}
+          loop: "{{ parsed_multipath }}"
+          when: item.parts | length > 1 and item.parts[1] in wwnn_map and wwnn_map[item.parts[1]] != ""
+
+        - name: Change variable name
+          ansible.builtin.set_fact:
+            multipath: "{{ multipath_data }}"
+
+        - name: Compute total active and inactive counts
+          ansible.builtin.set_fact:
+            multipath: >-
+              {{
+                multipath | combine({
+                  item.key: multipath[item.key] | combine({
+                    'total_active_' ~ item.key | regex_replace('[()]', ''): (
+                      multipath[item.key].get('active', {}) | dict2items | map(attribute='value') | map('length') | sum
+                    ),
+                    'total_inactive_' ~ item.key | regex_replace('[()]', ''): (
+                      multipath[item.key].get('inactive', {}) | dict2items | map(attribute='value') | map('length') | sum
+                    )
+                  })
+                })
+              }}
+          loop: "{{ multipath | dict2items }}"
+
+        - name: Convert JSON content to dictionary
+          ansible.builtin.set_fact:
+            final_out: "{{ multipath }}"
+
+        - name: Initialize result dictionary
+          ansible.builtin.set_fact:
+            active_paths_on_tgt: {}
+
+        - name: Process data and generate output.
+          ansible.builtin.set_fact:
+            active_paths_on_tgt: >-
+              {%- set result = active_paths_on_tgt.copy() -%}
+              {%- for key, value in final_out.items() -%}
+                {%- set dm = value.dm -%}
+                {%- set uuid = key -%}
+                {%- if dm not in result -%}
+                  {%- set _ = result.update({dm: {}}) -%}
+                {%- endif -%}
+                {%- set _ = result[dm].update({'uuid': uuid}) -%}
+                {%- for tgt_id, tgt_data in targetports_output_tgt.items() -%}
+                  {%- set node_name = tgt_data.name -%}
+                  {%- set wwnn = tgt_data.WWNN -%}
+                  {%- set active_count = value.active.get('0x' + wwnn, []) | length -%}
+                  {%- set inactive_count = value.inactive.get('0x' + wwnn, []) | length -%}
+                  {%- set _ = result[dm].update({node_name: {'active_no_paths': active_count, 'inactive_no_paths': inactive_count}}) -%}
+                {%- endfor -%}
+              {%- endfor -%}
+              {%- set _ = result.update({'inventory_name': inventory_hostname}) -%}
+              {{ result }}
+
+
+        - name: Initialize path analysis variables
+          ansible.builtin.set_fact:
+            non_compliant_devices: []
+
+
+        - name: Identify non-compliant devices
+          ansible.builtin.set_fact:
+            non_compliant_devices: >-
+              {%- set result = non_compliant_devices -%}
+              {%- for device, data in final_out.items() -%}
+                {%- set dm_name = data['dm'] -%}
+                {%- for port, targets in targetports_output_tgt.items() -%}
+                  {%- set wwnn = targets.WWNN -%}
+                  {%- set active_count = data.active.get('0x' + wwnn, []) | length -%}
+                  {%- if active_count < min_active_path -%}
+                    {%- for tgt in targets -%}
+                      {%- set _ = result.append("Device: {} {} port {} WWNN {} does not meet min path requirement which is
+                       {}".format(device, dm_name, port, tgt, min_active_path)) -%}
+                    {%- endfor -%}
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endfor -%}
+              {{ result }}
+
+        - name: Display analysis results
+          ansible.builtin.debug:
+            var: active_paths_on_tgt
+
+        - name: Display non-compliant devices
+          ansible.builtin.debug:
+            msg: "{{ non_compliant_devices }}"
+
+        - name: Initialize var
+          ansible.builtin.set_fact:
+            updated_list: {}
+
+        - name: Merge dictionary
+          ansible.builtin.set_fact:
+            updated_list: "{{ updated_list | combine({'active_paths_on_tgt': active_paths_on_tgt, 'non_compliant_devices': non_compliant_devices}) }}"
+
+
+    # - name: Other OS task
+    #   block:
+    #     - name: Other OS
+    #       debug:
+    #         msg: Write your code block here
+    #     # Please add OS specific tasks to rescan multipath, refer to following blocks
+    #   when: system_info.ansible_facts.ansible_system == "Other OS"
+
+    - name: Append matched hosts to a JSON file if found
+      when: updated_list | length > 0
+      delegate_to: localhost
+      block:
+        - name: Check if the file exists
+          ansible.builtin.stat:
+            path: "{{ file_name }}/vmd_output_final_out.json"
+          register: file_stat
+
+        - name: Read the current content of the file if it exists
+          ansible.builtin.slurp:
+            src: "{{ file_name }}/vmd_output_final_out.json"
+          register: current_content
+          when: file_stat.stat.exists
+          failed_when: false
+
+        - name: Decode the current JSON content if the file exists
+          ansible.builtin.set_fact:
+            existing_data: "{{ current_content.content | b64decode | from_json if current_content.content | length > 0 else {'data': []} }}"
+          when: file_stat.stat.exists
+
+        - name: Initialize existing_data if the file doesn't exist
+          ansible.builtin.set_fact:
+            existing_data: {'data': []}
+          when: not file_stat.stat.exists
+
+        - name: Append new matched hosts to existing data
+          ansible.builtin.set_fact:
+            existing_data: "{{ existing_data | combine({'data': existing_data['data'] + [updated_list]}) }}"
+
+        - name: Write the updated data to the file
+          ansible.builtin.copy:
+            content: "{{ existing_data | to_nice_json }}"
+            dest: "{{ file_name }}/vmd_output_final_out.json"
+            mode: '0600'

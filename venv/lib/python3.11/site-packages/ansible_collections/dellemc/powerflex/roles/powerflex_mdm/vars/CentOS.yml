@@ -1,0 +1,5 @@
+---
+powerflex_mdm_packages:
+        - bash-completion
+        - python2
+        - binutils

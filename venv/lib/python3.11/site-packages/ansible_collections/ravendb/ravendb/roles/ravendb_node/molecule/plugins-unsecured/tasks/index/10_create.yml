@@ -1,0 +1,97 @@
+---
+- name: Create database for index tests
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    replication_factor: 1
+    state: present
+  register: ix_db_created
+
+- name: Assert DB created/present
+  ansible.builtin.assert:
+    that:
+      - "'created successfully' in ix_db_created.msg | lower"
+
+- name: Fetch ALL indexes (initial)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_all_initial
+  changed_when: false
+
+- name: Normalize list (initial)
+  ansible.builtin.set_fact:
+    ix_list_initial: "{{ ix_all_initial.json.Results | default(ix_all_initial.json) | default([]) }}"
+
+- name: Pick index (initial)
+  ansible.builtin.set_fact:
+    ix_pick_initial: "{{ (ix_list_initial | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Assert index not listed
+  ansible.builtin.assert:
+    that:
+      - "(ix_list_initial | selectattr('Name','equalto', idx_name) | list | length) == 0"
+
+- name: Create index (check mode)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_initial }}"
+    state: present
+  check_mode: yes
+  register: ix_check_create
+
+- name: Assert would be created
+  ansible.builtin.assert:
+    that:
+      - ix_check_create.changed
+      - "'would be created' in ix_check_create.msg | lower"
+
+- name: Create index
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_initial }}"
+    state: present
+  register: ix_created
+
+- name: Assert created
+  ansible.builtin.assert:
+    that:
+      - ix_created.changed
+      - "'created successfully' in ix_created.msg | lower"
+
+- name: Fetch ALL indexes (after create)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_all_after_create
+  changed_when: false
+
+- name: Normalize list (after create)
+  ansible.builtin.set_fact:
+    ix_list_after_create: "{{ ix_all_after_create.json.Results | default(ix_all_after_create.json) | default([]) }}"
+
+- name: Assert index listed
+  ansible.builtin.assert:
+    that:
+      - "idx_name in (ix_list_after_create | map(attribute='Name') | list)"
+
+- name: Re-run create index (idempotency)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_initial }}"
+    state: present
+  register: ix_again
+
+- name: Assert idempotent
+  ansible.builtin.assert:
+    that:
+      - "not ix_again.changed"
+      - "'already exists' in ix_again.msg | lower"

@@ -1,0 +1,30 @@
+---
+requires_ansible: '>=2.15.0'
+action_groups:
+  okd:
+    - k8s
+    - openshift_adm_groups_sync
+    - openshift_adm_migrate_template_instances
+    - openshift_adm_prune_auth
+    - openshift_adm_prune_deployments
+    - openshift_adm_prune_images
+    - openshift_auth
+    - openshift_import_image
+    - openshift_process
+    - openshift_registry_info
+    - openshift_route
+plugin_routing:
+  modules:
+    k8s_auth:
+      redirect: community.okd.openshift_auth
+  inventory:
+    openshift:
+      tombstone:
+        removal_version: 5.0.0
+        warning_text: >-
+          Use kubernetes.core.k8s_info and ansible.builtin.add_host instead.
+  action:
+    k8s:
+      redirect: kubernetes.core.k8s_info
+    openshift_adm_groups_sync:
+      redirect: kubernetes.core.k8s_info

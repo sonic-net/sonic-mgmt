@@ -1,0 +1,5 @@
+---
+# macOS/Darwin specific variables
+__alloy_brew_tap: "grafana/grafana"
+__alloy_brew_package: "grafana/grafana/alloy"
+__alloy_config_path_default: "{{ __brew_prefix.stdout | default('/opt/homebrew') }}"

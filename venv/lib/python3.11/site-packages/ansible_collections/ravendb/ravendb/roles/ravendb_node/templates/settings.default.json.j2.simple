@@ -1,0 +1,7 @@
+{% set secured = ravendb_certificate_file is defined -%}
+{
+    "Setup.Mode": "None",
+
+
+    "License.Eula.Accepted": true
+}

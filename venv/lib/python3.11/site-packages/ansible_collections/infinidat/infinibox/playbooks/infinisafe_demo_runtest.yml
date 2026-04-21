@@ -1,0 +1,121 @@
+---
+### Localhost
+- name: Run Infinisafe Demo
+  hosts: forensics
+  gather_facts: false
+  vars:
+    network_space: InfiniSafe-Fenced-Network # iSCSI
+    service: ISCSI_SERVICE
+    pool: infinisafe
+    volume: app_vol
+    snap: app_snap
+    host: forensic-validation-host
+    host_iqn: iqn.1993-08.org.debian:01:62ebda3b76cc # io-wt-35
+    ibox_portal: 172.31.32.145
+    ibox: ibox1521
+    ibox_iqn: iqn.2009-11.com.infinidat:storage:infinibox-sn-1521
+  tasks:
+
+    - name: Create network space
+      infinidat.infinibox.infini_network_space:
+        name: "{{ network_space }}"
+        state: present
+        service: "{{ service }}"
+        interfaces:
+          - 1680
+          - 1679
+          - 1678
+        netmask: 19
+        network: 172.31.32.0
+        default_gateway: 172.31.63.254
+        # rate_limit: 8
+        # mtu: 1280
+        ips:
+          - 172.31.32.145
+          - 172.31.32.146
+          - 172.31.32.147
+          - 172.31.32.148
+          - 172.31.32.149
+          - 172.31.32.150
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+    - name: Create forensic host
+      infinidat.infinibox.infini_host:
+        name: "{{ host }}"
+        state: present
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+    - name: Map snapshot to host
+      infinidat.infinibox.infini_map:
+        host: "{{ host }}"
+        volume: "{{ snap }}"
+        state: present
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+    - name: Add port to host
+      infinidat.infinibox.infini_port:
+        host: "{{ host }}"
+        iqns: "{{ host_iqn }}"
+        state: present
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+  ### Forensics Host
+    - name: Connect forensics host to Infinibox
+      ansible.builtin.shell: |
+        iscsiadm --mode discoverydb --type sendtargets --portal {{ ibox_portal }} --discover
+        iscsiadm --mode node --targetname={{ ibox_iqn }} --op update --name=node.session.auth.username --value={{ user }}
+        iscsiadm --mode discovery --type sendtargets --portal {{ ibox_portal }} --op show
+        iscsiadm --mode node --targetname {{ ibox_iqn }} --portal {{ ibox_portal }} --login
+        rescan-scsi-bus.sh
+      changed_when: false
+      become: true
+
+    # Run forensic tests on snapshot
+    - name: Forensically test snapshot is clean using host
+      ansible.builtin.shell: |
+        true
+      changed_when: false
+      register: is_snapshot_clean
+
+    ### Localhost
+    - name: Debug
+      ansible.builtin.debug:
+        msg: Snapshot {{ snap }} PASSED testing
+      when: is_snapshot_clean.rc == 0
+      delegate_to: localhost
+
+    - name: Debug
+      ansible.builtin.debug:
+        msg: Snapshot {{ snap }} FAILED testing. Do not use this snapshot.
+      when: is_snapshot_clean.rc != 0
+      delegate_to: localhost
+
+    - name: Restoring volume from known clean snapshot
+      infinidat.infinibox.infini_vol:
+        name: "{{ snap }}"
+        state: present
+        parent_volume_name: "{{ volume }}"
+        volume_type: snapshot
+        restore_volume_from_snapshot: true
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      when: is_snapshot_clean.rc == 0
+      delegate_to: localhost

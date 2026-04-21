@@ -1,0 +1,479 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      major_changes:
+      - add all modules.
+      minor_changes:
+      - Change the referenced sdk name to inManage.
+      - Change the value of tags in galaxy.xml.
+      - Example Change the version to 1.0.0.
+      - Modify the release plan link in the readme file.
+    fragments:
+    - 1-add_modules.yaml
+    - 2-edit_version1.0.0.yaml
+    - 3-edit_readme.yaml
+    - 4-edit_inmanage_sdk.yaml
+    - 5-edit_galaxy_xml.yaml
+    modules:
+    - description: Manage active directory group information
+      name: ad_group
+      namespace: ''
+    - description: Get active directory group information
+      name: ad_group_info
+      namespace: ''
+    - description: Get active directory information
+      name: ad_info
+      namespace: ''
+    - description: Get adapter information
+      name: adapter_info
+      namespace: ''
+    - description: Create logical disk
+      name: add_ldisk
+      namespace: ''
+    - description: Get alert policy
+      name: alert_policy_info
+      namespace: ''
+    - description: Get BMC audit log information
+      name: audit_log_info
+      namespace: ''
+    - description: Get auto capture screen information
+      name: auto_capture_info
+      namespace: ''
+    - description: Get disk backplane information
+      name: backplane_info
+      namespace: ''
+    - description: Backup server settings
+      name: backup
+      namespace: ''
+    - description: Export BIOS config
+      name: bios_export
+      namespace: ''
+    - description: Import BIOS config
+      name: bios_import
+      namespace: ''
+    - description: Get BIOS setup
+      name: bios_info
+      namespace: ''
+    - description: Get BMC information
+      name: bmc_info
+      namespace: ''
+    - description: Get bmc boot image information
+      name: boot_image_info
+      namespace: ''
+    - description: Get BIOS boot options
+      name: boot_option_info
+      namespace: ''
+    - description: Clear BMC audit log
+      name: clear_audit_log
+      namespace: ''
+    - description: Clear event log
+      name: clear_event_log
+      namespace: ''
+    - description: Clear BMC system log
+      name: clear_system_log
+      namespace: ''
+    - description: Collect blackbox log
+      name: collect_blackbox
+      namespace: ''
+    - description: Collect logs
+      name: collect_log
+      namespace: ''
+    - description: Get remote images redirection information
+      name: connect_media_info
+      namespace: ''
+    - description: Get CPU information
+      name: cpu_info
+      namespace: ''
+    - description: Delete session
+      name: del_session
+      namespace: ''
+    - description: Get dns information
+      name: dns_info
+      namespace: ''
+    - description: Download auto screenshots
+      name: download_auto_screenshot
+      namespace: ''
+    - description: Download manual screenshots
+      name: download_manual_screenshot
+      namespace: ''
+    - description: Set active directory information
+      name: edit_ad
+      namespace: ''
+    - description: Set alert policy
+      name: edit_alert_policy
+      namespace: ''
+    - description: Set auto capture screen
+      name: edit_auto_capture
+      namespace: ''
+    - description: Set BIOS setup attributes
+      name: edit_bios
+      namespace: ''
+    - description: Set bmc boot image
+      name: edit_boot_image
+      namespace: ''
+    - description: Set BIOS boot options
+      name: edit_boot_option
+      namespace: ''
+    - description: Start/Stop virtual media Image
+      name: edit_connect_media
+      namespace: ''
+    - description: Set dns information
+      name: edit_dns
+      namespace: ''
+    - description: Set event log policy
+      name: edit_event_log_policy
+      namespace: ''
+    - description: Set fan information
+      name: edit_fan
+      namespace: ''
+    - description: Set fru settings
+      name: edit_fru
+      namespace: ''
+    - description: Set ipv4 information
+      name: edit_ipv4
+      namespace: ''
+    - description: Set ipv6 information
+      name: edit_ipv6
+      namespace: ''
+    - description: Set KVM
+      name: edit_kvm
+      namespace: ''
+    - description: Set ldap information
+      name: edit_ldap
+      namespace: ''
+    - description: Set logical disk
+      name: edit_ldisk
+      namespace: ''
+    - description: Set bmc system and audit log setting
+      name: edit_log_setting
+      namespace: ''
+    - description: Set bmc system and audit log setting
+      name: edit_m6_log_setting
+      namespace: ''
+    - description: Set manual capture screen
+      name: edit_manual_capture
+      namespace: ''
+    - description: Set Virtual Media Instance
+      name: edit_media_instance
+      namespace: ''
+    - description: Set ncsi information
+      name: edit_ncsi
+      namespace: ''
+    - description: Set network information
+      name: edit_network
+      namespace: ''
+    - description: Set network bond
+      name: edit_network_bond
+      namespace: ''
+    - description: Set network link
+      name: edit_network_link
+      namespace: ''
+    - description: Set NTP
+      name: edit_ntp
+      namespace: ''
+    - description: Set physical disk
+      name: edit_pdisk
+      namespace: ''
+    - description: Set power budget information
+      name: edit_power_budget
+      namespace: ''
+    - description: Set power restore information
+      name: edit_power_restore
+      namespace: ''
+    - description: Set power status information
+      name: edit_power_status
+      namespace: ''
+    - description: Set preserve config
+      name: edit_preserve_config
+      namespace: ''
+    - description: Set psu config information
+      name: edit_psu_config
+      namespace: ''
+    - description: Set psu peak information
+      name: edit_psu_peak
+      namespace: ''
+    - description: Set preserver config
+      name: edit_restore_factory_default
+      namespace: ''
+    - description: Set service settings
+      name: edit_service
+      namespace: ''
+    - description: Set SMTP information
+      name: edit_smtp
+      namespace: ''
+    - description: Set SMTP information
+      name: edit_smtp_com
+      namespace: ''
+    - description: Set SMTP information
+      name: edit_smtp_dest
+      namespace: ''
+    - description: Set snmp
+      name: edit_snmp
+      namespace: ''
+    - description: Set snmp trap
+      name: edit_snmp_trap
+      namespace: ''
+    - description: Set threshold information
+      name: edit_threshold
+      namespace: ''
+    - description: Set UID
+      name: edit_uid
+      namespace: ''
+    - description: Set virtual media
+      name: edit_virtual_media
+      namespace: ''
+    - description: Set vlan information
+      name: edit_vlan
+      namespace: ''
+    - description: Get event log information
+      name: event_log_info
+      namespace: ''
+    - description: Get event log policy information
+      name: event_log_policy_info
+      namespace: ''
+    - description: Get fan information
+      name: fan_info
+      namespace: ''
+    - description: Get fru information
+      name: fru_info
+      namespace: ''
+    - description: Get firmware version information
+      name: fw_version_info
+      namespace: ''
+    - description: Get GPU information
+      name: gpu_info
+      namespace: ''
+    - description: Get hard disk information
+      name: hard_disk_info
+      namespace: ''
+    - description: Get CPU information
+      name: hba_info
+      namespace: ''
+    - description: Get KVM information
+      name: kvm_info
+      namespace: ''
+    - description: Manage ldap group information
+      name: ldap_group
+      namespace: ''
+    - description: Get ldap group information
+      name: ldap_group_info
+      namespace: ''
+    - description: Get ldap information
+      name: ldap_info
+      namespace: ''
+    - description: Get logical disks information
+      name: ldisk_info
+      namespace: ''
+    - description: Get bmc log setting information
+      name: log_setting_info
+      namespace: ''
+    - description: Get Virtual Media Instance information
+      name: media_instance_info
+      namespace: ''
+    - description: Get memory information
+      name: mem_info
+      namespace: ''
+    - description: Get ncsi information
+      name: ncsi_info
+      namespace: ''
+    - description: Get network bond information
+      name: network_bond_info
+      namespace: ''
+    - description: Get network information
+      name: network_info
+      namespace: ''
+    - description: Get network link information
+      name: network_link_info
+      namespace: ''
+    - description: Get NTP information
+      name: ntp_info
+      namespace: ''
+    - description: Get onboard disks information
+      name: onboard_disk_info
+      namespace: ''
+    - description: Get PCIE information
+      name: pcie_info
+      namespace: ''
+    - description: Get physical disks information
+      name: pdisk_info
+      namespace: ''
+    - description: Get power budget information
+      name: power_budget_info
+      namespace: ''
+    - description: Get power consumption information
+      name: power_consumption_info
+      namespace: ''
+    - description: Get power restore information
+      name: power_restore_info
+      namespace: ''
+    - description: Get power status information
+      name: power_status_info
+      namespace: ''
+    - description: Get preserve config information
+      name: preserve_config_info
+      namespace: ''
+    - description: Get psu config information
+      name: psu_config_info
+      namespace: ''
+    - description: Get psu information
+      name: psu_info
+      namespace: ''
+    - description: Get psu peak information
+      name: psu_peak_info
+      namespace: ''
+    - description: Get RAID/HBA card and controller information
+      name: raid_info
+      namespace: ''
+    - description: BMC reset
+      name: reset_bmc
+      namespace: ''
+    - description: KVM reset
+      name: reset_kvm
+      namespace: ''
+    - description: Restore server settings
+      name: restore
+      namespace: ''
+    - description: Get self test information
+      name: self_test_info
+      namespace: ''
+    - description: Get sensor information
+      name: sensor_info
+      namespace: ''
+    - description: Get server status information
+      name: server_info
+      namespace: ''
+    - description: Get service information
+      name: service_info
+      namespace: ''
+    - description: Get online session information
+      name: session_info
+      namespace: ''
+    - description: Get SMTP information
+      name: smtp_info
+      namespace: ''
+    - description: Get snmp get/set information
+      name: snmp_info
+      namespace: ''
+    - description: Get snmp trap information
+      name: snmp_trap_info
+      namespace: ''
+    - description: Get support information
+      name: support_info
+      namespace: ''
+    - description: Get BMC system log information
+      name: system_log_info
+      namespace: ''
+    - description: Get temp information
+      name: temp_info
+      namespace: ''
+    - description: Get threshold information
+      name: threshold_info
+      namespace: ''
+    - description: Get UID information
+      name: uid_info
+      namespace: ''
+    - description: Update CPLD
+      name: update_cpld
+      namespace: ''
+    - description: Update firmware
+      name: update_fw
+      namespace: ''
+    - description: Update PSU
+      name: update_psu
+      namespace: ''
+    - description: Manage user
+      name: user
+      namespace: ''
+    - description: Manage user group
+      name: user_group
+      namespace: ''
+    - description: Get user group information
+      name: user_group_info
+      namespace: ''
+    - description: Get user information
+      name: user_info
+      namespace: ''
+    - description: Get Virtual Media information
+      name: virtual_media_info
+      namespace: ''
+    - description: Get volt information
+      name: volt_info
+      namespace: ''
+    release_date: '2023-11-08'
+  1.1.0:
+    changes:
+      minor_changes:
+      - Fix any issues in your module that don't meet the ansible module format and
+        documentation requirements.
+      - Modify the CI test file to add Ansile-2.16 and python 3.12 tests.
+      - Modify the collection description in the README.md file.
+    fragments:
+    - 7-edit_readme_and_CI.yaml
+    - 8-edit_documentation.yml
+    release_date: '2024-03-12'
+  1.1.1:
+    changes:
+      minor_changes:
+      - Change edit_alert_policy module description information does not have the
+        first letter capitalization problem.
+      - Fix problems such as typos or grammatical errors in the document.
+      - Modify the readme.md information about installing supported modules.
+    fragments:
+    - 10-edit_doc_spell.yaml
+    - 11-edit_doc_first_letter.yaml
+    release_date: '2024-03-25'
+  1.2.0:
+    changes:
+      bugfixes:
+      - Add ansible 2.17 version tests to our CI test scripts.
+      - Delete the useless __init__.py file in modules and module_utils.
+      - Modify the add_ldisk, edit_ldisk, and edit_pdisk module.rst documents (https://github.com/ieisystem/ieisystem.inmanage/pull/16).
+      removed_features:
+      - add_ldisk - Delete the ``add_ldisk.info`` parameter. Use ``ieisystem.inmanage.pdisk_info``
+        instead (https://github.com/ieisystem/ieisystem.inmanage/pull/15).
+      - edit_ldisk - Delete the ``edit_ldisk.info`` parameter. Use ``ieisystem.inmanage.ldisk_info``
+        instead (https://github.com/ieisystem/ieisystem.inmanage/pull/15).
+      - edit_pdisk - Delete the ``edit_pdisk.info`` parameter. Use ``ieisystem.inmanage.pdisk_info``
+        instead (https://github.com/ieisystem/ieisystem.inmanage/pull/15).
+    fragments:
+    - 13-delete_init_file.yml
+    - 14-ansible2.17_added_for_CI_testing.yml
+    - 15-remove_modules_info.yml
+    - 16-edit_docs.yml
+    release_date: '2024-04-17'
+  1.2.1:
+    changes:
+      bugfixes:
+      - Change the example gather_facts no to false(https://github.com/ieisystem/ieisystem.inmanage/pull/18).
+      - Delete the unwanted links.yml file (https://github.com/ieisystem/ieisystem.inmanage/pull/19).
+    fragments:
+    - 18-edit_example_gather_facts.yml
+    - 19-delete_links.yml
+    release_date: '2024-04-24'
+  2.0.0:
+    changes:
+      bugfixes:
+      - resolved breaking changes that were mistakenly released in version 1.2.0(https://github.com/ieisystem/ieisystem.inmanage/pull/21).
+    fragments:
+    - 21-release_2.0.0.yml
+    release_date: '2024-06-07'
+  3.0.0:
+    changes:
+      bugfixes:
+      - Edit ansible devel version tests to our CI test scripts  (https://github.com/ieisystem/ieisystem.inmanage/pull/23).
+      - Modify the title information in changelogs config.yaml (https://github.com/ieisystem/ieisystem.inmanage/pull/22).
+      major_changes:
+      - Add new modules system_lock_mode_info, edit_system_lock_mode(https://github.com/ieisystem/ieisystem.inmanage/pull/24).
+    fragments:
+    - 22-edit_changelog_config.yml
+    - 23-edit_CI_devel.yml
+    - 24-edit_add_lock_mode.yml
+    modules:
+    - description: Set system lock mode information
+      name: edit_system_lock_mode
+      namespace: ''
+    - description: Get system lock mode information
+      name: system_lock_mode_info
+      namespace: ''
+    release_date: '2024-09-27'

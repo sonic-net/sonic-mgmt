@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_qtree - Fixed issue with ``oplocks`` not being changed during a modify in Zapi.
+  - na_ontap_qtree - Fixed issue with ``oplocks`` not warning user about not being supported in REST

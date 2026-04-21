@@ -1,0 +1,2 @@
+minor_changes:
+  - purefb_fs_replica - Remove condition to attach/detach policies on unhealthy replica-link

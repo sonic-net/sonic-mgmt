@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.organizations_config_templates:
+        meraki_suppress_logging: true
+        state: present
+        name: My config template
+        organizationId: "828099381482762270"
+        timeZone: America/Los_Angeles

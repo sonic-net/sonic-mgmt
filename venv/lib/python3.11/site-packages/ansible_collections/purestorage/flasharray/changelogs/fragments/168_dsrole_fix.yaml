@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_dsrole - If using None for group or group_base incorrect change state applied

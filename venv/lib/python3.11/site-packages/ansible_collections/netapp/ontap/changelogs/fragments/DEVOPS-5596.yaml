@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_ldap_client - new option ``skip_config_validation``.
+bugfixes:
+  - na_ontap_ldap_client - ``servers`` not accepted when using ZAPI and ``ldap_servers`` not handling a single server properly.

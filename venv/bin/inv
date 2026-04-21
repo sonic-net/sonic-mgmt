@@ -1,0 +1,6 @@
+#!/Users/kunaldevsahu/Desktop/CNCF/sonic-mgmt/venv/bin/python3.11
+import sys
+from invoke.main import program
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(program.run())

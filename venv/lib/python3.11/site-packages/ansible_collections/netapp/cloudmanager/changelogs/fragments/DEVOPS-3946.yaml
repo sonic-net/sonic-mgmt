@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_connector_azure - Change client_id as optional

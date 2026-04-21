@@ -1,0 +1,3 @@
+---
+trivial:
+  - pin version of requests package for molecule tests

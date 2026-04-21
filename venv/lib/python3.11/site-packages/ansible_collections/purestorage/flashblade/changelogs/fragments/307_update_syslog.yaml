@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_syslog - Enable ``services`` parameter and also the ability update existing syslog servers from REST 2.14

@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_snapshot_policy - new option `retention_period` added in REST, requires ONTAP 9.12 or later.

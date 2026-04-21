@@ -1,0 +1,67 @@
+---
+####################################################################
+# Example : External Volume Playbook
+####################################################################
+- name: External Volume
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create External Volume
+    ####################################################################
+    - name: Create External Volume
+      hitachivantara.vspone_block.vsp.hv_external_volume:
+        connection_info: "{{ connection_info }}"
+        spec:
+          external_storage_serial: "410109"
+          external_ldev_id: 1354
+          ldev_id: 151
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete External Volume
+    ####################################################################
+    - name: Delete External Volume
+      hitachivantara.vspone_block.vsp.hv_external_volume:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          ldev_id: 151
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################
+    # Task Name : Disconnect from a volume on the external storage system
+    ######################################################################
+    - name: Disconnect from a volume on the external storage system
+      hitachivantara.vspone_block.vsp.hv_external_volume:
+        connection_info: "{{ connection_info }}"
+        state: "disconnect"
+        spec:
+          external_parity_group: "1-2"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

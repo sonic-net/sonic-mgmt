@@ -1,0 +1,6 @@
+---
+file_glob_name: sdt
+file_gpg_name: RPM-GPG-KEY-ScaleIO
+i_am_sure: 1
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_sdt_mdm_ips }}"

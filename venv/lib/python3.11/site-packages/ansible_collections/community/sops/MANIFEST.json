@@ -1,0 +1,37 @@
+{
+ "collection_info": {
+  "namespace": "community",
+  "name": "sops",
+  "version": "2.2.7",
+  "authors": [
+   "Edoardo Tenani"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "sops",
+   "encryption",
+   "decryption",
+   "secret",
+   "vault"
+  ],
+  "description": "Support usage of SOPS (getsops/sops) from your Ansible playbooks",
+  "license": [
+   "GPL-3.0-or-later",
+   "BSD-2-Clause"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/ansible-collections/community.sops",
+  "documentation": null,
+  "homepage": "https://github.com/ansible-collections/community.sops",
+  "issues": "https://github.com/ansible-collections/community.sops/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "d1df0094219be5bca48098166d4a4c141ab800373a10daa432a97d00b6655a68",
+  "format": 1
+ },
+ "format": 1
+}

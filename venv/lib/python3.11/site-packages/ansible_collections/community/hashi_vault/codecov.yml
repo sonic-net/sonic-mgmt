@@ -1,0 +1,119 @@
+---
+ignore:
+  - tests/unit/compat/*
+  - tests/unit/**/conftest.py
+  - tests/unit/conftest.py
+
+fixes:
+  - "ansible_collections/community/hashi_vault/::"
+
+coverage:
+  status:
+    patch:
+      default:
+        target: 100%
+
+flags:
+  target_filter_vault_login_token:
+    paths:
+      - plugins/filter/vault_login_token.py
+
+  target_module_vault_kv1_get:
+    paths:
+      - plugins/modules/vault_kv1_get.py
+
+  target_module_vault_kv2_get:
+    paths:
+      - plugins/modules/vault_kv2_get.py
+
+  target_module_vault_list:
+    paths:
+      - plugins/modules/vault_list.py
+
+  target_module_vault_login:
+    paths:
+      - plugins/modules/vault_login.py
+
+  target_module_vault_read:
+    paths:
+      - plugins/modules/vault_read.py
+
+  target_module_vault_token_create:
+    paths:
+      - plugins/modules/vault_token_create.py
+
+  target_module_vault_pki_generate_certificate:
+    paths:
+      - plugins/modules/vault_pki_generate_certificate
+
+  target_lookup_vault_kv1_get:
+    paths:
+      - plugins/lookup/vault_kv1_get.py
+
+  target_lookup_vault_kv2_get:
+    paths:
+      - plugins/lookup/vault_kv2_get.py
+
+  target_lookup_vault_list:
+    paths:
+      - plugins/lookup/vault_list.py
+
+  target_lookup_vault_login:
+    paths:
+      - plugins/lookup/vault_login.py
+
+  target_lookup_vault_read:
+    paths:
+      - plugins/lookup/vault_read.py
+
+  target_lookup_vault_token_create:
+    paths:
+      - plugins/lookup/vault_token_create.py
+
+  target_lookup_hashi_vault:
+    paths:
+      - plugins/lookup/hashi_vault.py
+
+  target_auth_approle:
+    paths:
+      - plugins/module_utils/_auth_method_approle.py
+
+  target_auth_aws_iam:
+    paths:
+      - plugins/module_utils/_auth_method_aws_iam.py
+
+  target_auth_azure:
+    paths:
+      - plugins/module_utils/_auth_method_azure.py
+
+  target_auth_cert:
+    paths:
+      - plugins/module_utils/_auth_method_cert.py
+
+  target_auth_gcp:
+    paths:
+      - plugins/module_utils/_auth_method_gcp.py
+
+  target_auth_jwt:
+    paths:
+      - plugins/module_utils/_auth_method_jwt.py
+
+  target_auth_ldap:
+    paths:
+      - plugins/module_utils/_auth_method_ldap.py
+
+  target_auth_none:
+    paths:
+      - plugins/module_utils/_auth_method_none.py
+
+  target_auth_token:
+    paths:
+      - plugins/module_utils/_auth_method_token.py
+
+  target_auth_userpass:
+    paths:
+      - plugins/module_utils/_auth_method_userpass.py
+
+  target_connection_options:
+    paths:
+      - plugins/module_utils/_connection_options.py

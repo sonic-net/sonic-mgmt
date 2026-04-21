@@ -1,0 +1,2 @@
+python3-rpm [(platform:redhat platform:base-py3)]
+python38-requests [platform:centos-8 platform:rhel-8]

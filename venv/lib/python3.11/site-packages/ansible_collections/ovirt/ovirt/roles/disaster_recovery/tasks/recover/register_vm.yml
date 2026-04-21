@@ -1,0 +1,33 @@
+---
+- name: Register VM main block
+  ignore_errors: "{{ dr_ignore_error_recover }}"
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    - name: Register VM
+      ovirt.ovirt.ovirt_vm:
+        state: registered
+        storage_domain: "{{ storage.name }}"
+        id: "{{ unreg_vm.id }}"
+        auth: "{{ ovirt_auth }}"
+        allow_partial_import: "{{ dr_partial_import }}"
+        cluster_mappings: "{{ dr_cluster_map }}"
+        domain_mappings: "{{ dr_domain_map }}"
+        role_mappings: "{{ dr_role_map }}"
+        affinity_group_mappings: "{{ dr_affinity_group_map }}"
+        affinity_label_mappings: "{{ dr_affinity_label_map }}"
+        vnic_profile_mappings: "{{ dr_network_map }}"
+        lun_mappings: "{{ dr_lun_map }}"
+        reassign_bad_macs: "{{ dr_reset_mac_pool }}"
+      register: vm_register_result
+
+    - name: Log append failed VM to failed_vm_names
+      ansible.builtin.set_fact:
+        failed_vm_names: "{{ failed_vm_names }} + [ '{{ unreg_vm.name }}' ]"
+      when: vm_register_result is failed
+
+    - name: Log append succeeded VM to succeed_vm_names
+      ansible.builtin.set_fact:
+        succeed_vm_names: "{{ succeed_vm_names }} + [ '{{ unreg_vm.name }}' ]"
+      when: vm_register_result is succeeded

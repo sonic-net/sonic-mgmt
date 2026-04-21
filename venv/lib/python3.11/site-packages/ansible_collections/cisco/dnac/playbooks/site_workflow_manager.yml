@@ -1,0 +1,41 @@
+---
+- name: Site workflow manager
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Get site info and updating site details
+      cisco.dnac.site_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        state: merged
+        config:
+          - site:
+              floor:
+                name: Test_Floor6
+                parent_name: 'Global/USA/San Francisco/BGL_18'
+                length: 103.23
+                width: 75.1
+                height: 50.22
+                rf_model: 'Cubes And Walled Offices'
+                floor_number: 3
+            site_type: floor
+          - site:
+              area:
+                name: Abc
+                parent_name: 'Global'
+                address: Bengaluru, Karnataka, India
+                latitude: 22.2111
+                longitude: -42.1234434
+                country: "United States"
+            site_type: area

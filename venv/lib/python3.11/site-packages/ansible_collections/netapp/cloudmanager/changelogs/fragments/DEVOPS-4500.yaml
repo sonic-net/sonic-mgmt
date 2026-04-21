@@ -1,0 +1,2 @@
+minor_changes:
+  - Add ``update_svm_password`` for ``svm_password`` update on AWS, AZURE and GCP CVOs. Update ``svm_password`` if ``update_svm_password`` is true.

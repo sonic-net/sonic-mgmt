@@ -1,0 +1,133 @@
+---
+- name: Replication Session Operations
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'admin'
+    password: '**'
+    session_id: "103079215195_APM00213404195_0000_103079215215_APM00213404195_0000"
+    session_name: "test-session"
+
+  tasks:
+    - name: Get replication session details using name
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+
+    - name: Get replication session details using ID
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_id: "{{ session_id }}"
+
+    - name: Pause replication session
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+        pause: true
+
+    - name: Pause replication session -- Idempotency
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+        pause: true
+
+    - name: Resume replication session
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+        force_full_copy: true
+        pause: false
+
+    - name: Resume replication session -- Idempotency
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+        force_full_copy: true
+        pause: false
+
+    - name: Sync replication session
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_id: "{{ session_id }}"
+        sync: true
+
+    - name: Failover replication session
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+        failover_with_sync: true
+        force: true
+
+    - name: Failover replication session -- Idempotency
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+        failover_with_sync: true
+        force: true
+
+    - name: Failback replication session
+      replication_session:
+        unispherehost: "{{ dest_unispherhost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+        failback: true
+        force_full_copy: true
+
+    - name: Failback replication session -- Idempotency
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "{{ session_name }}"
+        failback: true
+        force_full_copy: true
+
+    - name: Delete replication session
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "test123"
+        state: "absent"
+
+    - name: Delete replication session -- Idempotency
+      replication_session:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        session_name: "test123"
+        state: "absent"

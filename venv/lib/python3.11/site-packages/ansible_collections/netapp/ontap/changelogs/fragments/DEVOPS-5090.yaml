@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_user - add support for SAML authentication_method.
+bugfixes:
+  - na_ontap_user - fix idempotency issue with SSH with second_authentication_method.

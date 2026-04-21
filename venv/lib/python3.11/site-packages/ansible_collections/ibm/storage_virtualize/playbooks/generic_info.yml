@@ -1,0 +1,22 @@
+---
+- name: Using the IBM Storage Virtualize collection
+  gather_facts: false
+  connection: local
+  hosts: localhost
+  vars:
+    user: 'username'
+    clustername: 'x.x.x.x'
+    username: 'username'
+    password: 'password'
+  tasks:
+    - name: Run CLI commands
+      register: results
+      ibm.storage_virtualize.ibm_svcinfo_command:
+        command: "svcinfo lssystem"
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        log_path: /tmp/test.debug
+    - name: Show time zone in lssystem
+      ansible.builtin.set_fact:
+        time_zone: "{{ (results['stdout'] | from_json).time_zone }}"

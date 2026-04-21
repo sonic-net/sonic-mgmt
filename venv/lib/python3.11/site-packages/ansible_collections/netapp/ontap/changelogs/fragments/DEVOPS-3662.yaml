@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_node - KeyError fix for location ans asset-tag parameters in get_node().

@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_cluster_config - fix the role to be able to create intercluster LIFs with REST (ipspace is required).
+  - na_ontap_interface - ignore ``vserver`` when using REST if role is one of 'cluster', 'node-mgmt', 'intercluster', 'cluster-mgmt'.

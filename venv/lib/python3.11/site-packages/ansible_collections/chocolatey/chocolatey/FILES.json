@@ -1,0 +1,670 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "LICENSE",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c110f0074a1336924cb10179864d7e19469a387f8cde73b8bd7a40634262fd24",
+   "format": 1
+  },
+  {
+   "name": "requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d5d6b7a8cb478ebae62c7a4d87369f5752f2892edd1334560be0c1e7252f7b45",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c82ee692702ec1dd604cdbc38ff252114e5204e1b0627045a66c9451e7a918ac",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/Sources.psm1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "02c9b473a1f9bb85d9a6b03a04d1cd80469e229d7cf8ae47edc12be123a807b1",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/Features.psm1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5921060e1db8ab04b0e409e78a134a40f21a35f3363231eec653a0ad916aa83a",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/Config.psm1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "20d1309ebe849bd52dd14b5d70219906708ad54b6bd4ecd81d0eb72c3055b763",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/Packages.psm1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "10d9aa09af375370cd8faa529d41d9ca874452ce9d3d987d941dc9e0cb676202",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/Common.psm1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dabdae1b3e07669cdcf8c30d4bf890773e6166885260adf8630425b1fed0d83a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey_facts.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f71e8d74ebe2d3dcec2ae051ec1f7fbae6862e684ee145d811af9d4409ef39a0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey_facts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ff243b75e31e29febd2b219562287564be5d955f53631bd7842ebb7d6fd891f6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "690f0958a777dd10b3642e2f0ca7cb2a89f37bd1fed6f9edd2436faa0653b119",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey_source.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e38489c151bc5de8be400967b1b58dbfa6f42e32647af246e1b8317f32b5a5f9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey_feature.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c2752e9a2d332e3700fece353b0aa66ae2090205e6041335581472f49b8942e1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey_feature.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "80cf32f69065686fc5ac6c66720adb1902f21c2753c7c02c4ccb619273471fd3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey_config.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "824fdf6338d4d3d3fe33c00cce288720813cec31adf85c121b331f77690677e5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey_source.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a77aaf8ef5b53f84c269ebce6f95e8c8b3a19301ca0c91baa30f3e7694c15783",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5bc7b7a0400df1e34da75ea2b423457d09a55ecec407a8fac9c7a9d151f97da4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/win_chocolatey.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5ebf775f1e34045df999414d571c0d83699b98253611e53985edb78d35d2984a",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "368e04de1e0ea7f4822798252589ce4b48c51e30cd57dbd1d6634dd732258c9f",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf695d9496eb79124ef9365725c5ebda4a6fa84b11b87c85997fcc9694b27e0c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/vagrant-inventory.winrm",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb2a78d84c21c105be7960d69f267495a6e46d3f5593fcd1c40c99d11c96fb9e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5b3b2331959ebc286052039c9491e05e7d1044f3c5af3e493626333d09f46c64",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/files/test-package",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/files/test-package/package.nuspec",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4c34e690d87231f1f5739293de8d6d354fa13c454801914583bbec7e2b615197",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/files/test-package/tools",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/files/test-package/tools/chocolateyinstall.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "175d63bdcc39e28f438625075317dc7f8661cc5733ba2f9c7ce09fb818b281fa",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/files/test-package/tools/chocolateyUninstall.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8910b0e63722f580b03fcf061b7bb50475ff4794af3ee6e2f9e7a01e526434d8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_win_chocolatey/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d08d72e18e427edf3dc062e828ce01c92c3c1df8f4f144fb6164383b6f31d139",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_feature",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_feature/filter_plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_feature/filter_plugins/choco_checksum_state.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "13f3796b9fec73258e34c83d4fd9441c97551c3c8603822c3e1e3db4878dc59d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_feature/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_feature/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "768167bb9b6e2c7668086534fb80f9c2a6c75a153a9e01134c67ab53aa9886be",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_feature/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c8ff10835a1cd7c34875cae9e11ad27247b0c2b0f94ea1ba0ba15e09a537b84f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_feature/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "01a04aa89bcde328dde931e7edead0967c33345fcb54d40f62f66d54044499f9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/files/bootstrap.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e0dfdf67688de03cf518902615d62e15fb1bd6d25b8cb8ffdb833e696dc9bc9e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f2ff87de8d6a548997a43bb73d09427cdd67389a03cd75870425a16ccbe2e59e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "79cd66a8b8003e4077b4131563e51ea9d3331c6bdd95a03eabbc0760cdcaab5d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/tasks/bootstrap_tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9d0474eea5ab9e7477f9321f836ed75188fa73bb2804c185922c7925af4690cd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "49032805e62390e84e399dc8486ef56fefdc1807fdb1ed8c01459036e6d15365",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/tasks/choco_v1_tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd27d84cc81f63b48f5d6035ef2fac4e550830038d56b0e670f9030f6bb87824",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7127ace6c1571fdf343a57b543cd35ed5b5181a330ab6e79ea892bf1ffff082",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_facts",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_facts/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_facts/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f2ff87de8d6a548997a43bb73d09427cdd67389a03cd75870425a16ccbe2e59e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_facts/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_facts/tasks/test_gather_facts.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d494930aec30ca6aec654c8fb8516c740ed308c95ef02e1bbd4e3a69b34e4375",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_facts/tasks/test_outdated.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "522a75a24ea8ddee34a9bc0f509941d0806933536dca3eb05553cb429f7dd21c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_facts/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6478183fda91eaf1232b6feb989267341b751568da9a36f218094034e0ee4d1d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_facts/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7dc17a9cfdc1347716138c582a57dc85f59309dc5a9bd610cb12334603f3746e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8ce2dd60dd1e390b58a66799872b0c963333260d073dc422c84b4e6f67e7a243",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5248736132833a34099a1e498b5d0bff891eba15cc7d7c2696b4a38157be4a51",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3d3968783e4dd78a412424ffe5f39b02bab9ff07e07b42e91e56eedc3f6a123",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source/library",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source/library/choco_source.ps1",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "671eebe42952a97e794f931fa3adf720ede5ff7f70f87e47eb3cb829c88336b0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_source/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_config",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_config/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_config/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "036b46a3a288f6e0340979b08a6593ebaa866156767c72e3d302acf592eb9601",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_config/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "232a0d4ea9dec480dca82da0d6a0793f856ec931e2da647d8b3ba21a7f8cfd70",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey_config/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5663f103af71f218bb9a50a0d25b7dd6cc83f8761d3ef3c93c7f697f6b6bd1c0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey-legacy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey-legacy/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey-legacy/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2422155801bc76e3d1aeafcf0072f43296cba92f777352a58c5d9ed29e62ffae",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey-legacy/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey-legacy/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e34d7947512b4df1f24c9a95541c99797936028075647d4e8a01e26404ad654b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey-legacy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey-legacy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a262a0ed380e5fe367b4c90b41eb5bc5bbb1834c95fbf30751318bf4332cc516",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/win_chocolatey-legacy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7127ace6c1571fdf343a57b543cd35ed5b5181a330ab6e79ea892bf1ffff082",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5a7a8b5f38edf6727f8612439178480a7ee3300274b293882876ac2d6e72de04",
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c2d9e61354a96d099868a18afdc972a990614e6d709526336e538250dfc27af1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/.plugin-cache.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "460cd508cdfe4e78550d41f82799da2b385c2ef932c6ce2def9586242c7291b1",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

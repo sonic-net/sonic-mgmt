@@ -1,0 +1,133 @@
+---
+- name: Volume operations on powerflex array.
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    protection_domain_name: "domain1"
+    storage_pool_name: "pool1"
+    snapshot_policy_name: "sample_snap_policy_1"
+    vol_name: "sample_ansible_volume_20"
+
+  tasks:
+    - name: Create a volume
+      register: result
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ vol_name }}"
+        storage_pool_name: "{{ storage_pool_name }}"
+        protection_domain_name: "{{ protection_domain_name }}"
+        snapshot_policy_name: "{{ snapshot_policy_name }}"
+        sdc:
+          - sdc_ip: '**.**.**.**'
+          - sdc_id: "663ac0d200000001"
+        allow_multiple_mappings: true
+        sdc_state: "mapped"
+        size: 8
+        state: "present"
+
+    - name: Set volume id
+      ansible.builtin.set_fact:
+        vol_id: "{{ result.volume_details.id }}"
+
+    - name: Get volume details using volume id
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        state: "present"
+
+    - name: Get volume details using volume name
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ vol_name }}"
+        state: "present"
+
+    - name: Modify the size
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_name: "{{ vol_name }}"
+        size: 16
+        state: "present"
+
+    - name: Map volume to SDC and remove snapshot policy
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        sdc:
+          - sdc_ip: '**.**.**.**'
+          - sdc_id: "663ac0d200000001"
+        allow_multiple_mappings: true
+        snapshot_policy_name: ""
+        auto_snap_remove_type: "remove"
+        sdc_state: "mapped"
+        state: "present"
+
+    - name: Modify the attributes of SDC mapped to volume
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        sdc:
+          - sdc_ip: '**.**.**.**'
+            iops_limit: 11
+            bandwidth_limit: 4096
+          - sdc_id: "663ac0d200000001"
+            iops_limit: 20
+            bandwidth_limit: 2048
+        allow_multiple_mappings: true
+        sdc_state: "mapped"
+        state: "present"
+
+    - name: Unmap SDCs from volume
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        sdc:
+          - sdc_ip: '**.**.**.**'
+          - sdc_id: "663ac0d200000001"
+        sdc_state: "unmapped"
+        state: "present"
+
+    - name: Rename volume
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        vol_new_name: "ansible_renamed_volume"
+        state: "present"
+
+    - name: Delete volume
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        vol_id: "{{ vol_id }}"
+        delete_snapshots: true
+        state: "absent"

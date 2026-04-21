@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_volume_clone - new options `time_out`, `wait_for_completion` added in REST.

@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_snmp - added REST support for snmpv3 user.
+
+bugfixes:
+  - na_ontap_snmp - fix for getting error when `authentication_method` set to default with ZAPI.

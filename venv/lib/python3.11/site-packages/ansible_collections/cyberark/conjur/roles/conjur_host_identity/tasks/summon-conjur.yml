@@ -1,0 +1,13 @@
+---
+- name: Create folder for Summon-Conjur to be installed into
+  ansible.builtin.file:
+    path: /usr/local/lib/summon
+    state: directory
+    recurse: true
+
+- name: Download and unpack Summon-Conjur
+  ansible.builtin.unarchive:
+    src: https://github.com/cyberark/summon-conjur/releases/download/v{{ conjur_host_identity_summon_conjur.version }}/summon-conjur-{{ conjur_host_identity_summon_conjur.os }}.tar.gz
+    dest: /usr/local/lib/summon
+    remote_src: true
+    creates: /usr/local/lib/summon/summon-conjur

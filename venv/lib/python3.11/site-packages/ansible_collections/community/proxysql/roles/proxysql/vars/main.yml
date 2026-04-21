@@ -1,0 +1,382 @@
+---
+### percona repo
+percona_mysql_repos:
+  - deb https://repo.percona.com/apt {{ ansible_lsb.codename }} main
+  - deb-src https://repo.percona.com/apt {{ ansible_lsb.codename }} main
+
+proxysql_prereqs:
+  - dirmngr
+  - python3-setuptools
+  - python3-pip
+  - python3-virtualenv
+
+### proxysql required packages
+proxysql_release: "{{ proxysql_download_src }}/v{{ proxysql_version }}/proxysql_{{ proxysql_version }}-{{ ansible_lsb.id | lower }}{{ ansible_lsb.major_release }}_amd64.deb"
+
+proxysql_additional_packages:
+  - percona-server-client-{{ proxysql_mysql_client_version }}
+  - python3-mysqldb
+
+proxysql_python_packages:
+  - pymysql
+
+proxysql_admin_variables:
+  admin_credentials:
+    variable: "admin_credentials"
+    variable_value: "{{ admin_credentials_list | join(';') }}"
+  checksum_mysql_query_rules:
+    variable: "checksum_mysql_query_rules"
+    variable_value: "{{ proxysql_admin_checksum_mysql_query_rules | to_json }}"
+  checksum_mysql_servers:
+    variable: "checksum_mysql_servers"
+    variable_value: "{{ proxysql_admin_checksum_mysql_servers | to_json }}"
+  checksum_mysql_users:
+    variable: "checksum_mysql_users"
+    variable_value: "{{ proxysql_admin_checksum_mysql_users | to_json }}"
+  cluster_check_interval_ms:
+    variable: "cluster_check_interval_ms"
+    variable_value: "{{ proxysql_admin_cluster_check_interval_ms }}"
+  cluster_check_status_frequency:
+    variable: "cluster_check_status_frequency"
+    variable_value: "{{ proxysql_admin_cluster_check_status_frequency }}"
+  cluster_mysql_query_rules_diffs_before_sync:
+    variable: "cluster_mysql_query_rules_diffs_before_sync"
+    variable_value: "{{ proxysql_admin_cluster_mysql_query_rules_diffs_before_sync }}"
+  cluster_mysql_query_rules_save_to_disk:
+    variable: "cluster_mysql_query_rules_save_to_disk"
+    variable_value: "{{ proxysql_admin_cluster_mysql_query_rules_save_to_disk | to_json }}"
+  cluster_mysql_servers_diffs_before_sync:
+    variable: "cluster_mysql_servers_diffs_before_sync"
+    variable_value: "{{ proxysql_admin_cluster_mysql_servers_diffs_before_sync }}"
+  cluster_mysql_servers_save_to_disk:
+    variable: "cluster_mysql_servers_save_to_disk"
+    variable_value: "{{ proxysql_admin_cluster_mysql_servers_save_to_disk | to_json }}"
+  cluster_mysql_users_diffs_before_sync:
+    variable: "cluster_mysql_users_diffs_before_sync"
+    variable_value: "{{ proxysql_admin_cluster_mysql_users_diffs_before_sync }}"
+  cluster_mysql_users_save_to_disk:
+    variable: "cluster_mysql_users_save_to_disk"
+    variable_value: "{{ proxysql_admin_cluster_mysql_users_save_to_disk | to_json }}"
+  cluster_proxysql_servers_diffs_before_sync:
+    variable: "cluster_proxysql_servers_diffs_before_sync"
+    variable_value: "{{ proxysql_admin_cluster_proxysql_servers_diffs_before_sync }}"
+  cluster_proxysql_servers_save_to_disk:
+    variable: "cluster_proxysql_servers_save_to_disk"
+    variable_value: "{{ proxysql_admin_cluster_proxysql_servers_save_to_disk | to_json }}"
+  hash_passwords:
+    variable: "hash_passwords"
+    variable_value: "{{ proxysql_admin_hash_passwords | to_json }}"
+  mysql_ifaces:
+    variable: "mysql_ifaces"
+    variable_value: "{{ proxysql_admin_bind_address }}:{{ proxysql_admin_port }};{{ proxysql_admin_socket }}"
+  read_only:
+    variable: "read_only"
+    variable_value: "{{ proxysql_admin_read_only | to_json }}"
+  refresh_interval:
+    variable: "refresh_interval"
+    variable_value: "{{ proxysql_admin_refresh_interval }}"
+  restapi_enabled:
+    variable: "restapi_enabled"
+    variable_value: "{{ proxysql_admin_restapi_enabled | to_json }}"
+  restapi_port:
+    variable: "restapi_port"
+    variable_value: "{{ proxysql_admin_restapi_port }}"
+  stats_credentials:
+    variable: "stats_credentials"
+    variable_value: "{{ proxysql_admin_stats_user }}:{{ proxysql_admin_stats_password }}"
+  stats_mysql_connection_pool:
+    variable: "stats_mysql_connection_pool"
+    variable_value: "{{ proxysql_admin_stats_mysql_connection_pool }}"
+  stats_mysql_connections:
+    variable: "stats_mysql_connections"
+    variable_value: "{{ proxysql_admin_stats_mysql_connections }}"
+  stats_mysql_query_cache:
+    variable: "stats_mysql_query_cache"
+    variable_value: "{{ proxysql_admin_stats_mysql_query_cache }}"
+  stats_system_cpu:
+    variable: "stats_system_cpu"
+    variable_value: "{{ proxysql_admin_stats_system_cpu }}"
+  stats_system_memory:
+    variable: "stats_system_memory"
+    variable_value: "{{ proxysql_admin_stats_system_memory }}"
+  web_enabled:
+    variable: "web_enabled"
+    variable_value: "{{ proxysql_admin_web_enabled | to_json }}"
+  web_port:
+    variable: "web_port"
+    variable_value: "{{ proxysql_admin_web_port }}"
+
+_proxysql_mysql_variables:
+  autocommit_false_is_transaction:
+    variable: "autocommit_false_is_transaction"
+    variable_value: "{{ proxysql_mysql_autocommit_false_is_transaction | to_json }}"
+  autocommit_false_not_reusable:
+    variable: "autocommit_false_not_reusable"
+    variable_value: "{{ proxysql_mysql_autocommit_false_not_reusable | to_json }}"
+  commands_stats:
+    variable: "commands_stats"
+    variable_value: "{{ proxysql_mysql_commands_stats | to_json }}"
+  connect_retries_delay:
+    variable: "connect_retries_delay"
+    variable_value: "{{ proxysql_mysql_connect_retries_delay }}"
+  connect_retries_on_failure:
+    variable: "connect_retries_on_failure"
+    variable_value: "{{ proxysql_mysql_connect_retries_on_failure }}"
+  connect_timeout_server:
+    variable: "connect_timeout_server"
+    variable_value: "{{ proxysql_mysql_connect_timeout_server }}"
+  connect_timeout_server_max:
+    variable: "connect_timeout_server_max"
+    variable_value: "{{ proxysql_mysql_connect_timeout_server_max }}"
+  connection_delay_multiplex_ms:
+    variable: "connection_delay_multiplex_ms"
+    variable_value: "{{ proxysql_mysql_connection_delay_multiplex_ms }}"
+  connection_max_age_ms:
+    variable: "connection_max_age_ms"
+    variable_value: "{{ proxysql_mysql_connection_max_age_ms }}"
+  connpoll_reset_queue_length:
+    variable: "connpoll_reset_queue_length"
+    variable_value: "{{ proxysql_mysql_connpoll_reset_queue_length }}"
+  default_charset:
+    variable: "default_charset"
+    variable_value: "{{ proxysql_mysql_default_charset }}"
+  default_max_latency_ms:
+    variable: "default_max_latency_ms"
+    variable_value: "{{ proxysql_mysql_default_max_latency_ms }}"
+  default_query_delay:
+    variable: "default_query_delay"
+    variable_value: "{{ proxysql_mysql_default_query_delay }}"
+  default_query_timeout:
+    variable: "default_query_timeout"
+    variable_value: "{{ proxysql_mysql_default_query_timeout }}"
+  default_schema:
+    variable: "default_schema"
+    variable_value: "{{ proxysql_mysql_default_schema }}"
+  eventslog_filename:
+    variable: "eventslog_filename"
+    variable_value: "{{ proxysql_mysql_eventslog_filename }}"
+  eventslog_filesize:
+    variable: "eventslog_filesize"
+    variable_value: "{{ proxysql_mysql_eventslog_filesize }}"
+  enforce_autocommit_on_reads:
+    variable: "enforce_autocommit_on_reads"
+    variable_value: "{{ proxysql_mysql_enforce_autocommit_on_reads | to_json}}"
+  free_connections_pct:
+    variable: "free_connections_pct"
+    variable_value: "{{ proxysql_mysql_free_connections_pct }}"
+  hostgroup_manager_verbose:
+    variable: "hostgroup_manager_verbose"
+    variable_value: "{{ proxysql_mysql_hostgroup_manager_verbose }}"
+  init_connect:
+    variable: "init_connect"
+    variable_value: "{{ proxysql_mysql_init_connect }}"
+  kill_backend_connection_when_disconnect:
+    variable: "kill_backend_connection_when_disconnect"
+    variable_value: "{{ proxysql_mysql_kill_backend_connection_when_disconnect | to_json }}"
+  long_query_time:
+    variable: "long_query_time"
+    variable_value: "{{ proxysql_mysql_long_query_time }}"
+  max_allowed_packet:
+    variable: "max_allowed_packet"
+    variable_value: "{{ proxysql_mysql_max_allowed_packet }}"
+  max_connections:
+    variable: "max_connections"
+    variable_value: "{{ proxysql_mysql_max_connections }}"
+  max_stmts_cache:
+    variable: "max_stmts_cache"
+    variable_value: "{{ proxysql_mysql_max_stmts_cache }}"
+  max_stmts_per_connection:
+    variable: "max_stmts_per_connection"
+    variable_value: "{{ proxysql_mysql_max_stmts_per_connection }}"
+  max_transaction_time:
+    variable: "max_transaction_time"
+    variable_value: "{{ proxysql_mysql_max_transaction_time }}"
+  mirror_max_concurrency:
+    variable: "mirror_max_concurrency"
+    variable_value: "{{ proxysql_mysql_mirror_max_concurrency }}"
+  mirror_max_queue_length:
+    variable: "mirror_max_queue_length"
+    variable_value: "{{ proxysql_mysql_mirror_max_queue_length }}"
+  monitor_connect_interval:
+    variable: "monitor_connect_interval"
+    variable_value: "{{ proxysql_mysql_monitor_connect_interval }}"
+  monitor_connect_timeout:
+    variable: "monitor_connect_timeout"
+    variable_value: "{{ proxysql_mysql_monitor_connect_timeout }}"
+  monitor_enabled:
+    variable: "monitor_enabled"
+    variable_value: "{{ proxysql_mysql_monitor_enabled | to_json }}"
+  monitor_groupreplication_healthcheck_interval:
+    variable: "monitor_groupreplication_healthcheck_interval"
+    variable_value: "{{ proxysql_mysql_monitor_groupreplication_healthcheck_interval }}"
+  monitor_groupreplication_healthcheck_timeout:
+    variable: "monitor_groupreplication_healthcheck_timeout"
+    variable_value: "{{ proxysql_mysql_monitor_groupreplication_healthcheck_timeout }}"
+  monitor_history:
+    variable: "monitor_history"
+    variable_value: "{{ proxysql_mysql_monitor_history }}"
+  monitor_password:
+    variable: "monitor_password"
+    variable_value: "{{ proxysql_mysql_monitor_password }}"
+  monitor_ping_interval:
+    variable: "monitor_ping_interval"
+    variable_value: "{{ proxysql_mysql_monitor_ping_interval }}"
+  monitor_ping_max_failures:
+    variable: "monitor_ping_max_failures"
+    variable_value: "{{ proxysql_mysql_monitor_ping_max_failures }}"
+  monitor_ping_timeout:
+    variable: "monitor_ping_timeout"
+    variable_value: "{{ proxysql_mysql_monitor_ping_timeout }}"
+  monitor_query_interval:
+    variable: "monitor_query_interval"
+    variable_value: "{{ proxysql_mysql_monitor_query_interval }}"
+  monitor_query_timeout:
+    variable: "monitor_query_timeout"
+    variable_value: "{{ proxysql_mysql_monitor_query_timeout }}"
+  monitor_read_only_interval:
+    variable: "monitor_read_only_interval"
+    variable_value: "{{ proxysql_mysql_monitor_read_only_interval }}"
+  monitor_read_only_max_timeout_count:
+    variable: "monitor_read_only_max_timeout_count"
+    variable_value: "{{ proxysql_mysql_monitor_read_only_max_timeout_count }}"
+  monitor_read_only_timeout:
+    variable: "monitor_read_only_timeout"
+    variable_value: "{{ proxysql_mysql_monitor_read_only_timeout }}"
+  monitor_replication_lag_interval:
+    variable: "monitor_replication_lag_interval"
+    variable_value: "{{ proxysql_mysql_monitor_replication_lag_interval }}"
+  monitor_replication_lag_timeout:
+    variable: "monitor_replication_lag_timeout"
+    variable_value: "{{ proxysql_mysql_monitor_replication_lag_timeout }}"
+  monitor_replication_lag_use_percona_heartbeat:
+    variable: "monitor_replication_lag_use_percona_heartbeat"
+    variable_value: "{{ proxysql_mysql_monitor_replication_lag_use_percona_heartbeat }}"
+  monitor_slave_lag_when_null:
+    variable: "monitor_slave_lag_when_null"
+    variable_value: "{{ proxysql_mysql_monitor_slave_lag_when_null }}"
+  monitor_username:
+    variable: "monitor_username"
+    variable_value: "{{ proxysql_mysql_monitor_username }}"
+  monitor_wait_timeout:
+    variable: "monitor_wait_timeout"
+    variable_value: "{{ proxysql_mysql_monitor_wait_timeout | to_json }}"
+  monitor_writer_is_also_reader:
+    variable: "monitor_writer_is_also_reader"
+    variable_value: "{{ proxysql_mysql_monitor_writer_is_also_reader | to_json }}"
+  multiplexing:
+    variable: "multiplexing"
+    variable_value: "{{ proxysql_mysql_multiplexing | to_json }}"
+  mysql_interfaces:
+    variable: "interfaces"
+    variable_value: "{{ proxysql_mysql_bind_address }}:{{ proxysql_mysql_port }};{{ proxysql_mysql_socket }}"
+  ping_interval_server_msec:
+    variable: "ping_interval_server_msec"
+    variable_value: "{{ proxysql_mysql_ping_interval_server_msec }}"
+  ping_timeout_server:
+    variable: "ping_timeout_server"
+    variable_value: "{{ proxysql_mysql_ping_timeout_server }}"
+  poll_timeout:
+    variable: "poll_timeout"
+    variable_value: "{{ proxysql_mysql_poll_timeout }}"
+  poll_timeout_on_failure:
+    variable: "poll_timeout_on_failure"
+    variable_value: "{{ proxysql_mysql_poll_timeout_on_failure }}"
+  query_cache_size_mb:
+    variable: "query_cache_size_MB"
+    variable_value: "{{ proxysql_mysql_query_cache_size_mb }}"
+  query_digests:
+    variable: "query_digests"
+    variable_value: "{{ proxysql_mysql_query_digests | to_json }}"
+  query_digests_lowercase:
+    variable: "query_digests_lowercase"
+    variable_value: "{{ proxysql_mysql_query_digests_lowercase | to_json }}"
+  query_digests_max_digest_length:
+    variable: "query_digests_max_digest_length"
+    variable_value: "{{ proxysql_mysql_query_digests_max_digest_length }}"
+  query_digests_max_query_length:
+    variable: "query_digests_max_query_length"
+    variable_value: "{{ proxysql_mysql_query_digests_max_query_length }}"
+  query_processor_iterations:
+    variable: "query_processor_iterations"
+    variable_value: "{{ proxysql_mysql_query_processor_iterations }}"
+  query_processor_regex:
+    variable: "query_processor_regex"
+    variable_value: "{{ proxysql_mysql_query_processor_regex }}"
+  query_retries_on_failure:
+    variable: "query_retries_on_failure"
+    variable_value: "{{ proxysql_mysql_query_retries_on_failure }}"
+  server_capabilities:
+    variable: "server_capabilities"
+    variable_value: "{{ proxysql_mysql_server_capabilities }}"
+  server_version:
+    variable: "server_version"
+    variable_value: "{{ proxysql_mysql_server_version }}"
+  session_idle_ms:
+    variable: "session_idle_ms"
+    variable_value: "{{ proxysql_mysql_session_idle_ms }}"
+  session_idle_show_processlist:
+    variable: "session_idle_show_processlist"
+    variable_value: "{{ proxysql_mysql_session_idle_show_processlist | to_json }}"
+  sessions_sort:
+    variable: "sessions_sort"
+    variable_value: "{{ proxysql_mysql_sessions_sort | to_json }}"
+  shun_on_failures:
+    variable: "shun_on_failures"
+    variable_value: "{{ proxysql_mysql_shun_on_failures }}"
+  shun_recovery_time_sec:
+    variable: "shun_recovery_time_sec"
+    variable_value: "{{ proxysql_mysql_shun_recovery_time_sec }}"
+  ssl_p2s_ca:
+    variable: "ssl_p2s_ca"
+    variable_value: "{{ proxysql_mysql_ssl_p2s_ca }}"
+  ssl_p2s_cert:
+    variable: "ssl_p2s_cert"
+    variable_value: "{{ proxysql_mysql_ssl_p2s_cert }}"
+  ssl_p2s_cipher:
+    variable: "ssl_p2s_cipher"
+    variable_value: "{{ proxysql_mysql_ssl_p2s_cipher }}"
+  ssl_p2s_key:
+    variable: "ssl_p2s_key"
+    variable_value: "{{ proxysql_mysql_ssl_p2s_key }}"
+  stats_time_backend_query:
+    variable: "stats_time_backend_query"
+    variable_value: "{{ proxysql_mysql_stats_time_backend_query | to_json }}"
+  stats_time_query_processor:
+    variable: "stats_time_query_processor"
+    variable_value: "{{ proxysql_mysql_stats_time_query_processor | to_json }}"
+  threshold_query_length:
+    variable: "threshold_query_length"
+    variable_value: "{{ proxysql_mysql_threshold_query_length }}"
+  threshold_resultset_size:
+    variable: "threshold_resultset_size"
+    variable_value: "{{ proxysql_mysql_threshold_resultset_size }}"
+  throttle_connections_per_sec_to_hostgroup:
+    variable: "throttle_connections_per_sec_to_hostgroup"
+    variable_value: "{{ proxysql_mysql_throttle_connections_per_sec_to_hostgroup }}"
+  throttle_max_bytes_per_second_to_client:
+    variable: "throttle_max_bytes_per_second_to_client"
+    variable_value: "{{ proxysql_mysql_throttle_max_bytes_per_second_to_client }}"
+  throttle_ratio_server_to_client:
+    variable: "throttle_ratio_server_to_client"
+    variable_value: "{{ proxysql_mysql_throttle_ratio_server_to_client }}"
+  verbose_query_error:
+    variable: "verbose_query_error"
+    variable_value: "{{ proxysql_mysql_verbose_query_error | to_json }}"
+  wait_timeout:
+    variable: "wait_timeout"
+    variable_value: "{{ proxysql_mysql_mysql_wait_timeout }}"
+
+_proxysql_mysql_client_found_rows:
+  client_found_rows:
+    variable: "client_found_rows"
+    variable_value: "{{ proxysql_mysql_client_found_rows | to_json }}"
+
+proxysql_mysql_variables: "{{ _proxysql_mysql_variables | combine((proxysql_version is version('2.4.0', '<')) | ternary(_proxysql_mysql_client_found_rows, {})) }}"
+
+proxysql_mysql_options:
+  mysql_threads:
+    variable: "threads"
+    variable_value: "{{ proxysql_mysql_threads }}"
+  mysql_stacksize:
+    variable: "stacksize"
+    variable_value: "{{ proxysql_mysql_stacksize }}"

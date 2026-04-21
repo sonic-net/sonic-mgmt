@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_snapmirror - wait 600 seconds for snapmirror creation to complete in REST.

@@ -1,0 +1,61 @@
+---
+- name: Import iSCSI storage domain main block
+  ignore_errors: "{{ dr_ignore_error_recover }}"
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    # TODO: Add support for connect to multiple targets with the same LUN.
+    # Every connect should be done using a different IP.
+    - name: Import iSCSI storage domain block
+      block:
+        - name: Login to iSCSI targets
+          ovirt.ovirt.ovirt_host:
+            state: iscsilogin
+            name: "{{ host_info.ovirt_hosts[0].name }}"
+            auth: "{{ ovirt_auth }}"
+            iscsi:
+              username: "{{ iscsi_storage['dr_' + dr_target_host + '_username'] | default('') }}"
+              password: "{{ iscsi_storage['dr_' + dr_target_host + '_password'] | default('') }}"
+              address: "{{ iscsi_storage['dr_' + dr_target_host + '_address'] }}"
+              target: "{{ dr_target }}"
+              # Make port to be optional
+              port: "{{ iscsi_storage['dr_' + dr_target_host + '_port'] | default('3260' | int, true) }}"
+          with_items:
+            - "{{ iscsi_storage['dr_' + dr_target_host + '_target'] }}"
+          loop_control:
+            loop_var: dr_target
+
+        - name: Import iSCSI storage domain
+          ovirt.ovirt.ovirt_storage_domain:
+            state: imported
+            id: "{{ iscsi_storage['dr_domain_id'] }}"
+            name: "{{ iscsi_storage['dr_' + dr_target_host + '_name'] | default('') }}"
+            host: "{{ host_info.ovirt_hosts[0].name }}"
+            auth: "{{ ovirt_auth }}"
+            data_center: "{{ iscsi_storage['dr_' + dr_target_host + '_dc_name'] }}"
+            critical_space_action_blocker: "{{ iscsi_storage['dr_critical_space_action_blocker'] }}"
+            warning_low_space: "{{ iscsi_storage['dr_warning_low_space'] }}"
+            wipe_after_delete: "{{ iscsi_storage['dr_wipe_after_delete'] }}"
+            discard_after_delete: "{{ iscsi_storage['dr_discard_after_delete'] }}"
+            backup: "{{ iscsi_storage['dr_backup'] }}"
+            # TODO: For import iSCSI there is no need for the iscsi parameters
+            iscsi:
+              username: "{{ iscsi_storage['dr_' + dr_target_host + '_username'] | default('') }}"
+              password: "{{ iscsi_storage['dr_' + dr_target_host + '_password'] | default('') }}"
+              address: "{{ iscsi_storage['dr_' + dr_target_host + '_address'] }}"
+              # We use target since state imported in ovirt_storage_domain.py creates a storage domain
+              # which calls login, therefore we must have a target although the targets were already connected before.
+              # Therefore passing the first target in the list as a transient target.
+              target: "{{ dr_target }}"
+          with_items:
+            - "{{ iscsi_storage['dr_' + dr_target_host + '_target'] }}"
+          loop_control:
+            loop_var: dr_target
+        - name: Log append to succeed_storage_domains
+          ansible.builtin.set_fact:
+            succeed_storage_domains: "{{ succeed_storage_domains }} + [ \"{{ iscsi_storage['dr_' + dr_target_host + '_name'] | default('') }}\" ]"
+      rescue:
+        - name: Log append to failed_storage_domains
+          ansible.builtin.set_fact:
+            failed_storage_domains: "{{ failed_storage_domains }} + [ \"{{ iscsi_storage['dr_' + dr_target_host + '_name'] | default('') }}\" ]"

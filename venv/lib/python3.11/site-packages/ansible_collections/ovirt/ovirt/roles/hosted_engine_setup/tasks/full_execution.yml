@@ -1,0 +1,72 @@
+---
+- name: Install packages and bootstrap local engine VM
+  block:
+    - name: Install required packages for oVirt Hosted Engine deployment
+      ansible.builtin.import_tasks: install_packages.yml
+      when: not he_offline_deployment|bool
+
+    - name: System configuration validations
+      ansible.builtin.include_tasks: "{{ pre_checks_item }}"
+      with_fileglob: "pre_checks/*.yml"
+      loop_control:
+        loop_var: pre_checks_item
+
+    - name: Clean environment before deployment
+      ansible.builtin.import_tasks: initial_clean.yml
+
+    - name: 01_02 bootstrap local vm tasks
+      block:
+        - name: 01 Bootstrap local VM
+          ansible.builtin.import_tasks: bootstrap_local_vm/01_prepare_routing_rules.yml
+
+        - name: 02 Bootstrap local VM
+          ansible.builtin.import_tasks: bootstrap_local_vm/02_create_local_vm.yml
+
+- name: Local engine VM installation - Pre tasks
+  block:
+    - name: 03 Bootstrap local VM
+      ansible.builtin.import_tasks: bootstrap_local_vm/03_engine_initial_tasks.yml
+      delegate_to: "{{ groups.engine[0] }}"
+
+- name: Engine Setup on local VM
+  block:
+    - name: Engine Setup on local VM
+      vars:
+        ovirt_engine_setup_hostname: "{{ he_fqdn.split('.')[0] }}"
+        ovirt_engine_setup_organization: "{{ he_cloud_init_domain_name }}"
+        ovirt_engine_setup_dwh_db_host: "{{ he_fqdn.split('.')[0] }}"
+        ovirt_engine_setup_firewall_manager:
+        ovirt_engine_setup_answer_file_path: /root/ovirt-engine-answers
+        ovirt_engine_setup_use_remote_answer_file: true
+        ovirt_engine_setup_offline: "{{ he_offline_deployment }}"
+        ovirt_engine_setup_package_list: "{{ he_additional_package_list }}"
+        ovirt_engine_setup_admin_password: "{{ he_admin_password }}"
+      ansible.builtin.import_role:
+        name: ovirt.ovirt.engine_setup
+      delegate_to: "{{ groups.engine[0] }}"
+
+- name: Local engine VM installation - Post tasks
+  block:
+    - name: 04 Bootstrap local VM
+      ansible.builtin.import_tasks: bootstrap_local_vm/04_engine_final_tasks.yml
+      delegate_to: "{{ groups.engine[0] }}"
+
+- name: Configure engine VM on a storage domain
+  block:
+    - name: 05 Bootstrap local VM
+      ansible.builtin.import_tasks: bootstrap_local_vm/05_add_host.yml
+    - name: Create Storage Domain
+      ansible.builtin.import_tasks: create_storage_domain.yml
+    - name: Create target hosted engine vm
+      ansible.builtin.import_tasks: create_target_vm/01_create_target_hosted_engine_vm.yml
+
+- name: Configure database settings
+  ansible.builtin.import_tasks: create_target_vm/02_engine_vm_configuration.yml
+  delegate_to: "{{ groups.engine[0] }}"
+
+- name: Closeup
+  block:
+    - name: Hosted engine final tasks
+      ansible.builtin.import_tasks: create_target_vm/03_hosted_engine_final_tasks.yml
+    - name: Final clean
+      ansible.builtin.import_tasks: final_clean.yml

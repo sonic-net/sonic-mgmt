@@ -1,0 +1,77 @@
+- name: Using Storage Virtualize collection to initiate migration
+  hosts: localhost
+  vars:
+    auxcluster: 'x.x.x.x'
+    auxusername: 'auxusername'
+    auxpassword: 'auxpassword'
+    clustername: 'clustername'
+    username: 'username'
+    password: 'password'
+    cgname: 'Group_cg11'
+    remote_cluster: 'Cluster_x.x.x.x'
+    masterpool: 'site1pool1'
+    mastervol: 'master'
+    relname: 'scopy5'
+    auxvol: 'auxvol'
+    fcwwpn: 'fcwwpn'
+    size: 1
+    unit: 'gb'
+    remote_pool: 'remote_pool'
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Fetch authorization token for aux
+      register: auth
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ auxcluster }}"
+        username: "{{ auxusername }}"
+        password: "{{ auxpassword }}"
+    - name: Fetch authorization token for master
+      register: results
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+    - name: "Create host"
+      ibm.storage_virtualize.ibm_svc_host:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: host_xyz
+        state: present
+        fcwwpn: "{{ fcwwpn }}"
+        protocol: scsi
+    - name: "Create source volume  source_vol_1 "
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        pool: "{{ masterpool }}"
+        name: "source_vol_1"
+        size: "{{ size }}"
+        unit: "{{ unit }}"
+        state: present
+    - name: Map Source volume to a host
+      ibm.storage_virtualize.ibm_svc_vol_map:
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        volname: "source_vol_1"
+        host: "host_xyz"
+        state: present
+    - name: Try to initiate a volume migration with replicate_hosts as true  when no hosts exists on targets system as on source system"
+      ibm.storage_virtualize.ibm_svc_manage_migration:
+        source_volume: "source_vol_1"
+        target_volume: "target_vol_1"
+        clustername: "{{ clustername }}"
+        remote_cluster: "{{ remote_cluster }}"
+        token: "{{ results.token }}"
+        state: initiate
+        replicate_hosts: true
+        remote_token: "{{ auth.token }}"
+        relationship_name: "mmapping_1"
+        remote_pool: "{{ remote_pool }}"
+    - name: Switch replication direction of a migration relationship when all host are mapped"
+      ibm.storage_virtualize.ibm_svc_manage_migration:
+        relationship_name: "mmapping_1"
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: switch

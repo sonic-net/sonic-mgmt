@@ -1,0 +1,21 @@
+---
+- name: Create an endpoint in icinga
+  telekom_mms.icinga_director.icinga_endpoint:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "fooendpoint"
+    host: "127.0.0.1"
+    zone: "foozone"
+- name: Update an endpoint in icinga
+  telekom_mms.icinga_director.icinga_endpoint:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "fooendpoint"
+    host: "127.0.0.1"
+    zone: "foozone"
+    port: 5665
+    append: true

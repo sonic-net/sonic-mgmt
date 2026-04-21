@@ -1,0 +1,207 @@
+- name: Update all
+  hosts: localhost
+  vars:
+    network_id: L_828099381482770866
+    serial_number: QBSB-D5ZD-9CXT
+  gather_facts: false
+  tasks:
+    - name: Update Traffic Shaping Rules
+      cisco.meraki.networks_appliance_traffic_shaping_rules:
+        meraki_suppress_logging: true
+        state: present
+        networkId: L_828099381482771185
+        defaultRulesEnabled: false
+        rules:
+          - definitions:
+              # - type: application
+              #   value:
+              #     id: meraki:layer7/application/2214
+              #     name: MS Teams Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2551
+                  name: Cisco Phone Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2061
+                  name: Google Services Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2045
+                  name: Jabber Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2503
+                  name: Real-time Transport Protocol Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2256
+                  name: Ringcentral Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2496
+                  name: Skype for Business (MS-Lync) Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2758
+                  name: Telepresence Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2251
+                  name: Webex Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2056
+                  name: WebRTC Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/1120
+                  name: Audio Over HTTP
+              - type: application
+                value:
+                  id: meraki:layer7/application/2759
+                  name: Cisco Collaboration Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2494
+                  name: Cisco Jabber Audio
+              - type: application
+                value:
+                  id: meraki:layer7/application/2746
+                  name: Cisco Media Audio
+            dscpTagValue: 46
+            perClientBandwidthLimits:
+              settings: network default
+            priority: low
+          - definitions:
+              - type: host
+                value: something1234.aws.com
+              - type: ipRange
+                value: 1.2.3.4/32
+              - type: ipRange
+                value: 10.0.0.0/16
+              - type: ipRange
+                value: 192.168.1.0/24
+              - type: ipRange
+                value: 172.16.1.0/25
+            dscpTagValue: 10
+            perClientBandwidthLimits:
+              settings: network default
+            priority: low
+          - definitions:
+              - type: application
+                value:
+                  id: meraki:layer7/application/2048
+                  name: Cisco Spark Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/1012
+                  name: Internet video conference system
+              - type: application
+                value:
+                  id: meraki:layer7/application/2046
+                  name: Jabber Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2504
+                  name: Real-time Transport Protocol Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2209
+                  name: MS Teams Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/1497
+                  name: Philips Video-Conferencing
+              - type: application
+                value:
+                  id: meraki:layer7/application/2258
+                  name: Ringcentral Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2497
+                  name: Skype for Business (MS-Lync) Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/1122
+                  name: Video Over HTTP
+              - type: application
+                value:
+                  id: meraki:layer7/application/2250
+                  name: Webex Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2057
+                  name: WebRTC Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2762
+                  name: Cisco Collaboration Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2533
+                  name: Yahoo Messenger Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2268
+                  name: Circuit Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2495
+                  name: Cisco Jabber Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2286
+                  name: Google Meet Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2747
+                  name: Cisco Media Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2552
+                  name: Cisco Phone Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2062
+                  name: Google Services Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2403
+                  name: Google Talk Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/2089
+                  name: Hangouts Video
+            dscpTagValue: 34
+            perClientBandwidthLimits:
+              settings: network default
+            priority: normal
+          - definitions:
+              - type: application
+                value:
+                  id: meraki:layer7/application/182
+                  name: Office 365
+              - type: application
+                value:
+                  id: meraki:layer7/application/253
+                  name: Sharepoint
+              - type: application
+                value:
+                  id: meraki:layer7/application/2533
+                  name: Yahoo Messenger Video
+              - type: application
+                value:
+                  id: meraki:layer7/application/296
+                  name: Microsoft Dynamics 365
+            dscpTagValue: 12
+            perClientBandwidthLimits:
+              settings: network default
+            priority: normal
+          - definitions:
+              - type: ipRange
+                value: 0.0.0.0/0
+            dscpTagValue: 0
+            perClientBandwidthLimits:
+              settings: network default
+            priority: low

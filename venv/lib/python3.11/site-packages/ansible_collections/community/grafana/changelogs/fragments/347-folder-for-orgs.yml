@@ -1,0 +1,7 @@
+---
+
+minor_changes:
+  - Manage `grafana_folder` for organizations
+
+trivial:
+  - Fixed syntax for code in some docs

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_export_policy - fix error if more than 1 verser matched search name, the wrong uuid could be given

@@ -1,0 +1,6 @@
+minor_changes:
+ - purefa_banner - Added Fusion support
+ - purefa_arrayname - Added Fusion support
+ - purefa_console - Added Fusion support
+ - purefa_eradication - Added Fusion support
+ - purefa_timeout - Added Fusion support

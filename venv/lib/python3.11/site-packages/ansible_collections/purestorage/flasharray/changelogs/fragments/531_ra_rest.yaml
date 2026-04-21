@@ -1,0 +1,4 @@
+minor_changes:
+ - purefa_ra - Convert to REST v2
+ - purefa_ra - Add ``present`` and ``absent`` as valid ``state`` options
+ - purefa_ra - Add connecting as valid status of RA to perform operations on

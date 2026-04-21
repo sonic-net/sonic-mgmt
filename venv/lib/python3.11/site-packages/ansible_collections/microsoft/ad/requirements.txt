@@ -1,0 +1,23 @@
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# For LDAP TLS channel binding data calculation. 3.1 is when the backend arg
+# was made optional.
+cryptography >= 3.1
+
+# For LDAP SRV lookups. 2.0.0 is when the new API used was introduced.
+dnspython >= 2.0.0
+
+# For LDAP LAPS decryption support
+dpapi-ng
+
+# For krb5 default_realm lookups
+krb5
+
+# For LDAP negotiate authentication. 0.8.0 is needed for the no_integrity
+# context_req used by LDAP.
+pyspnego[kerberos] >= 0.8.0
+
+# For LDAP protocol logic
+sansldap

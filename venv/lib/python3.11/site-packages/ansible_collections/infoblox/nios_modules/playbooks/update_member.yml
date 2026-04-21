@@ -1,0 +1,22 @@
+---
+- name: Infoblox Member Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.34.10.724
+      username: admin
+      password: cloudadmin
+  connection: local
+  tasks:
+    - name: Update member host name
+      infoblox.nios_modules.nios_member:
+        host_name: { old_name: block1.localdomain, new_name: member01.localdomain }
+        master_candidate: false
+        vip_setting:
+          - address: 120.0.0.25
+            subnet_mask: 255.255.255.0
+            gateway: 120.0.0.1
+        config_addr_type: IPV4
+        platform: VNIOS
+        state: present
+        provider: "{{ nios_provider }}"

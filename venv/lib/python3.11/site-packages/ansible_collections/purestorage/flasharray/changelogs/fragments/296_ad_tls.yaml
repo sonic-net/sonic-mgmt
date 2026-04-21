@@ -1,0 +1,2 @@
+minor_changes:
+  - purefa_ad - Add support for TLS and joining existing AD account

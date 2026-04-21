@@ -1,0 +1,53 @@
+---
+- name: Generating random GUID
+  register: powerflex_sdc_esxi_guid
+  ansible.builtin.shell: >
+    uuidgen
+  changed_when: powerflex_sdc_esxi_guid.rc == 0
+
+- name: Register SDC and Set MDM IP addresses
+  register: powerflex_sdc_register_set_sdc_mdm
+  ansible.builtin.shell: >
+    esxcli system module parameters set -m scini -p "IoctlIniGuidStr={{ powerflex_sdc_esxi_guid.stdout }}
+    IoctlMdmIPStr={{ powerflex_sdc_mdm_ips }} bBlkDevIsPdlActive=1 blkDevPdlTimeoutMillis=60000"
+  changed_when: powerflex_sdc_register_set_sdc_mdm.rc == 0
+
+- name: Reboot ESXi host
+  register: powerflex_sdc_reboot_node
+  ansible.builtin.reboot:
+    reboot_timeout: 500
+    msg: "Rebooting the ESXi host."
+  when:
+    - powerflex_sdc_register_set_sdc_mdm.rc == 0
+    - "'Reboot Required: true' in powerflex_common_install_package_output.stdout"
+  changed_when: powerflex_sdc_reboot_node
+
+- name: Ensure the driver is loaded for SDC
+  register: powerflex_sdc_driver_loaded
+  ansible.builtin.shell: >
+    set -o pipefail && vmkload_mod -l | grep scini
+  changed_when: powerflex_sdc_driver_loaded.stdout_lines | length == 0
+
+- name: Verify ESXi SDC connection with MDMs
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ powerflex_common_esxi_files_location }}"
+    mode: "0755"
+  register: powerflex_sdc_drv_cfg_file_output
+  with_fileglob:
+    - "{{ powerflex_common_file_install_location }}/drv_cfg*"
+
+- name: List the drv_cfg file
+  register: powerflex_sdc_drv_cfg_file
+  ansible.builtin.find:
+    paths: "{{ powerflex_common_esxi_files_location }}"
+    patterns: "*drv_cfg*"
+
+- name: Execute drv_cfg command
+  register: powerflex_sdc_drv_cfg_output
+  ansible.builtin.command: ./drv_cfg --query_mdm
+  args:
+    chdir: "{{ powerflex_common_esxi_files_location }}"
+  when: powerflex_sdc_drv_cfg_file.files | length > 0
+  changed_when:
+    - "'Retrieved 1 mdm(s)' not in powerflex_sdc_drv_cfg_output.stdout"

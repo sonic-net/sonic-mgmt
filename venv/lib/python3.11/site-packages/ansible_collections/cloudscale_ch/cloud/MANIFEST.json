@@ -1,0 +1,36 @@
+{
+ "collection_info": {
+  "namespace": "cloudscale_ch",
+  "name": "cloud",
+  "version": "2.5.2",
+  "authors": [
+   "Gaudenz Steinlin <gaudenz.steinlin@cloudscale.ch>",
+   "Denis Krienb\u00fchl <denis.krienbuehl@cloudscale.ch>",
+   "Ren\u00e9 Moser <mail@renemoser.net>"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "cloud",
+   "cloudscale",
+   "cloudscale_ch"
+  ],
+  "description": "Ansible Collection for cloudscale.ch",
+  "license": [
+   "GPL-3.0-or-later"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/cloudscale-ch/ansible-collection-cloudscale",
+  "documentation": "",
+  "homepage": "https://github.com/cloudscale-ch/ansible-collection-cloudscale",
+  "issues": "https://github.com/cloudscale-ch/ansible-collection-cloudscale/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "1e3cab75d58c736aa939bd79b7255fad1ddb567ae4753d14650e9137c4410f47",
+  "format": 1
+ },
+ "format": 1
+}

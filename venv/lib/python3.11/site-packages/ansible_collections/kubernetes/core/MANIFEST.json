@@ -1,0 +1,43 @@
+{
+ "collection_info": {
+  "namespace": "kubernetes",
+  "name": "core",
+  "version": "6.2.0",
+  "authors": [
+   "chouseknecht (https://github.com/chouseknecht)",
+   "geerlingguy (https://www.jeffgeerling.com/)",
+   "maxamillion (https://github.com/maxamillion)",
+   "jmontleon (https://github.com/jmontleon)",
+   "fabianvf (https://github.com/fabianvf)",
+   "willthames (https://github.com/willthames)",
+   "mmazur (https://github.com/mmazur)",
+   "jamescassell (https://github.com/jamescassell)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "kubernetes",
+   "k8s",
+   "cloud",
+   "infrastructure",
+   "openshift",
+   "okd",
+   "cluster"
+  ],
+  "description": "Kubernetes Collection for Ansible.",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {},
+  "repository": "https://github.com/ansible-collections/kubernetes.core",
+  "documentation": "",
+  "homepage": "",
+  "issues": "https://github.com/ansible-collections/kubernetes.core/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "64763e283b3515de0cb751b4cd3493e152eabb0b95ab7fac59ad518bec893709",
+  "format": 1
+ },
+ "format": 1
+}

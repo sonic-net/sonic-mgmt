@@ -1,0 +1,996 @@
+---
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      bugfixes:
+        - ovirt_snapshot - Disk id was incorrectly set as disk_snapshot_id (https://github.com/oVirt/ovirt-ansible-collection/pull/5).
+        - ovirt_storage_domain - Fix update_check warning_low_space (https://github.com/oVirt/ovirt-ansible-collection/pull/10).
+        - ovirt_vm - Remove deprecated warning of boot params (https://github.com/oVirt/ovirt-ansible-collection/pull/3).
+      minor_changes:
+        - ovirt_cluster - Add migration_encrypted option (https://github.com/oVirt/ovirt-ansible-collection/pull/17).
+        - ovirt_vm - Add bios_type (https://github.com/oVirt/ovirt-ansible-collection/pull/15).
+    fragments:
+      - 10-ovirt_storage_domain-fix-update_check-warning_low_space.yaml
+      - 15-ovirt_vm-add-bios_type.yaml
+      - 17-ovirt_cluster-add-migration_encrypted.yaml
+      - 3-ovirt_vm-remove-deprecated-warning-boot-params.yaml
+      - 5-ovirt_snapshot-disk id-was-incorrectly set-as-disk_snapshot_id.yaml
+    modules:
+      - description: Module to manage affinity groups in oVirt/RHV
+        name: ovirt_affinity_group
+        namespace: ''
+      - description: Module to manage affinity labels in oVirt/RHV
+        name: ovirt_affinity_label
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV affinity labels
+        name: ovirt_affinity_label_info
+        namespace: ''
+      - description: Retrieve information about the oVirt/RHV API
+        name: ovirt_api_info
+        namespace: ''
+      - description: Module to manage authentication to oVirt/RHV
+        name: ovirt_auth
+        namespace: ''
+      - description: Module to manage clusters in oVirt/RHV
+        name: ovirt_cluster
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV clusters
+        name: ovirt_cluster_info
+        namespace: ''
+      - description: Module to manage data centers in oVirt/RHV
+        name: ovirt_datacenter
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV datacenters
+        name: ovirt_datacenter_info
+        namespace: ''
+      - description: Module to manage Virtual Machine and floating disks in oVirt/RHV
+        name: ovirt_disk
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV disks
+        name: ovirt_disk_info
+        namespace: ''
+      - description: Create or delete an event in oVirt/RHV
+        name: ovirt_event
+        namespace: ''
+      - description: This module can be used to retrieve information about one or
+          more oVirt/RHV events
+        name: ovirt_event_info
+        namespace: ''
+      - description: Module to manage external providers in oVirt/RHV
+        name: ovirt_external_provider
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV external providers
+        name: ovirt_external_provider_info
+        namespace: ''
+      - description: Module to manage groups in oVirt/RHV
+        name: ovirt_group
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV groups
+        name: ovirt_group_info
+        namespace: ''
+      - description: Module to manage hosts in oVirt/RHV
+        name: ovirt_host
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV hosts
+        name: ovirt_host_info
+        namespace: ''
+      - description: Module to manage host networks in oVirt/RHV
+        name: ovirt_host_network
+        namespace: ''
+      - description: Module to manage power management of hosts in oVirt/RHV
+        name: ovirt_host_pm
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV HostStorages
+          (applicable only for block storage)
+        name: ovirt_host_storage_info
+        namespace: ''
+      - description: Module to manage Instance Types in oVirt/RHV
+        name: ovirt_instance_type
+        namespace: ''
+      - description: Module to manage jobs in oVirt/RHV
+        name: ovirt_job
+        namespace: ''
+      - description: Module to manage MAC pools in oVirt/RHV
+        name: ovirt_mac_pool
+        namespace: ''
+      - description: Module to manage logical networks in oVirt/RHV
+        name: ovirt_network
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV networks
+        name: ovirt_network_info
+        namespace: ''
+      - description: Module to manage network interfaces of Virtual Machines in oVirt/RHV
+        name: ovirt_nic
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV virtual machine
+          network interfaces
+        name: ovirt_nic_info
+        namespace: ''
+      - description: Module to manage permissions of users/groups in oVirt/RHV
+        name: ovirt_permission
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV permissions
+        name: ovirt_permission_info
+        namespace: ''
+      - description: Module to manage datacenter quotas in oVirt/RHV
+        name: ovirt_quota
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV quotas
+        name: ovirt_quota_info
+        namespace: ''
+      - description: Module to manage roles in oVirt/RHV
+        name: ovirt_role
+        namespace: ''
+      - description: Retrieve information about one or more oVirt scheduling policies
+        name: ovirt_scheduling_policy_info
+        namespace: ''
+      - description: Module to manage Virtual Machine Snapshots in oVirt/RHV
+        name: ovirt_snapshot
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV virtual machine
+          snapshots
+        name: ovirt_snapshot_info
+        namespace: ''
+      - description: Module to manage storage connections in oVirt
+        name: ovirt_storage_connection
+        namespace: ''
+      - description: Module to manage storage domains in oVirt/RHV
+        name: ovirt_storage_domain
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV storage domains
+        name: ovirt_storage_domain_info
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV templates relate
+          to a storage domain.
+        name: ovirt_storage_template_info
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV virtual machines
+          relate to a storage domain.
+        name: ovirt_storage_vm_info
+        namespace: ''
+      - description: Module to manage tags in oVirt/RHV
+        name: ovirt_tag
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV tags
+        name: ovirt_tag_info
+        namespace: ''
+      - description: Module to manage virtual machine templates in oVirt/RHV
+        name: ovirt_template
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV templates
+        name: ovirt_template_info
+        namespace: ''
+      - description: Module to manage users in oVirt/RHV
+        name: ovirt_user
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV users
+        name: ovirt_user_info
+        namespace: ''
+      - description: Module to manage Virtual Machines in oVirt/RHV
+        name: ovirt_vm
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV virtual machines
+        name: ovirt_vm_info
+        namespace: ''
+      - description: Module to manage VM pools in oVirt/RHV
+        name: ovirt_vmpool
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV vmpools
+        name: ovirt_vmpool_info
+        namespace: ''
+      - description: Module to manage vNIC profile of network in oVirt/RHV
+        name: ovirt_vnic_profile
+        namespace: ''
+      - description: Retrieve information about one or more oVirt/RHV vnic profiles
+        name: ovirt_vnic_profile_info
+        namespace: ''
+    plugins:
+      inventory:
+        - description: oVirt inventory source
+          name: ovirt
+          namespace: null
+    release_date: '2020-04-09'
+  1.1.0:
+    changes:
+      bugfixes:
+        - ovirt_disk - Fix activate (https://github.com/oVirt/ovirt-ansible-collection/pull/61).
+        - ovirt_host_network - Fix custom_properties default value (https://github.com/oVirt/ovirt-ansible-collection/pull/65).
+        - ovirt_quota - Fix vcpu_limit (https://github.com/oVirt/ovirt-ansible-collection/pull/44).
+        - ovirt_vm - Fix cd_iso get all disks from storage domains (https://github.com/oVirt/ovirt-ansible-collection/pull/66).
+        - ovirt_vm - Fix cd_iso search by name (https://github.com/oVirt/ovirt-ansible-collection/pull/51).
+      major_changes:
+        - ovirt_disk - Add backup (https://github.com/oVirt/ovirt-ansible-collection/pull/57).
+        - ovirt_disk - Support direct upload/download (https://github.com/oVirt/ovirt-ansible-collection/pull/35).
+        - ovirt_host - Add ssh_port (https://github.com/oVirt/ovirt-ansible-collection/pull/60).
+        - ovirt_vm_os_info - Creation of module (https://github.com/oVirt/ovirt-ansible-collection/pull/26).
+      minor_changes:
+        - ovirt inventory - Add creation_time (https://github.com/oVirt/ovirt-ansible-collection/pull/34).
+        - ovirt inventory - Set inventory plugin insecure if no cafile defined (https://github.com/oVirt/ovirt-ansible-collection/pull/58).
+        - ovirt_disk - Add upload image warning for correct format (https://github.com/oVirt/ovirt-ansible-collection/pull/22).
+        - ovirt_disk - Force wait when uploading disk (https://github.com/oVirt/ovirt-ansible-collection/pull/43).
+        - ovirt_disk - Upload_image_path autodetect size (https://github.com/oVirt/ovirt-ansible-collection/pull/19).
+        - ovirt_network - Add support of removing vlan_tag (https://github.com/oVirt/ovirt-ansible-collection/pull/21).
+        - ovirt_vm - Add documentation for custom_script under sysprep (https://github.com/oVirt/ovirt-ansible-collection/pull/52).
+        - ovirt_vm - Hard code nic on_boot to true (https://github.com/oVirt/ovirt-ansible-collection/pull/45).
+    fragments:
+      - 19-ovirt_disk-upload_image_path-autodetect-size.yaml
+      - 21-ovirt_network-add-support-of-removing-vlan_tag.yaml
+      - 22-ovirt_disk-add-upload-image-warning-for-correct-format.yaml
+      - 26-add-ovirt_vm_os_info.yaml
+      - 34-ovirt-inventory-add-creation_time.yaml
+      - 35-ovirt_disk-support-direct-upload-download.yaml
+      - 43-ovirt_disk-force-wait-when-uploading-disk.yaml
+      - 44-ovirt_quota-fix-vcpu_limit-type.yaml
+      - 45-ovirt_vm-hard-code-nic-on_boot-to-true.yaml
+      - 51-ovirt_vm-fix-cd_iso-search-by-name.yaml
+      - 52-ovirt_vm-add-documentation-for-custom_script-under-sysprep.yaml
+      - 57-ovirt_disk-add-backup.yaml
+      - 58-ovirt-inventory-insecure-if-no-cafile-defined.yaml
+      - 60-ovirt_host-add-ssh_port.yaml
+      - 61-ovirt_disk-fix-activate.yaml
+      - 65-ovirt_host_network-fix-custom_properties-default-value.yaml
+      - 66-ovirt_vm-fix-cd_iso-get-all-disks-from-storage-domains.yaml
+    modules:
+      - description: Retrieve information on all supported oVirt/RHV operating systems
+        name: ovirt_vm_os_info
+        namespace: ''
+    release_date: '2020-08-12'
+  1.1.1:
+    changes:
+      minor_changes:
+        - ovirt_permission - Fix FQCN documentation (https://github.com/oVirt/ovirt-ansible-collection/pull/63).
+    release_date: '2020-08-12'
+  1.1.2:
+    release_date: '2020-08-17'
+  1.2.0:
+    changes:
+      bugfixes:
+        - 01_create_target_hosted_engine_vm - Force basic authentication (https://github.com/oVirt/ovirt-ansible-collection/pull/131).
+        - hosted_engine_setup - Allow uppercase characters in mac address (https://github.com/oVirt/ovirt-ansible-collection/pull/150).
+        - hosted_engine_setup - set custom bios type of hosted-engine VM to Q35+SeaBIOS
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/129).
+        - hosted_engine_setup - use zcat instead of gzip (https://github.com/oVirt/ovirt-ansible-collection/pull/130).
+        - ovirt inventory - Add close of connection at the end (https://github.com/oVirt/ovirt-ansible-collection/pull/122).
+        - ovirt_disk - dont move disk when already in storage_domain (https://github.com/oVirt/ovirt-ansible-collection/pull/135)
+        - ovirt_disk - fix upload when direct upload fails (https://github.com/oVirt/ovirt-ansible-collection/pull/120).
+        - ovirt_vm - Fix template search (https://github.com/oVirt/ovirt-ansible-collection/pull/132).
+        - ovirt_vm - Rename q35_sea to q35_sea_bios (https://github.com/oVirt/ovirt-ansible-collection/pull/111).
+      major_changes:
+        - cluster_upgrade - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/94).
+        - disaster_recovery - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/134).
+        - engine_setup - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/69).
+        - hosted_engine_setup - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/106).
+        - image_template - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/95).
+        - infra - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/92).
+        - manageiq - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/97).
+        - repositories - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/96).
+        - shutdown_env - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/112).
+        - vm_infra - Migrate role (https://github.com/oVirt/ovirt-ansible-collection/pull/93).
+      minor_changes:
+        - Add GPL license (https://github.com/oVirt/ovirt-ansible-collection/pull/101).
+        - hosted_engine_setup - Add compatibility_version (https://github.com/oVirt/ovirt-ansible-collection/pull/125).
+        - ovirt_disk - ignore move of HE disks (https://github.com/oVirt/ovirt-ansible-collection/pull/162).
+        - ovirt_nic - Add template_version (https://github.com/oVirt/ovirt-ansible-collection/pull/145).
+        - ovirt_nic_info - Add template (https://github.com/oVirt/ovirt-ansible-collection/pull/146).
+        - ovirt_vm_info - Add current_cd (https://github.com/oVirt/ovirt-ansible-collection/pull/144).
+    fragments:
+      - add-cluster_upgrade-role.yml
+      - add-disaster_recovery-role.yml
+      - add-engine_setup-role.yml
+      - add-gpl-license.yml
+      - add-hosted_engine_setup-role.yml
+      - add-image_template-role.yml
+      - add-infra-role.yml
+      - add-manageiq-role.yml
+      - add-repositories-role.yml
+      - add-shutdown_env-role.yml
+      - add-vm_infra-role.yml
+      - basic_auth-fix_create_target_hosted_engine_vm.yml
+      - hosted_engine_setup-add-compatibility_version.yml
+      - hosted_engine_setup-allow-uppercase-in-mac-address.yml
+      - hosted_engine_setup-set-custom-bios-type.yml
+      - hosted_engine_setup-use-zcat-instead-of-gzip.yml
+      - ovirt-inventory-add-connection-close.yml
+      - ovirt_disk-fix-move.yml
+      - ovirt_disk-fix-upload-when-direct-upload-fails.yml
+      - ovirt_disk-ignore-he-disk-move.yml
+      - ovirt_nic-add-template_version.yml
+      - ovirt_nic_info-add-template.yml
+      - ovirt_vm-fix-template-search.yml
+      - ovirt_vm-rename-q35_sea.yml
+      - ovirt_vm_info-add-current_cd.yml
+    release_date: '2020-10-27'
+  1.2.1:
+    changes:
+      bugfixes:
+        - disaster_recovery - Fix multiple configuration issues like paths, "~" support,
+          user input messages, etc. (https://github.com/oVirt/ovirt-ansible-collection/pull/160).
+    fragments:
+      - disaster_recovery-fix-configuration-issues.yml
+    release_date: '2020-11-02'
+  1.2.2:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Clean VNC encryption config (https://github.com/oVirt/ovirt-ansible-collection/pull/175/).
+        - inventory plugin - Fix timestamp for Python 2 (https://github.com/oVirt/ovirt-ansible-collection/pull/173).
+    fragments:
+      - hosted_engine_setup-clean-vnc-encryption-config.yml
+      - inventory-plugin-fix-python2-timestamp-issue.yml
+    release_date: '2020-11-12'
+  1.2.3:
+    changes:
+      minor_changes:
+        - engine_setup - Add missing restore task file and vars file (https://github.com/oVirt/ovirt-ansible-collection/pull/180).
+        - hosted_engine_setup - Add after_add_host hook (https://github.com/oVirt/ovirt-ansible-collection/pull/181).
+    fragments:
+      - engine_setup-add-missing-restore-file.yml
+      - he_add-after_add_host-hook.yml
+    release_date: '2020-11-30'
+  1.2.4:
+    changes:
+      minor_changes:
+        - infra - don't require passowrd for user (https://github.com/oVirt/ovirt-ansible-collection/pull/195).
+        - inventory - correct os_type name (https://github.com/oVirt/ovirt-ansible-collection/pull/194).
+        - ovirt_disk - automatically detect virtual size of qcow image (https://github.com/oVirt/ovirt-ansible-collection/pull/183).
+    fragments:
+      - 183-ovirt_disk-fix-upload-detection.yml
+      - 194-inventory-correct-name-of-os_type.yml
+      - 195-infra-dont-require-password-for-user.yml
+    release_date: '2020-12-14'
+  1.3.0:
+    changes:
+      major_changes:
+        - ovirt_system_option_info - Add new module (https://github.com/oVirt/ovirt-ansible-collection/pull/206).
+      minor_changes:
+        - ansible-builder - Update bindep (https://github.com/oVirt/ovirt-ansible-collection/pull/197).
+        - hosted_engine_setup - Collect all engine /var/log (https://github.com/oVirt/ovirt-ansible-collection/pull/202).
+        - hosted_engine_setup - Use ovirt_system_option_info instead of REST API (https://github.com/oVirt/ovirt-ansible-collection/pull/209).
+        - ovirt_disk - Add install warning (https://github.com/oVirt/ovirt-ansible-collection/pull/208).
+        - ovirt_info - Fragment add auth suboptions to documentation (https://github.com/oVirt/ovirt-ansible-collection/pull/205).
+    fragments:
+      - 197-update-bindep.yml
+      - 202-hosted_engine_setup-collect-all-engine-log.yml
+      - 205-ovirt_info-fragment-add-auth-suboptions-docs.yml
+      - 206-add-ovirt_system_option_info.yml
+      - 208-ovirt_disk-add-install-warning.yml
+      - 209-hosted_engine_setup-use-ovirt_system_option_info.yml
+    release_date: '2021-01-28'
+  1.3.1:
+    changes:
+      minor_changes:
+        - hosted_engine_setup - Disable reboot_after_installation (https://github.com/oVirt/ovirt-ansible-collection/pull/218).
+        - ovirt_host - Add reboot_after_installation option (https://github.com/oVirt/ovirt-ansible-collection/pull/217).
+    fragments:
+      - hosted_engine_setup-disable-reboot-after-install.yml
+      - ovirt_host-add-reboot_after_installation.yml
+    release_date: '2021-02-10'
+  1.4.0:
+    changes:
+      bugfixes:
+        - Set ``auth`` options into argument spec definition so Ansible will validate
+          the user options
+        - Set ``no_log`` on ``password`` and ``token`` in the ``auth`` dict so the
+          values are exposed in the invocation log
+      minor_changes:
+        - cluster_upgrade - Add correlation-id header (https://github.com/oVirt/ovirt-ansible-collection/pull/222).
+        - engine_setup - Add skip renew pki confirm (https://github.com/oVirt/ovirt-ansible-collection/pull/228).
+        - examples - Add recipe for removing DM device (https://github.com/oVirt/ovirt-ansible-collection/pull/233).
+        - hosted_engine_setup - Filter devices with unsupported bond mode (https://github.com/oVirt/ovirt-ansible-collection/pull/226).
+        - infra - Add reboot host parameters (https://github.com/oVirt/ovirt-ansible-collection/pull/231).
+        - ovirt_disk - Add SATA support (https://github.com/oVirt/ovirt-ansible-collection/pull/225).
+        - ovirt_user - Add ssh_public_key (https://github.com/oVirt/ovirt-ansible-collection/pull/232)
+    fragments:
+      - 222-cluster_upgrade-add-correlation-id.yml
+      - 225-ovirt_disk-add-sata.yml
+      - 226-hosted_engine_setup-filter-devices.yml
+      - 228-add-skip-renew-pki.yml
+      - 231-infra-add-reboot-params.yml
+      - 232-ovirt_user-add-ssh_public_key.yml
+      - 233-examples-add-recipe-for-removing-DM-device.yml
+      - auth_dict.yml
+    release_date: '2021-03-16'
+  1.4.1:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Fix auth revoke (https://github.com/oVirt/ovirt-ansible-collection/pull/237).
+    fragments:
+      - 237-hosted_engine_setup-fix-auth_revoke.yml
+    release_date: '2021-03-22'
+  1.4.2:
+    changes:
+      minor_changes:
+        - hosted_engine_setup - Add an error message for FIPS on CentOS (https://github.com/oVirt/ovirt-ansible-collection/pull/250).
+        - hosted_engine_setup - Fix the appliance distribution (https://github.com/oVirt/ovirt-ansible-collection/pull/249).
+        - infra - remove target from ovirt_storage_connection (https://github.com/oVirt/ovirt-ansible-collection/pull/252).
+        - ovirt_vm - Allow migration between clusters (https://github.com/oVirt/ovirt-ansible-collection/pull/236).
+        - repositories - Add host ppc (https://github.com/oVirt/ovirt-ansible-collection/pull/248).
+        - repositories - Remove ansible channels from RHV 4.4 (https://github.com/oVirt/ovirt-ansible-collection/pull/242).
+        - repositories - fix ppc repos (https://github.com/oVirt/ovirt-ansible-collection/pull/254).
+    fragments:
+      - 236-ovirt_vm-allow-cluster-migration.yml
+      - 242-repositories-remove-ansible-channels-from-RHV-4.4.yml
+      - 248-repositories-add-host-ppc.yml
+      - 249-hosted_engine_setup-fix-the-appliance-distribution.yml
+      - 250-hosted_engine_setup-add-an-error-message-for-FIPS-on-centos.yml
+      - 252-infra-remove-target-from-ovirt_storage_connection.yml
+      - 254-repositories-fix-ppc-repos.yml
+    release_date: '2021-04-23'
+  1.5.0:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Use ovirt_host module to discover iscsi (https://github.com/oVirt/ovirt-ansible-collection/pull/275).
+        - hosted_engine_setup - align with ansible-lint 5.0.0 (https://github.com/oVirt/ovirt-ansible-collection/pull/271).
+      minor_changes:
+        - disaster_recovery - Change conf paths (https://github.com/oVirt/ovirt-ansible-collection/pull/286).
+        - hosted_engine_setup - Add-pause-option-before-engine-setup (https://github.com/oVirt/ovirt-ansible-collection/pull/273).
+        - hosted_engine_setup - Remove leftover code and omit parameters (https://github.com/oVirt/ovirt-ansible-collection/pull/281).
+        - infra - Storage fix parameters typo (https://github.com/oVirt/ovirt-ansible-collection/pull/282).
+        - ovirt_host - Update iscsi target struct (https://github.com/oVirt/ovirt-ansible-collection/pull/274).
+    fragments:
+      - 274-ovirt_host-update-iscsi-target-struct.yml
+      - 282-infra-storage-fix-parameters-typo.yml
+      - 286-dr-change-conf-paths.yml
+      - hosted_engine_setup-add-pause-option-before-engine-setup.yml
+      - hosted_engine_setup-ansible-lint-5.0.0-alignment.yml
+      - hosted_engine_setup-remove-leftovers-code.yml
+      - hosted_engine_setup-use-ovirt_host-module-to-discover-iscsi.yml
+    release_date: '2021-06-04'
+  1.5.1:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Filter VLAN devices with bad names (https://github.com/oVirt/ovirt-ansible-collection/pull/238)
+        - hosted_engine_setup - Remove cloud-init configuration (https://github.com/oVirt/ovirt-ansible-collection/pull/295).
+        - ovirt inventory plugin - allow several valid values for the `plugin` key
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/293).
+      minor_changes:
+        - hosted_engine_setup - use-ansible-host (https://github.com/oVirt/ovirt-ansible-collection/pull/277).
+        - infra role - Add external_provider parameter on networks role of infra role
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/297)
+        - ovirt_vm - Add placement_policy_hosts (https://github.com/oVirt/ovirt-ansible-collection/pull/294).
+    fragments:
+      - 238-filter-vlan-devices-with-bad-names.yml
+      - 294-ovirt_vm-add-placement_policy_hosts.yml
+      - 297-ovirt_infra_networks-add-external-provider.yml
+      - hosted_engine_setup-add-host-use_IP.yml
+      - hosted_engine_setup-remove-cloud-init-config.yml
+      - inventory_plugin_key_choices.yml
+    release_date: '2021-06-17'
+  1.5.2:
+    changes:
+      minor_changes:
+        - hosted_engine_setup - Do not try to sync at end of full_execution (https://github.com/oVirt/ovirt-ansible-collection/pull/305)
+        - ovirt_vm - Add default return value to check_placement_policy (https://github.com/oVirt/ovirt-ansible-collection/pull/301).
+    fragments:
+      - 301-ovirt_vm-add-default-to-check_placement_policy.yml
+      - 305-HE-do-not-sync-at-full-execution-end.yml
+    release_date: '2021-06-23'
+  1.5.3:
+    changes:
+      minor_changes:
+        - Don't rely on safe_eval being able to do math/concat (https://github.com/oVirt/ovirt-ansible-collection/pull/307)
+        - hosted_engine_setup - Fix engine vm add_host for the target machine (https://github.com/oVirt/ovirt-ansible-collection/pull/311)
+        - hosted_engine_setup - Minor doc update (https://github.com/oVirt/ovirt-ansible-collection/pull/310)
+    fragments:
+      - 307-safe-eval-no-concat.yml
+      - 310-HE-minor-doc-update.yml
+      - 311-fix-add-host-target-vm.yml
+    release_date: '2021-06-25'
+  1.5.4:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Use forward network during an IPv6 deployment (https://github.com/oVirt/ovirt-ansible-collection/pull/315)
+        - hosted_engine_setup - remove duplicate tasks (https://github.com/oVirt/ovirt-ansible-collection/pull/314)
+        - ovirt_permission - fix group search that has space in it's name (https://github.com/oVirt/ovirt-ansible-collection/pull/318)
+      minor_changes:
+        - hosted_engine_setup - Allow FIPS on HE VM (https://github.com/oVirt/ovirt-ansible-collection/pull/313)
+    fragments:
+      - 313-allow-fips-on-HE-vm.yml
+      - 314-remove-duplicate-tasks.yml
+      - 315-use-forward-netrok-during-ipv6-deployment.yml
+      - 318-ovirt_permission-fix-group-search-that-has-space.yml
+    release_date: '2021-07-22'
+  1.5.5:
+    changes:
+      bugfixes:
+        - ovirt_auth - Fix password and username requirements (https://github.com/oVirt/ovirt-ansible-collection/pull/325).
+        - ovirt_disk - Fix update_check with no VM (https://github.com/oVirt/ovirt-ansible-collection/pull/323).
+      major_changes:
+        - remove_stale_lun - Add role for removing stale LUN (https://bugzilla.redhat.com/1966873).
+      minor_changes:
+        - engine_setup - Wait for webserver up after engine-config reboot (https://github.com/oVirt/ovirt-ansible-collection/pull/324).
+        - hosted_engine_setup - Pause deployment on failure of `engine-backup --mode=restore`
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/327).
+        - hosted_engine_setup - Text change - Consistently use 'bootstrap engine VM'
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/328).
+        - hosted_engine_setup - Update Ansible requirements in README (https://github.com/oVirt/ovirt-ansible-collection/pull/321)
+        - readme - Update Ansible requirement (https://github.com/oVirt/ovirt-ansible-collection/pull/326).
+    fragments:
+      - 321-hosted_engine_setup-update-ansible-requirements-in-readme.yml
+      - 323-ovirt_disk-fix-update_check-with-no-vm.yml
+      - 324-engine_setup-wait-for-engine-config-reboot.yml
+      - 325-ovirt_auth-fix-passowrd-and-username-req.yml
+      - 326-readme-update-ansible-requirements.yml
+      - 327-pause-on-restore.yml
+      - 328-bootstrap-texts.yml
+      - add-remove_stale_lun-role.yml
+    release_date: '2021-08-11'
+  1.6.1:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Use default bridge for IPv6 advertisements (https://github.com/oVirt/ovirt-ansible-collection/pull/331)
+        - ovirt_auth - Fix token no_log (https://github.com/oVirt/ovirt-ansible-collection/pull/332).
+    fragments:
+      - 331-use-default-bridge-for-ipv6-advertisements.yml
+      - 332-ovirt_auth-fix-token-no_log.yml
+    release_date: '2021-08-25'
+  1.6.2:
+    changes:
+      minor_changes:
+        - remove_stale_lun - Fix example for `remote_stale_lun` role to be able to
+          run it from engine (https://github.com/oVirt/ovirt-ansible-collection/pull/334).
+    fragments:
+      - 334-remove_stale_lun-role.yml
+    release_date: '2021-08-26'
+  2.0.0:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Add OpenSCAP security profile name parameter (https://github.com/oVirt/ovirt-ansible-collection/pull/411).
+        - hosted_engine_setup - Add an option to set the storage format when createing
+          a storage domain and use it (https://github.com/oVirt/ovirt-ansible-collection/pull/463).
+        - hosted_engine_setup - Adjust files permissions (https://github.com/oVirt/ovirt-ansible-collection/pull/409).
+        - hosted_engine_setup - Fix call to engine-psql for vds_spm_id (https://github.com/oVirt/ovirt-ansible-collection/pull/459).
+        - hosted_engine_setup - Fix cloud-init package removal in airgapped environment
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/442)
+        - hosted_engine_setup - Remove SPICE graphic protocol (https://github.com/oVirt/ovirt-ansible-collection/pull/394).
+        - hosted_engine_setup - Replace xml community module (https://github.com/oVirt/ovirt-ansible-collection/pull/438).
+        - hosted_engine_setup - Support disa stig profile (https://github.com/oVirt/ovirt-ansible-collection/pull/426).
+        - hosted_engine_setup - Use cat command (https://github.com/oVirt/ovirt-ansible-collection/pull/443).
+        - hosted_engine_setup - Use tpgt in iscsi login (https://github.com/oVirt/ovirt-ansible-collection/pull/338)
+        - image_template - Remove static no - unsupported in ansible 2.12 (https://github.com/oVirt/ovirt-ansible-collection/pull/341).
+        - ovirt_host - Fix failed_state_after_reinstall condition (https://github.com/oVirt/ovirt-ansible-collection/pull/371).
+        - ovirt_template - Fix creating templates where the base template version
+          number is not 1 (https://github.com/oVirt/ovirt-ansible-collection/pull/370).
+        - repositories - Fix dnf module variable (https://github.com/oVirt/ovirt-ansible-collection/pull/454).
+        - repositories - fix force flag on subscription-manager (https://github.com/oVirt/ovirt-ansible-collection/pull/430).
+      major_changes:
+        - manageiq - role removed (https://github.com/oVirt/ovirt-ansible-collection/pull/375).
+      minor_changes:
+        - Add json_query filter (https://github.com/oVirt/ovirt-ansible-collection/pull/436).
+        - cluster_upgrade - Add progress tracking via event logs to the role (https://github.com/oVirt/ovirt-ansible-collection/pull/415)
+        - cluster_upgrade - Directly log progress to the cluster (https://github.com/oVirt/ovirt-ansible-collection/pull/449)
+        - engine_setup - Honor ovirt_engine_setup_offline variable (https://github.com/oVirt/ovirt-ansible-collection/pull/381).
+        - engine_setup - Prepare answer files and default values for 4.5 release (https://github.com/oVirt/ovirt-ansible-collection/pull/414).
+        - gluster_heal_info - Replacing gluster module to CLI to support RHV automation
+          hub (https://github.com/oVirt/ovirt-ansible-collection/pull/340).
+        - hosted_engine - Replace virt_net and xml with commands (https://github.com/oVirt/ovirt-ansible-collection/pull/359).
+        - hosted_engine_setup - Fix default gateway variable name (https://github.com/oVirt/ovirt-ansible-collection/pull/423).
+        - hosted_engine_setup - Fix default gateway variable name (https://github.com/oVirt/ovirt-ansible-collection/pull/423).
+        - hosted_engine_setup - Fix permissions on copied engine logs, needed for
+          OpenSCAP (https://github.com/oVirt/ovirt-ansible-collection/pull/404).
+        - hosted_engine_setup - Honor he_offline_deployment variable (https://github.com/oVirt/ovirt-ansible-collection/pull/380).
+        - hosted_engine_setup - Replace calls to psql as postgres with engine_psql.sh
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/453).
+        - hosted_engine_setup - configured abrt initial files only when needed (https://github.com/oVirt/ovirt-ansible-collection/pull/397).
+        - info - Rename follows to follow parameter and add alias (https://github.com/oVirt/ovirt-ansible-collection/pull/367).
+        - info - bump deprecate version for fetch_nested and nested_attributes (https://github.com/oVirt/ovirt-ansible-collection/pull/378).
+        - info modules - Add follow link url to api model links_summary
+        - info modules - Enable follow parameter (https://github.com/oVirt/ovirt-ansible-collection/pull/355).
+        - manageiq - add deprecation info (https://github.com/oVirt/ovirt-ansible-collection/pull/384).
+        - ovirt_disk - Add warning for disk attachments (https://github.com/oVirt/ovirt-ansible-collection/pull/347).
+        - ovirt_disk - Use imageio client (https://github.com/oVirt/ovirt-ansible-collection/pull/358).
+        - ovirt_event - enable correlation_id on events (https://github.com/oVirt/ovirt-ansible-collection/pull/368).
+        - ovirt_host - Add enroll_certificate (https://github.com/oVirt/ovirt-ansible-collection/pull/439).
+        - ovirt_permission - add mac pool (https://github.com/oVirt/ovirt-ansible-collection/pull/353).
+        - ovirt_remove_stale_lun - Allow user to remove multiple LUNs (https://github.com/oVirt/ovirt-ansible-collection/pull/357).
+        - ovirt_remove_stale_lun - Retry "multipath -f" while removing the LUNs (https://github.com/oVirt/ovirt-ansible-collection/pull/382).
+        - ovirt_remove_stale_lun - Use add_host instead of delegate_to (https://github.com/oVirt/ovirt-ansible-collection/pull/390).
+        - ovirt_storage_template_info - fix docs (https://github.com/oVirt/ovirt-ansible-collection/pull/356).
+        - ovirt_storage_vm_info - fix docs (https://github.com/oVirt/ovirt-ansible-collection/pull/356).
+        - ovirt_template - Add ova import of template (https://github.com/oVirt/ovirt-ansible-collection/pull/304).
+        - ovirt_template - add boot_menu and bios_type https://github.com/oVirt/ovirt-ansible-collection/pull/465).
+        - ovirt_vm - Add display file_transfer_enabled and copy_paste_enabled (https://github.com/oVirt/ovirt-ansible-collection/pull/339).
+        - ovirt_vm - Add virtio_scsi_enabled and multi_queues_enabled (https://github.com/oVirt/ovirt-ansible-collection/pull/348).
+        - ovirt_vm - Add virtio_scsi_multi_queues (https://github.com/oVirt/ovirt-ansible-collection/pull/373).
+        - plugins - Remove unused imports (https://github.com/oVirt/ovirt-ansible-collection/pull/444).
+        - repositories - Add to the documentation variable priority (https://github.com/oVirt/ovirt-ansible-collection/pull/440).
+        - repositories - Replace redhat_subscription and rhsm_repository with command
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/346).
+        - repositories - Update host and engine repositories to 4.4.9 (https://github.com/oVirt/ovirt-ansible-collection/pull/363).
+        - repositories - add no_log to register (https://github.com/oVirt/ovirt-ansible-collection/pull/350).
+        - repositories - add satelite support (https://github.com/oVirt/ovirt-ansible-collection/pull/431).
+        - vm_infra - Add no_log to Manage VMs state task (https://github.com/oVirt/ovirt-ansible-collection/pull/417).
+    fragments:
+      - 304-ovirt_template-add-ova-import.yml
+      - 338-use-tpgt-in-iscsi-login.yml
+      - 339-ovirt_vm-add-display-params.yml
+      - 340-replace-gluster-module-to-cli.yml
+      - 341-image_template-fix-include-tasks.yml
+      - 346-repositories-replace-redhat_subscription-and-rhsm_repository-with-command.yml
+      - 347-ovirt_disk-add-warning-for-disk-attachemtns.yml
+      - 348-ovirt_vm-add-virtio_scsi_enabled-and-multi_queues_enabled.yml
+      - 350-repositories-add-no_log-to-register.yml
+      - 351-ovirt_remove_stale_lun-allow-user-to-remove-multiple-luns.yml
+      - 352-ovirt_remove_stale_lun-Retry-Multipath-f-while-removing-the-luns.yml
+      - 353-ovirt_permission-add-mac-pool.yml
+      - 355-info-modules-enable-follow-parameter.yml
+      - 356-ovirt_storage_vm_info-and-ovirt_storage_template_info-fix-docs.yml
+      - 358-ovirt_disk-use-imageio-client.yml
+      - 359-he-replace-virt_net-and-xml-with-commands.yml
+      - 363-repositories-update-to-4.4.9.yml
+      - 367-info-rename-follows-to-follows.yml
+      - 368-ovirt_event-correlation_id.yml
+      - 370-ovirt_template-fix-template-version.yml
+      - 371-ovirt_host-fix-failed_state_after_reinstall-condition.yml
+      - 371-ovirt_vm-add-virtio_scsi_multi_queues.yml
+      - 375-manageiq-deprecate.yml
+      - 378-bump-deprecate-version.yml
+      - 380-hosted_engine_setup-honor-he_offline_deployment.yaml
+      - 381-engine_setup-honor-ovirt_engine_setup_offline.yaml
+      - 384-manageiq-add-deprecation-info.yaml
+      - 390-ovirt_remove_stale_lun-Use-add_host-instead-of-delegate_to.yml
+      - 394-hosted_engine_setup-remove-spice-graphic-protocol.yml
+      - 396-info-modules-add-follow-link-url.yml
+      - 397-he_engine_abrt_configuration.yaml
+      - 404_fix_permissions_openscap.yml
+      - 409-hosted_engine_setup-Adjust-files-permissions.yml
+      - 411-hosted_engine_setup-Add-security-profile-name-parameter.yml
+      - 414-prepare-for-4.5-release.yaml
+      - 415-cluster_upgrade-progress.yml
+      - 417-add-no_log-to-manage-vms-state-task.yml
+      - 423-hosted_engine_setup-fix-default-gateway-variable-name.yml
+      - 425-cluster_upgrade-shutdown-vms-only-on-pinned-hosts.yml
+      - 426-ovirt_hosted-engine_setup-support-disa-stig-profile.yml
+      - 430-repositories-fix-force-flag-on-subscription-manager.yml
+      - 431-repositories-add-satellite-support.yml
+      - 436-add-json_query-filter.yml
+      - 438-hosted_engine_setup-replace-xml-module.yml
+      - 439-ovirt_host-add-enroll_certificate.yml
+      - 440-repositories-update-docs.yml
+      - 442-cloud-init_fix_removal_in_airgapped_environment.yml
+      - 443-ovirt_hosted_engine_setup-use-cat-command.yml
+      - 444-plugins-remove_unused_imports.yml
+      - 449-cluster_upgrade-progress-log.yml
+      - 453-replace-calls-to-psql-as-postgres-with-engine_psql.yml
+      - 454-repositories-fix-dnf-module-variable.yml
+      - 459-hosted_engine_setup-fix-call-to-engine-psql-for-vds_spm_id.yml
+      - 465-ovirt_template-add-boot_menu-and-bios_type.yml
+    plugins:
+      callback:
+        - description: Output the log of ansible
+          name: stdout
+          namespace: null
+    release_date: '2022-04-03'
+  2.0.1:
+    changes:
+      bugfixes:
+        - Make storage_format optional - do not fail if missing (https://github.com/oVirt/ovirt-ansible-collection/pull/471).
+    fragments:
+      - 471-make-storage-format-optional.yml
+    release_date: '2022-04-05'
+  2.0.2:
+    changes:
+      bugfixes:
+        - Fix progress logging via REST (https://github.com/oVirt/ovirt-ansible-collection/pull/474).
+    fragments:
+      - 471-make-storage-format-optional.yml
+      - 474-cluster-update-log-progress-fix.yml
+    release_date: '2022-04-06'
+  2.0.3:
+    changes:
+      bugfixes:
+        - invenory - Fix url address (https://github.com/oVirt/ovirt-ansible-collection/pull/482).
+        - ovirt_vm - Fix creating a RAW VM from a COW template  (https://github.com/oVirt/ovirt-ansible-collection/pull/466).
+      minor_changes:
+        - ovirt_affinity_group - Add affinity labels (https://github.com/oVirt/ovirt-ansible-collection/pull/481).
+    fragments:
+      - 466-ovirt_vm-fix-creating-raw-vm-from-cow-template.yml
+      - 481-ovirt_affinity_group-add-affinity-labels.yml
+      - 482-inventory-fix-url-address.yml
+    release_date: '2022-04-13'
+  2.0.4:
+    changes:
+      bugfixes:
+        - Fix the admin user name when using keycloak (https://github.com/oVirt/ovirt-ansible-collection/pull/488).
+        - Use cryptography < 37.0.0, as 37.0.0 emits a warning that fails testing.
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/492).
+        - Use rstcheck < 3.5.0, as 3.5.0 emits a warning that fails testing. (https://github.com/oVirt/ovirt-ansible-collection/pull/490).
+        - cluster_upgrade - fix wait_condition (https://github.com/oVirt/ovirt-ansible-collection/pull/510).
+        - hosted_engine_setup - Allocate 128MiB instead of 1GiB for he_metadata (https://github.com/oVirt/ovirt-ansible-collection/pull/489).
+        - hosted_engine_setup - Collect logs also on failures in 03_hosted_engine_final_tasks.yml
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/504).
+        - hosted_engine_setup - Fix keycloak activation/checking (https://github.com/oVirt/ovirt-ansible-collection/pull/509).
+        - hosted_engine_setup - Require 'detail' to be 'Up' (https://github.com/oVirt/ovirt-ansible-collection/pull/498).
+        - hosted_engine_setup - fix archive ownership (https://github.com/oVirt/ovirt-ansible-collection/pull/501).
+        - infra - add warning for multiple storage connections (https://github.com/oVirt/ovirt-ansible-collection/pull/500).
+    fragments:
+      - 488-configure-keycloak.yml
+      - 489-ovirt_hosted_engine_setup-use-10mib-intead-of-1gib-for-metadata.yml
+      - 490-use-rstcheck-3.4.yml
+      - 492-use-cryptography-older-than-37.yml
+      - 498-require-detail-up.yml
+      - 500-role-infra-add-warning-for-multiple-storage-connections.yml
+      - 501-fix-archive-ownership.yml
+      - 504-collect-final-logs.yml
+      - 509-fix-keycloak-activation.yml
+      - 510-cluster-upgrade-fix-wait_condition.yml
+    release_date: '2022-06-03'
+  2.1.0:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Fix "'ansible' ModuleNotFoundError" in Disaster Recovery
+          scripts (https://github.com/oVirt/ovirt-ansible-collection/pull/503).
+        - hosted_engine_setup - Use command instead of firewalld module (https://github.com/oVirt/ovirt-ansible-collection/pull/508).
+        - ovirt_vm - Fix parsing None arguments (https://github.com/oVirt/ovirt-ansible-collection/pull/486).
+        - ovirt_vm - check if the snapshot exists (https://github.com/oVirt/ovirt-ansible-collection/pull/525).
+      minor_changes:
+        - Add convert_to_bytes filter (https://github.com/oVirt/ovirt-ansible-collection/pull/515).
+        - automation - Use python38 on el8 with ansible-core 2.12 and python39 on
+          el9 with ansible-core 2.13  (https://github.com/oVirt/ovirt-ansible-collection/pull/518).
+        - cloud.py - Sync with orgin (https://github.com/oVirt/ovirt-ansible-collection/pull/519).
+        - engine_setup - Allow to disable cert validation (https://github.com/oVirt/ovirt-ansible-collection/pull/517).
+        - hosted_engine_setup - make vdsm config cleanup optional (https://github.com/oVirt/ovirt-ansible-collection/pull/521).
+        - ovirt - Remove deprecated distutils (https://github.com/oVirt/ovirt-ansible-collection/pull/516).
+        - ovirt_vm - add wait_after_lease (https://github.com/oVirt/ovirt-ansible-collection/pull/524).
+    fragments:
+      - 483-ovirt_vm-fix-None-args.yml
+      - 503-fix-ansible-ModuleNotFoundError.yml
+      - 508-ovirt_hosted_engine_setup-use-firewalld-command.yml
+      - 515-add-convert_to_bytes-filter.yml
+      - 516-remove-distutils-usage.yml
+      - 517-engien_setup-allow-to-disable-cert-validation.yml
+      - 518-ci-changes.yml
+      - 519-sync-cloud_py.yml
+      - 521-optional-cleanup.yml
+      - 524-ovirt_vm-add-wait_after_lease.yml
+      - 525-ovirt_vm-check-if-snap-exists.yml
+    release_date: '2022-06-09'
+  2.2.0:
+    changes:
+      bugfixes:
+        - HE - Handle migration to hosts that use systemd-coredump (https://github.com/oVirt/ovirt-ansible-collection/pull/557).
+        - cluster_upgrade - Fix starting up pinned vms (https://github.com/oVirt/ovirt-ansible-collection/pull/532).
+        - he - Align role with ansible-lint-6.0 (https://github.com/oVirt/ovirt-ansible-collection/pull/545).
+        - hosted_engine - Specify fqcn for ovirt_system_option_info (https://github.com/oVirt/ovirt-ansible-collection/pull/536).
+        - hosted_engine_setup - Fix cleanup on el9 (https://github.com/oVirt/ovirt-ansible-collection/pull/533).
+        - image_template - Remove static (https://github.com/oVirt/ovirt-ansible-collection/pull/537).
+        - image_template - Remove static no - unsupported in ansible 2.12 (https://github.com/oVirt/ovirt-ansible-collection/pull/341).
+        - ovirt_host - Fix host wait (https://github.com/oVirt/ovirt-ansible-collection/pull/531).
+        - ovirt_host - Fix restarted wait condition (https://github.com/oVirt/ovirt-ansible-collection/pull/551).
+        - ovirt_storage_domain - Fix inaccessible exception (https://github.com/oVirt/ovirt-ansible-collection/pull/534).
+        - ovirt_vm - check if user inputed graphical protocol (https://github.com/oVirt/ovirt-ansible-collection/pull/542).
+        - repositories - Move fips check to satellite CA install block (https://github.com/oVirt/ovirt-ansible-collection/pull/553).
+        - shutdown_env - Align role with ansible-lint-6.0 (https://github.com/oVirt/ovirt-ansible-collection/pull/544).
+      minor_changes:
+        - During he_setup, configure ovn with he_host_name for correct operation of
+          ovn (https://github.com/oVirt/ovirt-ansible-collection/pull/563).
+        - Fix "ansible-lint" version 6.0.0 "yaml" violations for "disaster_recovery"
+          role (https://github.com/oVirt/ovirt-ansible-collection/pull/543).
+        - Fix "ansible-lint" version 6.0.0 violations for "disaster_recovery" & "remove_stale_lun"
+          roles (https://github.com/oVirt/ovirt-ansible-collection/pull/554).
+        - Fix ansible-lint for basic roles (https://github.com/oVirt/ovirt-ansible-collection/pull/280).
+        - Updating the documentation - "vm_name" / "vm_id" and/or disk "id" parameter(s)
+          are required when extending disk with non-unique name (https://github.com/oVirt/ovirt-ansible-collection/pull/559).
+        - gluster_heal_info - Replacing gluster module to CLI to support RHV automation
+          hub (https://github.com/oVirt/ovirt-ansible-collection/pull/340).
+        - ovirt_disk - Add warning for disk attachments (https://github.com/oVirt/ovirt-ansible-collection/pull/347).
+        - ovirt_disk - Fix disk attachment to VM (https://github.com/oVirt/ovirt-ansible-collection/pull/361).
+        - ovirt_qos, ovirt_disk_profile, ovirt_disk - Add modules to allow for creation
+          and updating of disk_profiles (https://github.com/oVirt/ovirt-ansible-collection/pull/422).
+        - ovirt_snapshot - Add vm_id to select VM (https://github.com/oVirt/ovirt-ansible-collection/pull/550).
+        - ovirt_vm - Add reset of VM (https://github.com/oVirt/ovirt-ansible-collection/pull/538).
+        - ovirt_vm - Add virtio_scsi_enabled and multi_queues_enabled (https://github.com/oVirt/ovirt-ansible-collection/pull/348).
+        - ovirt_vm - add volatile (https://github.com/oVirt/ovirt-ansible-collection/pull/539).
+        - repositories - Add ovirt_repositories_rhsm_environment and FIPS fix (https://github.com/oVirt/ovirt-ansible-collection/pull/483).
+        - repositories - Replace redhat_subscription and rhsm_repository with command
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/346).
+    fragments:
+      - 280-fix-ansible-lint-for-basic-roles.yml
+      - 340-replace-gluster-module-to-cli.yml
+      - 341-image_template-fix-include-tasks.yml
+      - 346-repositories-replace-redhat_subscription-and-rhsm_repository-with-command.yml
+      - 347-ovirt_disk-add-warning-for-disk-attachemtns.yml
+      - 348-ovirt_vm-add-virtio_scsi_enabled-and-multi_queues_enabled.yml
+      - 361-ovirt_disk-fix-disk-attachment.yml
+      - 422-add-qos-and-disk_profle.yml
+      - 483-repositories-add-rhsm_environment.yml
+      - 531-ovirt_host-fix-host-wait.yml
+      - 532-cluster_upgrade-fix-starting-up-pinned-vms.yml
+      - 533_fix_cleanup.yml
+      - 534-ovirt_storage_domain-fix-inaccessible-error.yml
+      - 536-he-specify-fqcn.yml
+      - 537-image_template-remove-static.yml
+      - 538-ovirt_vm-add-reset.yml
+      - 539-ovirt_vm-add-volatile.yml
+      - 542-ovirt_vm-check-graphical-protocol.yml
+      - 543-fix-ansible-lint-for_disaster_recovery.yml
+      - 544-shutdown_env-align-with-ansible-lint-6.0.yml
+      - 545-he-setup-align-with-ansible-lint-6.0.yml
+      - 550-ovirt_snapshot-add-vm_id.yml
+      - 551-ovirt_host-fix-restarted-wait-condition.yml
+      - 553-repositories-move-check-fips.yml
+      - 554-fix-ansible_lint-for-disaster_recovery-and-remove_stale_lun.yml
+      - 557-fix-he-migration-to-systemd-coredump-hosts.yml
+      - 559-update-documentation-ovirt_disk-requires-extra_params-when-extending-disk-with-non-unique-name.yml
+      - 563-he-setup-configure-ovn-with-he-host-fqdn.yml
+    release_date: '2022-07-25'
+  2.2.1:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - fix hosted-engine.conf permissions and ownership (https://github.com/oVirt/ovirt-ansible-collection/pull/569).
+      minor_changes:
+        - During he_setup, configure ovn with he_host_address (https://github.com/oVirt/ovirt-ansible-collection/pull/568).
+    fragments:
+      - 568-he-setup-configure-ovn-with-he-host-fqdn.yml
+      - 569-heconf-permissions.yml
+    release_date: '2022-08-03'
+  2.2.2:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Detect hosted-engine-ha version using /usr/libexec/platform-python
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/573).
+        - hosted_engine_setup - update ansible version in README (https://github.com/oVirt/ovirt-ansible-collection/pull/571).
+        - repositories - Add mod_auth_openidc:2.3 and nodejs:14 to dnf modules (https://github.com/oVirt/ovirt-ansible-collection/pull/578).
+    fragments:
+      - 571-hosted_engine_setup-update-ansible-version-in-readme.yml
+      - 573-hosted_engine_setup-fetch-hosted-engine-ha-version-by-rpm-command.yml
+      - 578-repositories-Add-mod_auth_openidc-and-nodejs-to-dnf-modules.yml
+    release_date: '2022-08-09'
+  2.2.3:
+    changes:
+      bugfixes:
+        - cluster_upgrade - skip host upgrades without anything to update (https://github.com/oVirt/ovirt-ansible-collection/pull/580).
+        - hosted_engine_setup - restore - remove host also based on name (https://github.com/oVirt/ovirt-ansible-collection/pull/567).
+        - repositories - Fix example variable names (https://github.com/oVirt/ovirt-ansible-collection/pull/582).
+      minor_changes:
+        - hosted_engine_setup - fix ovirt-provider-ovn-driver broken link (https://github.com/oVirt/ovirt-ansible-collection/pull/581).
+    fragments:
+      - 567-hosted_engine_setup-remove-host-based-on-name.yml
+      - 580-cluster_upgrade-skip-host-upgrades-without-anything-to-update.yml
+      - 581-hosted_engine_setup-fix-broken-link.yml
+      - 582-repositories-fix-example-variable-names.yml
+    release_date: '2022-08-15'
+  2.3.0:
+    changes:
+      bugfixes:
+        - Fix ovirtvmipsv4 when using attribute (https://github.com/oVirt/ovirt-ansible-collection/pull/596).
+        - he-setup - fix static ipv6 ifcfg setup (https://github.com/oVirt/ovirt-ansible-collection/pull/592).
+        - ovirt_host - Honor activate and reboot_after_installation when they are
+          set to false with reinstalled host state (https://github.com/oVirt/ovirt-ansible-collection/pull/587).
+        - repositories - RHV 4.4 SP1 is supported only on RHEL 8.6 EUS (https://github.com/oVirt/ovirt-ansible-collection/pull/576).
+      minor_changes:
+        - filters - Add documentation to all filters (https://github.com/oVirt/ovirt-ansible-collection/pull/603).
+        - ovirt_disk - Add read_only param for disk attachments (https://github.com/oVirt/ovirt-ansible-collection/pull/597).
+        - ovirt_disk - Fix disk attachment to VM (https://github.com/oVirt/ovirt-ansible-collection/pull/361).
+    fragments:
+      - 361-ovirt_disk-fix-disk-attachment.yml
+      - 576-repositories-rhv-4.4-sp1-is-supported-only-on-rhel-8.6-eus.yml
+      - 587-ovirt_host-honor-activate-and-reboot-params.yml
+      - 592-he-setup-static-ipv6.yml
+      - 596-fix-ovirtvmipsv4-when-using-attr.yml
+      - 597-ovirt_disk-add-read_only-param.yml
+      - 603-add-filter-docs.yml
+    release_date: '2022-10-13'
+  3.0.0:
+    changes:
+      bugfixes:
+        - Remove the 'warn:' argument (https://github.com/oVirt/ovirt-ansible-collection/pull/627).
+        - cluster_upgrade - Add default random uuid to engine_correlation_id (https://github.com/oVirt/ovirt-ansible-collection/pull/624).
+        - cluster_upgrade - Fix the engine_correlation_id location (https://github.com/oVirt/ovirt-ansible-collection/pull/637).
+        - filters - Fix ovirtvmipsv4 with attribute and network (https://github.com/oVirt/ovirt-ansible-collection/pull/607).
+        - filters - Fix ovirtvmipsv4 with filter to list (https://github.com/oVirt/ovirt-ansible-collection/pull/609).
+        - image_template - Add template_bios_type (https://github.com/oVirt/ovirt-ansible-collection/pull/620).
+        - info modules - Bump the deprecation version of fetch_nested and nested_attributes
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/610).
+        - ovirt_host - Fix kernel_params elemets type (https://github.com/oVirt/ovirt-ansible-collection/pull/608).
+        - ovirt_nic - Add network_filter_parameters (https://github.com/oVirt/ovirt-ansible-collection/pull/623).
+      minor_changes:
+        - Improving "ovirt_disk" and "disaster_recovery" documentation (https://github.com/oVirt/ovirt-ansible-collection/pull/562).
+    fragments:
+      - 562-improve-documentation-ovirt_disk-and-disaster_recovery.yml
+      - 607-filters-fix-ovirtvmipsv4-with-atribute-and-network.yml
+      - 608-fix-ovirt_host-kernel_params-type.yml
+      - 609-filterip4-fix-filter-list.yml
+      - 610-bump-info-deprecation.yml
+      - 620-image_template-add-template_bios_type.yml
+      - 623-ovirt_nic-add-network_filter_parameters.yml
+      - 624-cluster_upgrade-add-default-random-uuid-to-engine_correlation_id.yml
+      - 627-remove-warn-arg.yml
+      - 637-cluster_upgrade-fix-the-engine_correlation_id-location.yml
+    release_date: '2022-11-28'
+  3.1.0:
+    changes:
+      bugfixes:
+        - engine_setup - Remove provision_docker from tests (https://github.com/oVirt/ovirt-ansible-collection/pull/677).
+        - he-setup - Log the output sent to the serial console of the HostedEngineLocal
+          VM to a file on the host, to allow diagnosing failures in that stage (https://github.com/oVirt/ovirt-ansible-collection/pull/664).
+        - he-setup - Run virt-install with options more suitable for debugging (https://github.com/oVirt/ovirt-ansible-collection/pull/664).
+        - he-setup - recently `virsh net-destroy default` doesn't delete the `virbr0`,
+          so we need to delete it expicitly (https://github.com/oVirt/ovirt-ansible-collection/pull/661).
+        - info modules - Use dynamic collection name instead of ovirt.ovirt for deprecation
+          warning (https://github.com/oVirt/ovirt-ansible-collection/pull/653).
+        - module_utils - replace `getargspec` with `getfullargspec` to support newer
+          python 3.y versions (https://github.com/oVirt/ovirt-ansible-collection/pull/663).
+        - ovirt_host - Wait for host to be in result state during upgrade (https://github.com/oVirt/ovirt-ansible-collection/pull/621)
+      minor_changes:
+        - ovirt_host - Add refreshed state (https://github.com/oVirt/ovirt-ansible-collection/pull/673).
+        - ovirt_network - Add default_route usage to the ovirt_network module (https://github.com/oVirt/ovirt-ansible-collection/pull/647).
+    fragments:
+      - 621-wait-for-host-to-be-in-result-state.yml
+      - 647-add-default_route-usage-to-the-ovirt_network-module.yml
+      - 653-info-modules-use-dynamic-name.yml
+      - 661-delete-also-the-bridge.yml
+      - 663-replace-getargspec-with-getfullargspec.yml
+      - 664-debug-virt-install.yml
+      - 664-log-local-vm-console.yml
+      - 673-ovirt_host-add-refresh.yml
+      - 677-remove-provision_docker-dependency.yml
+    release_date: '2023-02-14'
+  3.1.1:
+    changes:
+      bugfixes:
+        - hosted_engine_setup - Vdsm now uses -n flag for all qemu-img convert calls
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/682).
+        - ovirt_cluster_info - Fix example patter (https://github.com/oVirt/ovirt-ansible-collection/pull/684).
+        - ovirt_host - Fix refreshed state action (https://github.com/oVirt/ovirt-ansible-collection/pull/687).
+    fragments:
+      - 682-hosted_engine_setup-fix-disk-copying-command.yml
+      - 684-ovirt_cluster_info-fix-example-patter.yml
+      - 687-ovirt_host-fix-refreshed-state-action.yml
+    release_date: '2023-03-03'
+  3.1.3:
+    changes:
+      bugfixes:
+        - HE - add back dependency on python3-jmespath (https://github.com/oVirt/ovirt-ansible-collection/pull/701)
+        - HE - drop remaining filters using netaddr (https://github.com/oVirt/ovirt-ansible-collection/pull/702)
+        - HE - drop usage of ipaddr filters and remove dependency on python-netaddr
+          (https://github.com/oVirt/ovirt-ansible-collection/pull/696)
+        - HE - fix ipv4 and ipv6 check after dropping netaddr (https://github.com/oVirt/ovirt-ansible-collection/pull/704)
+        - hosted_engine_setup -  Update README (https://github.com/oVirt/ovirt-ansible-collection/pull/706)
+        - ovirt_disk -  Fix issue in detaching the direct LUN (https://github.com/oVirt/ovirt-ansible-collection/pull/700)
+        - ovirt_quota - Convert storage size to integer (https://github.com/oVirt/ovirt-ansible-collection/pull/712)
+    fragments:
+      - 696-drop-netaddr.yml
+      - 700-fix-directlun.yml
+      - 701-fix-jmespath.yml
+      - 702-drop-netaddr2.yml
+      - 704-drop-netaddr3.yml
+      - 706-he-update-README.yml
+      - 712-ovirt_quota-fix-storage-size-typecast.yml
+    release_date: '2023-08-23'
+  3.2.0:
+    changes:
+      bugfixes:
+        - ovirt_role - Fix administrative option when set to False (https://github.com/oVirt/ovirt-ansible-collection/pull/723).
+      minor_changes:
+        - ovirt_vm - Add tpm_enabled (https://github.com/oVirt/ovirt-ansible-collection/pull/722).
+        - storage_error_resume_behaviour - Support VM storage error resume behaviour
+          "auto_resume", "kill", "leave_paused". (https://github.com/oVirt/ovirt-ansible-collection/pull/721)
+        - vm_infra - Support boot disk renaming and resizing. (https://github.com/oVirt/ovirt-ansible-collection/pull/705)
+    fragments:
+      - 705-support-boot-disk-resizing-renaming.yml
+      - 721-enhancement-vm-storage-error-resume-behaviour.yml
+      - 722-add-tpm-enabled.yml
+      - 723-ovirt_role-fix-administrative-condition.yml
+    release_date: '2023-10-02'
+  3.2.1:
+    changes:
+      bugfixes:
+        - ovirt_disk - fix documentation for lun_id parameter (https://github.com/oVirt/ovirt-ansible-collection/pull/740)
+        - ovirt_proxied_check - fix documentation string (https://github.com/oVirt/ovirt-ansible-collection/pull/761)
+        - roles - Fix ansible-test errors change include to include_tasks (https://github.com/oVirt/ovirt-ansible-collection/pull/733).
+      minor_changes:
+        - Enable and start postfix service so that ovirt-ha-agent logs are not filled
+          with mail notification errors (https://github.com/oVirt/ovirt-ansible-collection/pull/741)
+        - Maintenance tasks regarding linting, testing and CI (https://github.com/oVirt/ovirt-ansible-collection/pull/762)
+      release_summary: This release contains some minor changes and bugfixes. But
+        in the background, we have been working on improving the collection's code
+        quality, testing and CI.
+    fragments:
+      - 733-roles-fix-ansible-test.yml
+      - 740-ovirt_dist-fix-lun-id.yml
+      - 741-enable-and-start-postfix-service.yml
+      - 761-ovirt_proxied_check-documentation.yml
+      - 762-maintenance-tasks.yml
+      - release_summary.yml
+    release_date: '2025-06-03'

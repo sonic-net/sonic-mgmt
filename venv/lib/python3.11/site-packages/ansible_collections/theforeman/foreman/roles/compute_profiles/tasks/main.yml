@@ -1,0 +1,11 @@
+---
+- name: 'Create Compute Profiles'  # noqa: args[module]
+  theforeman.foreman.compute_profile:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    name: "{{ item.name }}"
+    compute_attributes: "{{ item.compute_attributes | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ foreman_compute_profiles }}"

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - Update regex search expression for 'not found' error message in httpapi/sonic.py 'edit_config' method (https://github.com/ansible-collection/dellemc.enterprise_sonic/pull/443).

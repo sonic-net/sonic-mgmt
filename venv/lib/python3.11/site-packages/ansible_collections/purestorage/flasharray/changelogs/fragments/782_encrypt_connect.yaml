@@ -1,0 +1,4 @@
+bugfixes:
+ - purefa_connect - Ensured that encrypted connections use encrypted connection keys
+minor_changes:
+ - purefa_connect - Allow asynchronous FC-based replication

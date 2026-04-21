@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_pg - Fixed issue where volumes could not be added to a PG when one of the arrays was undergoing a failover.

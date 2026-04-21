@@ -1,0 +1,6 @@
+---
+# defaults file for powerflex_config
+powerflex_protection_domain_name: "domain1"
+powerflex_fault_sets: ['fs1', 'fs2', 'fs3']
+powerflex_media_type: 'SSD'  # When version is R3
+powerflex_storage_pool_name: "pool1"

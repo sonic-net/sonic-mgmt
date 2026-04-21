@@ -1,0 +1,57 @@
+---
+# tasks file for mongodb_selinux
+- name: Include OS-specific vars
+  include_vars:
+    file: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      paths:
+        - "vars"
+      files:
+        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_version }}.yml"
+        - "{{ ansible_facts.os_family }}-{{ ansible_facts.distribution_major_version }}.yml"
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - default.yml
+  tags:
+    - "vars"
+
+- name: Install required packages
+  package:
+    name: "{{ required_packages }}"
+  register: _pkg
+  until: _pkg is succeeded
+  retries: 5
+  tags:
+    - "pkg"
+    - "setup"
+
+- name: Copy custom MongoDB SeLinux Policy to Host
+  copy:
+    content: |
+      module mongodb_cgroup_memory 1.0;
+
+      require {
+          type cgroup_t;
+          type mongod_t;
+          class dir search;
+          class file { getattr open read };
+      }
+
+      #============= mongod_t ==============
+      allow mongod_t cgroup_t:dir search;
+      allow mongod_t cgroup_t:file { getattr open read };
+    dest: /root/mongodb_cgroup_memory.te
+  register: mongodb_policy
+  tags:
+    - "setup"
+    - "mongodb"
+    - "linux"
+
+- name: Compile & Install MongoDB Policy
+  script: files/compile_mongodb_selinux.sh
+  when: mongodb_policy.changed
+  tags:
+    - "setup"
+    - "mongodb"
+    - "linux"

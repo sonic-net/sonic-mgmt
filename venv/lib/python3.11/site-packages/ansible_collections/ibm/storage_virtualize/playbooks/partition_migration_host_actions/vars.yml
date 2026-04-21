@@ -1,0 +1,7 @@
+min_active_path: 1               # To skip commit action set this to 0
+hosts_name: application_server   # localhost/webserver/application_server
+deployment_type: 2               # 1: for localhost 2: for ansible tower
+io_stability_time: 90
+inventory_file: pm_inventory.ini
+logpath: /tmp/playbook.debug
+temp_file_location: /tmp

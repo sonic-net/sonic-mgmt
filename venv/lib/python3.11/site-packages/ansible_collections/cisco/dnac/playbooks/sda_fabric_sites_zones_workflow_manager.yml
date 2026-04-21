@@ -1,0 +1,37 @@
+---
+- name: Configure fabric site/zones and authentication profile template in Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "input_fabric_sites_zones.yml"
+    - "credentials.yml"
+  tasks:
+    - name: Configure the fabric sites/zones and authentication profile template in Cisco Catalyst Center.
+      cisco.dnac.sda_fabric_sites_zones_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log_level: DEBUG
+        dnac_log: true
+        config_verify: true
+        state: merged
+        config:
+          - fabric_sites:
+              - site_name_hierarchy: "{{ item.fabric_sites.site_name_hierarchy }}"
+                fabric_type: "{{ item.fabric_sites.fabric_type }}"
+                authentication_profile: "{{ item.fabric_sites.authentication_profile }}"
+                is_pub_sub_enabled: "{{ item.fabric_sites.is_pub_sub_enabled }}"
+                update_authentication_profile:
+                  authentication_order: "{{ item.fabric_sites.update_authentication_profile.authentication_order }}"
+                  dot1x_fallback_timeout: "{{ item.fabric_sites.update_authentication_profile.dot1x_fallback_timeout }}"
+                  wake_on_lan: "{{ item.fabric_sites.update_authentication_profile.wake_on_lan }}"
+                  number_of_hosts: "{{ item.fabric_sites.update_authentication_profile.number_of_hosts }}"
+
+      with_items: "{{ fabric_site_zones }}"
+      tags:
+        - fabric_site_zones_testing

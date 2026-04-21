@@ -1,0 +1,2 @@
+minor_changes:
+- add `grafana` action group in `meta/runtime.yml` to support for module group defaults

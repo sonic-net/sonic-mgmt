@@ -1,0 +1,28 @@
+---
+- name: Assert usage of systemd as an init system
+  ansible.builtin.assert:
+    that: ansible_facts['service_mgr'] == 'systemd'
+    msg: This role only works with systemd
+
+- name: Get systemd version    # noqa command-instead-of-module
+  ansible.builtin.command: systemctl --version
+  changed_when: false
+  check_mode: false
+  register: __systemd_version
+
+- name: Set systemd version fact
+  ansible.builtin.set_fact:
+    grafana_agent_systemd_version: "{{ __systemd_version.stdout_lines[0] | regex_replace('^systemd\\s(\\d+).*$', '\\1') }}"
+
+- name: Fail when _grafana_agent_systemd_dir the directory doesn't exist
+  block:
+    - name: Check if _grafana_agent_systemd_dir exists
+      ansible.builtin.stat:
+        path: "{{ _grafana_agent_systemd_dir }}"
+      register: ___grafana_agent_systemd_dir_check
+      check_mode: false
+
+    - name: Fail when the _grafana_agent_systemd_dir directory does not exist
+      ansible.builtin.fail:
+        msg: "The _grafana_agent_systemd_dir ({{ _grafana_agent_systemd_dir }}) does not exist"
+      when: not ___grafana_agent_systemd_dir_check.stat.exists

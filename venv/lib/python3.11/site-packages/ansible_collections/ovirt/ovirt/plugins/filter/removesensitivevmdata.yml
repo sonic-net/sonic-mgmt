@@ -1,0 +1,23 @@
+---
+DOCUMENTATION:
+  name: removesensitivevmdata
+  author: "oVirt Developers <devel@ovirt.org>"
+  short_description: removesensitivevmdata internal filter
+  description:
+    - removesensitivevmdata internal filter
+  positional: _input
+  options:
+    _input:
+      description: List of VMs
+      type: list
+      required: true
+
+EXAMPLES: |
+  - name: Print VM
+    debug:
+      msg: "{{ vms | ovirt.ovirt.removesensitivevmdata }}"
+
+RETURN:
+  _value:
+    description: List of VMs
+    type: list

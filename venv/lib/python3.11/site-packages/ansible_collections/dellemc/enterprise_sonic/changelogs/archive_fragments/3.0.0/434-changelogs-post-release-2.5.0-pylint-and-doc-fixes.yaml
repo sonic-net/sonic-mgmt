@@ -1,0 +1,3 @@
+---
+trivial:
+  - changelogs - Fix a release 2.5.0 Pylint 2.7 error and  and documentation inaccuracies (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/434).

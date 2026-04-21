@@ -1,0 +1,257 @@
+objects:
+  role: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  filter: {}
+  httpapi:
+    zabbix:
+      description: HttpApi Plugin for Zabbix
+      name: zabbix
+      version_added: 1.8.0
+  inventory:
+    zabbix_inventory:
+      description: Zabbix Inventory Plugin
+      name: zabbix_inventory
+      version_added: 1.4.0
+  lookup: {}
+  module:
+    zabbix_action:
+      description: Create/Delete/Update Zabbix actions
+      name: zabbix_action
+      namespace: ''
+      version_added: null
+    zabbix_api_info:
+      description: Retrieve Zabbix API info
+      name: zabbix_api_info
+      namespace: ''
+      version_added: 2.1.0
+    zabbix_authentication:
+      description: Update Zabbix authentication
+      name: zabbix_authentication
+      namespace: ''
+      version_added: 1.6.0
+    zabbix_autoregister:
+      description: Update Zabbix autoregistration
+      name: zabbix_autoregister
+      namespace: ''
+      version_added: 1.6.0
+    zabbix_configuration:
+      description: Import Zabbix configuration
+      name: zabbix_configuration
+      namespace: ''
+      version_added: 3.4.0
+    zabbix_connector:
+      description: Create/Delete/Update Zabbix connectors
+      name: zabbix_connector
+      namespace: ''
+      version_added: 3.3.0
+    zabbix_correlation:
+      description: Create/update/delete Zabbix correlation
+      name: zabbix_correlation
+      namespace: ''
+      version_added: 2.4.0
+    zabbix_discovery_rule:
+      description: Create/delete/update Zabbix discovery rules
+      name: zabbix_discovery_rule
+      namespace: ''
+      version_added: null
+    zabbix_discoveryrule:
+      description: Create/delete Zabbix low-level discovery (LLD) rules
+      name: zabbix_discoveryrule
+      namespace: ''
+      version_added: null
+    zabbix_globalmacro:
+      description: Create/update/delete Zabbix Global macros
+      name: zabbix_globalmacro
+      namespace: ''
+      version_added: 1.4.0
+    zabbix_group:
+      description: Create/delete Zabbix host groups
+      name: zabbix_group
+      namespace: ''
+      version_added: null
+    zabbix_group_events_info:
+      description: Get all triggers about a Zabbix group
+      name: zabbix_group_events_info
+      namespace: ''
+      version_added: null
+    zabbix_group_info:
+      description: Gather information about Zabbix hostgroup
+      name: zabbix_group_info
+      namespace: ''
+      version_added: null
+    zabbix_host:
+      description: Create/update/delete Zabbix hosts
+      name: zabbix_host
+      namespace: ''
+      version_added: null
+    zabbix_host_events_info:
+      description: Get all triggers about a Zabbix host
+      name: zabbix_host_events_info
+      namespace: ''
+      version_added: null
+    zabbix_host_events_update:
+      description: update the status of event(s).
+      name: zabbix_host_events_update
+      namespace: ''
+      version_added: null
+    zabbix_host_info:
+      description: Gather information about Zabbix host
+      name: zabbix_host_info
+      namespace: ''
+      version_added: null
+    zabbix_hostmacro:
+      description: Create/update/delete Zabbix host macros
+      name: zabbix_hostmacro
+      namespace: ''
+      version_added: null
+    zabbix_housekeeping:
+      description: Update Zabbix housekeeping
+      name: zabbix_housekeeping
+      namespace: ''
+      version_added: 1.6.0
+    zabbix_item:
+      description: Create/delete Zabbix items
+      name: zabbix_item
+      namespace: ''
+      version_added: null
+    zabbix_itemprototype:
+      description: Create/delete Zabbix item prototypes
+      name: zabbix_itemprototype
+      namespace: ''
+      version_added: null
+    zabbix_maintenance:
+      description: Create Zabbix maintenance windows
+      name: zabbix_maintenance
+      namespace: ''
+      version_added: null
+    zabbix_map:
+      description: Create/update/delete Zabbix maps
+      name: zabbix_map
+      namespace: ''
+      version_added: null
+    zabbix_mediatype:
+      description: Create/Update/Delete Zabbix media types
+      name: zabbix_mediatype
+      namespace: ''
+      version_added: null
+    zabbix_mfa:
+      description: Create/update/delete Zabbix MFA method
+      name: zabbix_mfa
+      namespace: ''
+      version_added: 3.1.0
+    zabbix_proxy:
+      description: Create/delete/get/update Zabbix proxies
+      name: zabbix_proxy
+      namespace: ''
+      version_added: null
+    zabbix_proxy_group:
+      description: Create/update/delete Zabbix proxy group
+      name: zabbix_proxy_group
+      namespace: ''
+      version_added: null
+    zabbix_proxy_info:
+      description: Gather information about Zabbix proxy
+      name: zabbix_proxy_info
+      namespace: ''
+      version_added: 1.5.0
+    zabbix_regexp:
+      description: Create/update/delete Zabbix regular expression
+      name: zabbix_regexp
+      namespace: ''
+      version_added: 2.1.0
+    zabbix_regexp_info:
+      description: Retrieve Zabbix regular expression
+      name: zabbix_regexp_info
+      namespace: ''
+      version_added: 3.3.0
+    zabbix_script:
+      description: Create/update/delete Zabbix scripts
+      name: zabbix_script
+      namespace: ''
+      version_added: 1.7.0
+    zabbix_service:
+      description: Create/update/delete Zabbix service
+      name: zabbix_service
+      namespace: ''
+      version_added: null
+    zabbix_service_info:
+      description: Gather information about Zabbix service
+      name: zabbix_service_info
+      namespace: ''
+      version_added: null
+    zabbix_settings:
+      description: Update Zabbix global settings.
+      name: zabbix_settings
+      namespace: ''
+      version_added: 2.1.0
+    zabbix_template:
+      description: Create/update/delete Zabbix template
+      name: zabbix_template
+      namespace: ''
+      version_added: null
+    zabbix_template_info:
+      description: Gather information about Zabbix template
+      name: zabbix_template_info
+      namespace: ''
+      version_added: null
+    zabbix_templategroup:
+      description: Create/delete Zabbix template groups
+      name: zabbix_templategroup
+      namespace: ''
+      version_added: null
+    zabbix_token:
+      description: Create/Update/Generate/Delete Zabbix token.
+      name: zabbix_token
+      namespace: ''
+      version_added: 2.1.0
+    zabbix_trigger:
+      description: Create/delete Zabbix triggers
+      name: zabbix_trigger
+      namespace: ''
+      version_added: null
+    zabbix_triggerprototype:
+      description: Create/delete Zabbix triggerprototypes
+      name: zabbix_triggerprototype
+      namespace: ''
+      version_added: null
+    zabbix_user:
+      description: Create/update/delete Zabbix users
+      name: zabbix_user
+      namespace: ''
+      version_added: null
+    zabbix_user_directory:
+      description: Create/update/delete Zabbix user directories
+      name: zabbix_user_directory
+      namespace: ''
+      version_added: null
+    zabbix_user_info:
+      description: Gather information about Zabbix user
+      name: zabbix_user_info
+      namespace: ''
+      version_added: null
+    zabbix_user_role:
+      description: Adds or removes zabbix roles
+      name: zabbix_user_role
+      namespace: ''
+      version_added: null
+    zabbix_usergroup:
+      description: Create/delete/update Zabbix user groups
+      name: zabbix_usergroup
+      namespace: ''
+      version_added: null
+    zabbix_valuemap:
+      description: Create/update/delete Zabbix value maps
+      name: zabbix_valuemap
+      namespace: ''
+      version_added: null
+  netconf: {}
+  shell: {}
+  strategy: {}
+  test: {}
+  vars: {}
+version: 4.1.1

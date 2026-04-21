@@ -1,0 +1,33 @@
+---
+- ansible.builtin.include_tasks: auth_sso.yml
+- name: iSCSI login
+  ovirt.ovirt.ovirt_host:
+    name: "{{ he_host_name }}"
+    state: iscsilogin
+    timeout: 30
+    iscsi:
+      username: "{{ he_iscsi_username }}"
+      password: "{{ he_iscsi_password }}"
+      address: "{{ item.0 }}"
+      port: "{{ item.1 }}"
+      target: "{{ he_iscsi_target }}"
+      portal: "{{ he_iscsi_tpgt | default(omit) }}"
+    auth: "{{ ovirt_auth }}"
+  no_log: true
+  ignore_errors: true
+  # TODO: avoid the with_together loop once
+  # https://github.com/ansible/ansible/issues/32640 got properly fixed
+  with_together:
+    - "{{ he_iscsi_portal_addr.split(',') }}"
+    - "{{ he_iscsi_portal_port.split(',') if he_iscsi_portal_port is string else he_iscsi_portal_port }}"
+- name: Get iSCSI LUNs
+  ovirt.ovirt.ovirt_host_storage_info:
+    host: "{{ he_host_name }}"
+    iscsi:
+      username: "{{ he_iscsi_username }}"
+      password: "{{ he_iscsi_password }}"
+      address: "{{ he_iscsi_portal_addr.split(',')|first }}"
+      port: "{{ he_iscsi_portal_port.split(',')|first if he_iscsi_portal_port is string else he_iscsi_portal_port }}"
+      target: "{{ he_iscsi_target }}"
+    auth: "{{ ovirt_auth }}"
+  register: otopi_iscsi_devices

@@ -1,0 +1,2 @@
+minor_changes:
+ - all - Minimum ``py-pure-client`` version increased to 1.57.0 due to release of Realms feature

@@ -1,0 +1,92 @@
+---
+####################################################################
+# Example : SDSB Snapshot Playbook
+####################################################################
+- name: SDSB Snapshot Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    #########################################################################
+    # Task Name : Create a snapshot of the specified volume
+    #########################################################################
+    - name: Create a snapshot of the specified volume
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "test_snapshot"
+          master_volume_name: "volume_name"
+          qos:
+            upper_limit_for_iops: 120
+            upper_limit_for_transfer_rate: 20
+            upper_alert_allowable_time: 30
+          operation_type: prepare
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Delete a snapshot of the specified volume
+    #########################################################################
+    - name: Delete a snapshot of the specified volume
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          snapshot_volume_name: "test_snapshot"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Restore a snapshot of the specified volume
+    #########################################################################
+    - name: Restore a snapshot of the specified volume
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot:
+        connection_info: "{{ connection_info }}"
+        state: "restore"
+        spec:
+          snapshot_volume_name: "test_snapshot"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Create a snapshot of the specified volume in a VPS
+    #########################################################################
+    - name: Create a snapshot of the specified volume in a VPS
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "test_snapshot"
+          master_volume_name: "volume_name"
+          qos:
+            upper_limit_for_iops: 120
+            upper_limit_for_transfer_rate: 20
+            upper_alert_allowable_time: 30
+          operation_type: prepare
+          vps_name: "vps_name"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

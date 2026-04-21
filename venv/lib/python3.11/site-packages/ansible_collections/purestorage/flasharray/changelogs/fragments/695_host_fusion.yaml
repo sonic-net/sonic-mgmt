@@ -1,0 +1,5 @@
+minor_changes:
+ - purefa_host - Added Fusion support
+known_issues:
+ - FlashArray//CBS is not currently supported as a member of a Fusion fleet
+ - All Fusion fleet members will be assumed to be at the same Purity//FA version level as the array connected to by Ansible.

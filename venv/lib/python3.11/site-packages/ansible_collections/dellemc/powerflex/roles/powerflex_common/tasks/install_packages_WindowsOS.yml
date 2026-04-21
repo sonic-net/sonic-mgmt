@@ -1,0 +1,20 @@
+---
+- name: Copy files
+  ansible.windows.win_copy:
+    src: "{{ item }}"
+    dest: "{{ powerflex_common_win_package_location }}"
+  register: powerflex_common_file
+  with_fileglob:
+    - "{{ powerflex_common_file_install_location }}/*{{ file_glob_name }}*.msi"
+
+- name: List the msi file
+  ansible.windows.win_find:
+    paths: "{{ powerflex_common_win_package_location }}"
+    patterns: "*{{ file_glob_name }}*.msi"
+  register: powerflex_common_package_file
+
+- name: Install package
+  register: powerflex_common_install_package_output
+  ansible.windows.win_command: >
+    msiexec.exe /i "{{ powerflex_common_package_file.files[0].path }}" MDM_IP="{{ powerflex_role_environment.MDM_IP }}" /q
+  ignore_errors: true

@@ -1,0 +1,142 @@
+---
+####################################################################
+# Example : VSP Volume facts Playbook
+####################################################################
+- name: VSP Volume facts Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    #######################################################################################
+    # Task Name : Get all volumes
+    # Note: With this task, you can obtain information for a maximum of 500 volumes.
+    #       To obtain information for more than 500 volumes, execute the task several
+    #       times by using a combination of the count and start_volume_id parameters.
+    #       By specifying the count parameter, you can also filter the volume information.
+    # ######################################################################################
+    - name: Get all volumes
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get facts for volumes in a specific pool by pool_id
+    ####################################################################
+    - name: Get facts for volumes in a specific pool by pool_id
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          pool_id: 1
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get facts for volumes in a specific pool by pool_name
+    ####################################################################
+    - name: Get facts for volumes in a specific pool by pool_name
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          pool_name: "PoolName-1"
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get facts for volumes attached to a server by server_id
+    ####################################################################
+    - name: Get facts for volumes attached to a server by server_id
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 2001
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get facts for volumes attached to a server by server_nickname
+    ####################################################################
+    - name: Get facts for volumes attached to a server by server_nickname
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_nickname: "ComputeNode-1"
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get facts for a volume by nickname
+    ####################################################################
+    - name: Get facts for a volume by nickname
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          nickname: "RD-volume-0004"
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get facts for volumes with capacity filters
+    ####################################################################
+    - name: Get facts for volumes with capacity filters
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          min_total_capacity: 1GB
+          max_total_capacity: 10GB
+          min_used_capacity: 1GB
+          max_used_capacity: 2GB
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get facts for a range of volumes by start_volume_id and count
+    ####################################################################
+    - name: Get facts for a range of volumes by start_volume_id and count
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          start_volume_id: 1000
+          count: 10
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get facts for a specific volume by volume_id
+    ####################################################################
+    - name: Get facts for a specific volume by volume_id
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_id: 12345
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

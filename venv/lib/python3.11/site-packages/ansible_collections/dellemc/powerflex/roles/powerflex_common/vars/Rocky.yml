@@ -1,0 +1,6 @@
+---
+powerflex_common_packages:
+        - numactl
+        - libaio
+        - python3
+        - binutils

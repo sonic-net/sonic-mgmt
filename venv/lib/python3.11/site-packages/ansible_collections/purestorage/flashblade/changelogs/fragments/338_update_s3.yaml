@@ -1,0 +1,4 @@
+bugfixes:
+ - purefb_s3acc - Fixed issue with public access config settings not being correctly for an account
+minor_changes:
+ - purefb_s3user - Changed ``remove_key`` parameter to ``key_name`` and add new ``state`` of ``key_state`` to allow a specificed key to be enabled/disabled using the new parameter ``enable_key``.

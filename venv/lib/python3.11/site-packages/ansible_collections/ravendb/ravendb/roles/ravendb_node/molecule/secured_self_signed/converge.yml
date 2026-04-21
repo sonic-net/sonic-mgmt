@@ -1,0 +1,22 @@
+---
+- name: Secured (self-signed)
+  hosts: all
+  tasks:
+    - name: "Include ravendb_node"
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version: latest
+        ravendb_version_minor: 6.2
+        ravendb_release_channel: stable
+        ravendb_arch: linux-x64
+        ravendb_settings_preset: default
+        ravendb_settings_override:
+          Logs.Mode: "Information"
+        ravendb_secured_self_signed_enabled: true
+        ravendb_license_file: "license.json"
+        ravendb_certificate_file: "server.pfx"
+        ravendb_certificate_password: "raven"
+        ravendb_ca_certificate_file: "ca_cert.pem"
+        ravendb_ca_key_file: "ca_key.pem"

@@ -1,0 +1,6 @@
+---
+
+trivial:
+  - Update Python and Ansible versions used in test matrix.
+
+...

@@ -1,0 +1,46 @@
+---
+# icinga_timeperiod
+icinga_timeperiods: []
+# icinga_user_template
+icinga_user_templates: []
+# icinga_user
+icinga_users: []
+icinga_user_imports: []
+icinga_user_disabled: false
+icinga_user_email:
+# icinga_endpoints
+icinga_endpoints: []
+# icinga_zone
+icinga_zones: []
+# icinga_hostgroup
+icinga_hostgroups: []
+# icinga_user_group
+icinga_user_groups: []
+# icinga_host_template
+icinga_host_templates: []
+# icinga_host
+icinga_hosts: []
+icinga_host_imports: []
+# icinga_command_template
+icinga_command_templates: []
+icinga_command_template_command_type: PluginCheck
+
+# icinga_command
+icinga_commands: []
+icinga_command_type: PluginCheck
+icinga_command_disabled: false
+
+# icinga_service
+icinga_services: []
+# icinga_serviceset
+icinga_servicesets: []
+# icinga_service_template
+icinga_service_templates: []
+# icinga_service_apply
+icinga_service_applies: []
+# servicegroup
+icinga_servicegroups: []
+# icinga_notification
+icinga_notifications: []
+# icinga deploy
+icinga_deploy_config: false

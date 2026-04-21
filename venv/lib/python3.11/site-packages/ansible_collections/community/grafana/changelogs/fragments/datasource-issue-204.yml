@@ -1,0 +1,2 @@
+bugfixes:
+- Fix an issue with grafana_datasource for Prometheus with basic auth credential management. (#204)

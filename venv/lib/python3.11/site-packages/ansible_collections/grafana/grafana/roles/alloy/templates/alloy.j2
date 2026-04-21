@@ -1,0 +1,10 @@
+# Ansible Managed
+
+{% if alloy_env_file_vars.CONFIG_FILE is not defined or alloy_env_file_vars.CONFIG_FILE | length < 1 %}
+CONFIG_FILE="/etc/alloy/config.alloy"
+{% endif %}
+RESTART_ON_UPGRADE=true
+
+{% for key, value in alloy_env_file_vars.items() %}
+{{ key}}="{{value}}"
+{% endfor %}

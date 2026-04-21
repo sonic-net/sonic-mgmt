@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_qtree - Added ``unix_user`` and ``unix_group`` options in REST.
+bugfixes:
+  - na_ontap_qtree - fix idempotency issue on ``unix_permissions`` option.
+  - na_ontap_volume - fix idempotency issue on ``unix_permissions`` option.

@@ -1,0 +1,3 @@
+bugfixes:
+ - purefb_ds - Initialize varaible correctly
+ - purefb_policy - Initialize varaible correctly

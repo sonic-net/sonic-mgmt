@@ -1,0 +1,15 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.organizations:
+        meraki_suppress_logging: true
+        state: present
+        management:
+          details:
+            - name: MSP ID
+              value: "1234567"
+        name: Test Ansible
+        api:
+          enabled: true

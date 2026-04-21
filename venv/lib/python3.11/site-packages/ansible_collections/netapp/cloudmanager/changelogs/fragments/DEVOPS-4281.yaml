@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_aws_fsx - Import AWS FSX to CloudManager by adding new parameters ``import_file_system`` and ``file_system_id``.

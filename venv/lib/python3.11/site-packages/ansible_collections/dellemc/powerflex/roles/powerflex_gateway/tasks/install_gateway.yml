@@ -1,0 +1,52 @@
+---
+- name: Set Fact the powerflex_mdm_ips
+  ansible.builtin.set_fact:
+    powerflex_mdm_ips: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }},{{ hostvars[groups['mdm'][1]]['ansible_host'] }}"
+
+- name: Install java
+  ansible.builtin.include_tasks: "../../powerflex_common/tasks/install_java_{{ ansible_distribution }}.yml"
+  when: not powerflex_gateway_skip_java
+
+- name: Set gateway admin password
+  ansible.builtin.set_fact:
+    token: "{{ powerflex_gateway_admin_password }}"
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml
+
+- name: Include install_keepalived.yml
+  ansible.builtin.include_tasks: install_keepalived.yml
+  when: powerflex_gateway_is_redundant == "true"
+
+- name: Configure gateway with MDM addresses
+  ansible.builtin.lineinfile:
+    name: "{{ powerflex_gateway_user_properties_file }}"
+    regexp: '^mdm.ip.addresses'
+    line: "mdm.ip.addresses={{ powerflex_mdm_ips }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Configure gateway to accept certificates
+  ansible.builtin.lineinfile:
+    name: "{{ powerflex_gateway_user_properties_file }}"
+    regexp: '^security.bypass_certificate_check'
+    line: "security.bypass_certificate_check=true"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Configure gateway http port
+  ansible.builtin.lineinfile:
+    name: "{{ powerflex_gateway_catalina_properties_file }}"
+    regexp: '^http.port'
+    line: "http.port={{ powerflex_gateway_http_port }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Configure gateway https port
+  ansible.builtin.lineinfile:
+    name: "{{ powerflex_gateway_catalina_properties_file }}"
+    regexp: '^ssl.port'
+    line: "ssl.port={{ powerflex_gateway_https_port }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Restart service PowerFlex Gateway
+  ansible.builtin.service:
+    name: scaleio-gateway.service
+    state: restarted

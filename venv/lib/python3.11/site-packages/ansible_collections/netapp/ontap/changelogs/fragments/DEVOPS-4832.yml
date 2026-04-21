@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_iscsi - Fixed issue with ``start_state`` always being set to stopped when creating an ISCSI.

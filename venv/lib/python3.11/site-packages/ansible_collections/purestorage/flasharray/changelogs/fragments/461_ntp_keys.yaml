@@ -1,0 +1,3 @@
+minor_changes:
+ - purefa_info - Report NTP Symmetric key presence from Purity//FA 6.4.10
+ - purefa_ntp - Added support for NTP Symmetric Key from Purity//FA 6.4.10s

@@ -1,0 +1,23 @@
+DOCUMENTATION:
+  name: markdev
+  author: Ravinder Reddy (@chinthalapalli)
+  version_added: "historical"
+  short_description: append -devel suffix
+  description:
+    - Attempt to apply -devel suffix to a given string
+  positional: _input
+  options:
+    _input:
+      description: A string to append -devel suffix.
+      type: string
+      required: true
+
+EXAMPLES: |
+  # add devel suffix to version string
+  command:  inv collection.build {{ galaxy.version | verchg }}
+
+
+RETURN:
+  _value:
+    description: The string with -devel suffix.
+    type: string

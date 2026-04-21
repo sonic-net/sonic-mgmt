@@ -1,0 +1,860 @@
+ancestor: null
+releases:
+  0.1.0:
+    changes:
+      bugfixes:
+      - Fix logic in vmware_cis_category_info module.
+    fragments:
+    - cis_category_info.yml
+    release_date: '2020-08-28'
+  0.2.0:
+    changes:
+      bugfixes:
+      - Improve the documentation of the modules
+      - minor_changes - drop vcenter_vm_compute_policies_info because the API is flagged
+        as Technology Preview
+      - minor_changes - drop vcenter_vm_console_tickets because the API is flagged
+        as Technology Preview
+      - minor_changes - drop vcenter_vm_guest_power and keep vcenter_vm_power which
+        provides the same features
+    fragments:
+    - drop-tech-preview-modules.yml
+    - drop-vcenter_vm_guest_power.yml
+    - improve_documentation.yml
+    release_date: '2020-09-11'
+  0.3.0:
+    changes:
+      deprecated_features:
+      - vcenter_vm_storage_policy_compliance - drop the module, it returns 404 error.
+      - vcenter_vm_tools - remove the ``upgrade`` state.
+      - vcenter_vm_tools_installer - remove the module from the collection.
+      minor_changes:
+      - Better documentation
+      - The module RETURN sections are now defined.
+      - vcenter_resourcepool - new module
+      - vcenter_resourcepool_info - new module
+      - vcenter_storage_policies - new module
+      - vcenter_storage_policies_compliance_vm_info - new module
+      - vcenter_storage_policies_entities_compliance_info - new module
+      - vcenter_storage_policies_info - new module
+      - vcenter_storage_policies_vm_info - new module
+    fragments:
+    - RETURN_section.yaml
+    - add_vcenter_vm_storage_policies.yaml
+    - better_documentation.yaml
+    - drop_vcenter_vm_storage_policy_compliance.yaml
+    - drop_vcenter_vm_tools_installer.yaml
+    - new_modules.yaml
+    release_date: '2020-09-25'
+  0.4.0:
+    changes:
+      minor_changes:
+      - The format of the output of the Modules is now documented in the RETURN block.
+      - vcenter_rest_log_file - this optional parameter can be used to point on the
+        log file where all the HTTP interaction will be record.
+    fragments:
+    - add_RETURN_block_to_modules.yaml
+    - add_vcenter_rest_log_file_parameter.yaml
+    release_date: '2020-09-30'
+  1.0.0:
+    changes:
+      minor_changes:
+      - documentation - clarify that we don't have any required parameters.
+      - vcenter_host_connect - remove the module, use ``vcenter_host``
+      - vcenter_host_disconnect - remove the module, use ``vcenter_host``
+      - vcenter_storage_policies - remove vcenter_storage_policies
+      - vcenter_storage_policies_compliance_vm_info - remove the module
+      - vcenter_storage_policies_entities_compliance_info - remove the module
+      - vcenter_storage_policies_vm_info - remove the module
+    fragments:
+    - documentation.yaml
+    - remove_vcenter_host_connect.yaml
+    - remove_vcenter_storage_policies.yaml
+    - remove_vcenter_storage_policies_compliance_vm_info.yaml
+    - remove_vcenter_storage_policies_entities_compliance_info.yaml
+    - remove_vcenter_storage_policies_vm_info.yaml
+    modules:
+    - description: Collect the information associated with the vCenter clusters
+      name: vcenter_cluster_info
+      namespace: ''
+    - description: Manage the datacenter of a vCenter
+      name: vcenter_datacenter
+      namespace: ''
+    - description: Collect the information associated with the vCenter datacenters
+      name: vcenter_datacenter_info
+      namespace: ''
+    - description: Collect the information associated with the vCenter datastores
+      name: vcenter_datastore_info
+      namespace: ''
+    - description: Collect the information associated with the vCenter folders
+      name: vcenter_folder_info
+      namespace: ''
+    - description: Manage the host of a vCenter
+      name: vcenter_host
+      namespace: ''
+    - description: Collect the information associated with the vCenter hosts
+      name: vcenter_host_info
+      namespace: ''
+    - description: Collect the information associated with the vCenter networks
+      name: vcenter_network_info
+      namespace: ''
+    - description: Manage the resourcepool of a vCenter
+      name: vcenter_resourcepool
+      namespace: ''
+    - description: Collect the information associated with the vCenter resourcepools
+      name: vcenter_resourcepool_info
+      namespace: ''
+    - description: Collect the information associated with the vCenter storage policiess
+      name: vcenter_storage_policies_info
+      namespace: ''
+    - description: Manage the vm of a vCenter
+      name: vcenter_vm
+      namespace: ''
+    - description: Collect the guest identity information
+      name: vcenter_vm_guest_identity_info
+      namespace: ''
+    - description: Collect the guest localfilesystem information
+      name: vcenter_vm_guest_localfilesystem_info
+      namespace: ''
+    - description: Collect the guest networking information
+      name: vcenter_vm_guest_networking_info
+      namespace: ''
+    - description: Collect the guest networking interfaces information
+      name: vcenter_vm_guest_networking_interfaces_info
+      namespace: ''
+    - description: Collect the guest networking routes information
+      name: vcenter_vm_guest_networking_routes_info
+      namespace: ''
+    - description: Manage the hardware of a VM
+      name: vcenter_vm_hardware
+      namespace: ''
+    - description: Manage the SATA adapter of a VM
+      name: vcenter_vm_hardware_adapter_sata
+      namespace: ''
+    - description: Collect the SATA adapter information from a VM
+      name: vcenter_vm_hardware_adapter_sata_info
+      namespace: ''
+    - description: Manage the SCSI adapter of a VM
+      name: vcenter_vm_hardware_adapter_scsi
+      namespace: ''
+    - description: Collect the SCSI adapter information from a VM
+      name: vcenter_vm_hardware_adapter_scsi_info
+      namespace: ''
+    - description: Manage the boot of a VM
+      name: vcenter_vm_hardware_boot
+      namespace: ''
+    - description: Manage the boot device of a VM
+      name: vcenter_vm_hardware_boot_device
+      namespace: ''
+    - description: Collect the boot device information from a VM
+      name: vcenter_vm_hardware_boot_device_info
+      namespace: ''
+    - description: Collect the boot information from a VM
+      name: vcenter_vm_hardware_boot_info
+      namespace: ''
+    - description: Manage the cdrom of a VM
+      name: vcenter_vm_hardware_cdrom
+      namespace: ''
+    - description: Collect the cdrom information from a VM
+      name: vcenter_vm_hardware_cdrom_info
+      namespace: ''
+    - description: Manage the cpu of a VM
+      name: vcenter_vm_hardware_cpu
+      namespace: ''
+    - description: Collect the cpu information from a VM
+      name: vcenter_vm_hardware_cpu_info
+      namespace: ''
+    - description: Manage the disk of a VM
+      name: vcenter_vm_hardware_disk
+      namespace: ''
+    - description: Collect the disk information from a VM
+      name: vcenter_vm_hardware_disk_info
+      namespace: ''
+    - description: Manage the ethernet of a VM
+      name: vcenter_vm_hardware_ethernet
+      namespace: ''
+    - description: Collect the ethernet information from a VM
+      name: vcenter_vm_hardware_ethernet_info
+      namespace: ''
+    - description: Manage the floppy of a VM
+      name: vcenter_vm_hardware_floppy
+      namespace: ''
+    - description: Collect the floppy information from a VM
+      name: vcenter_vm_hardware_floppy_info
+      namespace: ''
+    - description: Manage the info of a VM
+      name: vcenter_vm_hardware_info
+      namespace: ''
+    - description: Manage the memory of a VM
+      name: vcenter_vm_hardware_memory
+      namespace: ''
+    - description: Collect the memory information from a VM
+      name: vcenter_vm_hardware_memory_info
+      namespace: ''
+    - description: Manage the parallel of a VM
+      name: vcenter_vm_hardware_parallel
+      namespace: ''
+    - description: Collect the parallel information from a VM
+      name: vcenter_vm_hardware_parallel_info
+      namespace: ''
+    - description: Manage the serial of a VM
+      name: vcenter_vm_hardware_serial
+      namespace: ''
+    - description: Collect the serial information from a VM
+      name: vcenter_vm_hardware_serial_info
+      namespace: ''
+    - description: Collect the  information from a VM
+      name: vcenter_vm_info
+      namespace: ''
+    - description: Collect the libraryitem  information from a VM
+      name: vcenter_vm_libraryitem_info
+      namespace: ''
+    - description: Manage the power of a VM
+      name: vcenter_vm_power
+      namespace: ''
+    - description: Collect the power  information from a VM
+      name: vcenter_vm_power_info
+      namespace: ''
+    - description: Manage the storage policy of a VM
+      name: vcenter_vm_storage_policy
+      namespace: ''
+    - description: Collect the storage policy compliance  information from a VM
+      name: vcenter_vm_storage_policy_compliance_info
+      namespace: ''
+    - description: Collect the storage policy  information from a VM
+      name: vcenter_vm_storage_policy_info
+      namespace: ''
+    - description: Manage the tools of a VM
+      name: vcenter_vm_tools
+      namespace: ''
+    - description: Collect the tools  information from a VM
+      name: vcenter_vm_tools_info
+      namespace: ''
+    release_date: '2020-10-09'
+  1.0.1:
+    changes:
+      minor_changes:
+      - Ensure the shellcheck sanity test pass
+    fragments:
+    - shellcheck.yaml
+    release_date: '2020-10-09'
+  1.0.2:
+    changes:
+      minor_changes:
+      - vcenter_resourcepool - add example in documentation.
+      - vcenter_resourcepool_info - add example in documentation.
+    fragments:
+    - resourcepool.yaml
+    release_date: '2020-10-23'
+  2.0.0:
+    changes:
+      breaking_changes:
+      - The vmware_rest 2.0.0 support vSphere 7.0.2 onwards.
+      - vcenter_vm_storage_policy - the format of the ``disks`` parameter has changed.
+      - 'vcenter_vm_storage_policy - the module has a new mandatory paramter: ``vm_home``.'
+      bugfixes:
+      - Properly handle ``validate_certs`` as a boolean and accept all the standard
+        Ansible values (``yes``, ``true``, ``y``, ``no``, etc).
+      minor_changes:
+      - Handle import error with correct exception raised while importing aiohttp
+    fragments:
+    - 7_0_2_only.yaml
+    - ensure_Handle_import_error_for_aiohttp.yaml
+    - ensure_validate_certs_is_boolean.yaml
+    - vcenter_vm_storage_policy_home_vm.yaml
+    modules:
+    - description: Set enabled state of the console-based controlled CLI (TTY1).
+      name: appliance_access_consolecli
+      namespace: ''
+    - description: Get enabled state of the console-based controlled CLI (TTY1).
+      name: appliance_access_consolecli_info
+      namespace: ''
+    - description: Set enabled state of Direct Console User Interface (DCUI TTY2).
+      name: appliance_access_dcui
+      namespace: ''
+    - description: Get enabled state of Direct Console User Interface (DCUI TTY2).
+      name: appliance_access_dcui_info
+      namespace: ''
+    - description: Set enabled state of BASH, that is, access to BASH from within
+        the controlled CLI.
+      name: appliance_access_shell
+      namespace: ''
+    - description: Get enabled state of BASH, that is, access to BASH from within
+        the controlled CLI.
+      name: appliance_access_shell_info
+      namespace: ''
+    - description: Set enabled state of the SSH-based controlled CLI.
+      name: appliance_access_ssh
+      namespace: ''
+    - description: Get enabled state of the SSH-based controlled CLI.
+      name: appliance_access_ssh_info
+      namespace: ''
+    - description: Get health status of applmgmt services.
+      name: appliance_health_applmgmt_info
+      namespace: ''
+    - description: Returns the health status of the database.
+      name: appliance_health_database_info
+      namespace: ''
+    - description: Get database storage health.
+      name: appliance_health_databasestorage_info
+      namespace: ''
+    - description: Get load health.
+      name: appliance_health_load_info
+      namespace: ''
+    - description: Get memory health.
+      name: appliance_health_mem_info
+      namespace: ''
+    - description: Get information on available software updates available in the
+        remote vSphere Update Manager repository
+      name: appliance_health_softwarepackages_info
+      namespace: ''
+    - description: Get storage health.
+      name: appliance_health_storage_info
+      namespace: ''
+    - description: Get swap health.
+      name: appliance_health_swap_info
+      namespace: ''
+    - description: Get overall health of system.
+      name: appliance_health_system_info
+      namespace: ''
+    - description: Exports the desired profile specification.
+      name: appliance_infraprofile_configs
+      namespace: ''
+    - description: List all the profiles which are registered.
+      name: appliance_infraprofile_configs_info
+      namespace: ''
+    - description: Create a new local user account.
+      name: appliance_localaccounts
+      namespace: ''
+    - description: Set the global password policy.
+      name: appliance_localaccounts_globalpolicy
+      namespace: ''
+    - description: Get the global password policy.
+      name: appliance_localaccounts_globalpolicy_info
+      namespace: ''
+    - description: Get the local user account information.
+      name: appliance_localaccounts_info
+      namespace: ''
+    - description: Get monitored item info
+      name: appliance_monitoring_info
+      namespace: ''
+    - description: Get monitoring data.
+      name: appliance_monitoring_query
+      namespace: ''
+    - description: Reset and restarts network configuration on all interfaces, also
+        this will renew the DHCP lease for DHCP IP address.
+      name: appliance_networking
+      namespace: ''
+    - description: Set DNS search domains.
+      name: appliance_networking_dns_domains
+      namespace: ''
+    - description: Get list of DNS search domains.
+      name: appliance_networking_dns_domains_info
+      namespace: ''
+    - description: Set the Fully Qualified Domain Name.
+      name: appliance_networking_dns_hostname
+      namespace: ''
+    - description: Get the Fully Qualified Doman Name.
+      name: appliance_networking_dns_hostname_info
+      namespace: ''
+    - description: Set the DNS server configuration
+      name: appliance_networking_dns_servers
+      namespace: ''
+    - description: Get DNS server configuration.
+      name: appliance_networking_dns_servers_info
+      namespace: ''
+    - description: Set the ordered list of firewall rules to allow or deny traffic
+        from one or more incoming IP addresses
+      name: appliance_networking_firewall_inbound
+      namespace: ''
+    - description: Get the ordered list of firewall rules
+      name: appliance_networking_firewall_inbound_info
+      namespace: ''
+    - description: Get Networking information for all configured interfaces.
+      name: appliance_networking_info
+      namespace: ''
+    - description: Get information about a particular network interface.
+      name: appliance_networking_interfaces_info
+      namespace: ''
+    - description: Set IPv4 network configuration for specific network interface.
+      name: appliance_networking_interfaces_ipv4
+      namespace: ''
+    - description: Get IPv4 network configuration for specific NIC.
+      name: appliance_networking_interfaces_ipv4_info
+      namespace: ''
+    - description: Set IPv6 network configuration for specific interface.
+      name: appliance_networking_interfaces_ipv6
+      namespace: ''
+    - description: Get IPv6 network configuration for specific interface.
+      name: appliance_networking_interfaces_ipv6_info
+      namespace: ''
+    - description: Sets servers for which no proxy configuration should be applied
+      name: appliance_networking_noproxy
+      namespace: ''
+    - description: Returns servers for which no proxy configuration will be applied.
+      name: appliance_networking_noproxy_info
+      namespace: ''
+    - description: Configures which proxy server to use for the specified protocol
+      name: appliance_networking_proxy
+      namespace: ''
+    - description: Gets the proxy configuration for a specific protocol.
+      name: appliance_networking_proxy_info
+      namespace: ''
+    - description: Set NTP servers
+      name: appliance_ntp
+      namespace: ''
+    - description: Get the NTP configuration status
+      name: appliance_ntp_info
+      namespace: ''
+    - description: Restarts a service
+      name: appliance_services
+      namespace: ''
+    - description: Returns the state of a service.
+      name: appliance_services_info
+      namespace: ''
+    - description: Cancel pending shutdown action.
+      name: appliance_shutdown
+      namespace: ''
+    - description: Get details about the pending shutdown action.
+      name: appliance_shutdown_info
+      namespace: ''
+    - description: Enable/Disable Global FIPS mode for the appliance
+      name: appliance_system_globalfips
+      namespace: ''
+    - description: Get current appliance FIPS settings.
+      name: appliance_system_globalfips_info
+      namespace: ''
+    - description: Resize all partitions to 100 percent of disk size.
+      name: appliance_system_storage
+      namespace: ''
+    - description: Get disk to partition mapping.
+      name: appliance_system_storage_info
+      namespace: ''
+    - description: Get system time.
+      name: appliance_system_time_info
+      namespace: ''
+    - description: Set time zone.
+      name: appliance_system_time_timezone
+      namespace: ''
+    - description: Get time zone.
+      name: appliance_system_time_timezone_info
+      namespace: ''
+    - description: Get the version.
+      name: appliance_system_version_info
+      namespace: ''
+    - description: Set time synchronization mode.
+      name: appliance_timesync
+      namespace: ''
+    - description: Get time synchronization mode.
+      name: appliance_timesync_info
+      namespace: ''
+    - description: Gets the current status of the appliance update.
+      name: appliance_update_info
+      namespace: ''
+    - description: Lists details of services managed by vMon.
+      name: appliance_vmon_service
+      namespace: ''
+    - description: Returns the state of a service.
+      name: appliance_vmon_service_info
+      namespace: ''
+    - description: Updates the configuration
+      name: content_configuration
+      namespace: ''
+    - description: Retrieves the current configuration values.
+      name: content_configuration_info
+      namespace: ''
+    - description: Returns the {@link ItemModel} with the given identifier.
+      name: content_library_item_info
+      namespace: ''
+    - description: Creates a new local library.
+      name: content_locallibrary
+      namespace: ''
+    - description: Returns a given local library.
+      name: content_locallibrary_info
+      namespace: ''
+    - description: Creates a new subscribed library
+      name: content_subscribedlibrary
+      namespace: ''
+    - description: Returns a given subscribed library.
+      name: content_subscribedlibrary_info
+      namespace: ''
+    - description: Creates a library item in content library from a virtual machine
+        or virtual appliance
+      name: vcenter_ovf_libraryitem
+      namespace: ''
+    - description: Reads a single environment variable from the guest operating system
+      name: vcenter_vm_guest_environment_info
+      namespace: ''
+    - description: Initiates an operation to transfer a file to or from the guest
+      name: vcenter_vm_guest_filesystem
+      namespace: ''
+    - description: Creates a directory in the guest operating system
+      name: vcenter_vm_guest_filesystem_directories
+      namespace: ''
+    - description: Creates a temporary file
+      name: vcenter_vm_guest_filesystem_files
+      namespace: ''
+    - description: Returns information about a file or directory in the guest
+      name: vcenter_vm_guest_filesystem_files_info
+      namespace: ''
+    - description: Get information about the guest operation status.
+      name: vcenter_vm_guest_operations_info
+      namespace: ''
+    - description: Starts a program in the guest operating system
+      name: vcenter_vm_guest_processes
+      namespace: ''
+    - description: Returns the status of a process running in the guest operating
+        system, including those started by {@link Processes#create} that may have
+        recently completed
+      name: vcenter_vm_guest_processes_info
+      namespace: ''
+    release_date: '2021-06-01'
+  2.1.0:
+    changes:
+      bugfixes:
+      - '``appliance_networking_dns_servers`` - returns error on failure.'
+      minor_changes:
+      - '``vcenter_vm_guest_customization`` - remove the module until vSphere API
+        end-point work properly.'
+      - bump the default timeout to 600s to give more time to the slow operations.
+      - new moid lookup filter plugins to convert a resource path to a MOID.
+      - use turbo mode cache for lookup plugins.
+    fragments:
+    - bump_timeout.yaml
+    - fix_vcenter_vm_guest_customization.yaml
+    - lookup_turbo_mode.yaml
+    - new_moid_lookup_filters.yaml
+    release_date: '2021-09-15'
+  2.1.1:
+    changes:
+      bugfixes:
+      - Address a condition where the subkey item was not properly identified (https://github.com/ansible-collections/vmware_rest_code_generator/pull/181).
+      - vcenter_datacenter - Ensure pass stat=absent on a non-existing item won't
+        raise an error (https://github.com/ansible-collections/vmware_rest_code_generator/pull/182).
+      - vcenter_vm_guest_customize - Add examples.
+      - vcenter_vm_hardware_ethernet - Ensure we can attach a NIC to another network
+        (https://github.com/ansible-collections/vmware.vmware_rest/issues/267).
+      minor_changes:
+      - '``content_subscribedlibrary`` - use FQCN in the example.'
+    fragments:
+    - 2.1.1.yaml
+    - use-FQCN-in-create_vm.yaml.yaml
+    - vcenter_vm_hardware_ethernet_idempotency.yaml
+    release_date: '2021-10-29'
+  2.1.2:
+    changes:
+      bugfixes:
+      - vcenter_ovf_libraryitem - properly catch errors.
+      minor_changes:
+      - The examples uses the FQCN of the built-in modules
+    fragments:
+    - 2.1.2-vcenter_ovf_libraryitem.yaml
+    - 2.1.2.yaml
+    release_date: '2021-11-30'
+  2.1.3:
+    changes:
+      bugfixes:
+      - '"remove the following modules vcenter_vm_guest_environment_info vcenter_vm_guest_environment_info
+        " "vcenter_vm_guest_filesystemy vcenter_vm_guest_filesystem_files vcenter_vm_guest_filesystem_files_info
+        " "vcenter_vm_guest_processes vcenter_vm_guest_processes_info because they
+        don''t work as expected."
+
+        '
+      minor_changes:
+      - The module_utils/vmware.py is licensed under BSD.
+      - add some missing example blocks.
+    fragments:
+    - 2.1.3-changelog.yaml
+    - 2.1.3-module_utils.yaml
+    release_date: '2021-12-08'
+  2.1.4:
+    changes:
+      bugfixes:
+      - Add support for Python 3.10.
+      minor_changes:
+      - Add more EXAMPLE blocks in the documenation of the modules.
+    fragments:
+    - add_some_missing_EXAMPLE_blocks.yaml
+    - python3.10-support.yaml
+    release_date: '2022-01-04'
+  2.1.5:
+    changes:
+      bugfixes:
+      - Adjust the cloud.common dependency to require 2.0.4 or greater (https://github.com/ansible-collections/vmware.vmware_rest/pull/315).
+      minor_changes:
+      - Adjust the release version of the lookup plugins fro, 2.0.1 to 2.1.0.
+      - '``vcenter_network_info`` - add an example with a Distributed Virtual Switch,
+        a.k.a dvswitch (https://github.com/ansible-collections/vmware.vmware_rest/pull/316).'
+    fragments:
+    - cloud.common-bump.yaml
+    - vcenter_network_info-dvs-example.yaml
+    - version_added.yaml
+    release_date: '2022-04-26'
+  2.1.6:
+    release_date: '2022-04-29'
+  2.2.0:
+    changes:
+      bugfixes:
+      - vcenter_datacenter - Ensure the idempotency works as expected.
+      minor_changes:
+      - Add news example for clone, instant clone and template on Content Library.
+      - documentation - clarify that the VMware vCenter API doesn't allow the cloning
+        of template if there are not if Library.
+      - vcenter_vm - Add new examples (clone and instant clone).
+    fragments:
+    - 2.2.0.yaml
+    - vm_template_library.yaml
+    modules:
+    - description: Creates a library item in content library from a virtual machine
+      name: vcenter_vmtemplate_libraryitems
+      namespace: ''
+    - description: Returns information about a virtual machine template contained
+        in the library item specified by {@param.name templateLibraryItem}
+      name: vcenter_vmtemplate_libraryitems_info
+      namespace: ''
+    release_date: '2022-06-16'
+  2.3.0:
+    modules:
+    - description: Applies a customization specification on the virtual machine
+      name: vcenter_vm_guest_customization
+      namespace: ''
+    - description: Issues a request to the guest operating system asking it to perform
+        a soft shutdown, standby (suspend) or soft reboot
+      name: vcenter_vm_guest_power
+      namespace: ''
+    - description: Returns information about the guest operating system power state.
+      name: vcenter_vm_guest_power_info
+      namespace: ''
+    - description: Returns the storage policy Compliance {@link Info} of a virtual
+        machine after explicitly re-computing compliance check.
+      name: vcenter_vm_storage_policy_compliance
+      namespace: ''
+    - description: Connects the VMware Tools CD installer as a CD-ROM for the guest
+        operating system
+      name: vcenter_vm_tools_installer
+      namespace: ''
+    - description: Get information about the VMware Tools installer.
+      name: vcenter_vm_tools_installer_info
+      namespace: ''
+    release_date: '2022-11-23'
+  2.3.1:
+    changes:
+      bugfixes:
+      - 'Allow filters with the space (See: https://github.com/ansible-collections/vmware.vmware_rest/issues/362).'
+      - 'Handle spaces and special characters in resource names for lookup plugins
+        (See: https://github.com/ansible-collections/vmware.vmware_rest/issues/356).'
+      minor_changes:
+      - set version in galaxy.yml to allow install from git repo
+    fragments:
+    - allow_space_in_search_filters.yaml
+    - lookup-handle-special-chars.yml
+    - release_summary.yml
+    - set_default_galaxy_version.yaml
+    release_date: '2023-03-14'
+  3.0.0:
+    changes:
+      breaking_changes:
+      - Remove support for ansible-core < 2.14
+      minor_changes:
+      - Use 7.0 U3 API spec to build the modules (https://github.com/ansible-collections/vmware.vmware_rest/pull/449).
+      release_summary: This major release drops support for ansible-core versions
+        lower than 2.14. The vmware.vmware_rest colllection 3.0.0 supports vSphere
+        versions greater than 7.0.3.
+    fragments:
+    - add_dev_doc.yaml
+    - changelog-wf-only-on-pr.yaml
+    - fix_gha_sanity_tests.yaml
+    - gha_cleanup_version_update.yaml
+    - release_summary.yml
+    - remove_old_changelog_fragments.yaml
+    - remove_unnecessary_sanity_ignores.yaml
+    - start_gha_4_sanity_tests.yaml
+    - use_7.0.3_spec.yaml
+    release_date: '2023-11-27'
+  3.0.1:
+    changes:
+      bugfixes:
+      - content_library_item_info - fixed error with unsupported property
+      - lookup plugins - Refactor to use native options configuration via doc_fragment,
+        which ensures that vcenter_validate_certs=false is honored (https://github.com/ansible-collections/vmware.vmware_rest/issues/425).
+      minor_changes:
+      - Add requires_ansible to manifest (https://github.com/ansible-community/ansible.content_builder/pull/76).
+      - Generate action_groups for the vmware.vmware_rest collection (https://github.com/ansible-community/ansible.content_builder/issues/75).
+      - Use folder attribute for host and dc module only (https://github.com/ansible-community/ansible.content_builder/pull/79).
+    fragments:
+    - 20240105-bugfix-lookup-options-parsing.yml
+    - 20240305-network-moid-docs-update.yml
+    - 463_fix_library_url.yaml
+    - 75-vmware_rest-action_groups.yaml
+    - 76-vmware_rest-dont_use_folder.yaml
+    release_date: '2024-03-21'
+  4.0.0:
+    changes:
+      breaking_changes:
+      - Removing any support for ansible-core <=2.14
+      minor_changes:
+      - cluster_moid - updated documentation around lookup plugin usage
+      - datacenter_moid - updated documentation around lookup plugin usage
+      - datastore_moid - updated documentation around lookup plugin usage
+      - folder_moid - updated documentation around lookup plugin usage
+      - host_moid - updated documentation around lookup plugin usage
+      - network_moid - updated documentation around lookup plugin usage
+      - resource_pool_moid - updated documentation around lookup plugin usage
+      - vm_moid - updated documentation around lookup plugin usage
+    fragments:
+    - 492-remove-support-ansible-2-14.yml
+    - 503_mm-feature_update_lookup_docs.yml
+    - 506-mention_vmware.vmware.vcsa_settings.yml
+    - 510-fix-broken-doc-generation.yml
+    - 513-add-vmware.vmware-for-docs-ci.yaml
+    release_date: '2024-08-14'
+  4.0.1:
+    changes:
+      bugfixes:
+      - Removed the scenario guides which are pretty much unmaintained and, therefor,
+        possibly outdated and misleading (https://github.com/ansible-collections/vmware.vmware_rest/pull/524).
+    fragments:
+    - 524-drop-scenaros.yml
+    release_date: '2024-08-28'
+  4.1.0:
+    changes:
+      bugfixes:
+      - README - fixed various typos in documentation
+      - lookup - fixed issue where searching for datacenter contents would throw an
+        exception instead of returning expected results
+      minor_changes:
+      - cluster_moid - Fix bug where lookup would return incosistent results for objects
+        in nested paths. Fixes issues https://github.com/ansible-collections/vmware.vmware_rest/issues/500
+        https://github.com/ansible-collections/vmware.vmware_rest/pull/445 https://github.com/ansible-collections/vmware.vmware_rest/issues/324
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/523)
+      - datacenter_moid - Fix bug where lookup would return incosistent results for
+        objects in nested paths Fixes issues https://github.com/ansible-collections/vmware.vmware_rest/issues/500
+        https://github.com/ansible-collections/vmware.vmware_rest/pull/445 https://github.com/ansible-collections/vmware.vmware_rest/issues/324
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/523)
+      - datastore_moid - Fix bug where lookup would return incosistent results for
+        objects in nested paths Fixes issues https://github.com/ansible-collections/vmware.vmware_rest/issues/500
+        https://github.com/ansible-collections/vmware.vmware_rest/pull/445 https://github.com/ansible-collections/vmware.vmware_rest/issues/324
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/523)
+      - folder_moid - Fix bug where lookup would return incosistent results for objects
+        in nested paths Fixes issues https://github.com/ansible-collections/vmware.vmware_rest/issues/500
+        https://github.com/ansible-collections/vmware.vmware_rest/pull/445 https://github.com/ansible-collections/vmware.vmware_rest/issues/324
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/523)
+      - host_moid - Fix bug where lookup would return incosistent results for objects
+        in nested paths Fixes issues https://github.com/ansible-collections/vmware.vmware_rest/issues/500
+        https://github.com/ansible-collections/vmware.vmware_rest/pull/445 https://github.com/ansible-collections/vmware.vmware_rest/issues/324
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/523)
+      - network_moid - Fix bug where lookup would return incosistent results for objects
+        in nested paths Fixes issues https://github.com/ansible-collections/vmware.vmware_rest/issues/500
+        https://github.com/ansible-collections/vmware.vmware_rest/pull/445 https://github.com/ansible-collections/vmware.vmware_rest/issues/324
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/523)
+      - resource_pool_moid - Fix bug where lookup would return incosistent results
+        for objects in nested paths Fixes issues https://github.com/ansible-collections/vmware.vmware_rest/issues/500
+        https://github.com/ansible-collections/vmware.vmware_rest/pull/445 https://github.com/ansible-collections/vmware.vmware_rest/issues/324
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/523)
+      - vm_moid - Fix bug where lookup would return incosistent results for objects
+        in nested paths Fixes issues https://github.com/ansible-collections/vmware.vmware_rest/issues/500
+        https://github.com/ansible-collections/vmware.vmware_rest/pull/445 https://github.com/ansible-collections/vmware.vmware_rest/issues/324
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/523)
+    fragments:
+    - 522-update-readme-format.yaml
+    - 523-refactor-lookup-plugins.yml
+    - 528-readme-typo-fix.yml
+    - 529-manual-test-play-for-lookups.yml
+    release_date: '2024-09-12'
+  4.2.0:
+    changes:
+      bugfixes:
+      - Fixed grammatical error in vcenter_rest_log_file parameter description
+      - vcenter_vm_guest_customization - Fixed typos and spacing in the module examples
+      minor_changes:
+      - add a new ci job to the collection to run integration tests on bm vmware env
+      - vcenter_vm_guest_customization - Added better examples that cover more use-cases
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/534).
+    fragments:
+    - 534-docs-for-vm_customization-module.yml
+    - 538-add-eco-ci-job.yml
+    - 540-typo-fixes-in-module-docs.yml
+    release_date: '2024-10-28'
+  4.3.0:
+    changes:
+      bugfixes:
+      - lookup plugins - Fixed issue where datacenter search filter was never properly
+        set
+      deprecated_features:
+      - content_library_item_info - the module has been deprecated and will be removed
+        in vmware.vmware_rest 5.0.0
+    fragments:
+    - 547-fix-datacenter-loop-in-lookups.yml
+    - 548-update-docs-for-vm-harware-disk.yml
+    - 549-deprecate-content_library_item_info.yml
+    release_date: '2024-11-26'
+  4.4.0:
+    changes:
+      bugfixes:
+      - vcenter_ovf_libraryitem - Update documentation to mention the metadata cannot
+        be updated via conventional means. Added example showing workaround (https://github.com/ansible-collections/vmware.vmware_rest/issues/385)
+    fragments:
+    - 560-update-vcenter-ovf-libraryitem-docs.yml
+    release_date: '2024-12-19'
+  4.5.0:
+    changes:
+      bugfixes:
+      - module_utils - fixed return value for vmware.vmware_rest.vcenter_vm_guest_filesystem_directories
+        module
+      minor_changes:
+      - info - changed relative links in README.md to absolute links
+    fragments:
+    - 570-bugfix-relative-links.yml
+    - 573-restrict-prepare_lab-runs.yml
+    - 576-bugfix-report-changes-in-filesysten_directories.yml
+    release_date: '2025-01-17'
+  4.6.0:
+    fragments:
+    - 580-update-libraryitems-examples.yml
+    release_date: '2025-02-17'
+  4.7.0:
+    changes:
+      minor_changes:
+      - Deprecated modules with redundant functionality in vmware.vmware. The next
+        major release is currently not planned, so no removal date is provided. See
+        https://github.com/ansible-collections/vmware.vmware_rest/issues/589
+    fragments:
+    - 587-update-customization-docs.yml
+    - 588-add-maintainer-docs.yml
+    - 591-deprecate-redundant-modules.yml
+    release_date: '2025-04-02'
+  4.8.0:
+    changes:
+      deprecated_features:
+      - lookup plugins - Deprecate all lookup plugins in favor of vmware.vmware.moid_from_path
+        (https://github.com/ansible-collections/vmware.vmware_rest/pull/608)
+      major_changes:
+      - modules - disable turbo mode for module execution by default. Make it optional
+        to enable it using an environment variable (https://github.com/ansible-collections/vmware.vmware_rest/issues/499)
+      minor_changes:
+      - change cloud.common dependency to 4.1 to support anisble 2.19
+    fragments:
+    - 598-bump-cloud-common-dep.yml
+    - 600-disable-turbo-mode.yml
+    - 606-remove-broken-test.yml
+    - 608-deprecate-lookup-plugins.yml
+    - 609-test-with-219.yml
+    release_date: '2025-07-03'
+  4.8.1:
+    changes:
+      bugfixes:
+      - Allow cloud.common 5.0.0 and later again (https://github.com/ansible-collections/vmware.vmware_rest/pull/614).
+    fragments:
+    - 614-cloud.common.yml
+    release_date: '2025-07-07'
+  4.9.0:
+    changes:
+      known_issues:
+      - The lookup plugins use ``cloud.common``, but this collection does not support
+        ansible-core 2.19 or higher (https://github.com/ansible-collections/vmware.vmware_rest/pull/621).
+      major_changes:
+      - Remove ``cloud.common`` as a dependency, so it will not be installed automatically
+        anymore (https://github.com/ansible-collections/vmware.vmware_rest/pull/621).
+    fragments:
+    - 619-drop-cloud.common-requirement.yml
+    release_date: '2025-08-29'

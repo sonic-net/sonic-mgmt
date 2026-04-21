@@ -1,0 +1,55 @@
+---
+- name: Configure device credentials on Cisco DNA Center
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "input_swim.yml"
+    - "credentials.yml"
+  tasks:
+    - name: Import an image, tag it as golden and load it on device
+      cisco.dnac.swim_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        config:
+          - import_image_details:
+              type: remote
+              url_details:
+                payload:
+                  - source_url:
+                      - "http://172.21.236.183/swim/V1712_2_CCO/cat9k_iosxe.17.12.02.SPA.bin"
+                third_party: false
+            tagging_details:
+              image_name: cat9k_iosxe.17.12.02.SPA.bin
+              device_role: ALL
+              device_image_family_name: Cisco Catalyst 9300 Switch
+              site_name: "{{ item.site_name }}"
+              tagging: true
+            # image_distribution_details:
+            #   image_name: cat9k_iosxe.17.12.02.SPA.bin
+            #   site_name: "{{item.site_name}}"
+            #   device_role: "{{ item.device_role }}"
+            #   device_family_name: "{{ item.device_family_name }}"
+            #   device_series_name: "Catalyst 9300 Series"
+            image_activation_details:
+              image_name: cat9k_iosxe.17.12.02.SPA.bin
+              site_name: "{{ item.site_name }}"
+              device_role: "{{ item.device_role }}"
+              device_family_name: "{{ item.device_family_name }}"
+              device_series_name: "Catalyst 9300 Series"
+              scehdule_validate: false
+              distribute_if_needed: true
+
+      with_items: "{{ image_details }}"
+      tags:
+        - swim

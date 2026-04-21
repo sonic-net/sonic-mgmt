@@ -1,0 +1,46 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+requires_ansible: '>=2.17.0'
+
+action_groups:
+  proxmox:
+    - proxmox
+    - proxmox_access_acl
+    - proxmox_backup
+    - proxmox_backup_info
+    - proxmox_backup_schedule
+    - proxmox_cluster
+    - proxmox_cluster_ha_resources
+    - proxmox_cluster_ha_rules
+    - proxmox_cluster_ha_groups
+    - proxmox_cluster_join_info
+    - proxmox_disk
+    - proxmox_domain_info
+    - proxmox_firewall
+    - proxmox_firewall_info
+    - proxmox_group
+    - proxmox_group_info
+    - proxmox_ipam_info
+    - proxmox_kvm
+    - proxmox_nic
+    - proxmox_node
+    - proxmox_node_info
+    - proxmox_pool
+    - proxmox_pool_member
+    - proxmox_snap
+    - proxmox_storage
+    - proxmox_storage_contents_info
+    - proxmox_storage_info
+    - proxmox_subnet
+    - proxmox_tasks_info
+    - proxmox_template
+    - proxmox_user
+    - proxmox_user_info
+    - proxmox_vm_info
+    - proxmox_vnet
+    - proxmox_vnet_info
+    - proxmox_zone
+    - proxmox_zone_info

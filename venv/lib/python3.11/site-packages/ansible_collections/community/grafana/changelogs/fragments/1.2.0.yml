@@ -1,0 +1,5 @@
+bugfixes:
+- Fix issue with url when grafana_url has a trailing slash (#135)
+- grafana_dashboard, Fix reference before assignment issue (#146)
+major_changes:
+- introduce "skip_version_check" parameter in grafana_teams and grafana_folder modules (#147)

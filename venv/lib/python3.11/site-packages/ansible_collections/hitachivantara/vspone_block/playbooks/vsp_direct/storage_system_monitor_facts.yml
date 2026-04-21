@@ -1,0 +1,64 @@
+---
+####################################################################
+# Example :  Storage System Monitor Facts Playbook
+####################################################################
+- name: Storage System Monitor Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get alerts information
+    ####################################################################
+    - name: Get alerts information
+      hitachivantara.vspone_block.vsp.hv_storage_system_monitor_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          alert_type: "CTL1"
+          alert_start_number: 1
+          alert_count: 2
+          query: "alerts"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###################################################################
+    # Task Name : Get Hardware Installed information
+    ###################################################################
+    - name: Get Hardware Installed information
+      hitachivantara.vspone_block.vsp.hv_storage_system_monitor_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          query: "hardware_installed"
+          include_component_option: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get Channel Boards information
+    ####################################################################
+    - name: Get Channel Boards information
+      hitachivantara.vspone_block.vsp.hv_storage_system_monitor_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          query: "channel_boards"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

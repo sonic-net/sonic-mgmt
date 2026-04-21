@@ -1,0 +1,15 @@
+---
+- name: Find existing VMs
+  ovirt.ovirt.ovirt_vm_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "datacenter={{ data_center_name }}"
+  register: vm_info
+
+- name: Remove VMs
+  ovirt.ovirt.ovirt_vm:
+    state: absent
+    id: "{{ ovirt_item.id }}"
+    auth: "{{ ovirt_auth }}"
+  with_items: "{{ vm_info.ovirt_vms }}"
+  loop_control:
+    loop_var: ovirt_item

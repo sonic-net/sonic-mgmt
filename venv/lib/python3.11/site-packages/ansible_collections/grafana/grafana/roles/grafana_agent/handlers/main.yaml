@@ -1,0 +1,12 @@
+---
+- name: Restart Grafana Agent
+  become: true
+  ansible.builtin.systemd:
+    name: grafana-agent
+    state: restarted
+    daemon_reload: true
+  listen: "restart grafana-agent"
+
+- name: Check Grafana Agent is started properly
+  ansible.builtin.include_tasks: ga-started.yaml
+  listen: "restart grafana-agent"

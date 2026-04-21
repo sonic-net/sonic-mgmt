@@ -1,0 +1,9 @@
+---
+# defaults file for mongodb_selinux
+required_packages:
+  - "checkpolicy"
+  - "policycoreutils-python-utils"
+  - "selinux-policy-mls"
+  - "selinux-policy-default"
+  - "selinux-policy-src"
+  - "selinux-policy-doc"

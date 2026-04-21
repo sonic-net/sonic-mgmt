@@ -1,0 +1,318 @@
+---
+ancestor:
+releases:
+  1.0.0:
+    changes:
+      release_summary: "First release of the `nios_modules` collection! This release includes multiple plugins:- an `api` plugin, a `network` plugin, a `nios`
+        plugin, a `nios_inventory` plugin, a `lookup plugin`, a `nios_next_ip` plugin, a `nios_next_network` plugin "
+    modules:
+      - description: Configure Infoblox NIOS A records
+        name: nios_a_record
+        namespace: ""
+      - description: Configure Infoblox NIOS AAAA records
+        name: nios_aaaa_record
+        namespace: ""
+      - description: Configure Infoblox NIOS CNAME records
+        name: nios_cname_record
+        namespace: ""
+      - description: Configure Infoblox NIOS DNS views
+        name: nios_dns_view
+        namespace: ""
+      - description: Configure Infoblox NIOS DHCP Fixed Address
+        name: nios_fixed_address
+        namespace: ""
+      - description: Configure Infoblox NIOS host records
+        name: nios_host_record
+        namespace: ""
+      - description: Configure Infoblox NIOS members
+        name: nios_member
+        namespace: ""
+      - description: Configure Infoblox NIOS MX records
+        name: nios_mx_record
+        namespace: ""
+      - description: Configure Infoblox NIOS NAPTR records
+        name: nios_naptr_record
+        namespace: ""
+      - description: Configure Infoblox NIOS network object
+        name: nios_network
+        namespace: ""
+      - description: Configure Infoblox NIOS network views
+        name: nios_network_view
+        namespace: ""
+      - description: Configure Infoblox NIOS Nameserver Groups
+        name: nios_nsgroup
+        namespace: ""
+      - description: Configure Infoblox NIOS PTR records
+        name: nios_ptr_record
+        namespace: ""
+      - description: Configure Infoblox NIOS SRV records
+        name: nios_srv_record
+        namespace: ""
+      - description: Configure Infoblox NIOS txt records
+        name: nios_txt_record
+        namespace: ""
+      - description: Configure Infoblox NIOS DNS zones
+        name: nios_zone
+        namespace: ""
+    plugins:
+      lookup:
+        - description: Query Infoblox NIOS objects
+          name: nios
+          namespace:
+        - description: Return the next available IP address for a network
+          name: nios_next_ip
+          namespace:
+        - description: Return the next available network range for a network-container
+          name: nios_next_network
+          namespace:
+    release_date: "2020-10-23"
+  1.0.1:
+    changes:
+      minor_changes:
+        - Made it compatible for Ansible v3.0.0
+      release_summary: This release provides compatibilty for Ansible v3.0.0
+    release_date: "2021-01-25"
+  1.0.2:
+    changes:
+      minor_changes:
+        - Fixed the ignored sanity errors required for Ansible 3.0.0 collection
+        - Made it compatible for Ansible v3.0.0
+      release_summary: This release provides compatibilty for Ansible v3.0.0
+    release_date: "2021-01-27"
+  1.1.0:
+    changes:
+      release_summary: This release provides plugins for NIOS DTC
+    modules:
+      - description: Configure Infoblox NIOS DTC LBDN
+        name: nios_dtc_lbdn
+        namespace: ""
+      - description: Configure Infoblox NIOS DTC Pool
+        name: nios_dtc_pool
+        namespace: ""
+      - description: Configure Infoblox NIOS DTC Server
+        name: nios_dtc_server
+        namespace: ""
+      - description: Restart grid services.
+        name: nios_restartservices
+        namespace: ""
+    release_date: "2021-04-12"
+  1.1.1:
+    changes:
+      bugfixes:
+        - Implemented the bugfixes provided by Ansible `community.general`
+        - Update the name of existing A and AAAA records `#70 <https://github.com/infobloxopen/infoblox-ansible/pull/70>`_
+        - Update of comment field of SRV, PTR and NAPTR records failing with the following error
+          `#70 <https://github.com/infobloxopen/infoblox-ansible/pull/70>`_
+        - PTR Record failed to update and raises KeyError for view field `#70 <https://github.com/infobloxopen/infoblox-ansible/pull/70>`_
+        - Update comment field and delete an existing Fixed Address `#73 <https://github.com/infobloxopen/infoblox-ansible/pull/73>`_
+        - GitHub issue fix - Lookup module for next available IPV6 `#31 <https://github.com/infobloxopen/infoblox-ansible/issues/31>`_
+        - GitHub issue fix - [nios_zone] changing a nios_zone does not work `#60 <https://github.com/infobloxopen/infoblox-ansible/issues/60>`_
+        - GitHub issue fix - Getting an error, running every module `#67 <https://github.com/infobloxopen/infoblox-ansible/issues/67>`_
+        - GitHub issue fix - Error - Dictionary Issues `#68 <https://github.com/infobloxopen/infoblox-ansible/issues/68>`_
+        - GitHub issue fix - Examples for lookups don't work as written `#72 <https://github.com/infobloxopen/infoblox-ansible/issues/72>`_
+        - Sanity fixes as per Ansible guidelines to all modules
+      minor_changes:
+        - The modules are standardized as per Ansible guidelines
+      release_summary: Support for creating IPv6 Fixed Address with DUID, Support added to return the next available IP address for an IPv6 network, Modules
+       made compatible to work with ansible-core 2.11, Issue fixes and standardization of modules as per Ansible guidelines
+    release_date: "2021-09-07"
+  1.1.2:
+    changes:
+      bugfixes:
+        - Handle NoneType parsing in nios_inventory.py `#81 <https://github.com/infobloxopen/infoblox-ansible/pull/81>`_
+        - Check all dhcp options, not just first one `#83 <https://github.com/infobloxopen/infoblox-ansible/pull/83>`_
+      minor_changes:
+        - Changes in inventory and lookup plugins documentation `#85 <https://github.com/infobloxopen/infoblox-ansible/pull/85>`_
+        - Directory restructure and added integration & unit tests `#87 <https://github.com/infobloxopen/infoblox-ansible/pull/87>`_
+      release_summary: Issue fixes and standardization of inventory plugin and lookup modules as per Ansible guidelines, Directory restructure and added
+          integration & unit tests
+    release_date: "2021-10-12"
+  1.2.0:
+    changes:
+      bugfixes:
+        - nios_a_record module - KeyError 'old_ipv4addr' `#79 <https://github.com/infobloxopen/infoblox-ansible/issues/79>`_
+        - Ansible playbook fails to update canonical name of CName Record `#97 <https://github.com/infobloxopen/infoblox-ansible/pull/97>`_
+      minor_changes:
+        - Updated 'required' field in modules `#99 <https://github.com/infobloxopen/infoblox-ansible/pull/99>`_
+        - Following options are made required in the modules | Record | Option made required | | ------ | -------- | | A | ipv4addr | | AAAA | ipv6addr| | CNAME
+          | canonical | | MX | mail_exchanger, preference | | PTR | ptrdname |
+      release_summary: Issue fixes to update A Record using `next_available_ip` function, Added a new feature - Update canonical name of the CNAME Record,
+          Updated the `required` fields in modules
+    release_date: "2021-12-13"
+  1.2.1:
+    changes:
+      minor_changes:
+        - Added tags 'cloud' and 'networking' in 'galaxy.yaml'
+      release_summary: Added tags to support release on Ansible Automation Hub
+    release_date: "2021-12-20"
+
+  1.2.2:
+    changes:
+      minor_changes:
+        - Fix to create PTR record in different network views `#103 <https://github.com/infobloxopen/infoblox-ansible/pull/103>`_
+        - Remove use_option for DHCP option 60 `#104 <https://github.com/infobloxopen/infoblox-ansible/pull/104>`_
+        - Allow specifying a template when creating a network `#105 <https://github.com/infobloxopen/infoblox-ansible/pull/105>`_
+        - Fix unit and sanity test issues `#117 <https://github.com/infobloxopen/infoblox-ansible/pull/117>`_
+        - Expanding for disable value `#119 <https://github.com/infobloxopen/infoblox-ansible/pull/119>`_
+      release_summary: Issue fixes to create PTR record in different network views, Support extended to determine whether the DTC server is disabled or not
+    release_date: "2022-05-23"
+  1.3.0:
+    changes:
+      major_changes:
+        - Update operation using `old_name` and `new_name` for the object with dummy name in `old_name` (which does not exist in system) will not create a
+          new object in the system. An error will be thrown stating the object does not exist in the system
+          `#129 <https://github.com/infobloxopen/infoblox-ansible/pull/129>`_
+        - Update `text` field of TXT Record `#128 <https://github.com/infobloxopen/infoblox-ansible/pull/128>`_
+      bugfixes:
+        - Fix to create TXT record with equals sign `#128 <https://github.com/infobloxopen/infoblox-ansible/pull/128>`_
+      release_summary: Issue fixes to create TXT record with equals sign, For nonexistent record, update operation creates the new record, For nonexistent
+        IPv4Address, update operation creates a new A record with new_ipv4addr
+    release_date: "2022-07-01"
+  1.4.0:
+    changes:
+      major_changes:
+        - Feature for extra layer security , with `cert` and `key` parameters in playbooks for authenticating using certificate and key ``*.pem`` file
+          absolute path `#154 <https://github.com/infobloxopen/infoblox-ansible/pull/154>`_
+        - Fix to remove issue causing due to template attr in deleting network using Ansible module nios network
+          `#147 <https://github.com/infobloxopen/infoblox-ansible/pull/147>`_
+      release_summary: For ansible module, added certificate authentication feature, Few bugs fix in ansible module nios network
+    release_date: "2022-10-12"
+  1.4.1:
+    changes:
+      minor_changes:
+        - Fix to specify network_view in lookup modules to return absolute network and ip `#157 <https://github.com/infobloxopen/infoblox-ansible/pull/157>`_
+        - Fix to camelcase issue for updating 'nios_network_view' name `#163 <https://github.com/infobloxopen/infoblox-ansible/pull/163>`_
+        - Fix to allocate ip to a_record dynamically `#163 <https://github.com/infobloxopen/infoblox-ansible/pull/163>`_
+        - Fix to update 'nios_a_record' name with multiple ips having same name `#164 <https://github.com/infobloxopen/infoblox-ansible/pull/164>`_
+        - Fix to changelog yaml file with linting issues `#161 <https://github.com/infobloxopen/infoblox-ansible/pull/161>`_
+      release_summary: Ansible Lookup modules can specify network_view to which a network/ip belongs, Fixes camelCase issue while updating
+        `nios_network_view` with `new_name`, Fixes issue to allocate ip to a_record dynamically, Updates `nios_a_record` name with multiple ips having same name
+    release_date: "2022-11-24"
+  1.5.0:
+    changes:
+      major_changes:
+        - Added NIOS Range module with Create, Update and Delete features `#152 <https://github.com/infobloxopen/infoblox-ansible/pull/152>`_
+        - Added Member Assignment to network and ranges `#152 <https://github.com/infobloxopen/infoblox-ansible/pull/152>`_
+        - Added Grid Master Candidate feature `#152 <https://github.com/infobloxopen/infoblox-ansible/pull/152>`_
+        - Fixes issue unable to update/delete EAs using Ansible plugin `#180 <https://github.com/infobloxopen/infoblox-ansible/pull/180>`_
+        - Fixes static and dynamic allocation of IPV4 address of A Record `#182 <https://github.com/infobloxopen/infoblox-ansible/pull/182>`_
+        - Fixes to Update host name of  NIOS member `#176 <https://github.com/infobloxopen/infoblox-ansible/pull/176>`_
+        - Updates default WAPI version to 2.9 `#176 <https://github.com/infobloxopen/infoblox-ansible/pull/176>`_
+      bugfixes:
+        - Fixes Update A Record having multiple records with same name and different IP `#182 <https://github.com/infobloxopen/infoblox-ansible/pull/182>`_
+      release_summary: Added new module NIOS Range with Create, Update and Delete features, Added new feature Member Assignment to Networks with add remove
+          functionality, Fixes Unable to Update/Delete EAs using Ansible plugin, Fixes Static Allocation of IPV4 address of A Record, Updates default WAPI
+          version to `2.9`, Added Grid Master Candidate feature
+    release_date: "2023-05-11"
+  1.6.0:
+    changes:
+      major_changes:
+        - Upgrade Ansible version support from 2.13 to 2.16.
+        - Upgrade Python version support from 3.8 to 3.10.
+      release_summary: "Added new modules with CRUD features to manage NIOS DTC health check monitors: DTC HTTP Monitor, DTC ICMP Monitor, DTC PDP Monitor,
+      DTC SIP Monitor, DTC SNMP Monitor, DTC TCP Monitor. Added a new module with CRUD features to manage topology rulesets in NIOS. Added a new field to
+      define topology ruleset for the DTC Pool and DTC LBDN modules."
+      bugfixes:
+        - Fixes typo for environment variable INFOBLOX_WAPI_VERSION `#209 <https://github.com/infobloxopen/infoblox-ansible/pull/209>`_
+        - Fixes environment variable max_results using INFOBLOX_MAX_RESULTS `#209 <https://github.com/infobloxopen/infoblox-ansible/pull/209>`_
+        - Fixes index error for transform fields in DTC LBDN (auth_zone and Pool) and DTC POOL (servers and monitors).
+         `#209 <https://github.com/infobloxopen/infoblox-ansible/pull/209>`_
+    modules:
+      - description: Configures the Infoblox NIOS DTC HTTP monitor.
+        name: nios_dtc_monitor_http
+        namespace: ""
+      - description: Configures the Infoblox NIOS DTC ICMP monitor
+        name: nios_dtc_monitor_icmp
+        namespace: ""
+      - description: Configures the Infoblox NIOS DTC PDP monitor
+        name: nios_dtc_monitor_pdp
+        namespace: ""
+      - description: Configures the Infoblox NIOS DTC SIP monitor
+        name: nios_dtc_monitor_sip
+        namespace: ""
+      - description: Configures the Infoblox NIOS DTC SNMP monitor
+        name: nios_dtc_monitor_snmp
+        namespace: ""
+      - description: Configures the Infoblox NIOS DTC TCP monitor
+        name: nios_dtc_monitor_tcp
+        namespace: ""
+      - description: Configures the Infoblox NIOS DTC Topology
+        name: nios_dtc_topology
+        namespace: ""
+    release_date: "2023-12-14"
+  1.6.1:
+    changes:
+      minor_changes:
+        - Ansible core version in the dependencies updated to 2.14 or later.
+      release_summary: "This release includes the updates of plug-in version 1.6.0 and the following documentation changes: Ansible core version in the
+      dependencies updated to 2.14 or later."
+    release_date: "2023-12-19"
+  1.7.0:
+    changes:
+      bugfixes:
+        - Omits DNS view from filter criteria when renaming a host object and DNS is
+          bypassed. (https://github.com/infobloxopen/infoblox-ansible/issues/230)
+        - nios_host_record - rename logic included DNS view in filter criteria, even
+          when DNS had been bypassed.
+        - Fixed an issue in the `nios_host_record` module where the `mac` parameter was not handled correctly.
+        - Fixed the update operation in the `nios_network` module where the `network` parameter was not handled correctly.
+        - Adjusted unit test assertions for Mock.called_once_with.
+      minor_changes:
+        - Added support for the `use_for_ea_inheritance` parameter in Host Record to inherit EA from Host address.
+        - Added support for the `use_dns_ea_inheritance` parameter in Host Record to inherit EA from associated zone.
+        - Enabled IPv4 support for PXE server configuration in the Host Record module.
+        - Introduced `use_logic_filter_rules` & `logic_filter_rules` support for both IPv4 and IPv6 network and network container.
+        - Added IPv6 network container support for the `nios_next_network` lookup plugin.
+        - Added `use_range` parameter to the nios_next_ip lookup plugin, enabling lookup for the next available IP from a network range.
+        - Upgraded the base WAPI version to 2.12.3.
+        - Improved handling of DHCP options in DHCP Range, Network, and Network Container.
+      release_summary: "This release brings new modules for extensible attribute definition and managing DNS nameserver groups.
+        Additionally, it includes various enhancements, new features, and bug fixes aimed at improving the system's overall functionality and performance."
+    fragments:
+      - 229-handle-host-rename-without-dns.yml
+    modules:
+      - description: Configure Infoblox NIOS extensible attribute definition
+        name: nios_extensible_attribute
+        namespace: ""
+      - description: Configure InfoBlox DNS Nameserver Delegation Groups
+        name: nios_nsgroup_delegation
+        namespace: ""
+      - description: Configure InfoBlox DNS Nameserver Forward/Stub Server Groups
+        name: nios_nsgroup_forwardingmember
+        namespace: ""
+      - description: Configure InfoBlox DNS Nameserver Forwarding Member Groups
+        name: nios_nsgroup_forwardstubserver
+        namespace: ""
+      - description: Configure InfoBlox DNS Nameserver Stub Member Groups
+        name: nios_nsgroup_stubmember
+        namespace: ""
+    release_date: "2024-10-04"
+  1.7.1:
+    changes:
+      bugfixes:
+        - Refined Host record return fields to ensure use_nextserver and nextserver are only included for IPv4, as these fields are not applicable to IPv6.
+        - For Host IPv6, the mac parameter has been renamed to duid.
+      release_summary: "This update focuses on specific improvements and bug fixes for Host records to enhance system functionality and performance."
+    release_date: "2024-11-18"
+  1.8.0:
+    changes:
+      release_summary: "This release includes new modules for managing NIOS VLANs and Admin Users, as well as new lookup plugins for nios_next_vlan_id.
+        Additionally, it features various enhancements, new features, and bug fixes aimed at improving the system's overall functionality and performance."
+    major_changes:
+      - Drop support for Ansible Core 2.15 and Python 3.9.
+    minor_changes:
+      - Added support for the `ipv4addr` parameter in the `nios_inventory` plugin to return the IP address of the specified host.
+      - Added support for the `vlans` parameter in the `nios_network` module.
+    modules:
+      - description: Configure Infoblox NIOS VLANs
+        name: nios_vlan
+        namespace: ""
+      - description: Configure Infoblox NIOS Admin Users
+        name: nios_adminuser
+        namespace: ""
+    plugins:
+      lookup:
+        - description: Return the next available VLAN ID
+          name: nios_next_vlan_id
+          namespace:
+    release_date: "2025-01-29"

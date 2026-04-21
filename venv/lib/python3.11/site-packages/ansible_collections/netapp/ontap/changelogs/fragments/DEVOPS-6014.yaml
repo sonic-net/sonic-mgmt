@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_aggregate - new REST only option ``tags`` added, requires ONTAP 9.13.1 or later version.
+  - na_ontap_volume - new REST only option ``tags`` added, requires ONTAP 9.13.1 or later version.

@@ -1,0 +1,51 @@
+---
+# tasks file for Mimir uninstall
+
+- name: Stop Mimir service
+  ansible.builtin.systemd:  # noqa ignore-errors
+    name: mimir
+    state: stopped
+  ignore_errors: true
+
+- name: Uninstall Mimir rpm package
+  ansible.builtin.dnf:
+    name: "mimir"
+    state: absent
+    autoremove: true
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
+
+- name: Uninstall Mimir deb package
+  ansible.builtin.apt:
+    name: "mimir"
+    state: absent
+    purge: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Ensure that Mimir firewalld rule is not present - tcp port {{ mimir_http_listen_port }}
+  ansible.posix.firewalld:  # noqa ignore-errors
+    immediate: true
+    permanent: true
+    port: "{{ mimir_http_listen_port }}/tcp"
+    state: disabled
+  ignore_errors: true
+
+- name: Remove Mimir directories"
+  ansible.builtin.file:
+    path: "{{ remove_me }}"
+    state: absent
+  loop:
+    - "/etc/mimir"
+    - "{{ mimir_working_path }}"
+  loop_control:
+    loop_var: remove_me
+
+- name: Remove the Mimir system user
+  ansible.builtin.user:
+    name: "mimir"
+    force: true
+    state: absent
+
+- name: Remove Mimir system group
+  ansible.builtin.group:
+    name: "mimir"
+    state: absent

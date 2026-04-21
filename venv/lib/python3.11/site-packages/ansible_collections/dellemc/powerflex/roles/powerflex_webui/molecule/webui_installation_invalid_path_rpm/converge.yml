@@ -1,0 +1,34 @@
+---
+- name: Converge
+  hosts: webui
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: Install and configure powerflex webui with no rpm
+      ansible.builtin.import_role:
+        name: "powerflex_webui"
+      vars:
+        powerflex_common_file_install_location: "/opt/empty"
+        powerflex_webui_state: present
+      ignore_errors: true
+      register: powerflex_webui_install_config_no_rpm_result
+
+    - name: Verifying failure of install package with respect to no rpm file
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_package_file.files | length == 0
+
+    - name: Install and configure powerflex webui with wrong file path
+      ansible.builtin.import_role:
+        name: "powerflex_webui"
+      vars:
+        powerflex_common_file_install_location: "/opt/aaab"
+        powerflex_webui_state: present
+      ignore_errors: true
+      register: powerflex_webui_install_config_wrong_path_result
+
+    - name: Verifying failure of install package with wrong file path
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_package_file.files | length == 0

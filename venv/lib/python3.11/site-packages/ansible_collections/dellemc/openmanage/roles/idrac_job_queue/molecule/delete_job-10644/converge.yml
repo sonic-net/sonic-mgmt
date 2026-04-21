@@ -1,0 +1,48 @@
+---
+- name: Job Deletion Scenarios
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Setting input facts
+      ansible.builtin.set_fact:
+        input: &input
+          hostname: "{{ lookup('env', 'IDRAC_IP') }}"
+          username: "{{ lookup('env', 'IDRAC_USER') }}"
+          password: "{{ lookup('env', 'IDRAC_PASSWORD') }}"
+          validate_certs: false
+      no_log: true
+
+    - name: Creating a job (first job)
+      ansible.builtin.include_tasks:
+        file: ../_create_job.yml
+
+    - name: Delete a job from the job queue
+      ansible.builtin.include_role:
+        name: "idrac_job_queue"
+      vars:
+        <<: *input
+        job_id: "{{ export_job_id }}"
+
+    - name: "Verifying job deletion from the job queue"
+      ansible.builtin.assert:
+        that:
+          - '"deleted sucessfully" in idrac_job_queue_out.msg'
+
+    - name: Creating a job (second job)
+      ansible.builtin.include_tasks:
+        file: ../_create_job.yml
+
+    - name: Delete a job
+      block:
+        - name: Delete a job from the job queue which cannot be deleted
+          ansible.builtin.include_role:
+            name: "idrac_job_queue"
+          vars:
+            <<: *input
+            job_id: "{{ export_job_id }}"
+
+      rescue:
+        - name: "Verifying job deletion from the job queue"
+          ansible.builtin.assert:
+            that:
+              - '"cannot be deleted" in idrac_job_queue_out.msg'

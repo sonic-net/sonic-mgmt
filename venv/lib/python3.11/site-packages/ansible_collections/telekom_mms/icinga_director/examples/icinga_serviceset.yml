@@ -1,0 +1,19 @@
+---
+- name: Create serviceset
+  telekom_mms.icinga_director.icinga_serviceset:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "foo_serviceset"
+    assign_filter: 'host.name="foohost"'
+    description: "foo description"
+- name: Update serviceset
+  telekom_mms.icinga_director.icinga_serviceset:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "foo_serviceset"
+    assign_filter: 'host.name="foohost2"'
+    append: true

@@ -1,0 +1,62 @@
+---
+- name: Provision and Re-provision wired and wireless devices
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+
+  vars_files:
+    - "{{ CLUSTERFILE }}"
+
+  vars:
+    dnac_login: &dnac_login
+      dnac_host: "{{ dnac_host }}"
+      dnac_username: "{{ dnac_username }}"
+      dnac_password: "{{ dnac_password }}"
+      dnac_verify: "{{ dnac_verify }}"
+      dnac_port: "{{ dnac_port }}"
+      dnac_version: "{{ dnac_version }}"
+      dnac_debug: "{{ dnac_debug }}"
+      dnac_log_level: "{{ dnac_log_level }}"
+
+  tasks:
+    - name: Assign a wired device to a site
+      cisco.dnac.provision_workflow_manager:
+        <<: *dnac_login
+        dnac_log: true
+        state: merged
+        config_verify: true
+        config:
+          - site_name_hierarchy: Global/USA/New York/NY_BLD1
+
+            management_ip_address: 204.192.3.40
+            provisioning: false
+
+    - name: Provision a wired device to a site
+      cisco.dnac.provision_workflow_manager:
+        <<: *dnac_login
+        dnac_log: true
+        state: merged
+        config_verify: true
+        config:
+          - site_name_hierarchy: Global/USA/SAN JOSE/BLD23/BLD20_FLOOR2
+            management_ip_address: 204.192.3.40
+
+    - name: Unprovision a wired device from a site
+      cisco.dnac.provision_workflow_manager:
+        <<: *dnac_login
+        dnac_log: true
+        state: deleted
+        config:
+          - management_ip_address: 204.1.2.2
+
+    - name: Provision a wireless device to a site
+      cisco.dnac.provision_workflow_manager:
+        <<: *dnac_login
+        dnac_log: true
+        state: merged
+        config_verify: true
+        config:
+          - site_name_hierarchy: Global/USA/RTP/BLD11
+            management_ip_address: 204.192.12.201
+            managed_ap_locations:
+              - Global/USA/RTP/BLD11/BLD11_FLOOR1

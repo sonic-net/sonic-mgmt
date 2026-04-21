@@ -1,0 +1,18 @@
+http_request_timeout: 300
+http_request_retry_times: 3
+http_request_retry_interval_seconds: 5
+ssl:
+  validate_certs: false
+  client_cert: ""
+  client_key: ""
+  ca_path: ""
+  ssl_version: ""
+  ca_certs: ""
+  ssl_cipher: ""
+  check_hostname: false
+
+cluster_name: "cluster-fqdn"
+region: "region"
+oneobject_node_username: "username"
+oneobject_node_userpass: "password"
+oneobject_node_client_id: "vsp-object-external-client"

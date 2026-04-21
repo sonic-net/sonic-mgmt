@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_dns - fix keyerror for uuid when DNS is set to vserver in REST.

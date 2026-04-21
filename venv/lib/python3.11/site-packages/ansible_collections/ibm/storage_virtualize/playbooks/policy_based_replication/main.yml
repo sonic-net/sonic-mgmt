@@ -1,0 +1,135 @@
+---
+- name: Using the IBM Storage Virtualize collection For PBR configuration
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  vars_files:
+    - pbr_inventory.ini
+  vars:
+    volume_count: "{{ number_of_volumes | default(10) }}"
+    vol_prefix: "{{ volume_prefix | default('vol_') }}"
+  tasks:
+    - name: Create mTLS on both the clusters
+      ansible.builtin.include_tasks: create_mTLS.yml
+      no_log: true
+
+    - name: Create mdiskgrp_drp and provisionpolicy on both the clusters
+      ansible.builtin.include_tasks: drp_pool_setup.yml
+      loop: "{{ clusters_data }}"
+      no_log: true
+
+    - name: Get mdisk info
+      register: pool_results
+      ibm.storage_virtualize.ibm_svc_info:
+        gather_subset: "pool"
+        objectname: "{{ clusters_data[0].pool_name | default('mdg0') }}"
+        clustername: "{{ clusters_data[0].cluster_ip }}"
+        username: "{{ clusters_data[0].cluster_username }}"
+        password: "{{ clusters_data[0].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+
+    - name: Set replication pool link UID
+      ansible.builtin.set_fact:
+        uid: "{{ pool_results.Pool.replication_pool_link_uid }}"
+
+    - name: Get primary cluster id info
+      register: primary_partnership_results
+      ibm.storage_virtualize.ibm_svc_info:
+        gather_subset: "partnership"
+        objectname: "{{ clusters_data[0].cluster_name }}"
+        clustername: "{{ clusters_data[0].cluster_ip }}"
+        username: "{{ clusters_data[0].cluster_username }}"
+        password: "{{ clusters_data[0].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+
+    - name: Set cluster id
+      ansible.builtin.set_fact:
+        uid1: "{{ primary_partnership_results.Partnership.id }}"
+    - name: Get secondary cluster id info
+      register: secondary_partnership_results
+      ibm.storage_virtualize.ibm_svc_info:
+        gather_subset: "partnership"
+        objectname: "{{ clusters_data[1].cluster_name }}"
+        clustername: "{{ clusters_data[1].cluster_ip }}"
+        username: "{{ clusters_data[1].cluster_username }}"
+        password: "{{ clusters_data[1].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+
+    - name: Set cluster id
+      ansible.builtin.set_fact:
+        uid2: "{{ secondary_partnership_results.Partnership.id }}"
+
+    - name: Set provisionpolicy and replicationpoollinkuid on primary site
+      ibm.storage_virtualize.ibm_svc_mdiskgrp:
+        clustername: "{{ clusters_data[0].cluster_ip }}"
+        username: "{{ clusters_data[0].cluster_username }}"
+        password: "{{ clusters_data[0].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+        name: "{{ clusters_data[0].pool_name | default('mdg0') }}"
+        state: present
+        replicationpoollinkuid: "{{ uid }}"
+        replication_partner_clusterid: "{{ uid2 }}"
+        provisioningpolicy: provisioning_policy0
+
+    - name: Set provisionpolicy and replicationpoollinkuid on secondary site
+      ibm.storage_virtualize.ibm_svc_mdiskgrp:
+        clustername: "{{ clusters_data[1].cluster_ip }}"
+        username: "{{ clusters_data[1].cluster_username }}"
+        password: "{{ clusters_data[1].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+        name: "{{ clusters_data[1].pool_name | default('mdg0') }}"
+        state: present
+        replicationpoollinkuid: "{{ uid }}"
+        replication_partner_clusterid: "{{ uid1 }}"
+        provisioningpolicy: provisioning_policy0
+
+    - name: Create replication policy
+      ibm.storage_virtualize.ibm_sv_manage_replication_policy:
+        clustername: "{{ clusters_data[0].cluster_ip }}"
+        username: "{{ clusters_data[0].cluster_username }}"
+        password: "{{ clusters_data[0].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+        name: replication_policy_1
+        topology: 2-site-async-dr
+        location1system: "{{ uid1 }}"
+        location1iogrp: 0
+        location2system: "{{ uid2 }}"
+        location2iogrp: 0
+        rpoalert: 300
+        state: present
+
+    - name: Create volume group
+      ibm.storage_virtualize.ibm_svc_manage_volumegroup:
+        clustername: "{{ clusters_data[0].cluster_ip }}"
+        username: "{{ clusters_data[0].cluster_username }}"
+        password: "{{ clusters_data[0].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+        name: "{{ volume_group_name }}"
+        replicationpolicy: replication_policy_1
+        state: present
+
+    - name: Create volumes and add to volumegroup
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ clusters_data[0].cluster_ip }}"
+        username: "{{ clusters_data[0].cluster_username }}"
+        password: "{{ clusters_data[0].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+        name: "{{ vol_prefix }}{{ item }}"
+        state: "present"
+        pool: "{{ clusters_data[0].pool_name | default('mdg0') }}"
+        size: "{{ volume_size }}"
+        unit: "gb"
+        volumegroup: "{{ volume_group_name }}"
+      with_sequence: start=1 end="{{ volume_count }}"
+
+    - name: MasterVdisks-host mapping
+      register: results
+      ibm.storage_virtualize.ibm_svc_vol_map:
+        clustername: "{{ clusters_data[0].cluster_ip }}"
+        username: "{{ clusters_data[0].cluster_username }}"
+        password: "{{ clusters_data[0].cluster_password }}"
+        log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+        state: present
+        volname: "{{ vol_prefix }}{{ item }}"
+        host: "{{ host_name }}"
+      with_sequence: start=1 end="{{ volume_count }}"

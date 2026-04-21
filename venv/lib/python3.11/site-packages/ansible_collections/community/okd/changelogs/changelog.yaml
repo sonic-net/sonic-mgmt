@@ -1,0 +1,273 @@
+ancestor: null
+releases:
+  0.1.0:
+    changes:
+      major_changes:
+      - Add custom k8s module, integrate better Molecule tests (https://github.com/ansible-collections/community.okd/pull/7).
+      - Add downstream build scripts to build redhat.openshift (https://github.com/ansible-collections/community.okd/pull/20).
+      - Add openshift connection plugin, update inventory plugin to use it (https://github.com/ansible-collections/community.okd/pull/18).
+      - Initial content migration from community.kubernetes (https://github.com/ansible-collections/community.okd/pull/3).
+      minor_changes:
+      - Add incluster Makefile target for CI (https://github.com/ansible-collections/community.okd/pull/13).
+      - Add tests for inventory plugin (https://github.com/ansible-collections/community.okd/pull/16).
+      - CI Documentation for working with Prow (https://github.com/ansible-collections/community.okd/pull/15).
+      - Docker container can run as an arbitrary user (https://github.com/ansible-collections/community.okd/pull/12).
+      - Dockerfile now is properly set up to run tests in a rootless container (https://github.com/ansible-collections/community.okd/pull/11).
+      - Integrate stale bot for issue queue maintenance (https://github.com/ansible-collections/community.okd/pull/14).
+    fragments:
+    - 1-initial-content.yml
+    - 11-dockerfile-tests.yml
+    - 12-dockerfile-tests.yml
+    - 13-makefile-tests.yml
+    - 15-ci-documentation.yml
+    - 16-inventory-plugin-tests.yml
+    - 18-openshift-connection-plugin.yml
+    - 20-downstream-build-scripts.yml
+    - 7-molecule-tests.yml
+    - 8-stale-bot.yml
+    release_date: '2020-09-04'
+  0.2.0:
+    changes:
+      major_changes:
+      - openshift_auth - new module (migrated from k8s_auth in community.kubernetes)
+        (https://github.com/ansible-collections/community.okd/pull/33).
+      minor_changes:
+      - Add a contribution guide (https://github.com/ansible-collections/community.okd/pull/37).
+      - Use the API Group APIVersion for the `Route` object (https://github.com/ansible-collections/community.okd/pull/27).
+    fragments:
+    - 27-route-api-group.yml
+    - 33-add-k8s_auth.yml
+    - 36-contribution-guide.yml
+    modules:
+    - description: Authenticate to OpenShift clusters which require an explicit login
+        step
+      name: openshift_auth
+      namespace: ''
+    release_date: '2020-09-24'
+  0.3.0:
+    changes:
+      major_changes:
+      - Add openshift_process module for template rendering and optional application
+        of rendered resources (https://github.com/ansible-collections/community.okd/pull/44).
+      - Add openshift_route module for creating routes from services (https://github.com/ansible-collections/community.okd/pull/40).
+    fragments:
+    - 40-openshift_route.yml
+    - 44-openshift_process.yml
+    modules:
+    - description: Process an OpenShift template.openshift.io/v1 Template
+      name: openshift_process
+      namespace: ''
+    - description: Expose a Service as an OpenShift Route.
+      name: openshift_route
+      namespace: ''
+    release_date: '2020-10-12'
+  1.0.0:
+    changes:
+      minor_changes:
+      - Released version 1 to Automation Hub as redhat.openshift (https://github.com/ansible-collections/community.okd/issues/51).
+    fragments:
+    - 51-redhat-openshift-ah-release.yml
+    release_date: '2020-11-12'
+  1.0.1:
+    changes:
+      bugfixes:
+      - Generate downstream redhat.openshift documentation (https://github.com/ansible-collections/community.okd/pull/59).
+    fragments:
+    - 59-downstream-docs.yml
+    release_date: '2020-11-17'
+  1.0.2:
+    changes:
+      minor_changes:
+      - restrict the version of kubernetes.core dependency (https://github.com/ansible-collections/community.okd/pull/66).
+    fragments:
+    - 66-restrict-kubernetes-core-version.yaml
+    release_date: '2021-02-19'
+  1.1.0:
+    changes:
+      minor_changes:
+      - increase the kubernetes.core dependency version number (https://github.com/ansible-collections/community.okd/pull/71).
+    fragments:
+    - 71-bump-kubernetes-core-version.yaml
+    release_date: '2021-02-23'
+  1.1.1:
+    changes:
+      bugfixes:
+      - add missing requirements.txt file needed for execution environments (https://github.com/ansible-collections/community.okd/pull/78).
+      - openshift_route - default to ``no_log=False`` for the ``key`` parameter in
+        TLS configuration to fix sanity failures (https://github.com/ansible-collections/community.okd/pull/77).
+      - restrict molecule version to <3.3.0 to address breaking change (https://github.com/ansible-collections/community.okd/pull/77).
+      - update CI to work with ansible 2.11 (https://github.com/ansible-collections/community.okd/pull/80).
+    fragments:
+    - 77-fix-ci-failure.yaml
+    - 78-add-requirements-file.yaml
+    - 80-update-ci.yaml
+    release_date: '2021-04-06'
+  1.1.2:
+    changes:
+      bugfixes:
+      - include requirements.txt in downstream build process (https://github.com/ansible-collections/community.okd/pull/81).
+    fragments:
+    - 81-include-requirements.yaml
+    release_date: '2021-04-08'
+  2.0.0:
+    changes:
+      breaking_changes:
+      - drop python 2 support (https://github.com/openshift/community.okd/pull/93).
+      bugfixes:
+      - fixes test suite to use correct versions of python and dependencies (https://github.com/ansible-collections/community.okd/pull/89).
+      - openshift_process - fix module execution when template does not include a
+        message (https://github.com/ansible-collections/community.okd/pull/87).
+      major_changes:
+      - update to use kubernetes.core 2.0 (https://github.com/openshift/community.okd/pull/93).
+      minor_changes:
+      - Added documentation for the ``community.okd`` collection.
+      - openshift - inventory plugin supports FQCN ``redhat.openshift``.
+    fragments:
+    - 87-openshift_process-fix-template-without-message.yaml
+    - 89-clean-up-ci.yaml
+    - 93-update-to-k8s-2.yaml
+    - add_docs.yml
+    - fqcn_inventory.yml
+    release_date: '2021-06-22'
+  2.0.1:
+    changes:
+      minor_changes:
+      - increase kubernetes.core dependency version (https://github.com/openshift/community.okd/pull/97).
+    fragments:
+    - 97-bump-k8s-version.yaml
+    release_date: '2021-06-24'
+  2.1.0:
+    changes:
+      bugfixes:
+      - fix broken links in Automation Hub for redhat.openshift (https://github.com/openshift/community.okd/issues/100).
+      minor_changes:
+      - add support for turbo mode (https://github.com/openshift/community.okd/pull/102).
+      - openshift_route - Add support for Route annotations (https://github.com/ansible-collections/community.okd/pull/99).
+    fragments:
+    - 0-copy_ignore_txt.yml
+    - 100-fix-broken-links.yml
+    - 102-support-turbo-mode.yaml
+    - 99-openshift_route-add-support-for-annotations.yml
+    release_date: '2021-10-20'
+  2.2.0:
+    changes:
+      bugfixes:
+      - fix ocp auth failing against cluster api url with trailing slash (https://github.com/openshift/community.okd/issues/139)
+      minor_changes:
+      - add action groups to runtime.yml (https://github.com/openshift/community.okd/issues/41).
+    fragments:
+    - 152-add-action-groups.yml
+    - auth-against-api-with-trailing-slash.yaml
+    modules:
+    - description: Update TemplateInstances to point to the latest group-version-kinds
+      name: openshift_adm_migrate_template_instances
+      namespace: ''
+    - description: Removes references to the specified roles, clusterroles, users,
+        and groups
+      name: openshift_adm_prune_auth
+      namespace: ''
+    - description: Remove old completed and failed deployment configs
+      name: openshift_adm_prune_deployments
+      namespace: ''
+    - description: Remove unreferenced images
+      name: openshift_adm_prune_images
+      namespace: ''
+    - description: Import the latest image information from a tag in a container image
+        registry.
+      name: openshift_import_image
+      namespace: ''
+    - description: Display information about the integrated registry.
+      name: openshift_registry_info
+      namespace: ''
+    release_date: '2022-05-05'
+  2.3.0:
+    changes:
+      bugfixes:
+      - openshift_adm_groups_sync - initialize OpenshiftGroupSync attributes early
+        to avoid Attribute error (https://github.com/openshift/community.okd/issues/155).
+      - openshift_auth - Review the way the discard process is working, add openshift
+        algorithm to convert token to resource object name (https://github.com/openshift/community.okd/issues/176).
+    fragments:
+    - 165-initialize-attributes-early.yml
+    - 178-openshift_auth-fix-revoke-token.yml
+    - 180-default-values-doc.yml
+    modules:
+    - description: Prune old completed and failed builds
+      name: openshift_adm_prune_builds
+      namespace: ''
+    - description: Start a new build or Cancel running, pending, or new builds.
+      name: openshift_build
+      namespace: ''
+    release_date: '2023-02-03'
+  3.0.0:
+    changes:
+      breaking_changes:
+      - Bump minimum Python suupported version to 3.9 (https://github.com/openshift/community.okd/pull/202).
+      - Remove support for ansible-core < 2.14 (https://github.com/openshift/community.okd/pull/202).
+      deprecated_features:
+      - openshift - the ``openshift`` inventory plugin has been deprecated and will
+        be removed in release 4.0.0 (https://github.com/ansible-collections/kubernetes.core/issues/31).
+      release_summary: This major release drops support for ansible-core versions
+        lower than 2.14 and Python versions lower than 3.9. It also deprecates ``openshift``
+        inventory plugin.
+    fragments:
+    - 20230206-deprecate-openshift-inventory.yml
+    - 20231107-move-sanity-and-units-to-gha.yml
+    release_date: '2023-11-20'
+  3.0.1:
+    changes:
+      release_summary: 'This patch release fixes an issue in building the downstream
+        collection.
+
+        '
+    fragments:
+    - downstream-gitignore.yml
+    - release_summary.yml
+    release_date: '2023-11-30'
+  4.0.0:
+    changes:
+      minor_changes:
+      - connection/oc - added support of local enviroment variable that will be used
+        for ``oc`` and may be requried for establishing connections ifself (https://github.com/openshift/community.okd/pull/225).
+      - inventory/openshift.py - Defer removal of k8s inventory plugin to version
+        5.0.0 (https://github.com/openshift/community.okd/pull/224).
+      release_summary: In this major release we have removed support for ``ansible-core<2.15``.
+      removed_features:
+      - k8s - Support for ``merge_type=json`` has been removed in version 4.0.0. Please
+        use ``kubernetes.core.k8s_json_patch`` instead (https://github.com/openshift/community.okd/pull/226).
+    fragments:
+    - 20240523-connection-oc-add-support-for-local-env-vars.yml
+    - 4.0.0.yaml
+    - defer_removal_of_inventory_plugin.yaml
+    - k8s-merge_type=json-removed.yml
+    release_date: '2024-05-29'
+  4.0.1:
+    changes:
+      minor_changes:
+      - openshift_auth - fix issue where openshift_auth module sometimes does not
+        delete the auth token. Based on stale PR (https://github.com/openshift/community.okd/pull/194).
+      release_summary: This is a bug fix release
+    fragments:
+    - 242-fix-failed-token-deletion.yml
+    release_date: '2024-12-03'
+  4.0.2:
+    changes:
+      release_summary: This patch updates the k8s dependency version to the 5.x range
+        and modifies tests to handle the manual creation of service account tokens.
+    fragments:
+    - 4.0.2.yml
+    release_date: '2025-05-28'
+  5.0.0:
+    changes:
+      breaking_changes:
+      - Remove openshift inventory plugin deprecated in 3.0.0 (https://github.com/openshift/community.okd/pull/252).
+      minor_changes:
+      - Bump version of ansible-lint to 25.1.2 (https://github.com/openshift/community.okd/pull/255).
+      - Bump version of ansible-lint to minimum 24.7.0 (https://github.com/openshift/community.okd/pull/240).
+      release_summary: This release drops support for ansible-lint < 25.1.2 and removes deprecated openshift inventory plugin.
+    fragments:
+    - 240-bump-ansible-lint-version.yml
+    - 5.0.0.yml
+    - ansible-lint-update.yml
+    - readme_template_update.yml
+    release_date: '2025-06-10'

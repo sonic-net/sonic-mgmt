@@ -1,0 +1,32 @@
+---
+- name: Import FCP storage domain main block
+  ignore_errors: "{{ dr_ignore_error_recover }}"
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    - name: Import FCP storage domain
+      ovirt.ovirt.ovirt_storage_domain:
+        state: imported
+        id: "{{ fcp_storage['dr_domain_id'] }}"
+        name: "{{ fcp_storage['dr_' + dr_target_host + '_name'] | default('') }}"
+        critical_space_action_blocker: "{{ fcp_storage['dr_critical_space_action_blocker'] }}"
+        warning_low_space: "{{ fcp_storage['dr_warning_low_space'] }}"
+        discard_after_delete: "{{ fcp_storage['dr_discard_after_delete'] }}"
+        wipe_after_delete: "{{ fcp_storage['dr_wipe_after_delete'] }}"
+        backup: "{{ fcp_storage['dr_backup'] }}"
+        host: "{{ host_info.ovirt_hosts[0].name }}"
+        auth: "{{ ovirt_auth }}"
+        data_center: "{{ fcp_storage['dr_' + dr_target_host + '_dc_name'] }}"
+        fcp: {}
+      register: result
+
+    - name: Log append to succeed_storage_domains
+      ansible.builtin.set_fact:
+        succeed_storage_domains: "{{ succeed_storage_domains }} + [ \"{{ fcp_storage['dr_' + dr_target_host + '_name'] | default('') }}\" ]"
+      when: result is succeeded
+
+    - name: Log append to failed_storage_domains
+      ansible.builtin.set_fact:
+        failed_storage_domains: "{{ failed_storage_domains }} + [ \"{{ fcp_storage['dr_' + dr_target_host + '_name'] | default('') }}\" ]"
+      when: result is failed

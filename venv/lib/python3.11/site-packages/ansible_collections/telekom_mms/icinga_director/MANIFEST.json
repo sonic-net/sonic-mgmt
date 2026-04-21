@@ -1,0 +1,34 @@
+{
+ "collection_info": {
+  "namespace": "telekom_mms",
+  "name": "icinga_director",
+  "version": "2.5.0",
+  "authors": [
+   "Sebastian Gumprich <sebastian.gumprich@telekom.de>",
+   "Lars Krahl <lars.krahl@telekom.de>"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "icinga",
+   "monitoring"
+  ],
+  "description": "This collection contains Ansible modules to change objects in Icinga 2 using the director API.",
+  "license": [
+   "GPL-2.0-or-later"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/telekom-mms/ansible-collection-icinga-director",
+  "documentation": "https://github.com/telekom-mms/ansible-collection-icinga-director",
+  "homepage": "https://github.com/telekom-mms/ansible-collection-icinga-director",
+  "issues": "https://github.com/telekom-mms/ansible-collection-icinga-director/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "56d4bc7a789b9121a2b1dcb7afe54827bd26863c7f1b73cd20a5c80cabe75a4e",
+  "format": 1
+ },
+ "format": 1
+}

@@ -1,0 +1,28 @@
+---
+- name: Initialize variables
+  ansible.builtin.set_fact:
+    lun_wwid: "{{ lun_wwid | mandatory }}"
+
+- name: Get underlying disks (paths) for a multipath device(s) and turn them into a list.
+  ansible.builtin.shell: >-
+    for dev in {{ lun_wwid }}; do
+      set -euo pipefail && dmsetup deps -o devname $dev | cut -f 2 | cut -c 3- | tr -d "()" | tr "\r\n" " ";
+    done
+  changed_when: false
+  register: disks
+  check_mode: "no"
+
+- name: Remove from multipath device.
+  ansible.builtin.shell: "for dev in {{ lun_wwid }}; do multipath -f $dev || exit 1; done"
+  changed_when: true
+  register: flush_results
+  retries: 6
+  check_mode: "no"
+  until: flush_results.rc == 0
+
+- name: Remove each path from the SCSI subsystem.
+  ansible.builtin.shell: "for dev in {{ item.stdout }}; do echo 1 > /sys/block/$dev/device/delete; done"
+  changed_when: true
+  check_mode: "no"
+  with_items:
+    - "{{ disks }}"

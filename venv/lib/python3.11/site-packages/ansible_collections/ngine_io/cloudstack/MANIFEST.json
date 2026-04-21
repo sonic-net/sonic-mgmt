@@ -1,0 +1,42 @@
+{
+ "collection_info": {
+  "namespace": "ngine_io",
+  "name": "cloudstack",
+  "version": "2.5.0",
+  "authors": [
+   "Ren\u00e9 Moser <mail@renemoser.net>",
+   "David Passante (@dpassante)",
+   "Netservers Ltd. <support@netservers.co.uk>",
+   "Patryk D. Cichy <patryk.d.cichy@gmail.com>",
+   "Darren Worrall <darren@iweb.co.uk>",
+   "Marc-Aur\u00e8le Brothier (@marcaurele)",
+   "Jefferson Gir\u00e3o <jefferson@girao.net>",
+   "Gregor Riepl (@onitake)",
+   "Rafael del Valle (@rvalle)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "cloud",
+   "cloudstack",
+   "ngine_io"
+  ],
+  "description": "Ansible Collection for Apache CloudStack based clouds",
+  "license": [
+   "GPL-3.0-or-later"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/ngine-io/ansible-collection-cloudstack",
+  "documentation": "",
+  "homepage": "https://github.com/ngine-io/ansible-collection-cloudstack",
+  "issues": "https://github.com/ngine-io/ansible-collection-cloudstack/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "1f3b7c283357757f2d274cb539a4be6e898d5766b87e25d6c2928e44f6fecd45",
+  "format": 1
+ },
+ "format": 1
+}

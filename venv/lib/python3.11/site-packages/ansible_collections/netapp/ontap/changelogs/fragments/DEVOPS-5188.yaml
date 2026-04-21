@@ -1,0 +1,8 @@
+---
+minor_changes:
+  - na_ontap_lun - support ``qos_adaptive_policy_group`` with REST.
+bugfixes:
+  - na_ontap_lun - catch ZAPI error on get LUN.
+  - na_ontap_lun - ignore resize error if no change was required.
+  - na_ontap_lun - report error if flexvol_name is missing when using ZAPI.
+  - na_ontap_vserver_create role - add rule index as it is now required.

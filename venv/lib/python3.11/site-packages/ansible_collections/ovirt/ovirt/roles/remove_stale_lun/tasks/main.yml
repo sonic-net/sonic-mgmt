@@ -1,0 +1,8 @@
+---
+- name: Fetch hosts
+  ansible.builtin.include_tasks: fetch_hosts.yml
+  when: fetch_hosts
+
+- name: Remove mpath device
+  ansible.builtin.include_tasks: remove_mpath_device.yml
+  when: not fetch_hosts

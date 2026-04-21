@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.devices_blink_leds:
+        meraki_suppress_logging: true
+        duration: 20
+        duty: 50
+        period: 160
+        serial: QBSB-AX45-LY9A

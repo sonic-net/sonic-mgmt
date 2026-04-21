@@ -1,0 +1,2 @@
+minor_changes:
+  - Merged ansible role telekom-mms/ansible-role-grafana into ansible-collections/community.grafana

@@ -1,0 +1,3 @@
+minor_changes:
+ - purefb_bucket_replica - Upgraded to REST v2
+ - purefb_bucket_replica - Add Fusion support

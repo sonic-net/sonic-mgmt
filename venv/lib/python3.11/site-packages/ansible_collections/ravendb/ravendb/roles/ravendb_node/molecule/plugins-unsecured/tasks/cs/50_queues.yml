@@ -1,0 +1,304 @@
+---
+# --- Queue CS (Kafka) ---
+
+- name: Queue Kafka CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_kafka"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "KAFKA"
+      kafka_settings:
+        bootstrap_servers: "localhost:9092"
+    state: present
+  check_mode: yes
+  register: queue_kafka_check_create
+
+- name: Assert would created CS msg (check mode)
+  ansible.builtin.assert:
+    that:
+      - queue_kafka_check_create.changed
+      - "'would create' in ((queue_kafka_check_create.msg | default('')) | lower)"
+
+- name: Verify Queue Kafka CS not created on check mode
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: queue_after_check_create
+
+- name: Assert Queue Kafka CS not created
+  ansible.builtin.assert:
+    that:
+      - "'queue_kafka' not in (queue_after_check_create.json.QueueConnectionStrings | default({}))"
+
+- name: Queue Kafka CS (create)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_kafka"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "KAFKA"
+      kafka_settings:
+        bootstrap_servers: "localhost:9092"
+    state: present
+  register: queue_kafka_created
+
+- name: Assert Queue Kafka CS created
+  ansible.builtin.assert:
+    that:
+      - queue_kafka_created.changed
+      - "'created connection string' in ((queue_kafka_created.msg | default('')) | lower)"
+
+- name: Verify Queue Kafka CS created
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: queue_after_create
+
+- name: Assert Queue Kafka CS present
+  ansible.builtin.assert:
+    that:
+      - "'queue_kafka' in (queue_after_create.json.QueueConnectionStrings | default({}))"
+
+- name: Queue Kafka CS (idempotency check)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_kafka"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "KAFKA"
+      kafka_settings:
+        bootstrap_servers: "localhost:9092"
+    state: present
+  register: queue_kafka_created_again
+
+- name: Assert Queue Kafka CS creation idempotent
+  ansible.builtin.assert:
+    that:
+      - queue_kafka_created_again.changed == false
+      - "'already exists' in ((queue_kafka_created_again.msg | default('')) | lower)"
+      - "'no changes' in ((queue_kafka_created_again.msg | default('')) | lower)"
+
+- name: Attempt to modify existing Queue Kafka CS - should no-op
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_kafka"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "KAFKA"
+      kafka_settings:
+        bootstrap_servers: "localhost:9092"
+        connection_options:
+          acks: "all"
+    state: present
+  register: queue_kafka_modify_attempt
+
+- name: Assert modify attempt was a no-op
+  ansible.builtin.assert:
+    that:
+      - queue_kafka_modify_attempt is succeeded
+      - queue_kafka_modify_attempt.changed == false
+      - "'already exists' in ((queue_kafka_modify_attempt.msg | default('')) | lower)"
+      - "'no changes' in ((queue_kafka_modify_attempt.msg | default('')) | lower)"
+
+
+- name: Queue Kafka CS with connection options
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_kafka_co"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "KAFKA"
+      kafka_settings:
+        bootstrap_servers: "localhost:9092"
+        connection_options:
+          acks: "all"
+          batch.size: "16384"
+    state: present
+  register: queue_kafka_co_created
+
+- name: Queue RabbitMQ CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_rabbit"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "RABBIT_MQ"
+      rabbit_mq_settings:
+        connection_string: "amqp://guest:guest@localhost:5672/"
+    state: present
+  register: queue_rabbit_created
+
+- name: Queue Azure QS (Entra ID) CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_azq_entra"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AZURE_QUEUE_STORAGE"
+      azure_queue_storage_settings:
+        entra_id:
+          storage_account_name: "mystorage"
+          tenant_id: "tenant-id"
+          client_id: "client-id"
+          client_secret: "client-secret"
+    state: present
+  register: queue_azq_entra_created
+
+- name: Queue Azure QS (Passwordless) CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_azq_pwless"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AZURE_QUEUE_STORAGE"
+      azure_queue_storage_settings:
+        passwordless:
+          storage_account_name: "mystorage"
+    state: present
+  register: queue_azq_pwless_created
+
+
+- name: Queue Azure QS (ConnString) CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_azq_conn"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AZURE_QUEUE_STORAGE"
+      azure_queue_storage_settings:
+        connection_string: "DefaultEndpointsProtocol=https;AccountName=acc;AccountKey=key;EndpointSuffix=core.windows.net"
+    state: present
+  register: queue_azq_conn_created
+
+
+- name: Queue Amazon SQS CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_sqs"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AMAZON_SQS"
+      amazon_sqs_settings:
+        basic:
+          access_key: "AKIA..."
+          secret_key: "SECRET..."
+          region_name: "us-east-1"
+    state: present
+  register: queue_sqs_created
+
+- name: Queue Amazon SQS CS passwordless
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_sqs_pwless"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AMAZON_SQS"
+      amazon_sqs_settings:
+        passwordless: true
+    state: present
+  register: queue_sqs_pwless_created
+
+- name: Assert all Queue CS created
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - "'created connection string' in ((item.msg | default('')) | lower)"
+  loop:
+    - "{{ queue_kafka_co_created }}"
+    - "{{ queue_rabbit_created }}"
+    - "{{ queue_azq_entra_created }}"
+    - "{{ queue_azq_pwless_created }}"
+    - "{{ queue_azq_conn_created }}"
+    - "{{ queue_sqs_created }}"
+    - "{{ queue_sqs_pwless_created }}"
+
+- name: Fetch all CS json
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: queue_cs_json
+
+- name: Assert each Queue CS exists on server
+  ansible.builtin.assert:
+    that:
+      - "item in (queue_cs_json.json.QueueConnectionStrings | default({}))"
+  loop:
+    - "queue_kafka"
+    - "queue_kafka_co"
+    - "queue_rabbit"
+    - "queue_azq_entra"
+    - "queue_azq_pwless"
+    - "queue_azq_conn"
+    - "queue_sqs"
+    - "queue_sqs_pwless"
+
+
+- name: Queue Kafka CS (check-mode delete)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_kafka"
+    cs_type: "QUEUE"
+    state: absent
+  check_mode: yes
+  register: queue_kafka_check_delete
+
+- name: Assert would delete message (check mode)
+  ansible.builtin.assert:
+    that:
+      - queue_kafka_check_delete.changed
+      - "'would delete' in ((queue_kafka_check_delete.msg | default('')) | lower)"
+
+- name: Verify Queue Kafka still exists after check-mode delete
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: queue_after_check_delete
+
+- name: Assert Queue Kafka still present after check-mode delete
+  ansible.builtin.assert:
+    that:
+      - "'queue_kafka' in (queue_after_check_delete.json.QueueConnectionStrings | default({}))"
+
+- name: Queue Kafka CS (delete)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "queue_kafka"
+    cs_type: "QUEUE"
+    state: absent
+  register: queue_kafka_deleted
+
+- name: Assert Queue Kafka CS deleted
+  ansible.builtin.assert:
+    that:
+      - queue_kafka_deleted.changed
+      - "'deleted connection string' in ((queue_kafka_deleted.msg | default('')) | lower)"
+
+- name: Verify Queue Kafka CS is gone
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: queue_after_delete
+
+- name: Assert Queue Kafka CS not present after delete
+  ansible.builtin.assert:
+    that:
+      - "'queue_kafka' not in (queue_after_delete.json.QueueConnectionStrings | default({}))"

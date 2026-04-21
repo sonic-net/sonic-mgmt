@@ -1,0 +1,12 @@
+release_summary: release fortinet.fortimanager 2.4.0
+minor_changes:
+  - Added deprecated warning to invalid argument name, please change the invalid argument name such as "var-name", "var name" to "var_name".
+  - Supported fortimanager 7.4.2, 21 new modules.
+bugfixes:
+  - Changed revision to v_range to reduce the size of the code.
+  - Reduced the size of module_arg_spec in each module.
+  - Removed most of the sanity test ignores.
+  - Improved the logic of fmgr_fact, fmgr_clone, fmgr_rename, fmgr_move. Usage remains unchanged.
+  - Improved example ansible playbooks.
+  - Fixed the behavior of module fmgr_firewall_internetservicecustom.
+  - Fixed the behavior of some modules that contain the argument policyid.

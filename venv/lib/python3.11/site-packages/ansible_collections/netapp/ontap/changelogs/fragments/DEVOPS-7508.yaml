@@ -1,0 +1,2 @@
+major_changes:
+  - na_ontap_lun_copy - added check to prevent use on unsupported ASA r2 systems.

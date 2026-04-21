@@ -1,0 +1,140 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      minor_changes:
+      - Added new facts module `hv_certificates_facts`.
+      - Added new facts module `hv_events_facts`.
+      - Added new facts module `hv_galaxy_facts`.
+      - Added new facts module `hv_kmip_server_facts`.
+      - Added new facts module `hv_licenses_facts`.
+      - Added new facts module `hv_region_facts`.
+      - Added new facts module `hv_s3_encryption_facts`.
+      - Added new facts module `hv_serial_number_facts`.
+      - Added new facts module `hv_storage_class_facts`.
+      - Added new facts module `hv_storage_components_facts`.
+      - Added new facts module `hv_storage_fault_domain_facts`.
+      - Added new facts module `hv_troubleshooting_facts`.
+      - Added new facts module `hv_user_buckets_facts`.
+      - Added new facts module `hv_user_id_facts`.
+      - Added new facts module `hv_users_facts`.
+      - Added new module `hv_certificates`.
+      - Added new module `hv_csrf`.
+      - Added new module `hv_job`.
+      - Added new module `hv_jobs_facts`.
+      - Added new module `hv_kmip`.
+      - Added new module `hv_license`.
+      - Added new module `hv_s3_encryption`.
+      - Added new module `hv_s3_user_credentials`.
+      - Added new module `hv_serial_number`.
+      - Added new module `hv_storage_class`.
+      - Added new module `hv_storage_component_state_update`.
+      - Added new module `hv_storage_component`.
+      - Added new module `hv_storage_fault_domain`.
+      release_summary: This minor release of `hitachivantara.vspone_object` introduces
+        new modules for VSP One Object management.
+    fragments:
+    - release-1.0.0.yml
+    modules:
+    - description: Manage certificates in Hitachi VSP One Object.
+      name: hv_certificates
+      namespace: oneobject_node
+    - description: Get all the certificates of VSP One Object.
+      name: hv_certificates_facts
+      namespace: oneobject_node
+    - description: Fetch CSRF tokens from Hitachi VSP One Object.
+      name: hv_csrf
+      namespace: oneobject_node
+    - description: Get events from VSP One Object.
+      name: hv_events_facts
+      namespace: oneobject_node
+    - description: Get the galaxy information of VSP One Object.
+      name: hv_galaxy_facts
+      namespace: oneobject_node
+    - description: Manage jobs in Hitachi VSP One Object.
+      name: hv_job
+      namespace: oneobject_node
+    - description: Get job information from VSP One Object.
+      name: hv_jobs_facts
+      namespace: oneobject_node
+    - description: Manage KMIP servers on VSP One Object.
+      name: hv_kmip
+      namespace: oneobject_node
+    - description: Get a list of KMIP servers.
+      name: hv_kmip_server_facts
+      namespace: oneobject_node
+    - description: Manage License in Hitachi VSP One Object.
+      name: hv_license
+      namespace: oneobject_node
+    - description: Get all the licenses of VSP One Object.
+      name: hv_licenses_facts
+      namespace: oneobject_node
+    - description: Get the region info of VSP One Object.
+      name: hv_region_facts
+      namespace: oneobject_node
+    - description: Set S3 Encryption.
+      name: hv_s3_encryption
+      namespace: oneobject_node
+    - description: Get the S3 encryption of VSP One Object.
+      name: hv_s3_encryption_facts
+      namespace: oneobject_node
+    - description: Generate S3 user credentials.
+      name: hv_s3_user_credentials
+      namespace: oneobject_node
+    - description: Set serial number for VSP One Object.
+      name: hv_serial_number
+      namespace: oneobject_node
+    - description: Get the serialnumber of VSP One Object.
+      name: hv_serial_number_facts
+      namespace: oneobject_node
+    - description: Create or update a storage class.
+      name: hv_storage_class
+      namespace: oneobject_node
+    - description: Get storage classes from VSP One Object.
+      name: hv_storage_class_facts
+      namespace: oneobject_node
+    - description: Create or update a storage component.
+      name: hv_storage_component
+      namespace: oneobject_node
+    - description: Update state of a storage component.
+      name: hv_storage_component_state_update
+      namespace: oneobject_node
+    - description: Get storage components from VSP One Object.
+      name: hv_storage_components_facts
+      namespace: oneobject_node
+    - description: Create or update a storage fault domain.
+      name: hv_storage_fault_domain
+      namespace: oneobject_node
+    - description: Get storage fault domains from VSP One Object.
+      name: hv_storage_fault_domain_facts
+      namespace: oneobject_node
+    - description: Create a log bundle for troubleshooting.
+      name: hv_troubleshooting_facts
+      namespace: oneobject_node
+    - description: Get a list of user buckets.
+      name: hv_user_buckets_facts
+      namespace: oneobject_node
+    - description: Get all the users's ids of VSP One Object.
+      name: hv_user_id_facts
+      namespace: oneobject_node
+    - description: Get all the users of VSP One Object.
+      name: hv_users_facts
+      namespace: oneobject_node
+    release_date: '2025-08-12'
+  1.1.0:
+    changes:
+      minor_changes:
+      - Enhanced `hv_storage_component` module to support storage components of type
+        ARRAY for VSP One B20 series storage systems.
+      release_summary: This minor release of `hitachivantara.vspone_object` enhances
+        the storage component module with initial support for VSP One B20 series storage
+        systems.
+    fragments:
+    - release-1.1.0.yml
+    release_date: '2025-11-14'
+  1.1.1:
+    changes:
+      release_summary: This patch release provides minor documentation improvements.
+    fragments:
+    - release-1.1.1.yml
+    release_date: '2025-11-25'

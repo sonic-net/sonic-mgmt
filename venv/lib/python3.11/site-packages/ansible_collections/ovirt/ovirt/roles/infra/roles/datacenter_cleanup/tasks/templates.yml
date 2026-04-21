@@ -1,0 +1,16 @@
+---
+- name: Find existing Templates
+  ovirt.ovirt.ovirt_template_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "datacenter={{ data_center_name }}"
+  register: template_info
+
+- name: Remove Templates
+  ovirt.ovirt.ovirt_template:
+    state: absent
+    auth: "{{ ovirt_auth }}"
+    id: "{{ ovirt_item.id }}"
+  with_items: "{{ template_info.ovirt_templates }}"
+  when: ovirt_item.name != 'Blank'
+  loop_control:
+    loop_var: ovirt_item

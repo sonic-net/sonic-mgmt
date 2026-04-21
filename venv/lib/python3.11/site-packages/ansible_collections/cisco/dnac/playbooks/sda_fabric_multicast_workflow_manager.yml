@@ -1,0 +1,151 @@
+---
+- name: Configure multicast in the SDA Fabric
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Add the multicast configuration to the fabric site.
+      cisco.dnac.sda_fabric_multicast_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - fabric_multicast:
+              - fabric_name: Global/USA/SAN JOSE
+                layer3_virtual_network: L3_VN_MUL_1
+                replication_mode: HEADEND_REPLICATION
+                ip_pool_name: ip_pool_dual_mul
+
+                ssm:
+                  ipv4_ssm_ranges:
+                    - "227.0.0.0/8"
+
+                asm:
+                  - rp_device_location: FABRIC
+                    network_device_ips:
+                      - "204.1.2.3"
+                    is_default_v4_rp: false
+                    ipv4_asm_ranges:
+                      - "232.0.0.0/8"
+                      - "233.0.0.0/8"
+
+                  - rp_device_location: EXTERNAL
+                    ex_rp_ipv4_address: "10.0.0.1"
+                    is_default_v4_rp: false
+                    ipv4_asm_ranges:
+                      - "234.0.0.0/8"
+                      - "235.0.0.0/8"
+
+                  - rp_device_location: EXTERNAL
+                    ex_rp_ipv6_address: "2001::1"
+                    is_default_v6_rp: false
+                    ipv6_asm_ranges:
+                      - "FF04::/64"
+                      - "FF05::/64"
+
+    - name: Update the multicast configuration to the fabric site.
+      cisco.dnac.sda_fabric_multicast_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - fabric_multicast:
+              - fabric_name: Global/USA/SAN JOSE
+                layer3_virtual_network: L3_VN_MUL_1
+                replication_mode: NATIVE_MULTICAST
+                ip_pool_name: ip_pool_dual_mul
+
+                ssm:
+                  ipv4_ssm_ranges:
+                    - "228.0.0.0/8"
+
+                asm:
+                  - rp_device_location: FABRIC
+                    network_device_ips:
+                      - "204.1.2.3"
+                      - "204.1.2.4"
+                    is_default_v4_rp: false
+                    ipv4_asm_ranges:
+                      - "232.0.0.0/8"
+                      - "233.0.0.0/8"
+
+                  - rp_device_location: EXTERNAL
+                    ex_rp_ipv4_address: "10.0.0.3"
+                    is_default_v4_rp: false
+                    ipv4_asm_ranges:
+                      - "235.0.0.0/8"
+                      - "236.0.0.0/8"
+
+                  - rp_device_location: EXTERNAL
+                    ex_rp_ipv6_address: "2001::1"
+                    is_default_v6_rp: false
+                    ipv6_asm_ranges:
+                      - "FF04::/64"
+                      - "FF05::/64"
+
+    - name: Delete the asm configurations of the multicast configuration.
+      cisco.dnac.sda_fabric_multicast_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: deleted
+        config_verify: true
+        config:
+          - fabric_multicast:
+              - fabric_name: Global/USA/SAN JOSE
+                layer3_virtual_network: L3_VN_MUL_1
+                replication_mode: NATIVE_MULTICAST
+
+                asm:
+                  - rp_device_location: FABRIC
+                    network_device_ips:
+                      - "204.1.2.3"
+                      - "204.1.2.4"
+                    is_default_v4_rp: false
+                    ipv4_asm_ranges:
+                      - "232.0.0.0/8"
+                      - "233.0.0.0/8"
+
+                  - rp_device_location: EXTERNAL
+                    ex_rp_ipv4_address: "10.0.0.3"
+                    is_default_v4_rp: false
+                    ipv4_asm_ranges:
+                      - "235.0.0.0/8"
+                      - "236.0.0.0/8"
+
+                  - rp_device_location: EXTERNAL
+                    ex_rp_ipv6_address: "2001::1"
+                    is_default_v6_rp: false
+                    ipv6_asm_ranges:
+                      - "FF04::/64"
+                      - "FF05::/64"

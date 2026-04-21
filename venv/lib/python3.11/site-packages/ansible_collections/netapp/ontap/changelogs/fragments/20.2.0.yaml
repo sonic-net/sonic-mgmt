@@ -1,0 +1,18 @@
+---
+minor_changes:
+  - na_ontap_info - New info's added ``snapshot_info``
+  - na_ontap_info - ``max_records`` option to set maximum number of records to return per subset.
+  - na_ontap_snapmirror - ``relationship_state`` option for breaking the snapmirror relationship.
+  - na_ontap_snapmirror - ``update_snapmirror`` option for updating the snapmirror relationship.
+  - na_ontap_volume_clone - ``split`` option to split clone volume from parent volume.
+  - na_ontap_nas_create - role - fix typo in README file, add CIFS example. -
+
+bugfixes:
+  - na_ontap_cifs_server - Fixed KeyError exception on 'cifs_server_name'
+  - na_ontap_command - fixed traceback when using return_dict if u'1' is present in result value.
+  - na_ontap_login_messages - Fixed example documentation and spelling mistake issue
+  - na_ontap_nvme_subsystem - fixed bug when creating subsystem, vserver was not filtered.
+  - na_ontap_svm - if snapshot policy is changed, modify fails with "Extra input - snapshot_policy"
+  - na_ontap_svm - if language C.UTF-8 is specified, the module is not idempotent
+  - na_ontap_volume_clone - fixed 'Extra input - parent-vserver' error when running as cluster admin.
+  - na_ontap_qtree - Fixed issue with Get function for REST

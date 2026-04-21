@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_info - Fixed issue with admin token creation time and bucket policies

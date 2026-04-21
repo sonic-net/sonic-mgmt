@@ -1,0 +1,280 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2019 Yuwei Zhou, <yuwzho@microsoft.com>
+#
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, division, print_function
+__metaclass__ = type
+
+
+DOCUMENTATION = '''
+---
+module: azure_rm_loganalyticsworkspace_info
+version_added: "0.1.2"
+short_description: Get facts of Azure Log Analytics workspaces
+description:
+    - Get, query Azure Log Analytics workspaces.
+options:
+    resource_group:
+        description:
+            - Name of resource group.
+        type: str
+    name:
+        description:
+            - Name of the workspace.
+            - The resource group must be configured when name exists.
+        type: str
+    tags:
+        description:
+            - Limit results by providing a list of tags. Format tags as 'key' or 'key:value'.
+        type: list
+        elements: str
+    show_intelligence_packs:
+        description:
+            - Show the intelligence packs for a workspace.
+            - Note this will cost one more network overhead for each workspace, expected slow response.
+        type: bool
+    show_management_groups:
+        description:
+            - Show the management groups for a workspace.
+            - Note this will cost one more network overhead for each workspace, expected slow response.
+        type: bool
+    show_shared_keys:
+        description:
+            - Show the shared keys for a workspace.
+            - Note this will cost one more network overhead for each workspace, expected slow response.
+        type: bool
+    show_usages:
+        description:
+            - Show the list of usages for a workspace.
+            - Note this will cost one more network overhead for each workspace, expected slow response.
+        type: bool
+extends_documentation_fragment:
+    - azure.azcollection.azure
+
+author:
+    - Yuwei Zhou (@yuwzho)
+
+'''
+
+EXAMPLES = '''
+- name: Query a workspace
+  azure_rm_loganalyticsworkspace_info:
+      resource_group: myResourceGroup
+      name: myLogAnalyticsWorkspace
+      show_intelligence_packs: true
+      show_management_groups: true
+      show_shared_keys: true
+      show_usages: true
+'''
+
+RETURN = '''
+id:
+    description:
+        - Workspace resource path.
+    type: str
+    returned: success
+    example: "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myResourceGroup/providers/Microsoft.OperationalInsights/workspaces/m
+              yLogAnalyticsWorkspace"
+location:
+    description:
+        - Resource location.
+    type: str
+    returned: success
+    example: "eastus"
+sku:
+    description:
+        - The SKU of the workspace.
+    type: str
+    returned: success
+    example: "per_gb2018"
+retention_in_days:
+    description:
+        - The workspace data retention in days.
+        - -1 means Unlimited retention for I(sku=unlimited).
+        - 730 days is the maximum allowed for all other SKUs.
+    type: int
+    returned: success
+    example: 40
+intelligence_packs:
+    description:
+        - Lists all the intelligence packs possible and whether they are enabled or disabled for a given workspace.
+    type: list
+    returned: success
+    example: [ {'name': 'CapacityPerformance', 'enabled': true} ]
+management_groups:
+    description:
+        - Management groups connected to the workspace.
+    type: dict
+    returned: success
+    example: {'value': []}
+shared_keys:
+    description:
+        - Shared keys for the workspace.
+    type: dict
+    returned: success
+    example: {
+                'primarySharedKey': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+                'secondarySharedKey': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+              }
+usages:
+    description:
+        - Usage metrics for the workspace.
+    type: dict
+    returned: success
+    example: {
+                'value': [
+                    {
+                    'name': {
+                        'value': 'DataAnalyzed',
+                        'localizedValue': 'Data Analyzed'
+                    },
+                    'unit': 'Bytes',
+                    'currentValue': 0,
+                    'limit': 524288000,
+                    'nextResetTime': '2017-10-03T00:00:00Z',
+                    'quotaPeriod': 'P1D'
+                    }
+                ]
+              }
+'''  # NOQA
+
+from ansible.module_utils.common.dict_transformations import _camel_to_snake
+
+try:
+    from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common import AzureRMModuleBase
+    from azure.core.exceptions import ResourceNotFoundError
+    from azure.mgmt.core.tools import parse_resource_id
+except ImportError:
+    # This is handled in azure_rm_common
+    pass
+
+
+class AzureRMLogAnalyticsWorkspaceInfo(AzureRMModuleBase):
+
+    def __init__(self):
+
+        self.module_arg_spec = dict(
+            resource_group=dict(type='str'),
+            name=dict(type='str'),
+            tags=dict(type='list', elements='str'),
+            show_shared_keys=dict(type='bool'),
+            show_intelligence_packs=dict(type='bool'),
+            show_usages=dict(type='bool'),
+            show_management_groups=dict(type='bool')
+        )
+
+        self.results = dict(
+            changed=False,
+            workspaces=[]
+        )
+
+        self.resource_group = None
+        self.name = None
+        self.tags = None
+        self.show_intelligence_packs = None
+        self.show_shared_keys = None
+        self.show_usages = None
+        self.show_management_groups = None
+
+        super(AzureRMLogAnalyticsWorkspaceInfo, self).__init__(self.module_arg_spec, supports_check_mode=True, supports_tags=False, facts_module=True)
+
+    def exec_module(self, **kwargs):
+
+        for key in list(self.module_arg_spec.keys()):
+            setattr(self, key, kwargs[key])
+
+        if self.name:
+            if self.resource_group:
+                item = self.get_workspace()
+                response = [item] if item else []
+            else:
+                self.fail('The resource_group must be configured when name exists')
+        elif self.resource_group:
+            response = self.list_by_resource_group()
+        else:
+            response = self.list()
+
+        self.results['workspaces'] = [self.to_dict(x) for x in response if self.has_tags(x.tags, self.tags)]
+        return self.results
+
+    def get_workspace(self):
+        try:
+            return self.log_analytics_client.workspaces.get(self.resource_group, self.name)
+        except ResourceNotFoundError:
+            pass
+        return None
+
+    def list_by_resource_group(self):
+        try:
+            return self.log_analytics_client.workspaces.list_by_resource_group(self.resource_group)
+        except Exception as ec:
+            pass
+        return []
+
+    def list(self):
+        try:
+            return self.log_analytics_client.workspaces.list()
+        except Exception:
+            pass
+        return []
+
+    def list_intelligence_packs(self, resource_group, name):
+        try:
+            response = self.log_analytics_client.intelligence_packs.list(resource_group, name)
+            return [x.as_dict() for x in response]
+        except Exception as exc:
+            self.fail('Error when listing intelligence packs {0}'.format(exc.message or str(exc)))
+
+    def list_management_groups(self, resource_group, name):
+        result = []
+        try:
+            response = self.log_analytics_client.management_groups.list(resource_group, name)
+            while True:
+                result.append(response.next().as_dict())
+        except StopIteration:
+            pass
+        except Exception as exc:
+            self.fail('Error when listing management groups {0}'.format(exc.message or str(exc)))
+        return result
+
+    def list_usages(self, resource_group, name):
+        result = []
+        try:
+            response = self.log_analytics_client.usages.list(resource_group, name)
+            while True:
+                result.append(response.next().as_dict())
+        except StopIteration:
+            pass
+        except Exception as exc:
+            self.fail('Error when listing usages {0}'.format(exc.message or str(exc)))
+        return result
+
+    def get_shared_keys(self, resource_group, name):
+        try:
+            return self.log_analytics_client.shared_keys.get_shared_keys(resource_group, name).as_dict()
+        except Exception as exc:
+            self.fail('Error when getting shared key {0}'.format(exc.message or str(exc)))
+
+    def to_dict(self, workspace):
+        result = workspace.as_dict()
+        result['sku'] = _camel_to_snake(workspace.sku.name)
+        result['resource_group'] = parse_resource_id(result['id'])['resource_group']
+        if self.show_intelligence_packs:
+            result['intelligence_packs'] = self.list_intelligence_packs(result['resource_group'], result['name'])
+        if self.show_management_groups:
+            result['management_groups'] = self.list_management_groups(result['resource_group'], result['name'])
+        if self.show_shared_keys:
+            result['shared_keys'] = self.get_shared_keys(result['resource_group'], result['name'])
+        if self.show_usages:
+            result['usages'] = self.list_usages(result['resource_group'], result['name'])
+        return result
+
+
+def main():
+    AzureRMLogAnalyticsWorkspaceInfo()
+
+
+if __name__ == '__main__':
+    main()

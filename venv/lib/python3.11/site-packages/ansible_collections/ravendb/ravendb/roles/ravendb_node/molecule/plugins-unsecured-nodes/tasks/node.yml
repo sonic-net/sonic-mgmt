@@ -1,0 +1,124 @@
+---
+
+- name: Add B as Member (check_mode)
+  ravendb.ravendb.node:
+    tag: "{{ node_b_tag }}"
+    type: "Member"
+    url: "{{ node_b_cluster_url }}"
+    leader_url: "{{ leader_cluster_url }}"
+  check_mode: yes
+  register: member_b_check
+
+- name: Assert Member B would be added (check-mode)
+  ansible.builtin.assert:
+    that:
+      - member_b_check.changed
+      - (member_b_check.failed is not defined) or (not member_b_check.failed)
+
+- name: Add B as Member
+  ravendb.ravendb.node:
+    tag: "{{ node_b_tag }}"
+    type: "Member"
+    url: "{{ node_b_cluster_url }}"
+    leader_url: "{{ leader_cluster_url }}"
+  register: member_b_real
+
+- name: Assert Member B added
+  ansible.builtin.assert:
+    that:
+      - member_b_real.changed
+      - (member_b_real.failed is not defined) or (not member_b_real.failed)
+
+- name: Fetch topology after adding Member B
+  ansible.builtin.uri:
+    url: "{{ leader_cluster_url }}/cluster/topology"
+    method: GET
+    status_code: 200
+    return_content: yes
+    validate_certs: no
+  register: topo
+
+- name: Extract member tags
+  ansible.builtin.set_fact:
+    member_tags: "{{ topo.json.Topology.Members.keys() | list | unique }}"
+
+
+- name: Assert B present in Members
+  ansible.builtin.assert:
+    that:
+      - "'B' in member_tags"
+
+- name: Re-run add B (idempotency, also omit type -  should default to Member)
+  ravendb.ravendb.node:
+    tag: "{{ node_b_tag }}"
+    url: "{{ node_b_cluster_url }}"
+    leader_url: "{{ leader_cluster_url }}"
+  register: member_b_again
+
+- name: Assert Member B idempotent
+  ansible.builtin.assert:
+    that:
+      - not member_b_again.changed
+      - (member_b_again.failed is not defined) or (not member_b_again.failed)
+
+
+- name: Add C as Watcher (check_mode)
+  ravendb.ravendb.node:
+    tag: "{{ node_c_tag }}"
+    type: "Watcher"
+    url: "{{ node_c_cluster_url }}"
+    leader_url: "{{ leader_cluster_url }}"
+  check_mode: yes
+  register: watcher_c_check
+
+- name: Assert Watcher C would be added (check-mode)
+  ansible.builtin.assert:
+    that:
+      - watcher_c_check.changed
+      - (watcher_c_check.failed is not defined) or (not watcher_c_check.failed)
+
+- name: Add C as Watcher
+  ravendb.ravendb.node:
+    tag: "{{ node_c_tag }}"
+    type: "Watcher"
+    url: "{{ node_c_cluster_url }}"
+    leader_url: "{{ leader_cluster_url }}"
+  register: watcher_c_real
+
+- name: Assert Watcher C added (real)
+  ansible.builtin.assert:
+    that:
+      - watcher_c_real.changed
+      - (watcher_c_real.failed is not defined) or (not watcher_c_real.failed)
+
+- name: Fetch topology after adding Watcher C
+  ansible.builtin.uri:
+    url: "{{ leader_cluster_url }}/cluster/topology"
+    method: GET
+    status_code: 200
+    return_content: yes
+    validate_certs: no
+  register: topo
+
+- name: Extract watcher tags
+  ansible.builtin.set_fact:
+    watcher_tags: "{{ topo.json.Topology.Watchers.keys() | list | unique }}"
+
+- name: Assert C present in Watchers
+  ansible.builtin.assert:
+    that:
+      - "'C' in watcher_tags"
+
+- name: Re-run add C (idempotency)
+  ravendb.ravendb.node:
+    tag: "{{ node_c_tag }}"
+    type: "Watcher"
+    url: "{{ node_c_cluster_url }}"
+    leader_url: "{{ leader_cluster_url }}"
+  register: watcher_c_again
+
+- name: Assert Watcher C idempotent
+  ansible.builtin.assert:
+    that:
+      - not watcher_c_again.changed
+      - (watcher_c_again.failed is not defined) or (not watcher_c_again.failed)

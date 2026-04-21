@@ -1,0 +1,66 @@
+---
+# tasks file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
+
+- name: Warn about data being permanently deleted
+  ansible.builtin.set_fact:
+    agreement: "{{ removing_volumes_permanently_destroy_user_data | default('not set') }}"
+
+- name: Warn about data being permanently deleted
+  ansible.builtin.fail:
+    msg: |
+      This role will permanently delete all user data associated with volumes owned by vserver '{{ vserver_name }}'.
+      Make sure sure to set 'removing_volumes_permanently_destroy_user_data' to 'I agree' in your playbook.
+      Current value: {{ agreement }}.
+  when: agreement != 'I agree'
+
+- name: Check REST is enabled and ONTAP version
+  netapp.ontap.na_ontap_restit:
+    api: cluster
+    query:
+      fields: version
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+  register: results
+
+- name: Check ONTAP version is 9.7 or better
+  ansible.builtin.assert:
+    that: results.response.version.generation > 9 or (results.response.version.generation == 9 and results.response.version.major >= 7)
+    quiet: true
+
+- name: Check REST is enabled and SVM exists
+  netapp.ontap.na_ontap_rest_info:
+    gather_subset:
+      - vserver_info
+    parameters:
+      name: "{{ vserver_name }}"
+      fields: ip_interfaces
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+  register: results
+
+- name: Check query succeeded
+  ansible.builtin.assert:
+    that: '"num_records" in results.ontap_info["svm/svms"]'
+    quiet: true
+
+- name: Check SVM exists - warn if not found
+  ansible.builtin.fail:
+    msg: "SVM {{ vserver_name }} not found"
+  when: results.ontap_info["svm/svms"]["num_records"] == 0
+  ignore_errors: true
+  register: errors    # to bypass the ignore-errors checker
+
+- name: Check only one record was found
+  ansible.builtin.fail:
+    msg: "Unexpected results when getting SVM {{ vserver_name }}: {{ results }}"
+  when: results.ontap_info["svm/svms"]["num_records"] > 1
+
+- name: Record whether svm exists
+  ansible.builtin.set_fact:
+    svm_exists: '{{ results.ontap_info["svm/svms"]["num_records"] | bool }}'

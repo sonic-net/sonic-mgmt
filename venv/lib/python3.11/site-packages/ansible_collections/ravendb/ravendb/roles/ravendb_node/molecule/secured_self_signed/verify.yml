@@ -1,0 +1,64 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+
+    - name: Load settings.json
+      become: yes
+      include_vars:
+        file: "/etc/ravendb/settings.json"
+        name: settings
+
+    - name: Assert that settings override was applied
+      ansible.builtin.assert:
+        that:
+          - settings['Logs.Mode'] == "Information"
+
+    - name: Assert it's unsecured
+      ansible.builtin.assert:
+        that:
+          - settings['ServerUrl'] is not regex('^https:')
+
+    - name: Get service status
+      become: true
+      systemd:
+        name: ravendb.service
+        state: started
+      register: service_status
+
+    - name: Assert service state
+      ansible.builtin.assert:
+        that: service_status.status | json_query('ActiveState') == 'active'
+
+    - name: Verify RavenDB Studio HTML is inaccessible without cert being provided
+      ansible.builtin.uri:
+        url: https://localhost:443/studio/index.html
+        validate_certs: no
+        status_code: 403 
+      register: curl_output
+
+    - name: Assert 'InvalidAuth' message in response
+      ansible.builtin.assert:
+        that:
+          - curl_output.json.Type == "InvalidAuth"
+
+    - name: Install curl
+      become: true
+      ansible.builtin.package:
+        name: curl
+        state: present
+
+    - name: Verify RavenDB Studio access with client certificate
+      become: true
+      ansible.builtin.command:
+        cmd: "curl -k --cert-type PEM --cert /etc/ravendb/security/raven_cert.pem --key /etc/ravendb/security/raven_key.pem -o /dev/null -s -w '%{http_code}' https://localhost:443/studio/index.html"
+      register: curl_output
+      failed_when: curl_output.stdout != '200'
+
+    - name: Verify server certificate against CA certificate
+      become: true
+      ansible.builtin.shell:
+        cmd: "echo | openssl s_client -connect localhost:443 -CAfile /etc/ravendb/security/ca_certificate.pem -verify_return_error"
+      register: ca_validation_output
+      failed_when: "'Verify return code: 0 (ok)' not in ca_validation_output.stdout"

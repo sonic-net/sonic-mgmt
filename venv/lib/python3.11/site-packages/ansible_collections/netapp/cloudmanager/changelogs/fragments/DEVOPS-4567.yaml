@@ -1,0 +1,2 @@
+bugfixes:
+  - Add check when volume is capacity tiered.

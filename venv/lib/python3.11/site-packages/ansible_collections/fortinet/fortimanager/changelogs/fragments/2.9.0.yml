@@ -1,0 +1,5 @@
+release_summary: Release fortinet.fortimanager 2.9.0
+minor_changes:
+  - Supported FortiManager 7.2.9, 7.4.6, 7.6.2. Added 3 new modules.
+bugfixes:
+  - Changed parameter type of some parameters.

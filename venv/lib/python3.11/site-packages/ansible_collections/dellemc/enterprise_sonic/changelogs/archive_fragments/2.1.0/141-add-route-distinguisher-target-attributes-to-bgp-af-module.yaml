@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_bgp_af - Added several attributes to support configuration of route distinguisher and route target (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/141

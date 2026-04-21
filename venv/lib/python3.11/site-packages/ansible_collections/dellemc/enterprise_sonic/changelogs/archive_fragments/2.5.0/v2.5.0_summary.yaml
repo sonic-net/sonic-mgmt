@@ -1,0 +1,17 @@
+---
+release_summary: |
+        | Release Date: 2024-0812
+        |
+        | This release provides enhanced Dell Enterprise SONiC Ansible Collection support for SONiC 4.x images.
+        | In addition to new resource modules to support previously existing functionality, it provides
+        | support for several new features released in SONiC releases 4.1, 4.2, and 4.4.
+        | It also provides bug fixes and enhancements for support of features that were initially introduced
+        | in previous Enterprise SONiC Ansible releases. The changelog describes changes made to the modules
+        | included in this collection since release 2.0.0.
+        |
+        | Additional details are described below.
+        | 1) Update the "requires_ansible" version in the meta/runtime.yml file for this collection
+        | to the oldest supported version of ansible-core. (This was recently changed by Redhat/Ansible
+        | to version "2.15.0".)
+        | 2) Update the list of resource modules in the README file to include all currently available
+        | resource modules for this collection.

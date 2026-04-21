@@ -1,0 +1,34 @@
+---
+- name: Icinga_notification_template
+  icinga_notification_template:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    object_name: "{{ notification_template.name }}"
+    state: "{{ notification_template.state | default(omit) }}"
+    notification_interval: "{{ notification_template.notification_interval | default(omit) }}"
+    states: "{{ notification_template.states | default(omit) }}"
+    types: "{{ notification_template.types | default(omit) }}"
+    times_begin: "{{ notification_template.times_begin | default(omit) }}"
+    times_end: "{{ notification_template.times_end | default(omit) }}"
+    time_period: "{{ notification_template.time_period | default(omit) }}"
+    users: "{{ notification_template.users | default(omit) }}"
+    user_groups: "{{ notification_template.user_groups | default(omit) }}"
+    notification_command: "{{ notification_template.notification_command | default(omit) }}"
+    imports: "{{ notification_template.imports | default(omit) }}"
+    vars: "{{ notification_template.vars | default(omit) }}"
+    zone: "{{ notification_template.zone | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_notification_templates }}"
+  loop_control:
+    loop_var: notification_template
+  tags: notification_template
+  notify: config_deploy

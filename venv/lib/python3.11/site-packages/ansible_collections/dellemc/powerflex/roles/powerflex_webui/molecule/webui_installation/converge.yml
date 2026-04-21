@@ -1,0 +1,30 @@
+---
+- name: Converge
+  hosts: webui
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: Install and configure powerflex webui
+      ansible.builtin.import_role:
+        name: "powerflex_webui"
+      vars:
+        powerflex_webui_state: present
+
+    - name: Verifying installation package in check mode
+      ansible.builtin.assert:
+        that:
+          - " 'No changes made, but would have if not in check mode' in powerflex_common_install_package_output.msg"
+      when: ansible_check_mode
+
+    - name: Verifying installation package in converge
+      ansible.builtin.assert:
+        that:
+          - " 'Installed' in powerflex_common_install_package_output.results[0]"
+      when: not ansible_check_mode and powerflex_common_install_package_output.changed
+
+    - name: Verifying installation package in idempotency
+      ansible.builtin.assert:
+        that:
+          - " 'Nothing to do' in powerflex_common_install_package_output.msg"
+      when: not ansible_check_mode and not powerflex_common_install_package_output.changed

@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_cifs - output ``modified`` if a modify action is taken.
+  - na_ontap_svm - output ``modified`` if a modify action is taken.
+
+bugfixes:
+  - na_ontap_cifs - fix idempotency issue when ``show-previous-versions`` is used.

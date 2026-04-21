@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_qtree - add warning for job still running for deletion operation in REST, when wait_for_completion is not set.

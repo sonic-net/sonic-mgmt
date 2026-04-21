@@ -1,0 +1,104 @@
+---
+sonic_interfaces:
+  - name: "{{ leaf_spine1_inf1 }}"
+    description: "{{ leaf_spine1_inf1 }} Spine1"
+    enabled: true
+  - name: "{{ leaf_spine2_inf2 }}"
+    description: "{{ leaf_spine2_inf2 }} Spine2"
+    enabled: true
+  - name: "{{ loopback_inf0 }}"
+  - name: "{{ loopback_inf1 }}"
+
+sonic_l3_interfaces:
+  - name: "{{ loopback_inf0 }}"
+    ipv4:
+      addresses:
+        - address: "{{ loopback0_ip }}"
+  - name: "{{ loopback_inf1 }}"
+    ipv4:
+      addresses:
+        - address: "{{ loopback1_ip }}"
+  - name: "{{ leaf_spine1_inf1 }}"
+    ipv6:
+      enabled: true
+  - name: "{{ leaf_spine2_inf2 }}"
+    ipv6:
+      enabled: true
+
+sonic_route_maps_cli:
+  - name: REDISTU
+    permit: true
+    seq: 10
+    match_ip_prefix_list: UNDERLAY
+  - name: REDISTL3
+    permit: true
+    seq: 10
+    match_ip_prefix_list: L3OVERLAY
+
+sonic_prefix_list_cli:
+  - name: UNDERLAY
+    permit: true
+    entries:
+      - ip: 10.0.2.0/24
+        condition: ge 32 le 32
+        seq: 1
+      - ip: 10.10.10.0/24
+        condition: ge 32 le 32
+        seq: 2
+  - name: L3OVERLAY
+    permit: true
+    entries:
+      - ip: 192.168.50.0/24
+        seq: 3
+
+sonic_bgp:
+  - bgp_as: "{{ bgp_asn }}"
+    router_id: "{{ loopback0_ip.split('/')[0] }}"
+    bestpath:
+      as_path:
+        multipath_relax: true
+
+sonic_bgp_af:
+  - bgp_as: "{{ bgp_asn }}"
+    address_family:
+      afis:
+        - afi: l2vpn
+          safi: evpn
+          advertise_all_vni: true
+        - afi: ipv4
+          safi: unicast
+          redistribute:
+            - protocol: connected
+              route_map: REDISTU
+
+sonic_bgp_neighbors:
+  - bgp_as: "{{ bgp_asn }}"
+    peer_group:
+      - name: SPINE
+        remote_as:
+          peer_type: external
+        advertisement_interval: 5
+        timers:
+          keepalive: 3
+          holdtime: 9
+        bfd:
+          check_failure: true
+          enabled: true
+          profile: 'profile 1'
+        capability:
+          extended_nexthop: true
+        address_family:
+          afis:
+            - afi: l2vpn
+              safi: evpn
+              activate: true
+            - afi: ipv4
+              safi: unicast
+              activate: true
+              allowas_in:
+                value: 2
+    neighbors:
+      - neighbor: "{{ leaf_spine1_inf1 }}"
+        peer_group: SPINE
+      - neighbor: "{{ leaf_spine2_inf2 }}"
+        peer_group: SPINE

@@ -1,0 +1,8 @@
+---
+- name: Install and Configure PowerFlex webUI
+  ansible.builtin.include_tasks: install_webui.yml
+  when: powerflex_webui_state == "present"
+
+- name: Uninstall PowerFlex webUI
+  ansible.builtin.include_tasks: uninstall_webui.yml
+  when: powerflex_webui_state == "absent"

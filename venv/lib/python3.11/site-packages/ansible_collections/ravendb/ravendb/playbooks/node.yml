@@ -1,0 +1,60 @@
+##################################################################################################
+# playbooks/node.yml
+#
+# Purpose: Demonstrate common usage patterns for the RavenDB node module
+#
+# What it does:
+#   - Shows how to join nodes to a cluster (Watcher/Member)
+#   - Covers secured joins (HTTPS)
+#   - Demonstrates check mode for dry-runs
+#
+# Notes:
+#   - Secured endpoints must use HTTPS (typically port 443) and a valid client certificate
+#   - All snippets here support check mode and can be run with `check_mode: yes`
+#
+# See the module documentation for more details: plugins/modules/node.py
+##################################################################################################
+
+# -----------------------------------------------------------------------------------------------
+# 1) Join a node as Watcher - CHECK MODE (supports check mode)
+# -----------------------------------------------------------------------------------------------
+- name: Join Node B as Watcher (check_mode)
+  ravendb.ravendb.node:
+    tag: B
+    type: "Watcher"
+    url: "http://192.168.100.15:8080"
+    leader_url: "http://192.168.100.16:8080"
+  check_mode: yes
+
+# -----------------------------------------------------------------------------------------------
+# 2) Join a node as Watcher
+# -----------------------------------------------------------------------------------------------
+- name: Join Node B as Watcher
+  ravendb.ravendb.node:
+    tag: B
+    type: "Watcher"
+    url: "http://192.168.100.15:8080"
+    leader_url: "http://192.168.100.16:8080"
+
+# -----------------------------------------------------------------------------------------------
+# 3) Join a node as Member (using nested node object)
+# -----------------------------------------------------------------------------------------------
+- name: Join Node C as Member
+  ravendb.ravendb.node:
+    node:
+      tag: C
+      url: "http://192.168.100.15:8080"
+      leader_url: "http://192.168.100.16:8080"
+
+# -----------------------------------------------------------------------------------------------
+# 4) Join a node as Watcher (secured HTTPS)
+# -----------------------------------------------------------------------------------------------
+- name: Join Node B as Watcher (secured)
+  become: true
+  run_once: true
+  ravendb.ravendb.node:
+    tag: B
+    type: "Watcher"
+    url: "https://b.ravendbansible.development.run"
+    leader_url: "https://a.ravendbansible.development.run"
+    certificate_path: /home/user/admin.client.combined.pem

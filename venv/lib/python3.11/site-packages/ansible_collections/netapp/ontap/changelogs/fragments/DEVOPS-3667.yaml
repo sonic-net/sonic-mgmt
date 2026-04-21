@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_debug - improve error reporting for import errors on netapp_lib.
+  - na_ontap_info - improve error reporting for import errors on netapp_lib, json, xlmtodict.

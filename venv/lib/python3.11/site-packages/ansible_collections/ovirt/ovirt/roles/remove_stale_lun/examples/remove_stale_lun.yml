@@ -1,0 +1,30 @@
+---
+- name: Discover hosts in DC and add to Ansible runtime inventory
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    # Contains encrypted `engine_password` varibale using ansible-vault
+    - passwords.yml
+
+  vars:
+    engine_fqdn: ovirt.example.com
+    engine_user: admin@internal
+    data_center: default
+  roles:
+    - role: ovirt.ovirt.remove_stale_lun
+      fetch_hosts: true
+
+- name: Remove LUNs from the discovered hosts in DC
+  hosts: dc_hosts
+
+  vars:
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+    ansible_user: root
+    ansible_ssh_private_key_file: /etc/pki/ovirt-engine/keys/engine_id_rsa
+    lun_wwid: 36001405a77a1ee25cbf4439b7ddd2062 36001405ddefe8392bb8443e89bde4b40
+
+  roles:
+    - role: ovirt.ovirt.remove_stale_lun
+      fetch_hosts: false

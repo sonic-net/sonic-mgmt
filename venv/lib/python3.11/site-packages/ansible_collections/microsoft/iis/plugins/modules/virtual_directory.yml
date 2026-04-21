@@ -1,0 +1,99 @@
+---
+# Copyright: (c) 2024, Hen Yaish <hyaish@redhat.com>
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: virtual_directory
+  short_description: Configures a virtual directory in IIS
+  description:
+    - Creates, removes, and configures a virtual directory in IIS.
+  requirements:
+    - IISAdministration PowerShell module
+  options:
+    application:
+      description:
+        - The application under which the virtual directory is created or exists.
+      type: str
+    connect_as:
+      description:
+        - The type of authentication to use for the virtual directory. Either V(pass_through) or V(specific_user).
+        - If V(pass_through), IIS uses the identity of the user or application pool identity to access the physical path.
+        - If V(specific_user), IIS uses the credentials provided in username and password to access the physical path.
+      type: str
+      choices: [pass_through, specific_user]
+    name:
+      description:
+        - The name of the virtual directory to create.
+      type: str
+      required: true
+    password:
+      description:
+        - The password associated with O(username).
+        - Required when O(connect_as=specific_user).
+      type: str
+    physical_path:
+      description:
+        - The physical path to the folder in which the new virtual directory is created.
+        - The specified folder must already exist.
+        - This must be set when O(state=present) and the virtual directory does not already exist.
+      type: str
+    site:
+      description:
+        - The site name under which the virtual directory should exist.
+      type: str
+      required: true
+    state:
+      description:
+        - Whether to add or remove the specified virtual directory.
+        - Removing will delete the virtual directory and all its contents recursively.
+      type: str
+      choices: [absent, present]
+      default: present
+    username:
+      description:
+        - Specifies the username of an account that can access configuration files and content for the virtual directory.
+        - Required when O(connect_as=specific_user).
+      type: str
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+  seealso:
+    - module: microsoft.iis.virtual_directory_info
+    - module: microsoft.iis.web_application
+    - module: microsoft.iis.website
+
+  author:
+    - Hen Yaish (@hyaish)
+
+EXAMPLES: |
+  - name: Create a virtual directory
+    microsoft.iis.virtual_directory:
+      name: somedirectory
+      site: somesite
+      state: present
+      physical_path: C:\virtualdirectory\some
+
+  - name: Remove a virtual directory
+    microsoft.iis.virtual_directory:
+      name: somedirectory
+      site: somesite
+      state: absent
+
+  - name: Create a virtual directory on an application
+    microsoft.iis.virtual_directory:
+      name: somedirectory
+      site: somesite
+      application: someapp
+      state: present
+      physical_path: C:\virtualdirectory\some
+
+# Null is needed for Galaxy/AH to not fall flat
+# https://github.com/ansible/ansible-hub-ui/blob/9b35b78f1f5c6a5ef2346d0470e431ba5f25d06b/src/components/render-plugin-doc.tsx#L226-L228
+RETURN: ~

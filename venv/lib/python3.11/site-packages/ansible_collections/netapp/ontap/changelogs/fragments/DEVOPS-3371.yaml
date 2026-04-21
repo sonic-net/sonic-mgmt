@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_volume - ``compression`` to enable compression on a FAS volume.
+  - na_ontap_volume - ``inline-compression`` to enable inline compression on a volume.

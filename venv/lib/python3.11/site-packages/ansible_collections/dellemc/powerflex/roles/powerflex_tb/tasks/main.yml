@@ -1,0 +1,31 @@
+---
+- name: Include set_tb_ips.yml
+  ansible.builtin.include_tasks: set_tb_ips.yml
+
+- name: Get SCli version
+  ansible.builtin.command: >
+    scli --query_cluster
+  register: powerflex_tb_scli_cluster_details
+  tags: register
+  changed_when: powerflex_tb_scli_cluster_details.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+
+- name: Extract the scli version
+  ansible.builtin.set_fact:
+    powerflex_tb_scli_version: "{{ input_query | ansible.builtin.regex_search('Version: (\\d+)\\.(\\d+)', '\\1\\2') }}"
+  vars:
+    input_query: "{{ powerflex_tb_scli_cluster_details.stdout }}"
+
+- name: Extract the cluster mode
+  ansible.builtin.set_fact:
+    powerflex_tb_mdm_cluster_mode: "{{ input_query | ansible.builtin.regex_search('Mode: (\\w+)', '\\1') }}"
+  vars:
+    input_query: "{{ powerflex_tb_scli_cluster_details.stdout }}"
+
+- name: Install TB
+  ansible.builtin.include_tasks: install_tb.yml
+  when: powerflex_tb_state == 'present'
+
+- name: Uninstall TB
+  ansible.builtin.include_tasks: uninstall_tb.yml
+  when: powerflex_tb_state == 'absent'

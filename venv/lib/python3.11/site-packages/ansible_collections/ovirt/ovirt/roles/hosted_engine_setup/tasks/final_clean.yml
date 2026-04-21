@@ -1,0 +1,10 @@
+---
+- name: Clean temporary resources
+  block:
+    - name: Fetch logs from the engine VM
+      ansible.builtin.include_tasks: fetch_engine_logs.yml
+      ignore_errors: true
+    - ansible.builtin.include_tasks: clean_localvm_dir.yml
+    - name: Clean local storage pools
+      ansible.builtin.include_tasks: clean_local_storage_pools.yml
+      ignore_errors: true

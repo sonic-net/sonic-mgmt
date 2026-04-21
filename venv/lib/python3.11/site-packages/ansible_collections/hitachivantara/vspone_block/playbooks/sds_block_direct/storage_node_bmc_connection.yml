@@ -1,0 +1,52 @@
+---
+####################################################################
+# Example : Storage Node BMC Connection Information Playbook
+####################################################################
+- name: Storage Node BMC Connection Information Playbook
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ###########################################################################
+    # Task Name : Update BMC connection information for one storage node by id
+    ###########################################################################
+    - name: Update BMC connection information for one storage node by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_bmc_connection:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "72ecacd0-1d4c-431c-80e8-80924a1b8f28"
+          bmc_name: "10.76.45.222"
+          bmc_user: "admin"
+          bmc_password: "CHANGE_ME_SET_YOUR_PASSWORD"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #############################################################################
+    # Task Name : Update BMC connection information for one storage node by name
+    #############################################################################
+    - name: Update BMC connection information for one storage node by name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_bmc_connection:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "SN01"
+          bmc_name: "10.76.45.222"
+          bmc_user: "admin"
+          bmc_password: "CHANGE_ME_SET_YOUR_PASSWORD"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

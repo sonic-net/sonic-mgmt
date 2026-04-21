@@ -1,0 +1,6 @@
+minor_changes:
+ - purefa_info - Prive array timezone from Purity//FA 6.4.10
+ - purefa_info - Added `total_used` to multiple sections from Purity//FA 6.4.10
+ - purefa_info - Added `nfs_version` to policies and rules from Purity//FA 6.4.10
+bugfixes:
+ - purefa_info - Fixed issue with replica links in unknown state

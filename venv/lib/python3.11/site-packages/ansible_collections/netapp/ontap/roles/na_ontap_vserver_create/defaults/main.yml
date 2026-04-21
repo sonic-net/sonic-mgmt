@@ -1,0 +1,14 @@
+---
+# defaults file for na_ontap_vserver_create
+na_ontap_vserver_create_netapp_hostname:
+na_ontap_vserver_create_netapp_username:
+na_ontap_vserver_create_netapp_password:
+na_ontap_vserver_create_validate_certs: false
+na_ontap_vserver_create_vservers:
+na_ontap_vserver_create_vserver_dns:
+na_ontap_vserver_create_lifs:
+na_ontap_vserver_create_cifs:
+na_ontap_vserver_create_nfs:
+na_ontap_vserver_create_fcp:
+na_ontap_vserver_create_gateway:
+na_ontap_vserver_create_ontap_version: 140

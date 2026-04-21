@@ -1,0 +1,165 @@
+---
+# tasks file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
+# This deletes a vserver and dependents:
+#   all volumes are deleted, including any user data !!!
+#   network interfaces are deleted
+# At present, clones or snapshots are not deleted, this may block the volume and vserver deletion.
+#
+# These tasks expect the following variables to be set:
+# hostname: IP address of ONTAP admin interface (can be vsadmin too).
+# username: user account with admin or vsadmin role.
+# password: for the user account with admin or vsadmin role.
+# vserver_name: name of vserver to delete.
+#
+# The following variables are preset but can be changed
+# https: true
+# validate_certs: true   (true is strongly recommended, but use false if the certificate is not set)
+# debug_level: 0
+# check_mode: false
+# confirm_before_removing_interfaces: true
+# confirm_before_removing_volumes: true
+# confirm_before_removing_igroups: true
+# confirm_before_removing_cifs_server: true
+#
+- name: Set-facts netapp_hostname, netapp_username & netapp_password
+  ansible.builtin.set_fact:
+    netapp_hostname: "{{ hostname }}"
+    netapp_username: "{{ username }}"
+    netapp_password: "{{ password }}"
+  when:
+    - ( hostname is defined ) and ( hostname | length > 0 )
+    - ( username is defined ) and ( username | length > 0 )
+    - ( password is defined ) and ( password | length > 0 )
+    - netapp_hostname is not defined
+    - netapp_username is not defined
+    - netapp_password is not defined
+  no_log: true
+
+- name: Check REST is enabled and SVM exists
+  ansible.builtin.import_tasks: assert_prereqs_and_vserver_exists.yml
+
+- name: Collect and delete volume clones for vserver
+  ansible.builtin.import_tasks: find_and_delete_volumes.yml
+  failed_when: false     # delete may fail if a clone is attached to a clone
+  vars:
+    is_flexclone: true
+    retry_count: 3          # 3 levels of clones, looks like a lot
+  when: svm_exists
+
+- name: Collect and delete all volumes for vserver
+  ansible.builtin.import_tasks: find_and_delete_volumes.yml
+  failed_when: false     # so we can delete as many as possible
+  vars:
+    retry_count: 2          # retry any error
+  when: svm_exists
+
+- name: Pause and check if any volume was not deleted
+  ansible.builtin.pause:
+    seconds: 30
+    prompt: waiting for 30 seconds as volumes are deleted
+  when:
+    - svm_exists
+    - volumes | length > 0
+
+- name: Collect and delete all volumes for vserver
+  ansible.builtin.include_tasks: find_and_delete_volumes.yml
+  ignore_errors: false     # so we can report errors
+  when: svm_exists
+
+- name: Collect CIFS server
+  ansible.builtin.include_tasks: get_cifs_server.yml
+  when: svm_exists
+
+- name: Ask for confirmations
+  ansible.builtin.pause:
+    prompt: "the following CIFS server will be deleted {{ cifs_server }}\nPress enter to continue, Ctrl+C to interrupt:"
+  when:
+    - svm_exists
+    - cifs_server | length > 0
+    - confirm_before_removing_cifs_server
+
+- name: Delete CIFS server
+  netapp.ontap.na_ontap_cifs_server:
+    state: absent
+    cifs_server_name: "{{ item }}"
+    vserver: "{{ vserver_name }}"
+    admin_user_name: "{{ cifs_ad_admin_user_name }}"
+    admin_password: "{{ cifs_ad_admin_password }}"
+    force: "{{ cifs_force_delete }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+    feature_flags:
+      trace_apis: true
+  check_mode: "{{ enable_check_mode }}"
+  loop: "{{ cifs_server }}"
+  when: svm_exists
+
+- name: Collect igroups
+  ansible.builtin.include_tasks: get_igroups.yml
+  when: svm_exists
+
+- name: Ask for confirmations
+  ansible.builtin.pause:
+    prompt: "the following igroups will be deleted {{ igroups }}\nPress enter to continue, Ctrl+C to interrupt:"
+  when:
+    - svm_exists
+    - igroups | length > 0
+    - confirm_before_removing_igroups
+
+- name: Delete igroups
+  netapp.ontap.na_ontap_igroup:
+    state: absent
+    name: "{{ item }}"
+    vserver: "{{ vserver_name }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+    feature_flags:
+      trace_apis: true
+  check_mode: "{{ enable_check_mode }}"
+  loop: "{{ igroups }}"
+  when: svm_exists
+
+- name: Collect interfaces for vserver
+  ansible.builtin.include_tasks: get_interfaces.yml
+  when: svm_exists
+
+- name: Ask for confirmations
+  ansible.builtin.pause:
+    prompt: "the following interfaces will be deleted {{ interfaces }}\nPress enter to continue, Ctrl+C to interrupt:"
+  when:
+    - svm_exists
+    - interfaces | length > 0
+    - confirm_before_removing_interfaces
+
+- name: Delete Interfaces
+  netapp.ontap.na_ontap_interface:
+    state: absent
+    interface_name: "{{ item }}"
+    vserver: "{{ vserver_name }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+  check_mode: "{{ enable_check_mode }}"
+  loop: "{{ interfaces }}"
+  when: svm_exists
+
+- name: "Delete vserver - {{ vserver_name }}"
+  # also deletes any export policy and rules, NFS, CIFS, and iSCSI servers
+  # as well as DNS, routes
+  # let's do it, even if the vserver was not found to confirm idempotency
+  netapp.ontap.na_ontap_svm:
+    state: absent
+    name: "{{ vserver_name }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"

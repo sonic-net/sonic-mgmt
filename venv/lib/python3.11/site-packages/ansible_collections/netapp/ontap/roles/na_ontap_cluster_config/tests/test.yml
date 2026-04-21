@@ -1,0 +1,6 @@
+---
+- name: Test playbook
+  hosts: localhost
+  remote_user: root
+  roles:
+    - netapp.ontap.na_ontap_cluster_config

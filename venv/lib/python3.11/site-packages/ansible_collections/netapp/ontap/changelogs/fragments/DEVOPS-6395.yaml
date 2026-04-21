@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_volume - added REST support for `atime_update` requires ONTAP 9.8 or later, `snapdir_access` and
+    `snapshot_auto_delete` requires ONTAP 9.13.1 or later.

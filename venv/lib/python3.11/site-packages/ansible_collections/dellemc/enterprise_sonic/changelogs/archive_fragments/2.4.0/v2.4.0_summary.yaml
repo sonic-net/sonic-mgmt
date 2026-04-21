@@ -1,0 +1,16 @@
+---
+release_summary: |
+        | Release Date: 2024-0108
+        | This release provides an Ansible compliance change required on top of the changes included in
+        | the 2.3.0 release of the enterprise_sonic Ansible network resource module collection.
+        | It addresses an issue raised by the Ansible core team with the content of the 2.3.0 release,
+        | and provides accompanying documentation changes in the README file. Additional details are
+        | described below.
+        | 1) Update the "requires_ansible" version in the meta/runtime.yml file for this collection
+        | to the oldest supported version of ansible-core. (This was recently changed by Redhat/Ansible
+        | to version "2.14.0".)
+        | 2) Update the README file "Recommended version" values for Ansible and Python in accordance
+        | with the previous change item to modify the oldest supported version of ansible-core which,
+        | in turn, requires a Python version >= "3.9".
+        | 3) Update the list of resource modules in the README file to include all currently available
+        | resource modules for this collection.

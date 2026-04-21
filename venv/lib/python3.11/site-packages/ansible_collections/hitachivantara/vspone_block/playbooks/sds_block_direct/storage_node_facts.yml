@@ -1,0 +1,131 @@
+---
+####################################################################
+# Example : Storage Node Facts Playbook
+####################################################################
+- name: Storage Node Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all storage nodes
+    ####################################################################
+    - name: Get all storage nodes
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get storage node by name
+    ####################################################################
+    - name: Get storage node by name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "vssbesxi1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get storage node by ID
+    ####################################################################
+    - name: Get storage node by ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "f3d27b43-8763-4638-838c-60cd9aa60805"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get storage nodes by fault domain ID
+    ####################################################################
+    - name: Get storage nodes by fault domain ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          fault_domain_id: "c0b833cd-1fee-417d-bbf2-d25aac767ad4"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get storage nodes by protection domain ID
+    ####################################################################
+    - name: Get storage nodes by protection domain ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          protection_domain_id: "4090c412-edf2-4368-8175-1f60507afbb8"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get all master storage nodes
+    ####################################################################
+    - name: Get all master storage nodes
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          cluster_role: "Master"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get all worker storage nodes
+    ####################################################################
+    - name: Get all worker storage nodes
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          cluster_role: "Worker"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get storage node with the following properties
+    ####################################################################
+    - name: Get storage node with the following properties
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "vssbesxi1"
+          cluster_role: "Master"
+          fault_domain_id: "c0b833cd-1fee-417d-bbf2-d25aac767ad4"
+          protection_domain_id: "4090c412-edf2-4368-8175-1f60507afbb8"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

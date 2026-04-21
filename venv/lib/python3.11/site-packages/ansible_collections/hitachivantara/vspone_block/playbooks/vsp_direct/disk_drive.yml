@@ -1,0 +1,34 @@
+---
+####################################################################
+# Example : Disk Drive Playbook
+####################################################################
+- name: Disk Drive Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Change drive settings
+    ####################################################################
+    - name: Change drive settings
+      hitachivantara.vspone_block.vsp.hv_disk_drive:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          is_spared_drive: false
+          drive_location_id: "0-16"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

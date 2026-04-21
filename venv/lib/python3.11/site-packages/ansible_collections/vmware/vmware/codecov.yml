@@ -1,0 +1,26 @@
+---
+fixes:
+  - "/ansible_collections/vmware/vmware/::"
+
+coverage:
+  status:
+    project:
+      code:
+        target: 40
+        base: auto
+        paths:
+          - "!tests/"
+
+      # if lower than 97, code should be removed as it is unused
+      tests:
+        target: 97
+        base: auto
+        paths:
+          - "tests/"
+
+    patch:
+      default: # default is the status check's name, not default settings
+        target: 50
+        base: auto
+        paths:
+          - "!tests/"

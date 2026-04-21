@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - na_ontap_interface - fix ``netmask`` not idempotent in REST.
+minor_changes:
+  - na_ontap_interface - allow setting ``netmask`` with netmask length in ZAPI.

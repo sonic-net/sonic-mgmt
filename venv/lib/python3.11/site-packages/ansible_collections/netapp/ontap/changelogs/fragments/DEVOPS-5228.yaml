@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_volume - now defaults to REST with ``use_rest`` set to ``auto``, like every other module.  ZAPI can be forced with ``use_rest`` set to ``never``.
+bugfixes:
+  - na_ontap_volume - ``volume_security_style`` was not modified if other security options were present with ZAPI.

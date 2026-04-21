@@ -1,0 +1,260 @@
+---
+####################################################################
+# Example : Shadow Image Pair Playbook
+####################################################################
+- name: Shadow Image Pair Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ########################################################################
+    # Task Name : Create shadow image pair for an existing secondary volume
+    #######################################################################
+    - name: Create shadow image pair for an existing secondary volume
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          primary_volume_id: 274
+          secondary_volume_id: 277
+          allocate_new_consistency_group: true
+          copy_pace_track_size: "MEDIUM"
+          enable_quick_mode: false
+          auto_split: true
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+          primary_volume_device_group_name: "CPTestP"
+          secondary_volume_device_group_name: "CPTestS"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Create shadow image pair for non-existing secondary volume
+    #########################################################################
+    - name: Create shadow image pair for non-existing secondary volume
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          primary_volume_id: 274
+          secondary_pool_id: 1
+          allocate_new_consistency_group: true
+          copy_pace_track_size: "MEDIUM"
+          enable_quick_mode: false
+          auto_split: true
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+          primary_volume_device_group_name: "CPTestP"
+          secondary_volume_device_group_name: "CPTestS"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Split shadow image pair
+    ####################################################################
+    - name: Split shadow image pair
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "split"
+        spec:
+          primary_volume_id: 274
+          secondary_volume_id: 277
+          enable_quick_mode: true
+          enable_read_write: false
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Resync shadow image pair
+    ####################################################################
+    - name: Resync shadow image pair
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "sync"
+        spec:
+          primary_volume_id: 274
+          secondary_volume_id: 277
+          enable_quick_mode: false
+          copy_pace_track_size: "MEDIUM"
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create and Auto-Split shadow image pair
+    ####################################################################
+    - name: Create and Auto-Split shadow image pair
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "split"
+        spec:
+          primary_volume_id: 274
+          secondary_volume_id: 277
+          allocate_new_consistency_group: true
+          consistency_group_id: 1
+          copy_pace_track_size: "MEDIUM"
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Restore shadow image pair
+    ####################################################################
+    - name: Restore shadow image pair
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "restore"
+        spec:
+          primary_volume_id: 274
+          secondary_volume_id: 277
+          enable_quick_mode: true
+          copy_pace_track_size: "MEDIUM"
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Migrate shadow image pair
+    ####################################################################
+    - name: Migrate shadow image pair
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "migrate"
+        spec:
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Cancel Migration of Shadow Image Pair
+    ####################################################################
+    - name: Cancel migration of Shadow Image Pair
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "split"
+        spec:
+          copy_group_name: "copy_group_name1"
+          copy_pair_name: "CPTest"
+          should_force_split: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete shadow image pair
+    ####################################################################
+    - name: Delete shadow image pair
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          primary_volume_id: 274
+          secondary_volume_id: 277
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete shadow image pair with force delete
+    ####################################################################
+    - name: Delete shadow image pair
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          primary_volume_id: 274
+          secondary_volume_id: 277
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+          should_delete_svol: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###################################################################################
+    # Task Name : Create shadow image pair for an existing secondary volume for migration
+    ##################################################################################
+    - name: Create shadow image pair for an existing secondary volume for migration
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          primary_volume_id: 274
+          secondary_volume_id: 277
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+          primary_volume_device_group_name: "CPTestP"
+          secondary_volume_device_group_name: "CPTestS"
+          create_for_migration: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Create shadow image pair for non-existing secondary volume for migration
+    #########################################################################
+    - name: Create shadow image pair for non-existing secondary volume for migration
+      hitachivantara.vspone_block.vsp.hv_shadow_image_pair:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          primary_volume_id: 274
+          secondary_pool_id: 1
+          copy_group_name: "CGTest"
+          copy_pair_name: "CPTest"
+          primary_volume_device_group_name: "CPTestP"
+          secondary_volume_device_group_name: "CPTestS"
+          create_for_migration: true
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

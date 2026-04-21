@@ -1,0 +1,32 @@
+---
+requires_ansible: ">=2.15.0"
+plugin_routing:
+    modules:
+        dellemc_powerflex_gatherfacts:
+            tombstone:
+                removal_date: "2024-03-22"
+                warning_text: Use info module instead.
+        dellemc_powerflex_device:
+            tombstone:
+                removal_date: "2024-03-22"
+                warning_text: Use device module instead.
+        dellemc_powerflex_sdc:
+            tombstone:
+                removal_date: "2024-03-22"
+                warning_text: Use sdc module instead.
+        dellemc_powerflex_sds:
+            tombstone:
+                removal_date: "2024-03-22"
+                warning_text: Use sds module instead.
+        dellemc_powerflex_snapshot:
+            tombstone:
+                removal_date: "2024-03-22"
+                warning_text: Use snapshot module instead.
+        dellemc_powerflex_storagepool:
+            tombstone:
+                removal_date: "2024-03-22"
+                warning_text: Use storagepool module instead.
+        dellemc_powerflex_volume:
+            tombstone:
+                removal_date: "2024-03-22"
+                warning_text: Use volume module instead.

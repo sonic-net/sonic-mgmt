@@ -1,0 +1,11 @@
+---
+- name: Remove master Storage Domain
+  ovirt.ovirt.ovirt_storage_domain:
+    state: absent
+    id: "{{ ovirt_item.id }}"
+    auth: "{{ ovirt_auth }}"
+    format: "{{ format_storages }}"
+  with_items: "{{ ovirt_storage_domains }}"
+  when: ovirt_item.master
+  loop_control:
+    loop_var: ovirt_item

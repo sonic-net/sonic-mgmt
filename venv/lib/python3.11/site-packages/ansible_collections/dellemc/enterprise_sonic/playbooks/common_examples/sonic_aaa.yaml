@@ -1,0 +1,108 @@
+---
+- name: Ansible resource module example for sonic_aaa
+  hosts: datacenter
+  gather_facts: false
+  connection: httpapi
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: Delete all users
+      sonic_users:
+        config:
+        state: deleted
+    - name: Delete all aaa
+      sonic_aaa:
+        config:
+        state: deleted
+    - name: Delete all tacacs servers
+      sonic_tacacs_server:
+        config:
+        state: deleted
+    - name: Delete all radius servers
+      sonic_radius_server:
+        config:
+        state: deleted
+    - name: Merge users configurations
+      sonic_users:
+        config:
+          - name: sysadmin
+            role: admin
+            password: admin
+            update_password: always
+          - name: sysoperator
+            role: operator
+            password: operator
+            update_password: always
+        state: merged
+    - name: Test SONiC aaa
+      sonic_aaa:
+        config:
+          authentication:
+            auth_method:
+              - local
+              - ldap
+              - radius
+              - tacacs+
+            console_auth_local: true
+            failthrough: true
+          authorization:
+            commands_auth_method:
+              - local
+              - tacacs+
+            login_auth_method:
+              - local
+              - ldap
+          name_service:
+            group:
+              - ldap
+              - local
+              - login
+            netgroup:
+              - ldap
+              - local
+            passwd:
+              - ldap
+              - local
+              - login
+            shadow:
+              - ldap
+              - local
+              - login
+            sudoers:
+              - ldap
+              - local
+        state: merged
+    - name: Merge tacacs configurations
+      sonic_tacacs_server:
+        config:
+          auth_type: pap
+          key: pap
+          source_interface: Eth 1/2
+          timeout: 10
+          servers:
+            host:
+              - name: 1.2.3.4
+                auth_type: pap
+                key: 1234
+        state: merged
+    - name: Merge radius configurations
+      sonic_radius_server:
+        config:
+          auth_type: chap
+          key: chap
+          nas_ip: 1.2.3.4
+          statistics: true
+          timeout: 10
+          retransmit: 3
+          servers:
+            host:
+              - name: hostx.local
+                auth_type: mschapv2
+                key: local
+                priority: 2
+                port: 52
+                retransmit: 2
+                timeout: 20
+                source_interface: Eth 1/2
+                vrf: mgmt
+        state: merged

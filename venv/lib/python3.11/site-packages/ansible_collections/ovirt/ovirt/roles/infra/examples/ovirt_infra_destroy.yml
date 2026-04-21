@@ -1,0 +1,41 @@
+---
+- name: oVirt infra
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    recursive_cleanup: true
+    format_storages: true
+    data_center_name: Default
+    data_center_state: absent
+
+    engine_fqdn: ovirt-engine.example.com
+    engine_user: admin@internal
+    engine_cafile: /etc/pki/ovirt-engine/ca.pem
+
+  vars_files:
+    # Contains encrypted `engine_password` varibale using ansible-vault
+    - vars/passwords.yml
+
+  pre_tasks:
+    - name: Login to oVirt
+      ovirt.ovirt.ovirt_auth:
+        hostname: "{{ engine_fqdn }}"
+        username: "{{ engine_user }}"
+        password: "{{ engine_password }}"
+        ca_file: "{{ engine_cafile | default(omit) }}"
+        insecure: "{{ engine_insecure | default(true) }}"
+      tags:
+        - always
+
+  roles:
+    - ovirt.ovirt.infra
+
+  post_tasks:
+    - name: Logout from oVirt
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      tags:
+        - always

@@ -1,0 +1,48 @@
+---
+requires_ansible: '>=2.9.10'
+action_groups:
+  atlas:
+    - mongodb_atlas_cluster
+    - mongodb_atlas_ldap_user
+    - mongodb_atlas_user
+    - mongodb_atlas_whitelist
+  mongodb:
+    - mongodb_balancer
+    - mongodb_index
+    - mongodb_info
+    - mongodb_maintenance
+    - mongodb_oplog
+    - mongodb_parameter
+    - mongodb_replicaset
+    - mongodb_role
+    - mongodb_schema
+    - mongodb_shard
+    - mongodb_shard_tag
+    - mongodb_shard_zone
+    - mongodb_shell
+    - mongodb_shutdown
+    - mongodb_status
+    - mongodb_stepdown
+    - mongodb_user
+  all:
+    - mongodb_atlas_cluster
+    - mongodb_atlas_ldap_user
+    - mongodb_atlas_user
+    - mongodb_atlas_whitelist
+    - mongodb_balancer
+    - mongodb_index
+    - mongodb_info
+    - mongodb_maintenance
+    - mongodb_oplog
+    - mongodb_parameter
+    - mongodb_replicaset
+    - mongodb_role
+    - mongodb_schema
+    - mongodb_shard
+    - mongodb_shard_tag
+    - mongodb_shard_zone
+    - mongodb_shell
+    - mongodb_shutdown
+    - mongodb_status
+    - mongodb_stepdown
+    - mongodb_user

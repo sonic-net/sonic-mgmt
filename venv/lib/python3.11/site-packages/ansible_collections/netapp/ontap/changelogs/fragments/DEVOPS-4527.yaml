@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume - Fixed error with unmounting junction_path in rest.

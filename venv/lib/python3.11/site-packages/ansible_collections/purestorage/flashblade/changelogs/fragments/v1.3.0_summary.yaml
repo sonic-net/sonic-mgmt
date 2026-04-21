@@ -1,0 +1,33 @@
+release_summary: |
+  | Release Date: 2020-08-08
+  | This changlelog describes all changes made to the modules and plugins included in this collection since Ansible 2.9.0
+
+major_changes:
+  - purefb_alert - manage alert email settings on a FlashBlade
+  - purefb_bladename - manage FlashBlade name
+  - purefb_bucket_replica - manage bucket replica links on a FlashBlade
+  - purefb_connect - manage connections between FlashBlades
+  - purefb_dns - manage DNS settings on a FlashBlade
+  - purefb_fs_replica - manage filesystem replica links on a FlashBlade
+  - purefb_inventory - get information about the hardware inventory of a FlashBlade
+  - purefb_ntp - manage the NTP settings for a FlashBlade
+  - purefb_phonehome - manage the phone home settings for a FlashBlade
+  - purefb_policy - manage the filesystem snapshot policies for a FlashBlade
+  - purefb_proxy - manage the phone home HTTP proxy settings for a FlashBlade
+  - purefb_remote_cred - manage the Object Store Remote Credentials on a FlashBlade
+  - purefb_snmp_agent - modify the FlashBlade SNMP Agent
+  - purefb_snmp_mgr - manage SNMP Managers on a FlashBlade
+  - purefb_target - manage remote S3-capable targets for a FlashBlade
+  - purefb_user - manage local ``pureuser`` account password on a FlashBlade
+
+minor_changes:
+  - purefb_s3user - return dict changed from ``ansible_facts`` to ``s3user_info``
+  - purefb_s3user - Limit ``access_key`` recreation to 3 times
+  - purefb_info - new options added for information collection
+  - purefb_bucket - Versioning support added
+  - purefb_network - Add replication service type
+
+bugfixes:
+  - purefb_fs - Add graceful exist when ``state`` is ``absent`` and filesystem not eradicated
+  - purefb_fs - Add warning message if ``state`` is ``absent`` without ``eradicate``
+  - purefb_bucket - Add warning message if ``state`` is ``absent`` without ``eradicate:``

@@ -1,0 +1,2 @@
+bugfixes:
+  - na_sg_org_group - fixed behaviour where update to ``s3_policy`` is ignored if ``management_policy`` is set.

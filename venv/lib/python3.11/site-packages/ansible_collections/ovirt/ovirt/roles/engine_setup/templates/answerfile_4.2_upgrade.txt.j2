@@ -1,0 +1,16 @@
+{% include "./templates/basic_answerfile.txt.j2" %}
+{% if ovirt_engine_setup_provider_ovn_configure is defined and ovirt_engine_setup_provider_ovn_configure %}
+OVESETUP_DB/engineVacuumFull=bool:True
+OVESETUP_OVN/ovirtProviderOvn=bool:True
+OVESETUP_OVN/ovirtProviderOvnUser=str:{{ ovirt_engine_setup_provider_ovn_username }}
+{% else %}
+OVESETUP_OVN/ovirtProviderOvn=bool:False
+{% endif %}
+{% if ovirt_engine_setup_provider_ovn_password is defined %}
+OVESETUP_OVN/ovirtProviderOvnPassword=str:{{ ovirt_engine_setup_provider_ovn_password }}
+{% else %}
+OVESETUP_OVN/ovirtProviderOvnPassword=none:None
+{% endif %}
+{% if ovirt_engine_setup_wait_running_tasks is defined %}
+QUESTION/1/OVESETUP_WAIT_RUNNING_TASKS=str:{{ ovirt_engine_setup_wait_running_tasks | ternary('yes','no')  }}
+{% endif %}

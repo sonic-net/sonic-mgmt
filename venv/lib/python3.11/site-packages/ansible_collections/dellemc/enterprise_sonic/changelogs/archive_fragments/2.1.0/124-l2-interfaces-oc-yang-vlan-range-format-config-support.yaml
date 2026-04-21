@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_l2_interfaces - Add support for parsing configuration containing the OC Yang vlan range syntax (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/124).

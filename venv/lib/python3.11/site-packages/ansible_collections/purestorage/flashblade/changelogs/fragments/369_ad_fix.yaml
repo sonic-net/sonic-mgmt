@@ -1,0 +1,4 @@
+minor_changes:
+ - purefb_ad - ``service`` parameter removed to comply with underlying API structure. ``service`` should be included in the ``service_principals`` strings as shown in the documentation.
+bugfixes:
+ - purefb_ad - Fixed issue where updating an AD account required unnecessary parameters.

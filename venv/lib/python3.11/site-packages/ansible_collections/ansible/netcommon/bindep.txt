@@ -1,0 +1,28 @@
+# This is a cross-platform list tracking distribution packages needed by tests;
+# see https://docs.openstack.org/infra/bindep/ for additional information.
+
+gcc-c++ [doc test platform:rpm]
+libyaml-devel [test platform:rpm]
+libyaml-dev [test platform:dpkg]
+
+# ansible-pylibssh
+gcc [compile platform:rpm]
+libssh-dev [compile platform:dpkg]
+libssh-devel [compile platform:rpm]
+python3-Cython [compile platform:fedora-35 platform:rhel-9]
+
+# ansible-pylibssh (runtime)
+libssh [platform:rpm]
+libssh-4 [platform:dpkg]
+
+# ncclient
+python3-six [platform:centos-9 platform:rhel-9]
+python3-lxml [platform:centos-9 platform:rhel-9]
+
+# paramiko
+findutils [compile platform:centos-8 platform:rhel-8]
+gcc [compile platform:centos-8 platform:rhel-8]
+make [compile platform:centos-8 platform:rhel-8]
+python3-cffi [platform:centos-9 platform:rhel-9]
+python3-cryptography [platform:centos-9 platform:rhel-9]
+python3-pycparser [platform:centos-9 platform:rhel-9]

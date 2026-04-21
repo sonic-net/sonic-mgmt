@@ -1,0 +1,15 @@
+---
+- name: Generate mapping var file main block
+  tags:
+    - generate_mapping
+  block:
+    - name: Generate mapping var file
+      ansible.builtin.command: >-
+        python3 {{ role_path }}/files/generate_mapping.py
+        -a "{{ site }}"
+        -u "{{ username }}"
+        -p "{{ password }}"
+        -c "{{ ca }}"
+        -f "{{ var_file }}"
+      changed_when: true
+      run_once: true

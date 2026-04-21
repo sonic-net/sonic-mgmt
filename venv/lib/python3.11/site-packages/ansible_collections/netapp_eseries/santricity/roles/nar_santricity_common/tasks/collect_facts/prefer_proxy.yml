@@ -1,0 +1,107 @@
+- name: Determine existing storage systems in Web Services Proxy.
+  uri:
+    url: "{{ eseries_proxy_api_url | regex_replace('v2/?$', 'v2/storage-systems') }}"
+    headers:
+      Content-Type: "application/json"
+      Accept: "application/json"
+    url_username: "{{ eseries_proxy_api_username | default('admin') }}"
+    url_password: "{{ eseries_proxy_api_password }}"
+    validate_certs: false
+  connection: local
+  register: proxy_systems
+  tags: always
+
+- name: Determine associated management interface IP addresses.
+  set_fact:
+    eseries_system_addresses: |-
+      {%- set addresses = [] %}
+      {%- set url_info = eseries_template_api_url | urlsplit %}
+      {%- for address in [eseries_management_interfaces["controller_a"][0]["address"] | default(""),
+                          eseries_management_interfaces["controller_a"][1]["address"] | default(""),
+                          eseries_management_interfaces["controller_b"][0]["address"] | default(""),
+                          eseries_management_interfaces["controller_b"][1]["address"] | default("")] %}
+        {%- if address != "" and addresses.append(address) -%}{%- endif %}
+      {%- endfor %}
+      {{ addresses }}
+  when: eseries_management_interfaces is defined
+  tags: always
+
+- name: Determine storage system SSID based on storage system serial number or associated IP addresses.
+  set_fact:
+    eseries_ssid_list: |-
+      {#- Determine any system that either has the expected serial number or a management ip address -#}
+      {%- set ssids = [] -%}
+
+      {#- Search discovered storage systems -#}
+      {%- for system in proxy_systems["json"] -%}
+
+        {#- Check for serial number match -#}
+        {%- if eseries_system_serial is defined and system["chassisSerialNumber"] == eseries_system_serial -%}
+          {%- if ssids.append(system["id"]) -%}{%- endif -%}
+
+        {%- elif eseries_proxy_ssid is defined and eseries_proxy_ssid == system["id"] -%}
+          {%- if ssids.append(system["id"]) -%}{%- endif -%}
+
+        {%- elif eseries_system_addresses is defined and eseries_system_addresses | length > 0 -%}
+          {%- for address in eseries_system_addresses -%}
+            {%- if address in system["managementPaths"] -%}
+              {%- if ssids.append(system["id"]) -%}{%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{- ssids | unique -}}
+  tags: always
+
+- name: Use the Web Services Proxy REST API
+  set_fact:
+    current_eseries_api_url: "{{ eseries_proxy_api_url }}"
+    current_eseries_ssid: "{{ eseries_ssid_list[0] }}"
+    current_eseries_api_username: "{{ eseries_proxy_api_username | default('admin') }}"
+    current_eseries_api_password: "{{ eseries_proxy_api_password }}"
+    current_eseries_validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+  no_log: true
+  when: eseries_ssid_list | length == 1 and (eseries_proxy_ssid is not defined or eseries_proxy_ssid == eseries_ssid_list[0])
+  tags: always
+
+- name: Search subnet for storage system.
+  block:
+    - name: Search subnet for storage system.
+      include_tasks: collect_facts/discovery.yml
+      when: discovered_systems is not defined
+
+    - name: Determine storage system Web Services information
+      set_fact:
+        current_eseries_api_info: |-
+          {%- set info = {} -%}
+          {%- if eseries_system_serial is defined -%}
+            {%- set serial = eseries_system_serial | string -%}
+            {%- for result in discovered_systems["results"] if result["systems_found"][serial] is defined -%}
+              {%- if info.update(result["systems_found"][serial]) %}{%- endif -%}
+            {%- endfor %}
+          {%- endif -%}
+          {{ info }}
+
+    - name: Check whether storage system was discovered.
+      fail:
+        msg: "Storage system failed to be discovered! Serial [{{ eseries_system_serial }}]."
+      when: current_eseries_api_info == {}
+
+    - name: Set storage systems Web Services URL information
+      set_fact:
+        current_eseries_api_is_proxy: "{{ current_eseries_api_info['proxy_required'] }}"
+        current_eseries_api_url: "{{ current_eseries_api_info['api_urls'][0] }}"
+        current_eseries_ssid: |-
+          {%- if eseries_proxy_ssid is defined -%}
+            {{- eseries_proxy_ssid -}}
+          {%- elif current_eseries_api_info["proxy_ssid"] != "" -%}
+            {{- current_eseries_api_info["proxy_ssid"] -}}
+          {%- else -%}
+            {{- eseries_system_serial -}}
+          {%- endif -%}
+        current_eseries_api_username: "{{ eseries_proxy_api_username | default('admin') }}"
+        current_eseries_api_password: "{{ eseries_proxy_api_password }}"
+        current_eseries_validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+      no_log: true
+  when: current_eseries_api_url is not defined or current_eseries_ssid is not defined
+  tags: always

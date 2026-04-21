@@ -1,0 +1,148 @@
+---
+- name: Index configuration (check mode)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_configuration:
+      Indexing.MapBatchSize: "128"
+  check_mode: yes
+  register: ix_cfg_check
+
+- name: Assert would apply config
+  ansible.builtin.assert:
+    that:
+      - ix_cfg_check.changed
+      - "'would apply configuration' in ix_cfg_check.msg | lower"
+
+- name: Fetch ALL indexes (before cfg apply)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_all_before_cfg
+  changed_when: false
+
+- name: Normalize list (before cfg apply)
+  ansible.builtin.set_fact:
+    ix_list_before_cfg: "{{ ix_all_before_cfg.json.Results | default(ix_all_before_cfg.json) | default([]) }}"
+
+- name: Pick our index (before cfg apply)
+  ansible.builtin.set_fact:
+    ix_def_before_cfg: "{{ (ix_list_before_cfg | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Extract configuration (before)
+  ansible.builtin.set_fact:
+    ix_cfg_before: "{{ ix_def_before_cfg.Configuration | default(ix_def_before_cfg.configuration | default({})) }}"
+
+- name: Assert key not visible yet
+  ansible.builtin.assert:
+    that:
+      - "'Indexing.MapBatchSize' not in ix_cfg_before"
+
+- name: Apply configuration
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_configuration:
+      Indexing.MapBatchSize: "128"
+  register: ix_cfg_applied
+
+- name: Assert applied
+  ansible.builtin.assert:
+    that:
+      - ix_cfg_applied.changed
+      - "'applied configuration' in ix_cfg_applied.msg | lower"
+
+- name: Fetch ALL indexes (after cfg)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_all_after_cfg
+  changed_when: false
+
+- name: Normalize list (after cfg)
+  ansible.builtin.set_fact:
+    ix_list_after_cfg: "{{ ix_all_after_cfg.json.Results | default(ix_all_after_cfg.json) | default([]) }}"
+
+- name: Pick our index (after cfg)
+  ansible.builtin.set_fact:
+    ix_def_after_cfg: "{{ (ix_list_after_cfg | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Extract configuration (after)
+  ansible.builtin.set_fact:
+    ix_cfg_after: "{{ ix_def_after_cfg.Configuration | default(ix_def_after_cfg.configuration | default({})) }}"
+
+- name: Assert cfg rendered
+  ansible.builtin.assert:
+    that:
+      - "'Indexing.MapBatchSize' in ix_cfg_after"
+      - "ix_cfg_after['Indexing.MapBatchSize'] | string == '128'"
+
+- name: Re-run config (idempotency)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_configuration:
+      Indexing.MapBatchSize: "128"
+  register: ix_cfg_again
+
+- name: Assert idempotent
+  ansible.builtin.assert:
+    that:
+      - "not ix_cfg_again.changed"
+
+- name: Re-create index for reconcile test
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    index_definition: "{{ idx_def_initial }}"
+    state: present
+  register: ix_recreated
+
+- name: Omit state and apply mode paused
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: paused
+  register: ix_omit_state_pause
+
+- name: Assert changed (paused)
+  ansible.builtin.assert:
+    that:
+      - ix_omit_state_pause.changed
+      - "'paused successfully' in ix_omit_state_pause.msg | lower"
+
+- name: Omit state on missing index with mode
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "NoSuchIndex{{ sfx }}"
+    mode: paused
+  register: ix_omit_state_missing
+  failed_when: false
+
+- name: Assert failure instructing to create first
+  ansible.builtin.assert:
+    that:
+      - "'does not exist' in ix_omit_state_missing.msg | lower"
+      - "'state=present' in ix_omit_state_missing.msg | lower"
+
+- name: Create index without definition (should fail)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "MissingDef{{ sfx }}"
+    state: present
+  register: ix_missing_def
+  failed_when: false
+
+- name: Assert missing definition error
+  ansible.builtin.assert:
+    that:
+      - "'index_definition is required' in ix_missing_def.msg | lower"

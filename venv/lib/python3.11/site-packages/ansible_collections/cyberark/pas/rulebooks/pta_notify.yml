@@ -1,0 +1,21 @@
+---
+- name: Notify PTA Event
+  hosts: all
+  connection: local
+
+  tasks:
+
+    # - name: Sending an e-mail using Gmail SMTP servers
+    #   community.general.mail.mail:
+    #     host: SMTPSERVER
+    #     port: PORT
+    #     username: username@mail.com
+    #     password: password
+    #     to: First Last <first.last@mail.com>
+    #     subject: Ansible-Rulebook Report
+    #     body: >
+    #       Ansible Rulebook notify of PTA Event
+    #       '{{ username | ansible.builtin.regex_search('^[a-zA-Z0-9_]+') }}'
+    #       '{{ eventname }}' from host '{{ station }}'.
+    #       For more info, please visit - '{{ eventurl }}'
+    #   delegate_to: localhost

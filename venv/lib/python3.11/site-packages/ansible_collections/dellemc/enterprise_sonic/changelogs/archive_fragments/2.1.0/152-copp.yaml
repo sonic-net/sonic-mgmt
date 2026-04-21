@@ -1,0 +1,3 @@
+---
+major_changes:
+  - Added copp module to collection (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/152).

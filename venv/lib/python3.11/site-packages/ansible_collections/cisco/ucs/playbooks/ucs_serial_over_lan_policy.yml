@@ -1,0 +1,109 @@
+---
+# Example Playbook: cisco.ucs.ucs_serial_over_lan_policy
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  vars:
+    org: AnsibleOrg
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: "{{ org }}"
+        parent_org_path: root
+        description: "Org {{ org }}"
+        state: present
+      delegate_to: localhost
+
+    - name: Add UCS Serial Over Lan Policy
+      cisco.ucs.ucs_serial_over_lan_policy:
+        <<: *login_info
+        state: present
+        org_dn: "org-root/org-{{ org }}"
+        name: sol_pol
+        description: "Serial Over Lan for Org {{ org }} servers"
+        admin_state: enable
+        speed: "38400"
+      delegate_to: localhost
+
+    - name: Check Serial Over Lan
+      cisco.ucs.ucs_serial_over_lan_policy:
+        <<: *login_info
+        state: present
+        org_dn: "org-root/org-{{ org }}"
+        name: sol_pol
+        description: "Serial Over Lan for Org {{ org }} servers"
+        admin_state: enable
+        speed: "38400"
+      delegate_to: localhost
+      check_mode: True
+
+    - name: Add Serial Over Lan
+      cisco.ucs.ucs_serial_over_lan_policy:
+        <<: *login_info
+        state: present
+        name: sol_pol
+        description: Serial Over Lan for Org Root servers
+        admin_state: enable
+        speed: "57600"
+      delegate_to: localhost
+
+    - name: Idempotent Serial Over Lan
+      cisco.ucs.ucs_serial_over_lan_policy:
+        <<: *login_info
+        state: present
+        name: sol_pol
+        description: Serial Over Lan for Org Root servers
+        admin_state: enable
+        speed: "57600"
+      delegate_to: localhost
+
+    - name: Check Update Serial Over Lan
+      cisco.ucs.ucs_serial_over_lan_policy:
+        <<: *login_info
+        state: present
+        name: sol_pol
+        description: Serial Over Lan for Org Root servers
+        admin_state: enable
+        speed: "57600"
+      delegate_to: localhost
+      check_mode: true
+
+    - name: Update Serial Over Lan
+      cisco.ucs.ucs_serial_over_lan_policy:
+        <<: *login_info
+        state: present
+        name: sol_pol
+        description: Serial Over Lan for Org Root servers
+        admin_state: enable
+        speed: "57600"
+      delegate_to: localhost
+
+    - name: Delete Serial Over Lan
+      cisco.ucs.ucs_serial_over_lan_policy:
+        <<: *login_info
+        state: absent
+        name: sol_pol
+      delegate_to: localhost
+
+    - name: Remove UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: "{{ org }}"
+        parent_org_path: root
+        state: absent
+      delegate_to: localhost

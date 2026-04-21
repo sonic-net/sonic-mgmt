@@ -1,0 +1,52 @@
+---
+- name: "Create content view '{{ foreman_convert2rhel_key_centos7 }}'"
+  theforeman.foreman.content_view:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    name: "{{ foreman_convert2rhel_key_centos7 }}"
+    repositories:
+      - name: '{{ foreman_convert2rhel_rhel7_repo }}'
+        product: '{{ foreman_convert2rhel_rhel7_product }}'
+  when: foreman_content_rhel_enable_rhel7
+
+- name: "Publish content view '{{ foreman_convert2rhel_key_centos7 }}'"
+  theforeman.foreman.content_view_version:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    content_view: "{{ foreman_convert2rhel_key_centos7 }}"
+    version: "1.0"
+    lifecycle_environments:
+      - "{{ foreman_convert2rhel_lifecycle_env }}"
+  when: foreman_content_rhel_enable_rhel7
+
+- name: "Create content view '{{ foreman_convert2rhel_key_centos8 }}'"
+  theforeman.foreman.content_view:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    name: "{{ foreman_convert2rhel_key_centos8 }}"
+    repositories:
+      - name: '{{ foreman_convert2rhel_rhel8_repo }}'
+        product: '{{ foreman_convert2rhel_rhel8_product }}'
+  when: foreman_content_rhel_enable_rhel8
+
+- name: "Publish content view '{{ foreman_convert2rhel_key_centos8 }}'"
+  theforeman.foreman.content_view_version:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    content_view: "{{ foreman_convert2rhel_key_centos8 }}"
+    version: "1.0"
+    lifecycle_environments:
+      - "{{ foreman_convert2rhel_lifecycle_env }}"
+  when: foreman_content_rhel_enable_rhel8

@@ -1,0 +1,132 @@
+- name: Ensure RavenDB server certificate file is present
+  assert:
+    that: 
+      - ravendb_certificate_file is not none
+      - ravendb_certificate_file | length > 0
+    fail_msg: "The RavenDB server certificate file is missing. It should be located in: roles/ravendb_node/files"
+
+- name: Check if RavenDB server certificate file exists
+  stat:
+    path: "{{ role_path }}/files/{{ ravendb_certificate_file }}"
+  register: server_cert_stat
+  delegate_to: localhost
+
+- name: Fail if RavenDB server certificate file is missing
+  fail:
+    msg: "The RavenDB server certificate file is missing in roles/ravendb_node/files"
+  when: not server_cert_stat.stat.exists
+
+
+- name: Ensure RavenDB CA pem file is present
+  assert:
+    that:
+      - ravendb_ca_certificate_file is not none
+      - ravendb_ca_certificate_file | length > 0
+    fail_msg: "The RavenDB CA pem file is missing. It should be located in: roles/ravendb_node/files"
+
+- name: Check if RavenDB CA pem file exists
+  stat:
+    path: "{{ role_path }}/files/{{ ravendb_ca_certificate_file }}"
+  register: ca_pem_stat
+  delegate_to: localhost
+
+- name: Fail if RavenDB CA pem file is missing
+  fail:
+    msg: "The RavenDB CA pem file is missing in roles/ravendb_node/files"
+  when: not ca_pem_stat.stat.exists
+  
+- name: Ensure RavenDB CA certificate for system CA certificates is present
+  assert:
+    that:
+      - ravendb_ca_certificate_file is not none
+      - ravendb_ca_certificate_file | length > 0
+    fail_msg: "The RavenDB CA certificate file for system CA certificates is missing. It should be located in: roles/ravendb_node/files"  
+
+- name: Check if RavenDB CA certificate file exists
+  stat:
+    path: "{{ role_path }}/files/{{ ravendb_ca_certificate_file }}"
+  register: ca_cert_stat
+  delegate_to: localhost
+
+- name: Fail if RavenDB CA certificate file is missing
+  fail:
+    msg: "The RavenDB CA certificate file is missing in roles/ravendb_node/files"
+  when: not ca_cert_stat.stat.exists
+  
+- block:
+  - name: Copy RavenDB server certificate file
+    become: true
+    ansible.builtin.copy:
+      src: "{{ ravendb_certificate_file }}"
+      dest: /etc/ravendb/security/certificate.pfx
+      owner: ravendb
+      group: ravendb
+      mode: '0640'
+  
+  - name: Copy RavenDB CA pem file
+    become: true
+    ansible.builtin.copy:
+      src: "{{ ravendb_ca_certificate_file }}"
+      dest: /etc/ravendb/security/ca_certificate.pem
+      owner: ravendb
+      group: ravendb
+      mode: '0640'
+
+  - name: Copy RavenDB CA certificate to system CA certificates
+    become: true
+    ansible.builtin.copy:
+      src: "{{ ravendb_ca_certificate_file }}"
+      dest: /usr/local/share/ca-certificates/ravendb_ca.crt
+      owner: root
+      group: ravendb
+      mode: '0644'
+
+  - name: Update CA certificates
+    become: true
+    ansible.builtin.command: update-ca-certificates
+    register: update_ca_result
+    changed_when: "'added' in update_ca_result.stdout"
+
+  - name: Copy RavenDB CA key file
+    become: true
+    ansible.builtin.copy:
+      src: "{{ ravendb_ca_key_file }}"
+      dest: /etc/ravendb/security/ca_key.pem
+      owner: ravendb
+      group: ravendb
+      mode: '0640' 
+
+  - name: Extract certificate from PFX file
+    become: true
+    ansible.builtin.command:
+      cmd: "openssl pkcs12 -in /etc/ravendb/security/certificate.pfx -out /etc/ravendb/security/raven_cert.pem -clcerts -nokeys -passin pass:raven"
+    args:
+      creates: /etc/ravendb/security/raven_cert.pem    
+
+  - name: Extract private key from PFX file (raven_key.pem)
+    become: true
+    ansible.builtin.command:
+      cmd: "openssl pkcs12 -in /etc/ravendb/security/certificate.pfx -out /etc/ravendb/security/raven_key.pem -nocerts -nodes -passin pass:raven"
+    args:
+      creates: /etc/ravendb/security/raven_key.pem
+
+  - name: Combine certificate and private key into a single PEM file
+    become: true
+    ansible.builtin.shell:
+      cmd: "cat /etc/ravendb/security/raven_key.pem /etc/ravendb/security/raven_cert.pem > /etc/ravendb/security/combined_raven_cert.pem"
+    args:
+      creates: /etc/ravendb/security/combined_raven_cert.pem  
+
+  - name: Adjust extracted files permissions
+    become: true
+    ansible.builtin.file:
+      name: "{{ item }}"
+      owner: ravendb
+      group: ravendb
+      mode: u=rw
+    loop:
+      - "/etc/ravendb/security/raven_key.pem"
+      - "/etc/ravendb/security/combined_raven_cert.pem"
+      - "/etc/ravendb/security/raven_cert.pem"
+      
+  tags: config,self_signed

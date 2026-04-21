@@ -1,0 +1,4 @@
+---
+ntp_package: ntpsec
+ntp_service: ntpd
+gnu_c_lib: glibc

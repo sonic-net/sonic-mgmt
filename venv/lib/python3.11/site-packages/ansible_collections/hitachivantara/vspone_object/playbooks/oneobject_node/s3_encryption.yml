@@ -1,0 +1,33 @@
+---
+- name: Set S3 Encryption
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/oneobject_node_connection_variables.yml
+  vars:
+    connection_info:
+      http_request_timeout: "{{ http_request_timeout }}"
+      http_request_retry_times: "{{ http_request_retry_times }}"
+      http_request_retry_interval_seconds: "{{ http_request_retry_interval_seconds }}"
+      ssl: "{{ ssl }}"
+      cluster_name: "{{ cluster_name }}"
+      region: "{{ region }}"
+      oneobject_node_username: "{{ oneobject_node_username }}"
+      oneobject_node_userpass: "{{ oneobject_node_userpass }}"
+      oneobject_node_client_id: "{{ oneobject_node_client_id }}"
+
+  tasks:
+    ####################################################################
+    # Task 1 : Set s3 encryption configuration of VSP One Object Node
+    ####################################################################
+    - name: Set s3 encryption configuration
+      hitachivantara.vspone_object.oneobject_node.hv_s3_encryption:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          encryption_mode: "INTERNAL"
+      register: output_variable
+
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable

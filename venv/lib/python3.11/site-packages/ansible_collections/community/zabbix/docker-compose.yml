@@ -1,0 +1,39 @@
+---
+version: '3.7'
+services:
+  zabbix-db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: "zabbix"
+      POSTGRES_USER: "zabbix"
+      POSTGRES_PASSWORD: "zabbix"
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:ubuntu-${zabbix_version}-latest
+    environment:
+      DB_SERVER_HOST: "zabbix-db"
+      POSTGRES_USER: "zabbix"
+      POSTGRES_PASSWORD: "zabbix"
+      POSTGRES_DB: "zabbix"
+    depends_on:
+      - "zabbix-db"
+    links:
+      - "zabbix-db"
+    env_file:
+      - ./.env_srv
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:ubuntu-${zabbix_version}-latest
+    environment:
+      DB_SERVER_HOST: "zabbix-db"
+      POSTGRES_USER: "zabbix"
+      POSTGRES_PASSWORD: "zabbix"
+      POSTGRES_DB: "zabbix"
+      ZBX_SERVER_HOST: "zabbix-server"
+      PHP_TZ: "Asia/Tokyo"
+    depends_on:
+      - "zabbix-db"
+      - "zabbix-server"
+    links:
+      - "zabbix-db"
+      - "zabbix-server"
+    ports:
+      - "8080:8080"

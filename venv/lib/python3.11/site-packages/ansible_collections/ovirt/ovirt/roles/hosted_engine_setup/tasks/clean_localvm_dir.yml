@@ -1,0 +1,11 @@
+---
+- name: Remove local vm dir
+  ansible.builtin.file:
+    path: "{{ he_local_vm_dir }}"
+    state: absent
+  register: rm_localvm_dir
+- name: Remove temporary entry in /etc/hosts for the local VM
+  ansible.builtin.lineinfile:
+    dest: /etc/hosts
+    regexp: "# temporary entry added by hosted-engine-setup for the bootstrap VM$"
+    state: absent

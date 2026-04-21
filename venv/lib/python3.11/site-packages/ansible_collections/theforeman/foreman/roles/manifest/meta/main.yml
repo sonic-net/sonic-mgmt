@@ -1,0 +1,4 @@
+---
+galaxy_info:
+  description: Fetch a Manifest from the Red Hat Portal and upload it to Foreman
+  standalone: false

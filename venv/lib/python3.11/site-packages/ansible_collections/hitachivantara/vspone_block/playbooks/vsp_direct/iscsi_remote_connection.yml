@@ -1,0 +1,54 @@
+---
+####################################################################
+# Example :  Remote connection through iSCSI management Playbook
+####################################################################
+- name: Remote Connection add and delete using iSCSI ports
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################################
+    # Task Name : Create a new remote connection using iSCSI ports
+    ######################################################################################
+    - name: Create a new remote connection using iSCSI ports
+      hitachivantara.vspone_block.vsp.hv_iscsi_remote_connection:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          local_port: CL1-C
+          remote_port: CL1-C
+          remote_storage_serial_number: 12345
+          remote_storage_ip_address: "10.12.10.120"
+          remote_tcp_port: 3260
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete a iSCSI based remote connection
+    ######################################################################################
+    - name: Delete a iSCSI based remote connection
+      hitachivantara.vspone_block.vsp.hv_iscsi_remote_connection:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          local_port: CL1-C
+          remote_port: CL1-C
+          remote_storage_serial_number: 12345
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_quotas - fix duplicate entry error when trying to add quota rule in REST.
+  - na_ontap_quotas - fix entry does not exist error when trying to modify quota status in REST.

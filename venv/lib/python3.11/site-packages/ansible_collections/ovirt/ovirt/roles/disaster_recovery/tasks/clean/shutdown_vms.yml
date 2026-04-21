@@ -1,0 +1,23 @@
+---
+- name: Shutdown VMs main block
+  ignore_errors: "{{ dr_ignore_error_clean }}"
+  tags:
+    - fail_back
+    - clean_engine
+  block:
+    # Get all the running VMs related to a storage domain and shut them down
+    - name: Fetch VMs in the storage domain
+      ovirt.ovirt.ovirt_vm_info:
+        pattern: >
+          status != down and
+          storage.name={{ storage['dr_' + dr_source_map + '_name'] }} and
+          datacenter={{ storage['dr_' + dr_source_map + '_dc_name'] }}
+        auth: "{{ ovirt_auth }}"
+      register: vm_info
+
+    # TODO: Add a wait until the VM is really down
+    - name: Shutdown VMs
+      ansible.builtin.include_tasks: shutdown_vm.yml
+      vars:
+        vms: "{{ item }}"
+      with_items: "{{ vm_info.ovirt_vms }}"

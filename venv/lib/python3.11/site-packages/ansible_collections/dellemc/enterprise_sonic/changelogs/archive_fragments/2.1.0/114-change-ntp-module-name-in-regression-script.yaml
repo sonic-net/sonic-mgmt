@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_ntp - change NTP module names in NTP regression test script (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/114).

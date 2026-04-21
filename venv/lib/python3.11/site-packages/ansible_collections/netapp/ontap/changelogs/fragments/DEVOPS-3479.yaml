@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_igroup - added REST support for ONTAP igroup creation, modification, and deletion.
+bugfixes:
+  - na_ontap_igroup - report error when attempting to modify an option that cannot be changed.

@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_config - Add unit tests for config resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/220)

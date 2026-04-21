@@ -1,0 +1,129 @@
+---
+# Copyright: (c) 2024, Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: web_application_info
+  short_description: Get information on IIS Web Applications
+  description:
+    - Returns information about IIS web applications.
+  requirements:
+    - IISAdministration PowerShell module
+  options:
+    name:
+      description:
+        - Name of the web application.
+        - When not specified, information of all existing applications will be fetched or if site is specified, all applications under the site will be fetched.
+      type: str
+    site:
+      description:
+        - Name of the site on which the application is created.
+        - When not specified, information of all existing applications will be fetched unless name is specified.
+        - Can be used in conjunction with name to fetch information for a specific application when name is not unique.
+      type: str
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+  seealso:
+    - module: microsoft.iis.web_application
+    - module: microsoft.iis.website
+  author:
+    - Ron Gershburg (@rgershbu)
+
+EXAMPLES: |
+  - name: Fetch info for all applications under SiteA
+    microsoft.iis.web_application_info:
+      site: SiteA
+    register: info
+
+  - name: Fetch info for web application MyApp
+    microsoft.iis.web_application_info:
+      name: MyApp
+    register: info
+
+  - name: Fetch info for web application MyApp using site and name - Useful when multiple sites have same app name
+    microsoft.iis.web_application_info:
+      name: MyApp
+      site: SiteA
+    register: info
+
+  - name: Fetch info for all web applications that present in the system
+    microsoft.iis.web_application_info:
+    register: info
+
+RETURN:
+  exists:
+    description:
+      - Whether any applications were found.
+    returned: success
+    type: bool
+    sample: true
+  applications:
+    description:
+      - List of applications found.
+    returned: success
+    type: list
+    elements: dict
+    sample: '[
+      {
+        "application_pool": "testpool",
+        "enabled_protocols": "http",
+        "name": "TestAppA",
+        "physical_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\foldera",
+        "site": "Test Site One"
+        "connect_as": "pass_through"
+        "username": ""
+      },
+      {
+        "application_pool": "DefaultAppPool",
+        "enabled_protocols": "http",
+        "name": "TestAppB",
+        "physical_path": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\folderb",
+        "site": "Test Site Two"
+        "connect_as": "specific_user"
+        "username": "testuser"
+      }
+    ]'
+    contains:
+      application_pool:
+        description:
+          - The application pool the application is associated with.
+        type: str
+        sample: testpool
+      enabled_protocols:
+        description:
+          - The enabled protocols for the application.
+        type: str
+        sample: http
+      name:
+        description:
+          - The name of the application.
+        type: str
+        sample: TestApp
+      physical_path:
+        description:
+          - The physical path of the application.
+        type: str
+        sample: C:\Users\Administrator\AppData\Local\Temp\AppFolder
+      site:
+        description:
+          - The site the application is associated with.
+        type: str
+        sample: Test Site One
+      connect_as:
+        description:
+          - The type of authentication to use for this application.
+        type: str
+        sample: pass_through
+      username:
+        description:
+          - The username of the account that can access configuration files and content for this application when RV(applications.connect_as=specific_user).
+        type: str
+        sample: testuser

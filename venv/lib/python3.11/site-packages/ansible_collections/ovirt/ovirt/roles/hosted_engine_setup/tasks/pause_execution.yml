@@ -1,0 +1,13 @@
+---
+- name: Create temporary lock file
+  ansible.builtin.tempfile:
+    state: file
+    suffix: _he_setup_lock
+  delegate_to: localhost
+  register: he_setup_lock_file
+- name: Pause execution until {{ he_setup_lock_file.path }} is removed, delete it once ready to proceed
+  ansible.builtin.wait_for:
+    path: "{{ he_setup_lock_file.path }}"
+    state: absent
+    timeout: 86400  # 24 hours
+  delegate_to: localhost

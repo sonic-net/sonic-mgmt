@@ -1,0 +1,34 @@
+---
+requires_ansible: ">=2.15.0"
+plugin_routing:
+  modules:
+    cp_mgmt_add_nat_rule:
+      deprecation:
+        removal_date: "2024-11-01"
+        warning_text: >
+          cp_mgmt_add_nat_rule will be removed in a future release of this collection.
+          Use newer and updated module cp_mgmt_nat_rule with more functionality instead.
+    cp_mgmt_set_nat_rule:
+      deprecation:
+        removal_date: "2024-11-01"
+        warning_text: >
+          cp_mgmt_set_nat_rule will be removed in a future release of this collection.
+          Use newer and updated module cp_mgmt_nat_rule with more functionality instead.
+    cp_mgmt_delete_nat_rule:
+      deprecation:
+        removal_date: "2024-11-01"
+        warning_text: >
+          cp_mgmt_delete_nat_rule will be removed in a future release of this collection.
+          Use newer and updated module cp_mgmt_nat_rule with more functionality instead.
+    cp_mgmt_show_task:
+      deprecation:
+        removal_date: "2024-11-01"
+        warning_text: >
+          cp_mgmt_show_task will be removed in a future release of this collection.
+          Use newer and updated module cp_mgmt_task_facts instead.
+    cp_mgmt_show_tasks:
+      deprecation:
+        removal_date: "2024-11-01"
+        warning_text: >
+          cp_mgmt_show_tasks will be removed in a future release of this collection.
+          Use newer and updated module cp_mgmt_task_facts instead.

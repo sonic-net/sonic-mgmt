@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_volume_efficiency - updated private cli with REST API.
+  - na_ontap_volume_efficiency - REST support for ``policy`` requires 9.7 or later, ``path`` requires 9.9.1 or later
+    and ``volume_efficiency`` and ``start_ve_scan_old_data`` requires 9.11.1 or later.
+  - na_ontap_volume_efficiency - ``schedule``, ``start_ve_scan_all``, ``start_ve_build_metadata``, ``start_ve_delete_checkpoint``,
+    ``start_ve_queue_operation``, ``start_ve_qos_policy`` and ``stop_ve_all_operations`` options are not supported with REST.

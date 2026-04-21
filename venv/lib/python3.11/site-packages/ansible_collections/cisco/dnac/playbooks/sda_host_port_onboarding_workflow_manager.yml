@@ -1,0 +1,292 @@
+---
+- name: Sample playbook for SDA Host Port Onboarding Module
+  hosts: dnac_servers
+  gather_facts: false
+
+  vars_files:
+    - "credentials.yml"
+
+  vars:
+    dnac_login: &dnac_login
+      dnac_host: "{{ dnac_host }}"
+      dnac_username: "{{ dnac_username }}"
+      dnac_password: "{{ dnac_password }}"
+      dnac_verify: "{{ dnac_verify }}"
+      dnac_port: "{{ dnac_port }}"
+      dnac_version: "{{ dnac_version }}"
+      dnac_debug: "{{ dnac_debug }}"
+      dnac_log: true
+      dnac_log_level: INFO
+      dnac_log_append: false
+      config_verify: true
+
+  tasks:
+    - name: Add port assignments, port channels and wireless ssids in a fabric site
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - ip_address: "204.1.2.2"
+            fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+            port_assignments:
+              # Create TRUNKING DEVICE
+              # Default authentication_template_name is - No Authentication
+              - interface_name: "FortyGigabitEthernet1/1/1"
+                connected_device_type: "TRUNKING_DEVICE"
+
+              - interface_name: "FortyGigabitEthernet1/1/2"
+                connected_device_type: "TRUNKING_DEVICE"
+                authentication_template_name: "No Authentication"
+                interface_description: "Trunk Port"
+
+              # Create Access Points
+              - interface_name: "FortyGigabitEthernet2/1/1"
+                connected_device_type: "ACCESS_POINT"
+                data_vlan_name: "AG_VLAN_23"
+
+              - interface_name: "FortyGigabitEthernet2/1/2"
+                connected_device_type: "ACCESS_POINT"
+                data_vlan_name: "AG_VLAN_23"
+                authentication_template_name: "No Authentication"
+                interface_description: "Access Point Port"
+
+              # Create User Devices
+              - interface_name: "GigabitEthernet1/1/4"
+                connected_device_type: "USER_DEVICE"
+                data_vlan_name: "AG_VLAN_23"
+
+              - interface_name: "GigabitEthernet2/1/1"
+                connected_device_type: "USER_DEVICE"
+                voice_vlan_name: "VOICE_VLAN_23"
+
+              - interface_name: "GigabitEthernet2/1/2"
+                connected_device_type: "USER_DEVICE"
+                data_vlan_name: "AG_VLAN_23"
+                voice_vlan_name: "VOICE_VLAN_23"
+
+            port_channels:
+              # Default protocol is ON for TRUNK
+              - interface_names: ["TenGigabitEthernet1/0/37", "TenGigabitEthernet1/0/38", "TenGigabitEthernet1/0/39"]
+                connected_device_type: "TRUNK"
+
+              - interface_names: ["TenGigabitEthernet1/0/43", "TenGigabitEthernet1/0/44"]
+                connected_device_type: "TRUNK"
+                protocol: "ON"
+
+              - interface_names: ["TenGigabitEthernet1/0/45", "TenGigabitEthernet1/0/46", "TenGigabitEthernet1/0/47", "TenGigabitEthernet1/0/48"]
+                connected_device_type: "TRUNK"
+                protocol: "LACP"
+
+              - interface_names: ["TenGigabitEthernet1/1/2", "TenGigabitEthernet1/1/3", "TenGigabitEthernet1/1/4"]
+                connected_device_type: "TRUNK"
+                protocol: "PAGP"
+                port_channel_description: "Trunk port channel"
+
+              # Default protocol for EXTENDED_NODE is PAGP
+              - interface_names: ["TenGigabitEthernet1/1/5", "TenGigabitEthernet1/1/6"]
+                connected_device_type: "EXTENDED_NODE"
+
+              - interface_names: ["TenGigabitEthernet1/1/7", "TenGigabitEthernet1/1/8"]
+                connected_device_type: "EXTENDED_NODE"
+                protocol: "PAGP"
+                port_channel_description: "extended node port channel"
+
+            wireless_ssids:
+              - vlan_name: "IAC-VLAN-1"
+                ssid_details:
+                  - ssid_name: "open1-iac"
+
+              - vlan_name: "IAC-VLAN-3"
+                ssid_details:
+                  - ssid_name: "ent_ssid_1_wpa3"
+                    security_group_name: "Developers"
+
+    - name: Update port assignments, port channels and wireless ssids in a fabric site
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - hostname: "NY-EN-9300.cisco.local"
+            fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+            port_assignments:
+              # update - add interface_description
+              - interface_name: "FortyGigabitEthernet1/1/1"
+                connected_device_type: "TRUNKING_DEVICE"
+                interface_description: "Trunk Port at interface 111"
+
+              # update - udpate the interface_description
+              - interface_name: "FortyGigabitEthernet2/1/2"
+                connected_device_type: "ACCESS_POINT"
+                data_vlan_name: "AG_VLAN_23"
+                authentication_template_name: "No Authentication"
+                interface_description: "Access Point Port at 212"
+
+              # update - change data vlan
+              - interface_name: "GigabitEthernet1/1/4"
+                connected_device_type: "USER_DEVICE"
+                data_vlan_name: "AG_VLAN_23"
+
+              # update - change voice to data vlan
+              - interface_name: "GigabitEthernet2/1/1"
+                connected_device_type: "USER_DEVICE"
+                data_vlan_name: "AG_VLAN_23"
+
+              # update - remove data vlan
+              - interface_name: "GigabitEthernet2/1/2"
+                connected_device_type: "USER_DEVICE"
+                voice_vlan_name: "VOICE_VLAN_23"
+
+            port_channels:
+              # update - add interfaces in the port channel
+              - interface_names: ["TenGigabitEthernet1/0/43", "TenGigabitEthernet1/0/44", "TenGigabitEthernet1/0/40"]
+                connected_device_type: "TRUNK"
+                protocol: "ON"
+
+              # update - add interface and description
+              - interface_names: ["TenGigabitEthernet1/0/37", "TenGigabitEthernet1/0/38", "TenGigabitEthernet1/0/39", "TenGigabitEthernet1/0/41"]
+                connected_device_type: "TRUNK"
+                port_channel_description: "Trunk port channel"
+
+              # update - remove interface from the port channel
+              - interface_names: ["TenGigabitEthernet1/0/45", "TenGigabitEthernet1/0/46", "TenGigabitEthernet1/0/47"]
+                connected_device_type: "TRUNK"
+                protocol: "LACP"
+
+              # update - change device type from extended_node to trunk
+              - interface_names: ["TenGigabitEthernet1/1/5", "TenGigabitEthernet1/1/6"]
+                connected_device_type: "TRUNK"
+
+              # update - change device type from trunk to extended node when protocol is pagp
+              - interface_names: ["TenGigabitEthernet1/1/2", "TenGigabitEthernet1/1/3", "TenGigabitEthernet1/1/4"]
+                connected_device_type: "EXTENDED_NODE"
+                protocol: "PAGP"
+                port_channel_description: "Trunk port channel"
+
+            wireless_ssids:
+              # update - add security_group_name
+              - vlan_name: "IAC-VLAN-1"
+                ssid_details:
+                  - ssid_name: "open1-iac"
+                    security_group_name: "Guests"
+
+              # update - remove security_group_name
+              - vlan_name: "IAC-VLAN-3"
+                ssid_details:
+                  - ssid_name: "ent_ssid_1_wpa3"
+
+    - name: Add or Update just wireless ssid mappings for a specific fabric site (IP/Hostname not required)
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: merged
+        config:
+          - fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+            wireless_ssids:
+              - vlan_name: "IAC-VLAN-1"
+                ssid_details:
+                  - ssid_name: "ent_ssid_1_wpa3"
+                    security_group_name: "Developers"
+
+              - vlan_name: "IAC-VLAN-3"
+                ssid_details:
+                  - ssid_name: "guest_ssid_1"
+                    security_group_name: "Guests"
+
+    - name: Delete ALL port assignments, port channels and wirelesss SSIDs from fabric
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: deleted
+        config:
+          - hostname: "NY-EN-9300.cisco.local"
+            fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+
+    - name: Delete ALL port assignments, port channels and wirelesss SSIDs from fabric
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: deleted
+        config:
+          - ip_address: "204.1.2.2"
+            fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+
+    - name: Delete ALL wirelesss SSIDs from fabric
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: deleted
+        config:
+          - fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+
+    - name: Delete specific host that meets the filterting criteria
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: deleted
+        config:
+          - hostname: "NY-EN-9300.cisco.local"
+            fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+            port_assignments:
+              - interface_name: "FortyGigabitEthernet2/1/2"
+                connected_device_type: "ACCESS_POINT"
+                data_vlan_name: "AG_VLAN_23"
+                authentication_template_name: "No Authentication"
+                interface_description: "Access Point Port at 212"
+
+            port_channels:
+              - interface_names: ["TenGigabitEthernet1/0/37", "TenGigabitEthernet1/0/38", "TenGigabitEthernet1/0/39"]
+                connected_device_type: "TRUNK"
+
+              - interface_names: ["TenGigabitEthernet1/0/43", "TenGigabitEthernet1/0/44"]
+                connected_device_type: "TRUNK"
+                protocol: "ON"
+
+            wireless_ssids:
+              - vlan_name: "IAC-VLAN-1"
+                ssid_details:
+                  - ssid_name: "open1-iac"
+                    security_group_name: "Guests"
+
+
+    - name: Delete Multiple port assignments or port channels with interface_name and port_channel_name
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: deleted
+        config:
+          - ip_address: "204.1.2.2"
+            fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+            port_assignments:
+              - interface_name: "FortyGigabitEthernet1/1/1"
+              - interface_name: "FortyGigabitEthernet1/1/2"
+              - interface_name: "GigabitEthernet2/1/1"
+              - interface_name: "TenGigabitEthernet1/0/37"
+              - interface_name: "TenGigabitEthernet1/0/38"
+              - interface_name: "TenGigabitEthernet1/0/39"
+
+            port_channels:
+              - interface_names: ["TenGigabitEthernet1/0/45", "TenGigabitEthernet1/0/46", "TenGigabitEthernet1/0/47", "TenGigabitEthernet1/0/48"]
+              - interface_names: ["TenGigabitEthernet1/1/2", "TenGigabitEthernet1/1/3", "TenGigabitEthernet1/1/4"]
+
+            wireless_ssids:
+              - vlan_name: "IAC-VLAN-1"
+              - vlan_name: "IAC-VLAN-3"
+                ssid_details:
+                  - ssid_name: "ent_ssid_1_wpa3"
+
+    - name: Delete ALL wireless SSIDs mapped to specific VLANs (Hostname/IP not required)
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: deleted
+        config:
+          - fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+            wireless_ssids:
+              - vlan_name: "IAC-VLAN-1"
+              - vlan_name: "IAC-VLAN-2"
+              - vlan_name: "IAC-VLAN-3"
+
+    - name: Delete specific wireless SSIDs mapped to specific VLANs (Hostname/IP not required)
+      cisco.dnac.sda_host_port_onboarding_workflow_manager:
+        <<: *dnac_login
+        state: deleted
+        config:
+          - fabric_site_name_hierarchy: "Global/USA/San Jose/BLDG23"
+            wireless_ssids:
+              - vlan_name: "IAC-VLAN-3"
+                ssid_details:
+                  - ssid_name: "guest_ssid_1"
+                  - ssid_name: "ent-ssid-2-wpa2"

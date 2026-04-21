@@ -1,0 +1,46 @@
+---
+- name: create icinga_scheduled_downtime
+  telekom_mms.icinga_director.icinga_scheduled_downtime:
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    disabled: false
+    object_name: "foodowntime"
+    state: present
+    author: testuser
+    comment: test
+    fixed: true
+    with_services: true
+    apply_to: host
+    assign_filter: 'host.name="foohost"'
+    duration: 500
+    ranges:
+      "tuesday": "00:00-24:00"
+- name: create icinga_scheduled_downtime2
+  telekom_mms.icinga_director.icinga_scheduled_downtime:
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    disabled: false
+    object_name: "foodowntime2"
+    state: present
+    author: testuser
+    comment: test
+    fixed: false
+    with_services: false
+    apply_to: host
+    assign_filter: 'host.name="foohost"'
+    duration: 500
+    ranges:
+      "tuesday": "00:00-24:00"
+- name: update icinga_scheduled_downtime2
+  telekom_mms.icinga_director.icinga_scheduled_downtime:
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "foodowntime2"
+    state: present
+    duration: 1000
+    append: true
+    apply_to: host
+    with_services: false

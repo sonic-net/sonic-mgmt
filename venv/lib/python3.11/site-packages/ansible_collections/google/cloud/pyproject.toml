@@ -1,0 +1,39 @@
+[tool.black]
+# Code limit set to 120
+line-length = 120
+target-version = ['py38']
+include = '\.pyi?$'
+
+[tool.pycodestyle]
+# Code limit set to 120
+max-line-length = 120
+ignore = [
+    "E203", # whitespace before ':'
+    "W503"  # Line break before binary operator
+]
+
+[tool.pylint.format]
+# Code limit set to 120
+max-line-length = 120
+# Separate, longer limit for docstrings/documentation set to 160
+max-line-length-doc = 160
+
+[tool.pylint.main]
+disable = [
+    "C0301", # Disables the 'Line too long' check
+    "C0330", # Wrong indent for a hanging indent before block
+]
+
+[tool.flake8]
+# Respect the shared line limit
+max-line-length = 120
+# Set the same ignores as pycodestyle, plus the Flake8-specific F401 (unused import)
+# which is often enabled by default.
+ignore = ["E203", "W503", "F401"]
+exclude = [".git", "__pycache__", ".venv", "docs"]
+
+[tool.isort]
+# Respect the shared line limit
+line_length = 120
+# Use 'black' profile to ensure compatibility with Black's formatting style
+profile = "black"

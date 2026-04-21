@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_hg - Changed parameter hostgroup to name for consistency. Added hostgroup as an alias for backwards compatability.

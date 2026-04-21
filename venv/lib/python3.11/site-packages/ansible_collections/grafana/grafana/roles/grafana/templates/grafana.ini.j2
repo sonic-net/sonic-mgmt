@@ -1,0 +1,28 @@
+{{ ansible_managed | comment }}
+# More informations:
+# http://docs.grafana.org/installation/configuration
+# https://github.com/grafana/grafana/blob/master/conf/sample.ini
+
+{% for k, v in grafana_ini.items() %}
+{% if v is not mapping %}
+{{ k }} = {{ v }}
+{% endif %}
+{% endfor %}
+
+{% for section, items in grafana_ini.items() %}
+{% if items is mapping %}
+[{{ section }}]
+{% for sub_key, sub_value in items.items() %}
+{% if sub_value is mapping %}
+
+[{{ section }}.{{ sub_key }}]
+{% for k, v in sub_value.items() %}
+{{ k }} = {{ v }}
+{% endfor %}
+{% else %}
+{{ sub_key }} = {{ sub_value }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% endfor %}

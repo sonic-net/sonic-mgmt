@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_syslog - Add support for naming SYSLOG servers for Purity//FA 6.1 or higher

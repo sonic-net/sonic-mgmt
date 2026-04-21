@@ -1,0 +1,3 @@
+minor_changes:
+ - purefb_s3acc - Added support for object account quota and hard limit
+ - purefb_s3acc - Added support for default bucket quotas and hard limits

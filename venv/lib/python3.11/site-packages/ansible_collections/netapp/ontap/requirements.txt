@@ -1,0 +1,8 @@
+deepdiff
+ipaddress
+isodate
+jmespath
+requests
+six
+solidfire-sdk-python
+xmltodict

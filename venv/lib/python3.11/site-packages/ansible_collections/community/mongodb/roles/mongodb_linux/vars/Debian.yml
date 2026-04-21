@@ -1,0 +1,5 @@
+---
+# Packages for Debian distros
+ntp_package: ntp
+ntp_service: ntp
+gnu_c_lib: libc6

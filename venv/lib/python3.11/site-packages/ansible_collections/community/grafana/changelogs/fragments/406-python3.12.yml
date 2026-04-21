@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - "test: replace more deprecated `TestCase.assertEquals` to support Python 3.12"

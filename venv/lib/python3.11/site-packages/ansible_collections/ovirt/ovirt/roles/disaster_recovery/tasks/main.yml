@@ -1,0 +1,35 @@
+---
+- name: Main block
+  block:
+    - name: Start to unregister entities
+      ansible.builtin.include_tasks: unregister_entities.yml
+      tags:
+        - fail_back
+
+    - name: Clean engine setup
+      ansible.builtin.include_tasks: clean_engine.yml
+      tags:
+        - fail_back
+        - clean_engine
+
+    - name: Failback Replication Sync pause
+      ansible.builtin.pause:
+        prompt: "[Failback Replication Sync] Please press ENTER once the destination storage domains are ready to be used for the destination setup"
+      tags:
+        - fail_back
+
+    - name: Recover target engine
+      ansible.builtin.include_tasks: recover_engine.yml
+      tags:
+        - fail_over
+        - fail_back
+
+    - name: Run the appropriate unregistered entities
+      ansible.builtin.include_tasks: run_unregistered_entities.yml
+      tags:
+        - fail_back
+
+    - name: Generate mapping var file
+      ansible.builtin.include_tasks: generate_mapping.yml
+      tags:
+        - generate_mapping

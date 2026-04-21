@@ -1,0 +1,69 @@
+---
+- name: proxysql | install | update apt cache
+  apt:
+    cache_valid_time: 14400
+  changed_when: false
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: proxysql | install | install
+  block:
+
+    - name: proxysql | install | install platform specific prereqs
+      apt:
+        name: "{{ proxysql_prereqs }}"
+        state: present
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: proxysql | install | install python packages
+      pip:
+        name: "{{ proxysql_python_packages }}"
+        executable: pip3
+
+  rescue:
+
+    - name: proxysql | install | handle the error if we failed in check mode, with python-apt uninstalled
+      assert:
+        that: ansible_failed_result.msg is match("python-apt must be installed to use check mode.*")
+        fail_msg: "unknown error during package install"
+        success_msg: "running in check mode without python-apt installed, ignoring error"
+
+  when: ansible_lsb.major_release|int > 14
+
+- name: proxysql | install | install
+  block:
+
+    - name: proxysql | install | add apt signing key for percona
+      apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 4D1BB29D63D98E422B2113B19334A25F8507EFA5
+        state: present
+
+
+    - name: proxysql | install | add percona repositories
+      apt_repository:
+        repo: "{{ item }}"
+        state: present
+      loop: "{{ percona_mysql_repos }}"
+
+    - name: proxysql | install | install packages required by proxysql
+      apt:
+        name: "{{ proxysql_additional_packages }}"
+        state: present
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: proxysql | install | install proxysql release
+      apt:
+        deb: "{{ proxysql_release }}"
+        state: present
+      notify:
+        - restart proxysql
+
+  rescue:
+
+    - name: proxysql | install | handle the error if we failed in check mode, with python-apt uninstalled
+      assert:
+        that: ansible_failed_result is search("python-apt must be installed to use check mode")
+        fail_msg: "unknown error during package install"
+        success_msg: "running in check mode without python-apt installed, ignoring error"

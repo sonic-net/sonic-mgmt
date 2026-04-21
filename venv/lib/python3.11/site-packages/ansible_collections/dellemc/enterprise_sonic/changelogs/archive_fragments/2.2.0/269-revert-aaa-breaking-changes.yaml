@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_aaa - Reverted breaking changes for AAA nodule (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/269)

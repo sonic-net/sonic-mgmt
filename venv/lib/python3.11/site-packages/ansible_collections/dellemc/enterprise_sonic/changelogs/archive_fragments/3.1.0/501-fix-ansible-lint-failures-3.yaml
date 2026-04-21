@@ -1,0 +1,3 @@
+---
+trivial:
+  - playbooks - Fix ansible lint failures in playbooks/bgp_l3_fabric directory (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/501).

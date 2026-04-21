@@ -1,0 +1,102 @@
+---
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2022, Felix Fontein
+
+- name: Gather required information on localhost
+  when: sops_install_on_localhost
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - '!min'
+      - architecture
+      - distribution
+      - distribution_major_version
+      - distribution_version
+      - os_family
+      - pkg_mgr
+  delegate_to: localhost
+  delegate_facts: true
+  run_once: true
+
+- vars:
+    _community_sops_install_facts: >-
+      {{ hostvars['localhost' if sops_install_on_localhost else inventory_hostname].ansible_facts }}
+  block:
+    - name: Show system information
+      ansible.builtin.debug:
+        msg: |-
+          Architecture: {{ _community_sops_install_facts.architecture }}
+          Distribution: {{ _community_sops_install_facts.distribution }} {{ _community_sops_install_facts.distribution_major_version }}
+          Distribution version: {{ _community_sops_install_facts.distribution_version }}
+          OS family: {{ _community_sops_install_facts.os_family }}
+          System package manager: {{ _community_sops_install_facts.pkg_mgr }}
+
+    - name: Include distribution specific variables
+      ansible.builtin.include_vars: '{{ lookup("ansible.builtin.first_found", params) }}'
+      vars:
+        params:
+          files:
+            - >-
+              D-{{ _community_sops_install_facts.distribution }}-{{ _community_sops_install_facts.distribution_version }}.yml
+            - >-
+              D-{{ _community_sops_install_facts.distribution }}-{{ _community_sops_install_facts.distribution_major_version }}.yml
+            - >-
+              D-{{ _community_sops_install_facts.distribution }}.yml
+            - >-
+              OS-{{ _community_sops_install_facts.os_family }}-{{ _community_sops_install_facts.distribution_major_version }}.yml
+            - >-
+              OS-{{ _community_sops_install_facts.os_family }}.yml
+            - default.yml
+          paths:
+            - '{{ role_path }}/vars'
+
+    - name: Start determining source
+      ansible.builtin.set_fact:
+        _community_sops_install_effective_sops_source: '{{ sops_source }}'
+
+    - name: Auto-detect source to install SOPS from
+      ansible.builtin.include_tasks: detect_source.yml
+      when: _community_sops_install_effective_sops_source == 'auto'
+
+    - name: Install SOPS from GitHub
+      ansible.builtin.include_tasks: github.yml
+      when: _community_sops_install_effective_sops_source == 'github'
+
+    - name: Install SOPS from system package repositories
+      ansible.builtin.include_tasks: system.yml
+      when: _community_sops_install_effective_sops_source == 'system'
+
+    - name: Install system packages
+      ansible.builtin.package:
+        name: '{{ _community_sops_install_system_packages_actual }}'
+        allow_downgrade: '{{ true if _community_sops_install_allow_downgrade and sops_version != "latest" else omit }}'
+      become: '{{ sops_become_on_install }}'
+      delegate_to: '{{ "localhost" if sops_install_on_localhost else omit }}'
+      run_once: '{{ sops_install_on_localhost }}'
+      when: _community_sops_install_system_packages_actual | length > 0
+
+    - name: Install unsigned system packages
+      ansible.builtin.package:
+        name: '{{ _community_sops_install_system_packages_unsigned_actual }}'
+        allow_downgrade: '{{ true if _community_sops_install_allow_downgrade and sops_version != "latest" else omit }}'
+        disable_gpg_check: true
+      become: '{{ sops_become_on_install }}'
+      delegate_to: '{{ "localhost" if sops_install_on_localhost else omit }}'
+      run_once: '{{ sops_install_on_localhost }}'
+      when: _community_sops_install_system_packages_unsigned_actual | length > 0
+
+    - name: Install packages from URL/path (Debian)
+      ansible.builtin.apt:
+        deb: '{{ _community_sops_install_system_package_deb_actual }}'
+        allow_downgrade: '{{ true if _community_sops_install_allow_downgrade and sops_version != "latest" else omit }}'
+      become: '{{ sops_become_on_install }}'
+      delegate_to: '{{ "localhost" if sops_install_on_localhost else omit }}'
+      run_once: '{{ sops_install_on_localhost }}'
+      when: _community_sops_install_system_package_deb_actual is string
+
+    - name: Set results
+      ansible.builtin.set_fact:
+        sops_installed: true
+      delegate_to: '{{ "localhost" if sops_install_on_localhost else omit }}'
+      delegate_facts: '{{ true if sops_install_on_localhost else omit }}'

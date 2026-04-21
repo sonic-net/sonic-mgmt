@@ -1,0 +1,56 @@
+---
+# This is an example for a hook to fix restore-from-file errors
+# due to missing required networks.
+#
+# If you have an existing hosted-engine setup, and the Default cluster
+# has some required network, then if you take a backup and try to restore
+# it with '--restore-from-file', the deployment process cannot know which
+# host nic should be attached to the required network, and so activating
+# the host will fail. This will prompt the user to manually handle the
+# situation via the engine web admin UI.
+#
+# If you already know that beforehand, and want to automate restoration,
+# you can copy current file, edit as needed, and place it in:
+# /usr/share/ansible/collections/ansible_collections/ovirt/ovirt/roles/hosted_engine_setup/hooks/after_add_host/
+# File name should end with '.yml'.
+#
+# For more details, see (also):
+# https://docs.ansible.com/ansible/latest/collections/ovirt/ovirt/ovirt_host_network_module.html
+# https://docs.ansible.com/ansible/latest/collections/ovirt/ovirt/ovirt_host_module.html
+
+- ansible.builtin.include_tasks: auth_sso.yml
+
+- name: Wait for the host to be up
+  ovirt_host_info:
+    pattern: name=myhost
+    auth: "{{ ovirt_auth }}"
+  register: host_result_up_check
+  until: >-
+    host_result_up_check is succeeded and
+    host_result_up_check.ovirt_hosts|length >= 1 and
+    (
+    host_result_up_check.ovirt_hosts[0].status == 'up' or
+    host_result_up_check.ovirt_hosts[0].status == 'non_operational'
+    )
+  retries: 120
+  delay: 10
+  ignore_errors: true
+
+- name: Handle non_operational myhost
+  block:
+    - name: Attach interface eth0 on host myhost to network net1
+      ovirt.ovirt.ovirt_host_network:
+        auth: "{{ ovirt_auth }}"
+        name: myhost
+        interface: eth0
+        networks:
+          - name: net1
+    - name: Activate host myhost
+      ovirt.ovirt.ovirt_host:
+        auth: "{{ ovirt_auth }}"
+        name: myhost
+        state: present
+  when: >-
+    host_result_up_check is succeeded and
+    host_result_up_check.ovirt_hosts|length >= 1 and
+    host_result_up_check.ovirt_hosts[0].status == 'non_operational'

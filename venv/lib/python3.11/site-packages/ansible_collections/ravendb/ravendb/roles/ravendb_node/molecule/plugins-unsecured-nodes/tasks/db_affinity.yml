@@ -1,0 +1,174 @@
+---
+
+- name: Create DB on specific nodes (A,C) (check_mode)
+  ravendb.ravendb.database:
+    url: "{{ node_a_cluster_url }}"
+    database_name: "db_a_c"
+    replication_factor: 2
+    topology_members:
+      - "{{ node_a_tag }}"
+      - "{{ node_c_tag }}"
+    state: present
+  check_mode: yes
+  register: db_a_c_check
+
+- name: Assert would create on A,C
+  ansible.builtin.assert:
+    that:
+      - db_a_c_check.changed
+      - (db_a_c_check.failed is not defined) or (not db_a_c_check.failed)
+
+- name: Create DB on specific nodes (A,C)
+  ravendb.ravendb.database:
+    url: "{{ node_a_cluster_url }}"
+    database_name: "db_a_c"
+    replication_factor: 2
+    topology_members:
+      - "{{ node_a_tag }}"
+      - "{{ node_c_tag }}"
+    state: present
+  register: db_a_c_msg
+
+- name: Assert DB created on A,C
+  ansible.builtin.assert:
+    that:
+      - db_a_c_msg.changed
+      - (db_a_c_msg.failed is not defined) or (not db_a_c_msg.failed)
+
+- name: List DBs
+  ansible.builtin.uri:
+    url: "{{ node_a_cluster_url }}/databases"
+    method: GET
+    validate_certs: no
+  register: dbs
+
+- name: Build member_tags for db_a_c
+  ansible.builtin.set_fact:
+    member_tags: >-
+      {{ (((dbs.json.Databases
+           | selectattr('Name','==', 'db_a_c')
+           | list
+           | first
+           | default({})).get('NodesTopology', {})).get('Members', []))
+         | map(attribute='NodeTag') | list }}
+
+- name: Assert  on A & C not on B
+  ansible.builtin.assert:
+    that:
+      - "'A' in member_tags"
+      - "'C' in member_tags"
+      - "'B' not in member_tags"
+
+- name: Create DB on all nodes explicit (check_mode)
+  ravendb.ravendb.database:
+    url: "{{ node_a_cluster_url }}"
+    database_name: "db_a_b_c_explicit"
+    replication_factor: 3
+    topology_members:
+      - "{{ node_a_tag }}"
+      - "{{ node_b_tag }}"
+      - "{{ node_c_tag }}"
+    state: present
+  check_mode: yes
+  register: db_a_b_c_explicit_check
+
+- name: Assert would create on all nodes explcit
+  ansible.builtin.assert:
+    that:
+      - db_a_b_c_explicit_check.changed
+      - (db_a_b_c_explicit_check.failed is not defined) or (not db_a_b_c_explicit_check.failed)
+
+- name: Create DB on on all nodes explicit
+  ravendb.ravendb.database:
+    url: "{{ node_a_cluster_url }}"
+    database_name: "db_a_b_c_explicit"
+    replication_factor: 3
+    topology_members:
+      - "{{ node_a_tag }}"
+      - "{{ node_b_tag }}"
+      - "{{ node_c_tag }}"
+    state: present
+  register: db_a_b_c_explicit_msg
+
+- name: Assert DB created on all nodes explicit
+  ansible.builtin.assert:
+    that:
+      - db_a_b_c_explicit_msg.changed
+      - (db_a_b_c_explicit_msg.failed is not defined) or (not db_a_b_c_explicit_msg.failed)
+
+- name: List DBs
+  ansible.builtin.uri:
+    url: "{{ node_a_cluster_url }}/databases"
+    method: GET
+    validate_certs: no
+  register: dbs
+
+- name: Build member_tags for db_a_b_c_explicit
+  ansible.builtin.set_fact:
+    member_tags: >-
+      {{ (((dbs.json.Databases
+           | selectattr('Name','==', 'db_a_b_c_explicit')
+           | list
+           | first
+           | default({})).get('NodesTopology', {})).get('Members', []))
+         | map(attribute='NodeTag') | list }}
+
+- name: Assert on A, B & C
+  ansible.builtin.assert:
+    that:
+      - "'A' in member_tags"
+      - "'B' in member_tags"
+      - "'C' in member_tags"
+
+- name: Create DB on all nodes members ommited (check_mode)
+  ravendb.ravendb.database:
+    url: "{{ node_a_cluster_url }}"
+    database_name: "db_a_b_c_ommited"
+    replication_factor: 3
+    state: present
+  check_mode: yes
+  register: db_a_b_c_ommited_check
+
+- name: Assert would create on all nodes ommited
+  ansible.builtin.assert:
+    that:
+      - db_a_b_c_ommited_check.changed
+      - (db_a_b_c_ommited_check.failed is not defined) or (not db_a_b_c_ommited_check.failed)
+
+- name: Create DB on all nodes members ommited
+  ravendb.ravendb.database:
+    url: "{{ node_a_cluster_url }}"
+    database_name: "db_a_b_c_ommited"
+    replication_factor: 3
+    state: present
+  register: db_a_b_c_ommited_msg
+
+- name: Assert DB created on all nodes ommited
+  ansible.builtin.assert:
+    that:
+      - db_a_b_c_ommited_msg.changed
+      - (db_a_b_c_ommited_msg.failed is not defined) or (not db_a_b_c_ommited_msg.failed)
+
+- name: List DBs
+  ansible.builtin.uri:
+    url: "{{ node_a_cluster_url }}/databases"
+    method: GET
+    validate_certs: no
+  register: dbs
+
+- name: Build member_tags for db_a_b_c_ommited
+  ansible.builtin.set_fact:
+    member_tags: >-
+      {{ (((dbs.json.Databases
+           | selectattr('Name','==', 'db_a_b_c_ommited')
+           | list
+           | first
+           | default({})).get('NodesTopology', {})).get('Members', []))
+         | map(attribute='NodeTag') | list }}
+
+- name: Assert on A, B & C
+  ansible.builtin.assert:
+    that:
+      - "'A' in member_tags"
+      - "'B' in member_tags"
+      - "'C' in member_tags"

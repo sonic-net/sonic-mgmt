@@ -1,0 +1,5010 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "LICENSE",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c38eb11b6b8cd591aed90793ca80bd3c499393f207b96640ddfa571f61f7b4f",
+   "format": 1
+  },
+  {
+   "name": "requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f78777e211f01bcaa37835d89fd0a8de3b9c1bf37d0a43be57991643a0ab7bcc",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "96b6f035e35f64201f0075258016479d24fb526e53cc554ece5bae16e7d483d3",
+   "format": 1
+  },
+  {
+   "name": ".github",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/galaxy-importer.cfg",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "495797aee3d8a36d013c51e137187e94b639b998c59e84b64574584c826846a8",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/ansible-test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "037a3c1533067c96675d77433d3d7af5d18422df99b5a1d310cddb693c9f6cf2",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/changelog-generation.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "66dd79480302f6cb6fedd3fdc1e844267e3f8b780af25069b9887514292fce3b",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/jira-issue-sync-pr-review.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db8febcb4a3f631f3d648ce6592056a8c827102207df24f8b04a44c11f6ba3f6",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/codeql-analysis.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b94c8495fe6bba0ff51683f4a13101aab560fa1b480f19ad636e6a85f578573f",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/jira-issue-sync.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0bd9bf299b3756cfe66eb0a085cf5f90d20a7c98deaf2457091dac35c0b87158",
+   "format": 1
+  },
+  {
+   "name": ".github/CODEOWNERS",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bcbb1e0d07a543c71d7e83cab2541992a9965fe37e9a3f4bdba3238b7ab9630b",
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE/config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f103c6a9dd07cd13a9a6f17ace6b813f47747eb9cb7e00488cb2073caaf91bb",
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE/Bug_Report.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ab91fb0030575562037e71b97d5c7a011ef0068812195a1ce78bc7233cbbbc79",
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE/Feature_Request.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "734f00beb33216222396e76ae426a8d5b85605b37f7c4ea5fb5899f6a81f0899",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "611ba6325f4ab58aa157eb91fbe3edf77f2285f854e612f6ec433d73ae4291cc",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ae57b745de1b3af9349b80c2b5928637f623e64a52a5aa3e249f83ad55d1f5b7",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/modules.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3140cb147397aaedea624cc5263e724f09e1aed800c1a08c8d4279be90421390",
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/l3out_interface_ptp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f8efc6bf06f66d0164b529318e014360a458ed5e837126e3670e3ab9cb0a50dd",
+   "format": 1
+  },
+  {
+   "name": "plugins/httpapi",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/httpapi/mso.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ecb6f4f715e9c43053c68a28ceb9c446ed00e327c44fa9aeafee9a33adb33cf5",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/utils.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3c8f85f8ce3c54951cbd7f48d6f75daa643ac8af9301a5bc027ed7bb7fb3ffa1",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/constants.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a59684235d84c8b3bea15a3a5789ca31f21dc1562c8cc310e9b05d3d88bb5b7c",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/templates.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "38caac4e5f4914bd088e8465e60b408f470b3e56c122877378ba6c7cf2570733",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/l3out_node.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "34c9254b4f60b838577d7a5b4a5af1072af4fef029635f46551b184c55db87f0",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/schemas.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2db29dd1b2d23107e3074b45e3eedf1eca54b1029f2c1f282d6892b1a559f2dc",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "86b786100e10e70592f6f98bdbcf36c92d032cf976604266de5ab2ea8941e6dd",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/mso.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2a12cc57a1514ddd70a6aa54ee26af988a2aa0ea0f710a4e909b14053a2341b4",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/schema.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "29f5421dd144128a59cf9591eb21a511ba1f41aaeb1405fa89887ea8adcb7f4d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_version.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "31a5b738343e42b1b01cabad5eaebbed9c59a34b6bd0da4eb861c156b7ecd301",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_external_epg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "85117287814323c1e973545958ed5a4cfdbb5772471c5a91f2b6048e1a3cdc62",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_tenant_mld_snooping_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "103c39604054447d94cb4c947bbb073447fcb8909246cd548b711cc10961d65b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_floating_svi_interface_path_attributes.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8ca86aa78f535d7a6670e578d1118fcb207e9e15d880ce06312e5bbe7c9c05af",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_schema_template_deploy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "443d0ede7a85a5861fc59194a1a44dc10bd1fc13c84624e83b59e7babd9c495e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_tenant.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc5b621d8331a45508f2dcd8cb42600208207d977b70a0f9ec3e6632a75386c8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_contract_service_graph.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c5e45f9abfac6d5668c9d1dfb1a327f42de7e0e809c08faa4468a0b61d751d16",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp_epg_domain.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e62527c27c8dd90315e44bbaac4104e119963c6a59d17a47c67c807ea4bea445",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_label.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "081146778e14fd64b318da7304dc6ecfe8c5c6c4bfc796c66d46cdd616ba3a0b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_vrf_contract.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8e9b26cff255d7afe3e7ca98dc94b625047915b709155e28a6701390d8c2e52e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp_epg_bulk_staticport.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "45fda87759808362dfb03728aff531cf4f028762e7d92c67db48e4722d552c37",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_anp_epg_selector.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "983751917e08ec653d1432d701e90decdced6948c419cbb72d9720dfdc2bca9d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_l3out.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "02dcd05e2315cc1c87e4e91f1f18cebf9b43fd61614877aff7956a3bfc4bab5d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_external_epg_selector.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bd58763556a0e77fc3337596263b7228e1168eb905c91e7fca492e2458d7707c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_node_group_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "764406af0bcd2d89544163fdb23dcea2d7cab442bf8567e5d5d81677d77c9d36",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_vrf_region_hub_network.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0e46ba971fc360ce3aac486f5052d9114b370550a9696789e4abf8490db597d9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e9204b1fc0da949f2f63e763dba9b1da299e3df11e6d89a9699c751befc051a0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_vrf_region.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8835271f837f8d881da42f73d0626f172aec10307cc162edb2c4521cc8a0bd89",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_user.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e57dbb93f2e27574472041dc7d5e5fc8d6c56390413d4532844189407af1fa55",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_ipsla_monitoring_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "525a96d8002d149ed98c4f7c79174d5b7cfbd19eee3eccdc3a1a825a469fe8ab",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_route_map_policy_route_control.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "97cc7272286177091f9e926d8d6c5db489854d3f8f86be8445895a418c3a41f4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_node_static_route_next_hop.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b235d20e8ef8957748c3d42297ebb4894cb99588667048ba51baeef5e34bb8d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_node_profile.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "298c600e572e1e3d31ea6976580c9418b4ae1aa5aee101fe112ac6392da92860",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_dhcp_option_policy_option.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0924cb40e19295b774ecc5913cef683599dfbcdda1855fb40437f50d7c1b2d4f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_external_epg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3955e54007c64961c534f21c8b315b46e94c774c88fe9330480dab1c1807bd75",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_external_epg_contract.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fa362987b2ce3758bf186091a205d963e1d544871680de2fa0bc76aba773765d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_anp_epg_useg_attribute.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81341bbfcd70271ca0cc31b8a08ea136528e93bc36e63b6985310b9aead69d57",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_mcp_global_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1d9308830a8c0a3eb3e5b81a61d685edcf9f3ab089a4a65df0e89af45f1e062d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_role.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3194306b5a1d2d8e8f7fff2c6680deacac90fc14802a4d2bc98f2e5b8f8a7132",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_bgp_peer.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3a28dbd0ec676fa08f82194bbeaa9b28947ec4e696a43f289318ddc34ccd0aa9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_svi_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ad110212984cefc05f25aba2aa60a7d617c0ca61b4a1a1779016dedaa0a77319",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_service_graph.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e220243eb8c8e40767439e1e2bb003ecc36ccdafa2d4b2d73d43600c4ffa10fc",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_ptp_policy_profiles.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dde854a18c9aad06635b235163b791ce37ac26df6d022f02706b767336e9f978",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_physical_domain.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c0271ba148cd0ed0c42982b3d5ce9698e26aba285afedaa109cf485b13483a95",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_node_routing_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f3a61de80817cb7849d07de3640531fd4923e1af479a7d80df3edc5e09018f9b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_l3out.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "36273421863abc80c13bf8a7926d1885ed1eb7582e56b77077bf48a51be26426",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_vrf.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8ba10a75ea0fe7dfad2666a8a2fe33e61c8a66a6164245d480be99d38cebeeec",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_route_map_policy_route_control_context.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d4d191c02fb19b2bf57c75c28be6ccd02af7ac523918b9a88da920254460b946",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c84cdd70071fb6d1b9fcc031ea40d0123acc96e317f65e240b02d747b169ac14",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_annotation.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bc7df1cf2db2bfdf1e97af9c8f900dd33ea05dd278a95ce0ef7bb379556b1701",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_external_epg_selector.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "816002cb3c41dadf1f71ef97e1a7e1184898411ff6e1e070ebafda0e2e55ad33",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_rest.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "efc9e54f41520b90a547a0d27832ad8c3fc12517902f5fb08944fdbd247038e3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp_epg_useg_attribute.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1743ffa0bc772fdfb4abdd5b3e205cea3aca58d033fcdb0a36b40143b98854bf",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp_epg_staticleaf.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c13a222b63c1b22f2347e563a79462d484746ea729649fb826b5c9cdb66e95fa",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_interface_group_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ffa6e84f84983734a749cbcc51246d6f26c8792a4bcf1928ed52461501ef35bb",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_tenant_igmp_interface_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9630671e6fe1a9908661c4f1ab9efaa2f07e096bec4f509c832ab491d86efde8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_contract_service_graph.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8a2ba79b3a21a299b96b1b10a68b8e0644f9da23a630133ab7296b800003d705",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_tenant_span_session.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0bd9dc4a775413f7c465cec4a636f619bf0a71586b3df5812851d92f4f34226a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_externalepg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3955e54007c64961c534f21c8b315b46e94c774c88fe9330480dab1c1807bd75",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_dhcp_option_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b18fb6cc974b2dc5e5832b474b64411f6d44ae31551042f5a53025a1213d1e8b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_pod_settings.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7b53f41e2408b993d9133aac95825d445f1237821c3892539171682fce0ff66",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_anp_epg_contract.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d109d46c74e46a2bcdbc896253565dea2dfada01c235b42ffe1c3ca53c91b9d3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_backup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f95a32e7b4b2ae490378510c0b54404b73eee95de3f91781f22e91a543c357b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_routed_sub_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b7dc7c3768240a9f2424462e130bf3da339c8132a6e65d163b6272c3dcf7a3c5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_vlan_pool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ea206725f7111208bfc597f6a580d8bdf50cb2e1de116fc8f80c95a800e3685",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_service_graph.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ec3b6d065bdd34f47f246bdd40edbebe1769f1115582bb85c637119d70fcc22a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_virtual_port_channel_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f0fe2ab04d9d20cf2424ca690d8d777d88e58bf92440aa28611e495af84f636b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_deploy_status.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0c19b16a14e60c56623b5601791545b34e603446ac6479a228ea6736fbf9c332",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_anp_epg_subnet.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3015e6e746164b203532a58eeaf68ea796b78d5c270799d36a2c4ed595a8bccc",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_interface_setting.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2fb71889564c4714d4df2fc286822a9e1234b82bc640885edb3185b7ab005b6b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_interface_routing_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "45dd0d382de633465e1af0343af15d125af9d69078de6f3f7f8754cea4d0aace",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_set_rule_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2404c7af472f4e29cfd5295ec7b155b2712ff17e704260c09bcbb7f6a76e8573",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_external_epg_subnet.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fe0bac345887661d30f8dadbafcc4240534f6dbb8701aa7a7bf807d2777dc34d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_service_device_cluster.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cf270e56dccc462b778af8add8234a4586865089abcccc89e966194d946971bd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_node_static_route.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c9025278d7f1a18877baa143a6d2d73a942979e646386f79fdbde9606d203e30",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_anp_epg_annotation.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d4508bad6f8764ec59275fffe16af4cb65aebf1a3b80b8dbacd9e767f6d00c65",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_bd_subnet.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f47b8cf5a99acd4c7d3db34263795304c160dc7afa7f537b02cdad0b2e1653ec",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_clone.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a530da97206a358b2413103b42a7a6cd39e84a3b1c2e40368b6d13f4bd276ab2",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_deploy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8629d419f3322f340f69e8ec2a721a8e05371c6b4f1925e1701fb587f2cfb99b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_fabric_span_session_source_filter.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f737e375011752c45b46ae9e425e2da74a7ec87196e2cccef6b91f6664dddba3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_clone.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fd6f1dd1edaf676366762f1d11c8d9d12cd3135f2175c28ebe126c1c815195ee",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_vrf_region_cidr.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e6147524cf1692dbe1dff7eaca39dd5cfe06c16aedb8d39acfd99c519a5ae447",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_anp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b879cf3ed34dfdf45150bae5b96f94bd93846cc8ca414433c88b4e34503ba817",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_validate.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b04115bf843bcb88dff869c7478eeee1abeb6b68cfa0d4c2671509df27b4665f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_vrf.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db7ff939c60f64b7259f5821cf4a535d95c404d37d66863b89eb62866ef65de9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_service_node_type.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b4b4e9dfd8a3cd89b293a58b2ce9de07ab8c65697b78e629167b4a41b521f513",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_backup_schedule.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e55a6680185af141d01540448fb0ecfac8f231a0620fa15ff22a6171eae8215b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_tenant_igmp_snooping_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e8df756d05730ab2f8306d2468f123b65c8d4c458457fa1ddff109f67d86bdb",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_fabric_span_session.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3a9199ced0f3cdf34fb3a596d6fb5fc8b189c287fbbd6c71c150af9908dada4e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_vrf_region_cidr_subnet.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99317cd35700317aa573606354f2e76e980ee1a68c02cd890ee539c19e849e18",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5e2519bfffae43c962927493346ee03efa3871319d3efa75d404e1e0545a9ec9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_bd_subnet.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c188f403fd34b45bc3fa87a4f52454f5c363b9e9e421549fa39c5c90d7666109",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_site.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9d8b6243da54e431255534b35d0f61408164861b69a23f10d117e88fbd9d6a0c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "318e74b0419dceec2169e2f43ca050849f85025e92eba902297a9bd58dc9a423",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_dhcp_relay_policy_provider.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "452b2ffea8333fab009580d8b54d79c9d39d6d16cd40a8f8c1dd4cd61857220b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_tenant_bgp_peer_prefix_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a3445a2aebaa61335225036e5b5c5c8cbb82dd6281445dc23fdfd9f51417afb5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_ntp_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bbf62632c078b44694b6d0b2e5560c8ea7f1e09e1715d44d793d32add50b91d8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_bd.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a51c3e49422be56b26dc10e6a0c509470f60e5a35c9132674d40e384488082c0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_synce_interface_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "136844d542f6a138e36f5d0136cfdde6563f2a0ec143baffbb0ba36eb5a693af",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_migrate.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "45ba8f907600e66227866c7603c49b516e1e6fd813d81433c2f19afc95242a68",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_routed_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d79c6ec33b8aabc7a469becb08661c23d405b19a34fccf674a81074c30bbd3e4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_anp_epg_intra_epg_contract.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea2c288837989028be8685db6d82d4085e5b5b13221616a0a4d80a8810f9f3ec",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "babaea33e886b65c05e9012b4c67d42e42835a1f1d3fab98c6393521e81370d0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_match_rule_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0c3deca34d0bc2d74ec37b18aef515803addf934105cef79c02b262921148acb",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_physical_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fa9af2d2704c6aeae01fc85c258609f1a530fb9b118b0ab8d017e0fe3de56f9b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_qos_class_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f433c617bd9b3a02441296c7195fe44810f85c9d3c5e1ce97e83678cef27c73",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_vrf_rp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5e375d80e8927167854b0d74f0056094828e229bb1f20ee333b223015c81edb5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp_epg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "967aacf14c5e26834b18a5d695cfba2f52a699674f8c1144d158cc4b6afab245",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_match_rule_prefix.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f577c97c4e875f906c8b951c543b6b089e3f0f150e9f2c50a0b549a88aa72ce6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_bd.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5beeabfda8355e85f6b5fd2fc9c6ab6028cc9ab9af260e884602d10d5f752b6c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_tenant_custom_qos_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "575bb458f7c6d8e29a810fdd161c759330145c16b60b1da0c4da6bbb1dcf37f4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_dhcp_option_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "65b4ad0196e7667e1371b86321ad6308ff625b89bfa75623a26b660c083bc33d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_fabric_span_session_source.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f425095fd43f5010d4b17f76117aa92d09cffab53ae1093558f49d9a687fa070",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_filter_entry.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7b0ac723395463cad198f322ab087095e4cafec8b1d3e7ccf32e58713b6527f6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_secondary_ip.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea85555269d427282ac05c2b675c098e317ccbfee95655e15cce0f2f729e6734",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_macsec_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "06f7226f096521550e438bdb5f73d9e187bbe301220166ae4f6e87009213c8ce",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp_epg_subnet.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f9d6358f5afebbbfa87cbc90a3dfadc95086a46107b05dc6d7498d0a8d7d6188",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3_domain.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c2ba35244b8bcb4bc270ba6045c6e9c425f55f50a0c3f3b71a0289a52f468c6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_contract_service_graph_listener.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "44a8c1c8db5aef031e9d37135b3812c5228ed36d0da87f2b596481f3f5aa878e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_fex_device.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "891c16f4155562954acd04386bf4f0afb79aed5f935a9d36f4e13c650d2483d3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp_epg_selector.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d96dca5d20ca733c17f4eb7dea7a5310876344f9a3408873518cc7743b3cd63c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a8188eb77d54445999a9aaa8d7a7e1eebb6292f8343f0087c11fd0b2d8cc25a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_pod_profile.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "444f08001b2a2bd9efc7ce4cfc3d3ebb2dcc0f75493136d4dfaf4499960499aa",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_remote_location.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "926198de94a92a491d433fb8fd784e6a23f7c879e93bd87dbaa9a550be358ddc",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_schema_template_contract_service_chain.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a9b1bf6c90474d61e4d3bbcbb3ff362b6ea4fabd448d1722f8a46843a8e7ec0f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_schema_template_bd_dhcp_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "003c8a23fbc2a5b38c3500b1b3a6061c0d4159f426d5d3fea69f68d79ea14bd3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_ptp_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63155ceb9c860b590de520db8cc2578d0fb9145d4576d67ac27cf3d6e1865752",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_l3out_floating_svi_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ba71945e5e431911169df63deedf39e3a0b82a425b80d485e24c3979f6d5a380",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_port_channel_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5153255bbee53c87700cc71278743429eb5360e6d6506ad0edae1a8f6445877e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_anp_epg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1b3d3b109834ed0d8fe63d97600009c3c41dbb9cafb1ae8c80551471884b0106",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_anp_epg_staticport.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f7c9bc84ebad16e207478e7128f02cfb29d73dbaf35fea13c64848b8f4fa2dc",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_ipsla_track_list.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5a8da57c2a2b33eae20e3ed44a61fbcf1916a5f80f28f9711fe34d8f30a761aa",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_bd_dhcp_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f069b5d00eacf1c336d30e1ca4a0754dead1efd7646b5c11785203f67048a1d4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_match_rule_community_term.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ffe203d6e44cfa2aedcbe43ae902c1e1bd900740611963d1d9cc4ff2073130a1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_dhcp_relay_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c1f65140a8406c4383db2f785a6d8b072a3d65a4c99de6ec3e565bd800bfa956",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_route_map_policy_multicast.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cded3592a5d810ed746635852934b804b27d36dd27103c3490127730dc6f8323",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_site_bd_l3out.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf0b512dcfcd0573c460308bb32f410804964c630a007a073ca42672b70799f7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_tenant_site.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e481801463232251b9cdeee69ed04ef6356e608f005d9f3eab2761e4886b803e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_qos_dscp_cos_translation_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9f16811ca9e5b55c33dcafa6d92f47afdd6e570f0c6fad78438e9c971c5d7744",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/mso_schema_template_contract_filter.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "69ddb7567eed8b7b24f62ba29ecc29659ef002fd6545a15dc6a93f0fb3bc0db6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_dhcp_relay_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "39f4db7fb6aebb739501382ad21fcdeb1c195780b413cb2b1c61da01fa139abd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ndo_node_setting.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "acae60c3fc218501f345a41ad409fc0f08eb5f5a7936eb80117666152ba5e0bc",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "165f0e7883e454cc46c3d7e05caf9c378aede1dc67839b06f65172855dd53146",
+   "format": 1
+  },
+  {
+   "name": "changelogs/.gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "919ef00776e7d2ff349950ac4b806132aa9faf006e214d5285de54533e443b33",
+   "format": 1
+  },
+  {
+   "name": "changelogs/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "60aeb73c8f9405f13ccc70c9ec8fa5caeff5ffbaad3cad51614eca5c4b5cbb1f",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/network-integration.requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "26d3ea388bb679036608d912734c5369bb63f362795a62fd5c9e0469c9abaeb8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/target-prefixes.network",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a751644aed44198c1a29a15bccfe9d4db59a5dabaf118620623579ce0caf0f89",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_site",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_site/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_site/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_site/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "78e7c19bb659638812ed34f2cc4c4a6f0d3946c7eec28e54d05a2dd04001ae6e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_site/tasks/connectivity.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5ad7198616f8396d761ddfff46c03886cf49c8af64decc1439cd0b893e2e8645",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_dhcp_relay_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_dhcp_relay_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_dhcp_relay_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_dhcp_relay_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "260b5a28dfde9490bdb5ef3261512ba6ed8158a86575d79505a268f09b1a64a2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_pod_profile",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_pod_profile/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_pod_profile/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_pod_profile/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f05b43c4ab4b7bbed04ede96d3fce675369636c9b29cfc27bdac8eb8f0478dd2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_floating_svi_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_floating_svi_interface/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_floating_svi_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_floating_svi_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4b7df483e53b54d8f3087cabc6ee2fa0d70ae0df87b31d55685f7470e74d490",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_node_setting",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_node_setting/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_node_setting/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_node_setting/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5bdad4360abb9db5cffc56639f7a7fac95d7ae0dbfa8cb2f34471556cf90a987",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_dhcp_option_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_dhcp_option_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_dhcp_option_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_dhcp_option_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83d13bd9ab66c79ae191554cb7fcb132ab5ae2b44b99d04e522e92fa927ec1ce",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_useg_attribute",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_useg_attribute/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_useg_attribute/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_useg_attribute/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "10619550bc02fc49ab081aae29a45c4f107e9495a5fc687403f02d59afcedd9f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_multicast",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_multicast/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_multicast/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_multicast/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "17b6210c134ba46faeddc6c96e50917010bd550c07a74fc5cf0a303274c6ce3d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks/json_string.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a91f997e0bda9a22e4c7f48c86534e75d1a4d339660506cca21d7aebbeecc66b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks/yaml_inline.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb74400224c7afb47ead1d5d9c50c0d120274c1a4a8d5dda57eb9ac7e018c227",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks/json_inline.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c536a00c7a4f8db62313c4c6b1b82082e4f07b074484e1dee1ecc6d9354a03d6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks/tenant.json.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6636b61fb38e341e4520e1f158bbce619e6b70e6e6d4bd243177ec86069f50dd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks/yaml_string.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e95a64f1d09d5456b7ddecc958654473ed9ae2fa6a336a692d82474c385ec554",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks/error_handling.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ba05804b3cc1a2444507235a47be5397f079fc4c9f600aec06d60e22c7df29d8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks/json_template.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fdb29819b5ad2c704e3f93c1f6939f2fd4031932eaa71803e441179eae80accc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_rest/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "744643738a57bf2c1a361be092101d1566c91dba7e936168f98731fa4c33abd6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_annotation",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_annotation/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_annotation/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_annotation/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "85ea9e75990999fcc8c69d151baab05aa5bf6e291687577b6e4c18e322af44e3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_port_channel_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_port_channel_interface/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_port_channel_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_port_channel_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7a0cbc7303744b697a3c80844a6518d511238adfdc483491746eeb712eaeae84",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_routed_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_routed_interface/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_routed_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_routed_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a866d9cc06b652f6fdd362981afe6a7cf0b11942466f70e8f289efeb8f8524f2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_option_policy_option",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_option_policy_option/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_option_policy_option/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_option_policy_option/tasks/main.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc327b7dadc2b48ade2464c00cf84e699ad01706fc05ce8a8d49bf199fe985de",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_secondary_ip",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_secondary_ip/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_secondary_ip/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_secondary_ip/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e1576acb5a52a6978617ca6aecb8a19f4620a3f564b5b01970d9d5974bb8d7b4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location/pki",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location/pki/rsa",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7ea356fc3f12a611c5508051db0d3ec4e8f0945f806ac9b7645cc72f8342639a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location/pki/rsa.pub",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6f33804de57beeb48f784be435cdf7484886f1d227ab6bd016ab2e03f1150e78",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location/pki/rsa-passphrase",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a66131fd3b769bd4dd960daa74a619b7786e546841f3b113ec012c2e9a0498ee",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location/pki/rsa-passphrase.pub",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "627a0a5fd0d48dd796488fc3c6581beb656d0781730d759205158d7cfc256361",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_remote_location/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "498c8d1960ddb796e2db681e180bcbbee04f0742c7c70e860de659f6979a959c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c0e52f1c8500544ff601f0487cf34f62dac197ff6dd4ef6b9c8c3ed6fc3369e1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_template",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_template/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_template/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_template/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "317346658fb71060b8824738a5f621c4edae32a70714989aefd72364f4be7c0d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_set_rule_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_set_rule_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_set_rule_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_set_rule_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c294b1d8ce156e15fd2c2ec5b4c98261615a2697f50472bcbcb7b0a2ee584371",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_label",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_label/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_label/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_label/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0c3d8b89ce467783f71f5f2dbe4001ef36ebc75589826490e8209164f6bf0c50",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_clone",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_clone/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_clone/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_clone/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bcef426421ffeff530e23ba152f73347ec7f3659a8ef27ae66e896ba8af1c072",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b9b0c5d639c041d5aeeddf1c3c963904dffe96cba09df43bade2507444dd35fa",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd_subnet",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd_subnet/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd_subnet/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd_subnet/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b7650a13616eb890800a7cfdaf473476df824e2d5a14e537c2f757eca5bac9f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c829d6782b2a3b5be8cfff70e8833555bf79c199026c342966df5c9986f7692c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd0e191e0b4331637eb66fc69ba63163a567c81c456efefe5a4a65c2252d5103",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_mld_snooping_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_mld_snooping_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_mld_snooping_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_mld_snooping_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "98bb823dcebbfcd361e1e11768e388a42ef002b9b5357135aec0c43beb7f2366",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aba1e33835ee0fe26841706146a6846873e34be7aebd344e604f5f30cf1c65e2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_bgp_peer",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_bgp_peer/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_bgp_peer/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_bgp_peer/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d6705dc5cb66eed4f5455f79286b7f09e9e84f5dcdb731e038d1a4fea9ebea9e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_virtual_port_channel_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_virtual_port_channel_interface/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_virtual_port_channel_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_virtual_port_channel_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "36eaaccc94499cef5ce4cd76e881049e3c4ddeeb675c2d441abc34cda010b440",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_contract",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_contract/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_contract/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_contract/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a325ac1b676691bbff8f3e40fcce00f2e2de5cf6fdb386d695f9979c5bc244b9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_deploy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_deploy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_deploy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_deploy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "789b506894b3bfe0a2131f1d1ae4420732087cf71faf8c9d04a5ce395fc297d8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd_subnet",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd_subnet/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd_subnet/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd_subnet/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b1c187879e8caa3d9d25abb36b633d561ced9e60d0e4d076abad258aae0a144f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_option_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_option_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_option_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_option_policy/tasks/main.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7a264b8ac34b2a4d38201316246494316674d9d469ffc279deac501bea902745",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9dec9b9fcdb93587d587ea37c01052fe4758c67db1c227abff13c5cd469bc58c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "38ab5a7886ac80a23976f9628b0f969e8fa466492b14425015fcca62690fb543",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_interface_group_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_interface_group_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_interface_group_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_interface_group_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d84e9346147eca9c8de385fa3ec6cd9d77e901f179c048e73e9ef6d670f76e3c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_bulk_staticport",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_bulk_staticport/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_bulk_staticport/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_bulk_staticport/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a0be78624a21ecb266419a0c3a6a9095496e2b8dfeb236717db0ebb079194fe6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session_source",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session_source/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session_source/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session_source/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e64605741c4abfce6ad3042f43413ea26fce167591a7e99acb2547d13b462a25",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph_listener",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph_listener/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9dec9b9fcdb93587d587ea37c01052fe4758c67db1c227abff13c5cd469bc58c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph_listener/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph_listener/tasks/pki",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph_listener/tasks/pki/admin.crt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9d690f11eea29ff905c65d4457fcff73fe9eda30f733af7ae91a6ec545e2239d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph_listener/tasks/l4_l7_devices.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "71472aecc4c6421c5cd7411003f4859eac5cbcd1922c55be179f7b55f4356723",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph_listener/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a65f7665e110ee1ec5eb08742616c82786dd4ac28772447af9498c3b38d3259",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ptp_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ptp_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ptp_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ptp_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f80cc60201db1e44ded8f9522629767b7d2217512dbd1912219ebf37a7c993ad",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_hub_network",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_hub_network/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9dec9b9fcdb93587d587ea37c01052fe4758c67db1c227abff13c5cd469bc58c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_hub_network/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_hub_network/tasks/hub_network.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2deeeb9bfe3db63602a8fa5bc68c733967f577f68eecdca9bae9ca4e183922c3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_hub_network/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "40853a8fa344161fddff84ac11064eeddf7dd2c02e79c9a50c33b81187535b18",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_contract_filter",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_contract_filter/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_contract_filter/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_contract_filter/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "22decfbc1454f009b51756faf9c3f40f1a7cd91cb679cfc627d9e216d5435da6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_subnet",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_subnet/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_subnet/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_subnet/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e86c8e835ebe6e9aff1b04838b843ec37c2d205d2ca1b1f281f6df658f748ad",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_version",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_version/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_version/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_version/tasks/connection.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb0137c81fc07de5b1f7c515869d58c29c6b1140cb3c396f2e7f5082d9779633",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_version/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "33e95584610880663096db1a8f392693f224951d0929f54517b35823aacd426e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_pod_settings",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_pod_settings/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_pod_settings/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_pod_settings/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9b12f19ba7768534ef87f41989a7723c51e183111bde113b442580457460d9a4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_selector",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_selector/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9dec9b9fcdb93587d587ea37c01052fe4758c67db1c227abff13c5cd469bc58c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_selector/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_selector/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2cea815660e1466bd00c33b4cf7a936f2ac0cb086c589d43e32b1ee68efd9d44",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session_source_filter",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session_source_filter/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session_source_filter/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session_source_filter/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "251c7e327981a5ca03e5f73ebcd9a34f6821f39f52b453f1a3998f83c7a6dac8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_span_session",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_span_session/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_span_session/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_span_session/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f94cacb6aab16a03c6b2ade72ad2988daffbde1302e44854d98dee8eeeb7ab1d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_backup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_backup/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_backup/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_backup/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cfd643748dcd4bb01db6c8a5f8f93cef5c74f455187c4331eeb587a8d3fbd132",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_user",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_user/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_user/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_user/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ffde6cae7d1c5ea2177b965831f0398fd92f6005f9753b3ed3f5a3facf794f83",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd_l3out",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd_l3out/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd_l3out/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_bd_l3out/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "72f157f223bd796eef5eddaf4879bf42d1fca2f58a406c7e68d19852429ad958",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ntp_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ntp_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ntp_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ntp_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ce8fedbf6d08d2af68c62477845953feb72d9b6b95ad954a37c25544721ddfb9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "09c5abd625918899f197862d96e7ef2bc4b0fcdf56cd12520be3628979d883e4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d3630ba7bda61afc02c99429ddba4ee610346b6df0f2a836d1c508ae138b33e4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_service_node_type",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_service_node_type/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_service_node_type/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_service_node_type/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b5b140bd4b575119c42f82ab18b8c33bf3c1cf4c941e4429a3d9241c05402be4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_prefix",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_prefix/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_prefix/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_prefix/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ab1a4f8f23ff1fa6ff9746e8e9efcb5974c70cf54d6f6bf93c5f424c787e9fc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_routing_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_routing_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_routing_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_routing_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "abf0a990b41a99cafb0dd0425e1bf238f25baf2738f6bcd3a136bc2cb4b8d5b9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_selector",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_selector/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_selector/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_selector/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c34c10fda893cd1747d5444b2b839381fbe1c409c1f41a8188bc02f2953ceb71",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_synce_interface_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_synce_interface_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_synce_interface_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_synce_interface_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d218cf0d938e36978301a76018ea55845cb0beda494792936fc559f744b450dc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fabric_span_session/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "975ef983bdc8637ae9d0548ec8ed77ca67114d3b307ca57c273417d7ea529582",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd_dhcp_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd_dhcp_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd_dhcp_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_bd_dhcp_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bdfbb261c651a8b266d174ad8ca3fef7bab7e439c54403ca3a6da98a781e48c8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_service_device_cluster",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_service_device_cluster/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_service_device_cluster/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_service_device_cluster/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "accbf270008ca1ac71a9daee6494e4e92e01d5014ec2e8dbf1b80ab1c3be43d3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_tenant",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_tenant/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_tenant/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_tenant/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2334d9e392320b2f5df37abe2bde796e1c9db95e66d323935df89109b66f48e7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_backup_schedule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_backup_schedule/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_backup_schedule/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_backup_schedule/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "66b6797b624c845d57b58a072c4f2136c074dcde22f963fc45ef886ea4abea19",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_domain",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_domain/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_domain/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_domain/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b0408c56b0ceb9481749bad439554298d9cc593cb98c72e00ea40d55799167a6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_qos_class_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_qos_class_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_qos_class_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_qos_class_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "68862a26be95aff321dda530b201d2e62e5b7b94ad8b2bd2ec654ec3583db556",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_static_route",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_static_route/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_static_route/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_static_route/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c72bc890bcb7b23577d73316a10b5e50b20dc2700108be364bcf1c50db600a32",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_l3out",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_l3out/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_l3out/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_l3out/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7b95b029ed47a194421d7e15e1acbcd410c94a4e49024d9c66ef024a3bc72d81",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ptp_policy_profiles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ptp_policy_profiles/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ptp_policy_profiles/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ptp_policy_profiles/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc451b2e091080757819d02ab6dd9d2f6663603aa85cf6298f574024d6afa602",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_selector",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_selector/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_selector/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_selector/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e63408ec28fee5139cfc92e95275057e97544c1456a2e5eb04c097a8143dedb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_deploy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_deploy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_deploy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_deploy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "06ed50b505a8b13e67bc2b0e0c553d1bfe452650dde8acd6818ccae9d797e036",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_contract_service_chain",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_contract_service_chain/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_contract_service_chain/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_contract_service_chain/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ec2d72059d3ab20a072702fc821f3b74779c452939ec549c68e7142b47c31b11",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_floating_svi_interface_path_attributes",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_floating_svi_interface_path_attributes/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_floating_svi_interface_path_attributes/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_floating_svi_interface_path_attributes/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "05035322bc9873d187398e306f3882b34dcc56f8b325778a131db72c68270315",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3_domain",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3_domain/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3_domain/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3_domain/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3de1d622884ec5164bfbee3b603417d3740293d122bdb349a80e196b111416c9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph/tasks/l4_l7_devices.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e46bbf109e0a21ef48b69e71b94464eb31762a0eeb2b519b567d4e3d837fa6da",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_contract_service_graph/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ccdd50b0107dd746de5e49c116e0677be0888cdf181069d98b33146434be5ada",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_qos_dscp_cos_translation_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_qos_dscp_cos_translation_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_qos_dscp_cos_translation_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_qos_dscp_cos_translation_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f335f905c8afcfb389d277dd069ca621a2c347a695c4be1924bf816b1c5c59c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_contract",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_contract/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_contract/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_external_epg_contract/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b1c38ed9c13368747f30aff25ebc6cad40aefc7d7566598b60ff1b8283c99bfd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_cidr_subnet",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_cidr_subnet/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9dec9b9fcdb93587d587ea37c01052fe4758c67db1c227abff13c5cd469bc58c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_cidr_subnet/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_cidr_subnet/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e5f21f4b103f0c9e1dd0bbf9dc99e6f54ad6f565e01fdc87f49b27f365dceb9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_physical_domain",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_physical_domain/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_physical_domain/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_physical_domain/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ca322b1da05ca379497f0d938c2ce75564f80c49bb726a53ee2bffffdcb7af6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_l3out",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_l3out/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_l3out/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_l3out/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "204f6b3c8695a61d58c83af6320fb29efb28cdfdff66948feefb1cfb30049214",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_community_term",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_community_term/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_community_term/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_match_rule_community_term/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3e806cdede2c3f598d2cba720dda0facaf0b22450ea14cbcd880be54bec37e7c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_service_graph",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_service_graph/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_service_graph/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_service_graph/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1bccf60d8d142999c6f91c1d7643877b2463f0f1bcf7816b4df16d1a53ea9e36",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_igmp_interface_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_igmp_interface_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_igmp_interface_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_igmp_interface_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d49e6212258a6112d385ea35294f0170cc183f89be488d34d07669d9007d1a92",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ipsla_track_list",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ipsla_track_list/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ipsla_track_list/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ipsla_track_list/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9f5845965992ec99e848e1f54fdfbb885f0c21e8b431bb8290d8719201815d68",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_interface_setting",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_interface_setting/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_interface_setting/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_interface_setting/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "64a42065803bf54556837b85edd51c09dba0cb2d878294f6ab37616a30114d2e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6123445aaf9ec2240832d300da52c1c7d659653b8677a3f77b96cc6a21b3ceb9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_external_epg",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_external_epg/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_external_epg/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_external_epg/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a2b7dabccde11797c5a973b733b73101ce79ed394a6c3caa1dc17cabc5281564",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ipsla_monitoring_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ipsla_monitoring_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ipsla_monitoring_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_ipsla_monitoring_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "39b35076463867c350e82bd9129f626bce73ed8fa1a70f4e189facca4489937b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_vlan_pool",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_vlan_pool/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_vlan_pool/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_vlan_pool/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7883445c4263dcb82579df6074572b0ad94eded8f2fc62def0600d7a7879772c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_custom_qos_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_custom_qos_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_custom_qos_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_custom_qos_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ddc66d9f10f39a0650891502c96534b976cebf219dd2fdc722cb84a7b7bee137",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_validate",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_validate/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_validate/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_validate/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8531c2bc69d731cc659e88a40e74d4172321240e00844f839e35d26891d83975",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_relay_policy_provider",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_relay_policy_provider/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_relay_policy_provider/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_relay_policy_provider/tasks/main.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0a9a51f78de0a35485537afb420626cb33bd7769a96b4227c89457307a1d1c3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_tenant_site",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_tenant_site/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_tenant_site/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_tenant_site/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "06f1e812553fdfcdb87f5d9394dab76534d929ba5cb90f98ddb519e3e3429566",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_staticport",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_staticport/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_staticport/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg_staticport/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d5378d97136c78f0d06927c3281b6dd83c19b7249735f0954883478cf401470a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_igmp_snooping_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_igmp_snooping_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_igmp_snooping_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_igmp_snooping_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "56b318747115e15ea94f6b9813ad3449207dec222d08a5d783c9b6ad3ef723ee",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ab2dee880615a6189ff10c2a754e729271471ee31d52fe69958f23abe09ef102",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_useg_attribute",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_useg_attribute/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_useg_attribute/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_useg_attribute/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3b937b0e5e31c12044a2c595f9ade15f63310f8cd08bc759466d417b8800c6a9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_interface_routing_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_interface_routing_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_interface_routing_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_interface_routing_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b6ed7f577fcd29901ac81f79379cfd341d3d9937a1fbc5bc4f33af0ba39bb421",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_deploy_status",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_deploy_status/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_deploy_status/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_deploy_status/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8bcd1c9ba4e0a8f1ea9dc9bce48ff1cd798eee685902615a6b9a94b17b046f7b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_cidr",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_cidr/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9dec9b9fcdb93587d587ea37c01052fe4758c67db1c227abff13c5cd469bc58c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_cidr/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_vrf_region_cidr/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2d778fc51d376d9b55c16782080fb33791d574f8b0ecd9e4578544f549a574ee",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf_rp",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf_rp/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf_rp/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf_rp/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "97031cbf3a15579a0e6dd8a198ee4260a7abf5a3e8e6a6debafeabbb4b9b2e40",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_filter_entry",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_filter_entry/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_filter_entry/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_filter_entry/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "02d72c0b14dff84ed6b8a9a88a1e4a805314099f462954b400d7f47b1901d392",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_route_control",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_route_control/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_route_control/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_route_control/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cfd525194aa87bf1a038ab0a02548588e4942210e07ca26386dcaedc12482bcd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_bd_dhcp_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_bd_dhcp_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_bd_dhcp_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_schema_template_bd_dhcp_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ab9648924367bdec798b63bb452571789eefe9e780230889757f526504d267a5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_migrate",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_migrate/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_migrate/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_migrate/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8fbbd33d4126f435b1acf37ea292e7b6a2100e1d50e9cf148363b438a550176c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_macsec_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_macsec_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_macsec_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_macsec_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f78b6f1ef0657781902ff0fa52a6ffe1c624728b29e93dda970eee26b3bf27c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_mcp_global_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_mcp_global_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_mcp_global_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_mcp_global_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "16116a2b456d5e67e4cc6e85a4aebc4782e431c0cec6f1fe6d8da401846840be",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_role",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_role/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_role/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_role/tasks/role-ro.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b202d850f019300dded56caa6fe2b3191de2c0b40a6237e8dec65d98d6a10f2a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_role/tasks/role-rw.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b6afc1669d06eefe9ea8e5eb04a08909ace49d5061d31e167b6f58df20d37498",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_role/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9b55740c252269b29fe741e31bff2bd8552600048e321700cfee4177d20fda8c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_intra_epg_contract",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_intra_epg_contract/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_intra_epg_contract/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_intra_epg_contract/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3c250592d222d8f928ef06777064a8c82710d3de85ed042f1a59e8fc8d96df68",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf_contract",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf_contract/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf_contract/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf_contract/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fcea17ca3703a45b1f8bd76fe56c173df8f1ac189f669488b75af72a54868449",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_external_epg_selector",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_external_epg_selector/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9dec9b9fcdb93587d587ea37c01052fe4758c67db1c227abff13c5cd469bc58c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_external_epg_selector/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_external_epg_selector/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6916e1c25af21ecbb1cfef365adc46bd67e003bc2a12784192e8525e7d46c3bc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fex_device",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fex_device/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fex_device/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_fex_device/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e9263fad3c23dc033f75e819a89a87ce98a5e99583136caaad5989d8e1cae3fe",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_bgp_peer_prefix_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_bgp_peer_prefix_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_bgp_peer_prefix_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_tenant_bgp_peer_prefix_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3f7ae2984eeacbfecb30cde62b11fac041ba6473b452f550a1b4430ad42559cb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_template",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_template/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_template/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_template/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c14aa035495c818c709ea26dd6ee2836eebb8820de1af5c07a9ddd714e7a6f5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_annotation",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_annotation/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_annotation/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_anp_epg_annotation/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1375114678762c2288afd837304ec6fba94fb57731950b8663b45dd83d5eaef6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_svi_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_svi_interface/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_svi_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_svi_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "97773a0a20cae3f5686b49bf9db91348d0fd266c7ab1ab4660b9b62056704542",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_relay_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_relay_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_relay_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_dhcp_relay_policy/tasks/main.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "85f785b8f6b63231054901880ced3d8ec969fdb7ff72b7d64ff211b206da9946",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_contract_service_graph",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_contract_service_graph/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_contract_service_graph/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_contract_service_graph/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "500b0a0044fbf00e9037396d503576a0b83a709c761ae3a731bb4d11ac6c826d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_static_route_next_hop",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_static_route_next_hop/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_static_route_next_hop/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_static_route_next_hop/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfa3a71a5256302e4d565b6a99c9da67c958288dff568d16de3cc7768d1cfa3f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_template_vrf/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8fcf21d61051da59e98550be95e2a1e84d6c9809c983e59893d12fd785bb59fe",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_node_profile",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_node_profile/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_node_profile/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_node_profile/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43a0fc9451e1ee46ad4fc4d20b0fa93c760d67b7fad540ccc2d0a81f6fd892f9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_group_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_group_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_group_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_node_group_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc7dbef5eef7e6b0a6881f853ac6aa0a0af2eaaf4e2c56babe9841b37ac4de18",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_service_graph",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_service_graph/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_service_graph/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_service_graph/tasks/l4_l7_devices.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b26e7e84fe887864527de7c766c9bc143d7e2142bea8a8e3d07ab8cf566236b0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_service_graph/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "317bbbc8c903a03c8d30d6acd8749cc2f90236a8f3dd0124af6107e13dabcf28",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "26714295530571d695b2855ea47460f71573c0e0171cb7e4df5f64564b919927",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_route_control_context",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_route_control_context/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_route_control_context/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_route_map_policy_route_control_context/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0dd0da9dccce5f5473a6b1c8482ca2524301e0f8ee326a84439d4dab60f1688f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_site_anp_epg/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "98de235c73e0b100ba2677bf32cd77b9aaf7e418898f82630df8e8ed3dde4d80",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_clone",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_clone/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_clone/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/mso_schema_clone/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8776594057c0d09a20c4767d406a00fb93ca52a7e6892b7d75c93cd479b56683",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_routed_sub_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_routed_sub_interface/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_routed_sub_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_l3out_routed_sub_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0b8286c26f91abd6fac36ca743fcde4a42c04a65fed5e5db60447901675c0e34",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_physical_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_physical_interface/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e674607496d01ce032bfdbcc3e77ecdcde02f3e9d57080a95682a0cdff6809a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_physical_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/ndo_physical_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0828786ee1eff4e06d821e9a1422e6d3790e896395813bb3cb87572357e7813f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/inventory.networking",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf60a2b6d4bc9fc7ecb015ab70169c3c6390663fa2b0c5cd3e11e357b620f9b0",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99b118eeccecd08f68761335ef6a9ea2ace42095d52512c6e575a1d017362a2d",
+   "format": 1
+  },
+  {
+   "name": "tests/.gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b5726d3ec9335a09c124469eca039523847a6b0f08a083efaefd002b83326600",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d463c96de94ab31952762c6c314597c4d4a97134e9fab93364cfacca25e0b60b",
+   "format": 1
+  },
+  {
+   "name": "codecov.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e55a41874408d15b899f7df85fa9f4c6c3c476cf4a9e919b9a396c3f1aa1a1f0",
+   "format": 1
+  },
+  {
+   "name": ".cache",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".cache/collection-tarballs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  }
+ ],
+ "format": 1
+}

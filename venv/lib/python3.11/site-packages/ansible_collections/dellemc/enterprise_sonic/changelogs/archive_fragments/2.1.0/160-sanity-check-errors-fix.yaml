@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - Fixed sanity check errors in the collection caused by Ansible library changes (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/160).

@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_cvo_aws - Add new parameter ``cluster_key_pair_name`` to support SSH authentication method key pair.

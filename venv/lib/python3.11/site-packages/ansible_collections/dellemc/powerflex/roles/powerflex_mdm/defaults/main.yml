@@ -1,0 +1,9 @@
+---
+# Skip Java installation for powerflex (assume it's on the system)
+powerflex_skip_java: false
+powerflex_mdm_primary_hostname: ''
+powerflex_mdm_primary_ip: ''
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_mdm_ips }}"
+  MDM_ROLE_IS_MANAGER: 1
+file_glob_name: mdm

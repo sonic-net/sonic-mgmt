@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_connector_azure - expose connector managed system identity principal_id to perform role assignment

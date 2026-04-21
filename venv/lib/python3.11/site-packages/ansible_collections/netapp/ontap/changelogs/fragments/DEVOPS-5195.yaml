@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_interface - ``dns_domain_name`` is now supported from ONTAP 9.9 or later in REST.
+  - na_ontap_interface - ``is_dns_update_enabled`` is now supported from ONTAP 9.9.1 or later in REST.

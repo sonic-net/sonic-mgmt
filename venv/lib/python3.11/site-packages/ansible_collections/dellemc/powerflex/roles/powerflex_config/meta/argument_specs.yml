@@ -1,0 +1,50 @@
+---
+argument_specs:
+  main:
+    short_description: Role to configure the protection domain, fault set and storage pool.
+    description:
+      - Role to configure the protection domain, fault set and storage pool.
+    options:
+      hostname:
+        required: true
+        type: str
+        description: IP or FQDN of the PowerFlex gateway.
+      username:
+        required: true
+        type: str
+        description: The username of the PowerFlex gateway.
+      password:
+        required: true
+        type: str
+        description: The password of the PowerFlex gateway.
+      port:
+        type: int
+        description: Port of the PowerFlex gateway.
+        default: 443
+      validate_certs:
+        description:
+          - If C(false), the SSL certificates will not be validated.
+          - Configure C(false) only on personally controlled sites where self-signed certificates are used.
+        type: bool
+        default: false
+      timeout:
+        description: Timeout.
+        type: int
+        default: 120
+      powerflex_protection_domain_name:
+        type: str
+        description: Name of the protection domain.
+        default: 'config_protection_domain'
+      powerflex_fault_sets:
+        description: List of fault sets.
+        type: list
+        default: ['fs1', 'fs2', 'fs3']
+      powerflex_media_type:
+        description: Media type of the storage pool.
+        type: str
+        choices: ['SSD', 'HDD', 'TRANSITIONAL']
+        default: 'SSD'
+      powerflex_storage_pool_name:
+        description: Name of the storage pool.
+        type: str
+        default: 'config_storage_pool'

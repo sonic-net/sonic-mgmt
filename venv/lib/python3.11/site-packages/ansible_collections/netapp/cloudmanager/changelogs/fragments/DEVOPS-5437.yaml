@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_connector_gcp - Fix default machine_type value on the GCP connector.

@@ -1,0 +1,8 @@
+{"openconfig-if-ip:ipv4": {
+    "addresses": {
+      "address": [
+        {
+          "ip": "131.1.1.1",
+          "config": {"ip": "131.1.1.1", "prefix-length": 24}
+        }]}}
+        }

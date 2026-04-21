@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_subnet - Initialize varaible correctly
+ - purefa_syslog_settings - Initialize varaible correctly

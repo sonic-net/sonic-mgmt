@@ -1,0 +1,81 @@
+---
+- name: Template workflow manager
+  hosts: localhost
+  vars_files:
+    - credentials.yml
+    - device_details.template
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Test project template
+      cisco.dnac.template_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        # dnac_log_file_path: "{{ dnac_log_file_path }}"
+        validate_response_schema: false
+        state: "merged"
+        config_verify: true
+        # ignore_errors: true        # Enable this to continue execution even the task fails
+        config:
+          - projects:
+              - name: Wireless_Controller
+                new_name: Wireless_Template_Management
+                description: Centralized repository for managing templates and configurations for wireless controllers (WLCs).
+
+          - configuration_templates:
+              project_name: "{{ item.proj_name }}"
+              template_name: "{{ item.temp_name }}"
+              template_content: "{{ item.device_config }}"
+              version_description: "{{ item.description }}"
+              language: "{{ item.language }}"
+              software_type: "{{ item.type }}"
+              profile_names:
+                - "{{ item.profiles }}"
+              device_types:
+                - product_family: "{{ item.family }}"
+            export:
+              project:
+                - Ansible_project
+                - Sample Velocity Templates
+              template:
+                - project_name: Onboarding Configuration
+                  template_name: AP_Onboarding
+            import:
+              project: "{{ item.import_project }}"
+              template: "{{ item.import_template }}"
+
+            deploy_template:
+              project_name: "{{ item.proj_name }}"
+              template_name: "{{ item.temp_name }}"
+              force_push: "{{ item.force_push }}"
+              template_parameters:
+                - param_name: "{{ item.template_parameters.param_name }}"
+                  param_value: "{{ item.template_parameters.param_value }}"
+                - param_name: "{{ item.template_parameters.param_name }}"
+                  param_value: "{{ item.template_parameters.param_value }}"
+              device_details:
+                # Provide any of the one device_specific details either device_ips, device_hostnames
+                # serial_numbers, mac_addresses to deploy template to the devices
+                # device_ips: "{{ item.device_details.device_ips }}"
+                device_hostnames: "{{ item.device_details.device_hostnames }}"
+                # serial_numbers: "{{ item.device_details.serial_numbers }}"
+                # mac_addresses: "{{ item.device_details.mac_addresses }}"
+              site_provisioning_details:
+                # Provide the site name and other parameters are optional to narrow down the results
+                - site_name: "{{ item.site_provisioning_details.site_name }}"
+                  device_family: "{{ item.site_provisioning_details.device_family }}"
+                  device_role: "{{ item.site_provisioning_details.device_role }}"
+                  device_tag: "{{ item.site_provisioning_details.device_tag }}"
+
+      register: template_result
+      with_items: '{{ template_details }}'
+      tags:
+        - template

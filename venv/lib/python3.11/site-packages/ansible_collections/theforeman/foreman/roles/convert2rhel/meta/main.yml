@@ -1,0 +1,4 @@
+---
+galaxy_info:
+  description: Configure everything needed to register and convert CentOS clients to Red Hat Enterprise Linux
+  standalone: false

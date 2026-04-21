@@ -1,0 +1,26 @@
+{
+  "name": "grafana-ansible-collection",
+  "version": "2.1.4",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/grafana/grafana-ansible-collection.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/grafana/grafana-ansible-collection/issues"
+  },
+  "homepage": "https://github.com/grafana/grafana-ansible-collection#readme",
+  "dependencies": {
+    "editorconfig-checker": "^5.0.1",
+    "markdownlint-cli2": "^0.6.0",
+    "textlint": "^12.5.1",
+    "textlint-rule-common-misspellings": "^1.0.1",
+    "textlint-rule-no-todo": "^2.0.1",
+    "textlint-rule-terminology": "^3.0.4"
+  }
+}

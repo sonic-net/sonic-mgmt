@@ -1,0 +1,203 @@
+---
+- name: Snapshot schedule operations on Unity
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'admin'
+    password: 'Password123!'
+    state_present: 'present'
+    state_absent: 'absent'
+
+  tasks:
+    - name: Create snapshot schedule (Rule Type - every_n_hours)
+      register: result
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_N_Hours_Testing"
+        type: "every_n_hours"
+        interval: 6
+        desired_retention: 24
+        state: "{{ state_present }}"
+
+    - name: Set id
+      ansible.builtin.set_fact:
+        id: "{{ result.snapshot_schedule_details.id }}"
+
+    - name: Create snapshot schedule (Rule Type - every_n_hours) - Idempotency
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_N_Hours_Testing"
+        type: "every_n_hours"
+        interval: 6
+        desired_retention: 24
+        state: "{{ state_present }}"
+
+    - name: Create snapshot schedule (Rule Type - every_day)
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_Day_Testing"
+        type: "every_day"
+        hours_of_day:
+          - 8
+          - 14
+        auto_delete: true
+        state: "{{ state_present }}"
+
+    - name: Create snapshot schedule (Rule Type - every_n_days)
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_N_Day_Testing"
+        type: "every_n_days"
+        day_interval: 2
+        desired_retention: 16
+        retention_unit: "days"
+        state: "{{ state_present }}"
+
+    - name: Create snapshot schedule (Rule Type - every_week)
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_Week_Testing"
+        type: "every_week"
+        days_of_week:
+          - MONDAY
+          - FRIDAY
+        hour: 12
+        minute: 30
+        desired_retention: 200
+        state: "{{ state_present }}"
+
+    - name: Create snapshot schedule (Rule Type - every_month)
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_Month_Testing"
+        type: "every_month"
+        day_of_month: 17
+        auto_delete: true
+        state: "{{ state_present }}"
+
+    - name: Get snapshot schedule details using name
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_N_Hours_Testing"
+        state: "{{ state_present }}"
+
+    - name: Get snapshot schedule details using id
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        id: "{{ id }}"
+        state: "{{ state_present }}"
+
+    - name: Modify snapshot schedule details id
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        id: "{{ id }}"
+        type: "every_n_hours"
+        interval: 8
+        state: "{{ state_present }}"
+
+    - name: Modify snapshot schedule details id - Idempotency
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        id: "{{ id }}"
+        type: "every_n_hours"
+        interval: 8
+        state: "{{ state_present }}"
+
+    - name: Modify snapshot schedule using name
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_Day_Testing"
+        type: "every_day"
+        desired_retention: 200
+        auto_delete: false
+        state: "{{ state_present }}"
+
+    - name: Delete snapshot schedule using id
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        id: "{{ id }}"
+        state: "{{ state_absent }}"
+
+    - name: Delete snapshot schedule using name for day
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_Day_Testing"
+        state: "{{ state_absent }}"
+
+    - name: Delete snapshot schedule using name for N days
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_N_Day_Testing"
+        state: "{{ state_absent }}"
+
+    - name: Delete snapshot schedule using name for week
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_Week_Testing"
+        state: "{{ state_absent }}"
+
+    - name: Delete snapshot schedule using name for month
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_Month_Testing"
+        state: "{{ state_absent }}"
+
+    - name: Delete snapshot schedule using name - Idempotency
+      snapshotschedule:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "Ansible_Every_Month_Testing"
+        state: "{{ state_absent }}"

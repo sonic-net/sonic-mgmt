@@ -1,0 +1,2 @@
+major_changes:
+  - library `netapp-lib` is now an optional requirement.

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_snapmirror - fix error in snapmirror restore by changing option ``clean_up_failure`` as optional when using ZAPI.

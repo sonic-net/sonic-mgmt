@@ -1,0 +1,6 @@
+bugfixes:
+ - purefa_network - Fixed IPv6 support issues
+ - purefa_network - Fixed idempotency issue when gateway not modified
+minor_changes:
+ - purefa_network - Add support for creating/modifying VIF and LACP_BOND interfaces
+ - purefa_changes - enabled option added. This must now be used instead of state=absent to disable a physical interface as state=absent can now fully delete a non-physical interface

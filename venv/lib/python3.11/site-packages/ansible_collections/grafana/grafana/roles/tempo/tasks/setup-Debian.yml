@@ -1,0 +1,7 @@
+---
+- name: APT - Install Tempo
+  ansible.builtin.apt:
+    deb: "{{ tempo_download_url_deb }}"
+    state: present
+  notify: Restart tempo
+  when: __current_deployed_version.stdout is not defined or tempo_version not in __current_deployed_version.stdout

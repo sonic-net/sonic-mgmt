@@ -1,0 +1,4 @@
+release_summary: release fortinet.fortimanager 2.2.1
+bugfixes:
+  - Fix a bug where the user may not be able to use workspace_locking_adom if the workspace mode is per-adom.
+  - Improve login logic in httpapi plugin.

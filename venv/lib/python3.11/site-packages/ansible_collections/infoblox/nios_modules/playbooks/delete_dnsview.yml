@@ -1,0 +1,17 @@
+---
+- name: Infoblox Member Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.36.118.2
+      username: cloudadmin
+      password: admin
+
+  connection: local
+  tasks:
+    - name: Delete DNS view
+      infoblox.nios_modules.nios_dns_view:
+        name: ansibleDnsView
+        network_view: ansibleNetView
+        state: absent
+        provider: "{{ nios_provider }}"

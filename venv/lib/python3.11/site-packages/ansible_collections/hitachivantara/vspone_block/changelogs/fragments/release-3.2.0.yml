@@ -1,0 +1,39 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_block` adds multiple new modules and enhances existing ones."
+minor_changes:
+  - Added new module `hv_cmd_dev` to create, update, and delete command devices.
+  - Added new module `hv_disk_drive` to change disk drive settings.
+  - Added new module `hv_journal_volume` to create, update, and delete journal volumes.
+  - Added new module `hv_nvm_subsystems` to create, update, and delete NVM subsystems.
+  - Added new module `hv_paritygroup` to create, update, and delete parity groups.
+  - Added new module `hv_remote_copy_group` to create, update, and delete remote copy groups.
+  - Added new module `hv_remote_storage_registration` to manage remote storage registration and un-registration.
+  - Added new module `hv_resource_group_lock` to lock and unlock resource groups.
+  - Added new module `hv_resource_group` to create, update, and delete resource groups.
+  - Added new module `hv_snapshot_group` to create, update, and delete snapshots in units of snapshot groups.
+  - Added new facts module `hv_disk_drive_facts` to retrieve disk drive details.
+  - Added new facts module `hv_journal_volume_facts` to retrieve journal volume details.
+  - Added new facts module `hv_remote_copy_group_facts` to retrieve remote copy group details.
+  - Added new facts module `hv_remote_storage_registration_facts` to retrieve remote storage registration details.
+  - Added new facts module `hv_resource_group_facts` to retrieve resource group details.
+  - Added new facts module `hv_snapshot_group_facts` to retrieve snapshot group details.
+  - Updated `hv_gad_facts` to add GAD Pair facts for direct connection type.
+  - Updated `hv_gad` to support multiple operations for GAD pair for direct connection type, increased GAD pair volume size support, and enhanced SVOL naming.
+  - Updated `hv_hg` to add auto-generated name for hostgroup creation.
+  - Updated `hv_hur_fact` to add HUR Pair facts for direct connection type.
+  - Updated `hv_hur` to support multiple operations for HUR pair for direct connection type and increased HUR pair volume size support.
+  - Updated `hv_iscsi_target` to add auto-generated name for create iSCSI target task.
+  - Updated `hv_ldev_facts` to include encryption status in LDEV facts.
+  - Updated `hv_ldev` to add QoS settings, shredding option, and enhanced LDEV ID setting.
+  - Updated `hv_snapshot` to enhance SVOL naming logic.
+  - Updated `hv_storagepool_facts` to include encryption status.
+  - Updated `hv_system_facts` to add refresh parameter.
+  - Updated `hv_truecopy_fact` to add TrueCopy pair facts for direct connection type.
+  - Updated `hv_truecopy` to support multiple operations for TrueCopy pair for direct connection type and enhanced SVOL ID setting.
+  - Enhanced log messages.
+  - Added warnings for unsupported OOB features.
+  - Introduced usage information collection to AWS with user consent.
+bugfixes:
+  - Resolved inconsistencies in the documentation.
+  - Improved formatting and structure for better readability.
+  - Added missing details to enhance user understanding.

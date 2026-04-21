@@ -1,0 +1,469 @@
+---
+- block:
+    - name: Get LDAP definition
+      set_fact:
+        ldap_resources: "{{ lookup('template', 'rfc2307/definition.j2') | from_yaml }}"
+
+    - name: Delete openshift groups if existing
+      community.okd.k8s:
+        state: absent
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: "{{ item }}"
+      with_items:
+        - admins
+        - engineers
+        - developers
+
+    - name: Delete existing LDAP entries
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item.dn }}"
+        state: absent
+      with_items: "{{ ldap_resources.users + ldap_resources.groups + ldap_resources.units | reverse | list }}"
+
+    - name: Create LDAP units
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item.dn }}"
+        attributes: "{{ item.attr }}"
+        objectClass: "{{ item.class }}"
+      with_items: "{{ ldap_resources.units }}"
+
+    - name: Create LDAP Groups
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item.dn }}"
+        attributes: "{{ item.attr }}"
+        objectClass: "{{ item.class }}"
+      with_items: "{{ ldap_resources.groups }}"
+
+    - name: Create LDAP users
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item.dn }}"
+        attributes: "{{ item.attr }}"
+        objectClass: "{{ item.class }}"
+      with_items: "{{ ldap_resources.users }}"
+
+    - name: Load test configurations
+      set_fact:
+        configs: "{{ lookup('template', 'rfc2307/sync-config.j2') | from_yaml }}"
+
+    - name: Synchronize Groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.simple }}"
+      check_mode: yes
+      register: result
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+          - admins_group
+          - devs_group
+          - '"jane.smith@ansible.org" in admins_group.users'
+          - '"jim.adams@ansible.org" in devs_group.users'
+          - '"jordanbulls@ansible.org" in devs_group.users'
+          - admins_group.users | length == 1
+          - devs_group.users | length == 2
+      vars:
+        admins_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'admins') | first }}"
+        devs_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'developers') | first }}"
+
+    - name: Synchronize Groups - User defined mapping
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.user_defined }}"
+      check_mode: yes
+      register: result
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+          - admins_group
+          - devs_group
+          - '"jane.smith@ansible.org" in admins_group.users'
+          - '"jim.adams@ansible.org" in devs_group.users'
+          - '"jordanbulls@ansible.org" in devs_group.users'
+          - admins_group.users | length == 1
+          - devs_group.users | length == 2
+      vars:
+        admins_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'ansible-admins') | first }}"
+        devs_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'ansible-devs') | first }}"
+
+    - name: Synchronize Groups - Using dn for every query
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.dn_everywhere }}"
+      check_mode: yes
+      register: result
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+          - admins_group
+          - devs_group
+          - '"cn=Jane,ou=people,ou=rfc2307,"+ldap_root in admins_group.users'
+          - '"cn=Jim,ou=people,ou=rfc2307,"+ldap_root in devs_group.users'
+          - '"cn=Jordan,ou=people,ou=rfc2307,"+ldap_root in devs_group.users'
+          - admins_group.users | length == 1
+          - devs_group.users | length == 2
+      vars:
+        admins_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'cn=admins,ou=groups,ou=rfc2307,' + ldap_root ) | first }}"
+        devs_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'cn=developers,ou=groups,ou=rfc2307,' + ldap_root ) | first }}"
+
+    - name: Synchronize Groups - Partially user defined mapping
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.partially_user_defined }}"
+      check_mode: yes
+      register: result
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+          - admins_group
+          - devs_group
+          - '"jane.smith@ansible.org" in admins_group.users'
+          - '"jim.adams@ansible.org" in devs_group.users'
+          - '"jordanbulls@ansible.org" in devs_group.users'
+          - admins_group.users | length == 1
+          - devs_group.users | length == 2
+      vars:
+        admins_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'ansible-admins') | first }}"
+        devs_group: "{{ result.groups | selectattr('metadata.name', 'equalto', 'developers') | first }}"
+
+    - name: Delete Group 'engineers' if created before
+      community.okd.k8s:
+        state: absent
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: 'engineers'
+        wait: yes
+      ignore_errors: yes
+
+    - name: Synchronize Groups - Partially user defined mapping
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.out_scope }}"
+      check_mode: yes
+      register: result
+      ignore_errors: yes
+
+    - name: Assert group sync failed due to non-existent member
+      assert:
+        that:
+          - result is failed
+          - result.msg.startswith("Entry not found for base='cn=Matthew,ou=people,ou=outrfc2307,"+ldap_root+"'")
+
+    - name: Define sync configuration with tolerateMemberNotFoundErrors
+      set_fact:
+        config_out_of_scope_tolerate_not_found: "{{ configs.out_scope | combine({'rfc2307': merge_rfc2307 })}}"
+      vars:
+        merge_rfc2307: "{{ configs.out_scope.rfc2307 | combine({'tolerateMemberNotFoundErrors': 'true'}) }}"
+
+    - name: Synchronize Groups - Partially user defined mapping (tolerateMemberNotFoundErrors=true)
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ config_out_of_scope_tolerate_not_found }}"
+      check_mode: yes
+      register: result
+
+    - name: Assert group sync did not fail (tolerateMemberNotFoundErrors=true)
+      assert:
+        that:
+          - result is changed
+          - result.groups | length == 1
+          - result.groups.0.metadata.name == 'engineers'
+          - result.groups.0.users == ['Abraham']
+
+    - name: Create Group 'engineers'
+      community.okd.k8s:
+        state: present
+        wait: yes
+        definition:
+          kind: Group
+          apiVersion: "user.openshift.io/v1"
+          metadata:
+            name: engineers
+          users: []
+
+    - name: Try to sync LDAP group with Openshift existing group not created using sync should failed
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ config_out_of_scope_tolerate_not_found }}"
+      check_mode: yes
+      register: result
+      ignore_errors: yes
+
+    - name: Validate group sync failed
+      assert:
+        that:
+          - result is failed
+          - '"openshift.io/ldap.host label did not match sync host" in result.msg'
+
+    - name: Define allow_groups and deny_groups groups
+      set_fact:
+        allow_groups:
+          - "cn=developers,ou=groups,ou=rfc2307,{{ ldap_root }}"
+        deny_groups:
+          - "cn=admins,ou=groups,ou=rfc2307,{{ ldap_root }}"
+
+    - name: Synchronize Groups using allow_groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.simple }}"
+        allow_groups: "{{ allow_groups }}"
+      register: result
+      check_mode: yes
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+          - result.groups | length == 1
+          - result.groups.0.metadata.name == "developers"
+
+    - name: Synchronize Groups using deny_groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.simple }}"
+        deny_groups: "{{ deny_groups }}"
+      register: result
+      check_mode: yes
+
+    - name: Validate Group going to be created
+      assert:
+        that:
+          - result is changed
+          - result.groups | length == 1
+          - result.groups.0.metadata.name == "developers"
+
+    - name: Synchronize groups, remove check_mode
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.simple }}"
+      register: result
+
+    - name: Validate result is changed
+      assert:
+        that:
+          - result is changed
+
+    - name: Read Groups
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: admins
+      register: result
+
+    - name: Validate group was created
+      assert:
+        that:
+          - result.resources | length == 1
+          - '"jane.smith@ansible.org" in result.resources.0.users'
+
+    - name: Read Groups
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: developers
+      register: result
+
+    - name: Validate group was created
+      assert:
+        that:
+          - result.resources | length == 1
+          - '"jim.adams@ansible.org" in result.resources.0.users'
+          - '"jordanbulls@ansible.org" in result.resources.0.users'
+
+    - name: Set users to delete (no admins users anymore and only 1 developer kept)
+      set_fact:
+        users_to_delete:
+          - "cn=Jane,ou=people,ou=rfc2307,{{ ldap_root }}"
+          - "cn=Jim,ou=people,ou=rfc2307,{{ ldap_root }}"
+
+    - name: Delete users from LDAP servers
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item }}"
+        state: absent
+      with_items: "{{ users_to_delete }}"
+
+    - name: Define sync configuration with tolerateMemberNotFoundErrors
+      set_fact:
+        config_simple_tolerate_not_found: "{{ configs.simple | combine({'rfc2307': merge_rfc2307 })}}"
+      vars:
+        merge_rfc2307: "{{ configs.simple.rfc2307 | combine({'tolerateMemberNotFoundErrors': 'true'}) }}"
+
+    - name: Synchronize groups once again after users deletion
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ config_simple_tolerate_not_found }}"
+      register: result
+
+    - name: Validate result is changed
+      assert:
+        that:
+          - result is changed
+
+    - name: Read Groups
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: admins
+      register: result
+
+    - name: Validate admins group does not contains users anymore
+      assert:
+        that:
+          - result.resources | length == 1
+          - result.resources.0.users == []
+
+    - name: Read Groups
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: developers
+      register: result
+
+    - name: Validate group was created
+      assert:
+        that:
+          - result.resources | length == 1
+          - '"jordanbulls@ansible.org" in result.resources.0.users'
+
+    - name: Set group to delete
+      set_fact:
+        groups_to_delete:
+          - "cn=developers,ou=groups,ou=rfc2307,{{ ldap_root }}"
+
+    - name: Delete Group from LDAP servers
+      openshift_ldap_entry:
+        bind_dn: "{{ ldap_bind_dn }}"
+        bind_pw: "{{ ldap_bind_pw }}"
+        server_uri: "{{ ldap_server_uri }}"
+        dn: "{{ item }}"
+        state: absent
+      with_items: "{{ groups_to_delete }}"
+
+    - name: Prune groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ config_simple_tolerate_not_found }}"
+        state: absent
+      register: result
+      check_mode: yes
+
+    - name: Validate that only developers group is candidate for Prune
+      assert:
+        that:
+          - result is changed
+          - result.groups | length == 1
+          - result.groups.0.metadata.name == "developers"
+
+    - name: Read Group (validate that check_mode did not performed update in the cluster)
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: developers
+      register: result
+
+    - name: Assert group was found
+      assert:
+        that:
+          - result.resources | length == 1
+
+    - name: Prune using allow_groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ config_simple_tolerate_not_found }}"
+        allow_groups:
+          - developers
+        state: absent
+      register: result
+      check_mode: yes
+
+    - name: assert developers group was candidate for prune
+      assert:
+        that:
+          - result is changed
+          - result.groups | length == 1
+          - result.groups.0.metadata.name == "developers"
+
+    - name: Prune using deny_groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ config_simple_tolerate_not_found }}"
+        deny_groups:
+          - developers
+        state: absent
+      register: result
+      check_mode: yes
+
+    - name: assert nothing found candidate for prune
+      assert:
+        that:
+          - result is not changed
+          - result.groups | length == 0
+
+    - name: Prune groups
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ config_simple_tolerate_not_found }}"
+        state: absent
+      register: result
+
+    - name: Validate result is changed
+      assert:
+        that:
+          - result is changed
+          - result.groups | length == 1
+
+    - name: Get developers group info
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: developers
+      register: result
+
+    - name: assert group was deleted
+      assert:
+        that:
+          - result.resources | length == 0
+
+    - name: Get admins group info
+      kubernetes.core.k8s_info:
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: admins
+      register: result
+
+    - name: assert group was not deleted
+      assert:
+        that:
+          - result.resources | length == 1
+
+    - name: Prune groups once again (idempotency)
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ config_simple_tolerate_not_found }}"
+        state: absent
+      register: result
+
+    - name: Assert nothing changed
+      assert:
+        that:
+          - result is not changed
+          - result.groups | length == 0
+
+  always:
+    - name: Delete openshift groups if existing
+      community.okd.k8s:
+        state: absent
+        kind: Group
+        version: "user.openshift.io/v1"
+        name: "{{ item }}"
+      with_items:
+        - admins
+        - engineers
+        - developers

@@ -1,0 +1,110 @@
+---
+- name: Sda fabric devices workflow manager
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  connection: local
+  tasks:
+    - name: Add the SDA fabric device as BORDER and CONTROL node and do L2 and L3 handoff.
+      cisco.dnac.sda_fabric_devices_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - fabric_devices:
+              fabric_name: Global/USA/SAN-JOSE
+              device_config:
+                - device_ip: 10.0.0.1
+                  device_roles: [CONTROL_PLANE_NODE, EDGE_NODE]
+                  borders_settings:
+                    layer3_settings:
+                      local_autonomous_system_number: 213
+                      is_default_exit: true
+                      import_external_routes: true
+                      border_priority: 1
+                      prepend_autonomous_system_count: 1
+
+                    layer3_handoff_ip_transit:
+                      - transit_network_name: IP_TRANSIT_1
+                        interface_name: FortyGigabitEthernet1/1/1
+                        external_connectivity_ip_pool_name: reserved_pool_1
+                        virtual_network_name: L3VN1
+                        vlan_id: 333
+                        tcp_mss_adjustment: 510
+
+                    layer3_handoff_sda_transit:
+                      transit_network_name: SDA_PUB_SUB_TRANSIT
+                      affinity_id_prime: 2
+                      affinity_id_decider: 2
+                      connected_to_internet: true
+                      is_multicast_over_transit_enabled: true
+
+                    layer2_handoff:
+                      - interface_name: FortyGigabitEthernet1/1/1
+                        internal_vlan_id: 443
+                        external_vlan_id: 444
+
+    - name: Delete the SDA fabric device's L2 and L3 handoff configurations
+      cisco.dnac.sda_fabric_devices_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: deleted
+        config_verify: true
+        config:
+          - fabric_devices:
+              fabric_name: Global/USA/SAN-JOSE
+              device_config:
+                - device_ip: 10.0.0.1
+                  borders_settings:
+                    layer3_handoff_ip_transit:
+                      - transit_network_name: IP_TRANSIT_1
+                        interface_name: FortyGigabitEthernet1/1/1
+                        virtual_network_name: L3VN1
+
+                    layer3_handoff_sda_transit:
+                      - transit_network_name: SDA_PUB_SUB_TRANSIT
+
+                    layer2_handoff:
+                      - interface_name: FortyGigabitEthernet1/1/1
+                        internal_vlan_id: 443
+
+    - name: Delete the SDA fabric device
+      cisco.dnac.sda_fabric_devices_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: deleted
+        config_verify: true
+        config:
+          - fabric_devices:
+              fabric_name: Global/USA/SAN-JOSE
+              device_config:
+                - device_ip: 10.0.0.1

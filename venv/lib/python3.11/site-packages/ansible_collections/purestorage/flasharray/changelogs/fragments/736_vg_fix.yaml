@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_vg - Fixed issue with creating non-QoS volume groups
+ - purefa_vg - Fixed idempotency issue when clearing volume group QoS settings

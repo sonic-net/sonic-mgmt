@@ -1,0 +1,235 @@
+---
+- name: shutdown_env role
+  block:
+    - name: Populate service facts
+      ansible.builtin.service_facts:
+
+    - name: Enforce ovirt-engine machine
+      ansible.builtin.fail:
+        msg: >
+          This role has be designed to be run only against the machine
+          where ovirt-engine is running.
+      when: '"ovirt-engine.service" not in ansible_facts.services'
+
+    - name: Enforce ovirt-engine status
+      ansible.builtin.fail:
+        msg: >
+          ovirt-engine is required to be enabled and running in order
+          to correctly run this role.
+      when: ansible_facts.services["ovirt-engine.service"].state != 'running'
+
+    - name: Login to oVirt
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ engine_url | default(lookup('env','OVIRT_URL')) | default(omit) }}"
+        username: "{{ engine_user | default(lookup('env','OVIRT_USERNAME')) | default(omit) }}"
+        password: "{{ engine_password | default(lookup('env','OVIRT_PASSWORD')) | default(omit) }}"
+        ca_file: "{{ engine_cafile | default(lookup('env','OVIRT_CAFILE')) | default(omit) }}"
+        token: "{{ engine_token | default(lookup('env','OVIRT_TOKEN')) | default(omit) }}"
+        insecure: "{{ engine_insecure | default(true) }}"
+      when: ovirt_auth is undefined or not ovirt_auth
+      register: loggedin
+      tags:
+        - always
+
+    - name: Get hosts
+      ovirt.ovirt.ovirt_host_info:
+        auth: "{{ ovirt_auth }}"
+        all_content: true
+      register: hosts_result
+
+    - name: Set a variable
+      ansible.builtin.set_fact:
+        startup: false
+
+    - name: Set a variable
+      ansible.builtin.set_fact:
+        startup: true
+      tags: ["never", "startup"]
+
+    - name: Define a query for HE hosts
+      ansible.builtin.set_fact:
+        he_hosts: >-
+          {{ hosts_result.ovirt_hosts | selectattr('hosted_engine', 'defined') | selectattr('hosted_engine.configured') | list }}
+
+    - name: Define a query for non HE hosts
+      ansible.builtin.set_fact:
+        non_he_hosts: >-
+          {{ hosts_result.ovirt_hosts | difference(he_hosts) }}
+
+    - name: Define a query for non HE hosts with power management
+      ansible.builtin.set_fact:
+        non_he_hosts_ipmi: >-
+          {{ non_he_hosts | selectattr('power_management', 'defined') |
+          selectattr('power_management.enabled') | list }}
+
+    - name: Define a query for non HE hosts without power management
+      ansible.builtin.set_fact:
+        non_he_hosts_noipmi: "{{ non_he_hosts | difference(non_he_hosts_ipmi) }}"
+
+    - name: Define a query for hosts with power management
+      ansible.builtin.set_fact:
+        hosts_ipmi: >-
+          {{ hosts_result.ovirt_hosts | selectattr('power_management', 'defined') | selectattr('power_management.enabled') | list }}
+
+    - name: Define commands
+      ansible.builtin.set_fact:
+        he_shutdown_cmd: >-
+          while hosted-engine --vm-status | grep "\"vm\": \"up\"" >/dev/null;
+          do sleep 5;
+          done;
+          sanlock client shutdown -f 1;
+          shutdown -h now
+        non_he_noipmi_shutdown_cmd: >-
+          while pgrep qemu-kvm >/dev/null; do sleep 5; done; shutdown -h now
+        gmaintenance_mode_cmd: >-
+          hosted-engine --set-maintenance --mode=global
+        ugmaintenance_mode_cmd: >-
+          hosted-engine --set-maintenance --mode=none
+
+    - name: Get VM list
+      ovirt.ovirt.ovirt_vm_info:
+        auth: "{{ ovirt_auth }}"
+        all_content: true
+      register: vm_result
+
+    - name: Shoutdown VMs and hosts
+      when: not startup
+
+      block:
+        - name: Shutdown all VMs, except HostedEngine
+          ovirt.ovirt.ovirt_vm:
+            state: stopped
+            name: "{{ item.name }}"
+            auth: "{{ ovirt_auth }}"
+            wait: true
+          when: "item.origin != 'managed_hosted_engine'"
+          with_items:
+            - "{{ vm_result.ovirt_vms }}"
+          failed_when: false
+
+        - name: Refresh VM list
+          ovirt.ovirt.ovirt_vm_info:
+            auth: "{{ ovirt_auth }}"
+            all_content: true
+          register: vm_result
+
+        - name: Forcefully shutdown remaining VMs, except HostedEngine
+          ovirt.ovirt.ovirt_vm:
+            state: stopped
+            name: "{{ item.name }}"
+            auth: "{{ ovirt_auth }}"
+            wait: true
+            force: true
+          when: "item.origin != 'managed_hosted_engine' and item.status != 'down'"
+          with_items:
+            - "{{ vm_result.ovirt_vms }}"
+
+        - name: Shutdown hosts, except HE ones, via IPMI (if configured)
+          ovirt.ovirt.ovirt_host:
+            state: stopped
+            name: "{{ item.name }}"
+            auth: "{{ ovirt_auth }}"
+          with_items:
+            - "{{ non_he_hosts_ipmi }}"
+
+        - name: Shutdown remaining non HE hosts
+          ansible.builtin.command: >-
+            ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+            -i /etc/pki/ovirt-engine/keys/engine_id_rsa
+            -p {{ item.ssh.port }}
+            -t root@{{ item.address }}
+            '{{ non_he_noipmi_shutdown_cmd }}'
+          async: 1000
+          poll: 0
+          with_items:
+            - "{{ non_he_hosts_noipmi }}"
+          failed_when: false
+          changed_when: false
+
+        - name: Set global maintenance mode
+          ansible.builtin.command: >-
+            ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+            -i /etc/pki/ovirt-engine/keys/engine_id_rsa
+            -p {{ item.ssh.port }} -t root@{{ item.address }}
+            '{{ gmaintenance_mode_cmd }}'
+          with_items:
+            - "{{ he_hosts }}"
+          ignore_errors: true
+          changed_when: false
+          register: globalmm
+
+        - name: Set globalmm_set variable
+          ansible.builtin.set_fact:
+            globalmm_set: "{{ globalmm.results | rejectattr('failed') | list | length }}"
+          when: globalmm is defined and globalmm.results is defined
+
+        - name: Enforce global maintenance mode
+          ansible.builtin.fail:
+            msg: >
+              Failed setting global maintenance mode.
+          when: he_hosts|length > 0 and globalmm_set|int == 0
+
+        - name: Warn about HE global maintenace mode
+          ansible.builtin.debug:
+            msg: >
+              HE global maintenance mode has been set; you have to exit it to get the engine VM started when needed
+          when: globalmm_set|int > 0
+
+        - name: Shutdown of HE hosts
+          ansible.builtin.command: >-
+            ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+            -i /etc/pki/ovirt-engine/keys/engine_id_rsa -p {{ item.ssh.port }}
+            -t root@{{ item.address }} '{{ he_shutdown_cmd }}'
+          async: 1000
+          poll: 0
+          with_items:
+            - "{{ he_hosts }}"
+          changed_when: false
+
+        - name: Shutdown engine host/VM
+          ansible.builtin.command: shutdown -h now
+          async: 1000
+          poll: 0
+          changed_when: false
+
+    - name: Startup mode
+      when: startup
+
+      block:
+        - name: Power-on IPMI configured hosts
+          ovirt.ovirt.ovirt_host:
+            state: started
+            name: "{{ item.name }}"
+            auth: "{{ ovirt_auth }}"
+          with_items:
+            - "{{ hosts_ipmi }}"
+
+        - name: Unset global maintenance mode
+          ansible.builtin.command: >-
+            ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+            -i /etc/pki/ovirt-engine/keys/engine_id_rsa -p {{ item.ssh.port }}
+            -t root@{{ item.address }} '{{ ugmaintenance_mode_cmd }}'
+          with_items:
+            - "{{ he_hosts }}"
+          ignore_errors: true
+          changed_when: false
+          register: uglobalmm
+
+        - name: Set globalmm_set variable
+          ansible.builtin.set_fact:
+            globalmm_set: "{{ uglobalmm.results | rejectattr('failed') | list | length }}"
+          when: uglobalmm is defined and uglobalmm.results is defined
+
+        - name: Enforce no global maintenance mode
+          ansible.builtin.fail:
+            msg: >
+              Failed unsetting global maintenance mode.
+          when: he_hosts|length > 0 and globalmm_set|int == 0
+  always:
+    - name: Logout from oVirt
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      when: not loggedin.skipped | default(false)
+      tags:
+        - always

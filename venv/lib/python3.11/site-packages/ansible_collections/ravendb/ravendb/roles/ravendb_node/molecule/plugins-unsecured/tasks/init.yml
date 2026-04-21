@@ -1,0 +1,56 @@
+---
+- name: Set common vars
+  ansible.builtin.set_fact:
+    base_url: "http://ubuntu-bionic-node-a:8080"
+    db_cs: "db_cs"
+    idx_def_initial:
+      map:
+        - "from c in docs.Users select new { c.name, count = 5 }"
+      reduce: >
+        from result in results
+        group result by result.name
+        into g
+        select new
+        {
+          name = g.Key,
+          count = g.Sum(x => x.count)
+        }
+    idx_def_updated_map:
+      map:
+        - "from c in docs.Users select new { c.name, count = 13 }"
+      reduce: >
+        from result in results
+        group result by result.name
+        into g
+        select new
+        {
+          name = g.Key,
+          count = g.Sum(x => x.count)
+        }
+    idx_def_multimap:
+      map:
+        - "from c in docs.Users select new { Name = c.name, UserCount = 1, OrderCount = 0, TotalCount = 1 }"
+        - "from o in docs.Orders select new { Name = o.customer, UserCount = 0, OrderCount = 1, TotalCount = 1 }"
+      reduce: >
+        from result in results
+        group result by result.Name
+        into g
+        select new
+        {
+          Name = g.Key,
+          UserCount = g.Sum(x => x.UserCount),
+          OrderCount = g.Sum(x => x.OrderCount),
+          TotalCount = g.Sum(x => x.TotalCount)
+        }
+
+- name: Randomize names
+  ansible.builtin.set_fact:
+    sfx: "{{ 1000000 | random }}"
+    db_check: "db_check_{{ 1000000 | random }}"
+    db_main: "db_main_{{ 1000000 | random }}"
+    db_missing: "db_missing_{{ 1000000 | random }}"
+    db_ix: "db_ix_{{ 1000000 | random }}"
+    idx_name: "UsersByName{{ 1000000 | random }}"
+    db_missing_rf: "db_missing_rf"
+    db_mismatch_rf_members: "db_mismatch_rf_members"
+    db_invalid_rf: "db_invalid_rf"

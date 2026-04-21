@@ -1,0 +1,5 @@
+minor_changes:
+  - grafana_dashboard - add check_mode support
+
+trivial:
+  - Refactor tests for `grafana_dashboard`

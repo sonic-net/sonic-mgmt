@@ -1,0 +1,25 @@
+---
+minor_changes:
+  - na_ontap_info - support ``continue_on_error`` option to continue when a ZAPI is not supported on a vserver, or for cluster RPC errors.
+  - na_ontap_info - support ``query`` option to specify which objects to return.
+  - na_ontap_info - support ``vserver`` tunneling to limit output to one vserver.
+  - na_ontap_snapmirror_policy - support for SnapMirror policy rules.
+  - na_ontap_vscan_scanner_pool - support modification.
+  - na_ontap_rest_info - Support for gather subsets - ``cluster_node_info, cluster_peer_info, disk_info, cifs_services_info, cifs_share_info``.
+  - module_utils/netapp - add retry on wait_on_job when job failed. Abort 3 consecutive errors.
+  - na_ontap_pb_get_online_volumes.yml - example playbook to list volumes that are online (or offline).
+  - na_ontap_pb_install_SSL_certificate_REST.yml - example playbook to install SSL certificates using REST APIs.
+
+bugfixes:
+  - na_ontap_command - replace invalid backspace characters (0x08) with '.'.
+  - na_ontap_firmware_download - exception on PCDATA if ONTAP returns a BEL (0x07) character.
+  - na_ontap_info - lists were incorrectly processed in convert_keys, returning {}.
+  - na_ontap_info - qtree_info is missing most entries.  Changed key from `vserver:id` to `vserver:volume:id` .
+  - na_ontap_iscsi_security - adding no_log for password parameters.
+  - na_ontap_portset - adding explicit error message as modify portset is not supported.
+  - na_ontap_snapmirror - fixed snapmirror delete for loadsharing to not go to quiesce state for the rest of the set.
+  - na_ontap_ucadapter - fixed KeyError if type is not provided and mode is 'cna'.
+  - na_ontap_user - checked `applications` does not contain snmp when using REST API call.
+  - na_ontap_user - fixed KeyError if locked key not set with REST API call.
+  - na_ontap_user - fixed KeyError if vserver - is empty with REST API call (useful to indicate cluster scope).
+  - na_ontap_volume - fixed KeyError when getting info on a MVD volume

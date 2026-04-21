@@ -1,0 +1,22 @@
+---
+- name: Infoblox Nameserver Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.36.118.2
+      username: cloudadmin
+      password: admin
+
+  connection: local
+  tasks:
+    - name: Create infoblox nameserver stub member group
+      infoblox.nios_modules.nios_nsgroup_stubmember:
+        name: my-stubmember-group
+        comment: this is a stub member nameserver group
+        extattrs:
+          Site: Test Site
+        stub_members:
+          - name: infoblox.cloud-ansible-client-nios-gm
+          - name: infoblox.cloud-ansible-client-nios-mem1
+        state: present
+        provider: "{{ nios_provider }}"

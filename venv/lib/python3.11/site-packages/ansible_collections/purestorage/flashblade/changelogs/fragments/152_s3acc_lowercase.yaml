@@ -1,0 +1,3 @@
+bugfixes:
+ - purefb_s3acc - Ensure S3 Account Name is always lowercase
+ - purefb_s3user - Ensure S3 Account Name is always lowercase

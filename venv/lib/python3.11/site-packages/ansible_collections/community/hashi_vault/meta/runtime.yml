@@ -1,0 +1,29 @@
+---
+requires_ansible: '>=2.17.0'
+action_groups:
+  # let's keep this in alphabetical order
+  vault:
+    - vault_database_connection_configure
+    - vault_database_connection_delete
+    - vault_database_connection_read
+    - vault_database_connection_reset
+    - vault_database_connections_list
+    - vault_database_role_create
+    - vault_database_role_delete
+    - vault_database_roles_list
+    - vault_database_rotate_root_credentials
+    - vault_database_static_role_create
+    - vault_database_static_role_get_credentials
+    - vault_database_static_role_read
+    - vault_database_static_role_rotate_credentials
+    - vault_database_static_roles_list
+    - vault_kv1_get
+    - vault_kv2_delete
+    - vault_kv2_get
+    - vault_kv2_write
+    - vault_list
+    - vault_login
+    - vault_pki_generate_certificate
+    - vault_read
+    - vault_token_create
+    - vault_write

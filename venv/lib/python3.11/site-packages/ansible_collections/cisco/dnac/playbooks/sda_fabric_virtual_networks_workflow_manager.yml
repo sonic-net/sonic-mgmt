@@ -1,0 +1,66 @@
+---
+- name: Configure the Fabric Vlan(s), Virtual network(s) and Anycast gateway(s) for SDA in Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Configure the Fabric Vlan(s), Virtual network(s) and Anycast gateway(s) for SDA in Cisco Catalyst Center
+      cisco.dnac.sda_fabric_virtual_networks_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log_level: DEBUG
+        dnac_log: true
+        config_verify: true
+        state: deleted
+        config:
+          - fabric_vlan:
+              - vlan_name: "vlan_test1"
+                fabric_site_locations:
+                  - site_name_hierarchy: "Global/India/Chennai"
+                    fabric_type: "fabric_zone"
+                  - site_name_hierarchy: "Global/India"
+                    fabric_type: "fabric_site"
+                vlan_id: 1933
+                traffic_type: "VOICE"
+                fabric_enabled_wireless: false
+              - vlan_name: "vlan_test22"
+                fabric_site_locations:
+                  - site_name_hierarchy: "Global/India"
+                    fabric_type: "fabric_site"
+                vlan_id: 1836
+                traffic_type: "DATA"
+                fabric_enabled_wireless: false
+          - virtual_networks:
+              - vn_name: "vn_wo_anchor1"
+                fabric_site_locations:
+                  - site_name_hierarchy: "Global/India/Chennai"
+                    fabric_type: "fabric_zone"
+                  - site_name_hierarchy: "Global/India"
+                    fabric_type: "fabric_site"
+          - anycast_gateways:
+              - vn_name: "vn_wo_anchor1"
+                fabric_site_location:
+                  site_name_hierarchy: "Global/India"
+                  fabric_type: "fabric_site"
+                ip_pool_name: "Reserve_Ip_pool"
+                tcp_mss_adjustment: 581
+                vlan_name: Vlan_test
+                vlan_id: 34
+                traffic_type: "VOICE"
+                is_critical_pool: false
+                layer2_flooding_enabled: false
+                fabric_enabled_wireless: false
+                ip_directed_broadcast: false
+                intra_subnet_routing_enabled: true
+                multiple_ip_to_mac_addresses: false
+                auto_generate_vlan_name: true
+
+      tags:
+        - fabric_virtual_network_testing

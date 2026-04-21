@@ -1,0 +1,7 @@
+---
+- name: APT - Install Mimir
+  ansible.builtin.apt:
+    deb: "{{ mimir_download_url_deb }}"
+    state: present
+  notify: Restart mimir
+  when: __current_deployed_version.stdout is not defined or mimir_version not in __current_deployed_version.stdout

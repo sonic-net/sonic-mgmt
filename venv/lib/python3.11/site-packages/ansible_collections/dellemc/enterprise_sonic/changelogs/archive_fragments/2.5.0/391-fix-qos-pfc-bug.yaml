@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_qos_pfc - Add back accidentally deleted line of code  (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/391)

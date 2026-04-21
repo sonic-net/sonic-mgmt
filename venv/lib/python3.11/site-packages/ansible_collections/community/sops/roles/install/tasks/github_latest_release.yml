@@ -1,0 +1,34 @@
+---
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2022, Felix Fontein
+
+- name: Fetch the latest release from GitHub
+  ansible.builtin.uri:
+    follow_redirects: "none"
+    status_code:
+      - 302
+      - 307
+    url: https://github.com/getsops/sops/releases/latest/
+  register: _community_sops_install_github_latest_release
+  delegate_to: localhost
+  run_once: true
+
+- name: Determine the latest release
+  ansible.builtin.set_fact:
+    _community_sops_install_effective_sops_version: >-
+      {{
+        _community_sops_install_github_latest_release.location
+        | default("", true)
+        | ansible.builtin.regex_search("(?<=/releases/tag/)([0-9a-z._-]+)")
+        | default("", true)
+        | ansible.builtin.regex_replace("^v", "")
+      }}
+
+- name: In case this failed, inform user
+  ansible.builtin.debug:
+    msg: >-
+      Could not obtain latest version from https://github.com/getsops/sops/releases/latest/.
+      Please create an issue in https://github.com/ansible-collections/community.sops/issues/
+      if there is not already one.
+  when: _community_sops_install_effective_sops_version == ''

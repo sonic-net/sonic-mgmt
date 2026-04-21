@@ -1,0 +1,31 @@
+# nonk8s
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: dell-ansible-powerflex
+  description: "Ansible Modules for Dell Technologies PowerFlex"
+  tags:
+    - ansible
+    - devops
+    - automation
+    - dell
+    - infrastructure-as-code
+    - powerflex
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: dell/ansible-powerflex
+  links:
+    - url: 'https://galaxy.ansible.com/dellemc/powerflex'
+      title: 'Ansible Galaxy'
+      icon: 'web'
+    - url: 'https://console.redhat.com/ansible/automation-hub/repo/published/dellemc/powerflex'
+      title: 'Automation Hub'
+      icon: 'web'
+    - url: 'https://github.com/dell/ansible-powerflex/issues'
+      title: 'Contact Technical Support'
+      icon: 'help'
+spec:
+  type: service
+  lifecycle: production
+  owner: user:default/gokul-srivathsan
+  visibility: all

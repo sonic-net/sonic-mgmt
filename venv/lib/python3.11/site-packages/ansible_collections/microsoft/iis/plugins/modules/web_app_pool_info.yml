@@ -1,0 +1,177 @@
+---
+# Copyright: (c) 2024, Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: web_app_pool_info
+  short_description: Get information on IIS Web Application Pools
+  description:
+    - Returns information about IIS Web Application Pools.
+  requirements:
+    - IISAdministration PowerShell module
+  options:
+    name:
+      description:
+        - Name of the application pool.
+        - When not specified, information of all existing pools will be fetched.
+      type: str
+      required: false
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+  seealso:
+    - module: microsoft.iis.web_app_pool
+  author:
+    - Ron Gershburg (@rgershbu)
+
+EXAMPLES: |
+  - name: Return information about an existing application pool
+    microsoft.iis.web_app_pool_info:
+      name: DefaultAppPool
+    register: stored_info
+
+  - name: Returns information about all application pools that exist on the system
+    microsoft.iis.web_app_pool_info:
+    register: stored_info_all
+
+RETURN:
+  exists:
+    description:
+      - Whether any application pools were found.
+    returned: success
+    type: bool
+    sample: true
+  app_pools:
+    description:
+      - Contains list of dictionaries.
+      - Every dictionary in the list contains name and information of an application pool.
+    returned: ''
+    type: list
+    sample: '[
+      {
+        "attributes": {
+          "CLRConfigFile": "",
+          "applicationPoolSid": "S-1-5-82-3006700770-424185619-1745488364-794895919-4004696415",
+          "autoStart": true,
+          "cpu": {
+            "action": "NoAction",
+            "limit": 0,
+            "numaNodeAffinityMode": "Soft",
+            "numaNodeAssignment": "MostAvailableMemory",
+            "processorGroup": 0,
+            "resetInterval": "00:05:00",
+            "smpAffinitized": false,
+            "smpProcessorAffinityMask": 4294967295,
+            "smpProcessorAffinityMask2": 4294967295
+          },
+          "enable32BitAppOnWin64": false,
+          "enableConfigurationOverride": true,
+          "failure": {
+            "autoShutdownExe": "",
+            "autoShutdownParams": "",
+            "loadBalancerCapabilities": "HttpLevel",
+            "orphanActionExe": "",
+            "orphanActionParams": "",
+            "orphanWorkerProcess": false,
+            "rapidFailProtection": true,
+            "rapidFailProtectionInterval": "00:05:00",
+            "rapidFailProtectionMaxCrashes": 5
+          },
+          "managedPipelineMode": "Integrated",
+          "managedRuntimeLoader": "webengine4.dll",
+          "managedRuntimeVersion": "v4.0",
+          "name": "DefaultAppPool",
+          "passAnonymousToken": true,
+          "processModel": {
+            "identityType": "ApplicationPoolIdentity",
+            "idleTimeout": "00:20:00",
+            "idleTimeoutAction": "Terminate",
+            "loadUserProfile": false,
+            "logEventOnProcessModel": "IdleTimeout",
+            "logonType": "LogonBatch",
+            "manualGroupMembership": false,
+            "maxProcesses": 1,
+            "pingInterval": "00:00:30",
+            "pingResponseTime": "00:01:30",
+            "pingingEnabled": true,
+            "requestQueueDelegatorIdentity": "",
+            "setProfileEnvironment": true,
+            "shutdownTimeLimit": "00:01:30",
+            "startupTimeLimit": "00:01:30",
+            "userName": ""
+          },
+          "queueLength": 1000,
+          "recycling": {
+            "disallowOverlappingRotation": false,
+            "disallowRotationOnConfigChange": false,
+            "logEventOnRecycle": "Time,Requests,Schedule,Memory,IsapiUnhealthy,OnDemand,ConfigChange,PrivateMemory",
+            "periodicRestart": {
+                "memory": 0,
+                "privateMemory": 0,
+                "requests": 0,
+                "time": "1.05:00:00"
+            }
+          },
+          "startMode": "OnDemand",
+          "state": "Started"
+        },
+        "name": "DefaultAppPool"
+      }
+    ]'
+    contains:
+      name:
+        description:
+          - Name of the application pool.
+        type: str
+        sample: DefaultAppPool
+      attributes:
+        description:
+          - Dictionary that hold the information of a specific application pool.
+          - For full list see U(https://learn.microsoft.com/en-us/iis/configuration/system.applicationhost/applicationpools/add/#attributes).
+        type: dict
+        contains:
+          cpu:
+            description: Key value pairs showing the current Application Pool cpu attributes.
+            returned: success
+            type: dict
+            sample:
+              action: "NoAction"
+              limit: 0
+              resetInterval:
+                Days: 0
+                Hours: 0
+          failure:
+            description: Key value pairs showing the current Application Pool failure attributes.
+            returned: success
+            type: dict
+            sample:
+              autoShutdownExe: ""
+              orphanActionExe: ""
+              rapidFailProtextionInterval:
+                Days: 0
+                Hours: 0
+          processModel:
+            description: Key value pairs showing the current Application Pool processModel attributes.
+            returned: success
+            type: dict
+            sample:
+              identityType: "ApplicationPoolIdentity"
+              logonType: "LogonBatch"
+              pingInterval:
+                Days: 0
+                Hours: 0
+          recycling:
+            description: Key value pairs showing the current Application Pool recycling attributes.
+            returned: success
+            type: dict
+            sample:
+              disallowOverlappingRotation: false
+              disallowRotationOnConfigChange: false
+              logEventOnRecycle: "Time,Requests,Schedule,Memory,IsapiUnhealthy,OnDemand,ConfigChange,PrivateMemory"

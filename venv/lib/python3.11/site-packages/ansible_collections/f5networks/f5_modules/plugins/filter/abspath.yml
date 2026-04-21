@@ -1,0 +1,24 @@
+DOCUMENTATION:
+  name: markdev
+  author: Tim Rupp <caphrim007@gmail.com>
+  version_added: "historical"
+  short_description: return absolute path of a file
+  description:
+    - A wrapper around os.path.abspath function to return absolute path of a given file path.
+  positional: _input
+  options:
+    _input:
+      description: A file path
+      type: string
+      required: true
+
+EXAMPLES: |
+  # use filepath to install with absolute path
+  - name: Install AS3 package if missing
+    bigip_lx_package:
+      package: "files/f5-appsvcs-3.36.1-1.noarch.rpm" | abspath
+
+RETURN:
+  _value:
+    description: The absolute path to given file
+    type: string

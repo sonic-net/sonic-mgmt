@@ -1,0 +1,71 @@
+[tool.black]
+skip-string-normalization = false
+line-length = 120
+target-version = ['py37', 'py38']
+extend-exclude = '''
+/(
+  | plugins/module_utils/_version.py
+)/
+'''
+
+[tool.darker]
+revision = "origin/main.."
+
+src = [
+    "plugins",
+    "tests/unit",
+    "tests/integration",
+]
+
+[tool.isort]
+profile = "black"
+force_single_line = true
+line_length = 120
+
+src_paths = [
+    "plugins",
+    "tests/unit",
+    "tests/integration",
+]
+
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "ANSIBLE_CORE", "ANSIBLE_AMAZON_AWS", "ANSIBLE_COMMUNITY_AWS", "LOCALFOLDER"]
+known_third_party = ["botocore", "boto3"]
+known_ansible_core = ["ansible"]
+known_ansible_amazon_aws = ["ansible_collections.amazon.aws"]
+known_ansible_community_aws = ["ansible_collections.community.aws"]
+
+[tool.flynt]
+transform-joins = true
+exclude = [
+    "ec2_metadata_facts",
+]
+
+[tool.flake8]
+# E123, E125 skipped as they are invalid PEP-8.
+show-source = true
+ignore = ["E123", "E125", "E203", "E402", "E501", "E741", "F401", "F811", "F841", "W503"]
+max-line-length = 160
+builtins = "_"
+
+[tool.mypy]
+disable_error_code = ["import-untyped"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# "F401" - unused-imports - We use these imports to maintain historic Interfaces
+# "E402" - import not at top of file - General Ansible style puts the documentation at the top.
+unfixable = ["F401"]
+ignore = ["F401", "E402"]
+
+[tool.pytest]
+xfail_strict = true
+
+[tool.coverage.report]
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise NotImplementedError",
+]

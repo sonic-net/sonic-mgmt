@@ -1,0 +1,153 @@
+---
+- name: Sda fabric transits workflow manager
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  connection: local
+  tasks:
+    - name: Create the SDA fabric transits with transit_type as IP_BASED_TRANSIT
+      cisco.dnac.sda_fabric_transits_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - sda_fabric_transits:
+              - name: Sample1
+                transit_type: IP_BASED_TRANSIT  # IP_BASED_TRANSIT, SDA_LISP_PUB_SUB_TRANSIT, SDA_LISP_BGP_TRANSIT
+                ip_transit_settings:  # For IP_BASED_TRANSIT
+                  routing_protocol_name: BGP  # only bgp
+                  autonomous_system_number: 1234  # between 1 and 4294967295
+
+    - name: Create the SDA fabric transits with transit_type as SDA_LISP_BGP_TRANSIT
+      cisco.dnac.sda_fabric_transits_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - sda_fabric_transits:
+              - name: Sample2
+                transit_type: SDA_LISP_BGP_TRANSIT  # IP_BASED_TRANSIT, SDA_LISP_PUB_SUB_TRANSIT, SDA_LISP_BGP_TRANSIT
+                sda_transit_settings:  # For SDA_LISP_BGP_TRANSIT and SDA_LISP_PUB_SUB_TRANSIT
+                  control_plane_network_device_ips:  # 2 for SDA_LISP_BGP_TRANSIT and 4 for SDA_LISP_PUB_SUB_TRANSIT
+                    - 10.0.0.1
+                    - 10.0.0.2
+
+    - name: Create the SDA fabric transits with transit_type as SDA_LISP_PUB_SUB_TRANSIT
+      cisco.dnac.sda_fabric_transits_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - sda_fabric_transits:
+              - name: Sample3
+                transit_type: SDA_LISP_PUB_SUB_TRANSIT  # IP_BASED_TRANSIT, SDA_LISP_PUB_SUB_TRANSIT, SDA_LISP_BGP_TRANSIT
+                sda_transit_settings:  # For SDA_LISP_BGP_TRANSIT and SDA_LISP_PUB_SUB_TRANSIT
+                  is_multicast_over_transit_enabled: true  # only for SDA_LISP_PUB_SUB_TRANSIT
+                  control_plane_network_device_ips:  # 2 for SDA_LISP_BGP_TRANSIT and 4 for SDA_LISP_PUB_SUB_TRANSIT
+                    - 11.0.0.1
+                    - 11.0.0.2
+                    - 11.0.0.3
+                    - 11.0.0.4
+
+    - name: Update the SDA fabric transits with transit_type as SDA_LISP_BGP_TRANSIT
+      cisco.dnac.sda_fabric_transits_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - sda_fabric_transits:
+              - name: Sample2
+                transit_type: SDA_LISP_BGP_TRANSIT  # IP_BASED_TRANSIT, SDA_LISP_PUB_SUB_TRANSIT, SDA_LISP_BGP_TRANSIT
+                sda_transit_settings:  # For SDA_LISP_BGP_TRANSIT and SDA_LISP_PUB_SUB_TRANSIT
+                  control_plane_network_device_ips:  # 2 for SDA_LISP_BGP_TRANSIT and 4 for SDA_LISP_PUB_SUB_TRANSIT
+                    - 10.0.0.3
+                    - 10.0.0.4
+
+    - name: Update the SDA fabric transits with transit_type as SDA_LISP_PUB_SUB_TRANSIT
+      cisco.dnac.sda_fabric_transits_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - sda_fabric_transits:
+              - name: Sample3
+                transit_type: SDA_LISP_PUB_SUB_TRANSIT  # IP_BASED_TRANSIT, SDA_LISP_PUB_SUB_TRANSIT, SDA_LISP_BGP_TRANSIT
+                sda_transit_settings:  # For SDA_LISP_BGP_TRANSIT and SDA_LISP_PUB_SUB_TRANSIT
+                  is_multicast_over_transit_enabled: true  # only for SDA_LISP_PUB_SUB_TRANSIT
+                  control_plane_network_device_ips:  # 2 for SDA_LISP_BGP_TRANSIT and 4 for SDA_LISP_PUB_SUB_TRANSIT
+                    - 11.0.0.5
+                    - 11.0.0.6
+                    - 11.0.0.7
+                    - 11.0.0.8
+
+    - name: Delete the SDA fabric transits
+      cisco.dnac.sda_fabric_transits_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - sda_fabric_transits:
+              - name: Sample1
+              - name: Sample2
+              - name: Sample3

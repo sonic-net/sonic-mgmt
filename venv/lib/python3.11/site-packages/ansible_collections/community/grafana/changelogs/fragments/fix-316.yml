@@ -1,0 +1,2 @@
+bugfixes:
+  - Fix error with datasources configured without basicAuth

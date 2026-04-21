@@ -1,0 +1,24 @@
+<network>
+  <name>default</name>
+  <uuid>{{ network_dict['uuid'] }}</uuid>
+  <forward mode='nat'>
+    <nat ipv6='yes'>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='{{ network_dict['bridge']['name'] }}' stp='{{ network_dict['bridge']['stp'] }}' delay='{{ network_dict['bridge']['delay'] }}'/>
+{% if not he_force_ip4 %}
+  <ip family='ipv6' address='{{ he_ipv6_subnet_prefix + '::1' }}' prefix='64'>
+    <dhcp>
+      <range start='{{ he_ipv6_subnet_prefix + '::10' }}' end='{{ he_ipv6_subnet_prefix + '::ff' }}'/>
+    </dhcp>
+  </ip>
+{% endif %}
+{% if not he_force_ip6 %}
+  <ip address='{{ he_ipv4_subnet_prefix + '.1' }}' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='{{ he_ipv4_subnet_prefix + '.2' }}' end='{{ he_ipv4_subnet_prefix + '.254' }}'/>
+    </dhcp>
+  </ip>
+{% endif %}
+</network>

@@ -1,0 +1,13 @@
+# For ansible-tox-linters
+black==23.3.0
+flake8
+yamllint
+
+# Unit test runner
+cffi==1.14.5
+mock
+pexpect
+pytest-xdist
+rstcheck<4,>=3
+pytest-ansible
+pytest-cov

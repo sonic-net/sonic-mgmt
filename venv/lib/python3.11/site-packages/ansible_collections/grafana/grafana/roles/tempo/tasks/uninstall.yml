@@ -1,0 +1,43 @@
+---
+# tasks file for tempo uninstall
+
+- name: Stop Tempo service
+  ansible.builtin.systemd:  # noqa ignore-errors
+    name: tempo
+    state: stopped
+  ignore_errors: true
+
+- name: Uninstall Tempo rpm package
+  ansible.builtin.dnf:
+    name: "tempo"
+    state: absent
+    autoremove: true
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
+
+- name: Uninstall Tempo deb package
+  ansible.builtin.apt:
+    name: "tempo"
+    state: absent
+    purge: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Remove Tempo directories"
+  ansible.builtin.file:
+    path: "{{ remove_me }}"
+    state: absent
+  loop:
+    - "/etc/tempo"
+    - "{{ tempo_working_path }}"
+  loop_control:
+    loop_var: remove_me
+
+- name: Remove the Tempo system user
+  ansible.builtin.user:
+    name: "tempo"
+    force: true
+    state: absent
+
+- name: Remove Tempo system group
+  ansible.builtin.group:
+    name: "tempo"
+    state: absent

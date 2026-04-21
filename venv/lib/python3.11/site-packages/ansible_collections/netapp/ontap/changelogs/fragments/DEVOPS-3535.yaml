@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_lun - new option ``scope`` to explicitly force operations on the SAN application or a single LUN.
+  - na_ontap_lun - convert existing LUNs and supporting volume to a smart container within a SAN application.

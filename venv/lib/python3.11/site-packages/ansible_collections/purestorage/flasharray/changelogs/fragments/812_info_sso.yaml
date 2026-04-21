@@ -1,0 +1,4 @@
+bugfixes:
+ - purefa_info - Fixed AttributeError in config section related to SSO SAML2
+ - purefa_info - Ensured that volumes, hosts, host_groups and transfers are correctly listed for protection groups
+ - purefa_info - Fixed issue with undo-demote pods not reporting correctly

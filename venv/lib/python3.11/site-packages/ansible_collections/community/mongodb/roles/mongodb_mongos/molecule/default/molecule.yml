@@ -1,0 +1,76 @@
+---
+#dependency:
+#  name: galaxy
+driver:
+  name: docker
+platforms:
+  - name: amazon2023
+    image: geerlingguy/docker-amazonlinux2023-ansible
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+    networks:
+      - name: "mongos"
+    network_mode: "mongos"
+  - name: debian12
+    image: quay.io/aminvakil/debian12-systemd
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+    networks:
+      - name: "mongos"
+    network_mode: "mongos"
+  - name: ubuntu2204
+    image: geerlingguy/docker-ubuntu2204-ansible
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+    networks:
+      - name: "mongos"
+    network_mode: "mongos"
+  - name: almalinux9
+    image: mullholland/docker-almalinux-systemd:9
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+    networks:
+      - name: "mongos"
+    network_mode: "mongos"
+  - name: rockylinux9
+    image: geerlingguy/docker-rockylinux9-ansible
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+    networks:
+      - name: "mongos"
+    network_mode: "mongos"
+  - name: config1
+    image: geerlingguy/docker-ubuntu2204-ansible
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    cgroupns_mode: host
+    privileged: true
+    pre_build_image: true
+    networks:
+      - name: "mongos"
+    network_mode: "mongos"
+provisioner:
+  name: ansible
+verifier:
+  name: testinfra

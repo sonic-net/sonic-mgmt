@@ -1,0 +1,3 @@
+minor_changes:
+  - na_cloudmanager_cvo_azure - Add extra tag handling on azure_tag maintenance
+  - na_cloudmanager_cvo_gcp - Add extra label hendling for HA and only allow add new labels on gcp_labels

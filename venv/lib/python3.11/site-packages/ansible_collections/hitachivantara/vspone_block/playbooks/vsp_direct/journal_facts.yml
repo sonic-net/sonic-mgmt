@@ -1,0 +1,72 @@
+---
+####################################################################
+# Example : Journal Facts Playbook
+####################################################################
+- name: Journal Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all Journal
+    ####################################################################
+    - name: Get all journal
+      hitachivantara.vspone_block.vsp.hv_journal_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get specific Journal
+    ####################################################################
+    - name: Get specific journal
+      hitachivantara.vspone_block.vsp.hv_journal_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          journal_id: 37
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get Free Journal IDs
+    ####################################################################
+    - name: Get specific journal
+      hitachivantara.vspone_block.vsp.hv_journal_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_free_journal_pool_id: true
+          free_journal_pool_id_count: 10
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Get Journal data with mirror not used
+    ####################################################################
+    - name: Get specific journal
+      hitachivantara.vspone_block.vsp.hv_journal_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_mirror_not_used: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

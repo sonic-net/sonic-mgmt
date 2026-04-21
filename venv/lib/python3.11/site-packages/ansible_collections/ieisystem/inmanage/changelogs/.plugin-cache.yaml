@@ -1,0 +1,665 @@
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  httpapi: {}
+  inventory: {}
+  lookup: {}
+  module:
+    ad_group:
+      description: Manage active directory group information
+      name: ad_group
+      namespace: ''
+      version_added: 1.0.0
+    ad_group_info:
+      description: Get active directory group information
+      name: ad_group_info
+      namespace: ''
+      version_added: 1.0.0
+    ad_info:
+      description: Get active directory information
+      name: ad_info
+      namespace: ''
+      version_added: 1.0.0
+    adapter_info:
+      description: Get adapter information
+      name: adapter_info
+      namespace: ''
+      version_added: 1.0.0
+    add_ldisk:
+      description: Create logical disk
+      name: add_ldisk
+      namespace: ''
+      version_added: 1.0.0
+    alert_policy_info:
+      description: Get alert policy
+      name: alert_policy_info
+      namespace: ''
+      version_added: 1.0.0
+    audit_log_info:
+      description: Get BMC audit log information
+      name: audit_log_info
+      namespace: ''
+      version_added: 1.0.0
+    auto_capture_info:
+      description: Get auto capture screen information
+      name: auto_capture_info
+      namespace: ''
+      version_added: 1.0.0
+    backplane_info:
+      description: Get disk backplane information
+      name: backplane_info
+      namespace: ''
+      version_added: 1.0.0
+    backup:
+      description: Backup server settings
+      name: backup
+      namespace: ''
+      version_added: 1.0.0
+    bios_export:
+      description: Export BIOS config
+      name: bios_export
+      namespace: ''
+      version_added: 1.0.0
+    bios_import:
+      description: Import BIOS config
+      name: bios_import
+      namespace: ''
+      version_added: 1.0.0
+    bios_info:
+      description: Get BIOS setup
+      name: bios_info
+      namespace: ''
+      version_added: 1.0.0
+    bmc_info:
+      description: Get BMC information
+      name: bmc_info
+      namespace: ''
+      version_added: 1.0.0
+    boot_image_info:
+      description: Get bmc boot image information
+      name: boot_image_info
+      namespace: ''
+      version_added: 1.0.0
+    boot_option_info:
+      description: Get BIOS boot options
+      name: boot_option_info
+      namespace: ''
+      version_added: 1.0.0
+    clear_audit_log:
+      description: Clear BMC audit log
+      name: clear_audit_log
+      namespace: ''
+      version_added: 1.0.0
+    clear_event_log:
+      description: Clear event log
+      name: clear_event_log
+      namespace: ''
+      version_added: 1.0.0
+    clear_system_log:
+      description: Clear BMC system log
+      name: clear_system_log
+      namespace: ''
+      version_added: 1.0.0
+    collect_blackbox:
+      description: Collect blackbox log
+      name: collect_blackbox
+      namespace: ''
+      version_added: 1.0.0
+    collect_log:
+      description: Collect logs
+      name: collect_log
+      namespace: ''
+      version_added: 1.0.0
+    connect_media_info:
+      description: Get remote images redirection information
+      name: connect_media_info
+      namespace: ''
+      version_added: 1.0.0
+    cpu_info:
+      description: Get CPU information
+      name: cpu_info
+      namespace: ''
+      version_added: 1.0.0
+    del_session:
+      description: Delete session
+      name: del_session
+      namespace: ''
+      version_added: 1.0.0
+    dns_info:
+      description: Get dns information
+      name: dns_info
+      namespace: ''
+      version_added: 1.0.0
+    download_auto_screenshot:
+      description: Download auto screenshots
+      name: download_auto_screenshot
+      namespace: ''
+      version_added: 1.0.0
+    download_manual_screenshot:
+      description: Download manual screenshots
+      name: download_manual_screenshot
+      namespace: ''
+      version_added: 1.0.0
+    edit_ad:
+      description: Set active directory information
+      name: edit_ad
+      namespace: ''
+      version_added: 1.0.0
+    edit_alert_policy:
+      description: Set alert policy
+      name: edit_alert_policy
+      namespace: ''
+      version_added: 1.0.0
+    edit_auto_capture:
+      description: Set auto capture screen
+      name: edit_auto_capture
+      namespace: ''
+      version_added: 1.0.0
+    edit_bios:
+      description: Set BIOS setup attributes
+      name: edit_bios
+      namespace: ''
+      version_added: 1.0.0
+    edit_boot_image:
+      description: Set bmc boot image
+      name: edit_boot_image
+      namespace: ''
+      version_added: 1.0.0
+    edit_boot_option:
+      description: Set BIOS boot options
+      name: edit_boot_option
+      namespace: ''
+      version_added: 1.0.0
+    edit_connect_media:
+      description: Start/Stop virtual media Image
+      name: edit_connect_media
+      namespace: ''
+      version_added: 1.0.0
+    edit_dns:
+      description: Set dns information
+      name: edit_dns
+      namespace: ''
+      version_added: 1.0.0
+    edit_event_log_policy:
+      description: Set event log policy
+      name: edit_event_log_policy
+      namespace: ''
+      version_added: 1.0.0
+    edit_fan:
+      description: Set fan information
+      name: edit_fan
+      namespace: ''
+      version_added: 1.0.0
+    edit_fru:
+      description: Set fru settings
+      name: edit_fru
+      namespace: ''
+      version_added: 1.0.0
+    edit_ipv4:
+      description: Set ipv4 information
+      name: edit_ipv4
+      namespace: ''
+      version_added: 1.0.0
+    edit_ipv6:
+      description: Set ipv6 information
+      name: edit_ipv6
+      namespace: ''
+      version_added: 1.0.0
+    edit_kvm:
+      description: Set KVM
+      name: edit_kvm
+      namespace: ''
+      version_added: 1.0.0
+    edit_ldap:
+      description: Set ldap information
+      name: edit_ldap
+      namespace: ''
+      version_added: 1.0.0
+    edit_ldisk:
+      description: Set logical disk
+      name: edit_ldisk
+      namespace: ''
+      version_added: 1.0.0
+    edit_log_setting:
+      description: Set bmc system and audit log setting
+      name: edit_log_setting
+      namespace: ''
+      version_added: 1.0.0
+    edit_m6_log_setting:
+      description: Set bmc system and audit log setting
+      name: edit_m6_log_setting
+      namespace: ''
+      version_added: 1.0.0
+    edit_manual_capture:
+      description: Set manual capture screen
+      name: edit_manual_capture
+      namespace: ''
+      version_added: 1.0.0
+    edit_media_instance:
+      description: Set Virtual Media Instance
+      name: edit_media_instance
+      namespace: ''
+      version_added: 1.0.0
+    edit_ncsi:
+      description: Set ncsi information
+      name: edit_ncsi
+      namespace: ''
+      version_added: 1.0.0
+    edit_network:
+      description: Set network information
+      name: edit_network
+      namespace: ''
+      version_added: 1.0.0
+    edit_network_bond:
+      description: Set network bond
+      name: edit_network_bond
+      namespace: ''
+      version_added: 1.0.0
+    edit_network_link:
+      description: Set network link
+      name: edit_network_link
+      namespace: ''
+      version_added: 1.0.0
+    edit_ntp:
+      description: Set NTP
+      name: edit_ntp
+      namespace: ''
+      version_added: 1.0.0
+    edit_pdisk:
+      description: Set physical disk
+      name: edit_pdisk
+      namespace: ''
+      version_added: 1.0.0
+    edit_power_budget:
+      description: Set power budget information
+      name: edit_power_budget
+      namespace: ''
+      version_added: 1.0.0
+    edit_power_restore:
+      description: Set power restore information
+      name: edit_power_restore
+      namespace: ''
+      version_added: 1.0.0
+    edit_power_status:
+      description: Set power status information
+      name: edit_power_status
+      namespace: ''
+      version_added: 1.0.0
+    edit_preserve_config:
+      description: Set preserve config
+      name: edit_preserve_config
+      namespace: ''
+      version_added: 1.0.0
+    edit_psu_config:
+      description: Set psu config information
+      name: edit_psu_config
+      namespace: ''
+      version_added: 1.0.0
+    edit_psu_peak:
+      description: Set psu peak information
+      name: edit_psu_peak
+      namespace: ''
+      version_added: 1.0.0
+    edit_restore_factory_default:
+      description: Set preserver config
+      name: edit_restore_factory_default
+      namespace: ''
+      version_added: 1.0.0
+    edit_service:
+      description: Set service settings
+      name: edit_service
+      namespace: ''
+      version_added: 1.0.0
+    edit_smtp:
+      description: Set SMTP information
+      name: edit_smtp
+      namespace: ''
+      version_added: 1.0.0
+    edit_smtp_com:
+      description: Set SMTP information
+      name: edit_smtp_com
+      namespace: ''
+      version_added: 1.0.0
+    edit_smtp_dest:
+      description: Set SMTP information
+      name: edit_smtp_dest
+      namespace: ''
+      version_added: 1.0.0
+    edit_snmp:
+      description: Set snmp
+      name: edit_snmp
+      namespace: ''
+      version_added: 1.0.0
+    edit_snmp_trap:
+      description: Set snmp trap
+      name: edit_snmp_trap
+      namespace: ''
+      version_added: 1.0.0
+    edit_system_lock_mode:
+      description: Set system lock mode information
+      name: edit_system_lock_mode
+      namespace: ''
+      version_added: 3.0.0
+    edit_threshold:
+      description: Set threshold information
+      name: edit_threshold
+      namespace: ''
+      version_added: 1.0.0
+    edit_uid:
+      description: Set UID
+      name: edit_uid
+      namespace: ''
+      version_added: 1.0.0
+    edit_virtual_media:
+      description: Set virtual media
+      name: edit_virtual_media
+      namespace: ''
+      version_added: 1.0.0
+    edit_vlan:
+      description: Set vlan information
+      name: edit_vlan
+      namespace: ''
+      version_added: 1.0.0
+    event_log_info:
+      description: Get event log information
+      name: event_log_info
+      namespace: ''
+      version_added: 1.0.0
+    event_log_policy_info:
+      description: Get event log policy information
+      name: event_log_policy_info
+      namespace: ''
+      version_added: 1.0.0
+    fan_info:
+      description: Get fan information
+      name: fan_info
+      namespace: ''
+      version_added: 1.0.0
+    fru_info:
+      description: Get fru information
+      name: fru_info
+      namespace: ''
+      version_added: 1.0.0
+    fw_version_info:
+      description: Get firmware version information
+      name: fw_version_info
+      namespace: ''
+      version_added: 1.0.0
+    gpu_info:
+      description: Get GPU information
+      name: gpu_info
+      namespace: ''
+      version_added: 1.0.0
+    hard_disk_info:
+      description: Get hard disk information
+      name: hard_disk_info
+      namespace: ''
+      version_added: 1.0.0
+    hba_info:
+      description: Get CPU information
+      name: hba_info
+      namespace: ''
+      version_added: 1.0.0
+    kvm_info:
+      description: Get KVM information
+      name: kvm_info
+      namespace: ''
+      version_added: 1.0.0
+    ldap_group:
+      description: Manage ldap group information
+      name: ldap_group
+      namespace: ''
+      version_added: 1.0.0
+    ldap_group_info:
+      description: Get ldap group information
+      name: ldap_group_info
+      namespace: ''
+      version_added: 1.0.0
+    ldap_info:
+      description: Get ldap information
+      name: ldap_info
+      namespace: ''
+      version_added: 1.0.0
+    ldisk_info:
+      description: Get logical disks information
+      name: ldisk_info
+      namespace: ''
+      version_added: 1.0.0
+    log_setting_info:
+      description: Get bmc log setting information
+      name: log_setting_info
+      namespace: ''
+      version_added: 1.0.0
+    media_instance_info:
+      description: Get Virtual Media Instance information
+      name: media_instance_info
+      namespace: ''
+      version_added: 1.0.0
+    mem_info:
+      description: Get memory information
+      name: mem_info
+      namespace: ''
+      version_added: 1.0.0
+    ncsi_info:
+      description: Get ncsi information
+      name: ncsi_info
+      namespace: ''
+      version_added: 1.0.0
+    network_bond_info:
+      description: Get network bond information
+      name: network_bond_info
+      namespace: ''
+      version_added: 1.0.0
+    network_info:
+      description: Get network information
+      name: network_info
+      namespace: ''
+      version_added: 1.0.0
+    network_link_info:
+      description: Get network link information
+      name: network_link_info
+      namespace: ''
+      version_added: 1.0.0
+    ntp_info:
+      description: Get NTP information
+      name: ntp_info
+      namespace: ''
+      version_added: 1.0.0
+    onboard_disk_info:
+      description: Get onboard disks information
+      name: onboard_disk_info
+      namespace: ''
+      version_added: 1.0.0
+    pcie_info:
+      description: Get PCIE information
+      name: pcie_info
+      namespace: ''
+      version_added: 1.0.0
+    pdisk_info:
+      description: Get physical disks information
+      name: pdisk_info
+      namespace: ''
+      version_added: 1.0.0
+    power_budget_info:
+      description: Get power budget information
+      name: power_budget_info
+      namespace: ''
+      version_added: 1.0.0
+    power_consumption_info:
+      description: Get power consumption information
+      name: power_consumption_info
+      namespace: ''
+      version_added: 1.0.0
+    power_restore_info:
+      description: Get power restore information
+      name: power_restore_info
+      namespace: ''
+      version_added: 1.0.0
+    power_status_info:
+      description: Get power status information
+      name: power_status_info
+      namespace: ''
+      version_added: 1.0.0
+    preserve_config_info:
+      description: Get preserve config information
+      name: preserve_config_info
+      namespace: ''
+      version_added: 1.0.0
+    psu_config_info:
+      description: Get psu config information
+      name: psu_config_info
+      namespace: ''
+      version_added: 1.0.0
+    psu_info:
+      description: Get psu information
+      name: psu_info
+      namespace: ''
+      version_added: 1.0.0
+    psu_peak_info:
+      description: Get psu peak information
+      name: psu_peak_info
+      namespace: ''
+      version_added: 1.0.0
+    raid_info:
+      description: Get RAID/HBA card and controller information
+      name: raid_info
+      namespace: ''
+      version_added: 1.0.0
+    reset_bmc:
+      description: BMC reset
+      name: reset_bmc
+      namespace: ''
+      version_added: 1.0.0
+    reset_kvm:
+      description: KVM reset
+      name: reset_kvm
+      namespace: ''
+      version_added: 1.0.0
+    restore:
+      description: Restore server settings
+      name: restore
+      namespace: ''
+      version_added: 1.0.0
+    self_test_info:
+      description: Get self test information
+      name: self_test_info
+      namespace: ''
+      version_added: 1.0.0
+    sensor_info:
+      description: Get sensor information
+      name: sensor_info
+      namespace: ''
+      version_added: 1.0.0
+    server_info:
+      description: Get server status information
+      name: server_info
+      namespace: ''
+      version_added: 1.0.0
+    service_info:
+      description: Get service information
+      name: service_info
+      namespace: ''
+      version_added: 1.0.0
+    session_info:
+      description: Get online session information
+      name: session_info
+      namespace: ''
+      version_added: 1.0.0
+    smtp_info:
+      description: Get SMTP information
+      name: smtp_info
+      namespace: ''
+      version_added: 1.0.0
+    snmp_info:
+      description: Get snmp get/set information
+      name: snmp_info
+      namespace: ''
+      version_added: 1.0.0
+    snmp_trap_info:
+      description: Get snmp trap information
+      name: snmp_trap_info
+      namespace: ''
+      version_added: 1.0.0
+    support_info:
+      description: Get support information
+      name: support_info
+      namespace: ''
+      version_added: 1.0.0
+    system_lock_mode_info:
+      description: Get system lock mode information
+      name: system_lock_mode_info
+      namespace: ''
+      version_added: 3.0.0
+    system_log_info:
+      description: Get BMC system log information
+      name: system_log_info
+      namespace: ''
+      version_added: 1.0.0
+    temp_info:
+      description: Get temp information
+      name: temp_info
+      namespace: ''
+      version_added: 1.0.0
+    threshold_info:
+      description: Get threshold information
+      name: threshold_info
+      namespace: ''
+      version_added: 1.0.0
+    uid_info:
+      description: Get UID information
+      name: uid_info
+      namespace: ''
+      version_added: 1.0.0
+    update_cpld:
+      description: Update CPLD
+      name: update_cpld
+      namespace: ''
+      version_added: 1.0.0
+    update_fw:
+      description: Update firmware
+      name: update_fw
+      namespace: ''
+      version_added: 1.0.0
+    update_psu:
+      description: Update PSU
+      name: update_psu
+      namespace: ''
+      version_added: 1.0.0
+    user:
+      description: Manage user
+      name: user
+      namespace: ''
+      version_added: 1.0.0
+    user_group:
+      description: Manage user group
+      name: user_group
+      namespace: ''
+      version_added: 1.0.0
+    user_group_info:
+      description: Get user group information
+      name: user_group_info
+      namespace: ''
+      version_added: 1.0.0
+    user_info:
+      description: Get user information
+      name: user_info
+      namespace: ''
+      version_added: 1.0.0
+    virtual_media_info:
+      description: Get Virtual Media information
+      name: virtual_media_info
+      namespace: ''
+      version_added: 1.0.0
+    volt_info:
+      description: Get volt information
+      name: volt_info
+      namespace: ''
+      version_added: 1.0.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  vars: {}
+version: 3.0.0

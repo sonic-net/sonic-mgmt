@@ -1,0 +1,1384 @@
+ancestor: null
+releases:
+  1.0.0:
+    modules:
+      - description: Manages AAA server global configuration.
+        name: nxos_aaa_server
+        namespace: ""
+      - description: Manages AAA server host-specific configuration.
+        name: nxos_aaa_server_host
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manages access list entries
+          for ACLs.
+        name: nxos_acl
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manages applying ACLs to
+          interfaces.
+        name: nxos_acl_interface
+        namespace: ""
+      - description: ACL interfaces resource module
+        name: nxos_acl_interfaces
+        namespace: ""
+      - description: ACLs resource module
+        name: nxos_acls
+        namespace: ""
+      - description: Manage multiline banners on Cisco NXOS devices
+        name: nxos_banner
+        namespace: ""
+      - description: Bidirectional Forwarding Detection (BFD) global-level configuration
+        name: nxos_bfd_global
+        namespace: ""
+      - description: BFD interfaces resource module
+        name: nxos_bfd_interfaces
+        namespace: ""
+      - description: Manages BGP configuration.
+        name: nxos_bgp
+        namespace: ""
+      - description: Manages BGP Address-family configuration.
+        name: nxos_bgp_af
+        namespace: ""
+      - description: Manages BGP neighbors configurations.
+        name: nxos_bgp_neighbor
+        namespace: ""
+      - description: Manages BGP address-family's neighbors configuration.
+        name: nxos_bgp_neighbor_af
+        namespace: ""
+      - description: Run arbitrary command on Cisco NXOS devices
+        name: nxos_command
+        namespace: ""
+      - description: Manage Cisco NXOS configuration sections
+        name: nxos_config
+        namespace: ""
+      - description: Configuration of device alias.
+        name: nxos_devicealias
+        namespace: storage
+      - description: Handles the EVPN control plane for VXLAN.
+        name: nxos_evpn_global
+        namespace: ""
+      - description: Manages Cisco EVPN VXLAN Network Identifier (VNI).
+        name: nxos_evpn_vni
+        namespace: ""
+      - description: Gets facts about NX-OS switches
+        name: nxos_facts
+        namespace: ""
+      - description: Manage features in NX-OS switches.
+        name: nxos_feature
+        namespace: ""
+      - description: Copy a file to a remote NXOS device.
+        name: nxos_file_copy
+        namespace: ""
+      - description: Trigger a graceful removal or insertion (GIR) of the switch.
+        name: nxos_gir
+        namespace: ""
+      - description: Create a maintenance-mode or normal-mode profile for GIR.
+        name: nxos_gir_profile_management
+        namespace: ""
+      - description: Manages HSRP configuration on NX-OS switches.
+        name: nxos_hsrp
+        namespace: ""
+      - description: HSRP interfaces resource module
+        name: nxos_hsrp_interfaces
+        namespace: ""
+      - description: Manages IGMP global configuration.
+        name: nxos_igmp
+        namespace: ""
+      - description: Manages IGMP interface configuration.
+        name: nxos_igmp_interface
+        namespace: ""
+      - description: Manages IGMP snooping global configuration.
+        name: nxos_igmp_snooping
+        namespace: ""
+      - description: Set boot options like boot, kickstart image and issu.
+        name: nxos_install_os
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manages physical attributes
+          of interfaces.
+        name: nxos_interface
+        namespace: ""
+      - description: Manages configuration of an OSPF interface instance.
+        name: nxos_interface_ospf
+        namespace: ""
+      - description: Interfaces resource module
+        name: nxos_interfaces
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manage Layer-2 interface
+          on Cisco NXOS devices.
+        name: nxos_l2_interface
+        namespace: ""
+      - description: L2 interfaces resource module
+        name: nxos_l2_interfaces
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manage L3 interfaces on
+          Cisco NXOS network devices
+        name: nxos_l3_interface
+        namespace: ""
+      - description: L3 interfaces resource module
+        name: nxos_l3_interfaces
+        namespace: ""
+      - description: LACP resource module
+        name: nxos_lacp
+        namespace: ""
+      - description: LACP interfaces resource module
+        name: nxos_lacp_interfaces
+        namespace: ""
+      - description: LAG interfaces resource module
+        name: nxos_lag_interfaces
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manage link aggregation
+          groups on Cisco NXOS devices.
+        name: nxos_linkagg
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manage LLDP configuration
+          on Cisco NXOS network devices.
+        name: nxos_lldp
+        namespace: ""
+      - description: LLDP resource module
+        name: nxos_lldp_global
+        namespace: ""
+      - description: LLDP interfaces resource module
+        name: nxos_lldp_interfaces
+        namespace: ""
+      - description: Manage logging on network devices
+        name: nxos_logging
+        namespace: ""
+      - description: Manages core NTP configuration.
+        name: nxos_ntp
+        namespace: ""
+      - description: Manages NTP authentication.
+        name: nxos_ntp_auth
+        namespace: ""
+      - description: Manages NTP options.
+        name: nxos_ntp_options
+        namespace: ""
+      - description: Manage NXAPI configuration on an NXOS device.
+        name: nxos_nxapi
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manages configuration of
+          an ospf instance.
+        name: nxos_ospf
+        namespace: ""
+      - description: Manages a VRF for an OSPF router.
+        name: nxos_ospf_vrf
+        namespace: ""
+      - description: OSPFv2 resource module
+        name: nxos_ospfv2
+        namespace: ""
+      - description: Configures anycast gateway MAC of the switch.
+        name: nxos_overlay_global
+        namespace: ""
+      - description: Manages configuration of a PIM instance.
+        name: nxos_pim
+        namespace: ""
+      - description: Manages PIM interface configuration.
+        name: nxos_pim_interface
+        namespace: ""
+      - description: Manages configuration of an PIM static RP address instance.
+        name: nxos_pim_rp_address
+        namespace: ""
+      - description: Tests reachability using ping from Nexus switch.
+        name: nxos_ping
+        namespace: ""
+      - description: Reboot a network device.
+        name: nxos_reboot
+        namespace: ""
+      - description: Set a checkpoint or rollback to a checkpoint.
+        name: nxos_rollback
+        namespace: ""
+      - description: Install patch or feature rpms on Cisco NX-OS devices.
+        name: nxos_rpm
+        namespace: ""
+      - description: Perform SMUs on Cisco NX-OS devices.
+        name: nxos_smu
+        namespace: ""
+      - description: Manage snapshots of the running states of selected features.
+        name: nxos_snapshot
+        namespace: ""
+      - description: Manages SNMP community configs.
+        name: nxos_snmp_community
+        namespace: ""
+      - description: Manages SNMP contact info.
+        name: nxos_snmp_contact
+        namespace: ""
+      - description: Manages SNMP host configuration.
+        name: nxos_snmp_host
+        namespace: ""
+      - description: Manages SNMP location information.
+        name: nxos_snmp_location
+        namespace: ""
+      - description: Manages SNMP traps.
+        name: nxos_snmp_traps
+        namespace: ""
+      - description: Manages SNMP users for monitoring.
+        name: nxos_snmp_user
+        namespace: ""
+      - description: (deprecated, removed after 2022-06-01) Manages static route configuration
+        name: nxos_static_route
+        namespace: ""
+      - description: Static routes resource module
+        name: nxos_static_routes
+        namespace: ""
+      - description: Manage the system attributes on Cisco NXOS devices
+        name: nxos_system
+        namespace: ""
+      - description: TELEMETRY resource module
+        name: nxos_telemetry
+        namespace: ""
+      - description: Manages UDLD global configuration params.
+        name: nxos_udld
+        namespace: ""
+      - description: Manages UDLD interface configuration params.
+        name: nxos_udld_interface
+        namespace: ""
+      - description: Manage the collection of local users on Nexus devices
+        name: nxos_user
+        namespace: ""
+      - description:
+          (deprecated, removed after 2022-06-01) Manages VLAN resources and
+          attributes.
+        name: nxos_vlan
+        namespace: ""
+      - description: VLANs resource module
+        name: nxos_vlans
+        namespace: ""
+      - description: Manages global VPC configuration
+        name: nxos_vpc
+        namespace: ""
+      - description: Manages interface VPC configuration
+        name: nxos_vpc_interface
+        namespace: ""
+      - description: Manages global VRF configuration.
+        name: nxos_vrf
+        namespace: ""
+      - description: Manages VRF AF.
+        name: nxos_vrf_af
+        namespace: ""
+      - description: Manages interface specific VRF configuration.
+        name: nxos_vrf_interface
+        namespace: ""
+      - description: Manages VRRP configuration on NX-OS switches.
+        name: nxos_vrrp
+        namespace: ""
+      - description: Configuration of vsan.
+        name: nxos_vsan
+        namespace: storage
+      - description: Manages VTP domain configuration.
+        name: nxos_vtp_domain
+        namespace: ""
+      - description: Manages VTP password configuration.
+        name: nxos_vtp_password
+        namespace: ""
+      - description: Manages VTP version configuration.
+        name: nxos_vtp_version
+        namespace: ""
+      - description: Manages VXLAN Network Virtualization Endpoint (NVE).
+        name: nxos_vxlan_vtep
+        namespace: ""
+      - description: Creates a Virtual Network Identifier member (VNI)
+        name: nxos_vxlan_vtep_vni
+        namespace: ""
+      - description: Configuration of zone/zoneset.
+        name: nxos_zone_zoneset
+        namespace: storage
+    plugins:
+      cliconf:
+        - description: Use NX-OS cliconf to run commands on Cisco NX-OS platform
+          name: nxos
+          namespace: null
+      httpapi:
+        - description: Use NX-API to run commands on Cisco NX-OS platform
+          name: nxos
+          namespace: null
+    release_date: "2020-06-23"
+  1.0.1:
+    changes:
+      bugfixes:
+        - Element type of `commands` key should be `raw` since it accepts both strings
+          and dicts (https://github.com/ansible-collections/cisco.nxos/pull/126).
+        - Fix nxos_interfaces states replaced and overridden (https://github.com/ansible-collections/cisco.nxos/pull/102).
+        - Fixed force option in lag_interfaces.py (https://github.com/ansible-collections/cisco.nxos/pull/111).
+        - Make `src`, `backup` and `backup_options` in nxos_config work when module
+          alias is used (https://github.com/ansible-collections/cisco.nxos/pull/121).
+        - Makes sure that docstring and argspec are in sync and removes sanity ignores
+          (https://github.com/ansible-collections/cisco.nxos/pull/112).
+        - Update docs after sanity fixes to modules.
+        - nxos_user - do not fail when a custom role is used (https://github.com/ansible-collections/cisco.nxos/pull/130)
+      minor_changes:
+        - documentation - Use FQCN when refering to modules (https://github.com/ansible-collections/cisco.nxos/pull/116)
+    fragments:
+      - 102-fix-nxos_interfaces-states.yaml
+      - 111_update_lag_interfaces.yaml
+      - 116-add-FQCN-for-documentation
+      - fix_command_key.yaml
+      - fix_nxos_user_role.yaml
+      - fix_src_backup_with_module_alias.yaml
+      - remove_ignores.yaml
+      - update_docs.yaml
+    release_date: "2020-08-03"
+  1.0.2:
+    changes:
+      release_summary: Rereleased 1.0.1 with updated changelog.
+    fragments:
+      - 1.0.2.yaml
+    release_date: "2020-08-07"
+  1.1.0:
+    changes:
+      bugfixes:
+        - Allow facts round trip to work on nxos_vlans (https://github.com/ansible-collections/cisco.nxos/pull/141).
+      minor_changes:
+        - Add N9K multisite support(https://github.com/ansible-collections/cisco.nxos/pull/142)
+    fragments:
+      - 141_fix_nxos_vlans.yaml
+      - 142-N9K-multisite.yaml
+    release_date: "2020-08-28"
+  1.2.0:
+    changes:
+      bugfixes:
+        - Correctly parse facts for lacp interfaces mode information (https://github.com/ansible-collections/cisco.nxos/pull/164).
+        - Fix for nxos smu issue (https://github.com/ansible-collections/cisco.nxos/pull/160).
+        - Fix regex for parsing configuration in nxos_lag_interfaces.
+        - Fix regexes in nxos_acl_interfaces facts and some code cleanup (https://github.com/ansible-collections/cisco.nxos/issues/149).
+        - Fix rendering of `log-adjacency-changes` commands.
+        - Preserve whitespaces in banner text (https://github.com/ansible-collections/cisco.nxos/pull/146).
+      deprecated_features:
+        - Deprecated `nxos_smu` in favour of `nxos_rpm` module.
+        - The `nxos_ospf_vrf` module is deprecated by `nxos_ospfv2` and `nxos_ospfv3`
+          Resource Modules.
+      minor_changes:
+        - Add nxos_ospfv3 module.
+        - Allow other transfer protocols than scp to pull files from a NXOS device in
+          nxos_file_copy module. sftp, http, https, tftp and ftp can be choosen as a
+          transfer protocol, when the file_pull parameter is true..
+    fragments:
+      - 161-transfer_protocol_file_copy.yaml
+      - add_nxos_ospfv3.yaml
+      - fix_lacp_interfaces_mode_facts_parsing.yaml
+      - fix_nxos_acl_interfaces.yaml
+      - fix_nxos_banner_with_spaces.yaml
+      - fix_nxos_lag_interfaces.yaml
+      - fix_nxos_ospfv2.yaml
+      - fix_nxos_smu.yaml
+    modules:
+      - description: OSPFv3 resource module
+        name: nxos_ospfv3
+        namespace: ""
+    release_date: "2020-10-01"
+  1.3.0:
+    changes:
+      bugfixes:
+        - Allow `fex-fabric` option for mode key (https://github.com/ansible-collections/cisco.nxos/issues/166).
+        - Fixes for nxos rpm issue (https://github.com/ansible-collections/cisco.nxos/pull/173).
+        - Update regex to accept the platform "N77" as supporting fabricpath.
+        - Vlan config diff was not removing default values
+      deprecated_features:
+        - Deprecated `nxos_interface_ospf` in favor of `nxos_ospf_interfaces` Resource
+          Module.
+      minor_changes:
+        - Add nxos_ospf_interfaces resource module.
+    fragments:
+      - add_fex_fabric_l2_inteerfaces.yaml
+      - add_nxos_ospf_interfaces.yaml
+      - fix_nxos_rpm.yaml
+      - fix_vlan_diff.yaml
+      - vlans-fabricpath-mode-regex.yaml
+    modules:
+      - description: OSPF Interfaces Resource Module.
+        name: nxos_ospf_interfaces
+        namespace: ""
+    release_date: "2020-10-29"
+  1.3.1:
+    changes:
+      bugfixes:
+        - Add version key to galaxy.yaml to work around ansible-galaxy bug
+        - Allow nxos_user to run with MDS (https://github.com/ansible-collections/cisco.nxos/issues/163).
+        - Fix for nxos_lag_interfaces issue (https://github.com/ansible-collections/cisco.nxos/pull/194).
+        - Make sure that the OSPF modules work properly when process_id is a string
+          (https://github.com/ansible-collections/cisco.nxos/issues/198).
+    fragments:
+      - fix_nxos_lag_interfaces_1.yaml
+      - fix_ospf_process_id.yaml
+      - galaxy-version.yaml
+      - support_nxos_user_mds.yaml
+    release_date: "2020-11-26"
+  1.4.0:
+    changes:
+      bugfixes:
+        - Add support for interfaces in mode 'fabricpath' to l2_interfaces (https://github.com/ansible-collections/cisco.nxos/issues/220).
+        - Allow enabling `fabric forwarding` feature through nxos_feature (https://github.com/ansible-collections/cisco.nxos/issues/213).
+        - Allow tag updates with state replaced (https://github.com/ansible-collections/cisco.nxos/issues/197).
+        - Fixes traceback while parsing power supply info in nxos_facts for newer NX-OS
+          releases (https://github.com/ansible-collections/cisco.nxos/issues/192).
+        - Handle domain-name properly with vrf contexts (https://github.com/ansible-collections/cisco.nxos/issues/234).
+        - Parse interface contexts properly (https://github.com/ansible-collections/cisco.nxos/issues/195).
+        - Properly handle partial matches in community string (https://github.com/ansible-collections/cisco.nxos/issues/203).
+        - Update argspecs with default value for parameters.
+        - Update docs to clarify the idemptonecy releated caveat and add it in the output
+          warnings (https://github.com/ansible-collections/ansible.netcommon/pull/189)
+        - config replace is actually supported for devices other than N9K and hence
+          we should not fail, and instead let the device handle it (https://github.com/ansible-collections/cisco.nxos/issues/215).
+      deprecated_features:
+        - Deprecated `nxos_bgp` and `nxos_bgp_neighbor` modules in favor of `nxos_bgp_global`
+          resource module.
+      doc_changes:
+        - Fix error in ``host_reachability`` parameter's example where a default value
+          is used, which the ``host_reachability`` parameter does not support. Improve
+          descriptions of some parameters to be more explicit. Correct spelling and
+          grammar where errors were noticed.
+      minor_changes:
+        - Add `echo_request` option for ICMP.
+        - Add nxos_bgp_global resource module.
+      security_fixes:
+        - Enable no_log for sensitive parameters in argspec.
+    fragments:
+      - 204-improve-nxos-vxlan-vtep-module-docs.yaml
+      - add_default_options.yaml
+      - add_nxos_bgp_global.yaml
+      - depr_bgp.yaml
+      - fix_interface_context.yaml
+      - fix_l2_interfaces_mode_fabricpath.yaml
+      - fix_nxos_facts.yaml
+      - fix_nxos_l3_interfaces_tag.yaml
+      - fix_nxos_system_vrf_domain.yaml
+      - mask_sensitive_values.yaml
+      - nxos_acls.yaml
+      - nxos_config_diff_doc_update.yaml
+      - nxos_config_replace.yaml
+      - nxos_feature.yaml
+      - nxos_snmp_community.yaml
+    modules:
+      - description: BGP Global resource module.
+        name: nxos_bgp_global
+        namespace: ""
+    release_date: "2021-01-29"
+  10.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.16.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        With this release, the minimum required version of `ansible-core`
+        for this collection is `2.16.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.16` is v5.1.2.
+      removed_features:
+        - "This release removes all deprecated plugins that have reached their end-of-life,
+          including:"
+        - nxos_snmp_community
+        - nxos_snmp_contact
+        - nxos_snmp_host
+        - nxos_snmp_location
+        - nxos_snmp_user
+    fragments:
+      - bump_216.yaml
+    release_date: "2025-04-11"
+  10.1.0:
+    changes:
+      deprecated_features:
+        - nxos_hsrp - deprecate nxos.nxos.nxos_hsrp in favor of nxos.nxos.nxos_hsrp_interfaces.
+        - nxos_vrf_interface - deprecate nxos.nxos.nxos_vrf_interface in favor of nxos.nxos.nxos_vrf_interfaces.
+      minor_changes:
+        - hsrp_interfaces - Fixes and enhances capability of the module to deal with
+          entire hsrp configuration under interfaces.
+    fragments:
+      - fix_downstream.yml
+      - fix_tests.yml
+      - update_hsrp_interfaces.yml
+    release_date: "2025-05-29"
+  10.2.0:
+    changes:
+      bugfixes:
+        - nxos_acls - Fix issue where Not sufficient TCAM bank error not being captured
+          by error regex.
+      minor_changes:
+        - nxos_interfaces - Added service-policy, logging, mac-address and snmp configuration
+          options for interface.
+        - nxos_l2_interfaces - Enhances capability of the module to deal with addition
+          attributes under l2 interfaces. Adds support for CDP, Link flap and beacon.
+    fragments:
+      - acls_fix.yml
+      - add_attr_interfaces.yaml
+      - fix_ci.yaml
+      - fix_sanity.yaml
+      - rewrite_l2_interfaces.yml
+    release_date: "2025-07-01"
+  11.0.0:
+    changes:
+      bugfixes:
+        - cisco.nxos.nxos_vrf_global - Added support for rd attribute for nxos_vrf_global
+          module.
+      major_changes:
+        - Bumping `dependencies` of ansible.netcommon to `>=8.1.0`, since previous versions
+          of the dependency had compatibility issues with `ansible-core>=2.19`.
+      minor_changes:
+        - cisco.nxos.nxos_l3_interfaces - Rewrite of l3_interfaces with bug fixes and
+          enhancements.
+      release_summary:
+        With this release, the minimum required version of `ansible.netcommon`
+        for this collection is `>=8.1.0`. The last version known to be compatible
+        with `ansible-core<=2.18.x` is ansible.netcommon `v8.0.1` and cisco.nxos `v10.2.0`.
+    fragments:
+      - l3_interface_refactor.yaml
+      - vrf_global_rd_attribute.yaml
+    release_date: "2025-08-19"
+  11.1.0:
+    changes:
+      bugfixes:
+        - cisco.nxos.nxos_facts - Fix handling of facts for httapi type connection.
+        - cisco.nxos.nxos_hsrp_interfaces - Fix parsers for preempt and priority
+        - cisco.nxos.nxos_l2_interfaces - Fix cdp_enable config parsing.
+        - cisco.nxos.nxos_l3_interfaces - Improved the code logic for handling redirects.
+        - cisco.nxos.nxos_snmp_server - fixed communities parsing issue
+        - cisco.nxos.nxos_static_routes - Fix facts parser to filter inline VRF routes
+          from global route collection preventing incorrect VRF route deletion.
+      doc_changes:
+        - Update support statement for the collection in README.md for MDS switches.
+      minor_changes:
+        - Added alias for mode option as switchport_mode for nxos_l2_interfaces
+    fragments:
+      - cdp_fix.yaml
+      - fix_santiy_220.yaml
+      - fix_tests.yaml
+      - l2_inerfaces_mode_alias.yaml
+      - parser_fix.yaml
+      - snmp.fix.yaml
+      - update_main_readme.yaml
+      - vrf-route-deletion.yaml
+    release_date: "2025-11-06"
+  2.0.0:
+    changes:
+      bugfixes:
+        - Fail gracefully when BGP is already configured with a different ASN when states
+          merged or replaced is used.
+        - Fixes to nxos_logging, nxos_igmp_snooping, nxos_l3_interfaces, nxos_ospf_interfaces
+          and nxos_static_routes to conform with latest CLI behaviour.
+        - Properly configure neighbor timers and shutdown state (https://github.com/ansible-collections/cisco.nxos/issues/240).
+      deprecated_features:
+        - Deprecated nxos_bgp_af in favour of nxos_bgp_address_family resource module.
+        - Deprecated nxos_bgp_neighbor_af in favour of nxos_bgp_neighbor_address_family
+          resource module.
+      major_changes:
+        - Please refer to ansible.netcommon `changelog <https://github.com/ansible-collections/ansible.netcommon/blob/main/changelogs/CHANGELOG.rst#ansible-netcommon-collection-release-notes>`_
+          for more details.
+        - Requires ansible.netcommon v2.0.0+ to support `ansible_network_single_user_mode`
+          and `ansible_network_import_modules`.
+      minor_changes:
+        - Add bfd option for neighbors (https://github.com/ansible-collections/cisco.nxos/issues/241).
+        - Add hello_interval_ms option in nxos_pim_interface module to support sub-second
+          intervals (https://github.com/ansible-collections/cisco.nxos/issues/226).
+        - Add nxos_bgp_address_family Resource Module.
+        - Add nxos_bgp_neighbor_address_family Resource Module.
+        - Add support df_bit and size option for nxos_ping (https://github.com/ansible-collections/cisco.nxos/pull/237).
+        - Adds support for `single_user_mode` command output caching.
+        - Move nxos_config idempotent warning message with the task response under `warnings`
+          key if `changed` is `True`
+    fragments:
+      - 237_nxos_ping_df_size.yaml
+      - add_caching_support.yaml
+      - add_nxos_bgp_address_family.yaml
+      - add_nxos_bgp_nbr_af.yaml
+      - config_module_warning_msg.yaml
+      - deprecate.yaml
+      - fix_hello_interval.yaml
+      - fix_nxos_bgp_global.yaml
+      - fix_nxos_multi_module.yaml
+      - major_release.yaml
+      - update_bgp_global.yaml
+    modules:
+      - description: BGP Address Family resource module.
+        name: nxos_bgp_address_family
+        namespace: ""
+      - description: BGP Neighbor Address Family resource module.
+        name: nxos_bgp_neighbor_address_family
+        namespace: ""
+    release_date: "2021-02-24"
+  2.1.0:
+    changes:
+      bugfixes:
+        - Allow commands to be properly generated with Jinja2 2.10.3 (workaround for
+          https://github.com/pallets/jinja/issues/710).
+        - Allow integer values to be set for dscp key (https://github.com/ansible-collections/cisco.nxos/issues/253).
+        - Do not fail when parsing non rule entries in access-list config (https://github.com/ansible-collections/cisco.nxos/issues/262).
+      minor_changes:
+        - Add support for state purged in nxos_interfaces.
+      security_fixes:
+        - Properly mask values of sensitive keys in module result.
+    fragments:
+      - 259-remove_tests_sanity_requirements.yml
+      - add_state_purged.yaml
+      - fix_j2_2_10.yaml
+      - fix_nxos_acls.yaml
+      - no_log_fix.yaml
+      - pim_version_added.yaml
+    release_date: "2021-03-30"
+  2.1.1:
+    changes:
+      bugfixes:
+        - For versions >=2.1.0, this collection requires ansible.netcommon >=2.0.1.
+        - Re-releasing this collection with ansible.netcommon dependency requirements
+          updated.
+    fragments:
+      - 275-add_ignore_txt.yml
+      - update_requirement.yaml
+    release_date: "2021-04-09"
+  2.2.0:
+    changes:
+      minor_changes:
+        - Add nxos_route_maps resource module.
+        - Add support for ansible_network_resources key allows to fetch the available
+          resources for a platform (https://github.com/ansible-collections/cisco.nxos/issues/268).
+    fragments:
+      - 268_available_network_resources.yaml
+      - add_nxos_route_maps.yaml
+      - cahing_tests.yaml
+    modules:
+      - description: Route Maps resource module.
+        name: nxos_route_maps
+        namespace: ""
+    release_date: "2021-04-28"
+  2.3.0:
+    changes:
+      bugfixes:
+        - Fix how `send_community` attribute is handled in `nxos_bgp_neighbor_address_family`
+          (https://github.com/ansible-collections/cisco.nxos/issues/281).
+        - Make `passive_interface` work properly when set to False.
+      minor_changes:
+        - Add `default_passive_interface` option in `nxos_ospf_interfaces`.
+        - Add a netconf subplugin to make netconf_* modules work with older NX-OS versions
+          (https://github.com/ansible-collections/ansible.netcommon/issues/252).
+    fragments:
+      - bgp_nbr_af.yaml
+      - changelog.yaml
+      - docs_facts.yaml
+      - docs_spelling_correction.yaml
+      - fix_ospf_interfaces.yaml
+      - netconf.yaml
+      - netconf_fix.yaml
+      - pre_sort.yaml
+    plugins:
+      netconf:
+        - description:
+            Use nxos netconf plugin to run netconf commands on Cisco NX-OS
+            platform.
+          name: nxos
+          namespace: null
+    release_date: "2021-05-18"
+  2.4.0:
+    changes:
+      bugfixes:
+        - Render neighbor peer_type command correctly (https://github.com/ansible-collections/cisco.nxos/issues/308).
+      minor_changes:
+        - Add `advertise_l2vpn_evpn` option in `nxos_bgp_address_family` module (https://github.com/ansible-collections/cisco.nxos/issues/302).
+        - Add `nxos_prefix_lists` resource module.
+    fragments:
+      - fix_nxos_bgp_global.yaml
+      - nxos_bgp_af.yaml
+      - nxos_prefix_lists.yaml
+      - update_readme_freenode_to_libera.yml
+    modules:
+      - description: Prefix-Lists resource module.
+        name: nxos_prefix_lists
+        namespace: ""
+    release_date: "2021-06-22"
+  2.5.0:
+    changes:
+      bugfixes:
+        - Convert vlan lists to ranges in nxos_l2_interfaces (https://github.com/ansible-collections/cisco.nxos/issues/95).
+        - Do not expand direction 'both' into 'import' and 'export' for Nexus 9000 platforms
+          (https://github.com/ansible-collections/cisco.nxos/issues/303).
+        - Prevent traceback when parsing unexpected line in nxos_static_routes.
+      deprecated_features:
+        - The nxos_logging module has been deprecated in favor of the new nxos_logging_global
+          resource module and will be removed in a release after '2023-08-01'.
+      doc_changes:
+        - Broken link in documentation fixed.
+      minor_changes:
+        - Add nxos_logging_global resource module.
+    fragments:
+      - 315-safe-eval-no-concat.yml
+      - add_nxos_logging_global.yaml
+      - doc_broken_link.yaml
+      - l2_interfaces.yaml
+      - logging_global_return_values.yaml
+      - nxos_vrf_af_fix.yaml
+      - prefix_lists.yaml
+      - static_routes.yaml
+    modules:
+      - description: Logging resource module.
+        name: nxos_logging_global
+        namespace: ""
+    release_date: "2021-07-27"
+  2.5.1:
+    changes:
+      bugfixes:
+        - "`nxos_facts` - Fix gathering CDP neighbor facts from certain N7Ks (https://github.com/ansible-collections/cisco.nxos/issues/329)."
+        - "`nxos_zone_zoneset` - zone member addition with smart zoning in an already
+          existing zone should be a no-op (https://github.com/ansible-collections/cisco.nxos/issues/339)."
+      doc_changes:
+        - Added notes in module docs to indicate supportability for Cisco MDS.
+    fragments:
+      - fix_nbr_cdp_facts.yaml
+      - fix_nxos_zone_zoneset.yaml
+      - fix_pylint_issues.yaml
+      - module_docs_support_for_cisco_mds.yaml
+      - update_docs_for_mds_support.yaml
+    release_date: "2021-08-27"
+  2.6.0:
+    changes:
+      bugfixes:
+        - "`nxos_acls` - Fix traceback with 'port_protocol' range (https://github.com/ansible-collections/cisco.nxos/issues/356)"
+        - "`nxos_facts` - Fix KeyError while gathering CDP neighbor facts (https://github.com/ansible-collections/cisco.nxos/issues/354)."
+        - "`nxos_ospf_interfaces` - Correctly sort interface names before rendering."
+        - "`nxos_vlans` - switching to `| json-pretty` instead of `| json` as a workaround
+          for the timeout issue with `libssh` (https://github.com/ansible/pylibssh/issues/208)"
+      deprecated_features:
+        - Deprecated `nxos_ntp`, `nxos_ntp_options`, `nxos_ntp_auth` modules.
+      doc_changes:
+        - "`ospf[v2, v3, _interfaces]` - Area ID should be in IP address format."
+      minor_changes:
+        - Add nxos_ntp_global module.
+    fragments:
+      - fix_facts.yaml
+      - fix_ospf_interfaces.yaml
+      - nxos_acls.yaml
+      - nxos_ntp_global.yaml
+      - nxos_ospf_interfaces.yaml
+      - nxos_vlans_json.yaml
+      - remove_end_play.yaml
+      - set_allow_duplicates.yaml
+    modules:
+      - description: NTP Global resource module.
+        name: nxos_ntp_global
+        namespace: ""
+    release_date: "2021-09-24"
+  2.7.0:
+    changes:
+      doc_changes:
+        - Update README with information regarding MDS module testing.
+      minor_changes:
+        - "`nxos_telemetry` - Add support for state gathered"
+    fragments:
+      - 0-copy_ignore_txt.yml
+      - nxos_telemetry.yaml
+      - readme.yaml
+    release_date: "2021-10-01"
+  2.7.1:
+    changes:
+      bugfixes:
+        - "`nxos_acls` - Updating an existing ACE can only be done with states replaced
+          or overridden. Using state merged will result in a failure."
+        - "`nxos_logging_global` - Fix vlan_mgr not being gathered in facts (https://github.com/ansible-collections/cisco.nxos/issues/380)."
+        - "`nxos_vlans` - Fallback to json when json-pretty is not supported (https://github.com/ansible-collections/cisco.nxos/issues/377)."
+    fragments:
+      - ignores.yaml
+      - nxos_acls.yaml
+      - nxos_logging.yaml
+      - nxos_vlans.yaml
+    release_date: "2021-11-11"
+  2.8.0:
+    changes:
+      deprecated_features:
+        - Deprecated nxos_snmp_community module.
+        - Deprecated nxos_snmp_contact module.
+        - Deprecated nxos_snmp_host module.
+        - Deprecated nxos_snmp_location module.
+        - Deprecated nxos_snmp_traps module.
+        - Deprecated nxos_snmp_user module.
+      minor_changes:
+        - Add nxos_snmp_server resource module.
+    fragments:
+      - nxos_snmp_server.yaml
+    modules:
+      - description: SNMP Server resource module.
+        name: nxos_snmp_server
+        namespace: ""
+    release_date: "2021-12-07"
+  2.8.1:
+    changes:
+      bugfixes:
+        - nxos_acls - Fix incorrect parsing of remarks if it has 'ip/ipv6 access-list'
+          in it.
+    fragments:
+      - nxos_acls.yaml
+    release_date: "2021-12-10"
+  2.8.2:
+    changes:
+      bugfixes:
+        - "`nxos_ntp_global` - In some cases, there is an extra whitespace in the source-interface
+          line. This patch accounts for this behaviour in config (https://github.com/ansible-collections/cisco.nxos/issues/399)."
+      release_summary:
+        The v2.8.1 of the cisco.nxos collection is not available on
+        Ansible Automation Hub. Please download and use v2.8.2 which also contains
+        an additional bug fix.
+    fragments:
+      - ignore.yaml
+      - nxos_ntp.yaml
+      - snmp_server_ignore_2.6.yaml
+    release_date: "2021-12-14"
+  2.9.0:
+    changes:
+      bugfixes:
+        - "`nxos_bgp_address_family` -  Add hmm as valid option for redistribute protocol
+          (https://github.com/ansible-collections/cisco.nxos/issues/385)."
+        - "`nxos_snmp_server` - Fix rendering context command (https://github.com/ansible-collections/cisco.nxos/issues/406)."
+      minor_changes:
+        - Add nxos_hostname resource module.
+    fragments:
+      - nxos_bgp_af.yaml
+      - nxos_hostname.yaml
+      - nxos_snmp_server.yaml
+      - updates.yaml
+    modules:
+      - description: Hostname resource module.
+        name: nxos_hostname
+        namespace: ""
+    release_date: "2022-01-31"
+  2.9.1:
+    changes:
+      bugfixes:
+        - Fix action plugin redirection to make module defaults work properly.
+        - Fix for nxos_vlans issue (https://github.com/ansible-collections/cisco.nxos/issues/425).
+        - "`nxos_ntp_global` - Aliased `vrf` to `use_vrf` wherever applicable to maintain
+          consistency with models for other platforms."
+        - nxos_snmp_server - Add alias for community (https://github.com/ansible-collections/cisco.nxos/issues/433)
+      doc_changes:
+        - Added notes in module docs to indicate supportability for Cisco MDS.
+    fragments:
+      - fix_nxos_vlans.yaml
+      - fix_sanity.yaml
+      - module_docs_support_for_cisco_mds.yaml
+      - ntp_global.yaml
+      - runtime.yaml
+      - sanity.yaml
+      - snmp_server.yaml
+      - tox.yaml
+    release_date: "2022-04-01"
+  3.0.0:
+    changes:
+      bugfixes:
+        - "`nxos_lag_interfaces` - Fix KeyError with state overridden when port-channel
+          has no members (https://github.com/ansible-collections/cisco.nxos/issues/452)."
+        - "`nxos_ntp_global` - correctly propagate CLI failure for non-existent auth
+          keys (https://github.com/ansible-collections/cisco.nxos/issues/467)."
+        - "`nxos_snmp_server` - Properly handle corner cases for snmp-server user (https://github.com/ansible-collections/cisco.nxos/issues/454)."
+        - "`snmp_server` - Snmp contact/location and location were not gathered if containing
+          whitespaces."
+      major_changes:
+        - The minimum required ansible.netcommon version has been bumped to v2.6.1.
+        - Updated base plugin references to ansible.netcommon.
+        - "`nxos_facts` - change default gather_subset to `min` from `!config` (https://github.com/ansible-collections/cisco.nxos/issues/418)."
+        - nxos_file_copy has been rewritten as a module. This change also removes the
+          dependency on pexpect for file_pull operation. Since this now uses AnsibleModule
+          class for argspec validation, the validation messages will be slighlty different.
+          Expect changes in the return payload in some cases. All functionality remains
+          unchanged.
+      minor_changes:
+        - "`nxos_snmp_server` - add support for BGP, OSPF and OSPFv3 traps."
+    fragments:
+      - fix_ci.yaml
+      - lag_interfaces.yaml
+      - min_netcommon.yaml
+      - netcommon_ref_update.yaml
+      - ntp.yaml
+      - nxos_facts.yaml
+      - nxos_file_copy.yaml
+      - nxos_snmp_server.yaml
+      - nxos_snmp_server_1.yaml
+      - snmp_server_PR444.yaml
+      - stderr.yaml
+    release_date: "2022-04-28"
+  3.1.0:
+    changes:
+      bugfixes:
+        - "`nxos_file_copy` - Skip `vrf` when running against MDS switches (https://github.com/ansible-collections/cisco.nxos/issues/508)."
+        - "`nxos_interfaces` - Enable all virtual interfaces with `enabled` set to True
+          (https://github.com/ansible-collections/cisco.nxos/issues/335)."
+        - "`nxos_ntp_global` - Ensure idempotence for aliased keys (https://github.com/ansible-collections/cisco.nxos/issues/484)."
+        - "`nxos_snmp_server` - Fix typo for traps link cisco-xcvr-mon-status-chg."
+      doc_changes:
+        - Updated documentation in nxos_snmp_server, nxos_ntp_global and nxos_logging_global
+          modules to reflect which options are unsupported on MDS switches.
+      minor_changes:
+        - "`nxos_snmp_server` - Add support for localizedV2key (https://github.com/ansible-collections/cisco.nxos/issues/415)."
+        - "`nxos_snmp_server` - Add support for sha-256 based based user authentication."
+    fragments:
+      - 459.yaml
+      - 500.yaml
+      - 507.yaml
+      - 510.yaml
+      - 512.yaml
+      - 513.yaml
+      - 514.yaml
+      - 515.yaml
+      - 516.yaml
+      - 517.yaml
+      - 518.yaml
+      - 520.yaml
+      - 521.yaml
+      - 522.yaml
+      - 523.yaml
+      - cleanup_1.yaml
+      - file_copy.yaml
+      - file_cp.yaml
+      - filecopy_mds.yaml
+      - include_prepare.yaml
+      - include_test_case.yaml
+      - mds_docs.yaml
+      - ntp_global.yaml
+      - nxos_interfaces.yaml
+      - pre-commit.yaml
+      - sanity.yaml
+      - sanity_devel.yaml
+      - set_fact_name.yaml
+      - snmp_server.yaml
+      - snmp_server_526.yml
+      - snmp_server_localized.yaml
+      - unstyle_equal_debug.yaml
+    release_date: "2022-06-28"
+  3.1.1:
+    changes:
+      bugfixes:
+        - Fix issue with modules related to OSPF interfaces failing when the target
+          NXOS device has subinterfaces.
+    fragments:
+      - ospf_subinterface_failure.yaml
+      - paramiko.yaml
+      - sanity_fix.yaml
+    release_date: "2022-09-07"
+  3.1.2:
+    changes:
+      bugfixes:
+        - "`nxos_facts` - Fixes parsing of module info json data when TABLE_modinfo
+          entry is a list (https://github.com/ansible-collections/cisco.nxos/issues/559)."
+    fragments:
+      - nxos_facts.yaml
+    release_date: "2022-09-19"
+  3.2.0:
+    changes:
+      bugfixes:
+        - "`nxos_telemetry` - Allow destination-group & sensor-group id to be strings."
+        - "`nxos_telemetry` - Allow sensor-group paths to be generated without additional
+          properties."
+      minor_changes:
+        - "`nxos_l3_interfaces` - Add support for toggling ipv6 redirects (https://github.com/ansible-collections/cisco.nxos/issues/569)."
+    fragments:
+      - ignore_2.15.yaml
+      - l3_interfaces.yaml
+      - passwd_lookup.yaml
+      - telemetry.yaml
+    release_date: "2022-10-12"
+  4.0.0:
+    changes:
+      major_changes:
+        - Please use either of the following connection types - network_cli, httpapi
+          or netconf.
+        - "This release drops support for `connection: local` and provider dictionary."
+      removed_features:
+        - This release removes the following deprecated plugins that have reached their
+          end-of-life.
+        - nxos_acl
+        - nxos_acl_interface
+        - nxos_interface
+        - nxos_interface_ospf
+        - nxos_l2_interface
+        - nxos_l3_interface
+        - nxos_linkagg
+        - nxos_lldp
+        - nxos_ospf
+        - nxos_ospf_vrf
+        - nxos_smu
+        - nxos_static_route
+        - nxos_vlan
+    fragments:
+      - remove_deprecated.yaml
+      - remove_net_changes.yaml
+      - remove_provider.yaml
+    release_date: "2022-10-13"
+  4.0.1:
+    changes:
+      bugfixes:
+        - "`nxos_acls` - Parse ICMP echo-reply and echo options correctly (https://github.com/ansible-collections/cisco.nxos/issues/583)."
+        - "`nxos_acls` - Parse ICMP port-unreachable and unreachable options correctly
+          (https://github.com/ansible-collections/cisco.nxos/issues/529)."
+        - "`nxos_acls` - Parse port-protocol options with hypenated names correctly
+          (https://github.com/ansible-collections/cisco.nxos/issues/557)."
+    fragments:
+      - nxos_acls.yaml
+      - nxos_pim.yaml
+    release_date: "2022-11-30"
+  4.1.0:
+    changes:
+      bugfixes:
+        - "`nxos_acls` - Fix how IPv6 prefixes are converted to hosts (https://github.com/ansible-collections/cisco.nxos/issues/623)."
+        - "`nxos_file_copy` - stop prepending redundant bootflash: to remote file names"
+        - nxos_acls - Detect duplicate ACE error message from CLI and fail (https://github.com/ansible-collections/cisco.nxos/issues/611).
+        - nxos_command - Run & evaluate commands at least once even when retries is
+          set to 0 (https://github.com/ansible-collections/cisco.nxos/issues/607).
+      minor_changes:
+        - "`nxos_acls` - Support ICMPv6 option. Please refer to module doc for all new
+          options (https://github.com/ansible-collections/cisco.nxos/issues/624)."
+        - "`nxos_facts` - Update facts gathering logic to ensure that `gather_network_resources:
+          all` does not fail for NX-OS on MDS switches."
+        - "`nxos_l2_interfaces` - Add new mode dot1q-tunnel (https://github.com/ansible-collections/cisco.nxos/issues/600)."
+    fragments:
+      - acls.yaml
+      - acls_icmp.yaml
+      - command.yaml
+      - l2_mode.yaml
+      - mds.yaml
+      - nxos_acls.yaml
+      - nxos_file_copy.yaml
+      - nxos_snmp_revert.yaml
+      - rm_base.yaml
+      - snmp.yaml
+      - unused_imports.yaml
+    release_date: "2023-02-16"
+  4.2.0:
+    changes:
+      bugfixes:
+        - "`bgp` - Fix parsing remote-as for Nexus 3K (https://github.com/ansible-collections/cisco.nxos/issues/653)."
+        - "`facts` - Attempt to execute json output commands with | json-pretty first
+          and fall back to | json if unsupported. This is a temporary workaround until
+          https://github.com/ansible/pylibssh/issues/208 is fixed."
+        - "`interfaces` - Correctly enable/disable VLAN interfaces (https://github.com/ansible-collections/cisco.nxos/issues/539)."
+        - "`route_maps` - resolve route-map description parameter idempotency"
+        - "`snmp_server` - fix community option to produce proper configuration with
+          ipv4acl and ipv6acl."
+      minor_changes:
+        - "`nxos_route_maps` - add support for 'set ip next-hop <>' command in route-maps"
+        - "`nxos_vxlan_vtep` - add support for 'advertise virtual-rmac' command under
+          nve interface"
+    fragments:
+      - bgp.yaml
+      - bool.yaml
+      - ci_codecov.yml
+      - codecov_from_repo.yml
+      - facts_libssh.yaml
+      - intf_vlans.yaml
+      - nxos_route_maps.yaml
+      - nxos_vxlan_vtep.yaml
+      - route_maps.yaml
+      - snmp_server_issues_fix.yaml
+    release_date: "2023-04-04"
+  4.3.0:
+    changes:
+      release_summary:
+        Re-releasing v4.2.0 of this collection since the previously
+        build failed to upload in Automation Hub.
+    fragments:
+      - release_430.yaml
+    release_date: "2023-04-05"
+  4.4.0:
+    changes:
+      bugfixes:
+        - l3_interfaces - Append tag when updating IP address with state replaced (https://github.com/ansible-collections/cisco.nxos/issues/678).
+        - ntp_global - Fix incorrect handling of prefer option (https://github.com/ansible-collections/cisco.nxos/issues/670).
+        - nxos_banner - Add support for a custom multiline delimiter
+        - nxos_facts - Fix missing SVI facts (https://github.com/ansible-collections/cisco.nxos/issues/440).
+        - "terminal - attempt privilege escalation only when prompt does not end with
+          #"
+      doc_changes:
+        - Fix docs of static-routes resource module.
+        - nxos_interfaces - Fixed module documentation and examples.
+        - nxos_l2_interfaces - Fixed module documentation and examples.
+        - nxos_l3_interfaces - Fixed module documentation and examples.
+      minor_changes:
+        - nxos_user - Add support for hashed passwords. (https://github.com/ansible-collections/cisco.nxos/issues/370).
+    fragments:
+      - banner.yaml
+      - downstream.yaml
+      - fix_docs_static_routes.yaml
+      - l3.yaml
+      - lint.yaml
+      - ntp_global.yaml
+      - ntp_user.yaml
+      - nxos_facts.yaml
+      - terminal.yaml
+      - tests.yaml
+      - update_inft_docs.yaml
+    release_date: "2023-05-29"
+  5.0.0:
+    changes:
+      bugfixes:
+        - nxos_static_routes - Prevent action states to generate terminal configuration
+          command.
+        - nxos_static_routes - Update the delete operation of static routes to be similar
+          to other platforms. (https://github.com/ansible-collections/cisco.nxos/issues/666)
+      major_changes:
+        - Refer to **Removed Features** section for details.
+        - This release removes four of the previously deprecated modules from this collection.
+      minor_changes:
+        - Add nxos_bgp_templates module.
+        - nxos_user - Added dev-ops role to BUILTINS (https://github.com/ansible-collections/cisco.nxos/issues/690)
+      removed_features:
+        - The nxos_bgp module has been removed with this release.
+        - The nxos_bgp_af module has been removed with this release.
+        - The nxos_bgp_neighbor module has been removed with this release.
+        - The nxos_bgp_neighbor_af module has been removed with this release.
+    fragments:
+      - drop.yaml
+      - nxos_user.yml
+      - overridden.yaml
+      - templates.yaml
+      - update_static_routes.yml
+    release_date: "2023-07-05"
+  5.1.0:
+    changes:
+      minor_changes:
+        - nxos_facts - add cpu utilization data to facts.
+    fragments:
+      - cpu_utilization.yml
+    release_date: "2023-07-05"
+  5.2.0:
+    changes:
+      bugfixes:
+        - acls - Fix parsing error when ACE has a source port range (https://github.com/ansible-collections/cisco.nxos/issues/713).
+        - interfaces - Re-apply existing non-default MTU when changing mode to L2 (https://github.com/ansible-collections/cisco.nxos/issues/730).
+        - lag_interfaces - Allow force option to be idempotent (https://github.com/ansible-collections/cisco.nxos/issues/742).
+        - snmp_server - fix host delete when authentication options are present (https://github.com/ansible-collections/cisco.nxos/issues/439).
+      doc_changes:
+        - Update examples for bgp_address_family resource modules using yaml callback
+          plugin.
+        - Update examples for bgp_global resource modules using yaml callback plugin.
+        - Update examples for bgp_neighbor_address_family resource modules using yaml
+          callback plugin.
+        - Update examples for bgp_templates resource modules using yaml callback plugin.
+        - Update examples for ospf_interfaces resource modules using yaml callback plugin.
+        - Update examples for ospfv2 resource modules using yaml callback plugin.
+        - Update examples for ospfv3 resource modules using yaml callback plugin.
+      minor_changes:
+        - Added new module fc_interfaces
+        - bgp_global - support remote-as as a route-map (https://github.com/ansible-collections/cisco.nxos/issues/741).
+        - bgp_neighbor_address_family - support rewrite-rt-asn for ipv4 mvpn (https://github.com/ansible-collections/cisco.nxos/issues/741).
+        - bgp_templates - Add support for safi evpn (https://github.com/ansible-collections/cisco.nxos/issues/739).
+        - bgp_templates - Add support for send_community (https://github.com/ansible-collections/cisco.nxos/issues/740).
+        - route_maps - support extcommunity rt option (https://github.com/ansible-collections/cisco.nxos/issues/743).
+    fragments:
+      - _health_check_update_docs.yaml
+      - bgp_assorted.yaml
+      - bgp_templates.yaml
+      - codecov_pr.yml
+      - fix_713.yaml
+      - fix_730.yaml
+      - lag_interfaces.yaml
+      - nxos.yaml
+      - nxos_mds_fc.yaml
+      - route_maps.yaml
+      - snmp_server_fix.yml
+    modules:
+      - description: Fc Interfaces resource module
+        name: nxos_fc_interfaces
+        namespace: ""
+    release_date: "2023-09-14"
+  5.2.1:
+    changes:
+      bugfixes:
+        - nxos_acls - fix parsing of ACE with named source/dest port range (https://github.com/ansible-collections/cisco.nxos/issues/763).
+        - vtp_version - allow VTP version 3 to be configured (https://github.com/ansible-collections/cisco.nxos/issues/704).
+      doc_changes:
+        - nxos_acls - update examples and use YAML output in them for better readibility.
+    fragments:
+      - acls.yaml
+      - fix_763.yaml
+      - vtp_version.yaml
+    release_date: "2023-10-03"
+  5.3.0:
+    changes:
+      minor_changes:
+        - nxos_config - Relax restrictions on I(src) parameter so it can be used more
+          like I(lines). (https://github.com/ansible-collections/cisco.nxos/issues/89).
+    fragments:
+      - fix_config_module.yaml
+      - trivial.yaml
+    release_date: "2023-11-29"
+  6.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.14.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        this collection requires is `2.14.0`. The last known version compatible with
+        ansible-core<2.14 is `v5.3.0`.
+    fragments:
+      - prep_300.yaml
+      - trivial_lint.yaml
+    release_date: "2023-11-30"
+  6.0.1:
+    changes:
+      bugfixes:
+        - Prevents module_defaults from were being incorrectly applied to the platform
+          action, instead of the concerned module.
+        - nxos_file_copy - correctly set file_pull_timeout/persistent_command_timeout
+          value.
+    fragments:
+      - file_copy.yaml
+      - module_defaults.yaml
+    release_date: "2024-01-30"
+  6.0.2:
+    changes:
+      bugfixes:
+        - nxos_interfaces - Correctly enable L3 interfaces on supported N3K platforms
+          (https://github.com/ansible-collections/cisco.nxos/issues/749).
+    fragments:
+      - fix_749.yaml
+    release_date: "2024-02-06"
+  6.0.3:
+    changes:
+      bugfixes:
+        - nxos_acls - Fix parsing of ace entries with range in it. (https://github.com/ansible-collections/cisco.nxos/issues/788)
+    fragments:
+      - acls_gather_fix.yml
+    release_date: "2024-02-14"
+  7.0.0:
+    changes:
+      major_changes:
+        - This release removes four previously deprecated modules from this collection.
+          Please refer to the **Removed Features** section for details.
+      removed_features:
+        - The nxos_logging module has been removed with this release.
+        - The nxos_ntp module has been removed with this release.
+        - The nxos_ntp_auth module has been removed with this release.
+        - The nxos_ntp_options module has been removed with this release.
+    fragments:
+      - major_700.yaml
+    release_date: "2024-03-27"
+  8.0.0:
+    changes:
+      bugfixes:
+        - nxos_facts - correct parse JSON output when multiple interfaces have IPv6
+          address assigned (https://github.com/ansible-collections/cisco.nxos/issues/771).
+      major_changes:
+        - Updated the minimum required ansible.netcommon version to 6.1.0 to support
+          the cli_restore module.
+      minor_changes:
+        - Add support for cli_restore functionality.
+        - Please refer the PR to know more about core changes (https://github.com/ansible-collections/ansible.netcommon/pull/618).
+          The cli_restore module is a part of ansible.netcommon.
+    fragments:
+      - add_restore_support.yaml
+      - fix_771.yaml
+      - trivial.yaml
+    release_date: "2024-04-19"
+  8.1.0:
+    changes:
+      bugfixes:
+        - nxos_l3_interfaces - fail if encapsulation exists on a different sub-interface.
+        - nxos_static_routes - correctly generate command when track parameter is specified.
+      minor_changes:
+        - route_maps - support simple route-maps that do not contain set or match statements.
+          it allows for the creation and management of purely basic route-map entries
+          like 'route-map test-1 permit 10'.
+    fragments:
+      - ana_442.yaml
+      - nxos_l3_interfaces.yaml
+      - route_maps.yaml
+    release_date: "2024-05-22"
+  9.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.15.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        this collection requires is `2.15.0`. The last known version compatible with
+        ansible-core<2.15 is v8.1.0.
+    fragments:
+      - bump_215.yaml
+    release_date: "2024-06-07"
+  9.1.0:
+    changes:
+      bugfixes:
+        - nxos_snmp_server - correctly render entity traps (https://github.com/ansible-collections/cisco.nxos/issues/820).
+      minor_changes:
+        - Add nxos_vrf_global resource module in favor of nxos_vrf module (https://github.com/ansible-collections/cisco.nxos/pull/870).
+    fragments:
+      - fix_820.yaml
+      - nxos_vrf_global.yml
+    release_date: "2024-08-05"
+  9.2.0:
+    changes:
+      doc_changes:
+        - nxos_bgp_global - Marks local_as under neighbor deprecated, and some documentation
+          corrections.
+      minor_changes:
+        - nxos_bgp_global - Deprecate local_as with local_as_config which supports more
+          configuration attributes, under neighbor.
+    fragments:
+      - 0-readme.yml
+      - fix_local_as.yaml
+      - fix_pylint.yaml
+    release_date: "2024-08-19"
+  9.2.1:
+    changes:
+      bugfixes:
+        - acls - Fix lookup of range port conversion from int to string to allow strings
+          (https://github.com/ansible-collections/cisco.nxos/pull/888).
+        - facts - Fixes issue where the LLDP neighbor information returns an error when
+          empty.
+      doc_changes:
+        - Includes a new support related section in the README.
+    fragments:
+      - bugfix_vrf_range_resolution.yml
+      - lldp_facts.yaml
+      - readme.yaml
+    release_date: "2024-08-29"
+  9.3.0:
+    changes:
+      bugfixes:
+        - Fixed hardware fact gathering failure for CPU utilization parsing on NX-OS
+          9.3(3) by handling both list and single value formats of onemin_percent
+        - Fixed the invalid feature name error for port-security by updating the feature
+          mapping from `eth_port_sec` to `eth-port-sec`.
+        - Fixes mixed usage of f-string and format string in action plugin for consistency.
+        - Fixes nxos_user purge deleting non-local users,ensuring only local users are
+          removed.
+        - "[bgp_templates] - fix the show commands used to ensure task does not fail
+          if BGP is not enabled on the device."
+        - lag_interfaces - Fix bug where lag interfaces was not erroring on command
+          failure. (https://github.com/ansible-collections/cisco.nxos/pull/923)
+        - nxos_l2_interfaces - Fixed handling of 'none' value in allowed_vlans to properly
+          set trunk VLAN none
+      minor_changes:
+        - Add support for VRF address family via `vrf_address_family` resource module.
+        - Added nxos_vrf_interfaces resource module, that helps with configuration of
+          vrfs within interface in favor of nxos_vrf_interface module.
+        - nxos_telemetry - Added support for 'overridden' state to provide complete
+          configuration override capabilities.
+    fragments:
+      - add_vrf_interfaces.yaml
+      - fix_ana_569.yaml
+      - ignore_219.yaml
+      - lag_interfaces_error.yaml
+      - nxos_facts_cpu_utilization.yaml
+      - nxos_feature.yaml
+      - nxos_l2_interfaces.yaml
+      - nxos_telemetry_overridden.yaml
+      - purged_user.yaml
+      - tests_fix.yaml
+      - vrf_address_fam.yaml
+    modules:
+      - description: Resource module to configure VRF address family definitions.
+        name: nxos_vrf_address_family
+        namespace: ""
+    release_date: "2025-01-17"
+  9.4.0:
+    changes:
+      bugfixes:
+        - nxos_facts - Fixes an issue in nxos_facts where IPv6 addresses within VRF
+          contexts were not being collected in `net_all_ipv6_addresses`.
+        - nxos_user - fixes wrong command being generated for purge function
+        - nxos_vpc - fixes failure due to kickstart_ver_str not being present
+      minor_changes:
+        - nxos_vpc - Added support for peer-switch feature configuration.
+    fragments:
+      - added_support_peer_switch_cmd.yaml
+      - ci_logging_global.yaml
+      - nxos_facts_ipv6.yaml
+      - test_ci.yaml
+    release_date: "2025-03-27"

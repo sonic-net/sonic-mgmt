@@ -1,0 +1,2 @@
+minor_changes:
+- community.grafana.grafana_datasource supports aws_auth_type of default.

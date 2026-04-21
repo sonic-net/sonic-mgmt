@@ -1,0 +1,68 @@
+---
+- name: Configure device credentials on Cisco DNA Center
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "input_inventory.yml"
+    - "credentials.yml"
+  tasks:
+    - name: Add/Update/Resync/Delete the devices in Cisco DNA Center Inventory.
+      cisco.dnac.inventory_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log_level: DEBUG
+        dnac_log: true
+        config_verify: true
+        state: merged
+        config:
+          - username: "{{ item.username }}"
+            password: "{{ item.password }}"
+            enable_password: "{{ item.enable_password }}"
+            ip_address_list: "{{ item.ip_address_list }}"
+            cli_transport: "{{ item.cli_transport }}"
+            netconf_port: "{{ item.netconf_port }}"
+            snmp_auth_passphrase: "{{ item.snmp_auth_passphrase }}"
+            snmp_auth_protocol: "{{ item.snmp_auth_protocol }}"
+            snmp_mode: "{{ item.snmp_mode }}"
+            snmp_priv_passphrase: "{{ item.snmp_priv_passphrase }}"
+            snmp_priv_protocol: "{{ item.snmp_priv_protocol }}"
+            snmp_ro_community: "{{ item.snmp_ro_community }}"
+            snmp_rw_community: "{{ item.snmp_rw_community }}"
+            snmp_username: "{{ item.snmp_username }}"
+            credential_update: "{{ item.credential_update }}"
+            clean_config: "{{ item.clean_config }}"
+            type: "{{ item.type }}"
+            device_resync: "{{ item.device_resync }}"
+            reboot_device: "{{ item.reboot_device }}"
+            role: "{{ item.role }}"
+            add_user_defined_field:
+              - name: Test123
+                description: "Added first udf for testing"
+                value: "value123"
+              - name: Test321
+                description: "Added second udf for testing"
+                value: "value321"
+            provision_wired_device:
+              - device_ip: "1.1.1.1"
+                site_name: "Global/USA/San Francisco/BGL_18/floor_pnp"
+                resync_retry_count: 200
+                resync_interval: 2
+              - device_ip: "2.2.2.2"
+                site_name: "Global/USA/San Francisco/BGL_18/floor_test"
+                resync_retry_count: 200
+                resync_retry_interval: 2
+            update_interface_details:
+              description: "{{ item.update_interface_details.description }}"
+              interface_name: "{{ item.interface_name }}"
+            export_device_list:
+              password: "{{ item.export_device_list.password }}"
+
+        with_items: "{{ device_details }}"
+        tags:
+          - inventory_device

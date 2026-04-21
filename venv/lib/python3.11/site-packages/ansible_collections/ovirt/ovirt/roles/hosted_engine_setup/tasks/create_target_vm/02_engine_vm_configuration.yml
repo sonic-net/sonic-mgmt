@@ -1,0 +1,82 @@
+---
+- name: Engine VM configuration tasks
+  block:
+    - name: Create a temporary directory for ansible as postgres user
+      ansible.builtin.file:
+        path: /var/lib/pgsql/.ansible/tmp
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0700"
+    - name: Update target VM details at DB level
+      ansible.builtin.command: >-
+        "{{ engine_psql }}" -c
+        "UPDATE vm_static SET {{ item.field }}={{ item.value }} WHERE
+        vm_guid='{{ hostvars[he_ansible_host_name]['he_vm_details']['vm']['id'] }}'"
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      register: db_vm_update
+      with_items:
+        - {field: "origin", value: 6}
+    - name: Insert Hosted Engine configuration disk uuid into Engine database
+      ansible.builtin.command: >-
+        "{{ engine_psql }}" -c
+        "UPDATE vdc_options SET option_value=
+        '{{ hostvars[he_ansible_host_name]['he_conf_disk_details']['disk']['id'] }}'
+        WHERE option_name='HostedEngineConfigurationImageGuid' AND version='general'"
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      register: db_conf_update
+    - name: Fetch host SPM_ID
+      ansible.builtin.command: >-
+        "{{ engine_psql }}" -t -c
+        "SELECT vds_spm_id FROM vds WHERE vds_name='{{ hostvars[he_ansible_host_name]['he_host_name'] }}'"
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      register: host_spm_id_out
+    - name: Parse host SPM_ID
+      ansible.builtin.set_fact:
+        host_spm_id: "{{ host_spm_id_out.stdout_lines|first|trim }}"
+    - name: Restore original DisableFenceAtStartupInSec
+      ansible.builtin.shell: "engine-config -s DisableFenceAtStartupInSec=$(cat /root/DisableFenceAtStartupInSec.txt)"
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      when: he_restore_from_file is defined and he_restore_from_file
+    - name: Remove DisableFenceAtStartupInSec temporary file
+      ansible.builtin.file:
+        path: /root/DisableFenceAtStartupInSec.txt
+        state: absent
+      when: he_restore_from_file is defined and he_restore_from_file
+    - name: Restore original OvfUpdateIntervalInMinutes
+      ansible.builtin.shell: "engine-config -s OvfUpdateIntervalInMinutes=$(cat /root/OvfUpdateIntervalInMinutes.txt)"
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+    - name: Remove OvfUpdateIntervalInMinutes temporary file
+      ansible.builtin.file:
+        path: /root/OvfUpdateIntervalInMinutes.txt
+        state: absent
+      changed_when: true
+    - name: Restore original SSO_ALTERNATE_ENGINE_FQDNS
+      block:
+        - name: Removing temporary value
+          ansible.builtin.lineinfile:
+            path: /etc/ovirt-engine/engine.conf.d/11-setup-sso.conf
+            regexp: "^SSO_ALTERNATE_ENGINE_FQDNS=.* # hosted-engine-setup"
+            state: absent
+        - name: Restoring original value
+          ansible.builtin.replace:
+            path: /etc/ovirt-engine/engine.conf.d/11-setup-sso.conf
+            regexp: "^#(SSO_ALTERNATE_ENGINE_FQDNS=.*) # pre hosted-engine-setup"
+            replace: "\\1"
+    - name: Remove temporary directory for ansible as postgres user
+      ansible.builtin.file:
+        path: /var/lib/pgsql/.ansible
+        state: absent
+    - name: Configure PermitRootLogin for sshd to its final value
+      ansible.builtin.lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: "^\\s*PermitRootLogin"
+        line: "PermitRootLogin {{ he_root_ssh_access }}"
+        state: present
+    - name: Clean cloud-init configuration
+      ansible.builtin.include_tasks: ../clean_cloud_init_config.yml

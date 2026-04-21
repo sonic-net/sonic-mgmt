@@ -1,0 +1,32 @@
+---
+- name: Include the mdm_set_facts.yml
+  ansible.builtin.include_tasks: "mdm_set_facts.yml"
+
+- name: Include vars
+  ansible.builtin.include_vars: "../vars/{{ ansible_distribution }}.yml"
+
+- name: Pre-requisite on rhel6 based os
+  ansible.posix.sysctl:
+    name: kernel.shmmax
+    value: 209715200
+  when: ansible_os_family == "RedHat" and ansible_distribution_major_version == "6"
+
+- name: List the rpm file
+  register: powerflex_mdm_package_file_version
+  ansible.builtin.find:
+    paths: "{{ powerflex_common_file_install_location }}"
+    patterns: "*{{ file_glob_name }}*.rpm"
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Extract file versions
+  ansible.builtin.set_fact:
+    version: "{{ powerflex_mdm_package_file_version.files[0].path | regex_search('mdm-(\\d+)', '\\1') }}"
+  when: powerflex_mdm_package_file_version.files | length > 0
+
+- name: Install MDM for PowerFlex below 4.x
+  ansible.builtin.include_tasks: install_powerflex3x_mdm.yml
+  when: version[0] < "4"
+
+- name: Install MDM for PowerFlex 4.x
+  ansible.builtin.include_tasks: install_powerflex4x_mdm.yml
+  when: version[0] >= "4"

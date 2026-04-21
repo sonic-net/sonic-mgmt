@@ -1,0 +1,36 @@
+requires_ansible: ">=2.15.0"
+
+action_groups:
+  cpm:
+    - cpm_alarm_info
+    - cpm_config_backup
+    - cpm_config_restore
+    - cpm_current_info
+    - cpm_dnsservices_config
+    - cpm_dnsservices_info
+    - cpm_firmware_info
+    - cpm_firmware_update
+    - cpm_hostname_config
+    - cpm_hostname_info
+    - cpm_interface_config
+    - cpm_interface_info
+    - cpm_iptables_config
+    - cpm_iptables_info
+    - cpm_plugconfig
+    - cpm_plugcontrol
+    - cpm_power_info
+    - cpm_serial_port_action_info
+    - cpm_serial_port_action_set
+    - cpm_serial_port_config
+    - cpm_serial_port_info
+    - cpm_snmp_config
+    - cpm_snmp_info
+    - cpm_status_info
+    - cpm_syslog_client_config
+    - cpm_syslog_client_info
+    - cpm_syslog_server_info
+    - cpm_syslog_server_config
+    - cpm_temp_info
+    - cpm_time_config
+    - cpm_time_info
+    - cpm_user

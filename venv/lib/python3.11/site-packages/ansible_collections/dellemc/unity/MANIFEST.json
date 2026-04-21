@@ -1,0 +1,41 @@
+{
+ "collection_info": {
+  "namespace": "dellemc",
+  "name": "unity",
+  "version": "2.1.0",
+  "authors": [
+   "Akash Shendge <ansible.team@dell.com>",
+   "Ambuj Dubey <ansible.team@dell.com>",
+   "Arindam Datta <ansible.team@dell.com>",
+   "P Srinivas Rao <ansible.team@dell.com>",
+   "Rajshree Khare <ansible.team@dell.com>",
+   "Vivek Soni <ansible.team@dell.com>",
+   "Spandita Panigrahi <ansible.team@dell.com>",
+   "Ananthu S Kuttattu <ansible.team@dell.com>",
+   "Pavan Mudunuri <ansible.team@dell.com>"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "storage"
+  ],
+  "description": "Ansible modules for Unity",
+  "license": [
+   "GPL-3.0-or-later",
+   "Apache-2.0"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/dell/ansible-unity/tree/2.1.0",
+  "documentation": "https://github.com/dell/ansible-unity/tree/2.1.0/docs",
+  "homepage": "https://github.com/dell/ansible-unity/tree/2.1.0",
+  "issues": "https://www.dell.com/community/Automation/bd-p/Automation"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "471c79465ab2f698b12665a46ce82618882c27dd4f083f0e4345e089c8043ccf",
+  "format": 1
+ },
+ "format": 1
+}

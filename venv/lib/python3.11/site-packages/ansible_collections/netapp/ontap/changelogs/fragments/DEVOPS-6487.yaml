@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume - modified `type` to be case insensitive in REST.

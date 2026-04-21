@@ -1,0 +1,20 @@
+#cloud-config
+# vim: syntax=yaml
+disable_root: false
+{% if he_root_ssh_pubkey is not none and he_root_ssh_pubkey|length > 1 %}
+ssh_authorized_keys:
+  - {{ he_root_ssh_pubkey }}
+{% endif %}
+ssh_pwauth: True
+chpasswd:
+  list: |
+    root:{{ he_hashed_appliance_password }}
+  expire: False
+{% if he_time_zone is defined %}
+timezone: {{ he_time_zone }}
+{% endif %}
+bootcmd:
+  - if grep -Gq "^\s*PermitRootLogin" /etc/ssh/sshd_config; then sed -re "s/^\s*(PermitRootLogin)\s+(yes|no|without-password)/\1 yes/" -i.$(date -u +%Y%m%d%H%M%S) /etc/ssh/sshd_config; else echo "PermitRootLogin yes" >> /etc/ssh/sshd_config; fi
+  - if grep -Gq "^\s*UseDNS" /etc/ssh/sshd_config; then sed -re "s/^\s*(UseDNS)\s+(yes|no)/\1 no/" -i.$(date -u +%Y%m%d%H%M%S) /etc/ssh/sshd_config; else echo "UseDNS no" >> /etc/ssh/sshd_config; fi
+runcmd:
+  - systemctl restart sshd &

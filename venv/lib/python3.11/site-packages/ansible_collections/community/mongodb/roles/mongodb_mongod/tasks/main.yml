@@ -1,0 +1,127 @@
+---
+# tasks file for mongodb_mongod
+- name: Include OS-specific vars
+  include_vars:
+    file: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      paths:
+        - "vars"
+      files:
+        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_version }}.yml"
+        - "{{ ansible_facts.os_family }}-{{ ansible_facts.distribution_major_version }}.yml"
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - default.yml
+  tags:
+    - "vars"
+
+- name: Ensure mongod package is installed
+  package:
+    name: "{{ mongod_package }}"
+  register: _pkg
+  until: _pkg is succeeded
+  retries: 5
+  tags:
+    - "mongodb"
+    - "pkg"
+    - "setup"
+
+- name: Ensure db_path dir exists
+  file:
+    path: "{{ db_path }}"
+    state: directory
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+  tags:
+    - "mongodb"
+    - "setup"
+
+- name: Copy config file
+  template:
+    src: "{{ mongod_config_template }}"
+    dest: /etc/mongod.conf
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+  notify:
+    - Restart mongod service
+  tags:
+    - "mongodb"
+    - "setup"
+
+- name: Copy keyfile to host
+  copy:
+    content: |
+      {{ openssl_keyfile_content }}
+    dest: "{{ openssl_keyfile_path }}"
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+    mode: 0400
+  when: authorization == "enabled"
+  notify:
+    - Restart mongod service
+  tags:
+    - "mongodb"
+    - "setup"
+
+- name: Override mongod service
+  when: mongodb_systemd_service_override | length > 0
+  tags:
+    - "mongodb"
+    - "setup"
+    - "service"
+  block:
+  - name: "Create {{ mongod_service }}.service.d directory"
+    file:
+      path: "/etc/systemd/system/{{ mongod_service }}.service.d/"
+      state: directory
+      owner: root
+      group: root
+      mode: 0755
+
+  - name: Override mongod service from provided content
+    copy:
+      content: "{{ mongodb_systemd_service_override }}"
+      dest: "/etc/systemd/system/{{ mongod_service }}.service.d/override.conf"
+      owner: root
+      group: root
+      mode: 0644
+    notify: daemon-reload
+
+- name: Check for github override
+  set_fact:
+    x_github_override: "{{ lookup('env', 'X_GITHUB_OVERRIDE') | default('0', True) }}"
+  tags:
+    - "ci"
+
+- name: Start mongod service
+  service:
+    name: "{{ mongod_service }}"
+    state: started
+    enabled: yes
+  tags:
+    - "mongodb"
+    - "setup"
+    - "service"
+
+- name: Configure logrotate if enabled
+  when: mongodb_logrotate_enabled
+  ansible.builtin.include_tasks: logrotate.yml
+  tags:
+    - "mongodb"
+    - "setup"
+    - "service"
+
+# debug section
+- pause:
+    seconds: 5
+
+- shell: cat /var/log/mongodb/mongod.log
+  register: log_output
+  changed_when: false 
+  when: ansible_hostname == "fedora"
+
+- debug:
+    var: log_output
+  when: ansible_hostname == "fedora"
+# eof debug

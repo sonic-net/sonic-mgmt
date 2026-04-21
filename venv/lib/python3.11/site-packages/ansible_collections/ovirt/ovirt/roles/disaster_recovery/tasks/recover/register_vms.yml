@@ -1,0 +1,26 @@
+---
+- name: Register VMs main block
+  ignore_errors: "{{ dr_ignore_error_recover }}"
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    - name: Fetch unregistered VMs from storage domain
+      ovirt.ovirt.ovirt_storage_vm_info:
+        nested_attributes: "id"
+        unregistered: true
+        storage_domain: "{{ storage.name }}"
+        auth: "{{ ovirt_auth }}"
+      register: storage_vm_info
+
+    - name: Set unregistered VMs
+      ansible.builtin.set_fact:
+        unreg_vms: "{{ unreg_vms | default([]) + storage_vm_info.ovirt_storage_vms }}"
+
+    # TODO: We should filter out VMs which already exist in the setup (diskless VMs)
+    - name: Register VMs
+      ansible.builtin.include_tasks: register_vm.yml
+      with_items: "{{ storage_vm_info.ovirt_storage_vms }}"
+      # We use loop_control so storage.name will not be overridden by the nested loop.
+      loop_control:
+        loop_var: unreg_vm

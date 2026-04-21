@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_network - Resolves network port setting idempotency issue

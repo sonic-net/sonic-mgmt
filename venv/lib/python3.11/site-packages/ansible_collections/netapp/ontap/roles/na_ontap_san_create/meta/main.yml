@@ -1,0 +1,7 @@
+galaxy_info:
+  author: "NetApp"
+  description: "Role for creating LUNs"
+  company: "NetApp"
+  license: BSD
+  min_ansible_version: "2.16"
+  galaxy_tags: [netapp, ontap]

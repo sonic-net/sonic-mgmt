@@ -1,0 +1,58 @@
+---
+- name: Get storage fault domain module
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/oneobject_node_connection_variables.yml
+  vars:
+    connection_info:
+      http_request_timeout: "{{ http_request_timeout }}"
+      http_request_retry_times: "{{ http_request_retry_times }}"
+      http_request_retry_interval_seconds: "{{ http_request_retry_interval_seconds }}"
+      ssl: "{{ ssl }}"
+      cluster_name: "{{ cluster_name }}"
+      region: "{{ region }}"
+      oneobject_node_username: "{{ oneobject_node_username }}"
+      oneobject_node_userpass: "{{ oneobject_node_userpass }}"
+      oneobject_node_client_id: "{{ oneobject_node_client_id }}"
+
+  tasks:
+    ####################################################################
+    # Task 1 : List all the storage fault domain
+    ####################################################################
+    - name: List all Storage fault domain
+      hitachivantara.vspone_object.oneobject_node.hv_storage_fault_domain_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Display result
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task 2 : Get info the storage fault domain by id
+    ####################################################################
+    - name: Get info the storage fault domain by id
+      hitachivantara.vspone_object.oneobject_node.hv_storage_fault_domain_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "3e119904-902a-4c2a-b8e1-f6654f55aab0"
+      register: result
+
+    - name: Display result
+      ansible.builtin.debug:
+        var: result
+
+    # ####################################################################
+    # # Task 3 : List n number of storage fault domain
+    # ####################################################################
+    - name: List n number of storage fault domain
+      hitachivantara.vspone_object.oneobject_node.hv_storage_fault_domain_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          page_size: 5
+      register: result
+
+    - name: Display result
+      ansible.builtin.debug:
+        var: result

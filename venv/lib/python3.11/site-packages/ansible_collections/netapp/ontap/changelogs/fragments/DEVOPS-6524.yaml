@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_ems_destination - new options `syslog`, `port`, `transport`, `message_format`, `timestamp_format_override`
+    and `hostname_format_override` added in REST, requires ONTAP 9.12.1 or later.

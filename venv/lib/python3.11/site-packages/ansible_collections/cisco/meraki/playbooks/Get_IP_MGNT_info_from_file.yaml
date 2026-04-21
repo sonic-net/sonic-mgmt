@@ -1,0 +1,16 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Include vars of devices.yaml into the 'devices' variable
+      ansible.builtin.include_vars:
+        file: devices.yaml
+        name: devices
+    - name: Query management information
+      cisco.meraki.devices_management_interface_info:
+        serial: "{{ item.value.serial_no }}"
+      register: result
+      loop: "{{ lookup('dict', devices) }}"
+    - name: Show Results
+      ansible.builtin.debug:
+        msg: "{{ result }}"

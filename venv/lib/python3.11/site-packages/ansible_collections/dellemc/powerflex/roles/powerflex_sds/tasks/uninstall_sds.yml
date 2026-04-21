@@ -1,0 +1,31 @@
+---
+- name: Remove SDS
+  dellemc.powerflex.sds:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    validate_certs: "{{ validate_certs }}"
+    port: "{{ port }}"
+    sds_name: "{{ inventory_hostname }}"
+    state: "absent"
+  register: powerflex_sds_remove_result
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Uninstall package
+  register: powerflex_sds_uninstall_output
+  environment:
+    I_AM_SURE: "{{ i_am_sure | int }}"
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: "absent"
+  with_items:
+    - EMC-ScaleIO-sds
+  when: ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+- name: Uninstall deb package
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - emc-scaleio-sds
+  when: ansible_distribution == "Ubuntu"

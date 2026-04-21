@@ -1,0 +1,2 @@
+minor_changes:
+  - purefa_dirsnap - Add support to rename directory snapshots not managed by a snapshot policy

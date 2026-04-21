@@ -1,0 +1,11 @@
+---
+- name: Set cluster-visible URLs & tags
+  ansible.builtin.set_fact:
+    leader_tag: "A"
+    node_a_tag: "A"
+    leader_cluster_url: "http://ubuntu-bionic-node-a:8080"
+    node_a_cluster_url: "http://ubuntu-bionic-node-a:8080"
+    node_b_tag: "B"
+    node_b_cluster_url: "http://ubuntu-bionic-node-b:8080"
+    node_c_tag: "C"
+    node_c_cluster_url: "http://ubuntu-bionic-node-c:8080"

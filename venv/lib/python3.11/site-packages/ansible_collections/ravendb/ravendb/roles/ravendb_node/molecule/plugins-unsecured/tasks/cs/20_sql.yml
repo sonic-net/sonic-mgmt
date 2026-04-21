@@ -1,0 +1,172 @@
+---
+- name: Create SQL connection string (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "sql_cs"
+    cs_type: "SQL"
+    properties:
+      connection_string: "Server=sql.local;Database=db;User Id=user;Password=pass;"
+      factory_name: "System.Data.SqlClient"
+    state: present
+  check_mode: yes
+  register: sql_check_create
+
+- name: Assert would created CS msg (check mode)
+  ansible.builtin.assert:
+    that:
+      - sql_check_create.changed
+      - "'would create' in ((sql_check_create.msg | default('')) | lower)"
+
+- name: Verify SQL CS not created on check mode
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: sql_after_check_create
+
+- name: Assert SQL CS not created
+  ansible.builtin.assert:
+    that:
+      - "'sql_cs' not in (sql_after_check_create.json.SqlConnectionStrings | default({}))"
+
+- name: Create SQL connection string
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "sql_cs"
+    cs_type: "SQL"
+    properties:
+      connection_string: "Server=sql.local;Database=db;User Id=user;Password=pass;"
+      factory_name: "System.Data.SqlClient"
+    state: present
+  register: sql_created
+
+- name: Assert SQL CS created
+  ansible.builtin.assert:
+    that:
+      - sql_created.changed
+      - "'created connection string' in ((sql_created.msg | default('')) | lower)"
+
+- name: Verify SQL CS created
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: sql_after_create
+
+- name: Assert SQL CS present
+  ansible.builtin.assert:
+    that:
+      - "'sql_cs' in (sql_after_create.json.SqlConnectionStrings | default({}))"
+
+- name: Create SQL connection string (idempotency check)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "sql_cs"
+    cs_type: "SQL"
+    properties:
+      connection_string: "Server=sql.local;Database=db;User Id=user;Password=pass;"
+      factory_name: "System.Data.SqlClient"
+    state: present
+  register: sql_created_again
+
+- name: Assert SQL CS creation idempotent
+  ansible.builtin.assert:
+    that:
+      - sql_created_again.changed == false
+      - "'already exists' in ((sql_created_again.msg | default('')) | lower)"
+      - "'no changes' in ((sql_created_again.msg | default('')) | lower)"
+
+- name: Attempt to modify existing SQL CS - should no-op
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "sql_cs"
+    cs_type: "SQL"
+    properties:
+      connection_string: "Server=DIFFERENT.local;Database=db;User Id=user;Password=pass;"
+      factory_name: "System.Data.SqlClient"
+    state: present
+  register: sql_modify_attempt
+
+- name: Assert SQL modify attempt was a no-op
+  ansible.builtin.assert:
+    that:
+      - sql_modify_attempt.changed == false
+      - "'already exists' in ((sql_modify_attempt.msg | default('')) | lower)"
+      - "'no changes' in ((sql_modify_attempt.msg | default('')) | lower)"
+
+- name: Delete SQL CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "sql_cs"
+    cs_type: "SQL"
+    state: absent
+  check_mode: yes
+  register: sql_check_delete
+
+- name: Assert would delete message (check mode)
+  ansible.builtin.assert:
+    that:
+      - sql_check_delete.changed
+      - "'would delete' in ((sql_check_delete.msg | default('')) | lower)"
+
+- name: Verify SQL CS still exists after check-mode delete
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: sql_after_check_delete
+
+- name: Assert SQL CS still present after check-mode delete
+  ansible.builtin.assert:
+    that:
+      - "'sql_cs' in (sql_after_check_delete.json.SqlConnectionStrings | default({}))"
+
+- name: Delete SQL CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "sql_cs"
+    cs_type: "SQL"
+    state: absent
+  register: sql_deleted
+
+- name: Assert SQL CS deleted
+  ansible.builtin.assert:
+    that:
+      - sql_deleted.changed
+      - "'deleted connection string' in ((sql_deleted.msg | default('')) | lower)"
+
+- name: Verify SQL CS is gone
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: sql_after_delete
+
+- name: Assert SQL CS not present after delete
+  ansible.builtin.assert:
+    that:
+      - "'sql_cs' not in (sql_after_delete.json.SqlConnectionStrings | default({}))"
+
+- name: Test creating SQL CS with missing connection_string
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "sql_bad_no_conn"
+    cs_type: "SQL"
+    properties:
+      factory_name: "System.Data.SqlClient"
+    state: present
+  register: sql_bad_no_conn
+  failed_when: sql_bad_no_conn is succeeded
+
+- name: Assert validation error surfaced and no change occurred (missing connection_string)
+  ansible.builtin.assert:
+    that:
+      - sql_bad_no_conn.changed == false
+      - "'connectionstring cannot be empty' in ((sql_bad_no_conn.msg | default('')) | lower)"

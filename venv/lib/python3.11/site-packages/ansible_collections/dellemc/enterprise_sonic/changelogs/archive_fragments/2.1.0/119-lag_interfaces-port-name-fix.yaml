@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_lag_interfaces - Fixed port name issue (GitHub issue#153) (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/119)

@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.organizations_adaptive_policy_groups:
+        meraki_suppress_logging: true
+        state: present
+        name: Employee Group
+        organizationId: "828099381482762270"
+        sgt: 10005

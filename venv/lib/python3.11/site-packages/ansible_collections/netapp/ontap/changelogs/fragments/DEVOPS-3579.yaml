@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_lun - ``qos_policy_group`` could not be modified if a value was not provided at creation.

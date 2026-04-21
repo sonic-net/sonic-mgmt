@@ -1,0 +1,95 @@
+- name: Ensure ASUP configuration
+  netapp_eseries.santricity.na_santricity_asup:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+    state: "{{ eseries_asup_state }}"
+    active: "{{ eseries_asup_active | default(omit) }}"
+    days: "{{ eseries_asup_days | default(omit) }}"
+    start: "{{ eseries_asup_start | default(omit) }}"
+    end: "{{ eseries_asup_end | default(omit) }}"
+    method: "{{ eseries_asup_method | default(omit) }}"
+    routing_type: "{{ eseries_asup_routing_type | default(omit) }}"
+    proxy: "{{ eseries_asup_proxy | default(omit) }}"
+    email: "{{ eseries_asup_email | default(omit) }}"
+    maintenance_duration: "{{ eseries_maintenance_duration | default(omit) }}"
+    maintenance_emails: "{{ eseries_maintenance_emails | default(omit) }}"
+    validate: "{{ eseries_asup_validate | default(omit) }}"
+  connection: local
+  when: eseries_asup_state is defined
+  tags:
+    - logging
+    - asup
+
+- name: Ensure alerts have been configured
+  netapp_eseries.santricity.na_santricity_alerts:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+    state: "{{ eseries_alerts_state }}"
+    contact: "{{ eseries_alerts_contact | default(omit) }}"
+    recipients: "{{ eseries_alerts_recipients | default(omit) }}"
+    sender: "{{ eseries_alerts_sender| default(omit) }}"
+    server: "{{ eseries_alerts_server | default(omit) }}"
+    test: "{{ eseries_alerts_test | default(omit) }}"
+  connection: local
+  when: eseries_alerts_state is defined
+  tags:
+    - logging
+    - alerts
+
+- name: Ensure auditLog configuration
+  netapp_eseries.santricity.na_santricity_auditlog:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+    force: "{{ eseries_auditlog_force | default(omit) }}"
+    full_policy: "{{ eseries_auditlog_full_policy | default(omit) }}"
+    log_level: "{{ eseries_auditlog_log_level | default(omit) }}"
+    max_records: "{{ eseries_auditlog_max_records | default(omit) }}"
+    threshold: "{{ eseries_auditlog_threshold | default(omit) }}"
+  connection: local
+  when: eseries_auditlog_enforce_policy
+  tags:
+    - logging
+    - auditlog
+
+- name: Ensure components are configured to be sent to the approriate syslog servers
+  netapp_eseries.santricity.na_santricity_syslog:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+    state: "{{ eseries_syslog_state }}"
+    address: "{{ eseries_syslog_address }}"
+    test: "{{ eseries_syslog_test | default(omit) }}"
+    protocol: "{{ eseries_syslog_protocol | default(omit) }}"
+    port: "{{ eseries_syslog_port | default(omit) }}"
+    components: "{{ eseries_syslog_components | default(omit) }}"
+  connection: local
+  when: eseries_syslog_state is defined and eseries_syslog_address is defined
+  tags:
+    - logging
+    - syslog
+
+- name: Ensure alerts are configured to be sent to the approriate syslog servers
+  netapp_eseries.santricity.na_santricity_alerts_syslog:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+    servers: "{{ eseries_alert_syslog_servers | default(omit) }}"
+    test: "{{ eseries_alert_syslog_test | default(omit) }}"
+  connection: local
+  when: eseries_syslog_state is defined and eseries_syslog_address is defined
+  tags:
+    - logging
+    - syslog

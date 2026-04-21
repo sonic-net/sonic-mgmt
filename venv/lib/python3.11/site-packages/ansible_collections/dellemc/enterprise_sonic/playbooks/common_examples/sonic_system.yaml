@@ -1,0 +1,18 @@
+---
+- name: Ansible resource module example for sonic_system
+  hosts: datacenter
+  gather_facts: false
+  connection: httpapi
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: Test SONiC system
+      sonic_system:
+        config:
+          hostname: SONIC-test
+          interface_naming: standard
+          anycast_address:
+            ipv4: true
+            ipv6: true
+            mac_address: 00:09:5B:EC:EE:F2
+        state: merged

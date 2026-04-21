@@ -1,0 +1,297 @@
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  httpapi: {}
+  inventory: {}
+  lookup:
+    santricity_host:
+      description: Collects host information
+      name: santricity_host
+      version_added: null
+    santricity_host_detail:
+      description: Expands the host information from santricity_host lookup
+      name: santricity_host_detail
+      version_added: null
+    santricity_storage_pool:
+      description: Storage pool information
+      name: santricity_storage_pool
+      version_added: null
+  module:
+    na_santricity_alerts:
+      description: NetApp E-Series manage email notification settings
+      name: na_santricity_alerts
+      namespace: ''
+      version_added: null
+    na_santricity_alerts_syslog:
+      description: NetApp E-Series manage syslog servers receiving storage system
+        alerts.
+      name: na_santricity_alerts_syslog
+      namespace: ''
+      version_added: null
+    na_santricity_asup:
+      description: NetApp E-Series manage auto-support settings
+      name: na_santricity_asup
+      namespace: ''
+      version_added: null
+    na_santricity_auditlog:
+      description: NetApp E-Series manage audit-log configuration
+      name: na_santricity_auditlog
+      namespace: ''
+      version_added: null
+    na_santricity_auth:
+      description: NetApp E-Series set or update the password for a storage array
+        device or SANtricity Web Services Proxy.
+      name: na_santricity_auth
+      namespace: ''
+      version_added: null
+    na_santricity_client_certificate:
+      description: NetApp E-Series manage remote server certificates.
+      name: na_santricity_client_certificate
+      namespace: ''
+      version_added: null
+    na_santricity_discover:
+      description: NetApp E-Series discover E-Series storage systems
+      name: na_santricity_discover
+      namespace: ''
+      version_added: null
+    na_santricity_drive_firmware:
+      description: NetApp E-Series manage drive firmware
+      name: na_santricity_drive_firmware
+      namespace: ''
+      version_added: null
+    na_santricity_facts:
+      description: NetApp E-Series retrieve facts about NetApp E-Series storage arrays
+      name: na_santricity_facts
+      namespace: ''
+      version_added: null
+    na_santricity_firmware:
+      description: NetApp E-Series manage firmware.
+      name: na_santricity_firmware
+      namespace: ''
+      version_added: null
+    na_santricity_global:
+      description: NetApp E-Series manage global settings configuration
+      name: na_santricity_global
+      namespace: ''
+      version_added: null
+    na_santricity_host:
+      description: NetApp E-Series manage eseries hosts
+      name: na_santricity_host
+      namespace: ''
+      version_added: null
+    na_santricity_hostgroup:
+      description: NetApp E-Series manage array host groups
+      name: na_santricity_hostgroup
+      namespace: ''
+      version_added: null
+    na_santricity_ib_iser_interface:
+      description: NetApp E-Series manage InfiniBand iSER interface configuration
+      name: na_santricity_ib_iser_interface
+      namespace: ''
+      version_added: null
+    na_santricity_iscsi_interface:
+      description: NetApp E-Series manage iSCSI interface configuration
+      name: na_santricity_iscsi_interface
+      namespace: ''
+      version_added: null
+    na_santricity_iscsi_target:
+      description: NetApp E-Series manage iSCSI target configuration
+      name: na_santricity_iscsi_target
+      namespace: ''
+      version_added: null
+    na_santricity_ldap:
+      description: NetApp E-Series manage LDAP integration to use for authentication
+      name: na_santricity_ldap
+      namespace: ''
+      version_added: null
+    na_santricity_lun_mapping:
+      description: NetApp E-Series manage lun mappings
+      name: na_santricity_lun_mapping
+      namespace: ''
+      version_added: null
+    na_santricity_mgmt_interface:
+      description: NetApp E-Series manage management interface configuration
+      name: na_santricity_mgmt_interface
+      namespace: ''
+      version_added: null
+    na_santricity_nvme_interface:
+      description: NetApp E-Series manage NVMe interface configuration
+      name: na_santricity_nvme_interface
+      namespace: ''
+      version_added: null
+    na_santricity_proxy_drive_firmware_upload:
+      description: NetApp E-Series manage proxy drive firmware files
+      name: na_santricity_proxy_drive_firmware_upload
+      namespace: ''
+      version_added: null
+    na_santricity_proxy_firmware_upload:
+      description: NetApp E-Series manage proxy firmware uploads.
+      name: na_santricity_proxy_firmware_upload
+      namespace: ''
+      version_added: null
+    na_santricity_proxy_systems:
+      description: NetApp E-Series manage SANtricity web services proxy storage arrays
+      name: na_santricity_proxy_systems
+      namespace: ''
+      version_added: null
+    na_santricity_storagepool:
+      description: NetApp E-Series manage volume groups and disk pools
+      name: na_santricity_storagepool
+      namespace: ''
+      version_added: null
+    na_santricity_syslog:
+      description: NetApp E-Series manage syslog settings
+      name: na_santricity_syslog
+      namespace: ''
+      version_added: null
+    na_santricity_volume:
+      description: NetApp E-Series manage storage volumes (standard and thin)
+      name: na_santricity_volume
+      namespace: ''
+      version_added: null
+    netapp_e_alerts:
+      description: NetApp E-Series manage email notification settings
+      name: netapp_e_alerts
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_amg:
+      description: NetApp E-Series create, remove, and update asynchronous mirror
+        groups
+      name: netapp_e_amg
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_amg_role:
+      description: NetApp E-Series update the role of a storage array within an Asynchronous
+        Mirror Group (AMG).
+      name: netapp_e_amg_role
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_amg_sync:
+      description: NetApp E-Series conduct synchronization actions on asynchronous
+        mirror groups.
+      name: netapp_e_amg_sync
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_asup:
+      description: NetApp E-Series manage auto-support settings
+      name: netapp_e_asup
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_auditlog:
+      description: NetApp E-Series manage audit-log configuration
+      name: netapp_e_auditlog
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_auth:
+      description: NetApp E-Series set or update the password for a storage array.
+      name: netapp_e_auth
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_drive_firmware:
+      description: NetApp E-Series manage drive firmware
+      name: netapp_e_drive_firmware
+      namespace: ''
+      version_added: '2.9'
+    netapp_e_facts:
+      description: NetApp E-Series retrieve facts about NetApp E-Series storage arrays
+      name: netapp_e_facts
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_firmware:
+      description: NetApp E-Series manage firmware.
+      name: netapp_e_firmware
+      namespace: ''
+      version_added: '2.9'
+    netapp_e_flashcache:
+      description: NetApp E-Series manage SSD caches
+      name: netapp_e_flashcache
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_global:
+      description: NetApp E-Series manage global settings configuration
+      name: netapp_e_global
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_host:
+      description: NetApp E-Series manage eseries hosts
+      name: netapp_e_host
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_hostgroup:
+      description: NetApp E-Series manage array host groups
+      name: netapp_e_hostgroup
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_iscsi_interface:
+      description: NetApp E-Series manage iSCSI interface configuration
+      name: netapp_e_iscsi_interface
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_iscsi_target:
+      description: NetApp E-Series manage iSCSI target configuration
+      name: netapp_e_iscsi_target
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_ldap:
+      description: NetApp E-Series manage LDAP integration to use for authentication
+      name: netapp_e_ldap
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_lun_mapping:
+      description: NetApp E-Series create, delete, or modify lun mappings
+      name: netapp_e_lun_mapping
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_mgmt_interface:
+      description: NetApp E-Series management interface configuration
+      name: netapp_e_mgmt_interface
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_snapshot_group:
+      description: NetApp E-Series manage snapshot groups
+      name: netapp_e_snapshot_group
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_snapshot_images:
+      description: NetApp E-Series create and delete snapshot images
+      name: netapp_e_snapshot_images
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_snapshot_volume:
+      description: NetApp E-Series manage snapshot volumes.
+      name: netapp_e_snapshot_volume
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_storage_system:
+      description: NetApp E-Series Web Services Proxy manage storage arrays
+      name: netapp_e_storage_system
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_storagepool:
+      description: NetApp E-Series manage volume groups and disk pools
+      name: netapp_e_storagepool
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_syslog:
+      description: NetApp E-Series manage syslog settings
+      name: netapp_e_syslog
+      namespace: ''
+      version_added: '2.7'
+    netapp_e_volume:
+      description: NetApp E-Series manage storage volumes (standard and thin)
+      name: netapp_e_volume
+      namespace: ''
+      version_added: '2.2'
+    netapp_e_volume_copy:
+      description: NetApp E-Series create volume copy pairs
+      name: netapp_e_volume_copy
+      namespace: ''
+      version_added: '2.2'
+  netconf: {}
+  shell: {}
+  strategy: {}
+  vars: {}
+version: 1.4.1

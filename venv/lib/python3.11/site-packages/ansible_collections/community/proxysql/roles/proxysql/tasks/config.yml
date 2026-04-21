@@ -1,0 +1,33 @@
+---
+- name: proxysql | config | copy client my.cnf
+  template:
+    src: client.my.cnf.j2
+    dest: ~/.my.cnf
+    mode: 0600
+
+- name: proxysql | config | copy proxysql config
+  template:
+    src: proxysql.cnf.j2
+    dest: /etc/proxysql.cnf
+    owner: "{{ proxysql_user }}"
+    group: "{{ proxysql_group }}"
+    mode: 0644
+  notify:
+    - update proxysql config
+    - restart proxysql
+
+- name: proxysql | config | enable and start proxysql
+  service:
+    name: proxysql
+    state: started
+    enabled: true
+
+- name: proxysql | config | wait for proxysql
+  wait_for:
+    host: "{{ proxysql_admin_bind_address }}"
+    port: "{{ proxysql_admin_port }}"
+    state: started
+    timeout: 30
+
+- name: proxysql | config | update dynamic config
+  meta: flush_handlers

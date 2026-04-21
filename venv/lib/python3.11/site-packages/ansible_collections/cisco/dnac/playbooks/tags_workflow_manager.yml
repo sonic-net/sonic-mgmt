@@ -1,0 +1,110 @@
+---
+- name: Tags workflow manager
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Create a Tag.
+      cisco.dnac.tags_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - tag:
+              name: Servers_Connected_Devices_and_Interfaces
+              description: Tag for devices and interfaces connected to servers
+              device_rules:
+                rule_descriptions:
+                  - rule_name: device_name
+                    search_pattern: equals
+                    value: Border
+                    operation: ILIKE
+                  - rule_name: device_family
+                    search_pattern: contains
+                    value: "9300"
+                    operation: ILIKE
+                  - rule_name: device_series
+                    search_pattern: equals
+                    value: "9X"
+                    operation: ILIKE
+                  - rule_name: ip_address
+                    search_pattern: starts_with
+                    value: "10.197"
+                    operation: ILIKE
+                  - rule_name: location
+                    search_pattern: contains
+                    value: "Global/India"
+                    operation: ILIKE
+                  - rule_name: version
+                    search_pattern: ends_with
+                    value: "3.8.0"
+                    operation: ILIKE
+
+              port_rules:
+                scope_description:
+                  scope_category: SITE
+                  scope_members:
+                    - GLOBAL
+                rule_descriptions:
+                  - rule_name: speed
+                    search_pattern: contains
+                    value: "100000"
+                    operation: ILIKE
+                  - rule_name: admin_status
+                    search_pattern: Equals
+                    value: Active
+                    operation: ILIKE
+                  - rule_name: port_name
+                    search_pattern: equals
+                    value: TenGigaBitEthernet1/0/1
+                    operation: ILIKE
+                  - rule_name: operational_status
+                    search_pattern: contains
+                    value: Active
+                    operation: ILIKE
+                  - rule_name: description
+                    search_pattern: contains
+                    value: Border To Fusion Link
+                    operation: ILIKE
+
+          - tag_memberships:
+              tags:
+                - Servers_Connected_Devices_and_Interfaces
+              device_details:
+                - ip_addresses:
+                    - 10.197.156.97
+                    - 10.197.156.98
+                    - 10.197.156.99
+                  hostnames:
+                    - SJC_Border1
+                    - SJC_Border2
+                    - NY_Border1
+                  mac_addresses:
+                    - e4:38:7e:42:bc:00
+                    - 6c:d6:e3:75:5a:e0
+                    - 34:5d:a8:3b:d8:e0
+                  serial_numbers:
+                    - SAD055006NE
+                    - SAD04350EEU
+                    - SAD055108C2
+                  port_names:
+                    - FortyGigabitEthernet1/1/1
+                    - FortyGigabitEthernet1/1/2
+              site_details:
+                - site_names:
+                    - Global/prime_site_global/prime_site/Bengaluru
+                  port_names:
+                    - FortyGigabitEthernet1/1/1
+                    - FortyGigabitEthernet1/1/2

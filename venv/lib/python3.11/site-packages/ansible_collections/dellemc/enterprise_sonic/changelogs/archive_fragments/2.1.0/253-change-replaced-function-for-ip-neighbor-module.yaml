@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_ip_neighbor - Change the replaced function in ip_neighbor resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/253)

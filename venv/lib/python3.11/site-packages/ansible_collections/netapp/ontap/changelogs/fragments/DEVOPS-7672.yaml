@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_svm - new option `storage_limit` added in REST, requires ONTAP 9.13.1 or later.

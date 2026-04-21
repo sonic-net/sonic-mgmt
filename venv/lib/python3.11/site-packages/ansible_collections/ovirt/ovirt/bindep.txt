@@ -1,0 +1,6 @@
+gcc [compile platform:rpm]
+libcurl-devel [compile platform:rpm]
+libxml2-devel [compile platform:rpm]
+openssl-devel [compile platform:rpm]
+python3-devel [compile platform:centos-9 platform:rhel-9]
+qemu-img [platform:rpm]

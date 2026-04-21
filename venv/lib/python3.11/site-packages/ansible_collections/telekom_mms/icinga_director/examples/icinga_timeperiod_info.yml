@@ -1,0 +1,7 @@
+---
+- name: Query a timeperiod in icinga
+  telekom_mms.icinga_director.icinga_timeperiod_info:
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    query: "24/7"

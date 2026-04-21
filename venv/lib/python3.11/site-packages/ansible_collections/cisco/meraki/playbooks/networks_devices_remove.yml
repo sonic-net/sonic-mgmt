@@ -1,0 +1,10 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    network_id: L_828099381482771185
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.networks_devices_remove:
+        networkId: L_828099381482771185
+        serial: QBSD-WABS-BH7V

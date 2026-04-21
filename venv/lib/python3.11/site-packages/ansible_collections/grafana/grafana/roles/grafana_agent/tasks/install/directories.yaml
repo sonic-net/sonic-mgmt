@@ -1,0 +1,26 @@
+---
+- name: Create install directories
+  block:
+    - name: Create Grafana Agent install directory
+      ansible.builtin.file:
+        path: "{{ grafana_agent_install_dir }}"
+        state: directory
+        owner: root
+        group: "{{ grafana_agent_user_group }}"
+        mode: 0770
+
+    - name: Create Grafana Agent conf directory
+      ansible.builtin.file:
+        path: "{{ grafana_agent_config_dir }}"
+        state: directory
+        owner: root
+        group: "{{ grafana_agent_user_group }}"
+        mode: 0770
+
+    - name: Create Grafana Agent data directory
+      ansible.builtin.file:
+        path: "{{ grafana_agent_data_dir }}"
+        state: directory
+        owner: root
+        group: "{{ grafana_agent_user_group }}"
+        mode: 0775

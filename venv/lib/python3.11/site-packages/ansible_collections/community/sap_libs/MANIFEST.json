@@ -1,0 +1,32 @@
+{
+ "collection_info": {
+  "namespace": "community",
+  "name": "sap_libs",
+  "version": "1.5.0",
+  "authors": [
+   "Rainer Leber (github.com/rainerleber)",
+   "Robert Kraemer (github.com/rkpobe)",
+   "Sean Freeman (github.com/sean-freeman)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "sap"
+  ],
+  "description": "SAP Module community collection for Ansible",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {},
+  "repository": "https://github.com/sap-linuxlab/community.sap_libs",
+  "documentation": "https://github.com/sap-linuxlab/community.sap_libs",
+  "homepage": "https://github.com/sap-linuxlab/community.sap_libs",
+  "issues": "https://github.com/sap-linuxlab/community.sap_libs"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "2010e155e2dd02898c1addd8c5f41a2eed3bb075f37597a05e8cbb2cd515ee7d",
+  "format": 1
+ },
+ "format": 1
+}

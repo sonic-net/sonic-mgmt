@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_s3user - Add support for imported user access keys

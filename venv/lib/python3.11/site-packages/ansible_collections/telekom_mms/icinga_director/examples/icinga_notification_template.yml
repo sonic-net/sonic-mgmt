@@ -1,0 +1,36 @@
+---
+- name: Create notification template
+  telekom_mms.icinga_director.icinga_notification_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foonotificationtemplate
+    states:
+      - Up
+      - Down
+    types:
+      - Problem
+      - Recovery
+    times_begin: 20
+    times_end: 120
+    time_period: "24/7"
+    notification_command: "mail-host-notification"
+    users:
+      - "rb"
+    user_groups:
+      - "OnCall"
+    vars:
+      foo: bar
+    zone: "foozone"
+- name: Update notification template
+  telekom_mms.icinga_director.icinga_notification_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foonotificationtemplate
+    notification_interval: '0'
+    vars:
+      foo: bar
+    append: true

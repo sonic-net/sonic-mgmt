@@ -1,0 +1,31 @@
+---
+DOCUMENTATION:
+  name: filtervalue
+  author: "oVirt Developers <devel@ovirt.org>"
+  short_description: Filter to findall occurance of some value in dict
+  description:
+    - Filter to findall occurance of some value in dict
+  positional: _input, attr, value
+  options:
+    _input:
+      description: List of VMs
+      type: list
+      required: true
+    attr:
+      description: Attribute to sotr by
+      type: list
+      required: true
+    value:
+      description: List of VMs
+      type: list
+      required: true
+
+EXAMPLES: |
+  - name: Set filtred ovirt_vms
+    ansible.builtin.set_fact:
+      ovirt_vms: "{{ vms | ovirt.ovirt.filtervalue('name', item.name) }}"
+
+RETURN:
+  _value:
+    description: Filtred VMs
+    type: list

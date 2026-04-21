@@ -1,0 +1,16 @@
+---
+- name: Cleanup test of infini_network_space module
+  hosts: localhost
+  gather_facts: false
+  vars:
+    service_name: iSCSI
+    service: iSCSI
+  tasks:
+
+    - name: POSITIVE test -> Remove network space
+      infinidat.infinibox.infini_network_space:
+        name: "{{ service_name }}"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"

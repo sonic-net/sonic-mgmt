@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_debug - report python executable version and path.
+  - tracing - allow to selectively trace headers and authentication.
+bugfixes:
+  - tracing - redact headers and authentication secrets by default.

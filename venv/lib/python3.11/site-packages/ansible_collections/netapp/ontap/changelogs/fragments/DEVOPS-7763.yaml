@@ -1,0 +1,2 @@
+bugfixes:
+  - Corrected typo in email address from `ng-ansibleteam@netapp.com` to `ng-ansible-team@netapp.com` across Ansible collection.

@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_subnet - Allow subnet creation with no gateway

@@ -1,0 +1,83 @@
+---
+#
+# Download firmware to the FI and configure Host Firmware Packages (HFP).
+# Uses remote fileshare and scp for FW download (server, remote_path, etc. provided through variables):
+# Example vars:
+#   [ucs:vars]
+#   remote_ip_address=172.28.224.77
+#   remote_fw_path=/mnt/SHARE/ISOS/UCS_Code/4.1
+#   remote_username=...
+#
+# The fw_bundles variable is a list that can be passed on the command line.
+# Example:
+# ansible-playbook ... -e '{"fw_bundles": ["ucs-k9-bundle-b-series.4.1.2b.B.bin"]}'
+#
+- hosts: ucs
+  connection: local
+  gather_facts: false
+  vars:
+    login_info: &login_info
+      hostname: "{{ inventory_hostname }}"
+      username: "{{ username | default(omit) }}"
+      password: "{{ password }}"
+  tasks:
+    - name: Download FW to FI
+      ucs_managed_objects:
+        <<: *login_info
+        objects:
+          - module: ucsmsdk.mometa.firmware.FirmwareCatalogue
+            class: FirmwareCatalogue
+            properties:
+              parent_mo_or_dn: sys
+            children:
+              - module: ucsmsdk.mometa.firmware.FirmwareDownloader
+                class: FirmwareDownloader
+                properties:
+                  protocol: scp
+                  server: "{{ remote_ip_address }}"
+                  remote_path: "{{ remote_fw_path }}"
+                  file_name: "{{ item }}"
+                  user: "{{ remote_username }}"
+                  pwd: "{{ remote_password }}"
+      loop: "{{ fw_bundles }}"
+      delegate_to: localhost
+      register: download_result
+    - name: Query and wait for download if needed
+      cisco.ucs.ucs_query:
+        <<: *login_info
+        distinguished_names: "{{ fw_download_dn }}"
+      loop: "{{ fw_bundles }}"
+      vars:
+        fw_download_dn: "sys/fw-catalogue/dnld-{{ item }}"
+      delegate_to: localhost
+      register: query_response
+      # works with warnings:
+      # until: query_response['objects']["{{ fw_download_dn }}"]['transfer_state'] == 'downloaded'
+      until: query_response.objects is search('downloaded')
+      # retry every 60 seconds for 20 minutes
+      delay: 60
+      retries: 20
+    # regular escapes in a set variable
+    - set_fact:
+        match_str: 'ucs-.*?\.(?P<rel>\d\.\d)\.(?P<patch>.*)\.'
+    # escape the escapes when used directly in strings
+    - set_fact:
+        blade_version: "{{ item | regex_replace(match_str + 'B\\.bin', '\\g<rel>(\\g<patch>)B') }}"
+      loop: "{{ fw_bundles }}"
+      when: item | regex_search(match_str + 'B\\.bin')
+    - set_fact:
+        rack_version: "{{ item | regex_replace(match_str + 'C\\.bin', '\\g<rel>(\\g<patch>)C') }}"
+      loop: "{{ fw_bundles }}"
+      when: item | regex_search(match_str + 'C\\.bin')
+    - name: Config Host FW Package
+      ucs_managed_objects:
+        <<: *login_info
+        objects:
+          - module: ucsmsdk.mometa.firmware.FirmwareComputeHostPack
+            class: FirmwareComputeHostPack
+            properties:
+              parent_mo_or_dn: org-root
+              name: ansible-latest
+              blade_bundle_version: "{{ blade_version | default(omit) }}"
+              rack_bundle_version: "{{ rack_version | default(omit) }}"
+      delegate_to: localhost

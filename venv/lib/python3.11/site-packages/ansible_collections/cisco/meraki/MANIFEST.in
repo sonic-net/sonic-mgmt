@@ -1,0 +1,16 @@
+# Exclude virtual envs and Python packages
+prune venv
+prune .venv
+prune site-packages
+
+# Exclude cache files
+global-exclude __pycache__
+global-exclude *.pyc
+
+# Exclude test and build artifacts
+prune tests
+prune build
+prune dist
+
+# Exclude docs build output
+prune docs/_build

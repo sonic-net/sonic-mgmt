@@ -1,0 +1,18 @@
+---
+- name: Secured
+  hosts: all
+  tasks:
+    - name: "Include ravendb_node"
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        molecule: true
+        ravendb_state: present
+        ravendb_version: latest
+        ravendb_version_minor: 6.2
+        ravendb_release_channel: stable
+        ravendb_arch: linux-x64
+        ravendb_settings_preset: default
+        ravendb_secured_enabled: true
+        ravendb_license_file: "/home/user/security/license.json"
+        ravendb_setup_package: "/home/user/security/setup_package.zip"

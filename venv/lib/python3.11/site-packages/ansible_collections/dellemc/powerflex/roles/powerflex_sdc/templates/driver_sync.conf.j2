@@ -1,0 +1,31 @@
+###############################################################################
+# driver_sync Configuration file
+# Everything after a '#' until the end of the line is ignored
+###############################################################################
+
+# Repository address, prefixed by protocol
+repo_address = {{ powerflex_sdc_driver_sync_repo_address }}
+
+# Repository user (valid for ftp/sftp protocol)
+repo_user = {{ powerflex_sdc_driver_sync_repo_user }}
+
+# Repository password (valid for ftp protocol)
+repo_password = {{ powerflex_sdc_driver_sync_repo_password }}
+
+# Local directory for modules
+local_dir = {{ powerflex_sdc_driver_sync_repo_local_dir }}
+
+# User's RSA private key file (sftp protocol)
+user_private_rsa_key = {{ powerflex_sdc_driver_sync_user_private_rsa_key_dest }}
+
+# Repository host public key (sftp protocol)
+repo_public_rsa_key = {{ powerflex_sdc_driver_sync_repo_public_rsa_key_dest }}
+
+# Should the fetched modules' signatures be checked [0, 1]
+module_sigcheck = {{ powerflex_sdc_driver_sync_module_sigcheck }}
+
+# EMC public signature key (needed when module_sigcheck is 1)
+emc_public_gpg_key = {{ powerflex_sdc_driver_sync_emc_public_gpg_key_dest }}
+
+# Sync pattern (regular expression) for massive retrieve
+sync_pattern = {{ powerflex_sdc_driver_sync_sync_pattern }}

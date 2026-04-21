@@ -1,0 +1,8 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    mongodb_hold_packages: "HOLD"
+  roles:
+    - role: community.mongodb.mongodb_repository
+    - role: community.mongodb.mongodb_install

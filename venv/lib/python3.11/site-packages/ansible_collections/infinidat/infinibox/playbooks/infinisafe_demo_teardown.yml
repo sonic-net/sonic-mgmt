@@ -1,0 +1,104 @@
+---
+### Localhost
+- name: Teardown Infinisafe demo
+  hosts: forensics
+  gather_facts: false
+  vars:
+    network_space: InfiniSafe-Fenced-Network # iSCSI
+    service: ISCSI_SERVICE
+    pool: infinisafe
+    volume: app_vol
+    snap: app_snap
+    host: forensic-validation-host
+    host_iqn: iqn.1993-08.org.debian:01:62ebda3b76cc # io-wt-35
+    ibox_portal: 172.31.32.145
+    ibox: ibox1521
+    ibox_iqn: iqn.2009-11.com.infinidat:storage:infinibox-sn-1521
+    ibox_portals: 172.31.32.148 172.31.32.146 172.31.32.149 172.31.32.145 172.31.32.150 172.31.32.147
+  tasks:
+
+    - name: Unmap snapshot from host
+      infinidat.infinibox.infini_map:
+        host: "{{ host }}"
+        volume: "{{ snap }}"
+        state: absent
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+    - name: Remove port from host
+      infinidat.infinibox.infini_port:
+        host: "{{ host }}"
+        iqns: "{{ host_iqn }}"
+        state: absent
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+### Forensics Host
+    - name: Disconnect forensics host from Infinibox
+      ansible.builtin.shell: |
+        for i in {{ ibox_portals }}; do
+          iscsiadm --mode node --target {{ ibox_iqn }} -p $i --logout
+        done
+        for i in {{ ibox_portals }}; do
+          iscsiadm --mode discoverydb -t sendtargets -p $i -o delete --discover
+        done
+      changed_when: true
+      become: true
+
+### Localhost
+    - name: Remove network space
+      infinidat.infinibox.infini_network_space:
+        name: "{{ network_space }}"
+        state: absent
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+    - name: Remove snapshot created from volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ snap }}"
+        state: absent
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+    - name: Remove volume from pool
+      infinidat.infinibox.infini_vol:
+        name: "{{ volume }}"
+        pool: "{{ pool }}"
+        state: absent
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+    - name: Remove pool
+      infinidat.infinibox.infini_pool:
+        name: "{{ pool }}"
+        state: absent
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost
+
+    - name: Remove forensic host
+      infinidat.infinibox.infini_host:
+        name: "{{ host }}"
+        state: absent
+
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      delegate_to: localhost

@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_connector_azure - Add subnet_name as aliases of subnet_id, vnet_name as aliases of vnet_id.

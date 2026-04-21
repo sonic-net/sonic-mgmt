@@ -1,0 +1,6 @@
+---
+- name: Remove Datacenter
+  ovirt.ovirt.ovirt_datacenter:
+    state: absent
+    name: "{{ data_center_name }}"
+    auth: "{{ ovirt_auth }}"

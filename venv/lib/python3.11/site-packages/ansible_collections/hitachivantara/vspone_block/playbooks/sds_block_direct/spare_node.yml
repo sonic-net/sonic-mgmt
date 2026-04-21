@@ -1,0 +1,74 @@
+---
+####################################################################
+# Example : Spare Node Playbook
+####################################################################
+- name: Spare Node Configuration
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ################################################################################################
+    # Task Name : Add a spare node to the SDS Block storage system
+    ################################################################################################
+    - name: Add a spare node to the SDS Block storage system
+      hitachivantara.vspone_block.sds_block.hv_sds_block_spare_node:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          fault_domain_id: "21b15505-025d-400a-9f17-1b88e0a7ec98"
+          control_port_ipv4_address: "10.76.34.106"
+          setup_user_password: "Password1"
+          bmc_name: "10.76.32.49"
+          bmc_user: "administrator"
+          bmc_password: "Hitachi1"
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #################################################################################################
+    # Task Name : Remove a spare node from the SDS Block storage system
+    #################################################################################################
+    - name: Remove a spare node from the SDS Block storage system
+      hitachivantara.vspone_block.sds_block.hv_sds_block_spare_node:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          id: "565772a4-5563-4932-a53d-1729d25152bd"
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################################
+    # Task Name : Edit a spare node in the SDS Block storage system
+    ################################################################################################
+    - name: Edit a spare node in the SDS Block storage system
+      hitachivantara.vspone_block.sds_block.hv_sds_block_spare_node:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          id: "565772a4-5563-4932-a53d-1729d25152bd"
+          fault_domain_id: "21b15505-025d-400a-9f17-1b88e0a7ec98"
+          control_port_ipv4_address: "10.76.34.106"
+          setup_user_password: "Password1"
+          bmc_name: "10.76.32.49"
+          bmc_user: "administrator"
+          bmc_password: "Hitachi1"
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

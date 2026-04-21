@@ -1,0 +1,8 @@
+---
+- name: Install Powerflex gateway
+  ansible.builtin.include_tasks: install_gateway.yml
+  when: powerflex_gateway_state == "present"
+
+- name: Uninstall Powerflex gateway
+  ansible.builtin.include_tasks: uninstall_gateway.yml
+  when: powerflex_gateway_state == "absent"

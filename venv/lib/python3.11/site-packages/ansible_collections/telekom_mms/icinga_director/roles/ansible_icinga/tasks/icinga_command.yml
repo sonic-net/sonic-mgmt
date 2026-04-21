@@ -1,0 +1,30 @@
+---
+- name: Icinga_command
+  icinga_command:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ command.state | default(omit) }}"
+    command: "{{ command.command | default(omit) }}"
+    command_type: "{{ command.command_type | default(icinga_command_type) }}"
+    disabled: "{{ command.disabled | default(icinga_command_disabled) }}"
+    object_name: "{{ command.name }}"
+    imports: "{{ command.imports | default(omit) }}"
+    timeout: "{{ command.timeout | default(omit) }}"
+    zone: "{{ command.zone | default(omit) }}"
+    vars: "{{ command.vars | default(omit) }}"
+    arguments: "{{ command.arguments | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_commands }}"
+  loop_control:
+    loop_var: command
+  tags: command
+  notify: config_deploy

@@ -1,0 +1,97 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+
+    - name: Get service status
+      become: true
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: started
+      register: service_status
+
+    - name: Assert service state
+      ansible.builtin.assert:
+        that:
+          - service_status.status['ActiveState'] == 'active'
+   
+    - name: Verify RavenDB Studio HTML is inaccessible without cert being provided
+      ansible.builtin.uri:
+        url: https://a.rdbansibleci.ravendb.run:4443/databases
+        validate_certs: no
+        status_code: 403
+      register: curl_output
+
+    - name: Assert 'InvalidAuth' message in response
+      ansible.builtin.assert:
+        that:
+          - curl_output.json.Type == "InvalidAuth"
+
+    - name: Install pacakges
+      become: true
+      ansible.builtin.package:
+        name: 
+          - curl
+          - openssl
+        state: present
+
+    - name: Extract server certificate
+      become: true
+      command: >
+        openssl pkcs12 -in /etc/ravendb/security/A/cluster.server.certificate.rdbansibleci.pfx
+        -clcerts -nokeys -out /etc/ravendb/security/A/cluster.server.certificate.pem -legacy -passin pass:
+      args:
+        creates: /etc/ravendb/security/A/cluster.server.certificate.pem
+    
+    - name: Extract server private key
+      become: true
+      command: >
+        openssl pkcs12 -in /etc/ravendb/security/A/cluster.server.certificate.rdbansibleci.pfx
+        -nocerts -nodes -out /etc/ravendb/security/A/cluster.server.certificate.key -legacy -passin pass:
+      args:
+        creates: /etc/ravendb/security/A/cluster.server.certificate.key 
+
+    - name: Set correct permissions for all certificates and keys
+      become: true
+      file:
+        path: "{{ item }}"
+        mode: "0600"
+        owner: root
+        group: root
+      loop:
+        - /etc/ravendb/security/A/cluster.server.certificate.pem
+        - /etc/ravendb/security/A/cluster.server.certificate.key
+
+
+    - name: Register admin client certificate in server
+      become: true
+      shell: >
+        curl -X PUT "https://a.rdbansibleci.ravendb.run:4443/admin/certificates"
+        -H "Content-Type: application/json"
+        --cert /etc/ravendb/security/A/cluster.server.certificate.pem
+        --key /etc/ravendb/security/A/cluster.server.certificate.key
+        -d '{
+          "Name": "AdminClientCert",
+          "Certificate": "'"$(cat /etc/ravendb/security/admin.client.certificate.rdbansibleci.pfx | base64 -w 0)"'",
+          "SecurityClearance": "ClusterAdmin"
+        }'
+      register: cert_register
+      changed_when: '"error" not in cert_register.stdout'
+      failed_when: '"InvalidAuth" in cert_register.stdout'
+
+
+    - name: Test secured access with admin client certificate
+      become: true
+      shell: >
+        curl
+        --cert /etc/ravendb/security/admin.client.certificate.rdbansibleci.crt
+        --key  /etc/ravendb/security/admin.client.certificate.rdbansibleci.key
+        -X GET "https://a.rdbansibleci.ravendb.run:4443/databases"
+      register: client_cert_test
+      changed_when: false
+
+    - name: Assert successful authentication with client certificate
+      ansible.builtin.assert:
+        that:
+          - "'Databases' in client_cert_test.stdout"

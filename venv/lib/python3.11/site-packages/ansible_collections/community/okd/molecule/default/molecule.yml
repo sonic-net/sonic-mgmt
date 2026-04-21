@@ -1,0 +1,37 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+driver:
+  name: default
+platforms:
+  - name: cluster
+    groups:
+      - k8s
+provisioner:
+  name: ansible
+  log: true
+  options:
+    vvv: True
+  inventory:
+    host_vars:
+      localhost:
+        virtualenv: ${MOLECULE_EPHEMERAL_DIRECTORY}/virtualenv
+        virtualenv_command: '{{ ansible_playbook_python }} -m virtualenv'
+        virtualenv_interpreter: '{{ virtualenv }}/bin/python'
+        playbook_namespace: molecule-tests
+  env:
+    ANSIBLE_FORCE_COLOR: 'true'
+    ANSIBLE_COLLECTIONS_PATHS: ${OVERRIDE_COLLECTION_PATH:-$MOLECULE_PROJECT_DIRECTORY}
+verifier:
+  name: ansible
+scenario:
+  name: default
+  test_sequence:
+    - dependency
+    - syntax
+    - prepare
+    - converge
+    - idempotence
+    - verify

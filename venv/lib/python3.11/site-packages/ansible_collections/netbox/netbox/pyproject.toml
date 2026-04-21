@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "netbox_ansible_modules"
+version = "3.21.0"
+description = "Ansible collection to interact with NetBox's API"
+authors = ["Mikhail Yohman <mikhail.yohman@gmail.com>"]
+license = "GPLv3"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+ansible-core = "^2.18"
+black = "*"
+codecov = "*"
+coverage = "7.6.1"
+deepdiff = "*"
+cryptography = "*"
+jinja2 = "*"
+jmespath = "*"
+pynetbox = "*"
+pytest = "*"
+pytest-mock = "*"
+pytest-xdist = "*"
+pytest-forked = "*"
+pyyaml = "*"
+mock = "^4.0.2"
+antsibull = "*"
+importlib-metadata = "*"
+pylint = "*"
+pytz = "*"
+packaging = "*"
+importlib-resources = "*"
+antsibull-docs = "*"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

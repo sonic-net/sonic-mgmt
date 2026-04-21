@@ -1,0 +1,19 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    organization_id: 828099381482762270
+  gather_facts: false
+  tasks:
+    - name: Update by id
+      cisco.meraki.devices_switch_ports:
+        meraki_suppress_logging: false
+        state: present
+        serial: "QBSB-AX45-LY9A"
+        enabled: true
+        name: testAPI2
+        poeEnabled: false
+        portId: 3
+        tags: []
+        type: access
+        vlan: 10
+        voiceVlan: 20

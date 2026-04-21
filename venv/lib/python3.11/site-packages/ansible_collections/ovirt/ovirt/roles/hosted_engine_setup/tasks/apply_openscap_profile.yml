@@ -1,0 +1,38 @@
+---
+- name: Initialize OpenSCAP variables
+  ansible.builtin.set_fact:
+    oscap_dir: "/usr/share/xml/scap/ssg/content"
+    oscap_ver: "{{ appliance_ver if ansible_distribution != 'Fedora' else '' }}"
+- name: Set OpenSCAP datastream path
+  ansible.builtin.set_fact:
+    oscap_datastream: "{{ oscap_dir }}/ssg-{{ appliance_dist | replace('RedHat', 'rhel') | lower }}{{ oscap_ver }}-ds.xml"
+- name: Verify OpenSCAP datastream
+  ansible.builtin.stat:
+    path: "{{ oscap_datastream }}"
+  register: oscap_ds_stat
+- name: Set OpenSCAP profile
+  ansible.builtin.shell: >-
+    set -euo pipefail && oscap info --profiles {{ oscap_datastream }} |
+    grep -Ei "({{ he_openscap_profile_name }}:)" | sort | tail -1 | cut -d':' -f1
+  register: oscap_profile
+  ignore_errors: true
+  changed_when: true
+  when: oscap_ds_stat.stat.exists
+- name: Apply OpenSCAP profile
+  ansible.builtin.command: >-
+    oscap xccdf eval --profile {{ oscap_profile.stdout }} --remediate
+    --report /root/openscap-report.html {{ oscap_datastream }}
+  register: oscap_applied
+  # Currently, there is no way to know if the security profile
+  # meets the requirments for HE VM (see: https://bugzilla.redhat.com/1983476)
+  # therefore deployment will fail only if there is an error during evaluation
+  # which means rc = 1
+  failed_when: oscap_applied.rc == 1
+  changed_when: true
+  when: oscap_profile.stdout is defined
+- name: Reset PermitRootLogin for sshd
+  ansible.builtin.lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "^\\s*PermitRootLogin"
+    line: "PermitRootLogin yes"
+    state: present

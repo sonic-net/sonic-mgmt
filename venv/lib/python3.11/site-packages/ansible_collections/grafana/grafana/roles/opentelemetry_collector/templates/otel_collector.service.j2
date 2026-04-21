@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenTelemetry Collector
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={{ otel_collector_installation_dir }}/{{ otel_collector_executable }} --config={{ otel_collector_config_dir }}/{{ otel_collector_config_file }}
+User={{ otel_collector_service_user }}
+Group={{ otel_collector_service_group }}
+Restart=on-failure
+StateDirectory={{ otel_collector_service_statedirectory }}
+
+[Install]
+WantedBy=multi-user.target

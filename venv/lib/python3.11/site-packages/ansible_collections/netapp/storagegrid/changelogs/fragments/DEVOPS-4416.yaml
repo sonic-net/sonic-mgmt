@@ -1,0 +1,2 @@
+minor_changes:
+  - PR2 - allow usage of Ansible module group defaults - for Ansible 2.12+.

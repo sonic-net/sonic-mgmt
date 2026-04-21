@@ -1,0 +1,85 @@
+##################################################################################################
+# playbooks/healthcheck.yml
+#
+# Purpose: Demonstrate common usage patterns for the RavenDB healthcheck module
+#
+# What it does (checks):
+#   - node_alive
+#       * Polls /setup/alive and expects success.
+#       * Works on HTTP/HTTPS; for HTTPS with IP hosts, TLS validation is auto-disabled for this check.
+#   - cluster_connectivity
+#       * Verifies the node can ping cluster peers (TCP/cluster reachability).
+#       * For HTTPS with IP hosts, TLS validation is auto-disabled for this check as well.
+#   - db_groups_available
+#       * For every database group in the cluster, asserts at least one usable member exists (no exclusions).
+#   - db_groups_available_excluding_target
+#       * Same as above, but excludes the node identified by `url` when evaluating availability.
+#
+# Connections & TLS:
+#   - `url` is required, e.g. http://node-a:8080 or https://node-a:443.
+#   - `certificate_path` (optional): client cert for secured clusters.
+#   - `ca_cert_path` (optional): CA bundle to validate server cert.
+#
+# Timing & retry behavior:
+#   - `max_time_to_wait` (default 1200s) applies per selected check (not across all checks combined).
+#   - `retry_interval_seconds` controls cadence for node/cluster checks (default 5s).
+#   - `db_retry_interval_seconds` controls cadence for DB-group checks (default 10s).
+#   - On timeout of DB checks:
+#       * `on_db_timeout: fail` -> task fails (hard gate) [default].
+#       * `on_db_timeout: continue` -> task returns success but records a timeout (soft gate).
+#
+# Operational intent (rolling upgrade of server's version):
+#   - Pre-upgrade: run `node_alive` (+ `cluster_connectivity` if clustered). Must pass before proceeding.
+#   - Post-upgrade: re-run the same gates to confirm the node rejoined healthily.
+#   - With replicated databases:
+#       * Use DB gates (`db_groups_available*`) to ensure availability during rolling upgrades.
+#       * Disabled databases are skipped by DB-online checks.
+#   - Failure patterns (from test matrix):
+#       * If pre-gate `node_alive` fails on a node → stop before upgrading that node.
+#       * If `cluster_connectivity` fails -> stop; cluster not healthy to proceed.
+#       * DB-online can be enforced (fail fast) or treated as soft (continue) depending on policy.
+#
+# Caveats & best practices:
+#   - Choose strict (fail) vs soft (continue) DB policy based on maintenance window objectives.
+#   - Use longer `max_time_to_wait` for large clusters or slow DB recovery; tune retry intervals accordingly.
+#   - These gates validate readiness/health; they do not mutate cluster state.
+#
+# See the module documentation for more details: plugins/modules/healthcheck.py
+##################################################################################################
+
+# -----------------------------------------------------------------------------------------------
+# 1) Per-node gate post-upgrade (single check)
+# -----------------------------------------------------------------------------------------------
+- name: Per-node gate post upgrade
+  delegate_to: localhost
+  ravendb.ravendb.healthcheck:
+    url: "http://{{ ansible_hostname }}:8080"
+    checks: ['node_alive']
+    max_time_to_wait: 60
+    retry_interval_seconds: 3
+  register: gate_result
+
+# -----------------------------------------------------------------------------------------------
+# 2) Per-node gates post-upgrade (multiple checks incl. DB groups)
+# -----------------------------------------------------------------------------------------------
+- name: Per-node gates post upgrade
+  delegate_to: localhost
+  ravendb.ravendb.healthcheck:
+    url: "http://{{ ansible_hostname }}:8080"
+    checks: ['node_alive', 'cluster_connectivity', 'db_groups_available_excluding_target']
+    max_time_to_wait: 60
+    retry_interval_seconds: 3
+    db_retry_interval_seconds: 5
+  register: gate_result
+
+# -----------------------------------------------------------------------------------------------
+# 3) Per-node gates pre-upgrade (cluster-focused checks)
+# -----------------------------------------------------------------------------------------------
+- name: Per-node gates pre upgrade
+  delegate_to: localhost
+  ravendb.ravendb.healthcheck:
+    url: "http://{{ ansible_hostname }}:8080"
+    checks: ['node_alive', 'cluster_connectivity']
+    max_time_to_wait: 60
+    retry_interval_seconds: 3
+  register: gate_result

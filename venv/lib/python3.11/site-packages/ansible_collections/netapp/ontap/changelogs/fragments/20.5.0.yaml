@@ -1,0 +1,54 @@
+---
+minor_changes:
+  - na_ontap_aggregate - ``raid_type`` options supports 'raid_0' for ONTAP Select.
+  - na_ontap_cluster_peer - ``encryption_protocol_proposed`` option allows specifying encryption protocol to be used for inter-cluster communication.
+  - na_ontap_info - new fact - aggr_efficiency_info.
+  - na_ontap_info - new fact - cluster_switch_info.
+  - na_ontap_info - new fact - disk_info.
+  - na_ontap_info - new fact - env_sensors_info.
+  - na_ontap_info - new fact - net_dev_discovery_info.
+  - na_ontap_info - new fact - service_processor_info.
+  - na_ontap_info - new fact - shelf_info.
+  - na_ontap_info - new fact - sis_info.
+  - na_ontap_info - new fact - subsys_health_info.
+  - na_ontap_info - new fact - sysconfig_info.
+  - na_ontap_info - new fact - sys_cluster_alerts.
+  - na_ontap_info - new fact - volume_move_target_aggr_info.
+  - na_ontap_info - new fact - volume_space_info.
+  - na_ontap_nvme_namespace - ``block_size`` option allows specifying size in bytes of a logical block.
+  - na_ontap_snapmirror - snapmirror now allows resume feature.
+  - na_ontap_volume - ``cutover_action`` option allows specifying the action to be taken for cutover.
+  - na_ontap_cluster_config - role - Port Flowcontrol and autonegotiate can be set in role
+
+bugfixes:
+  - REST API call now honors the ``http_port`` parameter.
+  - REST API detection now works with vserver (use_rest - Auto).
+  - na_ontap_autosupport_invoke - when using ZAPI and name is not given, send autosupport message to all nodes in the cluster.
+  - na_ontap_cg_snapshot - properly states it does not support check_mode.
+  - na_ontap_cluster - ONTAP 9.3 or earlier does not support ZAPI element single-node-cluster.
+  - na_ontap_cluster_ha - support check_mode.
+  - na_ontap_cluster_peer - support check_mode.
+  - na_ontap_cluster_peer - EMS log wrongly uses destination credentials with source hostname.
+  - na_ontap_disks - support check_mode.
+  - na_ontap_dns - support check_mode.
+  - na_ontap_efficiency_policy - change ``duration`` type from int to str to support '-' input.
+  - na_ontap_fcp - support check_mode.
+  - na_ontap_flexcache - support check_mode.
+  - na_ontap_info - `metrocluster_check_info` does not trigger a traceback but adds an "error" info element if the target system is not set up for metrocluster.
+  - na_ontap_license - support check_mode.
+  - na_ontap_login_messages - fix documentation link.
+  - na_ontap_node - support check mode.
+  - na_ontap_ntfs_sd - documentation string update for examples and made sure owner or group not mandatory.
+  - na_ontap_ports - now support check mode.
+  - na_ontap_restit - error can be a string in addition to a dict.  This fix removes a traceback with AttributeError.
+  - na_ontap_routes - support Check Mode correctly.
+  - na_ontap_snapmirror - support check_mode.
+  - na_ontap_software_update - Incorrectly stated that it support check mode, it does not.
+  - na_ontap_svm_options - support check_mode.
+  - na_ontap_volume - improve error reporting if required parameter is present but not set.
+  - na_ontap_volume - suppress traceback in wait_for_completion as volume may not be completely ready.
+  - na_ontap_volume - fix KeyError on 'style' when volume is offline.
+  - na_ontap_volume_autosize - Support check_mode when `reset` option is given.
+  - na_ontap_volume_snaplock - fix documentation link.
+  - na_ontap_vserver_peer - support check_mode.
+  - na_ontap_vserver_peer - EMS log wrongly uses destination credentials with source hostname.

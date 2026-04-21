@@ -1,0 +1,15 @@
+---
+- name: 'Create or Delete Lifecycle Environments'
+  theforeman.foreman.lifecycle_environment:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ item.organization | default(foreman_organization) }}"
+    name: "{{ item.name }}"
+    description: "{{ item.description | default(omit) }}"
+    prior: "{{ item.prior }}"
+    label: "{{ item.label | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+  with_items:
+    - "{{ foreman_lifecycle_environments }}"

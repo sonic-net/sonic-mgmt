@@ -1,0 +1,3 @@
+minor_changes:
+  - purefa_info - Add info for protection group snapshots
+  - purefa_info - Add info for protection group safe mode setting (Requires Purity//FA 6.3.0 or higher)

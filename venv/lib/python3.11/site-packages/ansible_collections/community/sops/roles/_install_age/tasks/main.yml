@@ -1,0 +1,64 @@
+---
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2022, Felix Fontein
+
+- name: Gather required information on localhost
+  when: sops_install_on_localhost
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - '!min'
+      - architecture
+      - distribution
+      - distribution_major_version
+      - distribution_version
+      - os_family
+  delegate_to: localhost
+  delegate_facts: true
+  run_once: true
+
+- vars:
+    _community_sops_install_age_facts: >-
+      {{ hostvars['localhost' if sops_install_on_localhost else inventory_hostname].ansible_facts }}
+  block:
+    - name: Show system information
+      ansible.builtin.debug:
+        msg: |-
+          Architecture: {{ _community_sops_install_age_facts.architecture }}
+          Distribution: {{ _community_sops_install_age_facts.distribution }} {{ _community_sops_install_age_facts.distribution_major_version }}
+          Distribution version: {{ _community_sops_install_age_facts.distribution_version }}
+          OS family: {{ _community_sops_install_age_facts.os_family }}
+
+    - name: Include distribution specific variables
+      ansible.builtin.include_vars: '{{ lookup("ansible.builtin.first_found", params) }}'
+      vars:
+        params:
+          files:
+            - >-
+              D-{{ _community_sops_install_age_facts.distribution }}-{{ _community_sops_install_age_facts.distribution_version }}.yml
+            - >-
+              D-{{ _community_sops_install_age_facts.distribution }}-{{ _community_sops_install_age_facts.distribution_major_version }}.yml
+            - >-
+              D-{{ _community_sops_install_age_facts.distribution }}.yml
+            - >-
+              OS-{{ _community_sops_install_age_facts.os_family }}-{{ _community_sops_install_age_facts.distribution_major_version }}.yml
+            - >-
+              OS-{{ _community_sops_install_age_facts.os_family }}.yml
+            - default.yml
+          paths:
+            - '{{ role_path }}/vars'
+
+    - name: Install system packages
+      ansible.builtin.package:
+        name: '{{ _community_sops_install_age_system_packages }}'
+      become: '{{ sops_become_on_install }}'
+      delegate_to: '{{ "localhost" if sops_install_on_localhost else omit }}'
+      run_once: '{{ sops_install_on_localhost }}'
+      when: _community_sops_install_age_system_packages | length > 0
+
+    - name: Set results
+      ansible.builtin.set_fact:
+        age_installed: "{{ _community_sops_install_age_has_age }}"
+      delegate_to: '{{ "localhost" if sops_install_on_localhost else omit }}'
+      delegate_facts: '{{ true if sops_install_on_localhost else omit }}'

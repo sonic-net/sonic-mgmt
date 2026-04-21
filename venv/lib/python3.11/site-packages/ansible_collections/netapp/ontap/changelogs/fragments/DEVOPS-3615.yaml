@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - all modules - fix traceback TypeError 'NoneType' object is not subscriptable when hostname points to a web server.

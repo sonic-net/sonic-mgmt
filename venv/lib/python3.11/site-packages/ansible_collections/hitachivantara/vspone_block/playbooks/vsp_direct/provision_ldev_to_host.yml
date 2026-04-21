@@ -1,0 +1,55 @@
+---
+####################################################################
+# Example : Provision ldev to host Playbook
+####################################################################
+- name: Provision ldev to host
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create ldev with direct connection
+    ####################################################################
+    - name: Create ldev with direct connection
+      hitachivantara.vspone_block.vsp.hv_ldev:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          pool_id: 15
+          size: "1GB"
+          name: "database_volume1"
+          capacity_saving: "compression_deduplication"
+          data_reduction_share: true
+      register: result_create_ldev
+
+    - name: Debug result_create_ldev
+      ansible.builtin.debug:
+        var: result_create_ldev
+
+    ####################################################################
+    # Task Name : Present ldev to host group with direct connection
+    ####################################################################
+    - name: Present ldev to host group with direct connection
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "present_ldev"
+          name: "hostgroup-server1"
+          port: "CL1-A"
+          ldevs: ["{{ result_create_ldev['volume']['ldev_id'] | int }}"]
+      register: result_present_ldev
+
+    - name: Debug result_present_ldev
+      ansible.builtin.debug:
+        var: result_present_ldev

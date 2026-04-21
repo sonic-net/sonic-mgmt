@@ -1,0 +1,40 @@
+dependency:
+  name: galaxy
+driver:
+  name: docker
+
+platforms:
+  - name: a.rdbansibleci.ravendb.run
+    hostname: a.rdbansibleci.ravendb.run
+    image: 'docker.io/geerlingguy/docker-ubuntu2204-ansible:latest'
+    privileged: true
+    command: /usr/sbin/init
+    volumes:
+      - '/sys/fs/cgroup:/sys/fs/cgroup:rw'
+    tmpfs:
+      - /run
+      - /tmp
+    cgroupns_mode: host
+    published_ports:
+      - "4443:4443/tcp"
+      - "38888:38888/tcp"
+    networks:
+      - name: ravendbnet
+        ipv4_address: 172.22.0.2
+
+provisioner:
+  name: ansible
+  log: true
+  inventory:
+    host_vars:
+      a.rdbansibleci.ravendb.run:
+        node_tag: "A"
+scenario:
+  name: secured
+  test_sequence:
+    - destroy
+    - create
+    - converge
+    - verify
+verifier:
+  name: ansible

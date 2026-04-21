@@ -1,0 +1,43 @@
+---
+- block:
+    - name: Create temp directory
+      tempfile:
+        state: directory
+      register: test_dir
+
+    - set_fact:
+        test_dir: "{{ test_dir.path }}"
+
+    - set_fact:
+        venv: "{{ test_dir }}/virtualenv"
+
+    - pip:
+        name:
+          - kubernetes
+        virtualenv: "{{ venv }}"
+        virtualenv_command: "{{ virtualenv_command }}"
+        virtualenv_site_packages: false
+
+    - name: Load test configurations
+      set_fact:
+        configs: "{{ lookup('template', 'rfc2307/sync-config.j2') | from_yaml }}"
+
+    - name: Synchronize Groups without python-ldap
+      community.okd.openshift_adm_groups_sync:
+        config: "{{ configs.simple }}"
+      register: result
+      ignore_errors: true
+      vars:
+        ansible_python_interpreter: "{{ venv }}/bin/python"
+
+    - name: Check that module failed gracefully
+      assert:
+        that:
+          - '"Failed to import the required Python library (python-ldap)" in result.msg'
+
+  always:
+    - name: Remove temp directory
+      file:
+        path: "{{ test_dir }}"
+        state: absent
+      ignore_errors: true

@@ -1,0 +1,21 @@
+DOCUMENTATION:
+  name: cp_label
+  author: Matthias Dellweg
+  version_added: '0.1.0'
+  short_description: Convert strings to Candlepin labels
+  description:
+    - Converts an arbitrary string to a valid Candlepin label
+  options:
+    _input:
+      description: String that should be converted
+      type: string
+      required: true
+
+EXAMPLES: |
+  organization_label: "{{ 'Default Organization' | cp_label }}"
+  # => 'Default_Organization'
+
+RETURN:
+  _value:
+    description: The converted Candlepin label
+    type: string

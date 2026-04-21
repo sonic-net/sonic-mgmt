@@ -1,0 +1,40 @@
+---
+- name: Uninstall package
+  register: powerflex_sdc_uninstall_output
+  environment:
+    I_AM_SURE: "{{ i_am_sure | int }}"
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: "absent"
+  with_items:
+    - EMC-ScaleIO-sdc
+  when: ansible_distribution in ("RedHat", "CentOS", "SLES", "Rocky")
+
+- name: Uninstall deb package
+  register: powerflex_sdc_uninstall_deb_output
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - emc-scaleio-sdc
+  when: ansible_distribution == "Ubuntu"
+
+- name: Include uninstall_esxi_sdc.yml to uninstall the esxi sdc
+  ansible.builtin.include_tasks: uninstall_esxi_sdc.yml
+  when: ansible_distribution == "VMkernel"
+
+- name: List the msi files
+  ansible.windows.win_find:
+    paths: "{{ powerflex_common_win_package_location }}"
+    patterns: "*{{ file_glob_name }}*.msi"
+  register: powerflex_sdc_msi_package_files
+  when: ansible_distribution == "WindowsOS"
+
+- name: Uninstall win package
+  register: powerflex_sdc_uninstall_win_output
+  ansible.windows.win_package:
+    path: "{{ item.path }}"
+    state: absent
+  with_items:
+    - "{{ powerflex_sdc_msi_package_files.files }}"
+  when: ansible_distribution == "WindowsOS"

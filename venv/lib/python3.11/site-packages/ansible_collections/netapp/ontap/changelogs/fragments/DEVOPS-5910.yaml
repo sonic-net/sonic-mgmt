@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_vserver_audit - fix invalid field value error of log retention count and duration.
+  - na_ontap_vserver_audit - Added ``log_path`` option in modify.

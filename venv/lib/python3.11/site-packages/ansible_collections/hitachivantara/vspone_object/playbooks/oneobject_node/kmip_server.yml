@@ -1,0 +1,82 @@
+---
+- name: KMIP Server module
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/oneobject_node_connection_variables.yml
+  vars:
+    connection_info:
+      http_request_timeout: "{{ http_request_timeout }}"
+      http_request_retry_times: "{{ http_request_retry_times }}"
+      http_request_retry_interval_seconds: "{{ http_request_retry_interval_seconds }}"
+      ssl: "{{ ssl }}"
+      cluster_name: "{{ cluster_name }}"
+      region: "{{ region }}"
+      oneobject_node_username: "{{ oneobject_node_username }}"
+      oneobject_node_userpass: "{{ oneobject_node_userpass }}"
+      oneobject_node_client_id: "{{ oneobject_node_client_id }}"
+
+  tasks:
+    ####################################################################
+    # Task 1 : Add KMIP server
+    ####################################################################
+    - name: Add KMIP server to VSP One Object
+      hitachivantara.vspone_object.oneobject_node.hv_kmip:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "sample_kmip_server"
+          host: "ip_address_or_FQDN"
+          port: 5696
+          is_tls12_enabled: true
+          kmip_protocol: "V1_3"
+          https_ciphers: "TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_RSA_WITH_AES_256_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,SSL_RSA_WITH_3DES_EDE_CBC_SHA,TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+      register: output_variable
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+    ####################################################################
+    # Task 2 : Update KMIP server
+    ####################################################################
+    - name: Update KMIP server to VSP One Object
+      hitachivantara.vspone_object.oneobject_node.hv_kmip:
+        connection_info: "{{ connection_info }}"
+        state: "modify"
+        spec:
+          name: "sample_kmip_server_updated"
+          host: "ip_address_or_FQDN"
+          port: 5696
+          is_tls12_enabled: true
+          kmip_protocol: "V1_3"
+          https_ciphers: "TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_RSA_WITH_AES_256_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,SSL_RSA_WITH_3DES_EDE_CBC_SHA,TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+          uuid: "f2e39602-d960-4812-8c89-3b31212dfdca"
+      register: output_variable
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+    ####################################################################
+    # Task 3 : Promote KMIP server
+    ####################################################################
+    - name: Promote KMIP server to VSP One Object
+      hitachivantara.vspone_object.oneobject_node.hv_kmip:
+        connection_info: "{{ connection_info }}"
+        state: "promote"
+        spec:
+          name: "sample_kmip_server_updated"
+      register: output_variable
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+    ####################################################################
+    # Task 4 : Delete KMIP server
+    ####################################################################
+    - name: Delete KMIP server to VSP One Object
+      hitachivantara.vspone_object.oneobject_node.hv_kmip:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: "sample_kmip_server_updated"
+      register: output_variable
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable

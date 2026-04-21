@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_ldap_client - fix duplicate entry error when used cluster vserver in REST.
+  - na_ontap_ldap_client - fix KeyError on ``name`` in ZAPI.

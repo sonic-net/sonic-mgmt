@@ -1,0 +1,20 @@
+---
+- name: Setup repositories using Subscription Manager
+  hosts: localhost
+
+  vars_files:
+    # Contains encrypted `ovirt_repositories_rh_username`
+    # and `ovirt_repositories_rh_password` variables using ansible-vault
+    - passwords.yml
+
+  vars:
+    ovirt_repositories_use_subscription_manager: "True"
+    ovirt_repositories_rh_username: "{{ovirt_repositories_rh_username}}"
+    ovirt_repositories_rh_password: "{{ovirt_repositories_rh_password}}"
+    # The following pool IDs are not valid and should be replaced.
+    ovirt_repositories_pool_ids:
+      - 0123456789abcdef0123456789abcdef
+      - 1123456789abcdef0123456789abcdef
+
+  roles:
+    - ovirt.ovirt.repositories

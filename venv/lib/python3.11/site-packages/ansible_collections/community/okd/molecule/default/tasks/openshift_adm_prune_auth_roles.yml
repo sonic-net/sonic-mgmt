@@ -1,0 +1,335 @@
+---
+- block:
+    - set_fact:
+        test_ns: "prune-roles"
+        sa_name: "roles-sa"
+        pod_name: "pod-prune"
+        tn_name: "roles-sa-token"
+        role_definition:
+          - name: pod-list
+            labels:
+              action: list
+            verbs:
+              - list
+            role_binding:
+              api_version: rbac.authorization.k8s.io/v1
+          - name: pod-create
+            labels:
+              action: create
+            verbs:
+              - create
+              - get
+            role_binding:
+              api_version: authorization.openshift.io/v1
+          - name: pod-delete
+            labels:
+              action: delete
+            verbs:
+              - delete
+            role_binding:
+              api_version: rbac.authorization.k8s.io/v1
+
+    - name: Ensure namespace
+      kubernetes.core.k8s:
+        kind: Namespace
+        name: '{{ test_ns }}'
+
+    - name: Get cluster information
+      kubernetes.core.k8s_cluster_info:
+      register: cluster_info
+      no_log: true
+
+    - set_fact:
+        cluster_host: "{{ cluster_info['connection']['host'] }}"
+
+    - name: Create Service account
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: '{{ sa_name }}'
+            namespace: '{{ test_ns }}'
+
+    - name: Create SA secret
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ tn_name }}"
+            namespace: "{{ test_ns }}"
+            annotations:
+              kubernetes.io/service-account.name: "{{ sa_name }}"
+          type: kubernetes.io/service-account-token
+
+    - name: Get secret details
+      kubernetes.core.k8s_info:
+        kind: Secret
+        namespace: '{{ test_ns }}'
+        name: '{{ tn_name }}'
+      register: r_secret
+
+    - set_fact:
+        api_token: "{{ r_secret.resources[0]['data']['token'] | b64decode }}"
+
+    - name: list resources using service account
+      kubernetes.core.k8s_info:
+        api_key: '{{ api_token }}'
+        host: '{{ cluster_host }}'
+        validate_certs: no
+        kind: Pod
+        namespace: '{{ test_ns }}'
+      register: error
+      ignore_errors: true
+
+    - assert:
+        that:
+          - '"pods is forbidden: User" in error.msg'
+
+    - name: Create a role to manage Pod from namespace "{{ test_ns }}"
+      kubernetes.core.k8s:
+        definition:
+          kind: Role
+          apiVersion: rbac.authorization.k8s.io/v1
+          metadata:
+            namespace: "{{ test_ns }}"
+            name: "{{ item.name }}"
+            labels: "{{ item.labels }}"
+          rules:
+            - apiGroups: [""]
+              resources: ["pods"]
+              verbs: "{{ item.verbs }}"
+      with_items: "{{ role_definition }}"
+
+    - name: Create Role Binding
+      kubernetes.core.k8s:
+        definition:
+          kind: RoleBinding
+          apiVersion: "{{ item.role_binding.api_version }}"
+          metadata:
+            name: "{{ item.name }}-bind"
+            namespace: "{{ test_ns }}"
+          subjects:
+            - kind: ServiceAccount
+              name: "{{ sa_name }}"
+              namespace: "{{ test_ns }}"
+              apiGroup: ""
+          roleRef:
+            kind: Role
+            name: "{{ item.name }}"
+            namespace: "{{ test_ns }}"
+            apiGroup: ""
+      with_items: "{{ role_definition }}"
+
+    - name: Create Pod should succeed
+      kubernetes.core.k8s:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        namespace: "{{ test_ns }}"
+        definition:
+          kind: Pod
+          metadata:
+            name: "{{ pod_name }}"
+          spec:
+            containers:
+              - name: python
+                image: python:3.7-alpine
+                command:
+                  - /bin/sh
+                  - -c
+                  - while true; do echo $(date); sleep 15; done
+                imagePullPolicy: IfNotPresent
+      register: result
+
+    - name: assert pod creation succeed
+      assert:
+        that:
+          - result is successful
+
+    - name: List Pod
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        namespace: "{{ test_ns }}"
+        kind: Pod
+      register: result
+
+    - name: assert user is still authorize to list pods
+      assert:
+        that:
+          - result is successful
+
+    - name: Prune auth roles (check mode)
+      community.okd.openshift_adm_prune_auth:
+        resource: roles
+        namespace: "{{ test_ns }}"
+      register: check
+      check_mode: true
+
+    - name: validate that list role binding are candidates for prune
+      assert:
+        that: 'test_ns+"/"+item["name"]+"-bind" in check.role_binding'
+      with_items: "{{ role_definition }}"
+
+    - name: Prune resource using label_selectors option
+      community.okd.openshift_adm_prune_auth:
+        resource: roles
+        namespace: "{{ test_ns }}"
+        label_selectors:
+          - action=delete
+      register: prune
+
+    - name: assert that role binding 'delete' was pruned
+      assert:
+        that:
+          - prune is changed
+          - 'test_ns+"/"+role_definition[2]["name"]+"-bind" in check.role_binding'
+
+    - name: assert that user could not delete pod anymore
+      kubernetes.core.k8s:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        state: absent
+        namespace: "{{ test_ns }}"
+        kind: Pod
+        name: "{{ pod_name }}"
+      register: result
+      ignore_errors: true
+
+    - name: assert pod deletion failed due to forbidden user
+      assert:
+        that:
+          - '"forbidden: User" in error.msg'
+
+    - name: List Pod
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        namespace: "{{ test_ns }}"
+        kind: Pod
+      register: result
+
+    - name: assert user is still able to list pods
+      assert:
+        that:
+          - result is successful
+
+    - name: Create Pod should succeed
+      kubernetes.core.k8s:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        namespace: "{{ test_ns }}"
+        definition:
+          kind: Pod
+          metadata:
+            name: "{{ pod_name }}-1"
+          spec:
+            containers:
+              - name: python
+                image: python:3.7-alpine
+                command:
+                  - /bin/sh
+                  - -c
+                  - while true; do echo $(date); sleep 15; done
+                imagePullPolicy: IfNotPresent
+      register: result
+
+    - name: assert user is still authorize to create pod
+      assert:
+        that:
+          - result is successful
+
+    - name: Prune role using name
+      community.okd.openshift_adm_prune_auth:
+        resource: roles
+        namespace: "{{ test_ns }}"
+        name: "{{ role_definition[1].name }}"
+      register: prune
+
+    - name: assert that role binding 'create' was pruned
+      assert:
+        that:
+          - prune is changed
+          - 'test_ns+"/"+role_definition[1]["name"]+"-bind" in check.role_binding'
+
+    - name: Create Pod (should failed)
+      kubernetes.core.k8s:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        namespace: "{{ test_ns }}"
+        definition:
+          kind: Pod
+          metadata:
+            name: "{{ pod_name }}-2"
+          spec:
+            containers:
+              - name: python
+                image: python:3.7-alpine
+                command:
+                  - /bin/sh
+                  - -c
+                  - while true; do echo $(date); sleep 15; done
+                imagePullPolicy: IfNotPresent
+      register: result
+      ignore_errors: true
+
+    - name: assert user is not authorize to create pod anymore
+      assert:
+        that:
+          - '"forbidden: User" in error.msg'
+
+    - name: List Pod
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        namespace: "{{ test_ns }}"
+        kind: Pod
+      register: result
+
+    - name: assert user is still able to list pods
+      assert:
+        that:
+          - result is successful
+
+    - name: Prune all role for namespace (neither name nor label_selectors are specified)
+      community.okd.openshift_adm_prune_auth:
+        resource: roles
+        namespace: "{{ test_ns }}"
+      register: prune
+
+    - name: assert that role binding 'list' was pruned
+      assert:
+        that:
+          - prune is changed
+          - 'test_ns+"/"+role_definition[0]["name"]+"-bind" in check.role_binding'
+
+    - name: List Pod
+      kubernetes.core.k8s_info:
+        api_key: "{{ api_token }}"
+        host: "{{ cluster_host }}"
+        validate_certs: no
+        namespace: "{{ test_ns }}"
+        kind: Pod
+      register: result
+      ignore_errors: true
+
+    - name: assert user is not authorize to list pod anymore
+      assert:
+        that:
+          - '"forbidden: User" in error.msg'
+
+  always:
+    - name: Ensure namespace is deleted
+      kubernetes.core.k8s:
+        state: absent
+        kind: Namespace
+        name: "{{ test_ns }}"
+      ignore_errors: true

@@ -1,0 +1,3 @@
+release_summary: |
+   | FlashArray Collection v1.18 removes module-side support for Python 2.7.
+   | The minimum required Python version for the FlashArray Collection is Python 3.6.

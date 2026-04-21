@@ -1,0 +1,64 @@
+---
+- name: Search VLAN devices
+  ansible.builtin.set_fact:
+    is_vlan: "{{ nic_if.stdout == 'vlan' }}"
+  when: nic_if.stdout.find('vlan') != -1
+  with_items:
+    - "{{ interface_types.results }}"
+  loop_control:
+    loop_var: nic_if
+  register: vlan_list
+- name: Check for base interface of VLAN devices
+  ansible.builtin.command: nmcli -g VLAN.PARENT device show {{ vlan_device.nic_if.nic }}
+  when: vlan_device.ansible_facts is defined and vlan_device.ansible_facts.is_vlan
+  with_items:
+    - "{{ vlan_list.results | reject('skipped') | list }}"
+  loop_control:
+    loop_var: vlan_device
+  register: vlan_base_interfaces
+- name: Get base interface types of VLAN devices
+  ansible.builtin.command: nmcli -g GENERAL.TYPE device show {{ vlan_base_interface.stdout }}
+  when: vlan_base_interface.skipped is undefined and vlan_base_interface.stdout is defined
+  with_items:
+    - "{{ vlan_base_interfaces.results }}"
+  loop_control:
+    loop_var: vlan_base_interface
+  register: vlan_base_types
+- name: Check for bond as base type of VLAN device
+  ansible.builtin.set_fact:
+    bond_parent: "{{ vlan_base_type.vlan_base_interface.stdout }}"
+  when: vlan_base_type.skipped is undefined and vlan_base_type.stdout is defined and vlan_base_type.stdout == "bond"
+  with_items:
+    - "{{ vlan_base_types.results | reject('skipped') | list }}"
+  loop_control:
+    loop_var: vlan_base_type
+  register: vlan_bond_list
+- name: Check if bond base interface of VLAN device is in supported mode
+  ansible.builtin.set_fact:
+    bond_parent_mode: "{{ hostvars[inventory_hostname]['ansible_' + vlan_bond_device.ansible_facts.bond_parent]['mode'] }}"
+    vlan_bond_valid_if: "{{ vlan_bond_device.vlan_base_type.vlan_base_interface.vlan_device.nic_if.nic }}"
+    is_valid_bond_mode: "{{ hostvars[inventory_hostname]['ansible_' + vlan_bond_device.ansible_facts.bond_parent]['mode'] in acceptable_bond_modes }}"
+  with_items: "{{ vlan_bond_list.results | reject('skipped') | list }}"
+  loop_control:
+    loop_var: vlan_bond_device
+  register: vlan_bond_valid_mode_list
+- name: Collect VLAN devices with bad bond mode base interfaces
+  ansible.builtin.set_fact:
+    bbm_vlan: "{{ vlan_bond_item.ansible_facts.vlan_bond_valid_if }}"
+  when: not vlan_bond_item.ansible_facts.is_valid_bond_mode
+  with_items:
+    - "{{ vlan_bond_valid_mode_list.results }}"
+  loop_control:
+    loop_var: vlan_bond_item
+  register: bbm_vlan_list
+- name: Generate invalid VLANs list
+  ansible.builtin.set_fact:
+    bad_vlan_bond_list: "{{ bbm_vlan_list.results | reject('skipped') | map(attribute='vlan_bond_item.ansible_facts.vlan_bond_valid_if') | list }}"
+- name: Create list of unsupported network devices
+  ansible.builtin.set_fact:
+    invalid_net_if: "{{ bad_vlan_bond_list + team_if }}"
+- ansible.builtin.import_tasks: validate_vlan_name.yml
+- ansible.builtin.import_tasks: validate_vlan_bond_mode.yml
+- name: Generate list of all unsupported VLAN devices
+  ansible.builtin.set_fact:
+    invalid_vlan_if: "{{ bad_vlan_bond_list + bad_vlan_names_list }}"

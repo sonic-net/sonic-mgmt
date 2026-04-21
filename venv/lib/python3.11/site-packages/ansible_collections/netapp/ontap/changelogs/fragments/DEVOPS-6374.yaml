@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_kerberos_realm - add REST support for `admin_server_ip`, `admin_server_port`, `pw_server_ip`,
+    `pw_server_port` and `clock_skew` from ONTAP 9.13.1 or later

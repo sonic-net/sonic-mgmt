@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_cifs - fix for AttributeError - 'NoneType' object has no attribute 'get' on line 300

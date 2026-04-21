@@ -1,0 +1,94 @@
+---
+####################################################################
+# Example : SDSB Snapshot facts Playbook
+####################################################################
+- name: SDSB Snapshot facts Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    #########################################################################
+    # Task Name : Get Snapshots using master volume name
+    #########################################################################
+    - name: Get Snapshots using master volume name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          master_volume_name: "volume_name"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Get Snapshots using snapshot volume name
+    #########################################################################
+    - name: Get Snapshots using snapshot volume name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          snapshot_volume_name: "snapshot_volume_name"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Get Snapshots using master volume id
+    #########################################################################
+    - name: Get Snapshots using master volume id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          master_volume_id: "volume_id"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Get Snapshots using snapshot volume id
+    #########################################################################
+    - name: Get Snapshots using snapshot volume id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          snapshot_volume_id: "snapshot_volume_id"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Get Snapshots using master volume name in a VPS
+    #########################################################################
+    - name: Get Snapshots using master volume name in a VPS
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snapshot_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          master_volume_name: "test-vps02-volume1"
+          vps_name: "RKD_VPS_02"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

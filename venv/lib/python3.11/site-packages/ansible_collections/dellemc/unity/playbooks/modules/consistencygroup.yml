@@ -1,0 +1,259 @@
+---
+- name: Consistency Group Operations
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '***'
+    cg_name: 'Ansible_CG_Testing'
+    new_cg_name: 'Ansible_CG_Rename_Testing'
+    description: "Ansible demo"
+    snap_schedule1: "Ansible_Test"
+    snap_schedule2: "CG_test_schedule"
+    tiering_policy1: "LOWEST"
+    state_present: "present"
+    state_absent: "absent"
+    vol_state_present: "present-in-group"
+    vol_state_absent: "absent-in-group"
+    mapping_state_present: "mapped"
+    mapping_state_absent: "unmapped"
+
+  tasks:
+    - name: Create consistency group with volume and host access
+      register: result_cg
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        validate_certs: "{{ validate_certs }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        cg_name: "{{ cg_name }}"
+        description: "{{ description }}"
+        snap_schedule: "{{ snap_schedule1 }}"
+        volumes:
+          - vol_name: "Test_cg_vol-1"
+        vol_state: "{{ vol_state_present }}"
+        hosts:
+          - host_name: "10.*.*.*"
+          - host_id: "Host_511"
+        mapping_state: "{{ mapping_state_present }}"
+        state: "{{ state_present }}"
+
+    - name: Set cg_id
+      ansible.builtin.set_fact:
+        cg_id: "{{ result_cg.consistency_group_details.id }}"
+
+    - name: Get details of consistency group using id
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }} "
+        cg_id: "{{ cg_id }}"
+        state: "{{ state_present }}"
+
+    - name: Add volumes to consistency group
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_id: "{{ cg_id }}"
+        volumes:
+          - vol_name: "Test_cg_vol-2"
+          - vol_id: "sv_8984"
+        vol_state: "{{ vol_state_present }}"
+        state: "{{ state_present }}"
+
+    - name: Add volumes to consistency group - Idempotency
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_id: "{{ cg_id }}"
+        volumes:
+          - vol_name: "Test_cg_vol-2"
+          - vol_id: "sv_8984"
+        vol_state: "{{ vol_state_present }}"
+        state: "{{ state_present }}"
+
+    - name: Rename consistency group
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ cg_name }}"
+        new_cg_name: "{{ new_cg_name }}"
+        state: "{{ state_present }}"
+
+    - name: Rename consistency group - Idempotency
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        new_cg_name: "{{ new_cg_name }}"
+        state: "{{ state_present }}"
+
+    - name: Modify consistency group details
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        snap_schedule: "{{ snap_schedule2 }}"
+        tiering_policy: "{{ tiering_policy1 }}"
+        state: "{{ state_present }}"
+
+    - name: Modify consistency group details - Idempotency
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        snap_schedule: "{{ snap_schedule2 }}"
+        tiering_policy: "{{ tiering_policy1 }}"
+        state: "{{ state_present }}"
+
+    - name: Map host to consistency group
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        hosts:
+          - host_name: "10.*.*.*"
+        mapping_state: "{{ mapping_state_present }}"
+        state: "{{ state_present }}"
+
+    - name: Map host to consistency group -- Idempotency
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        hosts:
+          - host_name: "10.*.*.*"
+        mapping_state: "{{ mapping_state_present }}"
+        state: "{{ state_present }}"
+
+    - name: Unmap host to consistency group
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        hosts:
+          - host_name: "10.*.*.*"
+          - host_id: "Host_511"
+        mapping_state: "{{ mapping_state_absent }}"
+        state: "{{ state_present }}"
+
+    - name: Unmap host to consistency group -- Idempotency
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        hosts:
+          - host_name: "10.*.*.*"
+          - host_id: "Host_511"
+        mapping_state: "{{ mapping_state_absent }}"
+        state: "{{ state_present }}"
+
+    - name: Remove volumes from consistency group
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        volumes:
+          - vol_name: "Test_cg_vol-1"
+          - vol_name: "Test_cg_vol-2"
+          - vol_id: "sv_8984"
+        vol_state: "{{ vol_state_absent }}"
+        state: "{{ state_present }}"
+
+    - name: Remove volumes from consistency group - Idempotency
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        volumes:
+          - vol_name: "Test_cg_vol-1"
+          - vol_name: "Test_cg_vol-2"
+          - vol_id: "sv_8984"
+        vol_state: "{{ vol_state_absent }}"
+        state: "{{ state_present }}"
+
+    - name: Delete consistency group
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        state: "{{ state_absent }}"
+
+    - name: Delete consistency group Idempotency
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "{{ new_cg_name }}"
+        state: "{{ state_absent }}"
+
+    - name: Enable replication for consistency group
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "dis_repl_ans_source"
+        replication_params:
+          destination_cg_name: "destination_dis_repl_ans_source"
+          replication_mode: "asynchronous"
+          rpo: 60
+          replication_type: "remote"
+          remote_system:
+            remote_system_host: '10.*.*.*'
+            remote_system_verifycert: false
+            remote_system_username: 'user'
+            remote_system_password: '**'
+          destination_pool_name: "Extreme_Perf_tier"
+        replication_state: "enable"
+        state: "present"
+
+    - name: Disable replication for consistency group
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "dis_repl_ans_source"
+        replication_state: "disable"
+        state: "present"
+
+    - name: Disable replication for consistency group Idempotency
+      consistencygroup:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cg_name: "dis_repl_ans_source"
+        replication_state: "disable"
+        state: "present"

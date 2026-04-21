@@ -1,0 +1,2 @@
+deprecated_features:
+  - purefa_volume_tags - Deprecated due to removal of REST 1.x support. Will be removed in Collection 2.0.0

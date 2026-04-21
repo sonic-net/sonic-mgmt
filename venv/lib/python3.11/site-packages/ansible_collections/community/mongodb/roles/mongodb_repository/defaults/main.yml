@@ -1,0 +1,15 @@
+---
+mongodb_version: "7.0"
+debian_packages:
+  - apt-transport-https
+  - curl
+  - gnupg
+debian:
+  apt_key_url: "https://pgp.mongodb.com/server-{{ mongodb_version }}.asc"
+  apt_repository_repo: "deb{{ ' [ arch=amd64,arm64 ]' if ansible_facts.distribution == 'Ubuntu' else '' }} https://repo.mongodb.org/apt/{{ ansible_facts.distribution|lower }} {{ ansible_facts.distribution_release }}/mongodb-org/{{ mongodb_version }} {{ 'multiverse' if ansible_facts.distribution == 'Ubuntu' else 'main' }}"
+redhat:
+  rpm_key_key: "https://www.mongodb.org/static/pgp/server-{{ mongodb_version }}.asc"
+  yum_baseurl: "https://repo.mongodb.org/yum/{{ 'amazon' if ansible_distribution == 'Amazon' else 'redhat'  }}/{{ ansible_facts.distribution_major_version }}/mongodb-org/{{ mongodb_version }}/x86_64/"
+  yum_gpgkey: "https://www.mongodb.org/static/pgp/server-{{ mongodb_version }}.asc"
+  yum_gpgcheck: true
+  yum_description: "Official MongoDB {{ mongodb_version }} yum repo"

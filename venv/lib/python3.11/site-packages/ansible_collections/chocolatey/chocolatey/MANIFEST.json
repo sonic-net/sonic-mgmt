@@ -1,0 +1,41 @@
+{
+ "collection_info": {
+  "namespace": "chocolatey",
+  "name": "chocolatey",
+  "version": "1.5.3",
+  "authors": [
+   "Rain Sallow (@vexx32)",
+   "Josh King (@windos)",
+   "Adil Leghari (@adilio)",
+   "Trond Hindenes (@trondhindenes)",
+   "Peter Mounce (@petemounce)",
+   "Pepe Barbe (@elventear)",
+   "Adam Keech (@smadam813)",
+   "Pierre Templier (@ptemplier)",
+   "Jordan Borean (@jborean93)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "chocolatey",
+   "windows",
+   "packaging",
+   "package_management"
+  ],
+  "description": "Manage packages using Chocolatey.",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {},
+  "repository": "https://github.com/chocolatey/chocolatey-ansible",
+  "documentation": "https://github.com/chocolatey/chocolatey-ansible",
+  "homepage": "https://github.com/chocolatey/chocolatey-ansible",
+  "issues": "https://github.com/chocolatey/chocolatey-ansible/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "9bca7da8ebb59f7d481ddd92647db15aed2d6398869ef7d0da4a4d2a825687fc",
+  "format": 1
+ },
+ "format": 1
+}

@@ -1,0 +1,280 @@
+ancestor: null
+releases:
+  1.0.0:
+    modules:
+    - description: Manages firewall rules on Vultr.
+      name: firewall_rule
+      namespace: ''
+    - description: Gather information about the Vultr firewall rules available.
+      name: firewall_rule_info
+      namespace: ''
+    - description: Manages VPCs on Vultr.
+      name: vpc
+      namespace: ''
+    - description: Gather information about the Vultr vpcs available.
+      name: vpc_info
+      namespace: ''
+    release_date: '2022-05-26'
+  1.0.0-rc.1:
+    modules:
+    - description: Get information about the Vultr account.
+      name: account_info
+      namespace: ''
+    - description: Manages block storage volumes on Vultr.
+      name: block_storage
+      namespace: ''
+    - description: Get information about the Vultr block storage available.
+      name: block_storage_info
+      namespace: ''
+    - description: Manages DNS domains on Vultr.
+      name: dns_domain
+      namespace: ''
+    - description: Gather information about the Vultr DNS domains available.
+      name: dns_domain_info
+      namespace: ''
+    - description: Manages DNS records on Vultr.
+      name: dns_record
+      namespace: ''
+    - description: Manages firewall groups on Vultr.
+      name: firewall_group
+      namespace: ''
+    - description: Gather information about the Vultr firewall groups available.
+      name: firewall_group_info
+      namespace: ''
+    - description: Manages networks on Vultr.
+      name: network
+      namespace: ''
+    - description: Gather information about the Vultr networks available.
+      name: network_info
+      namespace: ''
+    - description: Get information about the Vultr OSes available.
+      name: os_info
+      namespace: ''
+    - description: Gather information about the Vultr plans available.
+      name: plan_info
+      namespace: ''
+    - description: Gather information about the Vultr bare metal plans available.
+      name: plan_metal_info
+      namespace: ''
+    - description: Gather information about the Vultr regions available.
+      name: region_info
+      namespace: ''
+    - description: Manages reserved IPs on Vultr.
+      name: reserved_ip
+      namespace: ''
+    - description: Manages ssh keys on Vultr.
+      name: ssh_key
+      namespace: ''
+    - description: Get information about the Vultr SSH keys available.
+      name: ssh_key_info
+      namespace: ''
+    - description: Manages startup scripts on Vultr.
+      name: startup_script
+      namespace: ''
+    - description: Gather information about the Vultr startup scripts available.
+      name: startup_script_info
+      namespace: ''
+    - description: Manages users on Vultr.
+      name: user
+      namespace: ''
+    - description: Get information about the Vultr user available.
+      name: user_info
+      namespace: ''
+    release_date: '2022-04-22'
+  1.0.1:
+    changes:
+      minor_changes:
+      - Improved documentation and removed unused code.
+    fragments:
+    - summary.yaml
+    release_date: '2022-09-05'
+  1.1.0:
+    changes:
+      minor_changes:
+      - block_storage - the default value for parameter ``live`` while attaching a
+        volume changed to a more sensible default ``false``.
+    fragments:
+    - block_storage-live.yml
+    modules:
+    - description: Manages server instances on Vultr.
+      name: instance
+      namespace: ''
+    release_date: '2022-09-09'
+  1.10.0:
+    changes:
+      minor_changes:
+      - inventory - Added VPC/VPC 2.0 support by adding ``internal_ip`` to the attributes
+        (https://github.com/vultr/ansible-collection-vultr/issues/86).
+    fragments:
+    - 86-inventory-internal_ip.yml
+    release_date: '2023-09-18'
+  1.10.1:
+    changes:
+      bugfixes:
+      - instance - Fixed an issue detecting the instance state returned by the API
+        (https://github.com/vultr/ansible-collection-vultr/pull/89).
+    fragments:
+    - fix-instance-state-wait-for.yml
+    release_date: '2023-11-11'
+  1.11.0:
+    changes:
+      bugfixes:
+      - reserved_ip - Fixed an issue which caused the module to fail, also enabled
+        integration tests (https://github.com/vultr/ansible-collection-vultr/issues/92).
+      minor_changes:
+      - Implemented a feature to distinguish resources by region if available. This
+        allows to have identical name per region e.g. a VPC named ``default`` in each
+        region. (https://github.com/vultr/ansible-collection-vultr/pull/98).
+      - instance - Added a new param ``user_scheme`` to change user scheme to non-root
+        on Linux while creating the instance (https://github.com/vultr/ansible-collection-vultr/issues/96).
+    fragments:
+    - distinguish-per-region.yml
+    - instance-user-scheme.yml
+    - reserved_ip-fix-broken-module.yml
+    release_date: '2023-12-05'
+  1.12.0:
+    changes:
+      bugfixes:
+      - Fixed an issue with waiting for state (https://github.com/vultr/ansible-collection-vultr/pull/102).
+      minor_changes:
+      - Added retry on HTTP 504 returned by the API (https://github.com/vultr/ansible-collection-vultr/pull/104).
+    fragments:
+    - 102-state-detect.yml
+    - 104- retry-on-gateway-timeout.yml
+    modules:
+    - description: Manages object storages on Vultr
+      name: object_storage
+      namespace: ''
+    release_date: '2023-12-18'
+  1.12.1:
+    changes:
+      bugfixes:
+      - Fixed an error while waiting for a specific state and the API returns an empty
+        response. (https://github.com/vultr/ansible-collection-vultr/issues/108).
+      - instance_info - Fixed the alias ``name`` being was used on the wrong argument.
+        (https://github.com/vultr/ansible-collection-vultr/issues/105).
+    fragments:
+    - fix-keyerror-wait-for-state.yml
+    - instance_info_fix-alias-for-label.yml
+    release_date: '2024-01-17'
+  1.13.0:
+    changes:
+      minor_changes:
+      - instance, bare_metal - Implemented a new option ``skip_wait`` (https://github.com/vultr/ansible-collection-vultr/issues/119).
+    fragments:
+    - instance-skip_wait.yml
+    release_date: '2024-05-31'
+  1.2.0:
+    changes:
+      minor_changes:
+      - block_storage - Added the parameter ``block_type`` to configure block types,
+        default value is ``high_perf``.
+      - dns_record - Removed the default value ``0`` for the optional parameter ``priority``.
+    fragments:
+    - block_type_block_storage.yml
+    - dns_record_prio.yml
+    release_date: '2022-10-14'
+  1.3.0:
+    changes:
+      bugfixes:
+      - instance - Fixed the handling for activating/deactivating backups.
+    fragments:
+    - instance-feature-handling.yml
+    release_date: '2022-10-28'
+  1.3.1:
+    changes:
+      bugfixes:
+      - instance - Fixed an issue with ssh keys being ignored when deploying an new
+        instance.
+    fragments:
+    - instance-ssh-key.yml
+    release_date: '2022-11-14'
+  1.4.0:
+    plugins:
+      inventory:
+      - description: Retrieves list of instances via Vultr v2 API
+        name: vultr
+        namespace: null
+    release_date: '2022-12-08'
+  1.5.0:
+    changes:
+      minor_changes:
+      - instance - Implemented VPC support to attach/detach VPCs (https://github.com/vultr/ansible-collection-vultr/pull/46).
+    fragments:
+    - instance-vpcs.yml
+    modules:
+    - description: Get information about the Vultr instances
+      name: instance_info
+      namespace: ''
+    release_date: '2022-12-16'
+  1.5.1:
+    changes:
+      bugfixes:
+      - instance - An error that caused the start script not to be processed has been
+        fixed. (https://github.com/vultr/ansible-collection-vultr/issues/49)
+      - instance_info - The problem that the module was missing in the runtime action
+        group has been fixed.
+    fragments:
+    - instance-script-id.yml
+    - instance_info-runtime.yml
+    release_date: '2022-12-30'
+  1.6.0:
+    changes:
+      minor_changes:
+      - inventory - Added IPv6 support by adding ``v6_main_ip`` to the attributes
+        and improved docs (https://github.com/vultr/ansible-collection-vultr/pull/54).
+    fragments:
+    - inventory-ipv6.yml
+    release_date: '2023-01-15'
+  1.7.0:
+    changes:
+      minor_changes:
+      - instance - Added argument ``snapshot`` to support creation of instances via
+        snapshot (https://github.com/vultr/ansible-collection-vultr/pull/56).
+    fragments:
+    - 56-instance_snapshot.yml
+    modules:
+    - description: Manages snapshots on Vultr
+      name: snapshot
+      namespace: ''
+    - description: Gather information about the Vultr snapshots
+      name: snapshot_info
+      namespace: ''
+    release_date: '2023-01-22'
+  1.7.1:
+    changes:
+      bugfixes:
+      - instance - Fixed an issue when deleting an instance in locked state. (https://github.com/vultr/ansible-collection-vultr/pull/68)
+      - inventory - Fixed the issue instance tags were not returned (https://github.com/vultr/ansible-collection-vultr/issues/69)
+    fragments:
+    - 68-instance-locked-absent.yml
+    - 70-inventory-fix-tags-not-returned.yml
+    release_date: '2023-05-03'
+  1.8.0:
+    changes:
+      minor_changes:
+      - instance - Implemented a new ``state`` equal ``reinstalled`` to reinstall
+        an existing instance (https://github.com/vultr/ansible-collection-vultr/pull/66).
+      - inventory - Bare metal support has been implemented (https://github.com/vultr/ansible-collection-vultr/pull/63).
+    fragments:
+    - 63-inventory-bare-metal.yml
+    - instance-reinstall.yml
+    release_date: '2023-05-21'
+  1.9.0:
+    changes:
+      bugfixes:
+      - firewall_rule - Fixed an idempotency issue if parameter ``port`` is set on
+        protocols other than TCP/UDP (https://github.com/vultr/ansible-collection-vultr/issues/76).
+    fragments:
+    - firewall_rule-fix-idempotency-icmp.yml
+    modules:
+    - description: Manages bare metal machines on Vultr.
+      name: bare_metal
+      namespace: ''
+    - description: Manages VPCs 2.0 on Vultr
+      name: vpc2
+      namespace: ''
+    - description: Gather information about the Vultr VPCs 2.0
+      name: vpc2_info
+      namespace: ''
+    release_date: '2023-08-22'

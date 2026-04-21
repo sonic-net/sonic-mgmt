@@ -1,0 +1,54 @@
+---
+- name: Remove storage domain process main block
+  ignore_errors: "{{ dr_ignore_error_clean }}"
+  tags:
+    - fail_back
+    - clean_engine
+  block:
+    # TODO: Check what happens when we force remove unattached storage domain (probably should add a default empty GUID as a data center
+    # Answer: When we force remove an unattached storage domain, ansible tries to move it to maintenance and detach it first,
+    # although it might be that this storage domain is already detached and has no related data center, therefor the move to maintenance will fail
+
+    # We set an initial value for sp_uuid since this task is being called
+    # multiple times from the main task and sp_uuid is stateful.
+    - name: Set default boolean value for sp_uuid
+      ansible.builtin.set_fact:
+
+        sp_uuid: "True"
+    - name: Detached storage domain - Set sp_uuid with empty GUID
+      ansible.builtin.set_fact:
+        sp_uuid: "00000000-0000-0000-0000-000000000000"
+      when: sd.data_centers is not defined
+
+    - name: Detached storage domain - Fetch active host for remove
+      ovirt.ovirt.ovirt_host_info:
+        pattern: "status=up"
+        auth: "{{ ovirt_auth }}"
+      register: host_info
+      when: sd.data_centers is not defined
+
+    - name: Attached storage domain - Fetch active host for remove
+      ovirt.ovirt.ovirt_host_info:
+        pattern: "status=up and storage={{ sd.name }}"
+        auth: "{{ ovirt_auth }}"
+      register: host_info
+      when: sd.data_centers is defined
+
+    # If sp_uuid is still initiated with the default boolean value,
+    # that means that there is a data center which the storage domain is attached to it.
+    - name: Attached storage domain - Set sp_uuid
+      ansible.builtin.set_fact:
+        sp_uuid: "{{ sd.data_centers[0].id }}"
+      when: sp_uuid
+
+    - name: Remove storage domain with no force
+      ansible.builtin.include_tasks: remove_domain.yml
+      vars:
+        host: "{{ host_info.ovirt_hosts[0].id }}"
+      when: "host_info.ovirt_hosts is defined and host_info.ovirt_hosts|length > 0 and not dr_force"
+
+    - name: Force remove storage domain
+      ansible.builtin.include_tasks: remove_domain.yml
+      vars:
+        host: "00000000-0000-0000-0000-000000000000"
+      when: "dr_force"

@@ -1,0 +1,102 @@
+---
+- name: Prepare routing rules
+  block:
+    - name: Check IPv6
+      ansible.builtin.set_fact:
+        ipv6_deployment: >-
+          {{ true if he_host_ip not in target_address_v4.stdout_lines and
+          he_host_ip in target_address_v6.stdout_lines
+          else false }}
+    - name: Validate ip prefix
+      ansible.builtin.include_tasks: ../validate_ip_prefix.yml
+    - name: Alter libvirt default net configuration
+      ansible.builtin.include_tasks: ../alter_libvirt_default_net_configuration.yml
+    # all of the next is a workaround for a network issue:
+    # vdsm installation breaks the routing by defining separate
+    # routing table for ovirtmgmt. But we need to enable communication
+    # between virbr0 and ovirtmgmt
+    - name: Start libvirt
+      ansible.builtin.service:
+        name: libvirtd
+        state: started
+        enabled: true
+    - name: Activate default libvirt network
+      ansible.builtin.command: virsh net-autostart default
+      ignore_errors: true
+      changed_when: false
+    - name: Get routing rules, IPv4
+      ansible.builtin.command: ip -j rule
+      environment: "{{ he_cmd_lang }}"
+      register: route_rules_ipv4
+      changed_when: true
+    - name: Get routing rules, IPv6
+      ansible.builtin.command: ip -6 rule
+      environment: "{{ he_cmd_lang }}"
+      register: route_rules_ipv6
+      changed_when: true
+      when: ipv6_deployment|bool
+    - name: Save bridge name
+      ansible.builtin.set_fact:
+        virbr_default: "{{ network_dict['bridge']['name'] }}"
+    - name: Wait for the bridge to appear on the host
+      ansible.builtin.command: ip link show {{ virbr_default }}
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      register: ip_link_show_bridge
+      until: ip_link_show_bridge.rc == 0
+      retries: 30
+      delay: 3
+    - name: Accept IPv6 Router Advertisements for {{ virbr_default }}
+      ansible.builtin.shell: echo 2 > /proc/sys/net/ipv6/conf/{{ virbr_default }}/accept_ra
+      when: ipv6_deployment|bool
+    - name: Refresh network facts
+      ansible.builtin.setup:
+      tags: ["skip_ansible_lint"]
+    - name: Fetch IPv4 CIDR for {{ virbr_default }}
+      ansible.builtin.set_fact:
+        virbr_cidr_ipv4: >-
+          {{ (hostvars[inventory_hostname]['ansible_'+virbr_default]['ipv4']['address']+'/'
+          +hostvars[inventory_hostname]['ansible_'+virbr_default]['ipv4']['netmask']) }}
+      when: not ipv6_deployment|bool
+    - name: Fetch IPv6 CIDR for {{ virbr_default }}
+      ansible.builtin.set_fact:
+        virbr_cidr_ipv6: >-
+          {{ (hostvars[inventory_hostname]['ansible_'+virbr_default]['ipv6'][0]['address']+'/'+
+          hostvars[inventory_hostname]['ansible_'+virbr_default]['ipv6'][0]['prefix'])
+          if 'ipv6' in hostvars[inventory_hostname]['ansible_'+virbr_default] else None }}
+      when: ipv6_deployment|bool
+    - name: Add IPv4 outbound route rules
+      ansible.builtin.command: ip rule add from {{ virbr_cidr_ipv4 }} priority 101 table main
+      environment: "{{ he_cmd_lang }}"
+      register: result
+      when: >-
+        not ipv6_deployment|bool and
+        route_rules_ipv4.stdout | from_json |
+        selectattr('priority', 'equalto', 101) |
+        selectattr('src', 'equalto', virbr_cidr_ipv4) |
+        list | length == 0
+      changed_when: true
+    - name: Add IPv4 inbound route rules
+      ansible.builtin.command: ip rule add from all to {{ virbr_cidr_ipv4 }} priority 100 table main
+      environment: "{{ he_cmd_lang }}"
+      register: result
+      changed_when: true
+      when: >-
+        not ipv6_deployment|bool and
+        route_rules_ipv4.stdout | from_json |
+        selectattr('priority', 'equalto', 100) |
+        selectattr('dst', 'equalto', virbr_cidr_ipv4) |
+        list | length == 0
+    - name: Add IPv6 outbound route rules
+      ansible.builtin.command: ip -6 rule add from {{ virbr_cidr_ipv6 }} priority 101 table main
+      environment: "{{ he_cmd_lang }}"
+      register: result
+      when: ipv6_deployment|bool and "\"101:\tfrom \"+virbr_cidr_ipv6+\" lookup main\" not in route_rules_ipv6.stdout"
+      changed_when: true
+    - name: Add IPv6 inbound route rules
+      ansible.builtin.command: ip -6 rule add from all to {{ virbr_cidr_ipv6 }} priority 100 table main
+      environment: "{{ he_cmd_lang }}"
+      register: result
+      changed_when: true
+      when: >-
+        ipv6_deployment|bool and "\"100:\tfrom all to \"+virbr_cidr_ipv6+\" lookup main\" not in route_rules_ipv6.stdout"

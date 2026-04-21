@@ -1,0 +1,4 @@
+minor_changes:
+ - purefa_info - Add performance data for network interfaces
+ - purefa_info - Deprecate ``network.<interface>.slaves`` - replaced by ``network.<interface>.subinterfaces``
+ - purefa_info - Deprecate ``network.<interface>.hwaddr`` - replaced by ``network.<interface>.mac_address``

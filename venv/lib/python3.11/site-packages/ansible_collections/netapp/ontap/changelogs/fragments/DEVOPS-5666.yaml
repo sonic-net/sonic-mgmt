@@ -1,0 +1,9 @@
+---
+bugfixes:
+  - na_ontap_aggregate - allow adding disks before trying to offline aggregate.
+  - na_ontap_aggregate - fix ``service_state`` option skipped if its set to offline in create.
+minor_changes:
+  - na_ontap_aggregate - add support for ``service_state`` option from ONTAP 9.11.1 or later in REST.
+  - na_ontap_aggregate - add ``name`` to modify in module output if aggregate is renamed.
+  - na_ontap_aggregate - error if ``unmount_volumes`` set in REST, by default REST unmount volumes when trying to offline aggregate.
+  - na_ontap_aggregate - fix examples in documentation.

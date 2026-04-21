@@ -1,0 +1,2 @@
+trivial:
+  - GH Actions now checks that all PR contains a changelog fragment.

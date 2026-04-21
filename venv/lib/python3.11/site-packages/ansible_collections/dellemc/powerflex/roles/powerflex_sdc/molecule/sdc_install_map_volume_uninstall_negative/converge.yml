@@ -1,0 +1,118 @@
+---
+- name: Volume creation
+  hosts: localhost
+  vars_files:
+    - ../var_values.yml
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  tasks:
+    - name: Create a volume
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        vol_name: "{{ vol_name }}"
+        storage_pool_name: "{{ storage_pool_name }}"
+        protection_domain_name: "{{ protection_domain_name }}"
+        size: "{{ vol_size }}"
+        state: "present"
+      register: volume_output
+
+- name: Install SDC
+  hosts: sdc
+  vars_files:
+    - ../var_values.yml
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  tasks:
+    - name: "Install and configure powerflex SDC"
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      vars:
+        powerflex_sdc_name: "{{ sdc_name }}"
+        powerflex_sdc_state: present
+      register: powerflex_sdc_result_molecule
+
+- name: Mapping SDC to volume
+  hosts: localhost
+  vars_files:
+    - ../var_values.yml
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: Map a SDC to volume
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        vol_name: "{{ vol_name }}"
+        allow_multiple_mappings: true
+        sdc:
+          - sdc_name: "{{ sdc_name }}"
+            access_mode: "{{ access_mode }}"
+        sdc_state: "mapped"
+        state: "present"
+
+- name: Uninstall SDC
+  hosts: sdc
+  vars_files:
+    - ../var_values.yml
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: "Uninstall powerflex SDC"
+      register: powerflex_sdc_uninstall_outputs
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      ignore_errors: true
+      vars:
+        powerflex_sdc_name: "{{ sdc_name }}"
+        powerflex_sdc_state: 'absent'
+
+    - name: "Verifying failure of sdc removal"
+      ansible.builtin.assert:
+        that:
+          - "'SDC has mapped volume(s)' in powerflex_sdc_remove_output.msg"
+
+- name: Unmapping and Removing SDC
+  hosts: localhost
+  vars_files:
+    - ../var_values.yml
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: Unmap a SDC to volume
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        vol_name: "{{ vol_name }}"
+        sdc:
+          - sdc_name: "{{ sdc_name }}"
+        sdc_state: "unmapped"
+        state: "present"
+
+    - name: Delete the Volume
+      dellemc.powerflex.volume:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        vol_name: "{{ vol_name }}"
+        delete_snapshots: false
+        state: "absent"
+
+    - name: Remove the SDC
+      dellemc.powerflex.sdc:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        sdc_name: "{{ sdc_name }}"
+        state: "absent"

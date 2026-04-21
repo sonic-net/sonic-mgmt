@@ -1,0 +1,4 @@
+minor_changes:
+  - na_cloudmanager_cvo_azure - increase timeout for creating cvo to 90 mins.
+  - na_cloudmanager_cvo_aws - increase timeout for creating cvo to 90 mins.
+  - na_cloudmanager_cvo_gcp - increase timeout for creating cvo to 90 mins.

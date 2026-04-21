@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume - If using REST and ONTAP 9.6 and `efficiency_policy` module will fail as `efficiency_policy` is not supported in ONTAP 9.6.

@@ -1,0 +1,43 @@
+{
+ "collection_info": {
+  "namespace": "cyberark",
+  "name": "conjur",
+  "version": "1.3.9",
+  "authors": [
+   "CyberArk Business Development (@cyberark-bizdev)",
+   "(@cyberark/community-and-integrations-team)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "cyberark",
+   "conjur",
+   "access",
+   "security",
+   "account",
+   "vault",
+   "identity",
+   "credential",
+   "secret",
+   "privileged",
+   "devops"
+  ],
+  "description": "This is a Collection of the CyberArk Secrets Manager toolkit.",
+  "license": [
+   "Apache-2.0"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/cyberark/ansible-conjur-collection",
+  "documentation": null,
+  "homepage": null,
+  "issues": "https://github.com/cyberark/ansible-conjur-collection/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "8796c28bca05bc50d469e605edabe8f85a63f6884cbe4cb4cff923ade9ba6af2",
+  "format": 1
+ },
+ "format": 1
+}

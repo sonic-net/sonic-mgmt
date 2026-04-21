@@ -1,0 +1,38 @@
+---
+requires_ansible: ">=2.17.0"
+action_groups:
+  netapp_storagegrid:
+    - na_sg_grid_account
+    - na_sg_grid_proxy_settings
+    - na_sg_grid_alert_receiver
+    - na_sg_grid_audit_destination
+    - na_sg_grid_autosupport
+    - na_sg_grid_certificate
+    - na_sg_grid_client_certificate
+    - na_sg_grid_domain_name
+    - na_sg_grid_dns
+    - na_sg_grid_ec_profile
+    - na_sg_grid_gateway
+    - na_sg_grid_group
+    - na_sg_grid_ha_group
+    - na_sg_grid_hotfix
+    - na_sg_grid_identity_federation
+    - na_sg_grid_ilm_rule
+    - na_sg_grid_ilm_policy_tag
+    - na_sg_grid_ilm_policy
+    - na_sg_grid_ilm_pool
+    - na_sg_grid_info
+    - na_sg_grid_ntp
+    - na_sg_grid_regions
+    - na_sg_grid_snmp
+    - na_sg_grid_tenant
+    - na_sg_grid_traffic_classes
+    - na_sg_grid_user
+    - na_sg_grid_vlan_interface
+    - na_sg_org_bucket
+    - na_sg_org_container
+    - na_sg_org_group
+    - na_sg_org_identity_federation
+    - na_sg_org_info
+    - na_sg_org_user
+    - na_sg_org_user_s3_key

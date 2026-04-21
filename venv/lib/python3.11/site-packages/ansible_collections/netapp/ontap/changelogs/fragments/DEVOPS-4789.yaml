@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_security_key_manager - added REST support.
+  - na_ontap_security_key_manager - new REST options ``external`` and ``vserver`` for external key manager.
+  - na_ontap_security_key_manager - new REST option ``onboard`` for onboard key manager.

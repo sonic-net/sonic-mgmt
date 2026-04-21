@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_software_update - deleting a software package is now supported with ZAPI and REST.
+bugfixes:
+  - na_ontap_software_update - improve error handling if image file is already present.
+  - na_ontap_software_update - improve error handling when node is rebooting with REST.
+  - na_ontap_software_update - when using REST with ONTAP 9.9 or later, timeout value is properly set.

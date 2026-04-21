@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_flexcache - new option to enable `writeback` added in REST, requires ONTAP 9.12 or later.

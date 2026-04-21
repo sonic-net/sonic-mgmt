@@ -1,0 +1,105 @@
+---
+- name: Icinga timeperiod configuration
+  ansible.builtin.include_tasks: icinga_timeperiod.yml
+  when: icinga_timeperiods is defined
+  tags: timeperiod
+
+- name: Icinga user_template configuration
+  ansible.builtin.include_tasks: icinga_user_template.yml
+  when: icinga_user_templates is defined
+  tags: user_template
+
+- name: Icinga user configuration
+  ansible.builtin.include_tasks: icinga_user.yml
+  when: icinga_users is defined
+  tags: user
+
+- name: Icinga user_group configuration
+  ansible.builtin.include_tasks: icinga_user_group.yml
+  when: icinga_user_groups is defined
+  tags: user_group
+
+- name: Icinga zone configuration
+  ansible.builtin.include_tasks: icinga_zone.yml
+  when: icinga_zones is defined
+  tags: zone
+
+- name: Icinga endpoint configuration
+  ansible.builtin.include_tasks: icinga_endpoint.yml
+  when: icinga_endpoints is defined
+  tags: endpoint
+
+- name: Icinga hostgroup configuration
+  ansible.builtin.include_tasks: icinga_hostgroup.yml
+  when: icinga_hostgroups is defined
+  tags: hostgroup
+
+- name: Icinga host_template configuration
+  ansible.builtin.include_tasks: icinga_host_template.yml
+  when: icinga_host_templates is defined
+  tags: host_template
+
+- name: Icinga host configuration
+  ansible.builtin.include_tasks: icinga_host.yml
+  when: icinga_hosts is defined
+  tags: host
+
+- name: Icinga command_template configuration
+  ansible.builtin.include_tasks: icinga_command_template.yml
+  when: icinga_command_templates is defined
+  tags: command_template
+
+- name: Icinga command configuration
+  ansible.builtin.include_tasks: icinga_command.yml
+  when: icinga_commands is defined
+  tags: command
+
+- name: Icinga service_template configuration
+  ansible.builtin.include_tasks: icinga_service_template.yml
+  when: icinga_service_templates is defined
+  tags: service_template
+
+- name: Icinga service_apply configuration
+  ansible.builtin.include_tasks: icinga_service_apply.yml
+  when: icinga_service_applies is defined
+  tags: service_apply
+
+- name: Icinga servicegroup configuration
+  ansible.builtin.include_tasks: icinga_servicegroup.yml
+  when: icinga_servicegroups is defined
+  tags: servicegroup
+
+- name: Icinga serviceset configuration
+  ansible.builtin.include_tasks: icinga_serviceset.yml
+  when: icinga_servicesets is defined
+  tags: serviceset
+
+- name: Icinga service configuration
+  ansible.builtin.include_tasks: icinga_service.yml
+  when: icinga_services is defined
+  tags: service
+
+- name: Icinga notification template configuration
+  ansible.builtin.include_tasks: icinga_notification_template.yml
+  when: icinga_notification_templates is defined
+  tags: notification_template
+
+- name: Icinga notification configuration
+  ansible.builtin.include_tasks: icinga_notification.yml
+  when: icinga_notifications is defined
+  tags: notification
+
+- name: Icinga downtime configuration
+  ansible.builtin.include_tasks: icinga_scheduled_downtime.yml
+  when: icinga_scheduled_downtimes is defined
+  tags: downtime
+
+- name: Icinga dependency template configuration
+  ansible.builtin.include_tasks: icinga_dependency_template.yml
+  when: icinga_dependency_templates is defined
+  tags: dependency_template
+
+- name: Icinga dependency apply configuration
+  ansible.builtin.include_tasks: icinga_dependency_apply.yml
+  when: icinga_dependency_applies is defined
+  tags: dependency_apply

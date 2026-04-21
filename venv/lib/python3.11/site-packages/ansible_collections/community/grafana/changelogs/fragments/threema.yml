@@ -1,0 +1,2 @@
+bugfixes:
+- Fix an issue with threema notification channel that was not creating gateway, recipient and api_secret in Grafana. (#208)

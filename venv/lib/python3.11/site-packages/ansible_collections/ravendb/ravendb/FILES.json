@@ -1,0 +1,1601 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/tests_role_ravendb_node.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "71cd4e631ba10fd9a800f1a962a7138e3595acf9378d058d5ebebcc43ca7c66a",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5d9063332c843dae86a45057740508cfe9323d09a40b93cc49dab375446466a1",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "961d8c5b39b138e1f9700c439e401aee248d44ad4476440979f97b102b30634b",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fc914b1360783e17de6aa55542bd1a0d1de95129b54c0f6cb880457a87eb6dbf",
+   "format": 1
+  },
+  {
+   "name": "CODE_OF_CONDUCT.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc90fa4ad7c3c30cf9339b3d2029dd17fde5b6cde2d24b43ea568790ec8122be",
+   "format": 1
+  },
+  {
+   "name": "inventory.ini",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0b4ce276230bf786b03d61c3e906006a0344b9860d3693ea949ae179e2f9cf2",
+   "format": 1
+  },
+  {
+   "name": "LICENSE",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81cbae84a29ce7e770bf2bc7b178e50bda0ce8de6067aba661b0bc7b05b562f8",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95fd6e67a886da236b479238449540b2c6097df76e8ca8bc065a631070bc0e5a",
+   "format": 1
+  },
+  {
+   "name": "playbooks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cleanup_ravendb.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "86b0f6efadec1759210b3e3a99f27caa12ca12928a874f2bbfe902e6a11090b7",
+   "format": 1
+  },
+  {
+   "name": "playbooks/connection_string.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a244e081e28fd7221234b942439f4c634fc982199f4135d3feaa72369276957",
+   "format": 1
+  },
+  {
+   "name": "playbooks/database.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "03cb3ddff3cf43bc086d1a043c2ef2a3ab76cd9e5950f52f05b7335b66034377",
+   "format": 1
+  },
+  {
+   "name": "playbooks/healthcheck.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "35d2d83f0929ddf54f1a0e31f3a9fccd756b2aec04224281b38d01a818ede2b3",
+   "format": 1
+  },
+  {
+   "name": "playbooks/index.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f187b032032d2f18d2fd140b5ccacb0fa3799d57786ff5a78216e21f4cf1a71b",
+   "format": 1
+  },
+  {
+   "name": "playbooks/node.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fa2fff81949ee6e397ce4eaf5c804119dfa09f304ca1c43f17b661203f62eee4",
+   "format": 1
+  },
+  {
+   "name": "playbooks/setup_ravendb.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9c3c16a44b22564111212519279c666fae675f0f8f8991ee497c6b09c2c4129c",
+   "format": 1
+  },
+  {
+   "name": "playbooks/setup_ravendb_secured.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea33f96bf8dc8c25ca4648eb347bf7f2f5b9315b6813a85b7cf0082d3315961e",
+   "format": 1
+  },
+  {
+   "name": "playbooks/setup_ravendb_secured_self_signed.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "08d2f53d0e6299e453eb4206ea380ea4857d4602d908f31eb9574f3860e5f926",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/ravendb.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d65277153c63c0c6c6c6a03737dae9e477bdf1db7f7e8fe487372f6b9bb4b37e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/connection_string.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c74599b0ba3928e02a19db3f62490adce414e56f7bec814d5600bac2e48cd1aa",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/database.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "701ee9286d836856ef485e36dc7f14457843cfb5c2f6d019768b70221ab002b1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/healthcheck.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e11955e7f685f5145454a41a7f8b0a6409a2805df1c331830bf963d96a585bb6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/index.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c9787f19192a89e8b17b559fc3a1b5542f31bc68cd43099e05a0c983c5f6309d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/node.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd5a96f26e9632ebd22d25730191075f8989a747b02d5e95ccfbfd7a6632fae8",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/common_args.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2d16a40003b9dc0351b4e8e2465d5baca14d7ab5b8affc778f2430c790030f1e",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core/client.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb7005da7786a52d418e96c739c26a91ff4634d1c3776aa1fbe11823d46039f5",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core/configuration.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7c44d934291fee067eabea7c14d87df13d66cf2607c210f786a2c30674f1afda",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core/deps.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cdcb0e94ac238cf693f53d43831e3fd6f0c60a70d92d4854fa9ff920ce4ff3c0",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core/files.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b34f7e69ed9847a0837b4e98427445a8342acf9f9bd72494739ec657217e47d1",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core/messages.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7286f1d6d111397c5b27eca50b82d7e8b70e2b8b7000fa3b7d15fce8f935a179",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core/result.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "54997b8609a35b82fa64239735016ed0df1463155253947ed498a4b4078a197d",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core/tls.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2d96cdb2e0284488f4463a0c3e5d0c0f534aac5eb19af5ad4666a7e40695a87c",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/core/validation.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9d311b033c74dd8a680944ca9ec0ca9346998aeafa56b141bda42611595adf0f",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/dto",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/dto/connection_string.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "413ce33d72b9e9042ced4cd0c705882da7ea59c73bc205db7f0f8330d03edfb4",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/dto/database.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "abe9e397a32649dc388e47fd11bd4cfd0c268ce71c3ca562e88744673aa54c25",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/dto/healthcheck.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea5905969eb6ed83c7d0fb09a161d767f6dfbc57ed48c9c91014b5377665d35b",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/dto/index.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "25ec58940000c8e556aa4ae836d85e5bc8cfc9a727a37bf50ea1906b1faef46b",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/dto/node.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "68305957db7d9d28909f7dac72ac06b9ee2a5ec4d6d4b2e8dddeb531c7d84f5c",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/reconcilers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/reconcilers/base.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d2042db44eb62513eb68d93eba4146f9f99dc5ad802b0d3b96aa43d73a32c81a",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/reconcilers/connection_string_reconciler.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a822396bb360ff0409e17689cb1c65442effafa09acd7aeb77b2da287b683f94",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/reconcilers/database_reconciler.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a6d30153ad0d3412dec526a4fd0d36144f82461471d9e81a64141126e3fa45b7",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/reconcilers/healthcheck_reconciler.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "72934790196add18df6a6828e41f7518679843c028bc8bb5304019cb2dd28e34",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/reconcilers/index_reconciler.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "935c7b623191355df47186435f699909b5e2ef7739c59773dac389d15b53dc96",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/reconcilers/node_reconciler.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a731081bcaafe578cbcd3ad54238b6d4b19564fd217e68f1900944f8dbe7dc1c",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/cluster_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "af991440f0da1e92877cb2948104f38e585404e02eee41324b9481f4153eac89",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/connection_string_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e03004e6788d67df687efa2bdf8865eeb6b147bfe7e5acc4163063fef4ba0efd",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/database_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2d1c3afb47b4dbaebb75e4e59aca2f6968bc9d043b1e9d2afc63064e20da30fb",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/db_settings_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e8db7c6c188b62650ab27cde15c1dddb39abd84d3cbc1939e65f4c3f6ab09338",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/encryption_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d342ecc58896183d9af5f845ee2a918737131c5041f49aad55719f42a8535ea0",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/healthcheck_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "50327e5e3d267848171b1526a4439e84611f5d9077a6511049f9c6811e3e31b8",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/index_config_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f10f7d6f4f0bed3a0ed8e92578f2b2c95f47b5420ea03e2f56a2d79222ebf05e",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/index_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "78123d7b3f784bada32aa47d80831b48c24c716d9b2a3d13b649df0b10a4e6b2",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/node_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "173dfe38873545dfad327d131469a81e65c57f1f2d209825a83a563b97c32474",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/services/retry_service.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "46ca8bc540d3d10725ed8f5067b5de40e9709a6cc1371e6caa502e57418ed475",
+   "format": 1
+  },
+  {
+   "name": "plugins/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cea07726c4c7c8b87ed7ffa8af8296d37e2b9fa483c575be1ca51b598419a199",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0683db6f7afdb0c282badd4cbbf059118bcdabf445e303d6016a968a0cae46d0",
+   "format": 1
+  },
+  {
+   "name": "requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5a23b660129505571bd0a23fbbb93a664c05d63d4e4c7b7becca90d4a35b5f9c",
+   "format": 1
+  },
+  {
+   "name": "roles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/.travis.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "68bdf95284a42884a1e2dd02d5c014af2f5ccd5dabdbd949200dc16ac9596d4a",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/.yamllint",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "281bb8c5c248d6832bf711f57496165fe818d02d4bd66d42abcd101838f83dd0",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0cb79344774eaf38df5bd7da4f6836a17478a46de58a30f8a51da1aa4a83de5",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8eee56c94926738504fb7f9a415127554faee1ce0eebbe0122ed85c61e08f7e6",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/meta/argument_specs.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7f7ac7072a65a2fd49a7b7ae7703c881128dad1bcbbfb64904198de61e089c3b",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "88c47e518b32ac7ed4f63cecd8558b6585ca5057f93621eb6e15d1377883b48b",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/cleanup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/cleanup/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8dc4c4bf1c5fd72b9e48be08f9c61e741ceecfb4a8429baebaf33c299f553322",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/cleanup/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d2d97b77b1dbce5b3985e0db591f8b9dfeb1ca66c6949399547ecc98bbb4c5e5",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/cleanup/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a61b229a5059f8040dc73080ddaa341fd97b7419abc124f89b9b7ed043fbb31f",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/cleanup-rhel",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/cleanup-rhel/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d500802920df38ad4de4f57956d95422f7e764e95452a0470287b8156f2d8881",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/cleanup-rhel/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "05ab6177842e215d4ea685c86ab2d97b8e5b33f275cf02691e9e84357b53fda1",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/cleanup-rhel/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a61b229a5059f8040dc73080ddaa341fd97b7419abc124f89b9b7ed043fbb31f",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-11",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-11/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfefe2f93dbc22ee89b836fc78debfbefae16b042c0bb5a4d3b96cef9de66aad",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-11/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2da1fa18e606fdd18cc89ae659c096ff5268e746a442b8c14f011e159201d540",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-11/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc1f72ef5039bd065d4ecd54027e240a9cc5280c63350f2f6c6e73d41c4e694d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-11/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92dc6bbb554fcd650ad39178d74e2ddc84030194bb089c26ec1c8a26c91dd53d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-12",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-12/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfefe2f93dbc22ee89b836fc78debfbefae16b042c0bb5a4d3b96cef9de66aad",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-12/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb17d5563d9a9e6e26486ec9659eafd346f32204927ae52d6e33acbb7ea08c0f",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-12/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc1f72ef5039bd065d4ecd54027e240a9cc5280c63350f2f6c6e73d41c4e694d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-12/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92dc6bbb554fcd650ad39178d74e2ddc84030194bb089c26ec1c8a26c91dd53d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-13",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-13/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfefe2f93dbc22ee89b836fc78debfbefae16b042c0bb5a4d3b96cef9de66aad",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-13/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2079ddd49e5652231ef8d3f46b6b3d7beeaf919fad323e47a8b0209bbf869539",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-13/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc1f72ef5039bd065d4ecd54027e240a9cc5280c63350f2f6c6e73d41c4e694d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/debian-13/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92dc6bbb554fcd650ad39178d74e2ddc84030194bb089c26ec1c8a26c91dd53d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cefa674142e0227f1ac0359145ae4479aab9662587b1dad4ebf2393282b1d5e2",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "de3fadc8646b0f6637dcbd5c9e7cc67907443467fb12fc672a4d58587916f477",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs/10_raven.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7fa4b6cf56dd228334674143e627f74995acfe007844a99543833057d893126e",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs/20_sql.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "adad9f6f23c87d3d48bfe467d81c99f5bc222bf288fa3896c823c5c60db0060e",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs/30_olap.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5f7cd6647fb6d79a68a42695a77932eedafc37fe73a8d97592714cadb0f79d77",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs/40_es.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "07a700367ba810d43a5e40dfd76d34bf8779d6c84c1adf673cda959c38f70eec",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs/50_queues.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4a7de9e21b1230bf378602a093902c22806166cd0e267f6bc85ab881d0e765e2",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs/60_sf.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "489f6728490615eedb5713c3cfc87aa8a7642bb6f6641f70fa1e2e110ae5b523",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs/70_ai.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bbc8f021534cebdcdb1f6daaba8c51e7d3a1da962bec599b32daaa0a4ee6eea9",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/cs.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "290de11bd961c9521030d48fad852cc9d14c98211beda5a67ff7eced19ad4a13",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/db",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/db/10_create.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3f55b76a81c2650a282c069c980282bd3c45f554fd9273b94fc07308fcb5781",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/db/20_settings.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fcbd7df8389d44a73cb1e062d561cf30fe994173acc0518f87215b190509b798",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/db/30_delete.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d65625b33fc3704f196cf69dd084056c9ade02c57e92babe0dea1b258ebec65",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/db.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aa6c7fcc7a9d4d8597c572e57e3843786f15cacab5c0817f1fafde263b09321",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/index",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/index/10_create.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0e7fdaef7377e5b254ca0bb8784dae851b5f97bad45472f7c1f5f6357cdaa02c",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/index/20_update.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e479777515ef0bd75bdfb7ab8af28ce57810b4de4319905798754c7e26bd3bb7",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/index/30_config_and_edges.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1abe8e81ff2b65bc0de45f647a2ae282889689ad7ac73735dd67e53ce7795830",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/index/40_modes_and_reset.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bdd3657c40978a5c2fad1f20a3e2242723894176481015194037e7f4600d6fe2",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/index/50_delete.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4db8105c0d7826ef647382f6445d18f2c9a67e91fdb187ea27941ead1f305681",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/index.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4b9eb93973e8601599aba7103233aebf5f1a862d6318f5ebe58f7de288bc3a88",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/tasks/init.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fdc1d74a7a2650ea33e650f9cdb0f8181ec479c023a1a423f7c09e2791267a26",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c4c1c3e19be2cbce3504c2cfcd69c905e09ed87aa4543bfbc175f607574cacb6",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured-nodes",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured-nodes/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9449d57e30f956527e9f24067e08a04f9294a6b4bde219ed2ce0a86f2a1b08fd",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured-nodes/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4462de7fa41f1b70ae9a528e6a751f69b1f6960a2f3a7e0ea0ffd384f2fcaed6",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured-nodes/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured-nodes/tasks/db_affinity.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4bfb00a9b60e238762dd6c01cba54307a9936b80d54e723d1ff987cd5641d454",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured-nodes/tasks/init.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b2dd0be91e9f5038c76b573147354a6807dde67517cda42048ea67f5884caa6b",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured-nodes/tasks/node.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e6d7e4b39001006c4003f6a2c80411b805435eddfc210b2bd79e4452cccbeb49",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/plugins-unsecured-nodes/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fc0e52d7406eda81a286cce7a7112982c01e65d278897b6901fa2288b9315afb",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rhel-custom-image",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rhel-custom-image/Dockerfile",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d348b6e7d4c86dcc9f847ba2a18be77ef7591a02388e535fb2170ff03fe78c0b",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "008d0085420db653f7b2c6b0337791ede3fd386c9a14a615de219c221b6e01ff",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ef79ace12b1addbfdac0224e9e0761d56564f9d7b060a62200c9834ac6a63d4e",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/failure-paths",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/failure-paths/cluster-connectivity-fails-on-b.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "11e3bdda7c9ca855d0d96ae6bbfaba1e8086f8b21ad46558639e7073e317da30",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/failure-paths/db-online-fail-fast-on-load-error.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a44da5b7d2b2ed3bbe468d966e1f914a245bb0f2e92f8e9d56848ccdf19f59a2",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/failure-paths/degraded-db-placement-on-a-c.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "39b951aa0d408f9d3f74009d9a359607624a6e5e0c611e68ec0ace8874ce2132",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/failure-paths/node-alive-fails-on-b.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7682352a8209d256c4870209074064717be779f603546747d0b297e44be5325d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/happy-paths",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/happy-paths/db-online-ignores-disabled-dbs.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fafe2608f32ca9466f1c88a103da8b95784dfe66e4d7d4428357bec757ff8e29",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/happy-paths/db-online-timeout-continue-soft-pass.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "064b07e804c0ffaad0c131d8cac31461bc6e6d177dd566e5fa7b5b0c1bfc08a8",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/happy-paths/node-and-cluster-ok.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "252f21e5165b54635dcbe808469ec0bcf71ecd2bf23af68bc4f533934b606760",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/happy-paths/node-cluster-and-db-online-ok.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a66a64101d7b51a1fdbfe6ede1abf7e5a9fd48e93e98c90349ac0b8d34685978",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/happy-paths/node-ok.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fffead29f0a80600f51808bc8d2a4a21cf0da36669b82ea93439b4d1e7f058b5",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/rolling-update/tasks/init.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "93ff9e9a6d6cdeef0a99ccf673c7485fa00929bdcdacf9834ca1b1a24acd2389",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "97a69f176717ab049f601a8d95441b699704b79117672ff0b870d0f25ce4babc",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c6be7c1e579156700568d26d83255c75767d4606ea8384c0eb6831c41a7504e",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7ba40fc8f4a436908ae44e1c1b06db280a6426800091580250150b3f59bd0185",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured-rhel",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured-rhel/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "36050f33c0e8ff91ff7acabf0a4c0d638e37e19ed8275492f12e915641f9709e",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured-rhel/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5f14e4d60d665909e815c9f186357cd3afecd62584ad0911029006da667e223b",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured-rhel/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "038f3c4636000d7fc1faa4712b17add03ee4963998dead3ff39520c8c4893413",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured_self_signed",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured_self_signed/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "00f5ca0d8b8a4bf9c90e7faf87bb2aa2617ed2874613be366972295cfe639882",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured_self_signed/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5fb950ced1225f3215408cd854f8f63f4d74b794403c4ba95984b8dd3e5f477c",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/secured_self_signed/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "52ae1a25c76d3ef495f4e945a5a751a52e81d36f92b1f684d5b98eb7f7beae34",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/unsecured",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/unsecured/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfefe2f93dbc22ee89b836fc78debfbefae16b042c0bb5a4d3b96cef9de66aad",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/unsecured/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "337eb5ba3254ee9a4c1eeb5a00ac994321a855804e84f04683c56ea4a515edec",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/unsecured/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92dc6bbb554fcd650ad39178d74e2ddc84030194bb089c26ec1c8a26c91dd53d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/unsecured-rhel",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/unsecured-rhel/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1db163f5bb6fd29da68d570f828e39a8c327c82c295a32d035359cde895f83b8",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/unsecured-rhel/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "33818de5a13e2d6c921e182217133c55d0a6b4afbdf81fcaeea636ad76b15fd9",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/unsecured-rhel/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92dc6bbb554fcd650ad39178d74e2ddc84030194bb089c26ec1c8a26c91dd53d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/update",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/update/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e99ffe5675f4dfbb7a14d604b766fa3ae914bfeaa1cedcbcd4c8aa07815370fe",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/update/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "272396a68995324aef168697eef8795fc52420443d6a841a2e9dc0f035baef87",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/update/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "75c2a25f1b9edb148fabf3e81a2827d5f589af0fadde2a44e3a83502600b1fe7",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/update-rhel",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/update-rhel/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "75e68765004373b1c06598e86934704d217f0b85bddae4990caefdf9383540b8",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/update-rhel/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "123314711da9859866cff532e0cb00dbf2590674ebfa1d224ddb72a3901843e7",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/molecule/update-rhel/verify.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fda99715a3d3be5beefcf757b2a71d75cf2066be528c2e1c87a172feb8c209f9",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e4533df5dc86a1c3c7044c8e52d4f549efd69d71cdae686ed33f628bceb59955",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/debian.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd37c6156322211a77c0336d49b23936c0dd928faf3c1bbf1683f8c8e21ab9ea",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/download_tarball.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57112bdfa064b95ce4a9097a49d244f08083045da8c8d367848fa5c55e0004ad",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/install.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "788f5c6fb5ddbe8471fc0de05a86e39445df6375abdd0a920dc5ddae809c6184",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "50feb42e0afc4f6f5f57259553bee3d979edf1334be84fa0674dec503fe1faa2",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/ravendb_python_client_prerequisites_uninstall.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee104dc3105720388f6d8bf65a9c2f249677b72a626ded692aadb850d688eef3",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/ravendb_secure_self_sign_setup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "405e5bd58403ced23e707b39b7891b502dab5a87b41071703e77e1c346bb3eb2",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/ravendb_secure_setup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9970b3686c46014302b1f2094a8a2af27a9e38011f3938a7c20919c90502d4a6",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/redhat.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "379f1142ae4af145885d3b736d9e5df50374f148c2cbf89042a3e3b86bbf4f73",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tasks/uninstall.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "50077db0f76db66fc57a9a325599bb9ed2939ddae6a0c6b50a5df2a99df29994",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/templates/ravendb.service.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d2011c41934f1ff0e02fe81217d24f25552e10c74d942f2caf2e5868cf82e554",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/templates/settings.default.json.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "28ffa099504d2a202ea40d98f5d1d7d4aea771dccec51595cbacecf00aa9b64d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/templates/settings.default.json.j2.simple",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "411846a42e76ba55341af01c0e874c5cf9d8b22737f1d4d6fb54f8833a0d6f20",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/templates/settings.local_setup.json.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "84d10867c8fdfdedf971e4b13b53eb02373f3201b5219347efd9306d4c3202ed",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tests/inventory",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "59814f75af76ca6d3137acfc3cc9688fe2cc460df4e181f19be9732e3f03b8a4",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/tests/test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "12c063c668e9ce3b76e5cef60b5c531b8583112c5be83691daed79b1385c4b52",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_node/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "248dd94a747ae074e89b76c7d73e15df4b604ade0b6ae2863ac361e56ade406d",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6eb8ddedb6e2cca6f33db3eb1cdb55bae858377628a73a53c0139042de39eaa2",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fdded0b2c15b93426f5a47b6fbe07fbe0c4cda7514f2cbcc99c2081c84450952",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9ad0f42e4d77dff7a7c94e2aab1f05854e665998ec4d686c150f68534948c743",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3a4ce8d981dde949c3df6bf5465ba493428a1ead875d3f21f7ad13da15a07aec",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "04b45067a514d316bd3ac57dc0ecc722d9225756e98fea477e4dca09ec3a8143",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/tests/inventory",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "59814f75af76ca6d3137acfc3cc9688fe2cc460df4e181f19be9732e3f03b8a4",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/tests/test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4bb365461143ca588b8615206580bc20be44c5314b9035d4680543f969d91693",
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/ravendb_python_client_prerequisites/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "009256a3e004198213c760eb9754c738b68cc7534a6f92396473d3f2884295e5",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/test_cluster.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0ae84e81a613823bcb1ee9c1325ce8afebd05498ec1b4c11e33fd77a67d5ae18",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/test_database.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "577c989d79cc6d6d0a301cd969e2565d16889ee3a033fe0d012fc484097e9611",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/test_index.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b20ef0085f5a22776d410e33685172c7175f60f09a0e388ed80c91f6fda6a3da",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/test_index_modes.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6f2758b1afbf251a683e4b752f838bbc3d6761ade8c50cdb6fd37d845f7b7ca4",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

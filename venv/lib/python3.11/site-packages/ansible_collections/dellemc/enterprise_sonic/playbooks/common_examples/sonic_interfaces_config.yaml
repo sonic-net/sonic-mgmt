@@ -1,0 +1,77 @@
+---
+- name: Ansible resource module example
+  hosts: datacenter
+  gather_facts: false
+  connection: httpapi
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: Sonic_interfaces configuration
+      sonic_interfaces:
+        config:
+          - name: Loopback91
+          - name: Eth1/12
+            description: "hi test"
+            enabled: false
+          - name: Eth1/13
+            description: "hi ans"
+            enabled: false
+    - name: Add VLANs
+      sonic_vlans:
+        config:
+          - vlan_id: 11
+          - vlan_id: 12
+          - vlan_id: 13
+        state: merged
+    - name: Sonic_l2_interfaces configuration
+      sonic_l2_interfaces:
+        config:
+          - name: Eth1/12
+            access:
+              vlan: 12
+          - name: Eth1/13
+            access:
+              vlan: 11
+            trunk:
+              allowed_vlans:
+                - vlan: 12
+                - vlan: 13
+        state: merged
+    - name: Sonic_lag_interfaces configuration
+      sonic_lag_interfaces:
+        config:
+          - name: PortChannel12
+            members:
+              interfaces:
+                - member: Eth1/20
+                - member: Eth1/21
+          - name: PortChannel1
+            members:
+              interfaces:
+                - member: Eth1/22
+          - name: PortChannel2
+        state: merged
+    - name: Sonic_l3_interfaces configuration
+      sonic_l3_interfaces:
+        config:
+          - name: Loopback100
+            ipv4:
+              addresses:
+                - address: 101.1.1.1/32
+          - name: vlan 11
+            ipv6:
+              addresses:
+                - address: 150::1/16
+          - name: po 12
+            ipv4:
+              addresses:
+                - address: 180.1.1.1/16
+          - name: Eth1/24
+            ipv6:
+              enabled: true
+    - name: Merge port breakout configurations
+      sonic_port_breakout:
+        config:
+          - name: 1/11
+            mode: 1x100G
+        state: merged

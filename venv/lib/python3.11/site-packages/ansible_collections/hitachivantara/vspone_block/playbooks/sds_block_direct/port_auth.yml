@@ -1,0 +1,69 @@
+---
+####################################################################
+# Example : Set Port Authentication Playbook
+####################################################################
+- name: Set Port Authentication
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    #########################################################################
+    # Task Name : Set port authentication mode
+    #########################################################################
+    - name: Set port authentication mode
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_port_authentication:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          port_name: "iqn_1994-04_jp_co_hitachi:rsd_sph_t_0a85a_000"
+          authentication_mode: "CHAP"
+          target_chap_users: ["chapuser1"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Allow CHAP users to access the compute port
+    ####################################################################
+    - name: Allow CHAP users to access the compute port
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_port_authentication:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          port_name: "iqn.1994-04.jp.co.hitachi:rsd.sph.t.1754a.002"
+          target_chap_users: ["tgt-chap-user2"]
+          state: "add_chap_user"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Cancel compute port access permission for CHAP users
+    ####################################################################
+    - name: Cancel compute port access permission for CHAP users
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_port_authentication:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          port_name: "iqn.1994-04.jp.co.hitachi:rsd.sph.t.1754a.002"
+          target_chap_users: ["tgt-chap-user2"]
+          state: "remove_chap_user"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

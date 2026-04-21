@@ -1,0 +1,19 @@
+---
+- name: Uninstall MDM package
+  register: powerflex_mdm_uninstall_output
+  environment:
+    I_AM_SURE: "{{ i_am_sure | int }}"
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: "absent"
+  with_items:
+    - EMC-ScaleIO-mdm
+  when: ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+- name: Uninstall deb package
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - emc-scaleio-mdm
+  when: ansible_distribution == "Ubuntu"

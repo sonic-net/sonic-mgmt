@@ -1,0 +1,109 @@
+---
+dr_sites_primary_url: "https://engine1.example.com/ovirt-engine/api"
+dr_sites_primary_username: "admin@internal"
+dr_sites_primary_ca_file: "/etc/pki/ovirt-engine/ca.pem"
+
+dr_sites_secondary_url: "https://engine2.example.com/ovirt-engine/api"
+dr_sites_secondary_username: "admin@internal"
+dr_sites_secondary_ca_file: "/etc/pki/ovirt-engine/ca.pem"
+
+dr_import_storages:
+  - dr_domain_type: "nfs"
+    dr_primary_master_domain: "True"
+    dr_primary_address: "xx.xx.xx.xx"
+    dr_primary_path: "/export/path1"
+    dr_primary_dc_name: "Prod"
+    dr_primary_name: "primary_master_storage"
+    dr_secondary_master_domain: "True"
+    dr_secondary_address: "yy.yy.yy.yy"
+    dr_secondary_path: "/export/path1"
+    dr_secondary_dc_name: "Recovery"
+    dr_secondary_name: "secondary_master_storage"
+
+  - dr_domain_type: "nfs"
+    dr_wipe_after_delete: false
+    dr_backup: false
+    dr_critical_space_action_blocker: 5
+    dr_warning_low_space: 5
+    dr_primary_master_domain: "False"
+    dr_primary_name: "path2"
+    dr_primary_address: "xx.xx.xx.xx"
+    dr_primary_path: "/export/path2"
+    dr_primary_dc_name: "Prod"
+    dr_secondary_name: "path2"
+    dr_secondary_master_domain: false
+    dr_secondary_address: "yy.yy.yy.yy"
+    dr_secondary_path: "/export/path2"
+    dr_secondary_dc_name: "Recovery"
+
+  - dr_domain_type: "iscsi"
+    dr_wipe_after_delete: false
+    dr_backup: false
+    dr_critical_space_action_blocker: 1
+    dr_warning_low_space: 5
+    dr_primary_master_domain: "False"
+    dr_domain_id: "aa92cc71-1b88-4998-a755-970ef8a638ea"
+    dr_primary_address: "yy.yy.yy.yy"
+    dr_primary_port: 3260
+    dr_primary_target: ["iqn.2017-10.com.primary.redhat:444"]
+    dr_primary_dc_name: "Prod"
+    dr_primary_name: "scsi_domain"
+    dr_secondary_name: "scsi_domain"
+    dr_secondary_dc_name: "Recovery"
+    dr_secondary_master_domain: "False"
+    dr_secondary_address: "zz.zz.zz.zz"
+    dr_secondary_port: 3260
+    dr_secondary_target: ["iqn.2017-07.com.recovery.redhat:444"]
+
+# Mapping for cluster
+dr_cluster_mappings:
+  - primary_name: "cluster_prod"
+    secondary_name: "cluster_recovery"
+
+# Mapping for affinity group
+dr_affinity_group_mappings:
+  - primary_name: "primary_affinity"
+    secondary_name: "secondary_affinity"
+
+# Mapping for affinity label
+dr_affinity_label_mappings:
+  - primary_name: "label_prod"
+    secondary_name: "label_recovery"
+
+# Mapping for domain
+dr_domain_mappings:
+  - primary_name: "new-authz"
+    secondary_name: "internal-authz"
+
+# Mapping for roles
+dr_role_mappings:
+  - primary_name: "VmMananger"
+    secondary_name: "NeverMnd"
+
+# Mapping for vnic profile
+dr_network_mappings:
+  - primary_network_name: "ovirtmgmt"
+    primary_profile_name: "ovirtmgmt"
+    primary_profile_id: "e368cbd4-59d9-4a7e-86c1-e405c916a836"
+    secondary_network_name: "ovirtmgmt"
+    secondary_profile_name: "ovirtmgmt"
+    secondary_profile_id: "e368cbd4-59d9-4a7e-86c1-e405c916a836"
+
+# Mapping for direct LUN disks
+dr_lun_mappings:
+  - primary_logical_unit_id: "360014056a2be431c0fd46c4bdce92b66"
+    primary_storage_type: "iscsi"
+    primary_logical_unit_address: "yy.yy.yy.yy"
+    primary_logical_unit_port: 3260
+    primary_logical_unit_portal: "1"
+    primary_logical_unit_username: ""
+    primary_logical_unit_password: ""
+    primary_logical_unit_target: "iqn.2017-10.com.primary.redhat:444"
+    secondary_storage_type: "iscsi"
+    secondary_logical_unit_id: "36001405961a7f95e6aa461b8dba53052"
+    secondary_logical_unit_address: "zz.zz.zz.zz"
+    secondary_logical_unit_port: 3260
+    secondary_logical_unit_portal: "1"
+    secondary_logical_unit_username: ""
+    secondary_logical_unit_password: ""
+    secondary_logical_unit_target: "iqn.2017-10.com.recovery.redhat:444"

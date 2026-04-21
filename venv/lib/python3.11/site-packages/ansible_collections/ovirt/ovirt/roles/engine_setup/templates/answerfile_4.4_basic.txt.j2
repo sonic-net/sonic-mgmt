@@ -1,0 +1,4 @@
+{% include "./templates/answerfile_4.3_basic.txt.j2" %}
+
+OVESETUP_GRAFANA_CORE/enable=bool:{{ ovirt_engine_grafana_enable }}
+QUESTION/1/OVESETUP_SKIP_RENEW_PKI_CONFIRM=str:{{ ovirt_engine_setup_skip_renew_pki_confirm | ternary('yes','no') }}

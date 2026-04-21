@@ -1,0 +1,2 @@
+minor_changes:
+  - na_sg_grid_account - new option `allow_compliance_mode` and `max_retention_days` added for tenant account, requires storageGRID 11.9 or later.

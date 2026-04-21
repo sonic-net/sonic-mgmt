@@ -1,0 +1,25 @@
+# ansible-playbook ./firmware_info.yml -e ansible_hosts=yourhostname
+- name: Get Firmware information from WTI device
+  hosts: "{{ansible_hosts}}"  # pass as -e ansible_hosts=wti_demo on the commandline
+  collections:
+     - wti.remote
+  connection: local
+  gather_facts: False
+
+  tasks:
+  - set_fact: use_https=True
+    when: use_https is undefined
+  - set_fact: validate_certs=True
+    when: validate_certs is undefined
+
+  - wti.remote.cpm_firmware_info:
+      cpm_url: "{{ansible_host}}"
+      cpm_username: "{{ansible_user}}"
+      cpm_password: "{{ansible_pw}}"
+      use_https: "{{use_https}}"
+      validate_certs: "{{validate_certs}}"
+
+    register: testout
+  - name: dump test output
+    debug:
+      msg: "{{ testout['data'] }}"

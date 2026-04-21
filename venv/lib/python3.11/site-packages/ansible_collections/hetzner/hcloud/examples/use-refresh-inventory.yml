@@ -1,0 +1,35 @@
+---
+- name: Demonstrate the usage of 'refresh_inventory'
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Print hostvars
+      ansible.builtin.debug:
+        var: hostvars
+
+    - name: Create new server
+      hetzner.hcloud.server:
+        name: my-server
+        server_type: cx22
+        image: debian-12
+
+    - name: Refresh inventory
+      ansible.builtin.meta: refresh_inventory
+
+    - name: Run tests
+      block:
+        - name: Print updated inventory
+          ansible.builtin.debug:
+            var: hostvars
+
+        - name: Verify hostvars is not empty
+          ansible.builtin.assert:
+            that:
+              - hostvars != {}
+
+      always:
+        - name: Cleanup server
+          hetzner.hcloud.server:
+            name: my-server
+            state: absent

@@ -1,0 +1,230 @@
+objects: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  httpapi: {}
+  inventory:
+    icinga_director_inventory:
+      description: Returns Ansible inventory from Icinga
+      name: icinga_director_inventory
+      version_added: null
+  lookup: {}
+  module:
+    icinga_command:
+      description: Manage commands in Icinga2
+      name: icinga_command
+      namespace: ''
+      version_added: 1.0.0
+    icinga_command_info:
+      description: Query commands in Icinga2
+      name: icinga_command_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_command_template:
+      description: Manage command templates in Icinga2
+      name: icinga_command_template
+      namespace: ''
+      version_added: 1.1.0
+    icinga_command_template_info:
+      description: Query command templates in Icinga2
+      name: icinga_command_template_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_dependency_apply:
+      description: Manage dependency apply rules in Icinga2
+      name: icinga_dependency_apply
+      namespace: ''
+      version_added: 2.3.0
+    icinga_dependency_template:
+      description: Manage dependency templates in Icinga2
+      name: icinga_dependency_template
+      namespace: ''
+      version_added: null
+    icinga_deploy:
+      description: Trigger deployment in Icinga2
+      name: icinga_deploy
+      namespace: ''
+      version_added: 1.33.0
+    icinga_deploy_info:
+      description: Get deployment information through the director API
+      name: icinga_deploy_info
+      namespace: ''
+      version_added: 1.33.0
+    icinga_endpoint:
+      description: Manage endpoints in Icinga2
+      name: icinga_endpoint
+      namespace: ''
+      version_added: 1.5.0
+    icinga_endpoint_info:
+      description: Query endpoints in Icinga2
+      name: icinga_endpoint_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_host:
+      description: Manage hosts in Icinga2
+      name: icinga_host
+      namespace: ''
+      version_added: 1.0.0
+    icinga_host_info:
+      description: Query hosts in Icinga2
+      name: icinga_host_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_host_template:
+      description: Manage host templates in Icinga2
+      name: icinga_host_template
+      namespace: ''
+      version_added: 1.2.0
+    icinga_host_template_info:
+      description: Query host templates in Icinga2
+      name: icinga_host_template_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_hostgroup:
+      description: Manage hostgroups in Icinga2
+      name: icinga_hostgroup
+      namespace: ''
+      version_added: 1.0.0
+    icinga_hostgroup_info:
+      description: Query hostgroups in Icinga2
+      name: icinga_hostgroup_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_notification:
+      description: Manage notifications in Icinga2
+      name: icinga_notification
+      namespace: ''
+      version_added: 1.0.0
+    icinga_notification_info:
+      description: Query notifications in Icinga2
+      name: icinga_notification_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_notification_template:
+      description: Manage notification templates in Icinga2
+      name: icinga_notification_template
+      namespace: ''
+      version_added: 1.9.0
+    icinga_notification_template_info:
+      description: Query notification templates in Icinga2
+      name: icinga_notification_template_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_scheduled_downtime:
+      description: Manage downtimes in Icinga2
+      name: icinga_scheduled_downtime
+      namespace: ''
+      version_added: 1.25.0
+    icinga_service:
+      description: Manage services in Icinga2
+      name: icinga_service
+      namespace: ''
+      version_added: 1.0.0
+    icinga_service_apply:
+      description: Manage service apply rules in Icinga2
+      name: icinga_service_apply
+      namespace: ''
+      version_added: 1.0.0
+    icinga_service_apply_info:
+      description: Query service apply rules in Icinga2
+      name: icinga_service_apply_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_service_info:
+      description: Query services in Icinga2
+      name: icinga_service_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_service_template:
+      description: Manage service templates in Icinga2
+      name: icinga_service_template
+      namespace: ''
+      version_added: 1.0.0
+    icinga_service_template_info:
+      description: Query service templates in Icinga2
+      name: icinga_service_template_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_servicegroup:
+      description: Manage servicegroups in Icinga2
+      name: icinga_servicegroup
+      namespace: ''
+      version_added: 1.0.0
+    icinga_servicegroup_info:
+      description: Query servicegroups in Icinga2
+      name: icinga_servicegroup_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_serviceset:
+      description: Manage servicesets in Icinga2
+      name: icinga_serviceset
+      namespace: ''
+      version_added: 1.29.0
+    icinga_timeperiod:
+      description: Manage timeperiods in Icinga2
+      name: icinga_timeperiod
+      namespace: ''
+      version_added: 1.0.0
+    icinga_timeperiod_info:
+      description: Query timeperiods in Icinga2
+      name: icinga_timeperiod_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_timeperiod_template:
+      description: Manage timeperiod templates in Icinga2
+      name: icinga_timeperiod_template
+      namespace: ''
+      version_added: 1.17.0
+    icinga_timeperiod_template_info:
+      description: Query timeperiod templates in Icinga2
+      name: icinga_timeperiod_template_info
+      namespace: ''
+      version_added: 1.17.0
+    icinga_user:
+      description: Manage users in Icinga2
+      name: icinga_user
+      namespace: ''
+      version_added: 1.0.0
+    icinga_user_group:
+      description: Manage users groups in Icinga2
+      name: icinga_user_group
+      namespace: ''
+      version_added: 1.16.0
+    icinga_user_group_info:
+      description: Query user groups in Icinga2
+      name: icinga_user_group_info
+      namespace: ''
+      version_added: 1.16.0
+    icinga_user_info:
+      description: Query users in Icinga2
+      name: icinga_user_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_user_template:
+      description: Manage user templates in Icinga2
+      name: icinga_user_template
+      namespace: ''
+      version_added: 1.0.0
+    icinga_user_template_info:
+      description: Query user templates in Icinga2
+      name: icinga_user_template_info
+      namespace: ''
+      version_added: 1.13.0
+    icinga_zone:
+      description: Manage zones in Icinga2
+      name: icinga_zone
+      namespace: ''
+      version_added: 1.5.0
+    icinga_zone_info:
+      description: Query zones in Icinga2
+      name: icinga_zone_info
+      namespace: ''
+      version_added: 1.13.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  vars: {}
+version: 2.5.0

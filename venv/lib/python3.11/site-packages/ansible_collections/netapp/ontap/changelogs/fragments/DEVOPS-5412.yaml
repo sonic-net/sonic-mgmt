@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_cifs_local_user_set_password - when using ZAPI, do not require cluster admin privileges.

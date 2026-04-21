@@ -1,0 +1,46 @@
+---
+- name: "Create VM {{ current_vm.name }}"
+  ovirt.ovirt.ovirt_vm:
+    auth: "{{ ovirt_auth }}"
+    state: "present"
+    name: "{{ current_vm.name }}"
+    clone: "{{ current_vm.clone | default(current_vm.profile.clone) | default(omit) }}"
+    cluster: "{{ current_vm.cluster | default(current_vm.profile.cluster) | default(omit) }}"
+    template: "{{ current_vm.template | default(current_vm.profile.template) | default(omit) }}"
+    template_version: "{{ current_vm.template_version | default(current_vm.profile.template_version) | default(omit) }}"
+    ballooning_enabled: "{{ current_vm.ballooning_enabled | default(current_vm.profile.ballooning_enabled) | default(omit) }}"
+    host: "{{ current_vm.host | default(current_vm.profile.host) | default(omit) }}"
+    memory: "{{ current_vm.memory | default(current_vm.profile.memory) | default(omit) }}"
+    memory_max: "{{ current_vm.memory_max | default(current_vm.profile.memory_max) | default(omit) }}"
+    memory_guaranteed: "{{ current_vm.memory_guaranteed | default(current_vm.profile.memory_guaranteed) | default(omit) }}"
+    cpu_cores: "{{ current_vm.cores | default(current_vm.profile.cores) | default(omit) }}"
+    cpu_sockets: "{{ current_vm.sockets | default(current_vm.profile.sockets) | default(omit) }}"
+    cpu_shares: "{{ current_vm.cpu_shares | default(current_vm.profile.cpu_shares) | default(omit) }}"
+    cpu_threads: "{{ current_vm.cpu_threads | default(current_vm.profile.cpu_threads) | default(omit) }}"
+    cpu_mode: "{{ current_vm.cpu_mode | default(current_vm.profile.cpu_mode) | default(omit) }}"
+    boot_devices: "{{ current_vm.boot_devices | default(current_vm.profile.boot_devices) | default(omit) }}"
+    placement_policy: "{{ 'user_migratable' if ((current_vm.profile.cpu_mode is defined and current_vm.profile.cpu_mode == 'host_passthrough') or (current_vm.cpu_mode
+      is defined and current_vm.cpu_mode == 'host_passthrough')) else current_vm.placement_policy | default(current_vm.profile.placement_policy) | default(omit) }}"
+    custom_properties: "{{ current_vm.custom_properties | default(current_vm.profile.custom_properties) | default(omit) }}"
+    description: "{{ current_vm.description | default(current_vm.profile.description) | default(omit) }}"
+    operating_system: "{{ current_vm.operating_system | default(current_vm.profile.operating_system) | default(omit) }}"
+    type: "{{ current_vm.type | default(current_vm.profile.type) | default(omit) }}"
+    high_availability: "{{ current_vm.high_availability | default(current_vm.profile.high_availability) | default(omit) }}"
+    high_availability_priority: "{{ current_vm.high_availability_priority | default(current_vm.profile.high_availability_priority) | default(omit) }}"
+    io_threads: "{{ current_vm.io_threads  | default(current_vm.profile.io_threads ) | default(omit) }}"
+    storage_domain: "{{ current_vm.storage_domain | default(current_vm.profile.storage_domain) | default(omit) }}"
+    disk_format: "{{ current_vm.disk_format | default(current_vm.profile.disk_format) | default(omit) }}"
+    lease: "{{ current_vm.lease | default(current_vm.profile.lease) | default(omit) }}"
+    serial_console: "{{ current_vm.serial_console | default(current_vm.profile.serial_console) | default(omit) }}"
+    serial_policy: "{{ current_vm.serial_policy | default(current_vm.profile.serial_policy) | default(omit) }}"
+    serial_policy_value: "{{ current_vm.serial_policy_value | default(current_vm.profile.serial_policy_value) | default(omit) }}"
+    timeout: "{{ vm_infra_create_single_timeout }}"
+    comment: "{{ current_vm.comment | default(current_vm.profile.comment) | default(omit) }}"
+  changed_when: false
+  async: "{{ vm_infra_create_single_timeout }}"
+  poll: 0
+  register: added_vm
+
+- name: "Add created vm to all_vms"
+  ansible.builtin.set_fact:
+    all_vms: "{{ all_vms | default([]) + [added_vm] }}"

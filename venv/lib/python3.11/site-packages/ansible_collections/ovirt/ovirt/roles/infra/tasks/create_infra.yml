@@ -1,0 +1,37 @@
+---
+- name: Run mac-pools sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.mac_pools
+
+- name: Run datacenters sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.datacenters
+
+- name: Run clusters sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.clusters
+
+- name: Run hosts sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.hosts
+
+- name: Run networks sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.networks
+
+- name: Run storages sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.storages
+
+- name: Run aaa-jdbc sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.aaa_jdbc
+  when: users is defined or user_groups is defined
+
+- name: Run external-providers sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.external_providers
+
+- name: Run permissions sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.permissions

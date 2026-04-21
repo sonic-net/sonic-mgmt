@@ -1,0 +1,38 @@
+---
+- name: Ansible resource module example
+  hosts: datacenter
+  gather_facts: false
+  connection: httpapi
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: Add VLANs configuration
+      sonic_vlans:
+        config:
+          - vlan_id: 11
+          - vlan_id: 12
+          - vlan_id: 13
+        state: merged
+    - name: Configure VRFs
+      sonic_vrfs:
+        config:
+          - name: Vrfcheck1
+          - name: Vrfcheck2
+    - name: "Sonic_vxlans configuration"
+      sonic_vxlans:
+        config:
+          - name: vteptest1
+            source_ip: 1.1.1.1
+            primary_ip: 2.2.2.2
+            evpn_nvo: nvo6
+            vlan_map:
+              - vni: 101
+                vlan: 11
+              - vni: 102
+                vlan: 12
+            vrf_map:
+              - vni: 101
+                vrf: Vrfcheck1
+              - vni: 102
+                vrf: Vrfcheck2
+      register: merged03_output

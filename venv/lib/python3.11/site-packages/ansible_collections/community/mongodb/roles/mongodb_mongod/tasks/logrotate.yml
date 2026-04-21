@@ -1,0 +1,9 @@
+---
+- name: Install logrotate configuration
+  ansible.builtin.template:
+    src: "{{ mongodb_logrotate_template }}"
+    dest: /etc/logrotate.d/mongod
+  tags:
+    - "mongodb"
+    - "setup"
+    - "service"

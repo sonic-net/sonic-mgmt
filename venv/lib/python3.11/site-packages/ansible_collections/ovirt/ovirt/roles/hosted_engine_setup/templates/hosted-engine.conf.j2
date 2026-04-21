@@ -1,0 +1,42 @@
+fqdn={{ he_fqdn }}
+vm_disk_id={{ he_virtio_disk_details.disk.id }}
+vm_disk_vol_id={{ he_virtio_disk_details.disk.image_id }}
+vmid={{ he_vm_details.vm.id }}
+{% if he_domain_type=="nfs" or he_domain_type=="glusterfs" %}
+storage={{ he_storage_domain_addr }}:{{ he_storage_domain_path }}
+{% else %}
+storage={{ he_storage_domain_addr }}
+{% endif %}
+nfs_version={{ he_nfs_version }}
+mnt_options={{ he_mount_options }}
+conf=/var/run/ovirt-hosted-engine-ha/vm.conf
+host_id={{ host_spm_id }}
+console=vnc
+domainType={{ he_domain_type }}
+{# spUUID={{ datacenter_id }} #}
+{# To avoid triggering #}
+{# 3.5 -> 3.6 upgrade code #}
+spUUID=00000000-0000-0000-0000-000000000000
+sdUUID={{ storage_domain_details.ovirt_storage_domains[0].id }}
+{# TODO: fix it #}
+connectionUUID=e29cf818-5ee5-46e1-85c1-8aeefa33e95d
+vdsm_use_ssl=true
+gateway={{ he_gateway }}
+bridge={{ he_mgmt_network }}
+network_test={{ he_network_test }}
+tcp_t_address={{ he_tcp_t_address }}
+tcp_t_port={{ he_tcp_t_port }}
+metadata_volume_UUID={{ he_metadata_disk_details.disk.image_id }}
+metadata_image_UUID={{ he_metadata_disk_details.disk.id }}
+lockspace_volume_UUID={{ he_sanlock_disk_details.disk.image_id }}
+lockspace_image_UUID={{ he_sanlock_disk_details.disk.id }}
+conf_volume_UUID={{ he_conf_disk_details.disk.image_id }}
+conf_image_UUID={{ he_conf_disk_details.disk.id }}
+{# TODO: get OVF_STORE volume uid from the engine at deploy time #}
+
+# The following are used only for iSCSI storage
+iqn={{ he_iscsi_target }}
+portal={{ he_iscsi_tpgt }}
+user={{ he_iscsi_username }}
+password={{ he_iscsi_password }}
+port={{ he_iscsi_portal_port }}

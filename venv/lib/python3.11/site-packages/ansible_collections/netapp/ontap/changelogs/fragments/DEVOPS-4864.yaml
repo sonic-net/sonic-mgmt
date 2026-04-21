@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_svm - add support for web services (ssl modify) - REST only with 9.8 or later.
+bugfixes:
+  - na_ontap_svm - fixed KeyError issue on protocols when vserver is stopped.

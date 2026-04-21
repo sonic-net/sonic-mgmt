@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_cifs_server - Added ``force`` option for create, delete and rename cifs server when using REST.
+  - na_ontap_cifs_server - Added ``from_name`` option to rename cifs server when using REST.

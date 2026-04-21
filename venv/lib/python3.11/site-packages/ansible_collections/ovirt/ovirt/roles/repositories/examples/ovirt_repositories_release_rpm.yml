@@ -1,0 +1,9 @@
+---
+- name: Setup repositories using oVirt release package
+  hosts: localhost
+
+  vars:
+    ovirt_repositories_ovirt_release_rpm: http://resources.ovirt.org/pub/yum-repo/ovirt-master-release.rpm
+
+  roles:
+    - ovirt.ovirt.repositories

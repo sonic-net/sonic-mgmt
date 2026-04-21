@@ -1,0 +1,62 @@
+---
+- name: Converge
+  hosts: sdc
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: "Install and configure powerflex SDC"
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      vars:
+        powerflex_sdc_state: present
+      register: powerflex_sdc_result_molecule
+
+    - name: "Verifying installation package"
+      ansible.builtin.assert:
+        that:
+          - " 'Installed' in powerflex_common_install_package_output.results[0]"
+      when:
+        - not ansible_check_mode and powerflex_common_install_package_output.changed
+        - " 'WindowsOS' not in ansible_distribution "
+        - " 'VMkernel' not in ansible_distribution "
+
+    - name: "Verifying installation package on windows"
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_install_package_output.rc == 0
+      when:
+        - " 'WindowsOS' in ansible_distribution "
+        - not ansible_check_mode and powerflex_common_install_package_output.changed
+
+    - name: "Verifying installation package on ESXi"
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_install_package_output.rc == 0
+      when:
+        - " 'VMkernel' in ansible_distribution "
+        - not ansible_check_mode and powerflex_common_install_package_output.changed
+
+    - name: "Verifying performance profile value"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_performance_profile_output.sdc_details.perfProfile == "{{ powerflex_sdc_performance_profile }}"
+      when: not ansible_check_mode and powerflex_sdc_performance_profile_output.changed
+
+    - name: "Verifying rename value"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_rename_output.sdc_details.name == "{{ powerflex_sdc_name }}"
+      when: not ansible_check_mode and powerflex_sdc_performance_profile_output.changed
+
+    - name: "Verifying performance profile value in Idempotency"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_performance_profile_output.sdc_details.perfProfile == "{{ powerflex_sdc_performance_profile }}"
+      when: not ansible_check_mode and not powerflex_sdc_performance_profile_output.changed
+
+    - name: "Verifying rename value in Idempotency"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_rename_output.sdc_details.name == '{{ powerflex_sdc_name }}'
+      when: not ansible_check_mode and not powerflex_sdc_performance_profile_output.changed

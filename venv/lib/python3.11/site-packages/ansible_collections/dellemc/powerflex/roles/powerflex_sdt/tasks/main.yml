@@ -1,0 +1,8 @@
+---
+- name: Install SDT
+  ansible.builtin.include_tasks: install_sdt.yml
+  when: powerflex_sdt_state == 'present'
+
+- name: Remove SDT
+  ansible.builtin.include_tasks: uninstall_sdt.yml
+  when: powerflex_sdt_state == 'absent'

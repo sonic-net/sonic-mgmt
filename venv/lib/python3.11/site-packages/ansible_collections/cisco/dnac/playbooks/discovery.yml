@@ -1,0 +1,129 @@
+---
+- name: Discovery
+  hosts: dnac_servers
+  vars:
+    global_credential_id_list:
+      - "90acbab8-03d5-4726-9c19-e1e51a40b3cd"
+      - "f979d842-f6fd-456a-8137-2cb5113cd2e8"
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Find discovery
+      cisco.dnac.discovery_range_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        startIndex: 1
+        recordsToReturn: 500
+      register: discovery_range_result
+
+    - name: Set fact of filtered discoveries
+      ansible.builtin.set_fact:
+        discoveries_filtered: "{{ discovery_range_result.dnac_response.response | selectattr('name', 'equalto', 'DMZ Lab 2') }}"
+      when:
+        - discovery_range_result is defined
+        - discovery_range_result.dnac_response is defined
+        - discovery_range_result.dnac_response.response is defined
+      register: discovery_filtered_results
+
+    - name: Set fact of filtered discovery
+      ansible.builtin.set_fact:
+        discovery_filtered: "{{ discovery_filtered_results.ansible_facts.discoveries_filtered | first }}"
+      when:
+        - discovery_filtered_results is defined
+        - discovery_filtered_results.ansible_facts is defined
+        - discovery_filtered_results.ansible_facts.discoveries_filtered is defined
+        - discovery_filtered_results.ansible_facts.discoveries_filtered|length > 0
+      register: discovery_filtered_result
+
+    - name: Set fact of filtered discovery id
+      ansible.builtin.set_fact:
+        discovery_filtered_id: "{{ discovery_filtered_result.ansible_facts.discovery_filtered.id }}"
+      when:
+        - discovery_filtered_result is defined
+        - discovery_filtered_result.ansible_facts is defined
+        - discovery_filtered_result.ansible_facts.discovery_filtered is defined
+      register: discovery_filtered_result_id
+
+    - name: Create a discovery
+      cisco.dnac.discovery:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        validate_response_schema: false
+        state: present
+        cdpLevel: 16
+        discoveryType: CDP
+        globalCredentialIdList: "{{ global_credential_id_list }}"
+        ipAddressList: 10.10.22.22
+        name: start_discovery_test2
+        protocolOrder: ssh
+        # id: "67"
+        # enablePasswordList: [""]
+        # userNameList: [""]
+        # passwordList: [""]
+        # ipFilterList: [""]
+        # httpReadCredential:
+        #   port: 0
+        #   secure: false
+        # deviceIds: " "
+        # discoveryCondition: "In Progress"
+        # discoveryStatus: "Active"
+        # isAutoCdp: true
+        # preferredMgmtIPMethod: "None"
+        # retry: 3
+        # timeout: 5
+        # httpWriteCredential:
+        #   port: 0
+        #   secure: false
+      register: discovery_result
+      when:
+        - discovery_filtered_result_id is not defined
+
+    - name: Update a discovery
+      cisco.dnac.discovery:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        validate_response_schema: false
+        state: present
+        cdpLevel: 16
+        discoveryType: CDP
+        globalCredentialIdList: "{{ global_credential_id_list }}"
+        ipAddressList: 10.10.22.22
+        name: start_discovery_test2
+        protocolOrder: ssh
+        id: "{{ discovery_filtered_result_id.ansible_facts.discovery_filtered_id }}"
+        # enablePasswordList: [""]
+        # userNameList: [""]
+        # passwordList: [""]
+        # ipFilterList: [""]
+        # httpReadCredential:
+        #   port: 0
+        #   secure: false
+        # deviceIds: " "
+        # discoveryCondition: "In Progress"
+        # discoveryStatus: "Active"
+        # isAutoCdp: true
+        # preferredMgmtIPMethod: "None"
+        # retry: 3
+        # timeout: 5
+        # httpWriteCredential:
+        #   port: 0
+        #   secure: false
+      register: discovery_result
+      when:
+        - discovery_filtered_result_id is defined
+
+    - name: Show discovery result
+      ansible.builtin.debug:
+        msg: "{{ discovery_result }}"
+      when:
+        - discovery_result is defined

@@ -1,0 +1,44 @@
+---
+####################################################################
+# Example : Cluster Protection Domain Facts Playbook
+####################################################################
+- name: Cluster Protection Domain Facts Playbook
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ####################################################################
+  # Task Name : Get Protection Domain Information
+  ####################################################################
+    - name: Get Protection Domain Information
+      hitachivantara.vspone_block.sds_block.hv_sds_block_protection_domain_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get Protection Domain Information by ID
+    ####################################################################
+    - name: Get Protection Domain Information by ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_protection_domain_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "13d017d1-5448-4c4c-8284-7ab1b53a17cd"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

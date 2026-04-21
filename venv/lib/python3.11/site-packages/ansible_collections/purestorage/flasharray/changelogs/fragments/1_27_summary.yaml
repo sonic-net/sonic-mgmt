@@ -1,0 +1,7 @@
+release_summary: |
+  | This release changes the minimum supported Purity//FA version.
+  |
+  | The minimum supported Purity//FA version increases to 6.1.0.
+  | All previous versions are classed as EOL by Pure Storage support.
+  |
+  | This change is to support the full integration to Purity//FA REST v2.x

@@ -1,0 +1,12 @@
+---
+- name: 'Create Content Credentials'
+  theforeman.foreman.content_credential:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ item.organization | default(foreman_organization) }}"
+    name: "{{ item.name }}"
+    content_type: "{{ item.content_type | default(omit) }}"
+    content: "{{ item.content | default(omit) }}"
+  loop: "{{ foreman_content_credentials | default([]) }}"

@@ -1,0 +1,88 @@
+---
+- name: Configure channels and create events in Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "input_events_and_notification.yml"
+    - "credentials.yml"
+  tasks:
+    - name: Add/update channels with destination and create/update events in Cisco Catalyst Center.
+      cisco.dnac.events_and_notifications_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log_level: DEBUG
+        dnac_log: true
+        config_verify: true
+        state: merged
+        config:
+          - webhook_destination:
+              name: "{{ item.webhook_destination.name }}"
+              description: "{{ item.webhook_destination.description }}"
+              url: "{{ item.webhook_destination.url }}"
+              method: "{{ item.webhook_destination.method }}"
+              trust_cert: "{{ item.webhook_destination.trust_cert }}"
+            email_destination:
+              sender_email: "{{ item.email_destination.sender_email }}"
+              recipient_email: "{{ item.email_destination.recipient_email }}"
+              subject: "{{ item.email_destination.subject }}"
+              primary_smtp_config:
+                server_address: "{{ item.email_destination.primary_smtp_config.server_address }}"
+                port: "{{ item.email_destination.primary_smtp_config.port }}"
+                username: "{{ item.email_destination.primary_smtp_config.username }}"
+            syslog_destination:
+              name: "{{ item.syslog_destination.name }}"
+              description: "{{ item.syslog_destination.description }}"
+              server_address: "{{ item.syslog_destination.server_address }}"
+              protocol: "{{ item.syslog_destination.protocol }}"
+              port: "{{ item.syslog_destination.port }}"
+            snmp_destination:
+              name: "{{ item.snmp_destination.name }}"
+              description: "{{ item.snmp_destination.description }}"
+              server_address: "{{ item.snmp_destination.server_address }}"
+              port: "{{ item.snmp_destination.port }}"
+              snmp_version: "{{ item.snmp_destination.snmp_version }}"
+              username: "{{ item.snmp_destination.username }}"
+              mode: "{{ item.snmp_destination.mode }}"
+              auth_type: "{{ item.snmp_destination.auth_type }}"
+              auth_password: "{{ item.snmp_destination.auth_password }}"
+              privacy_type: "{{ item.snmp_destination.privacy_type }}"
+              privacy_password: "{{ item.snmp_destination.privacy_password }}"
+            itsm_setting:
+              instance_name: "{{ item.itsm_setting.instance_name }}"
+              description: "{{ item.itsm_setting.description }}"
+              connection_settings:
+                url: "{{ item.itsm_setting.connection_settings.url }}"
+                username: "{{ item.itsm_setting.connection_settings.username }}"
+                password: "{{ item.itsm_setting.connection_settings.password }}"
+            webhook_event_notification:
+              name: "{{ item.webhook_event_notification.name }}"
+              description: "{{ item.webhook_event_notification.description }}"
+              sites: "{{ item.webhook_event_notification.sites }}"
+              events: "{{ item.webhook_event_notification.events }}"
+              destination: "{{ item.webhook_event_notification.destination }}"
+            email_event_notification:
+              name: "{{ item.email_event_notification.name }}"
+              description: "{{ item.email_event_notification.description }}"
+              sites: "{{ item.email_event_notification.sites }}"
+              events: "{{ item.email_event_notification.events }}"
+              sender_email: "{{ item.email_event_notification.sender_email }}"
+              recipient_emails: "{{ item.email_event_notification.recipient_emails }}"
+              subject: "{{ item.email_event_notification.subject }}"
+              instance: "{{ item.email_event_notification.instance }}"
+              instance_description: "{{ item.email_event_notification.instance_description }}"
+            syslog_event_notification:
+              name: "{{ item.syslog_event_notification.name }}"
+              description: "{{ item.syslog_event_notification.description }}"
+              sites: "{{ item.syslog_event_notification.sites }}"
+              events: "{{ item.syslog_event_notification.events }}"
+              destination: "{{ item.syslog_event_notification.destination }}"
+
+      with_items: "{{ events_notification }}"
+      tags:
+        - events_testing

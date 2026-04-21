@@ -1,0 +1,26 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_block` introduces new modules and improvements to storage management."
+minor_changes:
+  - Added new module `hv_sds_block_vps` to create, update, and delete VPS.
+  - Added new module `hv_gad` to create, update, and delete GAD pairs.
+  - Added new module `hv_hur` to create, update, and delete HUR pairs.
+  - Added new module `hv_gateway_unsubscribe_resource` to unsubscribe resources.
+  - Added new module `hv_storage_port` to update storage port settings.
+  - Added new module `hv_storagepool` to create, update, and delete storage pools.
+  - Added new module `hv_truecopy` to create, update, and delete TrueCopy pairs.
+  - Added new facts module `hv_sds_block_vps_fact` to retrieve VPS details.
+  - Added new facts module `hv_gad_fact` to retrieve GAD pair details.
+  - Added new facts module `hv_hur_fact` to retrieve HUR pair details.
+  - Added new facts module `hv_gateway_subscription_facts` to retrieve subscriber details.
+  - Added new facts module `hv_nvm_subsystems_facts` to retrieve NVM subsystem details.
+  - Added new facts module `hv_storage_port_facts` to retrieve storage port details.
+  - Added new facts module `hv_truecopy_facts` to retrieve TrueCopy pair details.
+  - Updated `hv_sds_block_compute_node` to manage Compute Node with NVMe-TCP connection.
+  - Updated `hv_sds_block_compute_node_facts` to retrieve Compute Node with NVMe-TCP details.
+  - Updated `hv_sds_block_volume` to support QoS settings during volume creation and update.
+  - Updated `hv_sds_block_volume_facts` to retrieve NVMe-TCP volume details, Compute Node, and QoS information.
+  - Updated `hv_ldev` to enhance deletion and provisioning workflows.
+  - Updated `hv_ldev_facts` to retrieve detailed LDEV information.
+  - Updated `hv_snapshot` to enhance Thin Image creation and management.
+  - Renamed module `hv_lun` to `hv_ldev`.
+  - Renamed parameter `lun` to `ldev`, `pvol` to `primary_volume_id`, `svol` to `secondary_volume_id`.

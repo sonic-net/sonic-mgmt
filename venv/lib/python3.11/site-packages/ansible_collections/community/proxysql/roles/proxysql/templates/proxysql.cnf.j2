@@ -1,0 +1,22 @@
+#jinja2: lstrip_blocks: "true"
+datadir="{{ proxysql_datadir }}"
+restart_on_missing_heartbeats={{ proxysql_restart_missing_heartbeats }}
+pidfile="{{ proxysql_pidfile }}"
+
+admin_variables=
+{
+{% for config_item in proxysql_admin_variables|dictsort %}
+    {% if config_item.1.variable_value is not none %}
+	  {{ config_item.1.variable }}={{ config_item.1.variable_value | to_json }}
+		{% endif %}
+{% endfor %}
+}
+
+mysql_variables=
+{
+{% for config_item in proxysql_mysql_variables|dictsort %}
+    {% if config_item.1.variable_value is not none %}
+		{{ config_item.1.variable }}={{ config_item.1.variable_value | to_json }}
+		{% endif %}
+{% endfor %}
+}

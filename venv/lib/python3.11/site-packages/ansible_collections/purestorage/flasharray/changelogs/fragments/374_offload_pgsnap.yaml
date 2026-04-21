@@ -1,0 +1,3 @@
+bugfixes:
+  - purefa_info - Resolves issue with destroyed pgroup snapshot on an offload target not have a time remaining value
+  - purefa_pg - Resolves issue with destroyed pgroup snapshot on an offload target not have a time remaining value

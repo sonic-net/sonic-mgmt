@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_snapmirror - report error when attempting to change relationship_type.
+  - na_ontap_snapmirror - fix job update failures for load_sharing mirrors.

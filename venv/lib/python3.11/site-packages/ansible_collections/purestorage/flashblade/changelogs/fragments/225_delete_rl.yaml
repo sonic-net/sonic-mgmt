@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_fs_replica - Added support to delete filesystem replica links from REST 2.10

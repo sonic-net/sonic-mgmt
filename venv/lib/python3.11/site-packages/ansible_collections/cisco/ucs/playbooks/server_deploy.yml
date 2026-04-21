@@ -1,0 +1,39 @@
+---
+#
+# Configure UCS, Associate Service Profiles, and Install OS
+#
+# The hosts group used is provided by the group variable or defaulted to 'ucs'.
+# You can specify a specific host (or host group) on the command line:
+#   ansible-playbook ... -e group=<your host group>
+#   e.g., ansible-playbook server_profiles.yml -e group=TME_Demo
+#
+- hosts: "{{ group | default('ucs') }}"
+  connection: local
+  gather_facts: false
+  vars:
+    # The UCS domain hostname can be set in the inventory or on the command line as needed
+    hostname: "{{ inventory_hostname }}"
+    # Names for Service Profiles, Policies, and number of Profiles
+    template_name: auto-template
+    template_type: updating-template
+    host_firmware_package: ansible-latest
+    maintenance_policy: user-ack
+    vmedia_policy: cdd-nfs
+    profile_name: auto-profile
+    num_profiles: 2
+  tasks:
+    - block:
+        # Configure default pools and other settings
+        - import_role:
+            name: servers/defaults
+          tags: defaults
+        # Configure Service Profile Template with default settings
+        - import_role:
+            name: servers/service_profile_templates
+          tags: templates
+        # Create Service Profiles from template and associate
+        - import_role:
+            name: servers/service_profiles
+          tags: profiles
+      # Use the localhost's environment and Python
+      delegate_to: localhost

@@ -1,0 +1,153 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, division, print_function
+__metaclass__ = type
+
+ANSIBLE_METADATA = {'metadata_version': '1.1',
+                    'status': ['preview'],
+                    'supported_by': 'community'}
+
+DOCUMENTATION = r'''
+---
+module: intersight_certificate_management_policy_info
+short_description: Gather information about Certificate Management Policies in Cisco Intersight
+description:
+  - Gather information about Certificate Management Policies in L(Cisco Intersight,https://intersight.com).
+  - Information can be filtered by O(organization) and O(name).
+  - If no filters are passed, all Certificate Management Policies will be returned.
+  - Optionally retrieves associated certificates for each policy.
+extends_documentation_fragment: intersight
+options:
+  organization:
+    description:
+      - The name of the organization the Certificate Management Policy belongs to.
+    type: str
+  name:
+    description:
+      - The name of the Certificate Management Policy to gather information from.
+    type: str
+author:
+  - Ron Gershburg (@rgershbu)
+'''
+
+EXAMPLES = r'''
+- name: Fetch a specific Certificate Management Policy by name
+  cisco.intersight.intersight_certificate_management_policy_info:
+    api_private_key: "{{ api_private_key }}"
+    api_key_id: "{{ api_key_id }}"
+    name: "CertMgmt-Policy-01"
+
+- name: Fetch all Certificate Management Policies in a specific Organization
+  cisco.intersight.intersight_certificate_management_policy_info:
+    api_private_key: "{{ api_private_key }}"
+    api_key_id: "{{ api_key_id }}"
+    organization: "default"
+
+- name: Fetch all Certificate Management Policies
+  cisco.intersight.intersight_certificate_management_policy_info:
+    api_private_key: "{{ api_private_key }}"
+    api_key_id: "{{ api_key_id }}"
+'''
+
+RETURN = r'''
+api_response:
+  description: The API response output returned by the specified resource.
+  returned: always
+  type: list
+  elements: dict
+  sample: [
+    {
+        "Name": "CertMgmt-Policy-01",
+        "ObjectType": "certificatemanagement.Policy",
+        "Moid": "1234567890abcdef12345678",
+        "Description": "Certificate management policy with Root CA",
+        "Organization": {
+            "Name": "default",
+            "Moid": "abcdef1234567890abcdef12",
+            "ObjectType": "organization.Organization"
+        },
+        "Tags": [
+            {
+                "Key": "Environment",
+                "Value": "Production"
+            }
+        ],
+        "Certificates": [
+            {
+                "Certificate": {
+                    "PemCertificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t..."
+                },
+                "CertificateName": "RootCA-01",
+                "ObjectType": "certificatemanagement.RootCaCertificate",
+                "Enabled": true,
+                "Moid": "cert1234567890abcdef12345"
+            }
+        ]
+    },
+    {
+        "Name": "CertMgmt-Policy-02",
+        "ObjectType": "certificatemanagement.Policy",
+        "Moid": "5678901234abcdef56789012",
+        "Description": "Certificate management policy with IMC certificate",
+        "Organization": {
+            "Name": "default",
+            "Moid": "abcdef1234567890abcdef12",
+            "ObjectType": "organization.Organization"
+        },
+        "Certificates": [
+            {
+                "Certificate": {
+                    "PemCertificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t..."
+                },
+                "ObjectType": "certificatemanagement.Imc",
+                "Enabled": true,
+                "IsPrivatekeySet": true,
+                "Moid": "imccert1234567890abcdef"
+            }
+        ]
+    }
+  ]
+'''
+
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.cisco.intersight.plugins.module_utils.intersight import IntersightModule, intersight_argument_spec
+
+
+def main():
+    argument_spec = intersight_argument_spec.copy()
+    argument_spec.update(
+        organization=dict(type='str'),
+        name=dict(type='str')
+    )
+
+    module = AnsibleModule(
+        argument_spec,
+        supports_check_mode=True,
+    )
+
+    intersight = IntersightModule(module)
+    intersight.result['api_response'] = {}
+    intersight.result['trace_id'] = ''
+
+    # Resource path used to fetch info
+    resource_path = '/certificatemanagement/Policies'
+
+    # Build query parameters
+    query_params = intersight.set_query_params()
+
+    # Get policies (certificates are included in the policy response)
+    intersight.get_resource(
+        resource_path=resource_path,
+        query_params=query_params,
+        return_list=True
+    )
+
+    module.exit_json(**intersight.result)
+
+
+if __name__ == '__main__':
+    main()

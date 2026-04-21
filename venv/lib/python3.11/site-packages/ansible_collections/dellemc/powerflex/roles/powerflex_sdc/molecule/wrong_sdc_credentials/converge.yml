@@ -1,0 +1,20 @@
+---
+- name: Converge
+  hosts: sdc
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: false
+  tasks:
+    - name: "Install and configure powerflex SDC with wrong credentials"
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      vars:
+        powerflex_sdc_state: present
+      ignore_unreachable: true
+      ignore_errors: true
+      register: powerflex_sdc_wrong_credentials_output
+
+    - name: "Verifying failure of install package with wrong credentials"
+      ansible.builtin.assert:
+        that:
+          - " 'failed. The error was: error while evaluating conditional' in powerflex_sdc_driver_sync_output.msg"

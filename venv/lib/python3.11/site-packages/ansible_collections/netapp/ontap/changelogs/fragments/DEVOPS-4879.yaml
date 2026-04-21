@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_snapshot_policy - Do not validate parameter when state is ``absent`` and fix KeyError on ``comment``.

@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_export_policy_rule - ``rule_index`` is now optional for create and delete.
+  - na_ontap_export_policy_rule - new option ``force_delete_on_first_match`` to support duplicate entries on delete.

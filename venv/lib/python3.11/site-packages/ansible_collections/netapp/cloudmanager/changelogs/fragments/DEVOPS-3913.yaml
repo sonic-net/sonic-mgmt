@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_connector_azure - Fix python error - msrest.exceptions.ValidationError. Parameter 'Deployment.properties' can not be None.

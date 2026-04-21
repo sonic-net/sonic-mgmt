@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_aggregate - support concurrent actions for rename/modify/add_object_store and create/add_object_store.

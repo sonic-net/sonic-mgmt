@@ -1,0 +1,259 @@
+---
+- name: Elastic CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+    state: present
+  check_mode: yes
+  register: elastic_check_create
+
+- name: Assert would created CS msg (check mode)
+  ansible.builtin.assert:
+    that:
+      - elastic_check_create.changed
+      - "'would create' in ((elastic_check_create.msg | default('')) | lower)"
+
+- name: Verify Elastic CS not created on check mode
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: elastic_after_check_create
+
+- name: Assert Elastic CS not created
+  ansible.builtin.assert:
+    that:
+      - "'elastic' not in (elastic_after_check_create.json.ElasticSearchConnectionStrings | default({}))"
+
+- name: Elastic CS (create)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+    state: present
+  register: elastic_created
+
+- name: Assert Elastic CS created
+  ansible.builtin.assert:
+    that:
+      - elastic_created.changed
+      - "'created connection string' in ((elastic_created.msg | default('')) | lower)"
+
+- name: Verify Elastic CS created
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: elastic_after_create
+
+- name: Assert Elastic CS present
+  ansible.builtin.assert:
+    that:
+      - "'elastic' in (elastic_after_create.json.ElasticSearchConnectionStrings | default({}))"
+
+- name: Elastic CS (idempotency check)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+    state: present
+  register: elastic_created_again
+
+- name: Assert Elastic CS creation idempotent
+  ansible.builtin.assert:
+    that:
+      - elastic_created_again.changed == false
+      - "'already exists' in ((elastic_created_again.msg | default('')) | lower)"
+      - "'no changes' in ((elastic_created_again.msg | default('')) | lower)"
+
+- name: Attempt to modify existing Elastic CS - should no-op
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+    state: present
+  register: elastic_modify_attempt
+
+- name: Assert modify attempt was a no-op
+  ansible.builtin.assert:
+    that:
+      - elastic_modify_attempt is succeeded
+      - elastic_modify_attempt.changed == false
+      - "'already exists' in ((elastic_modify_attempt.msg | default('')) | lower)"
+      - "'no changes' in ((elastic_modify_attempt.msg | default('')) | lower)"
+
+
+# others types just for coverage , not going to verify check_mode nor idempotency here
+- name: Elastic CS API Key
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic_api_key"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+      authentication:
+        api_key:
+          api_key_id: "id123"
+          api_key: "secret"
+    state: present
+  register: elastic_api_key_created
+
+
+- name: Elastic CS encoded API Key
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic_encoded_api_key"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+      authentication:
+        api_key:
+          api_key_id: "id456"
+          encoded_api_key: "ZXhhbXBsZS1lbmNvZGVk"
+    state: present
+  register: elastic_encoded_api_key_created
+
+- name: Elastic CS Basic
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic_basic"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+      authentication:
+        basic:
+          username: "elastic"
+          password: "password"
+    state: present
+  register: elastic_basic_created
+
+- name: Write dummy cert as BASE64 text
+  ansible.builtin.copy:
+    dest: /tmp/client.pfx.b64
+    content: "RFVNTVk="
+    mode: '0600'
+  
+- name: Elastic CS Certificate
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic_cert"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+      authentication:
+        certificate:
+          certificates_base64:
+            - "{{ lookup('ansible.builtin.file', '/tmp/client.pfx.b64') | trim }}"
+    state: present
+  register: elastic_cert_created
+  no_log: true
+
+- name: Assert all Elastic CS created
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - "'created connection string' in ((item.msg | default('')) | lower)"
+  loop:
+    - "{{ elastic_created }}"
+    - "{{ elastic_api_key_created }}"
+    - "{{ elastic_encoded_api_key_created }}"
+    - "{{ elastic_basic_created }}"
+    - "{{ elastic_cert_created }}"
+
+- name: Fetch all CS json
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: cs_json
+
+- name: Assert each Elastic CS exists on server
+  ansible.builtin.assert:
+    that:
+      - "item in (cs_json.json.ElasticSearchConnectionStrings | default({}))"
+  loop:
+    - "elastic"
+    - "elastic_api_key"
+    - "elastic_encoded_api_key"
+    - "elastic_basic"
+    - "elastic_cert"
+
+- name: Delete Elastic CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic"
+    cs_type: "ELASTIC_SEARCH"
+    state: absent
+  check_mode: yes
+  register: elastic_check_delete
+
+- name: Assert would delete message (check mode)
+  ansible.builtin.assert:
+    that:
+      - elastic_check_delete.changed
+      - "'would delete' in ((elastic_check_delete.msg | default('')) | lower)"
+
+- name: Verify Elastic CS still exists after check-mode delete
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: elastic_after_check_delete
+
+- name: Assert Elastic CS still present after check-mode delete
+  ansible.builtin.assert:
+    that:
+      - "'elastic' in (elastic_after_check_delete.json.ElasticSearchConnectionStrings | default({}))"
+
+- name: Delete Elastic CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "elastic"
+    cs_type: "ELASTIC_SEARCH"
+    state: absent
+  register: elastic_deleted
+
+- name: Assert Elastic CS deleted
+  ansible.builtin.assert:
+    that:
+      - elastic_deleted.changed
+      - "'deleted connection string' in ((elastic_deleted.msg | default('')) | lower)"
+
+- name: Verify Elastic CS is gone
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: elastic_after_delete
+
+- name: Assert Elastic CS not present after delete
+  ansible.builtin.assert:
+    that:
+      - "'elastic' not in (elastic_after_delete.json.ElasticSearchConnectionStrings | default({}))"

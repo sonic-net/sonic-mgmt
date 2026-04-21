@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_interface - improve error message when interface type is required with REST.
+  - na_ontap_qtree - fix KeyError on unix_permissions.

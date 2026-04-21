@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_vserver_create - ``protocol`` is now optional.  ``role`` is not set when protocol is absent.
+  - na_ontap_vserver_create - ``firewall_policy`` is not set when ``service_policy`` is present, as ``service_policy`` is preferred.
+  - na_ontap_vserver_create - added ``interface_type``.  Only a value of ``ip`` is currently supported.
+  - na_ontap_vserver_create - added support for vserver management interface when using REST.

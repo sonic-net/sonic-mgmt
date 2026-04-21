@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_zapit - fix failure in precluster mode.

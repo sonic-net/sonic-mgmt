@@ -1,0 +1,34 @@
+---
+- name: "Add mongo auth user - {{ _mongodb_user.user }} on {{ _mongodb_user.db }}"
+  community.mongodb.mongodb_user:
+    state: "{{ _mongodb_user.state|default('present') }}"
+
+    # NOTE: on_create is idempotent, always is not.
+    # With `update_password: on_create`, mongodb_user checks to see if the user
+    # (a) exists on the db, and (b) has the same roles,
+    # and then it only adds the user if it's not there or the roles have changed.
+    # With `update_password: always`, mongodb_user cannot tell if the password
+    # needs to be changed without attempting a login with those credentials.
+    # But mongodb_user does not currently implement such a check.
+    # A comment in mongodb_user points to https://jira.mongodb.org/browse/SERVER-22848
+    update_password: "{{ mongodb_force_update_password|ternary('always', 'on_create') }}"
+
+    name: "{{ _mongodb_user.user }}"
+    password: "{{ _mongodb_user.pwd }}"
+    database: "{{ _mongodb_user.db }}"
+    roles: "{{ _mongodb_user.roles|default('readWrite') }}"
+
+    ssl: "{{ mongodb_use_tls }}"
+    ssl_ca_certs: "{{ mongodb_certificate_ca_file if mongodb_use_tls else omit }}"
+    login_host: "{{ mongod_host }}"
+    login_port: "{{ mongod_port | string }}"  # silence implicit int->str conversion warning
+    login_user: "{{ mongodb_admin_user }}"
+    login_password: "{{ mongodb_admin_pwd }}"
+    login_database: admin
+  # to provide additional auth details (eg for ssl* or auth_mechanism, set module_defaults in playbook)
+  # module_defaults:
+  #   community.mongodb.mongodb_user:
+  #      auth_mechanism: ...
+  tags:
+    - "mongodb"
+    - "app_user"

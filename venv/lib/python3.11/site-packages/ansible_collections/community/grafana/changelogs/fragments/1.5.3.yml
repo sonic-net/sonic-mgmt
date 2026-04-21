@@ -1,0 +1,2 @@
+bugfixes:
+- Fixed validate_certs missing parameter for --insecure option in grafana plugins

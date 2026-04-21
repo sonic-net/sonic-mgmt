@@ -1,0 +1,21 @@
+---
+spine1 ansible_host: 100.94.81.19
+spine2 ansible_host: 100.10.10.2
+leaf1 ansible_host: 100.94.81.17
+leaf2 ansible_host: 100.10.10.4
+leaf25 ansible_host: 100.10.10.5
+leaf26 ansible_host: 100.10.10.6
+
+leaf:
+  leaf1
+  leaf2
+  leaf25
+  leaf26
+
+spine:
+  spine1
+  spine2
+
+datacenter: children
+  leaf
+  spine

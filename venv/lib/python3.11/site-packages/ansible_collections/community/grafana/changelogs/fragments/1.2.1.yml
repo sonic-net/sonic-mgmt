@@ -1,0 +1,2 @@
+bugfixes:
+- Fix issue with grafana_user that failed to create admin user (#142)

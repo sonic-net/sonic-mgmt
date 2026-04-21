@@ -1,0 +1,5 @@
+minor_changes:
+  - Multiple modules - Standardize hostname, username, and password parameters to use netapp_hostname, netapp_username, and netapp_password as values.
+  - Multiple modules - Update examples to use Fully Qualified Collection Name.
+  - na_ontap_rest_cli - Add POST and DELETE examples.
+  - Update dead link in doc_fragments.

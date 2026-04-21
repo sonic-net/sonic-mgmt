@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_info - Expose cloud capacity details if array is a Cloud Block Store.

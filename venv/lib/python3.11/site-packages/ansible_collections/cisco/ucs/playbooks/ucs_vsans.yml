@@ -1,0 +1,34 @@
+---
+# Example Playbook: cisco.ucs.ucs_vsans
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Configure VSAN
+      cisco.ucs.ucs_vsans:
+        <<: *login_info
+        name: vsan110
+        fabric: common
+        vsan_id: '110'
+        vlan_id: '110'
+      delegate_to: localhost
+    
+    - name: Remove VSAN
+      cisco.ucs.ucs_vsans:
+        <<: *login_info
+        name: vsan110
+        state: absent
+      delegate_to: localhost

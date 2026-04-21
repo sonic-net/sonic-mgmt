@@ -1,0 +1,33 @@
+DOCUMENTATION:
+  name: iso8601_duration_from_seconds
+  author: NetApp Ansible Team (@carchi8py) <ng-ansible-team@netapp.com>
+  version_added: 21.24.0
+  short_description: Encode seconds as a ISO 8601 duration string
+  description:
+    - Encode seconds as a ISO 8601 duration string.
+  positional: _input
+  options:
+    _input:
+      description: A number of seconds to encode.
+      type: float
+      required: true
+    format:
+      description: An optional format string for isodate.duration_isoformat.  Defaults to P%P.
+      type: string
+  notes:
+    - requires isodate and datetime python modules.
+    - set filter_plugins path to <installation_path>/ansible_collections/netapp/ontap/plugins/filter in ansible.cfg.
+    - documentation can be generated locally using a version of ansible-doc (2.14) that supports '-t filter'
+    - ansible-doc -t filter netapp.ontap.iso8601_duration_to_seconds
+
+EXAMPLES: |
+  # Encode seconds
+  iso_duration: "{{ 59579864 | netapp.ontap.iso8601_duration_from_seconds }}"
+
+  # Encode 'duration_in_seconds' variable
+  iso_duration: "{{ duration_in_seconds | netapp.ontap.iso8601_duration_from_seconds }}"
+
+RETURN:
+  _value:
+    description: A string representing the duration in ISO 8601 format.
+    type: string

@@ -1,0 +1,52 @@
+template_details:
+  - proj_name: 'Onboarding Configuration'
+    device_config: 'hostname cat9k-1\n'
+    language: 'velocity'
+    family: 'Switches and Hubs'
+    type: 'IOS-XE'
+    variant: 'XE'
+    temp_name: 'temp_cat9k-1'
+    description: 'Test Template'
+    export_project:
+    - 'Cloud DayN Templates'
+    export_template:
+    - project_name: 'Cloud DayN Templates'
+      template_name: 'DMVPN Spoke for Branch Router - System Default'
+    import_project:
+      do_version: false
+      project_file: 'JSON project file'
+      payload:
+      - name: 'Onboarding Configuration2'
+    import_template:
+      do_version: false
+      project_name: 'Onboarding Configuration'
+      template_file: 'JSON template file'
+
+device_details:
+  - site_name: 'Global/Chennai/Trill'
+    image_name: 'cat9k_iosxe.17.04.01.SPA.bin'
+    proj_name: 'Onboarding Configuration'
+    temp_name: 'temp_cat9k-1'
+    device_version: '2'
+    device_number: 'AB2425L8M7'
+    device_name: 'Cat9k-1'
+    device_state: 'Unclaimed'
+    device_id: 'C9300-48UXM'
+  - site_name: 'Global/Chennai/Trill'
+    image_name: cat9k_iosxe.17.04.01.SPA.bin'
+    proj_name: 'Onboarding Configuration'
+    temp_name: 'temp_cat9k-2'
+    device_version: '2'
+    device_number: 'CD2425L8M7'
+    device_name: 'Cat9k-2'
+    device_state: 'Unclaimed'
+    device_id: 'C9300-48UXM'
+  - site_name: 'Global/Chennai/Trill'
+    image_name: 'cat9k_iosxe.17.04.01.SPA.bin'
+    proj_name: 'Onboarding Configuration'
+    temp_name: 'temp_cat9k-3'
+    device_version: '2'
+    device_number: 'EF2425L8M7'
+    device_name: 'Cat9k-3'
+    device_state: 'Unclaimed'
+    device_id: 'C9300-48UXM'

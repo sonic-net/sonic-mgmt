@@ -1,0 +1,10 @@
+---
+
+trivial:
+  - >-
+    Simplify the GitHub workflow to use the ansible-test Action
+    for running the integration tests. This is a maintainability
+    improvement that is aiming at reducing burden of keeping the
+    CI workflows up-to-date.
+
+...

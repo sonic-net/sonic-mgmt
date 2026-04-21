@@ -1,0 +1,40 @@
+---
+- name: ONTAP connect
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Debug connectivity using admin management interface or vsadmin interface
+      # use this to validate ZAPI and REST connectivity
+      #   - with admin management interface, use admin or a user with admin privileges
+      #   - with vsadmin management interface, use vsadmin or a user with vsadmin privileges
+      # for better formatting, you may use:
+      #   export ANSIBLE_STDOUT_CALLBACK=minimal
+      # run this as:
+      # ansible-playbook -v ansible_collections/netapp/ontap/playbooks/examples/support/debug_connectivity.yaml
+      # after updating the values for hostname, username, and password
+      tags:
+        - admin
+        - vsadmin
+      netapp.ontap.na_ontap_debug:
+        hostname: "ip address of management interface, or of vserver interface"
+        username: "xxxx"
+        password: "yyyy"
+        https: true
+        validate_certs: false
+
+    - name: Debug connectivity using admin interface, validate vserver configuration
+      # use this to validate ZAPI and REST connectivity, and check vserver is reachable
+      # with admin management interface, use admin or a user with admin privileges
+      # run this as
+      # ansible-playbook -v ansible_collections/netapp/ontap/playbooks/examples/support/debug_connectivity.yaml -t admin_and_vserver
+      tags:
+        - never
+        - admin_and_vserver
+      netapp.ontap.na_ontap_debug:
+        hostname: "ip_address_of_management_interface"
+        username: "xxxx"
+        password: "yyyy"
+        vserver: "svm name"
+        https: true
+        validate_certs: false

@@ -1,0 +1,12 @@
+---
+requires_ansible: ">=2.16.0"
+plugin_routing:
+  modules:
+    hv_journal_volume_facts:
+      deprecation:
+        removal_version: "5.0.0"
+        warning_text: hv_gateway_subscriber_facts will be removed in a future release of this collection.
+    hv_journal_volume:
+      deprecation:
+        removal_version: "5.0.0"
+        warning_text: hv_gateway_subscriber will be removed in a future release of this collection.

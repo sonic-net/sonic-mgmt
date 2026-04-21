@@ -1,0 +1,124 @@
+---
+####################################################################
+# Example : Resource Group Facts Playbook
+####################################################################
+- name: Resource Group Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all Resource Groups
+    ####################################################################
+    - name: Get all Resource Groups
+      hitachivantara.vspone_block.vsp.hv_resource_group_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get Resource Group by name
+    ####################################################################
+    - name: Get Resource Group by name
+      hitachivantara.vspone_block.vsp.hv_resource_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "hv_rsg_01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get Resource Group by id
+    ####################################################################
+    - name: Get Resource Group by id
+      hitachivantara.vspone_block.vsp.hv_resource_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: 5
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task Name : Get all information about the Resource Groups which are locked
+    ##########################################################################
+    - name: Get all information about the Resource Groups which are locked
+      hitachivantara.vspone_block.vsp.hv_resource_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_locked: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #############################################################################
+    # Task Name : Get all information about the Resource Groups which are unlocked
+    #############################################################################
+    - name: Get all information about the Resource Groups which are unlocked
+      hitachivantara.vspone_block.vsp.hv_resource_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_locked: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Get information about the Resource Groups which are specified in the query
+    ######################################################################################
+    - name: Get information about the Resource Groups which are specified in the query
+      hitachivantara.vspone_block.vsp.hv_resource_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          query:
+            - ldevs
+            - parity_groups
+            - ports
+            - host_groups
+            - nvm_subsystem_ids
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###################################################################################################
+    # Task Name : Get information about the Resource Groups which are unlocked and specified in the query
+    ###################################################################################################
+    - name: Get information about the Resource Groups which are unlocked and specified in the query
+      hitachivantara.vspone_block.vsp.hv_resource_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_locked: false
+          query:
+            - parity_groups
+            - ports
+            - host_groups
+            - storage_pool_ids
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,2 @@
+minor_changes:
+  - purefb_fs - Add new options for filesystem control (https://github.com/Pure-Storage-Ansible/FlashBlade-Collection/pull/81)

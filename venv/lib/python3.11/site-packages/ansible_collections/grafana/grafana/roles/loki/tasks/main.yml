@@ -1,0 +1,15 @@
+---
+# tasks file for loki
+- name: Include OS specific variables
+  ansible.builtin.include_vars:
+    file: "{{ ansible_facts['os_family'] }}.yml"
+
+- name: Deploy Loki service
+  ansible.builtin.include_tasks:
+    file: "deploy.yml"
+  when: not loki_uninstall
+
+- name: Uninstall Loki service
+  ansible.builtin.include_tasks:
+    file: "uninstall.yml"
+  when: loki_uninstall

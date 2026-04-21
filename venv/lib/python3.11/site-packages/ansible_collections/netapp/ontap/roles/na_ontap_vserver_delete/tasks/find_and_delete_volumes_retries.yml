@@ -1,0 +1,8 @@
+---
+# tasks file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
+- name: Collect volumes for vserver
+  ansible.builtin.include_tasks: get_volumes.yml
+- name: Delete all volumes for vserver
+  ansible.builtin.include_tasks: delete_volumes.yml
+  when:
+    - volumes | length > 0

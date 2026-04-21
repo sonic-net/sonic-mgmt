@@ -1,0 +1,657 @@
+ancestor: 2.0.0
+releases:
+  3.0.0:
+    changes:
+      breaking_changes:
+      - mysql_replication - remove ``Is_Slave`` and ``Is_Master`` return values (were
+        replaced with ``Is_Primary`` and ``Is_Replica`` (https://github.com/ansible-collections/community.mysql/issues/145).
+      - mysql_replication - remove the mode options values containing ``master``/``slave``
+        and the master_use_gtid option ``slave_pos`` (were replaced with corresponding
+        ``primary``/``replica`` values) (https://github.com/ansible-collections/community.mysql/issues/145).
+      - mysql_user - remove support for the `REQUIRESSL` special privilege as it has
+        ben superseded by the `tls_requires` option (https://github.com/ansible-collections/community.mysql/discussions/121).
+      - mysql_user - validate privileges using database engine directly (https://github.com/ansible-collections/community.mysql/issues/234
+        https://github.com/ansible-collections/community.mysql/pull/243). Do not validate
+        privileges in this module anymore.
+      release_summary: 'This is the major release of the ``community.mysql`` collection.
+
+        This changelog contains all breaking changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 2.3.2.'
+    fragments:
+    - 243-get-rid-of-privs-comparison.yml
+    - 244-remove-requiressl-privilege.yaml
+    - 3.0.0.yml
+    - 300-mysql_replication_remove_master_slave.yml
+    release_date: '2021-12-01'
+  3.1.0:
+    changes:
+      bugfixes:
+      - Collection core functions - use vendored version of ``distutils.version``
+        instead of the deprecated Python standard library ``distutils`` (https://github.com/ansible-collections/community.mysql/pull/269).
+      minor_changes:
+      - Added explicit description of the supported versions of databases and connectors.
+        Changes to the collection are **NOT** tested against database versions older
+        than `mysql 5.7.31` and `mariadb 10.2.37` or connector versions older than
+        `pymysql 0.7.10` and `mysqlclient 2.0.1`. (https://github.com/ansible-collections/community.mysql/discussions/141)
+      - mysql_user - added the ``force_context`` boolean option to set the default
+        database context for the queries to be the ``mysql`` database. This way replication/binlog
+        filters can catch the statements (https://github.com/ansible-collections/community.mysql/issues/265).
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.0.0.'
+    fragments:
+    - 141-supported-database-and-connector-versions.yaml
+    - 266-default-database-for-mysql-user.yml
+    - 267-prepare_for_distutils_be_removed.yml
+    - 3.1.0.yml
+    release_date: '2022-01-18'
+  3.1.1:
+    changes:
+      bugfixes:
+      - mysql_role - make the ``set_default_role_all`` parameter actually working
+        (https://github.com/ansible-collections/community.mysql/pull/282).
+      release_summary: 'This is the patch release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.1.0.'
+    fragments:
+    - 282-mysql_role_fix_set_default_role_all_argument.yml
+    - 3.1.1.yml
+    release_date: '2022-02-16'
+  3.1.2:
+    changes:
+      bugfixes:
+      - Collection core functions - fixes related to the mysqlclient Python connector
+        (https://github.com/ansible-collections/community.mysql/issues/292).
+      release_summary: 'This is the patch release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.1.1.'
+    fragments:
+    - 0-mysqlclient.yml
+    - 3.1.2.yml
+    release_date: '2022-03-14'
+  3.1.3:
+    changes:
+      bugfixes:
+      - mysql_replication - fails when using the `primary_use_gtid` option with `slave_pos`
+        or `replica_pos` (https://github.com/ansible-collections/community.mysql/issues/335).
+      - mysql_role - remove redundant connection closing (https://github.com/ansible-collections/community.mysql/pull/330).
+      - 'mysql_user - fix the possibility for a race condition that breaks certain
+        (circular) replication configurations when ``DROP USER`` is executed on multiple
+        nodes in the replica set. Adding ``IF EXISTS`` avoids the need to use ``sql_log_bin:
+        no`` making the statement always replication safe (https://github.com/ansible-collections/community.mysql/pull/287).'
+      release_summary: 'This is the patch release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.1.2.'
+    fragments:
+    - 0-mysql_replication_replica_pos.yml
+    - 3.1.3.yml
+    - 307-mysql_user_add_if_exists_to_drop.yml
+    - 329-mysql_role-remove-redudant-connection-closing.yml
+    release_date: '2022-04-26'
+  3.10.0:
+    changes:
+      bugfixes:
+      - mysql_info - Add ``plugin_hash_string`` to ``users_info`` filter's output.
+        The existing ``plugin_auth_string`` contained the hashed password and thus
+        is missleading, it will be removed from community.mysql 4.0.0. (https://github.com/ansible-collections/community.mysql/pull/629).
+      - mysql_user - Added a warning to update_password's on_new_username option if
+        multiple accounts with the same username but different passwords exist (https://github.com/ansible-collections/community.mysql/pull/642).
+      - mysql_user - Fix ``tls_requires`` not removing ``SSL`` and ``X509`` when sets
+        as empty (https://github.com/ansible-collections/community.mysql/pull/628).
+      - mysql_user - Fix idempotence when using variables from the ``users_info``
+        filter of ``mysql_info`` as an input (https://github.com/ansible-collections/community.mysql/pull/628).
+      - mysql_user - Fixed an IndexError in the update_password functionality introduced
+        in PR https://github.com/ansible-collections/community.mysql/pull/580 and
+        released in community.mysql 3.8.0. If you used this functionality, please
+        avoid versions 3.8.0 to 3.9.0 (https://github.com/ansible-collections/community.mysql/pull/642).
+      - mysql_user - add correct ``ed25519`` auth plugin handling (https://github.com/ansible-collections/community.mysql/issues/6).
+      - mysql_variables - fix the module always changes on boolean values (https://github.com/ansible-collections/community.mysql/issues/652).
+      deprecated_features:
+      - collection - support of mysqlclient connector is deprecated - use PyMySQL
+        connector instead! We will stop testing against it in collection version 4.0.0
+        and remove the related code in 5.0.0 (https://github.com/ansible-collections/community.mysql/issues/654).
+      - mysql_info - The ``users_info`` filter returned variable ``plugin_auth_string``
+        contains the hashed password and it's misleading, it will be removed from
+        community.mysql 4.0.0. Use the `plugin_hash_string` return value instead (https://github.com/ansible-collections/community.mysql/pull/629).
+      minor_changes:
+      - mysql_info - Add ``tls_requires`` returned value for the ``users_info`` filter
+        (https://github.com/ansible-collections/community.mysql/pull/628).
+      - mysql_info - return a database server engine used (https://github.com/ansible-collections/community.mysql/issues/644).
+      - mysql_replication - Adds support for `CHANGE REPLICATION SOURCE TO` statement
+        (https://github.com/ansible-collections/community.mysql/issues/635).
+      - mysql_replication - Adds support for `SHOW BINARY LOG STATUS` and `SHOW BINLOG
+        STATUS` on getprimary mode.
+      - mysql_replication - Improve detection of IsReplica and IsPrimary by inspecting
+        the dictionary returned from the SQL query instead of relying on variable
+        types. This ensures compatibility with changes in the connector or the output
+        of SHOW REPLICA STATUS and SHOW MASTER STATUS, allowing for easier maintenance
+        if these change in the future.
+      - mysql_user - Add salt parameter to generate static hash for `caching_sha2_password`
+        and `sha256_password` plugins.
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this
+
+        collection that have been made after the previous release.'
+    fragments:
+    - 0-mysql_user.yml
+    - 1-mysql_info.yml
+    - 2-mysql_variables.yml
+    - 3-deprecate_mysqlclient.yml
+    - 3.10.0.yml
+    - add_salt_param_to_gen_sha256_hash.yml
+    - get_primary_show_binary_log_status.yml
+    - improve_get_replica_primary_status.yml
+    - lie_fix_mysql_user_on_new_username.yml
+    - lie_fix_plugin_hash_string_return.yml
+    - mysql_user_tls_requires.yml
+    - supports_mysql_change_replication_source_to.yml
+    release_date: '2024-08-22'
+  3.10.1:
+    changes:
+      bugfixes:
+      - mysql_user - module makes changes when is executed with ``plugin_auth_string``
+        parameter and check mode.
+      deprecated_features:
+      - mysql_user - the ``user`` alias of the ``name`` argument has been deprecated
+        and will be removed in collection version 5.0.0. Use the ``name`` argument
+        instead.
+      release_summary: 'This is a patch release of the ``community.mysql`` collection.
+
+        Besides a bugfix, it contains an important upcoming breaking-change information.'
+    fragments:
+    - 0-mysql_user.yml
+    - 3.10.1.yml
+    - 596-fix-check-changes.yaml
+    release_date: '2024-09-04'
+  3.10.2:
+    changes:
+      bugfixes:
+      - mysql_user - add correct ``ed25519`` auth plugin handling when creating a
+        user (https://github.com/ansible-collections/community.mysql/issues/672).
+      release_summary: 'This is a bugfix release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this
+
+        collection that have been made after the previous release.'
+    fragments:
+    - 0-mysql_user.yml
+    - 3.10.2.yml
+    release_date: '2024-09-06'
+  3.10.3:
+    changes:
+      bugfixes:
+      - mysql_user - add correct ``ed25519`` auth plugin handling when creating a
+        user (https://github.com/ansible-collections/community.mysql/pull/676).
+      release_summary: 'This is a bugfix release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this
+
+        collection that have been made after the previous release.'
+    fragments:
+    - 0-mysql_user.yml
+    - 3.10.3.yml
+    release_date: '2024-09-09'
+  3.11.0:
+    changes:
+      bugfixes:
+      - mysql_user,mysql_role - The sql_mode ANSI_QUOTES affects how the modules mysql_user
+        and mysql_role compare the existing privileges with the configured privileges,
+        as well as decide whether double quotes or backticks should be used in the
+        GRANT statements. Pointing out in issue 671, the modules mysql_user and mysql_role
+        allow users to enable/disable ANSI_QUOTES in session variable (within a DB
+        session, the session variable always overwrites the global one). But due to
+        the issue, the modules do not check for ANSI_MODE in the session variable,
+        instead, they only check in the GLOBAL one.That behavior is not only limiting
+        the users' flexibility, but also not allowing users to explicitly disable
+        ANSI_MODE to work around such bugs like https://bugs.mysql.com/bug.php?id=115953.
+        (https://github.com/ansible-collections/community.mysql/issues/671)
+      minor_changes:
+      - mysql_info - adds the count of tables for each database to the returned values.
+        It is possible to exclude this new field using the ``db_table_count`` exclusion
+        filter. (https://github.com/ansible-collections/community.mysql/pull/691)
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+
+        This changelog contains all changes to the modules and plugins in this
+
+        collection that have been made after the previous release.'
+    fragments:
+    - 3.11.0.yml
+    - 591-mysql_info-db_tables_count.yml
+    - 671-modules_util_user.yml
+    release_date: '2024-11-19'
+  3.12.0:
+    changes:
+      minor_changes:
+      - mysql_db - added ``zstd`` (de)compression support for ``import``/``dump``
+        states (https://github.com/ansible-collections/community.mysql/issues/696).
+      - mysql_query - returns the ``execution_time_ms`` list containing execution
+        time per query in milliseconds.
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this
+
+        collection that have been made after the previous release.'
+    fragments:
+    - 0-mysql_query-returns-exec-time-ms.yml
+    - 3.12.0.yml
+    - 696-mysql-db-add-zstd-support.yml
+    release_date: '2025-01-17'
+  3.13.0:
+    changes:
+      bugfixes:
+      - mysql_db - fix dump and import to find MariaDB binaries (mariadb and mariadb-dump)
+        when MariaDB 11+ is used and symbolic links to MySQL binaries are absent.
+      minor_changes:
+      - Integration tests for MariaDB 11.4 have replaced those for 10.5. The previous
+        version is now 10.11.
+      - mysql_user - add ``locked`` option to lock/unlock users, this is mainly used
+        to have users that will act as definers on stored procedures.
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this
+
+        collection that have been made after the previous release.'
+    fragments:
+    - 3.13.0.yml
+    - 702-user_locking.yaml
+    - tests_mariadb_11_4.yml
+    release_date: '2025-03-21'
+  3.14.0:
+    changes:
+      bugfixes:
+      - mysql_info - fix a crash (ERROR 1141, There is no such grant defined for user
+        'PUBLIC' on host '%') when using the ``users_info`` filter with a PUBLIC role
+        present in MariaDB 10.11+. Do note that the fix doesn't change the fact that
+        the module won't return the privileges from the PUBLIC role in the users privileges
+        list. It can't do that because you have to login as the particular user and
+        use `SHOW GRANTS FOR CURRENT_USER`. We considered using an aggregation with
+        the `SHOW GRANTS FOR PUBLIC` command. However, this approach would make copying
+        users from one server to another transform the privileges inherited from the
+        role as if they were direct privileges on the user.
+      - mysql_replication - fixed an issue where setting ``primary_ssl_verify_server_cert``
+        to false had no effect (https://github.com/ansible-collections/community.mysql/issues/689).
+      minor_changes:
+      - mysql_replication - change default value for ``primary_ssl_verify_server_cert``
+        from False to None. This should not affect existing playbooks (https://github.com/ansible-collections/community.mysql/pull/707).
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'''
+    fragments:
+    - 707-source_ssl_verify_server_cert.yml
+    - grant_to_public.yml
+    - release_3_14_0.yml
+    release_date: '2025-05-23'
+  3.15.0:
+    changes:
+      bugfixes:
+      - mysql_query - fix a Python 2 compatibility issue caused by the addition of
+        ``execution_time_ms`` in version 3.12 (see https://github.com/ansible-collections/community.mysql/issues/716).
+      - 'mysql_user - fix a crash (unable to parse the MySQL grant string: SET DEFAULT
+        ROLE `somerole` FOR `someuser`@`%`) when using the ``mysql_user`` module with
+        a DEFAULT role present in MariaDB. The DEFAULT role is now ignored by the
+        parser (https://github.com/ansible-collections/community.mysql/issues/710).'
+      minor_changes:
+      - mysql_db - Add support for ``sql_log_bin`` option (https://github.com/ansible-collections/community.mysql/issues/700).
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'''
+    fragments:
+    - 3.15.0.yml
+    - 723-myqsl_db_supports_sql_log_bin.yaml
+    - fix_python2_compatibility.yml
+    - fix_user_module_for_default_roles.yml
+    release_date: '2025-07-24'
+  3.16.0:
+    changes:
+      minor_changes:
+      - '`mysql_query` - add new `session_vars` argument, similar to ansible-collections/community.mysql#489.'
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 0_mysql_query_session_vars.yml
+    - release_3_16_0.yml
+    release_date: '2025-09-12'
+  3.16.1:
+    changes:
+      bugfixes:
+      - mysql_info - Fix slave status for source terminology introduced in MySQL 8.0.23
+        (https://github.com/ansible-collections/community.mysql/issues/682).
+      - mysql_user, mysql_role - fix not existent grant when revoking perms on user/role
+        which do not have any other perms than grant option (https://github.com/ansible-collections/community.mysql/issues/664).
+      release_summary: 'This is a patch release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 3.16.1.yml
+    - fix_user_perms_revoke_grant_option.yml
+    - mysql_info_fix_slave_status_for_source_terminology.yaml
+    release_date: '2025-10-16'
+  3.2.0:
+    changes:
+      bugfixes:
+      - mysql_user - fix missing dynamic privileges after revoke and grant privileges
+        to user (https://github.com/ansible-collections/community.mysql/issues/120).
+      - mysql_user - fix parsing privs when a user has roles assigned (https://github.com/ansible-collections/community.mysql/issues/231).
+      major_changes:
+      - The community.mysql collection no longer supports ``Ansible 2.9`` and ``ansible-base
+        2.10``. While we take no active measures to prevent usage and there are no
+        plans to introduce incompatible code to the modules, we will stop testing
+        against ``Ansible 2.9`` and ``ansible-base 2.10``. Both will very soon be
+        End of Life and if you are still using them, you should consider upgrading
+        to the ``latest Ansible / ansible-core 2.11 or later`` as soon as possible
+        (https://github.com/ansible-collections/community.mysql/pull/343).
+      minor_changes:
+      - 'mysql_user and mysql_role: Add the argument ``subtract_privs`` (boolean,
+        default false, mutually exclusive with ``append_privs``). If set, the privileges
+        given in ``priv`` are revoked and existing privileges are kept (https://github.com/ansible-collections/community.mysql/pull/333).'
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.1.3.'
+    fragments:
+    - 001-mysql_user_fix_pars_users_with_roles_assigned.yml
+    - 3.2.0.yml
+    - 333-mysql_user-mysql_role-add-subtract_privileges-argument.yml
+    - 338-mysql_user_fix_missing_dynamic_privileges.yml
+    - drop_support_of_2.9-2.10.yml
+    release_date: '2022-05-13'
+  3.2.1:
+    changes:
+      bugfixes:
+      - Include ``PSF-license.txt`` file for ``plugins/module_utils/_version.py``.
+      release_summary: 'This is the patch release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.2.0.'
+    fragments:
+    - 3.2.1.yml
+    - psf-license.yml
+    release_date: '2022-05-17'
+  3.3.0:
+    changes:
+      bugfixes:
+      - mysql_query - fix false change reports when ``IF EXISTS/IF NOT EXISTS`` clause
+        is used (https://github.com/ansible-collections/community.mysql/issues/268).
+      - 'mysql_role - don''t add members to a role when creating the role and ``detach_members:
+        true`` is set (https://github.com/ansible-collections/community.mysql/pull/367).'
+      - 'mysql_role - in some cases (when "SHOW GRANTS" did not use backticks for
+        quotes), no unwanted members were detached from the role (and redundant "GRANT"
+        statements were executed for wanted members). This is fixed by querying the
+        existing role members from the mysql.role_edges (MySQL) or mysql.roles_mapping
+        (MariaDB) tables instead of parsing the "SHOW GRANTS" output (https://github.com/ansible-collections/community.mysql/pull/368).
+
+        '
+      - mysql_user - fix logic when ``update_password`` is set to ``on_create`` for
+        users using ``plugin*`` arguments (https://github.com/ansible-collections/community.mysql/issues/334).
+        The ``on_create`` sets ``password`` to None for old mysql_native_authentication
+        but not for authentiation methods which uses the ``plugin*`` arguments. This
+        PR changes this so ``on_create`` also exchange ``plugin``, ``plugin_hash_string``,
+        ``plugin_auth_string`` to None in the list of arguments to change
+      minor_changes:
+      - 'mysql_role - add the argument ``members_must_exist`` (boolean, default true).
+        The assertion that the users supplied in the ``members`` argument exist is
+        only executed when the new argument ``members_must_exist`` is ``true``, to
+        allow opt-out (https://github.com/ansible-collections/community.mysql/pull/369).
+
+        '
+      - 'mysql_user - Add the option ``on_new_username`` to argument ``update_password``
+        to reuse the password (plugin and authentication_string) when creating a new
+        user if some user with the same name already exists. If the existing user
+        with the same name have varying passwords, the password from the arguments
+        is used like with ``update_password: always`` (https://github.com/ansible-collections/community.mysql/pull/365).
+
+        '
+      - 'mysql_user - Add the result field ``password_changed`` (boolean). It is true,
+        when the user got a new password. When the user was created with ``update_password:
+        on_new_username`` and an existing password was reused, ``password_changed``
+        is false (https://github.com/ansible-collections/community.mysql/pull/365).
+
+        '
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.2.1.'
+    fragments:
+    - 3.3.0.yml
+    - 322-mysql_query_fix_false_change_report.yml
+    - 334-mysql_user_fix_logic_on_oncreate.yml
+    - 365-mysql_user-add-on_new_username-and-password_changed.yml
+    - 367-mysql_role-fix-deatch-members.yml
+    - 368-mysql_role-fix-member-detection.yml
+    - 369_mysql_role-add-members_must_exist.yml
+    release_date: '2022-06-02'
+  3.4.0:
+    changes:
+      bugfixes:
+      - Include ``simplified_bsd.txt`` license file for various module utils.
+      - mysql_db - Using compression masks errors messages from mysql_dump. By default
+        the fix is inactive to ensure retro-compatibility with system without bash.
+        To activate the fix, use the module option ``pipefail=true`` (https://github.com/ansible-collections/community.mysql/issues/256).
+      - mysql_replication - when the ``primary_ssl`` argument is set to ``no``, the
+        module will turn off SSL (https://github.com/ansible-collections/community.mysql/issues/393).
+      major_changes:
+      - mysql_db - the ``pipefail`` argument's default value will be changed to ``true``
+        in community.mysql 4.0.0. If your target machines do not use ``bash`` as a
+        default interpreter, set ``pipefail`` to ``false`` explicitly. However, we
+        strongly recommend setting up ``bash`` as a default and ``pipefail=true``
+        as it will protect you from getting broken dumps you don't know about (https://github.com/ansible-collections/community.mysql/issues/407).
+      minor_changes:
+      - mysql_db - add the ``chdir`` argument to avoid failings when a dump file contains
+        relative paths (https://github.com/ansible-collections/community.mysql/issues/395).
+      - mysql_db - add the ``pipefail`` argument to avoid broken dumps when ``state``
+        is ``dump`` and compression is used (https://github.com/ansible-collections/community.mysql/issues/256).
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.3.0.'
+    fragments:
+    - 0-mysql_db_add_chdir_argument.yml
+    - 1-mysql_replication_can_disable_master_ssl.yml
+    - 2-mysql_db_announce.yml
+    - 3.4.0.yml
+    - fix-256-mysql_dump-errors.yml
+    - simplified-bsd-license.yml
+    release_date: '2022-08-02'
+  3.5.0:
+    changes:
+      bugfixes:
+      - mysql_user - grant option was revoked accidentally when modifying users. This
+        fix revokes grant option only when privs are setup to do that (https://github.com/ansible-collections/community.mysql/issues/77#issuecomment-1209693807).
+      minor_changes:
+      - 'mysql_replication - add a new option: ``primary_ssl_verify_server_cert``
+        (https://github.com//pull/435).'
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules in this collection
+
+        that have been added after the release of ``community.mysql`` 3.4.0.'
+    fragments:
+    - 3.5.0.yml
+    - 434-do-not-revoke-grant-option-always.yaml
+    - 435-mysql_replication_verify_server_cert.yml
+    release_date: '2022-09-05'
+  3.5.1:
+    changes:
+      bugfixes:
+      - mysql_user, mysql_role - mysql/mariadb recent versions translate 'ALL PRIVILEGES'
+        to a list of specific privileges. That caused a change every time we modified
+        user privileges. This fix compares privs before and after user modification
+        to avoid this infinite change (https://github.com/ansible-collections/community.mysql/issues/77).
+      release_summary: 'This is the patch release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 3.5.1.yml
+    - 438-fix-privilege-changing-everytime.yml
+    release_date: '2022-09-09'
+  3.6.0:
+    changes:
+      bugfixes:
+      - mysql_user - when revoke privs consists only of ``GRANT``, a 2nd revoke query
+        is executed with empty privs to revoke that ended in an SQL exception (https://github.com/ansible-collections/community.mysql/pull/503).
+      - mysql_variables - add uppercase character pattern to regex to allow GLOBAL
+        variables containing uppercase characters. This recognizes variable names
+        used in Galera, for example, ``wsrep_OSU_method``, which breaks the normal
+        pattern of all lowercase characters (https://github.com/ansible-collections/community.mysql/pull/501).
+      minor_changes:
+      - mysql_info - add ``connector_name`` and ``connector_version`` to returned
+        values (https://github.com/ansible-collections/community.mysql/pull/497).
+      - mysql_role - enable auto_commit to avoid MySQL metadata table lock (https://github.com/ansible-collections/community.mysql/issues/479).
+      - mysql_user - add plugin_auth_string as optional parameter to use a specific
+        pam service if pam/auth_pam plugin is used (https://github.com/ansible-collections/community.mysql/pull/445).
+      - mysql_user - add the ``session_vars`` argument to set session variables at
+        the beginning of module execution (https://github.com/ansible-collections/community.mysql/issues/478).
+      - mysql_user - display a more informative invalid privilege exception. Changes
+        the exception handling of the granting permission logic to show the query
+        executed , params and the exception message granting privileges fails` (https://github.com/ansible-collections/community.mysql/issues/465).
+      - mysql_user - enable auto_commit to avoid MySQL metadata table lock (https://github.com/ansible-collections/community.mysql/issues/479).
+      - setup_mysql - update MySQL tarball URL (https://github.com/ansible-collections/community.mysql/pull/491).
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 0_mysql_user_session_vars.yml
+    - 3.6.0.yml
+    - 445_add_service_name_to_plugin_pam_auth_pam_usage.yml
+    - 465-display_more_informative_invalid_priv_exceptiion.yml
+    - 479_enable_auto_commit.yml
+    - 479_enable_auto_commit_part2.yml
+    - 491_fix_download_url.yaml
+    - 497_mysql_info_returns_connector_name_and_version.yml
+    - 503-fix-revoke-grant-only.yml
+    - mysql_variables_allow_uppercase_identifiers.yml
+    release_date: '2023-02-08'
+  3.7.0:
+    changes:
+      minor_changes:
+      - mysql module utils - change deprecated connection parameters ``passwd`` and
+        ``db`` to ``password`` and ``database`` (https://github.com/ansible-collections/community.mysql/pull/177).
+      - mysql_user - add ``MAX_STATEMENT_TIME`` support for mariadb to the ``resource_limits``
+        argument (https://github.com/ansible-collections/community.mysql/issues/211).
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 177-change_deprecated_connection_parameters.yml
+    - 3.7.0.yml
+    - 523-add-max_statement_time_resource-limit.yml
+    release_date: '2023-05-05'
+  3.7.1:
+    changes:
+      bugfixes:
+      - mysql module utils - use the connection arguments ``db`` instead of ``database``
+        and ``passwd`` instead of ``password`` when running with older mysql drivers
+        (MySQLdb < 2.1.0 or PyMySQL < 1.0.0) (https://github.com/ansible-collections/community.mysql/pull/551).
+      release_summary: 'This is a patch release of the community.mysql collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 3.7.1.yml
+    - 551-fix_connection_arguments_driver_compatability.yaml
+    release_date: '2023-05-22'
+  3.7.2:
+    changes:
+      bugfixes:
+      - mysql module utils - use the connection arguments ``db`` instead of ``database``
+        and ``passwd`` instead of ``password`` when running with MySQLdb < 2.0.0 (https://github.com/ansible-collections/community.mysql/pull/553).
+      release_summary: 'This is a patch release of the community.mysql collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 3.7.2.yml
+    - 553_fix_connection_arguemnts_for_old_mysqldb_driver.yaml
+    release_date: '2023-05-25'
+  3.8.0:
+    changes:
+      major_changes:
+      - The community.mysql collection no longer supports ``ansible-core 2.12`` and
+        ``ansible-core 2.13``. While we take no active measures to prevent usage and
+        there are no plans to introduce incompatible code to the modules, we will
+        stop testing those versions. Both are or will soon be End of Life and if you
+        are still using them, you should consider upgrading to the ``latest Ansible
+        / ansible-core 2.15 or later`` as soon as possible (https://github.com/ansible-collections/community.mysql/pull/574).
+      - mysql_role - the ``column_case_sensitive`` argument's default value will be
+        changed to ``true`` in community.mysql 4.0.0. If your playbook expected the
+        column to be automatically uppercased for your roles privileges, you should
+        set this to false explicitly (https://github.com/ansible-collections/community.mysql/issues/578).
+      - mysql_user - the ``column_case_sensitive`` argument's default value will be
+        changed to ``true`` in community.mysql 4.0.0. If your playbook expected the
+        column to be automatically uppercased for your users privileges, you should
+        set this to false explicitly (https://github.com/ansible-collections/community.mysql/issues/577).
+      minor_changes:
+      - mysql_info - add filter ``users_info`` (https://github.com/ansible-collections/community.mysql/pull/580).
+      - mysql_role - add ``column_case_sensitive`` option to prevent field names from
+        being uppercased (https://github.com/ansible-collections/community.mysql/pull/569).
+      - mysql_user - add ``column_case_sensitive`` option to prevent field names from
+        being uppercased (https://github.com/ansible-collections/community.mysql/pull/569).
+      release_summary: 'This is the minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this
+
+        collection that have been made after the previous release.'
+    fragments:
+    - 3.8.0.yml
+    - 569_fix_column_uppercasing.yml
+    - drop_ansible_core_2_12_and_2_13.yml
+    - lie_mysql_info_users_info.yml
+    release_date: '2023-10-25'
+  3.9.0:
+    changes:
+      bugfixes:
+      - mysql_info - the ``slave_status`` filter was returning an empty list on MariaDB
+        with multiple replication channels. It now returns all channels by running
+        ``SHOW ALL SLAVES STATUS`` for MariaDB servers (https://github.com/ansible-collections/community.mysql/issues/603).
+      major_changes:
+      - Collection version 2.*.* is EOL, no more bugfixes will be backported. Please
+        consider upgrading to the latest version.
+      minor_changes:
+      - mysql_user - add the ``password_expire`` and ``password_expire_interval``
+        arguments to implement the password expiration management for mysql user (https://github.com/ansible-collections/community.mysql/pull/598).
+      - mysql_user - add user attribute support via the ``attributes`` parameter and
+        return value (https://github.com/ansible-collections/community.mysql/pull/604).
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this
+
+        collection that have been made after the previous release.'
+    fragments:
+    - 0-stable-2-eol.yml
+    - 3.9.0.yml
+    - 598-password_expire-support-for-mysql_user.yml
+    - 602-show-all-slaves-status.yaml
+    - 604-user-attributes.yaml
+    release_date: '2024-02-22'

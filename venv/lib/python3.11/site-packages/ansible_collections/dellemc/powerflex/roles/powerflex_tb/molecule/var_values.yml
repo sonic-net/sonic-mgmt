@@ -1,0 +1,7 @@
+---
+powerflex_tb_primary_name: primary_tb
+powerflex_tb_secondary_name: secondary_tb
+powerflex_tb_cluster_mode: "ThreeNodes"
+powerflex_protection_domain_name: "tb_protection_domain"
+powerflex_fault_sets: ['fs1', 'fs2', 'fs3']
+powerflex_storage_pool_name: "tb_storage_pool"

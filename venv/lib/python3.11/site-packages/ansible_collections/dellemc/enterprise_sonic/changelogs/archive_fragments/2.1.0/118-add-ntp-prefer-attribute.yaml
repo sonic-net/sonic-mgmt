@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_ntp - Added prefer attribute to NTP resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/118)

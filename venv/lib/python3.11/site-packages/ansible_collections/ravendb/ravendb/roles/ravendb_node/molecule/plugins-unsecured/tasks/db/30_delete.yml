@@ -1,0 +1,52 @@
+---
+- name: Delete DB (check mode)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    state: absent
+  check_mode: yes
+  register: db_delete_check
+
+- name: Assert DB would be deleted
+  ansible.builtin.assert:
+    that:
+      - db_delete_check.changed
+      - "'would be deleted' in db_delete_check.msg | lower"
+
+- name: Delete DB
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    state: absent
+  register: db_deleted
+
+- name: Assert DB deleted
+  ansible.builtin.assert:
+    that:
+      - db_deleted.changed
+      - "'deleted successfully' in db_deleted.msg | lower"
+
+- name: Verify DB absent via API
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases"
+    method: GET
+    validate_certs: no
+  register: dbs_after_delete
+
+- name: Assert DB absent
+  ansible.builtin.assert:
+    that:
+      - "db_main not in (dbs_after_delete.json.Databases | map(attribute='Name') | list | default([]))"
+
+- name: Delete DB again (idempotent)
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_main }}"
+    state: absent
+  register: db_deleted_again
+
+- name: Assert DB already absent
+  ansible.builtin.assert:
+    that:
+      - "not db_deleted_again.changed"
+      - "'does not exist' in db_deleted_again.msg | lower"

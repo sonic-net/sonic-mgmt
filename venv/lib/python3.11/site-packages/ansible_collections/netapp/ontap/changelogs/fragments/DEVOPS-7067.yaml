@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_s3_users - new option `regenerate_keys` and `delete_keys` added in REST, `delete_keys` requires ONTAP 9.14 or later.

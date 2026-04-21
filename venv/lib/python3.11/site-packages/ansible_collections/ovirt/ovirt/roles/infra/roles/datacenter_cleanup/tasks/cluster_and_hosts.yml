@@ -1,0 +1,21 @@
+---
+- name: Find existing Hosts
+  ovirt.ovirt.ovirt_host_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "cluster={{ cluster_item.name }}"
+  register: host_info
+
+- name: Remove Hosts
+  ovirt.ovirt.ovirt_host:
+    state: absent
+    name: "{{ host_item.name }}"
+    auth: "{{ ovirt_auth }}"
+  with_items: "{{ host_info.ovirt_hosts }}"
+  loop_control:
+    loop_var: host_item
+
+- name: Remove Cluster
+  ovirt.ovirt.ovirt_cluster:
+    state: absent
+    name: "{{ cluster_item.name }}"
+    auth: "{{ ovirt_auth }}"

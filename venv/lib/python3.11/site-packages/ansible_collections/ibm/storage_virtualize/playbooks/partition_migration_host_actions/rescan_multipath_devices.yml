@@ -1,0 +1,75 @@
+- name: Load VMD Output from File on Localhost
+  hosts: localhost
+  gather_facts: false
+  tasks:
+
+    - name: Read data povided by host_identification.yml playbook from file.
+      ansible.builtin.slurp:
+        src: "{{ file_name }}/matched_hosts.json"
+      register: vmd_host_matched_list
+
+    - name: Parse Output to read content.
+      ansible.builtin.set_fact:
+        host_matched_list_processed: "{{ vmd_host_matched_list['content'] | b64decode | from_json }}"
+
+    - name: Extract inventory_hostnames from input list
+      ansible.builtin.set_fact:
+        vmd_host_matched_list_processed: "{{ host_matched_list_processed | map(attribute='inventory_hostname') | list }}"
+
+
+- name: Rescan and verify SCSI devices and multipath
+  hosts: "{{ hostvars['localhost'].vmd_host_matched_list_processed | default([]) }}"
+  serial: 1
+  tasks:
+
+    - name: Gather facts for all hosts.
+      ansible.builtin.setup:
+      register: system_info
+
+    # Linux-specific (RHEL) tasks
+    - name: Linux tasks
+      when: system_info.ansible_facts.ansible_system == "Linux"
+      block:
+        - name: Rescan SCSI bus and restart multipath on Linux
+          ansible.builtin.shell: |
+            rescan-scsi-bus.sh -i --forcerescan
+          register: rescan_result
+          failed_when: rescan_result.rc != 0
+          changed_when: false
+
+    - name: Windows tasks
+      when: system_info.ansible_facts.ansible_system == "Win32NT"
+      block:
+        - name: Rescan SCSI devices on Windows
+          ansible.windows.win_powershell:
+            script: |
+              $diskpartScript = @"
+              rescan
+              "@
+              $diskpartScript | diskpart
+          register: windows_rescan
+
+        - name: Display SCSI rescan result on Windows
+          ansible.builtin.debug:
+            msg: "{{ windows_rescan }}"
+
+          # Windows: List newly added disks
+        - name: Fetch new disks on Windows
+          ansible.windows.win_powershell:
+            script: |
+              Get-Disk | Select-Object -Property Number, OperationalStatus, Size, PartitionStyle
+          register: new_disks
+
+          # Display new disks output
+        - name: Display new disks information
+          ansible.builtin.debug:
+            msg:
+              - "{{ new_disks }}"
+
+    - name: Other OS tasks
+      when: system_info.ansible_facts.ansible_system == "Other OS"
+      block:
+        - name: Define task
+          ansible.builtin.debug:
+            msg: Write your code block here
+          # Please add OS specific tasks to rescan multipath, refer to following blocks

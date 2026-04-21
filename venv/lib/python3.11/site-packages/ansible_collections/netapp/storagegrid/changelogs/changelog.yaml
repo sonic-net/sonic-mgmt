@@ -1,0 +1,264 @@
+ancestor: null
+releases:
+  20.10.0:
+    changes:
+      breaking_changes:
+      - 'This version introduces a breaking change.
+
+        All modules have been renamed from ``nac_sg_*`` to ``na_sg_*``.
+
+        Playbooks and Roles must be updated to match.'
+      bugfixes:
+      - na_sg_grid_account - added ``no_log`` flag to password fields.
+      - na_sg_grid_account - fixed documentation issue.
+      - na_sg_grid_group - fixed group name parsing.
+      - na_sg_org_group - fixed group name parsing.
+      minor_changes:
+      - na_sg_grid_account - new option ``update_password`` for managing Tenant Account
+        root password changes.
+      - na_sg_grid_user - new option ``password`` and ``update_password`` for setting
+        or updating Grid Admin User passwords.
+      - na_sg_org_user - new option ``password`` and ``update_password`` for setting
+        or updating Tenant User passwords.
+    fragments:
+    - 20.10.0.yaml
+    release_date: '2020-10-15'
+  20.11.0:
+    changes:
+      minor_changes:
+      - na_sg_grid_account - New option ``root_access_account`` for granting initial
+        root access permissions for the tenant to an existing federated group
+    fragments:
+    - github-66.yaml
+    modules:
+    - description: NetApp StorageGRID Grid information gatherer
+      name: na_sg_grid_info
+      namespace: ''
+    - description: NetApp StorageGRID Org information gatherer
+      name: na_sg_org_info
+      namespace: ''
+    release_date: '2020-11-18'
+  20.6.0:
+    modules:
+    - description: NetApp StorageGRID Manage Tenant account.
+      name: nac_sg_grid_account
+      namespace: ''
+    - description: NetApp StorageGRID Manage Grid DNS servers.
+      name: nac_sg_grid_dns
+      namespace: ''
+    - description: NetApp StorageGRID Manage Grid admin group.
+      name: nac_sg_grid_group
+      namespace: ''
+    - description: NetApp StorageGRID Manage Grid NTP servers.
+      name: nac_sg_grid_ntp
+      namespace: ''
+    - description: NetApp StorageGRID Manage Grid Regions.
+      name: nac_sg_grid_regions
+      namespace: ''
+    - description: NetApp StorageGRID Manage Grid admin user.
+      name: nac_sg_grid_user
+      namespace: ''
+    - description: NetApp StorageGRID Manage S3 bucket.
+      name: nac_sg_org_container
+      namespace: ''
+    - description: NetApp StorageGRID Manage Tenant group.
+      name: nac_sg_org_group
+      namespace: ''
+    - description: NetApp StorageGRID Manage Tenant user.
+      name: nac_sg_org_user
+      namespace: ''
+    - description: NetApp StorageGRID Manage S3 key.
+      name: nac_sg_org_user_s3_key
+      namespace: ''
+    release_date: '2020-06-09'
+  20.6.1:
+    changes:
+      bugfixes:
+      - nac_sg_org_container - fixed documentation issue.
+      minor_changes:
+      - Fixed documentation issue in README.md
+    fragments:
+    - 20.6.1.yaml
+    release_date: '2020-06-09'
+  21.10.0:
+    changes:
+      bugfixes:
+      - na_sg_org_group - fixed behaviour where update to ``s3_policy`` is ignored
+        if ``management_policy`` is set.
+      minor_changes:
+      - na_sg_grid_gateway - supports specifying HA Groups by name or UUID.
+    fragments:
+    - github-10.yaml
+    - github-8.yaml
+    modules:
+    - description: Manage high availability (HA) group configuration on StorageGRID.
+      name: na_sg_grid_ha_group
+      namespace: ''
+    - description: Manage Traffic Classification Policy configuration on StorageGRID.
+      name: na_sg_grid_traffic_classes
+      namespace: ''
+    release_date: '2022-03-17'
+  21.11.0:
+    changes:
+      minor_changes:
+      - na_sg_org_container - supports versioning configuration for S3 buckets available
+        in StorageGRID 11.6+.
+    fragments:
+    - 21.11.0.yaml
+    modules:
+    - description: Manage Client Certificates on StorageGRID.
+      name: na_sg_grid_client_certificate
+      namespace: ''
+    release_date: '2022-09-06'
+  21.11.1:
+    changes:
+      bugfixes:
+      - na_sg_org_container - fix versioning not enabled on initial bucket creation.
+    fragments:
+    - 21.11.1.yaml
+    release_date: '2022-09-23'
+  21.12.0:
+    changes:
+      bugfixes:
+      - Removed fetch limit in API request and implemented pagination.
+      minor_changes:
+      - na_sg_grid_account - New option ``allow_select_object_content`` for enabling
+        use of the S3 SelectObjectContent API.
+      - na_sg_grid_account - New option ``description`` for setting additional identifying
+        information for the tenant account.
+    fragments:
+    - github-18-19.yaml
+    release_date: '2024-01-11'
+  21.13.0:
+    release_date: '2024-10-31'
+  21.14.0:
+    changes:
+      minor_changes:
+      - na_sg_grid_account - new option `allow_compliance_mode` and `max_retention_days`
+        added for tenant account, requires storageGRID 11.9 or later.
+      - na_sg_grid_gateway - new option `enable_tenant_manager`, `enable_grid_manager`
+        and `node_type` added to support management interfaces.
+      - na_sg_grid_group - new option `read_only` added for grid groups.
+      - na_sg_grid_info - LB endpoints and HA group in info module.
+      - na_sg_org_group - new option `read_only` added for tenant groups.
+    fragments:
+    - DEVOPS-7021.yaml
+    - DEVOPS-7023.yaml
+    - DEVOPS-7026.yaml
+    - DEVOPS-7171.yaml
+    modules:
+    - description: Manage EC profiles on StorageGRID.
+      name: na_sg_grid_ec_profile
+      namespace: ''
+    - description: Manage ILM policies on StorageGRID.
+      name: na_sg_grid_ilm_policy
+      namespace: ''
+    - description: Manage ILM policy tags on StorageGRID.
+      name: na_sg_grid_ilm_policy_tag
+      namespace: ''
+    - description: Manage ILM pools on StorageGRID.
+      name: na_sg_grid_ilm_pool
+      namespace: ''
+    - description: Manage ILM rules on StorageGRID.
+      name: na_sg_grid_ilm_rule
+      namespace: ''
+    release_date: '2025-02-05'
+  21.15.0:
+    changes:
+      bugfixes:
+      - na_sg_org_user - fix where existing users with no groups attached were not
+        getting any groups added.
+      minor_changes:
+      - na_sg_grid_ha_group - added check mode support in the module.
+      - na_sg_org_container - Enhanced the Consistency setting.
+      - na_sg_org_container - new option `capacity_limit` added for bucket, requires
+        storageGRID 11.9 or later.
+    fragments:
+    - DEVOPS-7022.yaml
+    - DEVOPS-7025.yaml
+    - DEVOPS-7170.yaml
+    - DEVOPS-7440.yaml
+    modules:
+    - description: NetApp StorageGRID manage alert receiver.
+      name: na_sg_grid_alert_receiver
+      namespace: ''
+    - description: Configure audit log destinations on StorageGRID.
+      name: na_sg_grid_audit_destination
+      namespace: ''
+    - description: Configure autosupport on StorageGRID.
+      name: na_sg_grid_autosupport
+      namespace: ''
+    - description: Configure endpoint domain name on StorageGRID.
+      name: na_sg_grid_domain_name
+      namespace: ''
+    - description: Apply hotfixes on StorageGRID.
+      name: na_sg_grid_hotfix
+      namespace: ''
+    - description: NetApp StorageGRID manage proxy settings for the grid.
+      name: na_sg_grid_proxy_settings
+      namespace: ''
+    - description: Configure SNMP agent on StorageGRID.
+      name: na_sg_grid_snmp
+      namespace: ''
+    - description: NetApp StorageGRID manage tenant accounts.
+      name: na_sg_grid_tenant
+      namespace: ''
+    - description: Configure VLAN interface on StorageGRID.
+      name: na_sg_grid_vlan_interface
+      namespace: ''
+    - description: Manage buckets on StorageGRID.
+      name: na_sg_org_bucket
+      namespace: ''
+    release_date: '2025-06-16'
+  21.6.0:
+    changes:
+      bugfixes:
+      - na_sg_org_container - fix issue with applying compliance settings on buckets.
+      minor_changes:
+      - na_sg_org_container - supports deletion of buckets when ``state`` is set to
+        ``absent``.
+    fragments:
+    - 21.6.0.yaml
+    modules:
+    - description: Manage the Storage API and Grid Management certificates on StorageGRID.
+      name: na_sg_grid_certificate
+      namespace: ''
+    - description: NetApp StorageGRID manage Grid identity federation.
+      name: na_sg_grid_identity_federation
+      namespace: ''
+    - description: NetApp StorageGRID manage Tenant identity federation.
+      name: na_sg_org_identity_federation
+      namespace: ''
+    release_date: '2021-06-16'
+  21.7.0:
+    changes:
+      minor_changes:
+      - Updated documentation - added RETURN block for each module
+    fragments:
+    - 20.7.0.yaml
+    modules:
+    - description: Manage Load balancer (gateway) endpoints on StorageGRID.
+      name: na_sg_grid_gateway
+      namespace: ''
+    release_date: '2021-10-05'
+  21.8.0:
+    changes:
+      minor_changes:
+      - PR2 - allow usage of Ansible module group defaults - for Ansible 2.12+.
+    fragments:
+    - DEVOPS-4416.yaml
+    release_date: '2021-11-11'
+  21.9.0:
+    changes:
+      bugfixes:
+      - na_sg_grid_account - minor documentation fix.
+      - na_sg_grid_gateway - existing endpoints matched by ``name`` and ``port``.
+      minor_changes:
+      - PR2 - allow usage of Ansible module group defaults - for Ansible 2.12+.
+      - na_sg_grid_gateway - supports load balancer endpoint binding available in
+        StorageGRID 11.5+.
+      - na_sg_org_container - supports creation of S3 Object Lock buckets available
+        in StorageGRID 11.5+.
+    fragments:
+    - 21.9.0.yaml
+    release_date: '2021-12-17'

@@ -1,0 +1,28 @@
+# ansible-playbook ./plug_control_info.yml -e ansible_hosts=nameofhost
+- name: Get Plug Parameters
+  hosts: "{{ansible_hosts}}"  # pass as -e ansible_hosts=wti_demo on the commandline
+  collections:
+     - wti.remote
+  connection: local
+  gather_facts: False
+
+  tasks:
+  - set_fact: use_https=True
+    when: use_https is undefined
+  - set_fact: validate_certs=True
+    when: validate_certs is undefined
+
+  - name: run Get Plug status of plug 1
+    cpm_plugcontrol:
+      cpm_action: "getplugcontrol"
+      cpm_url: "{{ansible_host}}"
+      cpm_username: "{{ansible_user}}"
+      cpm_password: "{{ansible_pw}}"
+      plug_id: "1"
+      use_https: "{{use_https}}"
+      validate_certs: "{{validate_certs}}"
+
+    register: testout
+  - name: dump test output
+    debug:
+      msg: "{{ testout['data'] }}"

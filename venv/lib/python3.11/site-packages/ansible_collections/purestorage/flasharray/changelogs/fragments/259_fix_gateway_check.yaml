@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_subnet - Fix subnet update checks when no gateway in existing subnet configuration
+ - purefa_info - Fix space reporting issue

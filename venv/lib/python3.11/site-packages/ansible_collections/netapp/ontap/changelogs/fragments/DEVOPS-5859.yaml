@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_file_security_permissions - updated module examples.
+bugfixes:
+  - na_ontap_file_security_permissions - error if more than one desired ACLs has same user, access, access_control and apply_to.
+  - na_ontap_file_security_permissions - fix idempotency issue on ``acls.propagation_mode`` option.
+  - na_ontap_file_security_permissions - fix TypeError when current acls is None.

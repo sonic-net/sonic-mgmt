@@ -1,0 +1,176 @@
+---
+- name: Create Raven connection string (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    properties:
+      database: "{{ db_cs }}"
+      urls:
+        - "{{ base_url }}"
+    state: present
+  check_mode: yes
+  register: cs_check_create
+
+- name: Assert would created CS msg (check mode)
+  ansible.builtin.assert:
+    that:
+      - cs_check_create.changed
+      - "'would create' in cs_check_create.msg | lower"
+
+- name: Verify CS not created on check mode
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: cs_after_check_create
+
+- name: Assert CS not created
+  ansible.builtin.assert:
+    that:
+      - "'raven_cs' not in (cs_after_check_create.json.RavenConnectionStrings | default({}))"
+
+- name: Create Raven connection string
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    properties:
+      database: "{{ db_cs }}"
+      urls:
+        - "{{ base_url }}"
+    state: present
+  register: cs_created
+
+- name: Assert CS created
+  ansible.builtin.assert:
+    that:
+      - cs_created.changed
+      - "'created connection string' in cs_created.msg | lower"
+
+- name: Verify CS created
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: cs_after_create
+
+- name: Assert CS created
+  ansible.builtin.assert:
+    that:
+      - "'raven_cs' in (cs_after_create.json.RavenConnectionStrings | default({}))"
+
+- name: Create Raven connection string (idempotency check)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    properties:
+      database: "{{ db_cs }}"
+      urls:
+        - "{{ base_url }}"
+    state: present
+  register: cs_created_again
+
+- name: Assert CS creation idempotent
+  ansible.builtin.assert:
+    that:
+      - cs_created_again.changed == false
+      - "'already exists' in ((cs_created_again.msg | default('')) | lower)"
+      - "'no changes' in ((cs_created_again.msg | default('')) | lower)"
+
+- name: Attempt to modify existing Raven CS - should no-op
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    properties:
+      database: "{{ db_cs }}"
+      urls:
+        - "http://127.0.0.1:9999" # different URL
+    state: present
+  register: cs_modify_attempt
+
+- name: Assert modify attempt was a no-op
+  ansible.builtin.assert:
+    that:
+      - cs_modify_attempt.changed == false
+      - "'already exists' in ((cs_modify_attempt.msg | default('')) | lower)"
+      - "'no changes' in ((cs_modify_attempt.msg | default('')) | lower)"
+
+- name: Delete Raven CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    state: absent
+  check_mode: yes
+  register: cs_check_delete
+
+- name: Assert would delete message (check mode)
+  ansible.builtin.assert:
+    that:
+      - cs_check_delete.changed
+      - "'would delete' in cs_check_delete.msg | lower"
+
+- name: Verify CS still exists after check-mode delete
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: cs_after_check_delete
+
+- name: Assert CS still present after check-mode delete
+  ansible.builtin.assert:
+    that:
+      - "'raven_cs' in (cs_after_check_delete.json.RavenConnectionStrings | default({}))"
+
+- name: Delete Raven CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    state: absent
+  register: cs_deleted
+
+- name: Assert CS deleted
+  ansible.builtin.assert:
+    that:
+      - cs_deleted.changed
+      - "'deleted connection string' in cs_deleted.msg | lower"
+
+- name: Verify CS is gone
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: cs_after_delete
+
+- name: Assert CS not present after delete
+  ansible.builtin.assert:
+    that:
+      - "'raven_cs' not in (cs_after_delete.json.RavenConnectionStrings | default({}))"
+
+- name: Test creating Raven CS with missing params (db) - should fail
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "raven_bad"
+    cs_type: "RAVEN"
+    properties:
+      urls: ["{{ base_url }}"]
+    state: present
+  register: cs_bad_missing_db
+  failed_when: cs_bad_missing_db is succeeded
+
+- name: Assert validation error on missing db attempt
+  ansible.builtin.assert:
+    that:
+      - cs_bad_missing_db.changed == false
+      - "'database cannot be empty' in ((cs_bad_missing_db.msg | default('')) | lower)"

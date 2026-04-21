@@ -1,0 +1,56 @@
+---
+# these tasks are ran in both install and configure, as directories could have changed
+- name: Configure directories
+  ansible.builtin.import_tasks: install/directories.yaml
+
+- name: Create a symbolic link
+  ansible.builtin.file:
+    src: "{{ grafana_agent_install_dir }}/{{ grafana_agent_binary }}"
+    dest: "/usr/local/bin/{{ grafana_agent_binary }}"
+    owner: root
+    group: root
+    state: link
+
+- name: Overwrite/Create Grafana Agent service
+  ansible.builtin.template:
+    src: grafana-agent.service.j2
+    dest: "{{ _grafana_agent_systemd_dir }}/{{ _grafana_agent_systemd_unit }}"
+    owner: root
+    group: root
+    mode: 0644
+  notify: "restart grafana-agent"
+
+- name: Create the Service Environment file
+  ansible.builtin.template:
+    src: EnvironmentFile.j2
+    dest: "{{ grafana_agent_config_dir }}/{{ grafana_agent_env_file }}"
+    owner: root
+    group: "{{ grafana_agent_user_group }}"
+    mode: 0640
+  notify: "restart grafana-agent"
+
+- name: Create Grafana Agent config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ grafana_agent_config_dir }}/{{ grafana_agent_config_filename }}"
+    force: true
+    owner: root
+    group: "{{ grafana_agent_user_group }}"
+    mode: 0640
+  notify: "restart grafana-agent"
+  when: grafana_agent_provisioned_config_file | length == 0
+
+- name: Create Grafana Agent River Config if flow mode for Grafana Agent
+  ansible.builtin.shell: "AGENT_MODE=flow {{ grafana_agent_install_dir }}/grafana-agent convert -f static {{ grafana_agent_config_dir }}/{{ grafana_agent_config_filename }} -o {{ grafana_agent_config_dir }}/{{ grafana_agent_config_filename }}"
+  notify: "restart grafana-agent"
+  when: grafana_agent_provisioned_config_file | length == 0
+
+- name: Copy Grafana Agent config
+  ansible.builtin.copy:
+    src: "{{ grafana_agent_provisioned_config_file }}"
+    dest: "{{ grafana_agent_config_dir }}/{{ grafana_agent_config_filename }}"
+    owner: root
+    group: "{{ grafana_agent_user_group }}"
+    mode: 0640
+  notify: "restart grafana-agent"
+  when: grafana_agent_provisioned_config_file | length > 0

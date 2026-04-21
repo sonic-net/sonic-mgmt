@@ -1,0 +1,7 @@
+---
+- name: zabbix-java-gateway restarted
+  ansible.builtin.service:
+    name: zabbix-java-gateway
+    state: restarted
+    enabled: true
+  become: true

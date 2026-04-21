@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_ad - Revert removal of ``service`` parameter (breaking change). Added more logic to use of ``service`` parameter and recommend use of ``service_principals`` with service incorporated.

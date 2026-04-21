@@ -1,0 +1,17 @@
+---
+# Is the gateway redundant (will install keepalived)
+powerflex_gateway_is_redundant: false
+# Virtual IP if redundant
+powerflex_gateway_virtual_ip: ''
+# Interface to attach the virtual ip
+powerflex_gateway_virtual_interface: eth1
+# Skip Java installation for PowerFlex (assume it's on the system)
+powerflex_gateway_skip_java: false
+# Disable GPG check to install PowerFlex gateway
+powerflex_gateway_disable_gpg_check: true
+powerflex_gateway_user_properties_file: /opt/emc/scaleio/gateway/webapps/ROOT/WEB-INF/classes/gatewayUser.properties
+powerflex_gateway_catalina_properties_file: /opt/emc/scaleio/gateway/conf/catalina.properties
+file_glob_name: gateway
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_mdm_ips }}"
+  GATEWAY_ADMIN_PASSWORD: "{{ powerflex_gateway_admin_password }}"

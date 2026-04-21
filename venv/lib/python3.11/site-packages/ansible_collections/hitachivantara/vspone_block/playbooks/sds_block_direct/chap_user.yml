@@ -1,0 +1,84 @@
+---
+####################################################################
+# Example : Chap User Playbook
+####################################################################
+- name: Chap User
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create chap user
+    ####################################################################
+    - name: Create chap user
+      hitachivantara.vspone_block.sds_block.hv_sds_block_chap_user:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          target_chap_user_name: "chapuser2"
+          target_chap_secret: "CHANGE_ME_SET_YOUR_PASSWORD"
+          initiator_chap_user_name: "chapuser1"
+          initiator_chap_secret: "CHANGE_ME_SET_YOUR_PASSWORD"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update chap user name
+    ####################################################################
+    - name: Update chap user name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_chap_user:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          id: "464e1fd1-9892-4134-866c-6964ce786676"
+          target_chap_user_name: "newchapuser2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update chap user name and secret
+    ####################################################################
+    - name: Update chap user secret
+      hitachivantara.vspone_block.sds_block.hv_sds_block_chap_user:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          id: "464e1fd1-9892-4134-866c-6964ce786676"
+          target_chap_user_name: "newchapuser2"
+          target_chap_secret: "CHANGE_ME_SET_YOUR_PASSWORD"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete chap user
+    ####################################################################
+    - name: Delete chap user
+      hitachivantara.vspone_block.sds_block.hv_sds_block_chap_user:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          id: "464e1fd1-9892-4134-866c-6964ce786676"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

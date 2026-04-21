@@ -1,0 +1,12 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.devices_switch_routing_interfaces:
+        meraki_suppress_logging: true
+        state: present
+        defaultGateway: 192.168.1.1
+        interfaceIp: 192.168.1.2
+        name: L3 interface
+        serial: L_828099381482770866

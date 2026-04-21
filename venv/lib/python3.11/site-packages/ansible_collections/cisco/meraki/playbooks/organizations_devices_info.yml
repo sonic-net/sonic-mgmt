@@ -1,0 +1,13 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get all organizations _devices
+      cisco.meraki.organizations_devices_info:
+        meraki_suppress_logging: true
+        perPage: 3
+        total_pages: -1
+        models:
+          - MV12N
+        organizationId: "828099381482762270"
+      register: result

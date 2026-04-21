@@ -1,0 +1,116 @@
+---
+- name: Gather User Consent for Data Collection
+  hosts: localhost
+  gather_facts: false
+  vars:
+    consent_dir: "~/ansible/hitachivantara/vspone_block/user_consent"
+    consent_file: "{{ consent_dir }}/user_consent.json"
+    consent_msg: |
+      Hitachi Vantara LLC collects usage data such as storage model, storage serial number, operation name, status (success or failure), and duration.
+      This data is collected for product improvement purposes only. It remains confidential and it is not shared with any third parties.
+      Do you consent to the collection of this usage data? (Yes/No)
+  tasks:
+    - name: Check if consent file exists
+      ansible.builtin.stat:
+        path: "{{ consent_file }}"
+      register: consent_file_exists
+
+    - name: Read existing consent file
+      ansible.builtin.slurp:
+        src: "{{ consent_file }}"
+      register: existing_consent_file
+      when: consent_file_exists.stat.exists
+
+    - name: Parse existing consent file
+      ansible.builtin.set_fact:
+        existing_data: "{{ existing_consent_file.content | b64decode | from_json }}"
+      when: consent_file_exists.stat.exists
+
+    - name: Set user_input from CLI argument if provided
+      ansible.builtin.set_fact:
+        user_input: "{{ args }}"
+      when: args is defined and args | length > 0
+
+    - name: Prompt for consent if no CLI argument provided
+      ansible.builtin.pause:
+        prompt: "{{ consent_msg | trim }}"
+      register: pause_result
+      when: args is not defined or args | length == 0
+
+    - name: Use prompted value if no CLI argument provided
+      ansible.builtin.set_fact:
+        user_input: "{{ pause_result.user_input }}"
+      when: args is not defined or args | length == 0
+    - name: Debug user_input before setting consent
+      ansible.builtin.debug:
+        var: user_input
+
+    - name: Set consent variable
+      ansible.builtin.set_fact:
+        user_consent: "{{ 'True' if (user_input is boolean and user_input) or (user_input | string | lower == 'yes') else 'False' }}"
+    - name: Generate unique site ID if file does not exist
+      ansible.builtin.command:
+        cmd: uuidgen
+      register: site_id_output
+      changed_when: false
+      when: not consent_file_exists.stat.exists
+
+    - name: Set site ID variable
+      ansible.builtin.set_fact:
+        site_id: "{{ site_id_output.stdout if not consent_file_exists.stat.exists else existing_data.site_id }}"
+
+    - name: Get current UTC time
+      ansible.builtin.command:
+        cmd: date -u +%Y-%m-%dT%H:%M:%SZ
+      register: current_time_output
+      changed_when: false
+
+    - name: Set time variable
+      ansible.builtin.set_fact:
+        current_time: "{{ current_time_output.stdout }}"
+
+    - name: Create user_consent directory if not present
+      ansible.builtin.file:
+        path: "{{ consent_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Set previous consent record if exists
+      ansible.builtin.set_fact:
+        previous_record:
+          user_consent_accepted: "{{ existing_data.user_consent_accepted }}"
+          time: "{{ existing_data.time }}"
+      when: consent_file_exists.stat.exists and (existing_data.user_consent_accepted is defined and existing_data.time is defined)
+
+    - name: Build consent history when file exists
+      ansible.builtin.set_fact:
+        consent_history: >-
+          {{
+            (existing_data.consent_history | default([]))
+            +
+            ([ previous_record ] if (previous_record is defined) else [])
+          }}
+      when: consent_file_exists.stat.exists
+
+    - name: Set consent history to empty if file does not exist
+      ansible.builtin.set_fact:
+        consent_history: []
+      when: not consent_file_exists.stat.exists
+
+    - name: Build consent data dictionary
+      ansible.builtin.set_fact:
+        consent_data:
+          site_id: "{{ site_id }}"
+          consent_history: "{{ consent_history }}"
+          user_consent_accepted: "{{ user_consent }}"
+          time: "{{ current_time }}"
+
+    - name: Store consent response in JSON file
+      ansible.builtin.copy:
+        content: "{{ consent_data | to_nice_json }}"
+        dest: "{{ consent_file }}"
+        mode: "0644"
+
+    - name: Display consent response
+      ansible.builtin.debug:
+        msg: "The consent response was recorded successfully."

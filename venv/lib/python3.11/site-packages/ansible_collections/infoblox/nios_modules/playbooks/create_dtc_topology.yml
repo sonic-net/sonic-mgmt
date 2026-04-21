@@ -1,0 +1,32 @@
+---
+- name: Infoblox Member Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.196.205.10
+      username: cloudadmin
+      password: infoblox
+      wapi_version: "2.12"
+
+  connection: local
+  tasks:
+    - name: Create a DTC Topology
+      infoblox.nios_modules.nios_dtc_topology:
+        name: a_topology
+        rules:
+          - dest_type: POOL
+            destination_link: web_pool1
+            return_type: REGULAR
+            sources:
+              - source_op: IS
+                source_type: EA0
+                source_value: DC1
+          - dest_type: POOL
+            destination_link: web_pool2
+            return_type: REGULAR
+            sources:
+              - source_op: IS
+                source_type: EA0
+                source_value: DC2
+        state: present
+        provider: "{{ nios_provider }}"

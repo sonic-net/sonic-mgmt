@@ -1,0 +1,215 @@
+---
+- name: Snapshot Policy operations on powerflex array.
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    snapshot_policy_name: "Ansible_snap_policy_1"
+    source_volume_name1: "Ansible_volume_4"
+    source_volume_name2: "Ansible_volume_5"
+    snapshot_policy_name_new: "Ansible_snap_policy_1_new"
+
+  tasks:
+    - name: Create a snapshot policy in check mode
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name }}"
+        access_mode: "READ_WRITE"
+        secure_snapshots: false
+        auto_snapshot_creation_cadence:
+          time: 1
+          unit: "Hour"
+        num_of_retained_snapshots_per_level:
+          - 20
+        state: "present"
+      check_mode: true
+
+    - name: Create a snapshot policy
+      register: result
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name }}"
+        access_mode: "READ_WRITE"
+        secure_snapshots: false
+        auto_snapshot_creation_cadence:
+          time: 1
+          unit: "Hour"
+        num_of_retained_snapshots_per_level:
+          - 20
+        state: "present"
+
+    - name: Get snapshot policy details using name
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name }}"
+
+    - name: Get snapshot policy details using id
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_id: "{{ result.snapshot_policy_details.id }}"
+
+    - name: Modify a snapshot policy - check mode
+      register: result
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name }}"
+        auto_snapshot_creation_cadence:
+          time: 2
+          unit: "Hour"
+        num_of_retained_snapshots_per_level:
+          - 40
+      check_mode: true
+
+    - name: Modify a snapshot policy
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name }}"
+        auto_snapshot_creation_cadence:
+          time: 2
+          unit: "Hour"
+        num_of_retained_snapshots_per_level:
+          - 40
+
+    - name: Rename a snapshot policy
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name }}"
+        new_name: "{{ snapshot_policy_name_new }}"
+
+    - name: Add source volume - check mode
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        source_volume:
+          - name: "{{ source_volume_name1 }}"
+          - name: "{{ source_volume_name2 }}"
+            state: "present"
+      check_mode: true
+
+    - name: Add source volume
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        source_volume:
+          - name: "{{ source_volume_name1 }}"
+          - name: "{{ source_volume_name2 }}"
+            state: "present"
+
+    - name: Remove source volume - check mode
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        source_volume:
+          - name: "{{ source_volume_name1 }}"
+            auto_snap_removal_action: 'Remove'
+            state: "absent"
+          - name: "{{ source_volume_name2 }}"
+            auto_snap_removal_action: 'Remove'
+            state: "absent"
+      check_mode: true
+
+    - name: Remove source volume
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        source_volume:
+          - name: "{{ source_volume_name1 }}"
+            auto_snap_removal_action: 'Remove'
+            state: "absent"
+          - name: "{{ source_volume_name2 }}"
+            auto_snap_removal_action: 'Remove'
+            state: "absent"
+
+    - name: Pause snapshot policy - check mode
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        pause: true
+      check_mode: true
+
+    - name: Pause snapshot policy
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        pause: true
+
+    - name: Resume snapshot policy - check mode
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        pause: false
+      check_mode: true
+
+    - name: Resume snapshot policy
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        pause: false
+
+    - name: Delete snapshot policy - check mode
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        state: "absent"
+      check_mode: true
+
+    - name: Delete snapshot policy
+      dellemc.powerflex.snapshot_policy:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_policy_name: "{{ snapshot_policy_name_new }}"
+        state: "absent"

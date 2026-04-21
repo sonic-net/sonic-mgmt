@@ -1,0 +1,42 @@
+---
+- name: "Configure BGP clos fabric options after configuring prerequisite options"
+  hosts: datacenter
+  gather_facts: false
+  connection: httpapi
+  tasks:
+    - name: Create Interfaces
+      dellemc.enterprise_sonic.sonic_interfaces:
+        config: "{{ sonic_interfaces }}"
+      when: sonic_interfaces is defined and sonic_interfaces
+
+    - name: Create L3 Interfaces
+      dellemc.enterprise_sonic.sonic_l3_interfaces:
+        config: "{{ sonic_l3_interfaces }}"
+      when: sonic_l3_interfaces is defined and sonic_l3_interfaces
+
+    - name: "Push configs for clos-fabric usecase"
+      vars:
+        ansible_connection: network_cli
+      dellemc.enterprise_sonic.sonic_config:
+        src: clos_fabric_cfg.j2
+      register: result
+
+    - name: Create BGP configuration
+      dellemc.enterprise_sonic.sonic_bgp:
+        config: "{{ sonic_bgp }}"
+      when: sonic_bgp is defined and sonic_bgp
+
+    - name: Create BGP AF configuration
+      dellemc.enterprise_sonic.sonic_bgp_af:
+        config: "{{ sonic_bgp_af }}"
+      when: sonic_bgp_af is defined and sonic_bgp_af
+
+    - name: Create BGP Neighbors configuration
+      dellemc.enterprise_sonic.sonic_bgp_neighbors:
+        config: "{{ sonic_bgp_neighbors }}"
+      when: sonic_bgp_neighbors is defined and sonic_bgp_neighbors
+
+    - name: Create BGP Neighbors AF configuration
+      dellemc.enterprise_sonic.sonic_bgp_neighbors_af:
+        config: "{{ sonic_bgp_neighbors_af }}"
+      when: sonic_bgp_neighbors_af is defined and sonic_bgp_neighbors_af

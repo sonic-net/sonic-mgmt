@@ -1,0 +1,10 @@
+---
+- hosts: all
+  become: true
+  # pre_tasks happen before roles are executed / applied
+  pre_tasks: []
+  # roles are ran after pre_tasks
+  roles:
+    - grafana_agent
+  # tasks are ran after roles
+  tasks: []

@@ -1,0 +1,29 @@
+---
+- name:  Health check Grafana Agent
+  ansible.builtin.uri:
+    url: "{{ _grafana_agent_healthcheck_endpoint }}"
+    follow_redirects: none
+    method: GET
+  register: _result
+  failed_when: false
+  until: _result.status == 200
+  retries: 3
+  delay: 5
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Check system logs if Grafana Agent is not started
+  when: not ansible_check_mode and _result.status != 200
+  block:
+  - name: Run journalctl
+    ansible.builtin.shell:
+      cmd: "journalctl -u grafana-agent -b -n20 --no-pager"
+    register: journal_ret
+    changed_when: false
+  - name: Output Grafana agent logs
+    ansible.builtin.debug:
+      var: journal_ret.stdout_lines
+  - name: Rise alerts
+    ansible.builtin.assert:
+      that: false
+      fail_msg: "Service grafana-agent hasn't started."

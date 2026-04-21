@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_rest_info - Support for gather subsets - ``cifs_home_directory_info, cluster_software_download, event_notification_info,
+    event_notification_destination_info, security_login_info, security_login_rest_role_info``

@@ -1,0 +1,57 @@
+---
+- name: Check if /etc/conjur.identity already exists
+  ansible.builtin.stat:
+    path: /etc/conjur.identity
+  register: identity_file
+
+- name: Set fact "conjurized"
+  ansible.builtin.set_fact:
+    conjurized: "{{ identity_file.stat.exists | bool }}"
+
+- name: Ensure all required variables are set
+  ansible.builtin.fail:
+    msg: Variable '{{ item }}' is not set!
+  when: vars[item] is undefined
+  loop:
+    - conjur_account
+    - conjur_appliance_url
+    - conjur_host_name
+
+- name: Set fact "ssl_configuration"
+  ansible.builtin.set_fact:
+    ssl_configuration: "{{ 'https' in conjur_appliance_url }}"
+
+- name: SSL Configuration
+  when: ssl_configuration
+  block:
+    - name: Ensure all required ssl variables are set
+      ansible.builtin.fail:
+        msg: Variable '{{ item }}' is not set!
+      when: vars[item] is undefined
+      loop:
+        - conjur_ssl_certificate
+        - conjur_validate_certs
+
+    - name: Set fact "ssl file path"
+      ansible.builtin.set_fact:
+        conjur_ssl_certificate_path: "/etc/conjur.pem"
+
+- name: Non-SSL Configuration
+  when: not ssl_configuration
+  block:
+    - name: Set fact "non ssl configuration"
+      ansible.builtin.set_fact:
+        conjur_ssl_certificate_path: ""
+        conjur_validate_certs: false
+
+    - name: Warn against using insecure connection schemes
+      ansible.builtin.debug:
+        msg: "[WARNING]: Provided Conjur URL uses insecure connection scheme. Please consider using HTTPS."
+
+- name: Not Conjurized
+  when: not conjurized
+  block:
+    - name: Ensure "conjur_host_factory_token" is set (if node is not already conjurized)
+      ansible.builtin.fail:
+        msg: Variable 'conjur_host_factory_token' is not set!
+      when: conjur_host_factory_token is undefined

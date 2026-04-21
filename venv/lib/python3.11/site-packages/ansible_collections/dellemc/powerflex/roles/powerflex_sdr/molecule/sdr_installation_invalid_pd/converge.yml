@@ -1,0 +1,20 @@
+---
+- name: Molecule Test for installation of SDR
+  hosts: sdr
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+
+  tasks:
+    - name: Install and configure powerflex SDR without protection domain
+      vars:
+        error_msg: "Please provide powerflex_protection_domain_name and powerflex_storage_pool_name in parameter for installing SDR."
+      block:
+        - name: Powerflex SDR
+          ansible.builtin.import_role:
+            name: dellemc.powerflex.powerflex_sdr
+          vars:
+            powerflex_sdr_state: present
+      rescue:
+        - name: Verifying failure of install package without protection domain
+          ansible.builtin.assert:
+            that: ansible_failed_result.ansible_facts.powerflex_add_sdr_output.msg == error_msg

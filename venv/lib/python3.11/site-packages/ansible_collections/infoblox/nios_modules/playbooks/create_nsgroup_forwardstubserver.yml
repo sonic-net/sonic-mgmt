@@ -1,0 +1,24 @@
+---
+- name: Infoblox Nameserver Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.36.118.2
+      username: cloudadmin
+      password: admin
+
+  connection: local
+  tasks:
+    - name: Create infoblox nameserver forward/stub group
+      infoblox.nios_modules.nios_nsgroup_forwardstubserver:
+        name: new-forwardstub-group
+        comment: this is a forward/stub nameserver group
+        extattrs:
+          Site: Test Site
+        external_servers:
+          - name: first
+            address: 192.168.0.10
+          - name: second
+            address: 192.168.0.20
+        state: present
+        provider: "{{ nios_provider }}"

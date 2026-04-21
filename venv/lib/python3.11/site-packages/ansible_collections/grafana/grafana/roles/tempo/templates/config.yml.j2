@@ -1,0 +1,57 @@
+---
+server: 
+  {{ tempo_server | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False) }}
+{% if tempo_distributor is defined %}
+distributor:
+  {{ tempo_distributor | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_ingester is defined %}
+ingester:
+  {{ tempo_ingester | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_ingester_client is defined %}
+ingester_client:
+  {{ tempo_ingester_client | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_metrics_generator is defined %}
+metrics_generator:
+  {{ tempo_metrics_generator | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_metrics_generator_client is defined %}
+metrics_generator_client:
+  {{ tempo_metrics_generator_client | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_querier is defined %}
+querier:
+  {{ tempo_querier | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_query_frontend is defined %}
+query_frontend:
+  {{ tempo_query_frontend | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_compactor is defined %}
+compactor:
+  {{ tempo_compactor | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_storage is defined %}
+storage:
+  {{ tempo_storage | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_memberlist is defined %}
+memberlist:
+  {{ tempo_memberlist | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_overrides is defined %}
+overrides:
+  {{ tempo_overrides | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_cache is defined %}
+cache:
+  {{ tempo_cache | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if tempo_http_api_prefix is defined %}
+http_api_prefix: {{ tempo_http_api_prefix }}
+{% endif %}
+usage_report:
+  reporting_enabled: {{ tempo_report_usage }}
+multitenancy_enabled: {{ tempo_multitenancy_enabled }}

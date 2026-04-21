@@ -1,0 +1,28 @@
+---
+- name: Clean storage-pool
+  ignore_errors: true
+  block:
+    - name: Destroy local storage-pool {{ he_local_vm_dir | basename }}
+      ansible.builtin.command: >-
+        virsh -c qemu:///system?authfile={{ he_libvirt_authfile }}
+        pool-destroy {{ he_local_vm_dir | basename }}
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+    - name: Undefine local storage-pool {{ he_local_vm_dir | basename }}
+      ansible.builtin.command: >-
+        virsh -c qemu:///system?authfile={{ he_libvirt_authfile }}
+        pool-undefine {{ he_local_vm_dir | basename }}
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+    - name: Destroy local storage-pool {{ local_vm_disk_path.split('/')[5] }}
+      ansible.builtin.command: >-
+        virsh -c qemu:///system?authfile={{ he_libvirt_authfile }}
+        pool-destroy {{ local_vm_disk_path.split('/')[5] }}
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+    - name: Undefine local storage-pool {{ local_vm_disk_path.split('/')[5] }}
+      ansible.builtin.command: >-
+        virsh -c qemu:///system?authfile={{ he_libvirt_authfile }}
+        pool-undefine {{ local_vm_disk_path.split('/')[5] }}
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true

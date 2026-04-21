@@ -1,0 +1,42 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+DOCUMENTATION:
+  name: unquote_txt
+  short_description: Unquotes a TXT record entry to a string
+  version_added: 2.9.0
+  description:
+    - Given a (quoted) TXT entry content, extracts its value.
+  options:
+    _input:
+      description:
+        - The string to unquote.
+      type: string
+      required: true
+    character_encoding:
+      description:
+        - Whether to treat numeric escape sequences (V(\\xyz)) as octal or decimal numbers.
+        - The default value V(decimal) is compatible to L(RFC 1035, https://www.ietf.org/rfc/rfc1035.txt).
+      type: str
+      default: decimal
+      choices:
+        - decimal
+        - octal
+  author:
+    - Felix Fontein (@felixfontein)
+
+EXAMPLES: |
+  - name: Unquote a TXT entry
+    ansible.builtin.set_fact:
+      public_suffix: "{{ value | community.dns.unquote_txt }}"
+      # Should result in 'this is a test'
+    vars:
+      value: >-
+        "this is " "a test"
+
+RETURN:
+  _value:
+    description: The extracted string.
+    type: string

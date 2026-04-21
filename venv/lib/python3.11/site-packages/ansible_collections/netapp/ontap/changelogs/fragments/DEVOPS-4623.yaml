@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume - Fixed error when creating a flexGroup when ``aggregate_name`` and ``aggr_list_multiplier`` are not set in rest.

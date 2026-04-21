@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_certs - Updated email regex pattern to fix ``re`` failures

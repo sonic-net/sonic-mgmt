@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager - Support service account with new options ``sa_client_id`` and ``sa_secret_key`` to use for API operations.

@@ -1,0 +1,34 @@
+- name: Install mimir
+  hosts: monitoring-node
+  become: true
+
+  tasks:
+    - name: Install mimir
+      ansible.builtin.include_role:
+        name: grafana.grafana.mimir
+      vars:
+        mimir_storage:
+          storage:
+            backend: s3
+            s3:
+              endpoint: "{{ s3_endpoint }}"
+              access_key_id: "{{ vault_s3_access }}"
+              secret_access_key: "{{ vault_s3_secret }}"
+              bucket_name: your-mimir-bucket
+
+        # Blocks storage requires a prefix when using a common object storage bucket.
+        mimir_blocks_storage:
+          storage_prefix: blocks
+          tsdb:
+            dir: "{{ mimir_working_path}}/ingester"
+
+        mimir_limits:
+          # set metrics retenion to 30d
+          compactor_blocks_retention_period: 30d
+          max_label_names_per_series: 100
+
+        # this setting is required to prevent mimir from attempting
+        # to make quorum
+        mimir_ingester:
+          ring:
+            replication_factor: 1

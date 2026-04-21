@@ -1,0 +1,48 @@
+---
+- name: Download Grafana Agent binary to controller (localhost)
+  block:
+    - name: Create Grafana Agent temp directory
+      become: false
+      ansible.builtin.file:
+        path: "{{ grafana_agent_local_tmp_dir }}"
+        state: directory
+        mode: 0751
+      delegate_to: localhost
+      check_mode: false
+      run_once: true
+
+    - name: Download Grafana Agent archive to local folder
+      become: false
+      ansible.builtin.get_url:
+        url: "{{ _grafana_agent_download_url }}"
+        dest: "{{ grafana_agent_local_tmp_dir }}/grafana-agent_{{ _grafana_agent_cpu_arch }}_{{ grafana_agent_version }}.zip"
+        mode: 0664
+      register: _download_archive
+      until: _download_archive is succeeded
+      retries: 5
+      delay: 2
+      delegate_to: localhost
+      check_mode: false
+      run_once: true
+
+    - name: Extract grafana-agent.zip
+      become: false
+      ansible.builtin.unarchive:
+        src: "{{ grafana_agent_local_tmp_dir }}/grafana-agent_{{ _grafana_agent_cpu_arch }}_{{ grafana_agent_version }}.zip"
+        dest: "{{ grafana_agent_local_tmp_dir }}"
+        remote_src: false
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set local path
+      ansible.builtin.set_fact:
+        __grafana_agent_local_binary_file: "{{ grafana_agent_local_tmp_dir }}/{{ grafana_agent_binary }}"
+
+    - name: Propagate downloaded binary
+      ansible.builtin.copy:
+        src: "{{ grafana_agent_local_tmp_dir }}/{{ _grafana_agent_download_binary_file }}"
+        dest: "{{ grafana_agent_install_dir }}/{{ grafana_agent_binary }}"
+        mode: 0755
+        owner: root
+        group: root
+      when: not ansible_check_mode

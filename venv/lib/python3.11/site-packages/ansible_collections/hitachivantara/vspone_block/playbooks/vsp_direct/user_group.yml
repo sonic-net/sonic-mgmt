@@ -1,0 +1,143 @@
+---
+####################################################################
+# Example : User Group Playbook
+####################################################################
+- name: User Group Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################################
+    # Task Name : Create a User Group
+    ######################################################################################
+    - name: Create a User Group
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "devGroup"
+          role_names: ["STORAGE_ADMIN_PERF_MGMT", "STORAGE_ADMIN_PROVISION"]
+          resource_group_ids: [8, 9]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Change User Group Name
+    ######################################################################################
+    - name: Change User Group Name
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "devGroup3_new_3"
+          name: "devGroup3_new_4"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Add Roles to a User Group
+    ######################################################################################
+    - name: Add Roles to a User Group
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: add_role
+          id: "devGroup3"
+          role_names: ["STORAGE_ADMIN_REMOTE_COPY", "STORAGE_ADMIN_PROVISION", "STORAGE_ADMIN_SYS_RESOURCE_MGMT"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Remove Roles from a User Group
+    ######################################################################################
+    - name: Remove Roles from a User Group
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: remove_role
+          id: "devGroup3"
+          role_names: ["STORAGE_ADMIN_REMOTE_COPY", "STORAGE_ADMIN_PROVISION"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Add Resource Groups to a User Group
+    ######################################################################################
+    - name: Add Resource Groups to a User Group
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: add_resource_group
+          id: "devGroup3"
+          resource_group_ids: [1, 2]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Remove Resource Groups from a User Group
+    ######################################################################################
+    - name: Remove Resource Groups from a User Group
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: remove_resource_group
+          id: "devGroup3"
+          resource_group_ids: [1, 2]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete User Group by ID
+    ######################################################################################
+    - name: Delete User Group by ID
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          id: "devGroup3_new_4"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete User Group by name
+    ######################################################################################
+    - name: Delete User Group by name
+      hitachivantara.vspone_block.vsp.hv_user_group:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          name: "devGroup3_new_5"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

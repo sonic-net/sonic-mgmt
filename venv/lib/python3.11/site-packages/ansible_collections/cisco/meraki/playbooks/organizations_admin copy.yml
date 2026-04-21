@@ -1,0 +1,22 @@
+- name: Play Name
+  hosts: localhost
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Update by id
+      cisco.meraki.networks_floor_plans:
+        state: present
+        bottomLeftCorner:
+          lat: 12
+          lng: 11
+        bottomRightCorner:
+          lat: 9
+          lng: 8
+        center:
+          lat: 7
+          lng: 1
+        floorPlanId: string
+        imageContents: Q2lzY28gTWVyYWtp.png
+        name: Test
+        networkId: L_828099381482770942

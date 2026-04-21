@@ -1,0 +1,30 @@
+---
+- name: Icinga_user
+  icinga_user:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ user.state | default(omit) }}"
+    object_name: "{{ user.name }}"
+    display_name: "{{ user.display_name | default(omit) }}"
+    imports: "{{ user.imports | default(icinga_user_imports) }}"
+    pager: "{{ user.pager | default(omit) }}"
+    period: "{{ user.period | default(omit) }}"
+    disabled: "{{ user.disabled | default(omit) }}"
+    email: "{{ user.email | default(icinga_user_email) }}"
+    groups: "{{ user.groups | default(omit) }}"
+    vars: "{{ user.vars | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_users }}"
+  loop_control:
+    loop_var: user
+  tags: user
+  notify: config_deploy

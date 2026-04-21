@@ -1,0 +1,14 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get Device
+      cisco.meraki.devices_info:
+        meraki_suppress_logging: true
+        organizationId: "828099381482762270"
+        perPage: 3
+        total_pages: -1
+      register: result
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

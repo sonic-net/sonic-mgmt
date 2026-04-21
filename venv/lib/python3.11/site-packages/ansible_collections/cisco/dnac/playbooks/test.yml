@@ -1,0 +1,358 @@
+---
+- hosts: dnac_servers
+  # vars_files:
+  #   - credentials.yml
+  # vars:
+  #   dnac_login: &dnac_login
+  #     dnac_host: "{{ dnac_host }}"
+  #     dnac_username: "{{ dnac_username }}"
+  #     dnac_password: "{{ dnac_password }}"
+  #     dnac_verify: "{{ dnac_verify }}"
+  #     dnac_port: "{{ dnac_port }}"
+  #     dnac_version: "{{ dnac_version }}"
+  #     dnac_debug: "{{ dnac_debug }}"
+  #     validate_response_schema: false
+  gather_facts: false
+  tasks:
+    # - name: Show credentials
+    #   ansible.builtin.debug:
+    #     msg: "dnac_host: {{ dnac_host }}, dnac_username: {{ dnac_username }}, dnac_password: {{ dnac_password }}, dnac_verify: {{ dnac_verify }}, dnac_port: {{ dnac_port }}, dnac_version: {{ dnac_version }}, dnac_debug: {{ dnac_debug }}"
+
+    - name: Get all Network Device Equipment
+      cisco.dnac.network_device_equipment_info:
+        deviceUuid: string
+      register: result
+
+    # - name: Create global CLI credential
+    #   cisco.dnac.cli_credential:
+    #     state: present
+    #     comments: "Default CLI credentials for discovery"
+    #     credentialType: "GLOBAL"
+    #     description: "TEST ANSIBLE CLI credential for branch routers"
+    #     enablePassword: "cisco123"
+    #     password: "cisco123"
+    #     username: "admin"
+    #   register: result
+
+    # - name: Update all
+    #   cisco.dnac.sites_telemetry_settings:
+    #     state: present
+    #     id: 4b735a87-b411-48ff-a187-8af1b4b8e486
+    #     wiredDataCollection:
+    #       enableWiredDataCollection: true
+    #   register: result
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"
+
+    # - name: Sleep for 5 seconds and continue with play
+    #   ansible.builtin.pause:
+    #     seconds: 5
+    # - name: Get task info
+    #   cisco.dnac.task_info:
+    #     taskId: "{{ result.dnac_response.response.taskId }}"
+    #   when:
+    #     - result.dnac_response is defined
+    #     - result.dnac_response.response is defined
+    #     - result.dnac_response.response.taskId is defined
+    #   register: task_result
+
+    # - name: Show task result
+    #   ansible.builtin.debug:
+    #     msg: "{{ task_result }}"
+
+
+
+
+
+    # - name: Get all Roles
+    #   cisco.dnac.roles_info:
+    #   register: result
+
+#     # - name: Create
+#     #   cisco.dnac.user:
+#     #     state: present
+#     #     email: ansible@test.com
+#     #     firstName: ansible2
+#     #     lastName: test
+#     #     password: Test12345@
+#     #     roleList:
+#     #     - "6572f2e4707b420921728c03"
+#     #     username: TEST-ANSIBLE
+#     #     userId: "66b629f420af4637f6f936d9"
+
+#     # - name: Get all Users External Servers
+#     #   cisco.dnac.users_external_servers_info:
+#     #     invokeSource: string
+#     #   register: result
+
+#     # - name: Get all User
+#     #   cisco.dnac.user_info:
+#     #     invokeSource: all
+#     #     # authSource: string
+#     #   register: result
+
+#     # - name: Different body
+#     #   cisco.dnac.business_sda_hostonboarding_ssid_ippool:
+#     #     <<: *dnac_login
+#     #     state: present
+#     #     #siteNameHierarchy: "Ansible"
+#     #     siteNameHierarchy: "Global/United Kingdom/Barlborough"
+#     #     ssidNames:
+#     #       - "IOT"
+#     #       #- "SDA_Guest"
+#     #       #s- "SDA_Guest2"
+#     #     vlanName: "Ansible"
+#     #   register: result
+
+#     # - name: Show result
+#     #   ansible.builtin.debug:
+#     #     msg: "{{ result }}"
+
+#     ##https://github.com/cisco-en-programmability/dnacenter-ansible/issues/79
+#     ## Solved -> sdk
+#     # - name: Assign default authentication profile to fabric sites.
+#     #   cisco.dnac.sda_fabric_authentication_profile:
+#     #     dnac_host: "{{dnac_host}}"
+#     #     dnac_username: "{{dnac_username}}"
+#     #     dnac_password: "{{dnac_password}}"
+#     #     dnac_verify: "{{dnac_verify}}"
+#     #     dnac_port: "{{dnac_port}}"
+#     #     dnac_version: "{{dnac_version}}"
+#     #     dnac_debug: "{{dnac_debug}}"
+#     #     #validate_response_schema: false
+#     #     state: present
+#     #     payload:
+#     #     - siteNameHierarchy: "Global/Shanghai/SHA-17/SH_Floor_1"
+#     #       authenticateTemplateName: "No Authentication"
+
+#     ## https://github.com/cisco-en-programmability/dnacenter-ansible/issues/80
+#     ## Solved -> Ansible
+#     ## Cant delete
+#     # - name: Assign IP Pool to VN and fabric sites.
+#     #   cisco.dnac.sda_virtual_network_ip_pool:
+#     #     dnac_host: "{{dnac_host}}"
+#     #     dnac_username: "{{dnac_username}}"
+#     #     dnac_password: "{{dnac_password}}"
+#     #     dnac_verify: "{{dnac_verify}}"
+#     #     dnac_port: "{{dnac_port}}"
+#     #     dnac_version: "{{dnac_version}}"
+#     #     dnac_debug: "{{dnac_debug}}"
+#     #     state: absent
+#     #     virtualNetworkName: "OT"
+#     #     ipPoolName: "HQ_VN_OT"
+#     #     siteNameHierarchy: "Global/Shanghai/SHA-17/SH_Floor_1"
+      
+#     ## https://github.com/cisco-en-programmability/dnacenter-ansible/issues/82
+#     ## Question
+#     # - name: Assign devices to site.
+#     #   cisco.dnac.site_assign_device:
+#     #     dnac_host: "{{dnac_host}}"
+#     #     dnac_username: "{{dnac_username}}"
+#     #     dnac_password: "{{dnac_password}}"
+#     #     dnac_verify: "{{dnac_verify}}"
+#     #     dnac_port: "{{dnac_port}}"
+#     #     dnac_version: "2.2.3.3"
+#     #     dnac_debug: "{{dnac_debug}}"
+#     #     siteId: "3e0db2cd-cf3a-4dbd-bfb9-739271ffc20b"
+#     #     device:
+#     #     - ip: "10.0.0.2"
+#     #   register: result
+
+#     # - name: Create
+#     #   cisco.dnac.assign_device_to_site:
+#     #     dnac_host: "{{dnac_host}}"
+#     #     dnac_username: "{{dnac_username}}"
+#     #     dnac_password: "{{dnac_password}}"
+#     #     dnac_verify: "{{dnac_verify}}"
+#     #     dnac_port: "{{dnac_port}}"
+#     #     dnac_version: "{{dnac_version}}"
+#     #     dnac_debug: "{{dnac_debug}}"
+#     #     siteId: "3e0db2cd-cf3a-4dbd-bfb9-739271ffc20b"
+#     #     device:
+#     #     - ip: "10.0.0.2"
+#     #   register: result
+
+#     ## https://github.com/cisco-en-programmability/dnacenter-ansible/issues/88
+#     ## Cant create
+#     # - name: Create SNMPv2 Read Credential
+#     #   cisco.dnac.snmpv2_read_community_credential:
+#     #     #<<: *dnac_login
+#     #     state: present
+#     #     comments: "SNMPv2 Read by Ansible"
+#     #     credentialType: "APP"
+#     #     description: "SNMPv2 Read by Ansible Issue88 test3"
+#     #     readCommunity: "public3"
+#     #     #instanceUuid: "73554a19-e2a4-46a4-aa2e-6d7009928658"
+#     #   register: result
+
+#     # - name: Get task info
+#     #   cisco.dnac.task_info:
+#     #     taskId: "{{ result.dnac_response.response.taskId }}"
+#     #   when:
+#     #     - result.dnac_response is defined
+#     #     - result.dnac_response.response is defined
+#     #     - result.dnac_response.response.taskId is defined
+#     #   register: task_result
+
+#     # # - name: Get all Global Credential by SubType
+#     # #   cisco.dnac.global_credential_info:
+#     # #     credentialSubType: SNMPV3
+#     # #   register: task_result
+
+#     # - name: Show result
+#     #   ansible.builtin.debug:
+#     #     msg: "{{ task_result }}"
+
+
+
+
+
+
+#     # - name: Device Provisionin Example
+# #   hosts: cisco
+# #   gather_facts: false
+# #   vars:
+# #     dnac_login: &dnac_login
+# #       dnac_host: <IP/FQDN>
+# #       dnac_username: <Username>
+# #       dnac_password: <Password>
+# #       dnac_verify: false
+# #       dnac_port: 443
+# #       dnac_version: 2.3.5.3
+# #       dnac_debug: false
+# #   tasks:
+# #     - name: Get Site information
+# #       cisco.dnac.site_info:
+# #         <<: *dnac_login
+# #         name: DNA Center Guide Building
+# #       register: site_info
+
+# #     - name: Get Network Device By Serial Number by id
+# #       cisco.dnac.network_device_by_serial_number_info:
+# #         <<: *dnac_login
+# #         serialNumber: 919L3GOS8QC
+# #       register: network_device_info
+
+# #     - name: Create network
+# #       cisco.dnac.network_create:
+# #         <<: *dnac_login
+# #         settings:
+# #           dhcpServer:
+# #           - "172.30.200.5"
+# #           dnsServer:
+# #             domainName: devnet.local
+# #             primaryIpAddress: "172.30.200.6"
+# #             secondaryIpAddress: "172.30.200.7"
+# #           syslogServer:
+# #             configureDnacIP: true
+# #             ipAddresses:
+# #             - "10.255.0.1"
+# #         siteId: "{{site_info.dnac_response.response[0].id}}"
+# #       when:
+# #         - site_info.dnac_response is defined
+# #         - site_info.dnac_response.response is defined
+# #         - site_info.dnac_response.response[0].id is defined
+
+# #     - name: Assign Device to Site
+# #       cisco.dnac.assign_device_to_site:
+# #         <<: *dnac_login
+# #         device:
+# #         - ip: "{{ network_device_info.dnac_response.response.managementIpAddress }}"
+# #         siteId: "{{ site_info.dnac_response.response[0].id }}"
+# #       when:
+# #         - site_info.dnac_response is defined
+# #         - site_info.dnac_response.response is defined
+# #         - site_info.dnac_response.response[0].id is defined
+# #         - network_device_info.dnac_response is defined
+# #         - network_device_info.dnac_response.response is defined
+# #         - network_device_info.dnac_response.response.managementIpAddress is defined
+
+
+# #     - name: Get all Configuration Template Project
+# #       cisco.dnac.configuration_template_project_info:
+# #         <<: *dnac_login
+# #         name: Onboarding Configuration
+# #       register: configuration_template_project_info
+
+# #     - name: Create Configuration Template
+# #       cisco.dnac.configuration_template_create:
+# #         <<: *dnac_login
+# #         projectId: "{{ configuration_template_project_info.dnac_response.response[0].id }}"
+# #         composite: false
+# #         description: Guide Configuration Template
+# #         deviceTypes:
+# #         - productFamily: Routers
+# #           productSeries: Cisco 1000 Series Integrated Services Routers
+# #         name: DNA Center Guide
+# #         softwareType: IOS-XE
+# #         softwareVariant: XE
+# #         templateContent: "ip access-list extended $permitACLName\npermit ip 10.0.0.0 0.255.255.25.0 any\npermit ip 172.16.0.0 0.15.255.255 any\npermit ip 192.168.0.0 0.0.255.255 any\n!\n\nip access-list extended $denyACLName\ndeny ip 10.0.0.0 0.255.255.25.0 any\ndeny ip 172.16.0.0 0.15.255.255 any\ndeny ip 192.168.0.0 0.0.255.255 any\n!\n"
+# #         templateParams:
+# #         - binding: ""
+# #           dataType: string
+# #           notParam: false
+# #           order: 1
+# #           paramArray: false
+# #           parameterName: permitACLName
+# #           required: true
+# #         - binding: ""
+# #           dataType: string
+# #           notParam: false
+# #           order: 2
+# #           paramArray: false
+# #           parameterName: denyACLName
+# #           required: true
+# #       when:
+# #         - configuration_template_project_info.dnac_response is defined
+# #         - configuration_template_project_info.dnac_response.response is defined
+# #         - configuration_template_project_info.dnac_response.response[0].id is defined
+# #       register: configuration_template
+
+# #     - name: Sleep for 3 seconds and continue with play
+# #       ansible.builtin.pause:
+# #         seconds: 3
+
+# #     - name: Get Task by id
+# #       cisco.dnac.task_info:
+# #         <<: *dnac_login
+# #         taskId: "{{configuration_template.dnac_response.response.taskId}}"
+# #       when:
+# #         - configuration_template.dnac_response is defined
+# #         - configuration_template.dnac_response.response is defined
+# #         - configuration_template.dnac_response.response.taskId is defined
+# #       register: task_info
+    
+# #     - name: Task result
+# #       ansible.builtin.debug:
+# #         var: task_info
+
+# #     - name: Create Configuration Template Version
+# #       cisco.dnac.configuration_template_version_create:
+# #         <<: *dnac_login
+# #         comments: DNAC Guide Initial Version
+# #         templateId: "{{ task_info.dnac_response.response.data }}"
+# #       when:
+# #         - task_info.dnac_response is defined
+# #         - task_info.dnac_response.response is defined
+# #         - task_info.dnac_response.response.data is defined
+
+# #     - name: Create Configuration Template Deploy
+# #       cisco.dnac.configuration_template_deploy:
+# #         <<: *dnac_login
+# #         forcePushTemplate: false
+# #         isComposite: false
+# #         targetInfo:
+# #         - hostName: string
+# #           params:
+# #             permitACLName: GUIDE-ALLOW-ACL
+# #             denyACLName: GUIDE-DENY-ACL
+# #           type: MANAGED_DEVICE_IP
+# #         templateId: "{{ task_info.dnac_response.response.data }}"
+# #       register: configuration_template_deploy
+
+
+# #     - name: configuration template deploy result
+# #       ansible.builtin.debug:
+# #         var: configuration_template_deploy

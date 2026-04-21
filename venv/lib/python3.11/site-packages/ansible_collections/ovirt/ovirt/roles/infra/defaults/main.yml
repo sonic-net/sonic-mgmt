@@ -1,0 +1,3 @@
+---
+data_center_state: "present"
+hosts_var_name: "hosts"

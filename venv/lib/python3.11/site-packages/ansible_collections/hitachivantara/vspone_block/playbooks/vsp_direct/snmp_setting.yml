@@ -1,0 +1,112 @@
+---
+####################################################################
+# Example : Specifying the SNMP error notification destinations
+####################################################################
+- name: Specifying the SNMP error notification destinations
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Specifying the SNMP error notification destinations with v2c version
+    ####################################################################
+    - name: Specifying the SNMP error notification destinations with v2c version
+      hitachivantara.vspone_block.vsp.hv_snmp_settings:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_snmp_agent_enabled: true
+          snmp_version: "v2c"
+          snmp_v1v2c_trap_destination_settings:
+            - community: "public"
+              send_trap_to:
+                - "203.0.113.1"
+                - "203.0.113.2"
+          snmp_v1v2c_authentication_settings:
+            - community: "public"
+              requests_permitted:
+                - "203.0.113.1"
+                - "203.0.113.2"
+          system_group_information:
+            storage_system_name: "VSP-Block-01"
+            contact: "admin@datacenter.com"
+            location: "Data Center 1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Specifying the SNMP error notification destinations with v3 version
+    ####################################################################
+    - name: Specifying the SNMP error notification destinations with v3 version
+      hitachivantara.vspone_block.vsp.hv_snmp_settings:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_snmp_agent_enabled: true
+          snmp_version: "v3"
+          snmp_v3_trap_destination_settings:
+            - user_name: "public"
+              send_trap_to: "203.0.113.1"
+              authentication:
+                protocol: "SHA"
+                password: "CHANGE_ME_SET_YOUR_PASSWORD"
+                encryption:
+                  protocol: "AES"
+                  key: "encpass"
+          snmp_v3_authentication_settings:
+            - user_name: "public"
+              authentication:
+                protocol: "SHA"
+                password: "CHANGE_ME_SET_YOUR_PASSWORD"
+                encryption:
+                  protocol: "AES"
+                  key: "encpass"
+          system_group_information:
+            storage_system_name: "VSP-Block-01"
+            contact: "admin@datacenter.com"
+            location: "Data Center 1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Disable the SNMP agent
+    ####################################################################
+    - name: Disable the SNMP agent
+      hitachivantara.vspone_block.vsp.hv_snmp_settings:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_snmp_agent_enabled: false
+          snmp_version: "v3"
+          system_group_information:
+            storage_system_name: "VSP-Block-01"
+            contact: "admin@datacenter.com"
+            location: "Data Center 1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Sending a test SNMP trap
+    ####################################################################
+    - name: Sending a test SNMP trap
+      hitachivantara.vspone_block.vsp.hv_snmp_settings:
+        connection_info: "{{ connection_info }}"
+        state: test
+      register: test_result
+
+    - name: Debug the test result variable
+      ansible.builtin.debug:
+        var: test_result

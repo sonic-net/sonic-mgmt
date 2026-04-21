@@ -1,0 +1,105 @@
+simple:
+    kind: LDAPSyncConfig
+    apiVersion: v1
+    url: "{{ ldap_server_uri }}"
+    insecure: true
+    rfc2307:
+        groupsQuery:
+            baseDN: "ou=groups,ou=rfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+            filter: (objectclass=groupOfNames)
+        groupUIDAttribute: dn
+        groupNameAttributes: [ cn ]
+        groupMembershipAttributes: [ member ]
+        usersQuery:
+            baseDN: "ou=people,ou=rfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+        userUIDAttribute: dn
+        userNameAttributes: [ mail ]
+user_defined:
+    kind: LDAPSyncConfig
+    apiVersion: v1
+    url: "{{ ldap_server_uri }}"
+    insecure: true
+    groupUIDNameMapping:
+        "cn=admins,ou=groups,ou=rfc2307,{{ ldap_root }}": ansible-admins
+        "cn=developers,ou=groups,ou=rfc2307,{{ ldap_root }}": ansible-devs
+    rfc2307:
+        groupsQuery:
+            baseDN: "ou=groups,ou=rfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+            filter: (objectclass=groupOfNames)
+        groupUIDAttribute: dn
+        groupNameAttributes: [ cn ]
+        groupMembershipAttributes: [ member ]
+        usersQuery:
+            baseDN: "ou=people,ou=rfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+        userUIDAttribute: dn
+        userNameAttributes: [ mail ]
+partially_user_defined:
+    kind: LDAPSyncConfig
+    apiVersion: v1
+    url: "{{ ldap_server_uri }}"
+    insecure: true
+    groupUIDNameMapping:
+        "cn=admins,ou=groups,ou=rfc2307,{{ ldap_root }}": ansible-admins
+    rfc2307:
+        groupsQuery:
+            baseDN: "ou=groups,ou=rfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+            filter: (objectclass=groupOfNames)
+        groupUIDAttribute: dn
+        groupNameAttributes: [ cn ]
+        groupMembershipAttributes: [ member ]
+        usersQuery:
+            baseDN: "ou=people,ou=rfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+        userUIDAttribute: dn
+        userNameAttributes: [ mail ]
+dn_everywhere:
+    kind: LDAPSyncConfig
+    apiVersion: v1
+    url: "{{ ldap_server_uri }}"
+    insecure: true
+    rfc2307:
+        groupsQuery:
+            baseDN: "ou=groups,ou=rfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+            filter: (objectclass=groupOfNames)
+        groupUIDAttribute: dn
+        groupNameAttributes: [ dn ]
+        groupMembershipAttributes: [ member ]
+        usersQuery:
+            baseDN: "ou=people,ou=rfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+        userUIDAttribute: dn
+        userNameAttributes: [ dn ]
+out_scope:
+    kind: LDAPSyncConfig
+    apiVersion: v1
+    url: "{{ ldap_server_uri }}"
+    insecure: true
+    rfc2307:
+        groupsQuery:
+            baseDN: "ou=groups,ou=outrfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+            filter: (objectclass=groupOfNames)
+        groupUIDAttribute: dn
+        groupNameAttributes: [ cn ]
+        groupMembershipAttributes: [ member ]
+        usersQuery:
+            baseDN: "ou=people,ou=outrfc2307,{{ ldap_root }}"
+            scope: sub
+            derefAliases: never
+        userUIDAttribute: dn
+        userNameAttributes: [ sn ]

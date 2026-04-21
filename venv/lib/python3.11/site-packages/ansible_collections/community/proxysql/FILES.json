@@ -1,0 +1,1895 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/ansible-test-plugins.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0eddc4d120472b12a9d2363ad468e69b4288c69aaeaf49c975c7138b915f6aba",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/ansible-test-roles.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fdb57aee27dfcdf92a9ae4ee13be0d249733d016ba69dd44c3ab20d7b50e89ce",
+   "format": 1
+  },
+  {
+   "name": ".github/patchback.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f28653c2f8d2965a55f76092049c4205a9c7f828e4edbd1cd089f7dd2685f93a",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "13428a7b3def7111502b35402a1f44fc991488a8fb2eaaff4a4ea052ef503ea0",
+   "format": 1
+  },
+  {
+   "name": "changelogs/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4d7cec009512ade5c939a5a35ad87df0f870ee645652c8be48060453d4444621",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df18179bb2f5447a56ac92261a911649b96821c0b2c08eea62d5cc6b0195203f",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/proxysql.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1dbd6be4db0e76e458505114c81a44403cd161bce1f867e6c2ba3912f424079e",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/mysql.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bb11f3ee016b058dc001519ded01fc2ddae2645309f3341d2999903557f6baa2",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_backend_servers.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d469a64917d260e321542822f669c8b96cf9dec25525b01d7ab33af5b5b1138e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_galera_hostgroups.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "944486e6d6d964c8273376af1653ef4081a48b5a4748e3b4b629f91c315bb86a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_global_variables.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5dc033d7f526c6c8393f632cfc7369aae668eadfdf56e24b4985e93162908c65",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1652bd11d328f8e516bae2cf695164167cf37012fa4cee4271a1bb148ad3ad97",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_manage_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "420c8dad39fa6fbb2d1a433823a7ef6f22f9b1b351cc7b37693b0bc0e9298789",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_mysql_hostgroup_attributes.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7b922a8653a1e493233b9962c45d8d44195172abe93b6db7303cce32f2c19bbf",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_mysql_users.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "38339261503b56335ece1c0dbd4c4f44053b327c678e503905218d85fbb4b024",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_query_rules.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "750ff1d9e25acc7fcd42f2eeb1b2a8ac9461045bdadb69a452b3d20271eeec75",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_query_rules_fast_routing.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "448fec1b1d27526d008d57356158cca50ae4259608d26c8129c046aa5e9cd41e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_replication_hostgroups.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cac6954fb92a43049c020ae1137bb39791afcf2184fab46b73effb384a47eae6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/proxysql_scheduler.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "96d61bd4b73292feff2a44285353b5fa541b2bb9243ace2b2d9f2585867dc56b",
+   "format": 1
+  },
+  {
+   "name": "plugins/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c82ee692702ec1dd604cdbc38ff252114e5204e1b0627045a66c9451e7a918ac",
+   "format": 1
+  },
+  {
+   "name": "roles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5b3205837b904f092fdf3b4e78eda917d91e2490e5637bf9b58efd24b794a8a8",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8eb511e21373aab01dcd4e4258f53752e21e284ee43ad88621e17c266a27a0e3",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3670093733dc773313d2f98a8d97c18d0ab355b71536687b00e8dd60954e1e99",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/molecule",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/molecule/default",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/molecule/default/tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/molecule/default/tests/test_default.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "40a929f59746b4ecfda453275d5c2ac65e0c860da5f6ecafde87ee6998240aac",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/molecule/default/converge.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3bb768f9f8c80f7dca2a06d715ef95243e5688cd2f483df863de0efa469c6469",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/molecule/default/molecule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "19945130d2b69746bc62ea15ad389c79d6b2c66da73eea5a1fef2f329c953d2c",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/molecule/default/prepare.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "51a20e1f02328909225bbdf6189ad8b565aa7361fb4d337b50f86b6e6b45af4a",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/tasks/config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "11875ec336fb0416ceff3b442ed5ece1507fe796881d3aaad742a8eec2030c1d",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/tasks/install.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bd2f2fa4fa6fa024a34786a7cad31d16298428bf52782b95d0cc16213cc29d68",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "902667a7d45959bdbda4fa9e980295bf1cde26314807ffbea46044cf0bfc6289",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/tasks/setvars.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cce86eacaedcd2f5e6f657afefaf5a282de9fb715ef6409905105d3fd1e48410",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/tasks/users.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a180bea7eefcd358760b0290df266a0cb373d7a5aaa81bf48b1304fafbe966bd",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/templates/client.my.cnf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2d30b3b0a0c3ed164eb4eed8f1714b80d9b6dbbb0254e2add29d65f9fbb28996",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/templates/proxysql.cnf.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c959deb7b03659470bcbfd37b2fe747c4cd504b69c4dafc109532d129661cd2f",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bd379f56d7bdc49b1bb5fe04c27517b9c96fda157ff145734098535be9e5d559",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/.yamllint",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d31aa6c37d7ac61def5551e573528830b89289ed124cce9d92cbd9e15a83e437",
+   "format": 1
+  },
+  {
+   "name": "roles/proxysql/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "74ebbf0f4d833bd4d7c21cb2af3f8409aec25fbee8619817fed8e3907a711706",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "00e4e0c3d8ad5d8167df43c15ac9f246993d860c325adbad099f8eefba371256",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql/tasks/config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1893201e678133d0d5161e8580594b07edf1802298e8b03b11dd26ab4fcc85f9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql/tasks/install.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c61c5e48e2cf6bb1dfb049bd43df6d271d1e47cc996898d2c7826cc98ed79771",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "034935636963d8544f133491d6730e94671f6ccd03c3e5927da035e928f3646e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_proxysql/vars/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b33a85011e0a2a5f1e7e3481bc1faaea99fcca76ab559fd86ca18d63e604725",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7e08696def2d9f59f2fe266fd449aa725d825cab1938a4ad3e55f540a08e9fd4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8a225bb44915ef203fb774a982fb6ec3236423c243b9b4afacde913c6a61d85a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/cleanup_test_servers.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a937e7fed5fa732e705bb5485e10ed3e4ee4ce56732b7cea637a2c15a6c65744",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cecf63ecd4b2cda356afb64b9984762c1a4708dd6fc8d1a61c96b705b30a1026",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/setup_test_server.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d71295c441b825243b18695c1df3906b65b1dbea905d51836d4f4c12185c54e4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/test_create_backend_server.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1ec20d6845891a5dc56b0c7797cf64b47618c50a147b272dd729a64e221907c8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/test_create_backend_server_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e07e6330cf8ecef9ebc96480087ef06fd1de71268e9a4362f4af2bfacbd1d89",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/test_create_backend_server_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b6c039a85043a0914fc57a346832573fd92fcb47e715319c824791f2ca3fefcd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/test_create_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "79031a983ca3f7bc8cc121f10ed042d3abbaa14eb0593b083b68045ba5efa89a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/test_delete_backend_server.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b1fcaa2fc8d88ee52b68a593850159074bd36234291ee8d687f72de70d6c0831",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/test_delete_backend_server_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b6d8b86e1cfc84cfbbb18a5d846836ed88edfd78e950fba01096c6b53cb52297",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/test_delete_backend_server_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5845e7dceb98633693e31609074ed909244b34a8f56b9ada14b8a06cecd16514",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_backend_servers/tasks/test_delete_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8535b7e77eefeede2ccf1a581c5772ccd29ece436bb43fe9354c4ce597d12e7a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a448009b202e4c12483c6ae1929e7cea624b66a8bb9d01d72bac0a4ddecb1624",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "44920f7009d3444c16478c16d63a0dce0938f3fd9d3cf5658df33f25442e379e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/cleanup_test_galera_hostgroups.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f7efd4d338c559c3ba6f797616eb6bbb241b2bc70b014982157c33e1cf08063e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c5ba43d4db8f3133a482023630a5d94fb615bfd64c3b5716ec72d719e61600eb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/setup_test_galera_hostgroups.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c3c27f470f640e4a89923b3e89c39e186ec5d7cfbe800396401e015fd5b19a27",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/test_create_galera_hostgroups.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5281478764d671eff0bfcdbc1a667a95565475c67a3056502a6f6351c7759bdc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/test_create_galera_hostgroups_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "06fe1085962d6f29e26380a138e984bb64685675285e644517cd8e988b6a2940",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/test_create_galera_hostgroups_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2244e873915e9b398fb26cbe3a62109da753e47d0e1c27ae725d84af32e58ac8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/test_create_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "920d60f4b8fd797346e775836f46fbbb3f6e7083ae948977143bddfae3673e23",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/test_delete_galera_hostgroups.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "391a725bac3c107d6dc763d18c46b1b2f4780e949b6856fc878ba31ddc4fd9e3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/test_delete_galera_hostgroups_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb8004e8a8f22af227ceea5ff4fc91add9aa8bfd468138966f7d6867c374f0d2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/test_delete_galera_hostgroups_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "276e1c06d0bc11bec3ef13581cd10500d1388fddec88f336db924cd3e5d191e5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_galera_hostgroups/tasks/test_delete_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e88fe8dd6f16efc8b6d2ab96e3ce435c7419eeee7773544f2da7e18d2d19ff3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e1936d9cfdbbe1a70fa02d5f3cc11e8687cdc4d44d548919aeb19a1e59c7b7b7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8caca72ab8ae86c7fb6cd97d8ce5f99925ede577aacc0a2e19d11bcc9ccab459",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/cleanup_global_variables.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "54bef7fcd97b69cf4a3da069ba0ae429805a43d9dfcabf924be2b42fdfaa44fe",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e55a862af36bbfc4e782648c35c2cc4d33768914a96e696d54a7f7b68f711cac",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/setup_global_variables.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6e6afa92eb1b90fb60e764ce4e26ac2c8aa3ad4edb08ba0714504f437ffc4254",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/setvars.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "168258643f3bd95eb8789f016b131ea09ee4bce2819cb383b575c6b599ec843a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/test_update_variable_value.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "305db45f1fa8ab04fbc74a7028cbb8f6df68086aab3341a012bfd81fe14ea7cd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/test_update_variable_value_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e7acc8b7d3b6768db15cad403f5a51effa70184d20711864abc0a1c6e0b00998",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/test_update_variable_value_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6ac8b2bc4356ceab4e91f98829b3d2f117c3f741b7693f58dd3ab327ccae4311",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_global_variables/tasks/test_update_variable_value_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1200df36d07e1acc224d61b04462baedaab275f51cae6eb94facb71254e70d7e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_info",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_info/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_info/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_info/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_info/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f01f24ab5ee0fca2312c3527fb2f7ae9ba1c733cd452fc5352559aaf9fa382d4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb79245d274f3831fd3128451e0d93910b957e7fa6bc28eb446f29db6548060e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61dc62ae7f2002cc04d94635fa1358cba8fcf34a7a1c997a403b111cd17377be",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/tasks/read_tables.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "50ffba5cb7843572916bfe6c50e3d19903cc0bb8151cb2e26668cd1049a9c8c1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/tasks/test_create.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "732b4a16272fa228ee6fe5484bf74b83fcea0b5b41acb94dadab29f4be45c32c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/tasks/test_delete.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "28449f128bcffc8978acca7e17830e759d3edba70e377bb375dfa92b4ac810bb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_hostgroup_attributes/tasks/test_update.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "356006305db3c6f7fd67f9d76b681c663c8c5f5712cad114e4451026207016c5",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ce4a2f09b5255490267f347e989e9d9a4b661b0609a0704abe15cd606467c92d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57fe941d175c033478740fd622fc15c7dd22e58451d1b6aded3ed3c1a35d98d3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/cleanup_test_users.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61041e9ae9366a5bdb8aec454772862a2043edf13437af247fcc4b73d7b1ad7f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6118592000408accc0376b63cc822d0f41494e68a494cb6e33069c3fdf331f4c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/setup_test_user.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e01fa058eb62b2d1590c03ad10e062a4674753006efcbbaf1eb366964de11972",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/test_create_mysql_user.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7b99d709f9ae61adadd9bfa445934eba74f741d72af701f6826e689b74f399e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/test_create_mysql_user_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c22840b7c4a90ea0a470c773423477041091cea47b781a1b55df994261c394d0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/test_create_mysql_user_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a7f1a0c81219cd6a8cb7bcd476b6fa9b4b5c434718d7a0289518ee81e7ac41f2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/test_create_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6da039a9dbb6c766ab8e3e07c1453e8776eeebf71b135a582c2478904e251c2e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/test_delete_mysql_user.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b84f9325853365a371fcc33c370b1e64837eb3b2f78a69375faa1e5305afba77",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/test_delete_mysql_user_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a59b43778c601c653e1fbaaf1cd4d55b3a4c37a1787d4fba749f2cf7bcb5fdd6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/test_delete_mysql_user_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e9212f2253f7723dc1de148e1a25bb91d45c6a9b39ee6804c9f05787a092b6a7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users/tasks/test_delete_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e1f4665a8b0d02ae5b406523fe723f9967e35839b83323544528c446b76d7217",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ce4a2f09b5255490267f347e989e9d9a4b661b0609a0704abe15cd606467c92d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57fe941d175c033478740fd622fc15c7dd22e58451d1b6aded3ed3c1a35d98d3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/cleanup_test_users.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61041e9ae9366a5bdb8aec454772862a2043edf13437af247fcc4b73d7b1ad7f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7c0a705e2097285dfa21975d8c44b57c2d7d40a098a3778325e66a827476cddb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/setup_test_user.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e01fa058eb62b2d1590c03ad10e062a4674753006efcbbaf1eb366964de11972",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/test_create_mysql_user.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7b99d709f9ae61adadd9bfa445934eba74f741d72af701f6826e689b74f399e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/test_create_mysql_user_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c22840b7c4a90ea0a470c773423477041091cea47b781a1b55df994261c394d0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/test_create_mysql_user_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a7f1a0c81219cd6a8cb7bcd476b6fa9b4b5c434718d7a0289518ee81e7ac41f2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/test_create_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6da039a9dbb6c766ab8e3e07c1453e8776eeebf71b135a582c2478904e251c2e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/test_delete_mysql_user.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b84f9325853365a371fcc33c370b1e64837eb3b2f78a69375faa1e5305afba77",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/test_delete_mysql_user_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a59b43778c601c653e1fbaaf1cd4d55b3a4c37a1787d4fba749f2cf7bcb5fdd6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/test_delete_mysql_user_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e9212f2253f7723dc1de148e1a25bb91d45c6a9b39ee6804c9f05787a092b6a7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_mysql_users_sha2/tasks/test_delete_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e1f4665a8b0d02ae5b406523fe723f9967e35839b83323544528c446b76d7217",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "21cfb51b28a3a3e4f3755f3806a5143775768b0360ccba80dc231b56419206d0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0737a9ae7f3ee3f28c5e690af1d5c3f6dd0b4359a869809c7eadca287921a29d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/cleanup_test_query_rules.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b12aba11cb4a53066eb9da3f022966d969f41e87b8611bcf49aaa0abb65dd395",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "126d57a230f54cf69ba4b16ba2f788d55982720fd9ba4a10547270e8bc0d5acd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/setup_test_query_rule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61b6b02e183f8fd09f5286ea1deeeeadd18e55759951d15ed01ab22c2e1cadc0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/test_create_query_rule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2b9236dbfaf29271447986d604df9545fda19b64bb24f6c89e2ce53f9463250f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/test_create_query_rule_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fd355a50ac7dc84dc69b9d007c4b3d1c03a1b36343f31c42ca3d1e68c367fb4e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/test_create_query_rule_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3e20d9715b06a5a38ef3e4e76ce9644274cc596c814b979e8d32d0d8fcee8d7d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/test_create_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7c21ead1b6d6fa01c1f2ff5b4221ceb6aa41b43ba1304188096473b3d7099f2c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/test_delete_query_rule.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "032040b6e2c84b4227077c5643665380bbf3c33749462424f19e355600a4d083",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/test_delete_query_rule_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1677c50f035c6b97d632b792b1d89cce60e8b631bbfa27dcbf95b1b67d635fc8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/test_delete_query_rule_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "072ab736c9ce5bc0bf9ec9d5f8426adcb78d03f431256538d9397149aaafa464",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules/tasks/test_delete_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0dc76a644c0b1f2711fa6235faf1f79d41490c126a730a72853915737e36a9e8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fc1499b081ecbea906fa7c3a3f992cc3e904fce8977ad4c2aab9930680de67db",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/107-update_destination_hostgroup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "696948e592b9c7fec93181ea9c287a0b33c21812c3cb9919711dba0e3cf421e6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d9174bfd6297d1766c607c52266676f85916b9b88896fc92f025b8f52ab39473",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/cleanup_test_query_rules_fast_routing.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a280f87c6d496cef7a203a404be3479e373c70ef1bc39cba79c6cf14e65136f6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ebf6872c15d95ccfefd6ab5c1568031869a2bb76de485dcc598afbc44488aeee",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/setup_test_query_rules_fast_routing.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "15314c1645198823b2ee7046ed09dda1479ad54f2d3bb41a90ac9961c14c2f88",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/test_create_query_rule_fast_routing.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2fb1fccd57df2aacbdca03fec23f3efdf52dde48cb0f067db701252df770217e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/test_create_query_rule_fast_routing_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43bb97cd26d3155232df219c36d0e3f8431804a6a8f7df42d462a0a232d8ea9b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/test_create_query_rule_fast_routing_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a72ae1e44446a57232096fe3ad39dd17efa7cb58a21cf23e8458a3904fef1ff",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/test_create_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "54afe6276893157c113048c6bca18ef8042e18e21acdda28dab7f27be3648864",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/test_delete_query_rule_fast_routing.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "79af85d8f52c11fa6a2667e1fda1ab5e2175f178fe7c617281512d384b0097de",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/test_delete_query_rule_fast_routing_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ad6b87aea29abca59bd3153bbf0fdb4e4826731e91421b40abd56a18c6a8349a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/test_delete_query_rule_fast_routing_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a833c1c62d32663c2ef481e157b60463be56d91f111eb5cc4ca00371458b1f7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_query_rules_fast_routing/tasks/test_delete_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "beb4eeb1517fee71d352cd18e4c05c13cbfc87007e9ca38ac5c39d8929a581a3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3feaee8d641e7d1613f08a44ba6cedd07322404008aefb15dbeb17657de41f8e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "16a86fb677ed2823a003e6a8e2338619ba87dca669c6bdcc55cc11ba51f6a26e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/cleanup_test_replication_hostgroups.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5b6b6f078295022ed0324f666c5881fca1e264aeda492f7c99e055a5e131cbe8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "da8780a38ff1b17765dae12c5e6f824253edc7bca3e25772cb9e070746dd12be",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/setup_test_replication_hostgroups.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6a48efcd2b6fe81742087de8accd75894aab94810dd789c61e6656ae83f971d7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/test_create_replication_hostgroups.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c8f536d7aa77fec2a7a5475ad9ad683d87cae615136fc6be31ec2139108d8165",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/test_create_replication_hostgroups_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df448a9164021b7f0473ca9baf6b56acf75f2df9cce269cd3c9411c4d5ff4f2f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/test_create_replication_hostgroups_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57deaa3914478933b70f8b385af6db61dc4fac3a5a14195ab82d4252bdbc8b10",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/test_create_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c804b499f74343a8b6180a70fba3f51cef4bc9d801e80bf13eda29b258207061",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/test_delete_replication_hostgroups.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea153028502112f3256e3e7d451db5776060d305fb3b19fde812457dc33a504a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/test_delete_replication_hostgroups_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "833487360bd3697219b2632559f7288fe530f883db319c2dcb3445c6aecaa94d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/test_delete_replication_hostgroups_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9bfc2b0d97b538ef4ba22cce51d69894436ea9ab043e34dedf3762e245706d58",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_replication_hostgroups/tasks/test_delete_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "01022edd33cf2d2a7f49d200227f4689a93bcd1a8482e14244673d423704dcf2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "31e66cba759c1a94a5c721f270d65536d5e6714fde384439029e6098df1f63f6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eddbfe63deb1681baae8762448d5e57f3076cefb35662d67feb54ec1e5e42634",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/base_test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5f67bb111ef1af5fbef98b2be37601de12c8b326808a003634b92fdd5ae1ab27",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/cleanup_test_schedulers.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea739b76aa34521bbf7ab92bcce9998eecae0eb4905a528fa7a44e096e36a333",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6f6c352edfa036de795f569984f4fd52ddb38d7bb738eee8cfb27616ba063dfa",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/setup_test_scheduler.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "698fa198020214b5df4e25da5615fe2d1a6c69a69efccf864ca618e72f6aea49",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/teardown.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5eb06a73519cf236fd11f88fee2f3f1eb04589cef94b01ab511f3d39b1f45c14",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/test_create_scheduler.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5f16070906822d7608f255e4b60c51e6d03096690fcd75bdf8abc72a2321b7e7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/test_create_scheduler_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c8cc0439130947909af15e673a34578e2458b04fe0e7bd49e49eea70141ac2e2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/test_create_scheduler_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a2162ca4244e40d1c407bcffecd65878428e9deea99dceafaaa0ae68af168cd8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/test_create_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6d9c4b763eb46379f79034f467faca1dd85ffeaf367d4c39eb053a50cad4af96",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/test_delete_scheduler.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e60141da02b08c5bb30ecfec7f3e6d202a614567a5c15032ec9d081649f3459",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/test_delete_scheduler_in_memory_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d9aacb192af47081d24df294186fdfc1fd7e3e0a078aa82814bd783a6e25ffb3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/test_delete_scheduler_with_delayed_persist.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "646144c2f2d269e6a0a4a3dc6112ba1813551a75b329bb68bd8fd364e0cca2ae",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/test_proxysql_scheduler/tasks/test_delete_using_check_mode.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a07b989a13014c97ed5a41c5e97e94a3930307bf7e15534c2a5a28d22be6abb6",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.10.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d63b73068e09e23fcf34e358e6d6371b68e8e3c84148cf1f98a3abb4c998a0c0",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.11.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d63b73068e09e23fcf34e358e6d6371b68e8e3c84148cf1f98a3abb4c998a0c0",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.9.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d63b73068e09e23fcf34e358e6d6371b68e8e3c84148cf1f98a3abb4c998a0c0",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/skip-2.12.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d63b73068e09e23fcf34e358e6d6371b68e8e3c84148cf1f98a3abb4c998a0c0",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4173598eb51b77c32e7d2b31d13e97ebfd353c4037b1d771c17d740727c97b92",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e851d3705775356997b47dc28d70755326580b1cfc2a94aeac7f503dac9166ab",
+   "format": 1
+  },
+  {
+   "name": "CONTRIBUTING.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "537598e3a4b1c7e00d763177f92a0b2a66b0c02747dd47f847bc6a03bcb50cc0",
+   "format": 1
+  },
+  {
+   "name": "CONTRIBUTORS",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0138faa4ae0c7d5e63efdd99beb030a6f334fda1a5743ed09304fcc301b70f64",
+   "format": 1
+  },
+  {
+   "name": "LICENSE",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+   "format": 1
+  },
+  {
+   "name": "MAINTAINERS",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "09ad5937ef44b4c15d745b138f3357a5c41041bdb11ecb9179afdfa1af4c3db5",
+   "format": 1
+  },
+  {
+   "name": "MAINTAINING.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2435665a6562d5f3841fff1631970f95f0466c498e949d2b8579ccc2a0b810ad",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "96d1531a5cbcf8c182d198b01483f7a15c4445bdd95b5cb30e236833a22c3bc9",
+   "format": 1
+  },
+  {
+   "name": "REVIEW_CHECKLIST.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "91ad4aff2cc14b98f81fbe2d90609c5a69ed96b6d836387a9c697c1112e603c0",
+   "format": 1
+  },
+  {
+   "name": "codecov.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "293f9949eb45b62f7bd3372421ddef68bd72395e65ec027586392460ce47e51a",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

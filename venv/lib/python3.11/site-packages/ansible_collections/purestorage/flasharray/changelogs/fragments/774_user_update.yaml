@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_user - No longer tries to expose API tokens as these are not required in the module

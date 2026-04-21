@@ -1,0 +1,277 @@
+ancestor: null
+releases:
+  1.1.0:
+    changes:
+      bugfixes:
+      - Fix check_port_type method for ib iser when ib is the port type.
+      - Fix examples in the netapp_e_mgmt_interface module.
+      - Fix issue with changing host port name.
+      - Fix na_santricity_lun_mapping unmapping issue; previously mapped volumes failed
+        to be unmapped.
+      minor_changes:
+      - Add functionality to remove all inventory configuration in the nar_santricity_host
+        role. Set configuration.eseries_remove_all_configuration=True to remove all
+        storage pool/volume configuration, host, hostgroup, and lun mapping configuration.
+      - Add host_types, host_port_protocols, host_port_information, hostside_io_interface_protocols
+        to netapp_volumes_by_initiators in the na_santricity_facts module.
+      - Add storage pool information to the volume_by_initiator facts.
+      - Add storage system not found exception to the common role's build_info task.
+      - Add volume_metadata option to na_santricity_volume module, add volume_metadata
+        information to the netapp_volumes_by_initiators dictionary in na_santricity_facts
+        module, and update the nar_santricity_host role with the option.
+      - Improve nar_santricity_common storage system api determinations; attempts
+        to discover the storage system using the information provided in the inventory
+        before attempting to search the subnet.
+      - Increased the storage system discovery connection timeouts to 30 seconds to
+        prevent systems from not being discovered over slow connections.
+      - Minimize the facts gathered for the host initiators.
+      - Update ib iser determination to account for changes in firmware 11.60.2.
+      - Use existing Web Services Proxy storage system identifier when one is already
+        created and one is not provided in the inventory.
+      - Utilize eseries_iscsi_iqn before searching host for iqn in nar_santricity_host
+        role.
+      release_summary: This release focused on providing volume details to through
+        the netapp_volumes_by_initiators in the na_santricity_facts module, improving
+        on the nar_santricity_common role storage system API information and resolving
+        issues.
+    fragments:
+    - 1.0.9.yml
+    - add_io_communication_protocol_info_to_volume_by_initator_facts.yml
+    - add_storage_pool_info_to_volume_by_initiator_facts.yml
+    - add_storage_system_not_found_exception.yml
+    - add_undo_configuration.yml
+    - add_volume_metadata_option.yml
+    - fix_change_host_port.yml
+    - fix_ib_iser_port_type.yml
+    - fix_netapp_e_mgmt_interface_examples.yml
+    - fix_volume_unmapping_issue.yml
+    - improve_storage_system_api_determinations.yml
+    - increase_discovery_connection_timeout.yml
+    - minimize_host_initiator_facts_gathered.yml
+    - update_ib_iser_determination.yml
+    - use_existing_proxy_ssid_when_unspecified.yml
+    - utilize_eseries_iscsi_iqn_before_searching_host.yml
+    release_date: '2020-09-18'
+  1.2.0:
+    changes:
+      bugfixes:
+      - nar_santricity_host - Fix README.md examples.
+      minor_changes:
+      - na_santricity_discover - Add support for discovering storage systems directly
+        using devmgr/v2/storage-systems/1/about endpoint since its old method of discover
+        is being deprecated.
+      - na_santricity_facts - Add storage system information to facilitate ``netapp_eseries.host``
+        collection various protocol configuration.
+      - na_santricity_server_certificate - New module to configure storage system's
+        web server certificate configuration.
+      - na_santricity_snapshot - New module to configure NetApp E-Series Snapshot
+        consistency groups any number of base volumes.
+      - na_santricity_volume - Add percentage size unit (pct) and which allows the
+        creates volumes based on the total storage pool size.
+      - nar_santricity_host - Add eseries_storage_pool_configuration list options,
+        criteria_volume_count, criteria_reserve_free_capacity_pct, and common_volume_host
+        to facilitate volumes based on percentages of storage pool or volume group.
+      - nar_santricity_host - Add support for snapshot group creation.
+      - nar_santricity_host - Improve host mapping information discovery.
+      - nar_santricity_host - Improve storage system discovery related error messages.
+      - nar_santricity_management - Add support for server certificate management.
+      release_summary: 1.2.0 release of ``netapp_eseries.santricity`` collection on
+        2021-03-01.
+    fragments:
+    - 1.2.0.yml
+    - error-messages.yml
+    - host-mapping-information.yml
+    - hostside-facts.yml
+    - readme-examples.yml
+    - server-certificate.yml
+    - snapshots.yml
+    - storage-system-discovery.yml
+    - volume-by-percentage.yml
+    release_date: '2021-03-30'
+  1.2.1:
+    changes:
+      minor_changes:
+      - Add IPv6 and FQDN support for NTP
+      - Add IPv6 support for DNS
+      - Add criteria_drive_max_size option to na_santricity_storagepool and nar_santricity_host
+        role.
+      - Add resource-provisioned volumes option to globals and nar_santricity_management
+        role.
+      - Remove resource-provisioned volumes setting from na_santicity_global module
+        and nar_santricity_management role."
+      release_summary: Release 1.2.2 simply removes resource-provisioned volumes feature
+        from collection.
+    fragments:
+    - 1.2.2.yml
+    - criteria_drive_max_size.yml
+    - fix_dns_ntp.yml
+    - remove_resource_provisioned_volumes.yml
+    - resource_provisioned_volume.yml
+    release_date: '2021-04-12'
+  1.2.10:
+    changes:
+      bugfixes:
+      - Fix PEM certificate/key imports in the na_santricity_server_certificate module.
+      - Fix na_santricity_mgmt_interface IPv4 and IPv6 form validation.
+      minor_changes:
+      - Add login banner message to na_santricity_global module and nar_santricity_management
+        role.
+      - Add usable drive option for na_santricity_storagepool module and nar_santricity_host
+        role which can be used to choose selected drives for storage pool/volumes
+        or define a pattern drive selection.
+    fragments:
+    - add_login_banner_message.yml
+    - add_usable_drive_storage_pool_option.yml
+    - fix_mgmt_ip_address_form_validation.yml
+    - fix_server_pem_certificate_imports.yml
+    release_date: '2021-05-26'
+  1.2.11:
+    changes:
+      bugfixes:
+      - Fix login banner message option bytes error in na_santricity_global.
+    fragments:
+    - fix_login_banner.yml
+    release_date: '2021-06-01'
+  1.2.12:
+    changes:
+      bugfixes:
+      - Fix host and host port names from being changed to lower case.
+    fragments:
+    - fix_host_object_naming_case.yml
+    release_date: '2021-06-07'
+  1.2.13:
+    changes:
+      bugfixes:
+      - Fix availability of client certificate change.
+    fragments:
+    - fix_client_certificate_availability.yml
+    release_date: '2021-06-11'
+  1.2.2:
+    release_date: '2021-04-13'
+  1.2.3:
+    changes:
+      bugfixes:
+      - Fix drive firmware upgrade issue that prevented updating firware when drive
+        was in use.
+      minor_changes:
+      - Added nvme4k as a drive type interface to the na_santricity_storagepool module.
+      - Added options for critical and warning threshold setting in na_santricity_storagepool
+        module and nar_santricity_host role.
+      - Fix dynamic disk pool critical and warning threshold settings.
+    fragments:
+    - add_nvme_drive_interface.yml
+    - fix_ddp_threshold_setting.yml
+    - fix_drive_firmware.yml
+    release_date: '2021-04-14'
+  1.2.4:
+    release_date: '2021-04-14'
+  1.2.5:
+    changes:
+      bugfixes:
+      - Add missing http(s) proxy username and password parameters from na_santricity_asup
+        module and nar_santricity_management role."
+      - Add missing storage pool configuration parameter, criteria_drive_interface_type,
+        to nar_santricity_host role.
+    fragments:
+    - criteria_drive_interface_type.yml
+    - fix_missing_asup_parameters.yml
+    release_date: '2021-04-19'
+  1.2.6:
+    changes:
+      bugfixes:
+      - Fix jinja issue with collecting certificates paths in nar_santricity_management
+        role.
+    fragments:
+    - fix_security_certificates.yml
+    release_date: '2021-04-19'
+  1.2.7:
+    fragments:
+    - proxy_asup_documentation.yml
+    release_date: '2021-04-19'
+  1.2.8:
+    changes:
+      bugfixes:
+      - Fix pkcs8 private key passphrase issue.
+      - Fix storage system admin password change from web services proxy in na_santricity_auth
+        module.
+    fragments:
+    - fix_pkcs8_cert_issue.yml
+    - fix_proxy_admin_password_change.yml
+    release_date: '2021-05-11'
+  1.2.9:
+    changes:
+      bugfixes:
+      - Fix missing proxy client and server certificate in management role.
+      - Fix missing proxy validate_certs and change current proxy password variables.
+      - Fix server certificate module not forwarding certificate imports to the embedded
+        web services.
+      minor_changes:
+      - Add eseries_system_old_password variable to faciliate changing the storage
+        system's admin password.
+      - Add remove_unspecified_user_certificates variable to the client certificates
+        module.
+    fragments:
+    - add_eseries_system_old_password_variable_to_change_admin.yml
+    - fix_certificates.yml
+    release_date: '2021-05-13'
+  1.3.0:
+    changes:
+      bugfixes:
+      - santricity_host - Ensure a list of volumes are provided to prevent netapp_eseries.santricity.santricity_host
+        (lookup) index is string not integer exception.
+      minor_changes:
+      - na_santricity_global - Add controller_shelf_id argument to set controller
+        shelf identifier.
+      - na_santricity_volume - Add flag to control whether volume expansion operations
+        are allowed.
+      - na_santricity_volume - Add volume write cache mirroring option.
+      - nar_santricity_host - Add volume write cache mirroring options.
+    fragments:
+    - add_controller_shelf_id_option.yml
+    - add_flag_to_allow_volume_expansion.yml
+    - add_volume_write_cache_mirroring_option.yml
+    - fix_single_volume_host_mapping_determinations.yml
+    release_date: '2022-04-05'
+  1.3.1:
+    changes:
+      bugfixes:
+      - na_santricity_mgmt_interface - Fix default required_if state option for na_santricity_mgmt_interface
+      - netapp_eseries.santricity.nar_santricity_host - Fix default MTU value for
+        NVMe RoCE.
+      minor_changes:
+      - Require Ansible 2.10 or later.
+      - na_santricity_volume - Add size_tolerance option to handle the difference
+        in volume size with SANtricity System Manager.
+      - nar_santricity_common - utilize provided eseries management information to
+        determine network to search.
+    fragments:
+    - add_volume_size_tolerance.yml
+    - fix_nvme_roce_mtu_default.yml
+    - fix_required_if_state_option.yml
+    - improve_system_discovery.yml
+    - require_ansible_2.10_or_later.yml
+    release_date: '2022-08-15'
+  1.4.0:
+    changes:
+      bugfixes:
+      - netapp_eseries.santricity.na_santricity_mgmt_interface - Add the ability to
+        configure DNS, NTP and SSH separately from management interfaces.
+      - netapp_eseries.santricity.nar_santricity_host - Fix default MTU value for
+        NVMe RoCE.
+      - netapp_eseries.santricity.nar_santricity_management - Add tasks to set DNS,
+        NTP and SSH globally separately from management interfaces.
+      minor_changes:
+      - netapp_eseries.santricity.na_santricity_iscsi_interface - Add support of iSCSI
+        HIC speed.
+      - netapp_eseries.santricity.nar_santricity_host - Add support of iSCSI HIC speed.
+    fragments:
+    - add_iscsi_hic_speed.yml
+    - fix_global_management_interface_configuration.yml
+    - fix_nvme_roce_mtu_default.yml
+    release_date: '2023-01-30'
+  1.4.1:
+    changes:
+      bugfixes:
+      - Fixed pep8, pylint, and validate-modules issues found by ansible-test.
+      - Updated outdated command in unit tests.
+    release_date: '2024-09-30'

@@ -1,0 +1,1807 @@
+releases:
+  1.0.0:
+    release_date: "2020-12-02"
+    changes:
+      release_summary: This is the initial release of the collection.
+  1.0.1:
+    release_date: "2021-03-22"
+    changes:
+      release_summary: Fixes a bug related to idempotent modules.
+      bugfixes:
+        - Fixes a bug in the 'site' and 'tag' modules, which are the only two idempotent modules.
+  1.0.2:
+    release_date: "2021-03-22"
+    changes:
+      release_summary: Fixes a bug related to optional module parameters.
+      bugfixes:
+        - Improve the documentation.
+        - Fixes a bug that caused the task execution to fail if the optional parameters like port,
+          dnac version and SSL verification were missing from the hosts.yml file.
+  1.0.3:
+    release_date: "2021-03-29"
+    changes:
+      release_summary: Fixes several bugs and issues required to pass sanity checks
+      bugfixes:
+        - Adds code of conduct
+        - Adds missing boilerplate code
+        - Adds code specific to idempotent module definitions
+        - Adds entries to the sanity check ignore file
+        - Fixes pylint issues
+        - Fixes yamllint issues
+        - Fixes return syntax errors
+        - Removes the RETURN section from all modules
+        - Removes blank spaces from DOCUMENTATION
+        - Removes colon characters from DOCUMENTATION
+        - Removes duplicate keys from DOCUMENTATION
+        - Removes ANSIBLE_METADATA section from all modules
+        - Adds changelog
+  1.0.4:
+    release_date: "2021-03-29"
+    changes:
+      release_summary: Fixes linting problems with the DOCUMENTATION and adds CI tests.
+      bugfixes:
+        - Fixes linting problems with the DOCUMENTATION.
+  2.0.0:
+    release_date: "2021-04-05"
+    changes:
+      release_summary: Moves the module parameters out of the inventory and places them inside the tasks themselves.
+      major_changes:
+        - Moves the module parameters out of the inventory and places them inside the tasks themselves.
+      bugfixes:
+        - Adds policy about releasing, versioning and deprecation to the README.
+        - Documents the minimum version of Python supported by the collection.
+        - Documents the dependency on ansible.utils
+        - Documents the non-standard return values of all modules in the collection
+  2.0.1:
+    release_date: "2021-04-05"
+    changes:
+      release_summary: Fixes linting problems with the DOCUMENTATION.
+      bugfixes:
+        - Fixes linting problems with the DOCUMENTATION.
+  2.0.2:
+    release_date: "2021-04-06"
+    changes:
+      release_summary: Adds code to gracefully handle missing dependencies.
+      bugfixes:
+        - Adds try/except clauses to gracefully handle missing SDK and ansible.utils dependencies per ansible-core-2.11 requirements
+  2.0.3:
+    release_date: "2021-04-06"
+    changes:
+      release_summary: Updates the README to reflect latest API changes.
+      bugfixes:
+        - Updates the README to reflect latest API changes.
+  2.0.4:
+    release_date: "2021-04-12"
+    changes:
+      release_summary: Resolves an issue with overlapping params in some plugins as well as some documentation issues.
+      bugfixes:
+        - Fixes linting problems with the DOCUMENTATION.
+        - Fixes a problem with the overlapping 'state' param in four plugins.
+  2.0.5:
+    release_date: "2021-04-12"
+    changes:
+      release_summary: This release introduces no changes. Exists just to be in sync with the Ansible Galaxy release number.
+      minor_changes:
+        - sync with Ansible Galaxy release number
+  2.0.6:
+    release_date: "2021-04-13"
+    changes:
+      release_summary: Adds dnacentersdk to the requirements.txt file. Adds sanitiy checks for Ansible v2.9.
+      bugfixes:
+        - Adds dnacentersdk to requirements.
+      minor_changes:
+        - Adds sanity ignores for ansible-2.9.
+  2.0.7:
+    release_date: "2021-04-14"
+    changes:
+      release_summary: Changes the minimum supported version of Ansible to v2.9.
+      minor_changes:
+        - Changes the minimum supported version from Ansible v.2.10.5 to v2.9.10.
+  3.0.0:
+    release_date: "2021-08-05"
+    changes:
+      release_summary: Drop special `state` params. Adds info plugins and resources.
+      major_changes:
+        - Adds _info plugins to query information from database.
+        - Adds resources for modules to manage CRUD operations.
+        - Adds plugins without state that perform special operation on DNA Center.
+        - Adds plugins for resource's operations that have different structure in request/response bodies (ie. _create, _update, _delete plugins).
+  3.1.0:
+    release_date: "2021-08-10"
+    changes:
+      release_summary: Updates to support DNA version 2.2.2.3
+      major_changes:
+        - Adds new plugins related to DNA version 2.2.2.3.
+        - Updates previous plugins to follow DNA version 2.2.2.3 specification.
+  3.1.1:
+    release_date: "2021-09-03"
+    changes:
+      release_summary: Adds headers parameter to info modules.
+      minor_changes:
+        - Adds ``headers`` parameter to info modules.
+  3.1.2:
+    release_date: "2021-09-08"
+    changes:
+      release_summary: Updates the README to reflect latest API changes.
+      bugfixes:
+        - Updates the README to reflect latest API changes.
+  3.1.3:
+    release_date: "2021-09-14"
+    changes:
+      release_summary: Fixes global credentials payload
+      bugfixes:
+        - It only accepts not None keys to dictionary item
+        - It changes payload from dict to list of dict
+  3.1.4:
+    release_date: "2021-09-14"
+    changes:
+      release_summary: Updates module documentation & site_design_floormap
+      bugfixes:
+        - Adds param payload to site_design_floormap module
+  3.1.5:
+    release_date: "2021-09-17"
+    changes:
+      release_summary: Fixes internal 'exists' comparison
+      bugfixes:
+        - Changes the comparison from value to keys
+  3.1.6:
+    release_date: "2021-09-20"
+    changes:
+      release_summary: Fixes get_object_by_name issues
+      bugfixes:
+        - Add try catch/except to dnac execution
+        - Update get for wireless_dynamic_interface, change key that has name
+        - Update get for wireless_enterprise_ssid, obtain item.ssidDetails from items
+  3.1.7:
+    release_date: "2021-10-12"
+    changes:
+      release_summary: Fixes delete/update mixups
+      bugfixes:
+        - Fixes *delete modules that were calling update operation
+        - Fixes *update modules that were calling delete operation
+        - Fixes *update modules that were calling create operation
+  3.2.0:
+    release_date: "2021-10-22"
+    changes:
+      release_summary: Improves documentation and fixes check_mode behavior.
+      bugfixes:
+        - Improves the changelog.
+        - Improves the documentation of modules.
+        - Fixes check_mode behavior for non-info modules.
+  3.2.1:
+    release_date: "2021-10-25"
+    changes:
+      release_summary: Fixes check_mode behavior
+      bugfixes:
+        - On regular modules additional comparison of check_mode was removed as Ansible already handles it.
+        - On info modules comparison was removed, because info modules should always run.
+  3.2.2:
+    release_date: "2021-11-01"
+    changes:
+      release_summary: Fixes id required condition
+      bugfixes:
+        - global_pool - includes request param as an alternative to id
+        - network_device - includes request param as an alternative to id
+        - pnp_device - includes request param as an alternative to id
+  3.2.3:
+    release_date: "2021-12-01"
+    changes:
+      release_summary: Fixes internal code and update test/sanity
+      bugfixes:
+        - Updated internal code for credential and discovery
+      minor_changes:
+        - Updated test/sanity and remove duplicates
+  3.3.0:
+    release_date: "2022-02-07"
+    changes:
+      release_summary: Fixes update tag_membership
+      minor_changes:
+        - tag_membership - changes in memberToTags from list to object in the way the value is obtained.
+  3.3.1:
+    release_date: "2022-02-13"
+    changes:
+      release_summary: Add early check of status for SDA modules
+      bugfixes:
+        - sda_fabric_authentication_profile - add early check of 'status' for module.
+        - sda_fabric_border_device - add early check of 'status' for module.
+        - sda_fabric_control_plane_device - add early check of 'status' for module.
+        - sda_fabric_edge_device - add early check of 'status' for module.
+        - sda_fabric_site - add early check of 'status' for module.
+        - sda_fabric - add early check of 'status' for module.
+        - sda_multicast - add early check of 'status' for module.
+        - sda_port_assignment_for_access_point - add early check of 'status' for module.
+        - sda_port_assignment_for_user_device - add early check of 'status' for module.
+        - sda_provision_device - add early check of 'status' for module.
+        - sda_virtual_network_ip_pool - add early check of 'status' for module.
+        - sda_virtual_network_v2 - add early check of 'status' for module.
+        - sda_virtual_network - add early check of 'status' for module.
+  3.3.2:
+    release_date: "2022-02-13"
+    changes:
+      release_summary: Add early check of status for SDA modules
+      bugfixes:
+        - sda_fabric_authentication_profile - add early check of 'status' for module.
+        - sda_fabric_border_device - add early check of 'status' for module.
+        - sda_fabric_control_plane_device - add early check of 'status' for module.
+        - sda_fabric_edge_device - add early check of 'status' for module.
+        - sda_fabric_site - add early check of 'status' for module.
+        - sda_fabric - add early check of 'status' for module.
+        - sda_multicast - add early check of 'status' for module.
+        - sda_port_assignment_for_access_point - add early check of 'status' for module.
+        - sda_port_assignment_for_user_device - add early check of 'status' for module.
+        - sda_provision_device - add early check of 'status' for module.
+        - sda_virtual_network_ip_pool - add early check of 'status' for module.
+        - sda_virtual_network_v2 - add early check of 'status' for module.
+        - sda_virtual_network - add early check of 'status' for module.
+  4.0.0:
+    release_date: "2021-12-01"
+    changes:
+      release_summary: Update to use DNAC v2.2.3.3
+      minor_changes:
+        - app_policy_default_info - new module.
+        - app_policy_info - new module.
+        - app_policy_intent_create - new module.
+        - app_policy_queuing_profile - new module.
+        - app_policy_queuing_profile_count_info - new module.
+        - app_policy_queuing_profile_info - new module.
+        - associate_site_to_network_profile - new module.
+        - business_sda_hostonboarding_ssid_ippool - new module.
+        - business_sda_hostonboarding_ssid_ippool_info - new module.
+        - business_sda_wireless_controller_create - new module.
+        - business_sda_wireless_controller_delete - new module.
+        - device_family_identifiers_details_info - new module.
+        - disassociate_site_to_network_profile - new module.
+        - disasterrecovery_system_operationstatus_info - new module.
+        - disasterrecovery_system_status_info - new module.
+        - dnacaap_management_execution_status_info - new module.
+        - endpoint_analytics_profiling_rules - new module.
+        - endpoint_analytics_profiling_rules_info - new module.
+        - golden_image_create - new module.
+        - golden_tag_image_delete - new module.
+        - golden_tag_image_details_info - new module.
+        - profiling_rules_count_info - new module.
+        - profiling_rules_in_bulk_create - new module.
+        - projects_details_info - new module.
+        - qos_device_interface_info_count_info - new module.
+        - reserve_ip_subpool_create - new module.
+        - reserve_ip_subpool_delete - new module.
+        - reserve_ip_subpool_update - new module.
+        - templates_details_info - new module.
+      bugfixes:
+        - configuration_template - update module logic.
+        - configuration_template_project - update module logic.
+        - path_trace - update module logic.
+        - pnp_device - update module logic.
+        - reports - update module logic.
+        - wireless_profile - update module logic.
+      major_changes:
+        - applications_health_info - new `applicationName` parameter.
+        - network_device - change `isForceDelete` parameter to `cleanConfig` parameter.
+        - network_device - new `cleanConfig` parameter.
+        - network_device_lexicographically_sorted_info - change `offset` param type from str to int
+        - network_device_lexicographically_sorted_info - change `limit` param type from str to int
+        - reserve_ip_subpool - new `ipv4GateWay` parameter.
+        - sda_fabric - remove `payload` parameter.
+        - sda_fabric_authentication_profile_info - add `authenticateTemplateName` parameter.
+        - sda_fabric_authentication_profile - remove `payload` parameter.
+        - sda_fabric_authentication_profile - add `authenticateTemplateName` parameter.
+        - sda_fabric_authentication_profile - add `authenticationOrder` parameter.
+        - sda_fabric_authentication_profile - add `dot1xToMabFallbackTimeout` parameter.
+        - sda_fabric_authentication_profile - add `wakeOnLan` parameter.
+        - sda_fabric_authentication_profile - add `numberOfHosts` parameter.
+        - sda_device_info - change `deviceIPAddress` to `deviceManagementIpAddress` parameter.
+        - sda_fabric_border_device - change `deviceIPAddress` to `deviceManagementIpAddress` parameter.
+        - sda_fabric_border_device - remove `payload` parameter.
+        - sda_fabric_border_device - add `deviceManagementIpAddress` parameter.
+        - sda_fabric_border_device - add `siteNameHierarchy` parameter.
+        - sda_fabric_border_device - add `externalDomainRoutingProtocolName` parameter.
+        - sda_fabric_border_device - add `externalConnectivityIpPoolName` parameter.
+        - sda_fabric_border_device - add `internalAutonomouSystemNumber` parameter.
+        - sda_fabric_border_device - add `borderSessionType` parameter.
+        - sda_fabric_border_device - add `connectedToInternet` parameter.
+        - sda_fabric_border_device - add `externalConnectivitySettings` parameter.
+        - sda_fabric_border_device - add `interfaceName` parameter.
+        - sda_fabric_border_device - add `externalAutonomouSystemNumber` parameter.
+        - sda_fabric_border_device - add `l3Handoff` parameter.
+        - sda_fabric_border_device - add `virtualNetwork` parameter.
+        - sda_fabric_border_device - add `virtualNetworkName` parameter.
+        - sda_fabric_border_device - add `vlanId parameter.`
+        - sda_fabric_border_device_info - change `deviceIPAddress` to `deviceManagementIpAddress` parameter.
+        - sda_fabric_control_plane_device - change `deviceIPAddress` to `deviceManagementIpAddress` parameter.
+        - sda_fabric_control_plane_device - remove `payload` parameter.
+        - sda_fabric_control_plane_device - add `siteNameHierarchy` parameter.
+        - sda_fabric_control_plane_device_info - change `deviceIPAddress` to `deviceManagementIpAddress` parameter.
+        - sda_fabric_edge_device - change `deviceIPAddress` to `deviceManagementIpAddress` parameter.
+        - sda_fabric_edge_device - remove `payload` parameter.
+        - sda_fabric_edge_device - add `siteNameHierarchy` parameter.
+        - sda_fabric_edge_device_info - change `deviceIPAddress` to `deviceManagementIpAddress` parameter.
+        - sda_fabric_site - remove `payload` parameter.
+        - sda_fabric_site - add `fabricName` parameter.
+        - sda_multicast - change `fabricSiteNameHierarchy` to `siteNameHierarchy` parameter.
+        - sda_multicast_info - change `fabricSiteNameHierarchy` to `siteNameHierarchy` parameter.
+        - sda_port_assignment_for_access_point - remove `payload` parameter.
+        - sda_port_assignment_for_access_point - change `device_ip` to `deviceManagementIpAddress` parameter.
+        - sda_port_assignment_for_access_point - add `siteNameHierarchy` parameter.
+        - sda_port_assignment_for_access_point - add `deviceManagementIpAddress` parameter.
+        - sda_port_assignment_for_access_point - add `dataIpAddressPoolName` parameter.
+        - sda_port_assignment_for_access_point - add `authenticateTemplateName` parameter.
+        - sda_port_assignment_for_access_point - add `interfaceDescription` parameter.
+        - sda_port_assignment_for_access_point_info - change `device_ip` to `deviceManagementIpAddress` parameter.
+        - sda_port_assignment_for_user_device - remove `payload` parameter.
+        - sda_port_assignment_for_user_device - change `device_ip` to `deviceManagementIpAddress` parameter.
+        - sda_port_assignment_for_user_device - add `siteNameHierarchy` parameter.
+        - sda_port_assignment_for_user_device - add `voiceIpAddressPoolName` parameter.
+        - sda_port_assignment_for_user_device - add `dataIpAddressPoolName` parameter.
+        - sda_port_assignment_for_user_device - add `authenticateTemplateName` parameter.
+        - sda_port_assignment_for_user_device - add `scalableGroupName` parameter.
+        - sda_port_assignment_for_user_device - add `interfaceDescription` parameter.
+        - sda_port_assignment_for_user_device_info - change `device_ip` to `deviceManagementIpAddress` parameter.
+        - sda_virtual_network - remove `payload` parameter.
+        - snmpv2_read_community_credential - remove `id` and `instanceTenantId` parameter.
+        - snmpv2_write_community_credential - remove `id` and `instanceTenantId` parameter.
+        - site_health_info - add `siteType`, `offset`, `limit` parameters
+        - sda_virtual_network_ip_pool - remove `payload` and `ipPoolName` parameter.
+        - sda_virtual_network_ip_pool - add siteNameHierarchy, ipPoolName, trafficType, authenticationPolicyName,
+          scalableGroupName, isL2FloodingEnabled, isThisCriticalPool, poolType, vlanName, isWirelessPool parameters.
+  4.1.0:
+    release_date: "2021-12-14"
+    changes:
+      release_summary: Add qos_device_interface and fixes tag_member
+      minor_changes:
+        - qos_device_interface - new module.
+        - qos_device_interface_info - new module.
+      bugfixes:
+        - tag_member - change object param to use payload.
+        - tag_member - update module documentation.
+  4.1.1:
+    release_date: "2022-01-12"
+    changes:
+      release_summary: Update module doc and fix issues 31 & 32
+      bugfixes:
+        - Updates the README to map versions (dnacentersdk and Cisco DNA Center with the ansible collection)
+        - app_policy_queuing_profile - fix get_object_by_id (issue 32), which helps deletion.
+        - application_sets - fix get_object_by_id (issue 32), which helps deletion.
+        - applications - fix get_object_by_id (issue 32), which helps deletion.
+        - business_sda_hostonboarding_ssid_ippool - fix exists check (issue 31).
+        - business_sda_hostonboarding_ssid_ippool - fix get_object_by_id (issue 32), which helps deletion.
+        - device_replacement - fix get_object_by_id (issue 32), which helps deletion.
+        - event_subscription - fix get_object_by_id (issue 32), which helps deletion.
+        - event_subscription_email - fix get_object_by_id (issue 32), which helps deletion.
+        - event_subscription_rest - fix get_object_by_id (issue 32), which helps deletion.
+        - event_subscription_syslog - fix get_object_by_id (issue 32), which helps deletion.
+        - network_create - update module DOCUMENTATION block.
+        - network_device_lexicographically_sorted_info - update module RETURN block.
+        - network_update - update module DOCUMENTATION block.
+        - pnp_global_settings - fix get_object_by_id (issue 32), which helps deletion.
+        - qos_device_interface - fix get_object_by_id (issue 32), which helps deletion.
+        - reserve_ip_subpool - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_fabric - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_fabric_authentication_profile - fix exists check (issue 31).
+        - sda_fabric_authentication_profile - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_fabric_border_device - fix exists check (issue 31).
+        - sda_fabric_border_device - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_fabric_control_plane_device - fix exists check (issue 31).
+        - sda_fabric_control_plane_device - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_fabric_edge_device - fix exists check (issue 31).
+        - sda_fabric_edge_device - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_fabric_site - add playbook
+        - sda_fabric_site - fix exists check (issue 31).
+        - sda_fabric_site - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_multicast - fix exists check (issue 31).
+        - sda_multicast - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_port_assignment_for_access_point - fix exists check (issue 31).
+        - sda_port_assignment_for_access_point - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_port_assignment_for_user_device - fix exists check (issue 31).
+        - sda_port_assignment_for_user_device - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_provision_device - add 'update' capability to module.
+        - sda_provision_device - fix exists check (issue 31).
+        - sda_provision_device - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_provision_device - update module description and EXAMPLES block.
+        - sda_virtual_network - add playbook
+        - sda_virtual_network - fix exists check (issue 31).
+        - sda_virtual_network - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_virtual_network_ip_pool - fix exists check (issue 31).
+        - sda_virtual_network_ip_pool - fix get_object_by_id (issue 32), which helps deletion.
+        - sda_virtual_network_v2 - fix exists check (issue 31).
+        - sda_virtual_network_v2 - fix get_object_by_id (issue 32), which helps deletion.
+        - sensor - fix get_object_by_id (issue 32), which helps deletion.
+        - snmp_properties - fix get_object_by_id (issue 32), which helps deletion.
+        - wireless_dynamic_interface - fix get_object_by_id (issue 32), which helps deletion.
+        - wireless_enterprise_ssid - fix get_object_by_id (issue 32), which helps deletion.
+        - wireless_profile - fix get_object_by_id (issue 32), which helps deletion.
+        - wireless_rf_profile - fix get_object_by_id (issue 32), which helps deletion.
+  4.1.2:
+    release_date: "2022-01-17"
+    changes:
+      release_summary: Update plugin module documentation, update site_design_floormap_info
+      bugfixes:
+        - plugin/modules/* - Update plugin module documentation
+      minor_changes:
+        - site_design_floormap_info - Add get_all to module
+  4.1.3:
+    release_date: "2022-01-19"
+    changes:
+      release_summary: Update documentation link
+      minor_changes:
+        - update documentation link in galaxy
+  4.2.0:
+    release_date: "2022-01-31"
+    changes:
+      release_summary: Parameters were added to pnp_device_claim_to_site
+      minor_changes:
+        - pnp_device_claim_to_site - Add hostname, imageInfo and configInfo parameters to module.
+        - Update dnacentersdk requirement from 2.4.0 to 2.4.4
+  5.0.0:
+    release_date: "2022-02-02"
+    changes:
+      release_summary: Parameters added and dropped for modules (service_provider_profile_delete,
+                       reserve_ip_subpool_update, network_device, business_sda_wireless_controller_create and
+                       business_sda_wireless_controller_delete)
+      major_changes:
+        - Update dnacentersdk requirement from 2.4.4 to 2.4.5
+        - service_provider_profile_delete - Rename argument from 'sp_profile_name' to 'spProfileName'.
+        - reserve_ip_subpool_update - Removed 'type', 'ipv4GlobalPool', 'ipv4Prefix', 'ipv4PrefixLength', 'ipv4Subnet' and 'ipv4TotalHost' arguments.
+        - network_device - Removed 'managementIpAddress' arguments.
+        - business_sda_wireless_controller_create - Removed 'deviceIPAddress' arguments.
+        - business_sda_wireless_controller_delete - Removed 'deviceName' and 'siteNameHierarchy' arguments.
+  5.1.0:
+    release_date: "2022-02-07"
+    changes:
+      release_summary: Fixes update tag_membership for Cisco DNA Center v2.2.3.3
+      minor_changes:
+        - tag_membership - changes in memberToTags from list to object in the way the value is obtained.
+        - Update README
+  5.1.1:
+    release_date: "2022-02-07"
+    changes:
+      release_summary: Fixes tag_membership module documentation
+      minor_changes:
+        - tag_membership - Fixes module documentation
+  5.1.2:
+    release_date: "2022-02-13"
+    changes:
+      release_summary: Add early check of status for SDA modules
+      bugfixes:
+        - sda_fabric_authentication_profile - add early check of 'status' for module.
+        - sda_fabric_border_device - add early check of 'status' for module.
+        - sda_fabric_control_plane_device - add early check of 'status' for module.
+        - sda_fabric_edge_device - add early check of 'status' for module.
+        - sda_fabric_site - add early check of 'status' for module.
+        - sda_fabric - add early check of 'status' for module.
+        - sda_multicast - add early check of 'status' for module.
+        - sda_port_assignment_for_access_point - add early check of 'status' for module.
+        - sda_port_assignment_for_user_device - add early check of 'status' for module.
+        - sda_provision_device - add early check of 'status' for module.
+        - sda_virtual_network_ip_pool - add early check of 'status' for module.
+        - sda_virtual_network_v2 - add early check of 'status' for module.
+        - sda_virtual_network - add early check of 'status' for module.
+  5.2.0:
+    release_date: "2022-02-24"
+    changes:
+      release_summary: Added siteNameHierarchy option to sda_virtual_network_ip_pool_info and sda_virtual_network_ip_pool
+      minor_changes:
+        - sda_virtual_network_ip_pool_info - add siteNameHierarchy option.
+        - sda_virtual_network_ip_pool - update example documentation to include siteNameHierarchy option.
+      bugfixes:
+        - sda_fabric - add early check of 'status' for module when state is absent.
+        - sda_fabric_authentication_profile - add early check of 'status' for module when state is absent.
+        - sda_fabric_border_device - add early check of 'status' for module when state is absent.
+        - sda_fabric_control_plane_device - add early check of 'status' for module when state is absent.
+        - sda_fabric_edge_device - add early check of 'status' for module when state is absent.
+        - sda_fabric_site - add early check of 'status' for module when state is absent.
+        - sda_multicast - add early check of 'status' for module when state is absent.
+        - sda_port_assignment_for_access_point - add early check of 'status' for module when state is absent.
+        - sda_port_assignment_for_user_device - add early check of 'status' for module when state is absent.
+        - sda_provision_device - add early check of 'status' for module when state is absent.
+        - sda_virtual_network - add early check of 'status' for module when state is absent.
+        - sda_virtual_network_ip_pool - add early check of 'status' for module when state is absent.
+        - sda_virtual_network_ip_pool_info - add early check of 'status' for module when state is absent.
+        - sda_virtual_network_v2 - add early check of 'status' for module when state is absent.
+  6.0.0:
+    release_date: "2022-03-14"
+    changes:
+      release_summary: Fixes update sda_fabric_border_device for Cisco DNA Center v2.2.3.3
+      major_changes:
+        - Update dnacentersdk requirement from 2.4.5 to 2.4.6
+        - sda_fabric_border_device - changes in externalConnectivitySettings from object to list.
+  6.1.0:
+    release_date: "2022-03-22"
+    changes:
+      release_summary: Add new param on pnp_device_claim_to_site request
+      minor_changes:
+        - Update dnacentersdk requirement from 2.4.6 to 2.4.7
+        - pnp_device_claim_to_site - add parameter rfProfile.
+      bugfixes:
+        - Fixed module documentation to have elements.
+        - Fixed the type of dnac_port in the documentation from string to int.
+  6.2.0:
+    release_date: "2022-03-24"
+    changes:
+      release_summary: Change download modules response to include file details
+      minor_changes:
+        - file_info - Instead of returning the data string, it now returns a dictionary.
+          The dictionary has property data with the previous string value.
+        - file_info - add parameter filename.
+        - reports_executions_info - Instead of returning the data string, it now returns a dictionary.
+          The dictionary has property data with the previous string value.
+        - reports_executions_info - add parameter filename.
+  6.2.1:
+    release_date: "2022-03-24"
+    changes:
+      release_summary: Update README
+      bugfixes:
+        - Update README, update Compatibility matrix.
+  6.3.0:
+    release_date: "2022-03-31"
+    changes:
+      release_summary: Adds headers parameter to wireless provision device update.
+      minor_changes:
+        - Adds ``headers`` parameter to wireless provision device update.
+        - reports - `tag` and `deliveries` now support empty format
+  6.4.0:
+    release_date: "2022-04-20"
+    changes:
+      release_summary: Adds parameters to pnp_device_claim_to_site.
+      minor_changes:
+        - Adds following ``parameters`` to pnp_device_claim_to_site, gateway, imageId, ipInterfaceName, staticIP, subnetMask, vlanId
+  6.5.0:
+    release_date: "2022-06-20"
+    changes:
+      release_summary: New Dna Center API version 2.3.3.0.
+      minor_changes:
+        - Update dnacentersdk requirement from 2.4.7 to 2.5.0
+        - assign_device_to_site - new module.
+        - buildings_planned_access_points_info - new module.
+        - business_sda_virtual_network_summary_info - new module.
+        - event_config_connector_types_info - new module.
+        - event_email_config_create - new module.
+        - event_email_config_update - new module.
+        - event_webhook_create - new module.
+        - event_webhook_update - new module.
+        - file_import - new module.
+        - interface_info - new module.
+        - interface_operation_create - new module.
+        - interface_update - new module.
+        - lan_automation_count_info - new module.
+        - lan_automation_create - new module.
+        - lan_automation_delete - new module.
+        - lan_automation_log_info - new module.
+        - lan_automation_status_info - new module.
+        - network_device_custom_prompt_info - new module.
+        - network_device_custom_prompt - new module.
+  6.5.1:
+    release_date: "2022-07-19"
+    changes:
+      release_summary: Added a status check, changed a required parameter and improved the doc.
+      bugfixes:
+        - sda_fabric_edge_device - Change required payload parameter to deviceManagementIpAddress
+        - transit_peer_network - Added status check
+        - file_info - Improve the module documentation.
+  6.5.2:
+    release_date: "2022-07-20"
+    changes:
+      release_summary: Deletion function fixed in several modules.
+      bugfixes:
+        - application_sets - delete function fixed.
+        - applications - delete function fixed.
+        - event_subscription - delete function fixed.
+        - sda_fabric_authentication_profile - delete function fixed.
+        - sda_fabric_border_device - delete function fixed.
+        - sda_fabric_control_plane_device - delete function fixed.
+        - sda_fabric_edge_device - delete function fixed.
+        - sda_virtual_network - delete function fixed.
+  6.5.3:
+    release_date: "2022-08-12"
+    changes:
+      release_summary: Added new function and fixed module
+      bugfixes:
+        - Update dnacentersdk requirement from 2.5.0 to 2.5.4
+        - business_sda_hostonboarding_ssid_ippool - create function added.
+        - wireless_profile - create function fixed.
+  6.6.0:
+    release_date: "2022-09-13"
+    changes:
+      release_summary: Added new intent modules
+      minor_changes:
+        - pnp_intent - new module.
+        - site_intent - new module.
+        - swim_intent - new module.
+        - template_intent - new module.
+  6.6.1:
+    release_date: "2022-11-17"
+    changes:
+      release_summary: Added the ability to export DNA Center credentials as environment variables and rennamed some vars.
+      bugfixes:
+        - DNA Center credentials can now be exported and used as env vars.
+        - sda_virtual_network_ip_pool - Now pass the site_name_hierarchy correctly in get method.
+  6.6.2:
+    release_date: "2022-12-19"
+    changes:
+      release_summary: " "
+      bugfixes:
+        - sda_fabric_border_device - fix Create example at EXAMPLES block
+        - site_intent - fix Case_1 return example at RETURN block
+        - swim_intent - fix functionality and tests
+  6.6.3:
+    release_date: "2023-01-19"
+    changes:
+      release_summary: Fixes get_object_by_name issues.
+      bugfixes:
+        - netconf_credential - Removed to search by username.
+        - snmpv2_read_community_credential - Removed to search by username.
+        - snmpv2_write_community_credential - Removed to search by username.
+  6.6.4:
+    release_date: "2023-03-14"
+    changes:
+      release_summary: New method to compare changes
+      bugfixes:
+        - A new method to compare changes for specific cases has been added.
+        - network_device - Used a new method to compare changes.
+  6.7.0:
+    release_date: "2023-04-12"
+    changes:
+      release_summary: Compatibility with 2.3.5.3 DNA Center APIs
+      minor_changes:
+        - accesspoint_configuration_details_by_task_id_info - new module
+        - authentication_policy_servers_info - new module
+        - credential_to_site_by_siteid_create_v2 - new module
+        - device_reboot_apreboot_info - new module
+        - dnac_packages_info - new module
+        - eox_status_device_info - new module
+        - eox_status_summary_info - new module
+        - event_email_config - new module
+        - event_email_config_info - new module
+        - event_snmp_config_info - new module
+        - event_syslog_config - new module
+        - event_syslog_config_info - new module
+        - execute_suggested_actions_commands - new module
+        - global_credential_v2 - new module
+        - global_credential_v2_info - new module
+        - integration_settings_instances_itsm - new module
+        - integration_settings_instances_itsm_info - new module
+        - lan_automation_log_by_serial_number_info - new module
+        - network_device_user_defined_field - new module
+        - network_device_user_defined_field_info - new module
+        - network_v2 - new module
+        - network_v2_info - new module
+        - role_permissions_info - new module
+        - roles_info - new module
+        - service_provider_v2 - new module
+        - service_provider_v2_info - new module
+        - sp_profile_delete_v2 - new module
+        - user - new module
+        - user_info - new module
+        - users_external_servers_info - new module
+        - wireless_accespoint_configuration - new module
+        - wireless_accesspoint_configuration_summary_info - new module
+        - device_interface_info - attributes `lastInputTime` and `lastOutputTime` were added.
+        - pnp_device_claim_to_site - attributes `removeInactive` and `hostname` were removed.
+        - sda_fabric_border_device - attributes `routeDistributionProtocol` and `borderPriority` were added.
+        - sda_fabric_control_plane_device attribute `routeDistributionProtocol` was added.
+        - sda_fabric_edge_device - attribute `siteNameHierarchy` was added.
+        - sda_fabric_site - attribute `fabricType` was added.
+        - sda_port_assignment_for_user_device - attribute `interfaceNames` was added.
+        - sda_virtual_network - attribute `vManageVpnId` was added.
+        - sda_virtual_network_ip_pool - attribute `isBridgeModeVm` was added.
+        - sda_virtual_network_v2 - attribute `isBridgeModeVm` was added.
+  6.7.1:
+    release_date: "2023-04-12"
+    changes:
+      release_summary: Adding documentation for 2.3.5.3 API
+      minor_changes:
+        - Adding documentation for 2.3.5.3 API
+  6.7.2:
+    release_date: "2023-05-09"
+    changes:
+      release_summary: Adding documentation for 2.3.5.3 API
+      minor_changes:
+        - Updating documentation, collection supports 2.3.5.3 DNA Center API Version.
+  6.7.3:
+    release_date: "2023-06-27"
+    changes:
+      release_summary: Updating documentation and fixing global credentials.
+      minor_changes:
+        - Documentation changes in example of site_intent
+        - The global credentials create implementation fixed.
+        - Discovery playbook has no hardcoded credentials id and seed IP.
+  6.7.4:
+    release_date: "2023-08-24"
+    changes:
+      release_summary: Updated sanity test.
+      minor_changes:
+        - Updated test/sanity and remove unnecessary
+  6.7.5:
+    release_date: "2023-09-25"
+    changes:
+      release_summary: Updated different function names.
+      bugfixes:
+        - Updated from get_permissions_ap_i to get_permissions_api
+        - Updated from get_roles_ap_i to get_roles_api
+        - Updated from get_users_ap_i to get_users_api
+        - Updated from get_external_authentication_servers_ap_i to get_external_authentication_servers_api
+  6.7.6:
+    release_date: "2023-10-13"
+    changes:
+      release_summary: Several changes to modules.
+      minor_changes:
+        - A new intent module for network settings to support Global IP Pool, Reserve IP Pool,
+          Global servers, TimeZone, Message of the Day and telemetry servers.
+        - By inheriting DNAC base class, changes done to Swim, Template, PnP intent modules.
+  6.8.0:
+    release_date: "2023-11-10"
+    changes:
+      release_summary: Several changes to modules.
+      minor_changes:
+        - A new intent module to perform inventory for Adding, Deleting, Resyncing, Updating Devices etc. for all types of devices.
+        - A new intent module to Create, Update and Delete Global Device Credentials and Assign Credentials to a sites.
+        - A new intent module to discover the devices.
+        - Minor changes to swim intent module.
+  6.8.1:
+    release_date: "2023-11-20"
+    changes:
+      release_summary: Updating documentation and fixing swim issues.
+      minor_changes:
+        - Fixed issues in Swim intent module.
+        - Updated docstring in site intent and template intent modules.
+  6.8.2:
+    release_date: "2023-12-04"
+    changes:
+      release_summary: Changing galaxy.
+      bugfixes:
+        - Adding support to ansible.utils >=3.0
+        - pnp_device_claim_to_site.py change configInfo from `list` to `dict` # 135
+  6.9.0:
+    release_date: "2023-12-05"
+    changes:
+      release_summary: Changing galaxy.
+      minor_changes:
+        - Adding support to ansible.utils ">=2.0.0, <4.00".
+  6.10.0:
+    release_date: "2023-12-18"
+    changes:
+      release_summary: Changes in intent module to support discovery, provisioning and more operations in swim,
+        site, template and pnp intent modules.
+      minor_changes:
+        - Changes in inventory_intent module to support Update Device role, update interface details.
+        - Changes in inventory_intent module to create and assign Global User defined field to devices, Delete Global UDF,
+          Delete Provisioned/Unprovisioned devices.
+        - Changes in pnp_intent module to support bulk addition and bulk deletion along with variable names.
+        - Handling idempotent in delete operation in site_intent module.
+        - Adding discovery intent module to support discovering the devices.
+        - Changes in swim intent module to support Distribute and activate image by fetching device based on site and device family details.
+        - Changes in site intent module to support one-shot site deletion.
+        - To Support provisioning wired device, reboot AP's, export device list, delete provisioned devices.
+        - Change the variable names into snake case in all the intent modules for better readability.
+  6.10.1:
+    release_date: "2024-01-20"
+    changes:
+      release_summary: Changes in network settings, site, discovery, inventory, swim, credential and provisioning intent modules
+      minor_changes:
+        - Introducing config_verify to verify the state operations in Catalyst Center in network settings and site intent module
+        - Changes to support inventory and provisioning intent modules
+  6.10.2:
+    release_date: "2024-01-24"
+    changes:
+      release_summary: Set dnac log level if it is not set in the playbook.
+      minor_changes:
+        - Set dnac log level if it is not set in the playbook.
+        - Handle provisioning of device if it is not in managed state for longer.
+        - Set the logging levels for device credentails intent module.
+  6.10.3:
+    release_date: "2024-01-30"
+    changes:
+      release_summary: Fixing swim_import_local action.
+      minor_changes:
+        - Building additional parameters needed in sdk.
+  6.10.4:
+    release_date: "2024-02-05"
+    changes:
+      release_summary: Enhancements in Cisco Catalyst Center logging
+      minor_changes:
+        - Introducing log levels and log file path
+        - Updated Documentation in template intent module
+        - Enhancements in device_credential, inventory, discovery and template intent modules.
+  6.11.0:
+    release_date: "2024-02-17"
+    changes:
+      release_summary: Adding new workflow manager modules in Cisco Catalyst Center
+      minor_changes:
+        - The 'site_workflow_manager' module orchestrates the creation of sites within the Cisco Catalyst Center,
+          encompassing areas such as buildings and floors. It ensures necessary pre-checks are performed and allows for
+          subsequent updates to these sites. Additionally, the module facilitates the deletion of specific sites using the site
+          and parent names. A feature to delete all child sites by specifying only the parent site name is also available.
+        - The 'swim_workflow_manager' module handles the importation of SWIM images into the Cisco Catalyst Center, utilizing
+          either a remote URL or a local image file path. It provides functionality for tagging and untagging SWIM images
+          based on device family, role, and site. The module ensures the successful importation of images for distribution and
+          activation on devices within the Cisco Catalyst Center. It also allows for the retrieval of a list of devices tied to
+          a specific site, device family, and device role, facilitating various SWIM operations such as importing, tagging,
+          distribution, and activation.
+        - The 'network_settings_workflow_manager' module manages global IP pool allocation, reserved sub pool assignment, and
+          network function administration, including DHCP, Syslog, SNMP, NTP, Network AAA, client and endpoint AAA, and DNS servers,
+          ensuring seamless operation at site and global levels in the Cisco Catalyst Center.
+        - The 'device_credential_workflow_manager' module oversees the management of global device credentials, including CLI,
+          SNMPv2C read, SNMPv2C write, SNMPv3, HTTP(s) read, and HTTP(s) write. It facilitates the assignment of these
+          credentials to specific sites, ensuring secure and efficient access to network devices across the infrastructure in
+          the Cisco Catalyst Center.
+        - The 'inventory_workflow_manager' module is responsible for the actions that can be performed over devices which
+          includes adding, deleting, resyncing, updating device details, device credentials, common info etc. for all types
+          of devices - network device, compute device, meraki device, firepower management system device and third party devices.
+          Exporting devices details and device credentials details into the CSV file, doing wired/wireless device provisioning,
+          reboot AP devices, resyncing of device etc. Also we can update device just by giving the parameter that need to be
+          changes on single or bulk devices and rest required parameters will be fetched from Cisco Catalyst Center and prepopulate
+          it before triggering the update API.
+        - The 'pnp_workflow_manager' module helps in adding a device or adding devices in bulk to PnP database of the Cisco Catalyst
+          Center. Post addition, device can be claimed to a site along with template provision and image upgrade. Along with that
+          devices can be deleted from the PnP database.
+        - The 'discovery_workflow_manager' module streamlines the discovery of devices using various methods including single IP,
+          IP range, multi-range, CDP, CIDR, and LLDP. It also offers the ability to clear out discoveries by deleting them from the
+          discovery database, with an option to delete all discoveries simultaneously.
+        - The 'provision_workflow_manager' module provisions and re-provisions devices added in the inventory to site, by taking
+          management IP address as input. It allows provisioning of both wired and wireless devices. It also allows un-provisioning
+          of devices.
+        - The 'template_workflow_manager' module is responsible for overseeing templates, export projects/templates, and import
+          projects/templates. It handles configuration templates by enabling the creation, updating, and deletion of templates and
+          projects. Additionally, the module supports export functionality to retrieve project and template details from Cisco
+          Catalyst Center, and Import functionality to create templates and projects within the Cisco Catalyst Center.
+  6.12.0:
+    release_date: "2024-03-06"
+    changes:
+      release_summary: Enhancements in discovery and inventory workflow manager modules.
+      minor_changes:
+        - Changes in discovery workflow manager module to support SNMP credentials v2 and handling error messages.
+        - Changes in inventory workflow manager module to support snmp v2.
+        - swim_workflow_manager - attribute 'device_series_name' was added.
+        - swim_intent - attribute 'device_series_name' was added.
+        - discovery_workflow_manager - attribute 'global_credentials' was added and 'global_cli_len' was removed.
+        - discovery_intent - attribute 'global_credentials' was added and 'global_cli_len' was removed.
+        - >
+          inventory_workflow_manager - attributes 'serial_number', 'device_added', 'role_source' were removed.
+                                        attributes 'clear_mac_address_table', 'device_ip', 'resync_retry_count', 'resync_retry_interval',
+                                            'reprovision_wired_device', 'provision_wireless_device' were added.
+                                        Renamed argument from 'ip_address' to 'ip_address_list'.
+        - >
+          inventory_intent - attributes 'serial_number', 'device_added', 'role_source' were removed.
+                                        attributes 'clear_mac_address_table', 'device_ip', 'resync_retry_count', 'resync_retry_interval',
+                                            'reprovision_wired_device', 'provision_wireless_device' were added.
+                                        Renamed argument from 'ip_address' to 'ip_address_list'.
+        - pnp_workflow_manager - Adding fix for Stackswitch getting changed to normal switch post editing the device's info.
+        - pnp_intent - Adding fix for Stackswitch getting changed to normal switch post editing the device's info.
+  6.13.0:
+    release_date: "2024-03-12"
+    changes:
+      release_summary: Changes the minimum supported version of Ansible to v2.14.0
+      minor_changes:
+        - Changes the minimum supported version from Ansible v2.9.10 to v2.14.0
+  6.13.1:
+    release_date: "2024-03-15"
+    changes:
+      release_summary: Enhancements in discovery, site, swim and inventory workflow manager modules.
+      minor_changes:
+        - Introduced sample playbooks for the discovery module.
+        - Resolved a 'NoneType' error in discovery module credentials.
+        - Corrected site creation issues in the site module when optional parameters are missing.
+        - Fixed management IP updates for devices on SNMP version v2.
+        - Addressed image un-tagging issues in inherited site settings.
+        - Provided documentation for EWLC templates in Cisco Catalyst Center version 2.3.7.x.
+        - Added attributes 'dnac_api_task_timeout' and 'dnac_task_poll_interval' in intent and workflow_manager modules.
+        - inventory_workflow_manager - Added attributes 'add_user_defined_field', 'update_interface_details', 'export_device_list' and 'admin_status'
+        - inventory_workflow_manager - Removed attributes 'provision_wireless_device', 'reprovision_wired_device'
+  6.13.2:
+    release_date: "2024-04-03"
+    changes:
+      release_summary: Enhancements in discovery, site, swim and inventory workflow manager modules.
+      minor_changes:
+        - Added the op_modifies=True when calling SDK APIs in the workflow manager modules.
+        - Added a method to validate IP addresses.
+        - Fixed a minor issue in the site workflow manager module.
+        - Updating galaxy.yml ansible.utils dependencies.
+  6.13.3:
+    release_date: "2024-04-08"
+    changes:
+      release_summary: Enhancements in discovery, template, swim and inventory workflow manager modules.
+      minor_changes:
+        - Adding support to importing a template using JSON file
+        - Changes in discovery workflow manager modules  relating to different states of the discovery job
+  6.14.0:
+    release_date: "2024-05-31"
+    changes:
+      release_summary: New Dna Center API version 2.3.7.6, and addition of Workflow Manager modules support for device
+                       configuration backups, events and notifications, ISE and RADIUS server integrations, and network compliance.
+      minor_changes:
+        - device_configs_backup_workflow_manager - New workflow manager module for device configuration backup functions.
+        - events_and_notifications_workflow_manager - New workflow manager for configuring various types of
+          destinations(Webhook, Email, Syslog, SNMP, ITSM) to deliver event notifications.
+        - ise_radius_integration_workflow_manager - New workflow manager for Authentication and Policy Servers(ISE/AAA).
+        - network_compliance_workflow_manager - New workflow manager for Network Compliance module for managing network
+          compliance tasks on reachable device(s).
+        - device_credential_workflow_manager - Updated the log messages.
+        - inventory_workflow_manager - Updated changes related to provisioning devices.
+        - provision_workflow_manager - Updated changes related to handle errors.
+        - site_workflow_manager - Updated changes in Site updation.
+        - network_settings_workflow_manager - Added attributes 'ipv4_global_pool_name'.
+        - template_workflow_manager - Removed attributes 'create_time', 'failure_policy', 'last_update_time',
+          'latest_version_time', 'parent_template_id', 'project_id', 'validation_errors', 'rollback_template_params' and
+          'rollback_template_content'.
+        - ise_radius_integration_workflow_manager - Removed the attributes 'port' and 'subscriber_name'. Added the attribute
+          'ise_integration_wait_time'.
+        - Changes in inventory and swim workflow manager modules.
+        - application_policy_application_set_count_info - new module
+        - application_policy_application_set_info - new module
+        - application_policy_application_set - new module
+        - applications_count_v2_info - new module
+        - applications_v2_info - new module
+        - applications_v2 - new module
+        - auth_token_create - new module
+        - authentication_policy_servers - new module
+        - device_reboot_apreboot - new module
+        - dna_event_snmp_config_info - new module
+        - event_snmp_config - new module
+        - event_webhook_read_info - new module
+        - flexible_report_content_info - new module
+        - flexible_report_execute - new module
+        - flexible_report_executions_info - new module
+        - flexible_report_schedule_info - new module
+        - flexible_report_schedule  - new module
+        - integration_settings_itsm_instances_info - new module
+        - integration_settings_status_info - new module
+        - ise_integration_status_info - new module
+        - lan_automation_sessions_info - new module
+        - lan_automation_update_device - new module
+        - lan_automation_update_v2 - new module
+        - lan_automation_update - new module
+        - lan_automation_v2 - new module
+        - network_device_user_defined_field_delete - new module
+        - users_external_authentication - new module
+        - users_external_servers_aaa_attribute - new module
+  6.15.0:
+    release_date: "2024-06-03"
+    changes:
+      release_summary: Fix module name.
+      minor_changes:
+        - Fix module name from network_device_config__info to configuration_archive_details_info.
+  6.16.0:
+    release_date: "2024-06-07"
+    changes:
+      release_summary: Code changes in workflow manager modules.
+      minor_changes:
+        - Added example playbooks in device_provision_workflow.yml
+        - Added API to validate the server address
+        - Minor bug fixes in device_credential_workflow_manager.py module
+        - Checking SNMP versions in events_and_notifications_workflow_manager.py module
+        - Added new attribute 'ise_integration_wait_time' in ise_radius_integration_workflow_manager.py
+        - Added example playbooks in network_compliance_workflow_manager.py
+        - Added detailed documentation in network_settings_workflow_manager.py
+        - Added the code for creating/updating/deleting events subscription notification with specified
+          destination and added the playbook and documentation with examples
+        - provision_workflow_manager.py - Added attribute 'provisioning'
+        - template_workflow_manager.py - Added attributes 'choices', 'failure_policy'
+        - events_and_notifications_workflow_manager.py - Added attributes 'webhook_event_notification',
+          'email_event_notification', 'syslog_event_notification'
+  6.17.0:
+    release_date: "2024-07-30"
+    changes:
+      release_summary: Code changes in workflow manager modules.
+      minor_changes:
+        - Added Circle CI support for integration testing.
+        - Adding pyzipper support in device_configs workflow manager module.
+        - Exporting export_device_details_limit in inventory workflow module.
+        - Adding run_compliance_batch_size support in network_compliance module.
+        - Changes in provision workflow manager module.
+        - Checking the device list in swim workflow manager module.
+        - UT and IT cases for worflow manager modules.
+        - Added 'user_role_workflow_manager' module to manage operations to create, update, and delete users and roles.
+        - Added 'rma_workflow_manager' module to manage RMA workflow.
+        - Added 'accesspoint_workflow_manager' module to manage access point configurations.
+        - discovery_intent.py - Changed attribute name 'desc' to 'description'.
+        - discovery_workflow_manager.py - Changed attribute name 'desc' to 'description'.
+        - events_and_notifications_worflow_manager.py - Changed attribute names from 'from_email', 'to_email', 'to send_email' and 'recipient_email'.
+        - inventory_intent.py - added attribute 'export_device_details_limit'.
+        - inventory_workflow_manager.py - added attribute 'export_device_details_limit'.
+        - ise_radius_integration_workflow_manager.py - changed the type of 'authentication_policy_server' from 'dict' to 'list'.
+        - network_compliance_workflow_manager.py - added attribute 'run_compliance_batch_size'.
+        - network_settings_workflow_manager.py - changed the type of network_management_details from 'dic' to 'list'.
+        - template_workflow_manager.py - added project_file and payload.
+  6.17.1:
+    release_date: "2024-08-09"
+    changes:
+      release_summary: Fix family name.
+      minor_changes:
+        - Fix family name from userand_roles to user_and_roles.
+  6.18.0:
+    release_date: "2024-08-30"
+    changes:
+      release_summary: Code changes in workflow manager modules.
+      minor_changes:
+        - Added 'fabric_sites_zones_workflow_manager.py' to manage fabric sites/zones and update the authentication profile template.
+        - Added 'sda_extranet_policies_workflow_manager' to provide SDA Extranet Policies for managing SDA Extranet Policy.
+        - Added Circle CI support for integration testing.
+        - Changes in inventory_workflow_manager to support maximum devices to resync, and resync timeout.
+        - Changes in network_settings_workflow_manager to support reserve ip subpools.
+        - Changes in provision_workflow_manager to support enhanced log messages.
+        - Changes in rma_workflow_manager module to support pre check for device replacement.
+        - Bug fixes in user_role_workflow_manager module.
+        - Changes in accesspoint_workflow_manager module.
+        - Changes in device_configs_backup_workflow_manager to support name of the site to which the device is assigned.
+        - inventory_workflow_manager.py - added attributes resync_device_count and resync_max_timeout
+        - accesspoint_workflow_manager.py - added attributes 'is_assigned_site_as_location', and other new attributes.
+        - device_configs_backup_workflow_manager.py. added attribute 'site'.
+  6.19.0:
+    release_date: "2024-09-25"
+    changes:
+      release_summary: Code changes in workflow manager modules.
+      minor_changes:
+        - Added 'fabric_transits_workflow_manager.py' to perform operations on SDA fabric transits.
+        - Changes in ise_radius_integration_workflow_manager module to check ise certification status.
+        - Setting dnac versions and compare for version based routing.
+        - Minor bug fixes in network_compliance_workflow_manager module.
+        - Changes in network_settings_workflow_manager module to support exception handling.
+        - Changes in rma_workflow_manager module.
+        - Changes in sda_extranet_policies_workflow_manager module.
+        - Changes in swim_workflow_manager module to support CCO image.
+        - Adding  support to update  password  in user_role_workflow_manager module.
+        - Unit test automation for worflow_manager modules.
+        - access_point_workflow_manager module.py - added attributes 'hostname' and 'management_ip_address'
+        - device_configs_backup_workflow_manager.py - added attributes 'hostname_list' and 'ip_address_list',
+          'site_list', 'mac_address_list', 'serial_number_list'
+        - device_configs_backup_workflow_manager.py - removed attributes 'hostname', 'ip_address', 'site', 'mac_address'
+          and 'serial_number'
+        - fabric_sites_zones_workflow_manager.py - added attribute 'fabric_type'.
+        - fabric_sites_zones_workflow_manager.py - removed attribute 'site_type'.
+        - swim_workflow_manager.py - added attribute 'cco_image_details'.
+        - user_role_workflow_manager - added attribute 'password_update'.
+  6.20.0:
+    release_date: "2024-10-03"
+    changes:
+      release_summary: Code changes in workflow manager modules.
+      minor_changes:
+        - Removing git release workflows.
+        - Removed sda_extranet_policies_workflow_manager.py module.
+        - Changes in network_compliance_workflow_manager module.
+        - Changes in user_role_workflow_manager module.
+        - Changes in inventory_workflow_manager module.
+        - network_settings_workflow_manager.py - added attributes 'wired_data_collection', 'wireless_telemetry', and 'netflow_collector'.
+        - provision_workflow_manager.py - added attribute 'force_provisioning'.
+        - accesspoint_workflow_manager.py - added attribute 'reboot_aps'.
+  6.21.0:
+    release_date: "2024-10-14"
+    changes:
+      release_summary: Code changes in workflow manager modules.
+      minor_changes:
+        - Added 'lan_automation_workflow_manager' to automate network discovery, deployment, and device configuration with LAN Automation.
+        - Added 'sda_fabric_devices_workflow_manager' to manage SDA fabric devices.
+        - Added 'sda_extranet_policies_workflow_manager' to manage SDA Extranet Policies.
+        - Added 'sda_fabric_virtual_networks_workflow_manager' to configure fabric VLANs, Virtual Networks, and Anycast Gateways.
+        - Added 'sda_host_port_onboarding_workflow_manager' to manage host port onboarding in SD-Access Fabric.
+        - Enhancements in swim_workflow_manager module.
+        - Changes in user_role_workflow_manager module.
+        - Changes in device_credential_workflow_manager module.
+        - Changes in accesspoint_workflow_manager module.
+        - Changes in events_and_notifications_workflow_manager module.
+        - Changes in sda_fabric_transits_workflow_manager module.
+        - Changes in inventory_workflow_manager module.
+        - Changes in ise_radius_integration_workflow_manager module.
+        - Enhancements in network_settings_workflow_manager module.
+        - Changes in dnac.py to support common APIs
+        - device_credential_workflow_manager.py - added attribute 'apply_credentials_to_site'.
+        - accesspoint_workflow_manager.py - added attribute 'factory_reset_aps'.
+        - Ansible utils requirement updated.
+  6.22.0:
+    release_date: "2024-10-25"
+    changes:
+      release_summary: Code changes in workflow manager modules.
+      minor_changes:
+        - Added 'lan_automation_workflow_manager' to automate network discovery, deployment, and device configuration with LAN Automation.
+        - Added 'sda_fabric_devices_workflow_manager' to manage SDA fabric devices.
+        - Bug fixes in accesspoint_workflow_manager module
+        - Changes in device_configs_backup_workflow_manager module
+        - Code enhancements in device_credential_workflow_manager module
+        - Enhancements in ise_radius_integration_workflow_manager module
+        - Code changes in network_compliance_workflow_manager module
+        - Bug fixes in network_settings_workflow_manager module
+        - Bug fixes in pnp_workflow_manager module
+        - Code changes in rma_workflow_manager module
+        - Code changes in sda_fabric_devices_workflow_manager module
+        - Code changes in sda_fabric_sites_zones_workflow_manager module
+        - Code changes in sda_fabric_virtual_networks_workflow_manager module
+        - Code changes in sda_host_port_onboarding_workflow_manager module
+        - Code changes in site_workflow_manager module
+        - Code changes in swim_workflow_manager module
+        - Code change in template_workflow_manager module
+        - Code change in user_role_manager module
+        - Changes in dnac.py
+        - inventory_workflow_manager.py - added attribute hostnames, serial_numbers and mac_addresses
+        - inventory_workflow_manager.py - Removed attribute hostname_list, serial_number_list and mac_address_list
+  6.23.0:
+    release_date: "2024-11-06"
+    changes:
+      release_summary: Code changes in workflow manager modules.
+      minor_changes:
+        - Changes in circleci to run test cases in integration branch
+        - Added support for bulk operations on multiple access points in accesspoint_workflow_manager
+        - Bug fixes in inventory_workflow_manager
+        - Enhancements in sda_fabric_devices_workflow_manager.py to support route distribution protocol
+        - Enhancements in sda_fabric_sites_zones_workflow_manager.py
+        - Bug fixes in sda_fabric_virtual_networks_workflow_manager.py
+        - Changes in site_workflow_manager
+        - accesspoint_workflow_manager - added attribute bulk_update_aps
+        - sda_fabric_devices_workflow_manager.py - added attribute route_distribution_protocol
+        - sda_fabric_sites_zones_workflow_manager.py - added attribute site_name_hierarchy and removed attribute site_name
+  6.24.0:
+    release_date: "2024-11-12"
+    changes:
+      release_summary: modifications to fix issues '#200'.
+      minor_changes:
+        - Removing duplicates in the discovery.py module. snmpRwCommunity property.
+        - Changes in circleci to run test cases in integration branch
+        - Added support for bulk operations on multiple access points in accesspoint_workflow_manager
+        - Bug fixes in inventory_workflow_manager
+        - Enhancements in sda_fabric_devices_workflow_manager.py to support route distribution protocol
+        - Enhancements in sda_fabric_sites_zones_workflow_manager.py
+        - Bug fixes in sda_fabric_virtual_networks_workflow_manager.py
+        - Changes in site_workflow_manager
+        - accesspoint_workflow_manager - added attribute bulk_update_aps
+        - sda_fabric_devices_workflow_manager.py - added attribute route_distribution_protocol
+        - sda_fabric_sites_zones_workflow_manager.py - added attribute site_name_hierarchy and removed attribute site_name
+  6.25.0:
+    release_date: "2024-11-27"
+    changes:
+      release_summary: Alias implementation.
+      minor_changes:
+        - Aliases were implemented to handle v1 and v2 of the API.
+        - Changes in circleci and yaml lint files
+        - Bug fixes in network_settings_workflow_manager
+        - Changes in sda_extranet_policy_workflow_manager
+        - Changes in site_workflow_manager
+        - Modifications due to documentation errors
+  6.25.1:
+    release_date: "2024-12-05"
+    changes:
+      release_summary: application of unapplied changes and Alias implementation
+      minor_changes:
+        - application of the changes made in pull request 207
+        - Bug fixes in accesspoint_workflow_manager module
+        - Changes in sda_fabric_devices_workflow_manager module
+        - Bug fixes in [sda_fabric_sites_zones_workflow_manager module
+        - Enhancements in [sda_fabric_virtual_networks_workflow_manager module to support batch operation.
+        - Changes in site_workflow_manager module
+        - Changes in template_workflow_manager
+        - Unit test modules added for pnp_workflow_manager module
+  6.26.0:
+    release_date: "2024-12-18"
+    changes:
+      release_summary: Changes in workflow manager modules
+      minor_changes:
+        - Added sample playbook for Device Configs Backup Module
+        - Changes in dnac.py file
+        - Bug fixes in accesspoint_workflow_manager module
+        - Enhancements in device_configs_backup_workflow_manager module to support unzipped backup file after download
+        - Changes in inventory_workflow_manager module
+        - Changes in ise_radius_integration_workflow_manager
+        - Changes in network_compliance_workflow_manager
+        - Changes in network_settings_workflow_manager
+        - Bug fixes in sda_fabric_devices_workflow_manager
+        - Bug fixes in sda_fabric_transits_workflow_manager
+        - Enhancements in sda_host_port_onboarding_workflow_manager module
+        - Changes in swim_workflow_manager module
+        - Enhancements in device_credential_workflow_manager module
+        - Bug fixes in lan_automation_workflow_manager module
+        - Enhancements in provision_workflow_manager module
+        - Bug fixes in pnp_workflow_manager module
+        - Bug fixes in template_workflow_manager module
+        - Supporting unmarking the devices in rma_workflow_manager module
+        - sda_fabric_devices_workflow_manager - attribute 'delete_fabric_device' was removed
+        - sda_host_port_onboarding_workflow_manager - attributes 'port_channels', 'fabric_site_name_hierarchy', 'port_assignments', 'wireless_ssids' were added
+        - sda_host_port_onboarding_workflow_manager - attributes 'port_channel_details', 'port_assignment_details' were removed
+        - device_configs_backup_workflow_manager - attribute 'unzip_backup' was added
+        - network_settings_workflow_manager - attribute 'force_delete' was added
+
+  6.27.0:
+    release_date: "2024-12-18"
+    changes:
+      release_summary: Added compatibility with Cisco version 2.3.7.9
+      minor_changes:
+        - aaa_services_count_v1_info - new module
+        - aaa_services_id_trend_analytics_v1 - new module
+        - aaa_services_id_v1_info - new module
+        - aaa_services_query_count_v1 - new module
+        - aaa_services_query_v1 - new module
+        - aaa_services_summary_analytics_v1 - new module
+        - aaa_services_top_n_analytics_v1 - new module
+        - aaa_services_trend_analytics_v1 - new module
+        - aaa_services_v1_info - new module
+        - application_visibility_network_devices_count_v1_info - new module
+        - application_visibility_network_devices_disable_app_telemetry_v1 - new module
+        - application_visibility_network_devices_disable_cbar_v1 - new module
+        - application_visibility_network_devices_enable_app_telemetry_v1 - new module
+        - application_visibility_network_devices_enable_cbar_v1 - new module
+        - application_visibility_network_devices_v1_info - new module
+        - assurance_tasks_count_v1_info - new module
+        - assurance_tasks_id_v1_info - new module
+        - assurance_tasks_v1_info - new module
+        - cisco_imcs_id_v1_info - new module
+        - cisco_imcs_id_v1 - new module
+        - cisco_imcs_v1_info - new module
+        - cisco_imcs_v1 - new module
+        - compliance_device_create_v1 - new module
+        - connection_modesetting_v1_info - new module
+        - connection_modesetting_v1 - new module
+        - dhcp_services_count_v1_info - new module
+        - dhcp_services_id_trend_analytics_v1 - new module
+        - dhcp_services_id_v1_info - new module
+        - dhcp_services_query_count_v1 - new module
+        - dhcp_services_query_v1 - new module
+        - dhcp_services_summary_analytics_v1 - new module
+        - dhcp_services_top_n_analytics_v1 - new module
+        - dhcp_services_trend_analytics_v1 - new module
+        - dhcp_services_v1_info - new module
+        - diagnostic_tasks_id_detail_v1_info - new module
+        - diagnostic_tasks_id_v1_info - new module
+        - dna_health_score_definitions_count_v1_info - new module
+        - dna_network_devices_query_count_v1 - new module
+        - dns_services_count_v1_info - new module
+        - dns_services_id_trend_analytics_v1 - new module
+        - dns_services_id_v1_info - new module
+        - dns_services_query_count_v1 - new module
+        - dns_services_query_v1 - new module
+        - dns_services_summary_analytics_v1 - new module
+        - dns_services_top_n_analytics_v1 - new module
+        - dns_services_trend_analytics_v1 - new module
+        - dns_services_v1_info - new module
+        - fabric_site_health_summaries_count_v1_info - new module
+        - fabric_site_health_summaries_id_trend_analytics_v1_info - new module
+        - fabric_site_health_summaries_id_v1_info - new module
+        - fabric_site_health_summaries_v1_info - new module
+        - fabric_summary_v1_info - new module
+        - fabrics_fabric_id_switch_wireless_setting_reload_v1 - new module
+        - fabrics_fabric_id_switch_wireless_setting_v1_info - new module
+        - fabrics_fabric_id_switch_wireless_setting_v1 - new module
+        - fabrics_fabric_id_wireless_multicast_v1_info - new module
+        - fabrics_fabric_id_wireless_multicast_v1 - new module
+        - field_notices_results_network_devices_count_v1_info - new module
+        - field_notices_results_network_devices_network_device_id_notices_count_v1_info - new module
+        - field_notices_results_network_devices_network_device_id_notices_id_v1_info - new module
+        - field_notices_results_network_devices_network_device_id_notices_v1_info - new module
+        - field_notices_results_network_devices_network_device_id_v1_info - new module
+        - field_notices_results_network_devices_v1_info - new module
+        - field_notices_results_notices_id_network_devices_count_v1_info - new module
+        - field_notices_results_notices_id_network_devices_network_device_id_v1_info - new module
+        - field_notices_results_notices_id_network_devices_v1_info - new module
+        - field_notices_results_notices_id_v1_info - new module
+        - field_notices_results_notices_v1_info - new module
+        - field_notices_trials_v1_info - new module
+        - field_notices_trials_v1 - new module
+        - field_notices_trigger_scan_v1 - new module
+        - floors_floor_id_access_point_positions_bulk_change_v2 - new module
+        - floors_floor_id_access_point_positions_count_v2_info - new module
+        - floors_floor_id_access_point_positions_v2_info - new module
+        - floors_floor_id_planned_access_point_positions_assign_access_point_positions_v2 - new module
+        - floors_floor_id_planned_access_point_positions_bulk_change_v2 - new module
+        - floors_floor_id_planned_access_point_positions_bulk_v2 - new module
+        - floors_floor_id_planned_access_point_positions_count_v2_info - new module
+        - floors_floor_id_planned_access_point_positions_id_v2 - new module
+        - floors_floor_id_planned_access_point_positions_v2_info - new module
+        - icap_capture_files_count_v1_info - new module
+        - icap_capture_files_id_download_v1_info - new module
+        - icap_capture_files_id_v1_info - new module
+        - icap_capture_files_v1_info - new module
+        - icap_clients_id_stats_v1 - new module
+        - icap_radios_id_stats_v1 - new module
+        - icap_settings_configuration_models_id_delete_deploy_v1 - new module
+        - icap_settings_configuration_models_preview_activity_id_deploy_v1 - new module
+        - icap_settings_configuration_models_preview_activity_id_network_device_status_details_v1_info - new module
+        - icap_settings_configuration_models_preview_activity_id_network_devices_network_device_id_config_v1_info - new module
+        - icap_settings_configuration_models_preview_activity_id_network_devices_network_device_id_config_v1 - new module
+        - icap_settings_configuration_models_preview_activity_id_v1 - new module
+        - icap_settings_configuration_models_v1 - new module
+        - icap_settings_count_v1_info - new module
+        - icap_settings_deploy_id_delete_deploy_v1 - new module
+        - icap_settings_deploy_v1 - new module
+        - icap_settings_device_deployments_count_v1_info - new module
+        - icap_settings_device_deployments_v1_info - new module
+        - icap_settings_v1_info - new module
+        - icap_spectrum_interference_device_reports_v1_info - new module
+        - icap_spectrum_sensor_reports_v1_info - new module
+        - images_cco_sync_v1 - new module
+        - images_id_sites_site_id_tag_golden_v1 - new module
+        - images_id_sites_site_id_untag_golden_v1 - new module
+        - images_id_v1 - new module
+        - intent_network_devices_query_count_v1 - new module
+        - intent_network_devices_query_v1 - new module
+        - interfaces_id_trend_analytics_v1 - new module
+        - ipam_global_ip_address_pools_count_v1_info - new module
+        - ipam_global_ip_address_pools_global_ip_address_pool_id_subpools_count_v1_info - new module
+        - ipam_global_ip_address_pools_global_ip_address_pool_id_subpools_v1_info - new module
+        - ipam_global_ip_address_pools_id_v1_info - new module
+        - ipam_global_ip_address_pools_id_v1 - new module
+        - ipam_global_ip_address_pools_v1_info - new module
+        - ipam_global_ip_address_pools_v1 - new module
+        - ipam_site_ip_address_pools_count_v1_info - new module
+        - ipam_site_ip_address_pools_id_v1_info - new module
+        - ipam_site_ip_address_pools_id_v1 - new module
+        - ipam_site_ip_address_pools_v1_info - new module
+        - ipam_site_ip_address_pools_v1 - new module
+        - license_deregister_v1 - new module
+        - license_last_operation_status_v1_info - new module
+        - license_register_v1 - new module
+        - license_renew_v1 - new module
+        - license_status_v1_info - new module
+        - network_applications_count_v1_info - new module
+        - network_applications_trend_analytics_v1 - new module
+        - network_applications_v1_info - new module
+        - network_bugs_results_bugs_count_v1_info - new module
+        - network_bugs_results_bugs_id_network_devices_count_v1_info - new module
+        - network_bugs_results_bugs_id_network_devices_network_device_id_v1_info - new module
+        - network_bugs_results_bugs_id_network_devices_v1_info - new module
+        - network_bugs_results_bugs_id_v1_info - new module
+        - network_bugs_results_bugs_v1_info - new module
+        - network_bugs_results_network_devices_count_v1_info - new module
+        - network_bugs_results_network_devices_network_device_id_bugs_count_v1_info - new module
+        - network_bugs_results_network_devices_network_device_id_bugs_id_v1_info - new module
+        - network_bugs_results_network_devices_network_device_id_bugs_v1_info - new module
+        - network_bugs_results_network_devices_network_device_id_v1_info - new module
+        - network_bugs_results_network_devices_v1_info - new module
+        - network_bugs_results_trend_count_v1_info - new module
+        - network_bugs_results_trend_v1_info - new module
+        - network_bugs_trials_v1_info - new module
+        - network_bugs_trials_v1 - new module
+        - network_bugs_trigger_scan_v1 - new module
+        - network_device_config_files_count_v1_info - new module
+        - network_device_config_files_id_download_masked_v1 - new module
+        - network_device_config_files_id_download_unmasked_v1 - new module
+        - network_device_config_files_id_v1_info - new module
+        - network_device_config_files_v1_info - new module
+        - network_device_maintenance_schedules_count_v1_info - new module
+        - network_device_maintenance_schedules_id_v1_info - new module
+        - network_device_maintenance_schedules_id_v1 - new module
+        - network_device_maintenance_schedules_v1_info - new module
+        - network_device_maintenance_schedules_v1 - new module
+        - network_device_replacements_id_v1_info - new module
+        - network_device_replacements_v1_info - new module
+        - network_devices_delete_with_cleanup_v1 - new module
+        - network_devices_delete_without_cleanup_v1 - new module
+        - network_devices_id_v1_info - new module
+        - network_devices_intent_count_v1_info - new module
+        - network_devices_intent_v1_info - new module
+        - network_devices_top_n_analytics_v1 - new module
+        - network_profiles_for_sites_profile_id_templates_count_v1_info - new module
+        - network_profiles_for_sites_profile_id_templates_v1_info - new module
+        - projects_count_v1_info - new module
+        - projects_project_id_v1_info - new module
+        - projects_project_id_v1 - new module
+        - projects_v1_info - new module
+        - projects_v1 - new module
+        - qos_policy_setting_v1_info - new module
+        - qos_policy_setting_v1 - new module
+        - sda_pending_fabric_events_apply_v1 - new module
+        - sda_pending_fabric_events_v1_info - new module
+        - security_advisories_results_advisories_count_v1_info - new module
+        - security_advisories_results_advisories_id_network_devices_count_v1_info - new module
+        - security_advisories_results_advisories_id_network_devices_network_device_id_v1_info - new module
+        - security_advisories_results_advisories_id_network_devices_v1_info - new module
+        - security_advisories_results_advisories_id_v1_info - new module
+        - security_advisories_results_advisories_v1_info - new module
+        - security_advisories_results_network_devices_network_device_id_advisories_count_v1_info - new module
+        - security_advisories_results_network_devices_network_device_id_advisories_id_v1_info - new module
+        - security_advisories_results_network_devices_network_device_id_advisories_v1_info - new module
+        - security_advisories_results_network_devices_network_device_id_v1_info - new module
+        - security_advisories_results_network_devices_v1_info - new module
+        - security_advisories_results_trend_count_v1_info - new module
+        - security_advisories_results_trend_v1_info - new module
+        - security_advisories_trials_v1_info - new module
+        - security_advisories_trials_v1 - new module
+        - security_advisories_trigger_scan_v1 - new module
+        - site_health_summaries_id_trend_analytics_v1_info - new module
+        - site_health_summaries_trend_analytics_v1_info - new module
+        - site_kpi_summaries_count_v1_info - new module
+        - site_kpi_summaries_id_v1_info - new module
+        - site_kpi_summaries_query_count_v1 - new module
+        - site_kpi_summaries_query_v1 - new module
+        - site_kpi_summaries_summary_analytics_v1_info - new module
+        - site_kpi_summaries_summary_analytics_v1 - new module
+        - site_kpi_summaries_top_n_analytics_v1_info - new module
+        - site_kpi_summaries_trend_analytics_v1 - new module
+        - site_kpi_summaries_v1_info - new module
+        - site_wise_images_summary_v1_info - new module
+        - sites_site_id_wireless_settings_ssids_id_update_v1 - new module
+        - tags_interfaces_members_associations_bulk_v1 - new module
+        - tags_network_devices_members_associations_bulk_v1 - new module
+        - templates_template_id_network_profiles_for_sites_bulk_create_v1 - new module
+        - templates_template_id_network_profiles_for_sites_bulk_delete_v1 - new module
+        - templates_template_id_network_profiles_for_sites_count_v1_info - new module
+        - templates_template_id_network_profiles_for_sites_profile_id_delete_v1 - new module
+        - templates_template_id_network_profiles_for_sites_v1_info - new module
+        - templates_template_id_network_profiles_for_sites_v1 - new module
+        - templates_template_id_versions_commit_v1 - new module
+        - templates_template_id_versions_count_v1_info - new module
+        - templates_template_id_versions_v1_info - new module
+        - templates_template_id_versions_version_id_v1_info - new module
+        - transit_network_health_summaries_count_v1_info - new module
+        - transit_network_health_summaries_id_trend_analytics_v1_info - new module
+        - transit_network_health_summaries_id_v1_info - new module
+        - transit_network_health_summaries_v1_info - new module
+        - virtual_network_health_summaries_count_v1_info - new module
+        - virtual_network_health_summaries_id_trend_analytics_v1_info - new module
+        - virtual_network_health_summaries_id_v1_info - new module
+        - virtual_network_health_summaries_v1_info - new module
+        - wireless_accesspoint_configuration_count_v1_info - new module
+        - wireless_controllers_anchor_capable_devices_v1_info - new module
+        - wireless_controllers_mesh_ap_neighbours_count_v1_info - new module
+        - wireless_controllers_mesh_ap_neighbours_v1_info - new module
+        - wireless_controllers_network_device_id_ap_authorization_lists_v1_info - new module
+        - wireless_profiles_id_policy_tags_bulk_v1 - new module
+        - wireless_profiles_id_policy_tags_count_v1_info - new module
+        - wireless_profiles_id_policy_tags_policy_tag_id_v1_info - new module
+        - wireless_profiles_id_policy_tags_policy_tag_id_v1 - new module
+        - wireless_profiles_id_site_tags_bulk_v1 - new module
+        - wireless_profiles_id_site_tags_count_v1_info - new module
+        - wireless_profiles_id_site_tags_site_tag_id_v1_info - new module
+        - wireless_profiles_id_site_tags_site_tag_id_v1 - new module
+        - wireless_profiles_id_site_tags_v1_info - new module
+        - wireless_settings_anchor_groups_count_v1_info - new module
+        - wireless_settings_anchor_groups_id_v1_info - new module
+        - wireless_settings_anchor_groups_id_v1 - new module
+        - wireless_settings_anchor_groups_v1_info - new module
+        - wireless_settings_anchor_groups_v1 - new module
+        - wireless_settings_ap_authorization_lists_count_v1_info - new module
+        - wireless_settings_ap_authorization_lists_id_v1_info - new module
+        - wireless_settings_ap_authorization_lists_id_v1 - new module
+        - wireless_settings_ap_authorization_lists_v1_info - new module
+        - wireless_settings_ap_authorization_lists_v1 - new module
+        - wireless_settings_ap_profiles_count_v1_info - new module
+        - wireless_settings_ap_profiles_id_v1_info - new module
+        - wireless_settings_ap_profiles_id_v1 - new module
+        - wireless_settings_ap_profiles_v1_info - new module
+        - wireless_settings_ap_profiles_v1 - new module
+        - wireless_settings_network_device_id_assign_anchor_managed_ap_locations_v1 - new module
+        - wireless_settings_power_profiles_count_v1_info - new module
+        - wireless_settings_power_profiles_id_v1_info - new module
+        - wireless_settings_power_profiles_id_v1 - new module
+        - wireless_settings_power_profiles_v1_info - new module
+        - wireless_settings_power_profiles_v1 - new module
+        - wireless_settings_ssids_override_at_sites_v1_info - new module
+
+  6.28.0:
+    release_date: "2025-01-08"
+    changes:
+      release_summary: Fixed issues
+      minor_changes:
+        - Fixed issues in module sda_anycast_gateways_v1
+        - Fixed issues in module sda_layer3_virtual_networks_v1
+
+  6.29.0:
+    release_date: "2025-02-05"
+    changes:
+      release_summary: Changes in workflow manager modules
+      minor_changes:
+        - Changes in device_credential_workflow_manager module
+        - Changes in inventory_workflow_manager module
+        - Changes in ise_radius_integration_workflow_manager module
+        - Changes in network_settings_workflow_manager module
+        - Enhancements in provision_workflow_manager module
+        - Bug fixes in sda_fabric_devices_workflow_manager
+        - Bug fixes in sda_fabric_transits_workflow_manager
+        - Bug fixes in sda_fabric_transits_workflow_manager module
+        - Bug fixes in site_workflow_manager module
+        - Bug fixes in swim_workflow_manager module
+        - Bug fixes in template_workflow_manager module
+        - Bug fixes in user_role_workflow_manager module
+        - sda_fabric_devices_workflow_manager - attribute 'route_distribution_protocol' was removed
+
+  6.30.0:
+    release_date: "2025-02-20"
+    changes:
+      release_summary: Changes in workflow manager modules
+      minor_changes:
+        - Changes in device_credential_workflow_manager module
+        - Changes in inventory_workflow_manager module
+        - Changes in pnp_workflow_manager module
+        - Changes in site_workflow_manager module
+        - Changes in provision_workflow_manager module
+        - Changes in sda_fabric_virtual_networks_workflow_manager module
+        - Changes in sda_host_port_onboarding_workflow_manager module
+        - site_workflow_manager - attribute 'force_upload_floor_image' was added
+        - template_workflow_manager - attribute 'new_template_name' was added
+        - playbooks were added
+        - Some parameters were modified in tag_member_v1_info
+
+  6.30.1:
+    release_date: "2025-02-26"
+    changes:
+      release_summary: Changes in Swim workflow manager modules
+      minor_changes:
+        - Changes in swim_workflow_manager module to support list of images
+
+  6.30.2:
+    release_date: "2025-02-28"
+    changes:
+      release_summary: Update Readme
+      minor_changes:
+        - Update Readme
+
+  6.31.0:
+    release_date: "2025-03-20"
+    changes:
+      release_summary: Changes in workflow manager modules and Red Hat Standards Management
+      minor_changes:
+        - Changes in device_credential_workflow_manager module
+        - Changes in network_settings_workflow_manager module
+        - Changes in provision_workflow_manager module
+        - Changes in sda_fabric_site_zones_workflow_manager module
+        - Changes in sda_fabric_virtual_networks_workflow_manager module
+        - Changes in swim_workflow_manager module
+        - Adding Unit Test automation in github actions
+        - sda_fabric_site_zones_workflow_manager - attributes 'apply_pending_events',  'pre_auth_acl', was added
+  6.31.1:
+    release_date: "2025-03-28"
+    changes:
+      release_summary: Changes in format
+      minor_changes:
+        - The file format was changed to conform to the requested standards.
+  6.31.2:
+    release_date: "2025-03-28"
+    changes:
+      release_summary: File exception
+      minor_changes:
+        - noqa all is used to ignore rules in some files.
+  6.31.3:
+    release_date: "2025-03-28"
+    changes:
+      release_summary: Add .ansible-lint file.
+      minor_changes:
+        - .ansible-lint is added to handle a formatting issue in Red Hat.
+  6.32.0:
+    release_date: "2025-04-30"
+    changes:
+      release_summary: Changes in workflow manager modules
+      minor_changes:
+        - Added 'application_policy_workflow_manager' for managing queuing profiles, applications, sets and policies
+        - Added 'assurance_device_health_score_settings_workflow_manager' for managing assurance Health score settings
+        - Added 'assurance_icap_settings_workflow_manager' for configuring and managing ICAP (Intelligent Capture) settings
+        - Added 'assurance_issue_workflow_manager' for managing assurance global profile settings and issue resolution
+        - Added 'network_profile_switching_workflow_manager' for managing switch profiles
+        - Added 'network_profile_wireless_workflow_manager' for managing network wireless profile
+        - Added 'path_trace_workflow_manager' for managing PathTrace settings
+        - Added 'tags_workflow_manager' for create, update, delete Tags and Tag Memberships
+        - Added 'wireless_design_workflow_manager' for managing wireless design elements
+        - Changes in 'application_policy_workflow_manager' module
+        - Changes in 'assurance_icap_settings_workflow_manager' module
+        - Changes in 'assurance_issue_workflow_manager' module
+        - Changes in 'network_profile_switching_workflow_manager' module
+        - Changes in 'network_profile_wireless_workflow_manager' module
+        - Changes in 'tags_workflow_manager' module
+        - Changes in 'wireless_design_workflow_manager' module
+        - Added attribute 'device_type' in 'assurance_issue_workflow_manager' module
+        - Added attribute 'ssid_name' in 'network_profile_wireless_workflow_manager' module
+        - Removed attributes 'ssid', 'onboarding_templates' in 'network_profile_wireless_workflow_manager' module
+        - Added attribute 'minimum_rssi' in 'wireless_design_workflow_manager' module
+        - Removed attribute 'minimum_rss' in 'wireless_design_workflow_manager' module
+        - changing ansible.utils 6.x.y
+  6.33.0:
+    release_date: "2025-05-09"
+    changes:
+      release_summary: Changes in workflow manager modules
+      minor_changes:
+        - Changes in 'application_policy_workflow_manager' module
+        - Changes in 'assurance_issue_workflow_manager' module
+        - Changes in 'device_configs_backup_workflow_manager' module
+        - Changes in 'device_credential_backup_workflow_manager' module
+        - Changes in 'discovery_workflow_manager' module
+        - Changes in 'events_and_notifications_workflow_manager' module
+        - Changes in 'inventory_workflow_manager' module
+        - Changes in 'ise_radius_integration_workflow_manager' module
+        - Changes in 'lan_automation_workflow_manager' module
+        - Changes in 'network_compliance_workflow_manager' module
+        - Changes in 'network_settings_workflow_manager' module
+        - Changes in 'pnp_workflow_manager' module
+        - Changes in 'provision_workflow_manager' module
+        - Changes in 'sda_extranet_policies_workflow_manager' module
+        - Changes in 'sda_fabric_devices_workflow_manager' module
+        - Changes in 'sda_fabric_sites_zones_workflow_manager' module
+        - Changes in 'sda_fabric_transits_workflow_manager' module
+        - Changes in 'sda_fabric_virtual_networks_workflow_manager' module
+        - Changes in 'sda_host_onboarding_workflow_manager' module
+        - Changes in 'swim_workflow_manager' module
+        - Changes in 'template_workflow_manager' module
+        - Changes in 'user_and_roles_workflow_manager' module
+        - Removed attributes 'application_set_name' in 'application_policy_workflow_manager' module
+        - Added attribute 'devices_maintenance_schedule' in 'inventory_workflow_manager' module
+        - Added attributes 'ipv4_total_addresses', 'ipv4_unassignable_addresses', 'ipv4_assigned_addresses', 'ipv4_default_assigned_addresses', 'ipv6_total_addresses', 'ipv6_unassignable_addresses', 'ipv6_assigned_addresses', 'ipv6_default_assigned_addresses' in 'network_settings_workflow_manager' module
+        - Added attribute 'sda_fabric_gateway_limit' in 'sda_fabric_virtual_networks_workflow_manager' module
+        - Added attribute 'sub_package_images' in 'swim_workflow_manager' module
+
+  6.33.1:
+    release_date: "2025-05-12"
+    changes:
+      release_summary: Changes in reserve_ip_subpool modules
+      minor_changes:
+        - Correction of issue 266 in the reserve_ip_subpool modules
+
+  6.33.2:
+    release_date: "2025-05-13"
+    changes:
+      release_summary: Changes in request modules
+      minor_changes:
+        - modify problems in requests to the API
+
+  6.34.0:
+    release_date: "2025-06-03"
+    changes:
+      release_summary: Added compatibility with Cisco version 3.1.3.0
+      minor_changes:
+        - Added compatibility with Cisco version 3.1.3.0 -all corresponding modules were added-.
+        - API Modules 2_2_2_3, 2_2_3_3, 2_3_3_0 were removed
+        - Changes in assurance_issue_workflow_manager workflow manager module
+        - New enhancment in template_workflow_manager workflow manager module
+        - Added attribute 'resource_parameters' and 'copy_config' in 'template_workflow_manager' module
+        - All alias modules were removed  -*v1-.
+
+  6.35.0:
+    release_date: "2025-06-12"
+    changes:
+      release_summary: Changes in workflow manager module
+      minor_changes:
+        - Changes in application_policy_workflow_manager workflow manager module
+        - Changes in assurance_device_health_score_settings_workflow_manager module
+        - Changes in assurance_issue_workflow_manager workflow manager module
+        - Changes in path_trace_workflow_manager module
+        - Removed attribute 'application_sets' and 'application' in 'application_policy_workflow_manager' module
+        - Removed attribute 'control_path'  in 'path_trace_workflow_manager' module
+
+  6.36.0:
+    release_date: "2025-07-04"
+    changes:
+      release_summary: Changes in workflow manager module
+      bugfixes:
+        - Fixed get in sites_telemetry_settings module
+      minor_changes:
+        - Update dnacentersdk requirement from 2.7.0 to 2.10.1
+        - Changes in lan_automation_create module
+        - Added create in configuration_template module
+
+  6.37.0:
+    release_date: "2025-07-22"
+    changes:
+      release_summary: Changes in workflow manager module
+      minor_changes:
+        - Changes in networks_profile module
+        - Changes in validation.py module
+        - Adding log messages and minor documentation changes in accesspoint_workflow_manager module
+        - Changes in application_policy_workflow_manager workflow manager module
+        - Enhancements in assurance_issue_workflow_manager module to support ignore duration
+        - Documentation changes in device_configs_backup_workflow_manager module
+        - Changes in device_credential_workflow_manager module
+        - Changes in discovery_workflow_manager module
+        - Changes in inventory_workflow_manager module
+        - Changes in network_profile_switching_workflow_manager module
+        - Changes in network_profile_wireless_workflow_manager module
+        - Changes in path_trace_workflow_manager module
+        - Changes in pnp_workflow_manager module
+        - Changes in sda_fabric_virtual_networks_workflow_manager module
+        - Changes in sda_host_port_onboarding_workflow_manager module
+        - Changes in provision_workflow_manager module
+        - Changes in site_workflow_manager module
+        - Changes in swim_workflow_manager module
+        - Changes in tags_workflow_manager module
+        - Changes in template_workflow_manager module
+        - Changes in user_role_workflow_manager module
+        - Changes in wireless_design_workflow_manger module
+        - Added attribute 'ignore_duration' in assurance_issue_workflow_manager module
+        - Added attribute 'new_name' in tags_workflow_manager module
+        - Added attributes 'commit' and 'version' in template_workflow_manager module
+
+  6.38.0:
+    release_date: "2025-08-07"
+    changes:
+      release_summary: Changes in workflow manager module
+      minor_changes:
+        - Changes in device_configs_backup_workflow_manager module
+        - Documentation changes in inventory_workflow_manager module
+        - Changes in network_settings_workflow_manager module
+        - Changes in sda_fabric_devices_workflow_manager module
+        - Changes in sda_fabric_multicast_workflow_manager module
+        - Changes in site_workflow_manager module
+        - Changes in template_workflow_manager module
+        - Changes in dnac.py module
+        - Added attribute 'config_file_types' in device_configs_backup_workflow_manager module
+        - Added attribute 'device_controllability_details' in network_settings_workflow_manager module
+        - Added attribute 'wireless_controller_settings' in sda_fabric_devices_workflow_manager module
+        - Added attribute 'projects' in template_workflow_manager module
+
+  6.39.0:
+    release_date: "2025-08-18"
+    changes:
+      release_summary: Enhancements in workflow manager modules
+      minor_changes:
+        - Changes in assurance_icap_settings_workflow_manager module
+        - Documentation changes in assurance_issue_workflow_manager module
+        - Changes in inventory_workflow_manager module
+        - Changes in provision_workflow_manager module
+        - Changes in sda_host_port_onboarding_workflow_manager module
+        - Changes in sda_fabric_devices_workflow_manager module
+        - Changes in template_workflow_manager module
+        - Added attribute 'template_description' in template_workflow_manager module
+        - Removed attribute 'description' in template_workflow_manager module
+
+  6.40.0:
+    release_date: "2025-09-17"
+    changes:
+      release_summary: Enhancements in workflow manager modules
+      minor_changes:
+        - Changes in assurance_icap_settings_workflow_manager module
+        - Changes in assurance_issue_workflow_manager module
+        - Changes in inventory_workflow_manager module
+        - Changes in network_profile_switching_workflow_manager module
+        - Changes in network_settings_workflow_manager module
+        - Changes in sda_fabric_devices_workflow_manager module
+        - Changes in sda_fabric_sites_zones_workflow_manager module
+        - Changes in sda_fabric_transits_workflow_manager module
+        - Changes in sda_virtual_networks_workflow_manager module
+        - Changes in template_workflow_manager module
+        - Added attribute 'slots' in assurance_icap_settings_workflow_manager module
+        - Removed attribute 'slot' in assurance_icap_settings_workflow_manager module
+        - Added attribute 'transit_site_hierarchy' in sda_fabric_transits_workflow_manager module
+        - Added attributes 'wireless_flooding_enable', 'resource_guard_enable', 'flooding_address_assignment', 'flooding_address' in sda_fabric_transits_workflow_manager module
+
+  6.41.0:
+    release_date: "2025-10-26"
+    changes:
+      release_summary: Enhancements in workflow manager modules
+      minor_changes:
+        - Changes limit and offset from float to int in all info modules
+        - Changes in network_settings_workflow_manager module
+        - Changes in path_trace_workflow_manager module
+        - Changes in sda_fabric_virtual_networks_workflow_manager module
+        - Changes in sda_host_port_onboarding_workflow_manager module
+        - Changes in template_workflow_manager module
+        - Added attribute native_vlan_id and allowed_vlan_ranges in sda_host_port_onboarding_workflow_manager module
+
+  6.42.0:
+    release_date: "2025-11-17"
+    changes:
+      release_summary: Enhancements in workflow manager modules
+      minor_changes:
+        - New module 'backup_and_restore_workflow_manager' for backup and restore workflow management
+        - New module 'fabric_devices_info_workflow_manager' for gathering fabric device information
+        - New module 'network_devices_info_workflow_manager' for gathering network device information
+        - New module 'reports_workflow_manager' for managing reports
+        - New module 'wired_campus_automation_workflow_manager' for managing wired campus automation
+        - Enhancements in 'lan_automation_workflow_manager' to support port channel
+        - Enhancements in 'pnp_workflow_manager' to support authorization
+        - Changes in accesspoint_workflow_manager module
+        - Changes in application_policy_workflow_manager module
+        - Changes in ise_radius_integration_workflow_manager module
+        - Changes in network_profile_wireless_workflow_manager module
+        - Changes in network_settings_workflow_manager module
+        - Changes in provision_workflow_manager module
+        - Changes in sda_fabric_sites_zones_workflow_manager module
+        - Changes in swim_workflow_manager module
+        - Changes in template_workflow_manager module
+        - Changes in wireless_design_workflow_manager module
+        - Added 'feature_template_designs' attribute in network_profile_wireless_workflow_manager module
+        - Added 'authorize' attribute in network_profile_wireless_workflow_manager module
+        - Added 'ap_authorization_list_name', 'authorize_mesh_and_non_mesh_aps', 'feature_template'  attributes in provision_workflow_manager module
+        - Added 'image_name', sync_cco, image_distribution_timeout, device_tag, image_activation_timeout, compatible_devices in swim_workflow_manager module
+        - Added 'profile_names' in template_workflow_manager module 
+
+  6.43.0:
+    release_date: "2025-12-08"
+    changes:
+      release_summary: Enhancements in workflow manager modules
+      minor_changes:
+        - New module 'accesspoint_location_workflow_manager' to manage Access point planned position in the floor
+        - Changes in accesspoint_workflow_manager module
+        - Changes in backup_and_restore_workflow_manager module
+        - Changes in inventory_workflow_manager module
+        - Changes in lan_automation_workflow_manager module
+        - Changes in network_devices_info_workflow_manager module
+        - Changes in network_profile_wireless_workflow_manager module
+        - Changes in pnp_workflow_manager module
+        - Changes in reports_workflow_manager module
+        - Changes in sda_fabric_virtual_networks_workflow_manager module
+        - Changes in sda_host_port_onboarding_workflow_manager module
+        - Changes in swim_workflow_manager module
+        - Changes in wireless_design_workflow_manager module
+        - Added 'backup_task_timeout' and 'restore_task_timeout'  attributes in backup_and_restore_workflow_manager module
+        - Added 'sda_fabric_port_channel_limit'  attribute in sda_host_port_onboarding_workflow_manager module
+        - Added 'convert_to_wlc'  attribute in swim_workflow_manager module
+        - Added 'feature_template_config'  attribute in wireless_design_workflow_manager module

@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_svm - new option ``services`` to allow and/or enable protocol services.
+  - na_ontap_svm - new option ``ignore_rest_unsupported_options`` to ignore older ZAPI options not available in REST.
+  - na_ontap_svm - ignore ``aggr_list`` with ``'*'`` when using REST.

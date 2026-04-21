@@ -1,0 +1,6 @@
+---
+bugfixes:
+  - na_ontap_quotas - fix default tree quota rule gets modified when ``quota_target`` is set in REST.
+  - na_ontap_quotas - fix user/group quota rule without qtree gets modified when ``qtree`` is set.
+minor_changes:
+  - na_ontap_quotas - for qtree type, allow quota_target in path format /vol/vol_name/qtree_name in REST.

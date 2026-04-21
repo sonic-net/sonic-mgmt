@@ -1,0 +1,104 @@
+---
+- name: NFS Server Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+
+  tasks:
+    - name: Create NFS server with kdctype as Windows
+      nfsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        host_name: "dummy_nas23"
+        is_secure_enabled: true
+        kerberos_domain_controller_type: "WINDOWS"
+        kerberos_domain_controller_username: "user"
+        kerberos_domain_controller_password: "**"
+        is_extended_credentials_enabled: true
+        nfs_v4_enabled: true
+        state: "present"
+
+    - name: Create NFS server with kdctype as Windows - Idempotency
+      nfsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        host_name: "dummy_nas23"
+        is_secure_enabled: true
+        kerberos_domain_controller_type: "WINDOWS"
+        kerberos_domain_controller_username: "user"
+        kerberos_domain_controller_password: "**"
+        is_extended_credentials_enabled: true
+        nfs_v4_enabled: true
+        state: "present"
+
+    - name: Get NFS server details
+      nfsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        state: "present"
+
+    - name: Delete NFS server with windows kdctype
+      nfsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        kerberos_domain_controller_username: "user"
+        kerberos_domain_controller_password: "**"
+        remove_spn_from_kerberos: true
+        state: "absent"
+
+    - name: Create NFS server with kdctype as Unix
+      nfsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        host_name: "dummy_nas23"
+        is_secure_enabled: true
+        kerberos_domain_controller_type: "UNIX"
+        is_extended_credentials_enabled: true
+        nfs_v4_enabled: true
+        state: "present"
+
+    - name: Create NFS server with kdctype as Unix - Idempotency
+      nfsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        host_name: "dummy_nas23"
+        is_secure_enabled: true
+        kerberos_domain_controller_type: "UNIX"
+        is_extended_credentials_enabled: true
+        nfs_v4_enabled: true
+        state: "present"
+
+    - name: Delete NFS server
+      nfsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        kerberos_domain_controller_username: "user"
+        kerberos_domain_controller_password: "**"
+        remove_spn_from_kerberos: true
+        state: "absent"

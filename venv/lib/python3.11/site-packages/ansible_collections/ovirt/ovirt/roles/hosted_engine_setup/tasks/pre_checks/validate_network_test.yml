@@ -1,0 +1,32 @@
+---
+- name: Validate network connectivity check configuration
+  block:
+    - name: Fail if he_network_test is not valid
+      ansible.builtin.fail:
+        msg: "Invalid he_network_test defined"
+      changed_when: true
+      when: he_network_test not in ['dns', 'ping', 'tcp', 'none']
+    - name: Validate TCP network connectivity check parameters
+      when: he_network_test == 'tcp'
+      block:
+        - name: Debug var he_tcp_t_address
+          ansible.builtin.debug:
+            var: he_tcp_t_address
+        - name: Fail if he_tcp_t_address is not defined
+          ansible.builtin.fail:
+            msg: "No he_tcp_t_address is defined"
+          changed_when: true
+          when: ( he_tcp_t_address is undefined ) or ( he_tcp_t_address is none ) or ( he_tcp_t_address|trim|length == 0 )
+        - name: Debug var he_tcp_t_port
+          ansible.builtin.debug:
+            var: he_tcp_t_port
+        - name: Fail if he_tcp_t_port is not defined
+          ansible.builtin.fail:
+            msg: "No he_tcp_t_port is defined"
+          changed_when: true
+          when: ( he_tcp_t_port is undefined ) or ( he_tcp_t_port is none )
+        - name: Fail if he_tcp_t_port is no integer
+          ansible.builtin.fail:
+            msg: "he_tcp_t_port has to be integer"
+          changed_when: true
+          when: not he_tcp_t_port|int

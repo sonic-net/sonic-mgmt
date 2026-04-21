@@ -1,0 +1,54 @@
+---
+# Example Playbook: cisco.ucs.ucs_mac_pool
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        description: level1 org
+        state: present
+      delegate_to: localhost
+
+    - name: Configure MAC address pool
+      cisco.ucs.ucs_mac_pool:
+        <<: *login_info
+        name: mac-A
+        description: MAC Pool A
+        org_dn: org-root/org-level1
+        first_addr: 00:25:B5:00:66:00
+        last_addr: 00:25:B5:00:67:F3
+        order: sequential
+      delegate_to: localhost
+
+    - name: Remove MAC address pool
+      cisco.ucs.ucs_mac_pool:
+        <<: *login_info
+        name: mac-A
+        org_dn: org-root/org-level1
+        state: absent
+      delegate_to: localhost
+
+    - name: Remove UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        state: absent
+      delegate_to: localhost

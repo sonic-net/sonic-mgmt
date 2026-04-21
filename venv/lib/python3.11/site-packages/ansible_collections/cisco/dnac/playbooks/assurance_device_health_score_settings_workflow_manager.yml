@@ -1,0 +1,35 @@
+---
+- name: Configure assurance healthscore settings on Cisco Catalyst Center
+  hosts: localhost
+  vars_files:
+    - "credentials.yml"
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Update assurance healthscore settings KPI's
+      cisco.dnac.assurance_device_health_score_settings_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged
+        config_verify: true
+        config:
+          - device_health_score:
+              - device_family: UNIFIED_AP
+                kpi_name: Interference 6 GHz
+                include_for_overall_health: true
+                threshold_value: 30
+                synchronize_to_issue_threshold: false
+              - device_family: ROUTER
+                kpi_name: Link Error
+                include_for_overall_health: true
+                threshold_value: 80
+                synchronize_to_issue_threshold: false

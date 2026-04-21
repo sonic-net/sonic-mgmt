@@ -1,0 +1,49 @@
+---
+- name: Ensure test database exists
+  ravendb.ravendb.database:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    replication_factor: 1
+    state: present
+
+- name: CS | RavenDB
+  include_tasks:
+    file: cs/10_raven.yml
+    apply:
+      tags: [cs, raven]
+
+- name: CS | SQL
+  include_tasks:
+    file: cs/20_sql.yml
+    apply:
+      tags: [cs, sql]
+
+- name: CS | Olap
+  include_tasks:
+    file: cs/30_olap.yml
+    apply:
+      tags: [cs, olap]
+
+- name: CS | ES
+  include_tasks:
+    file: cs/40_es.yml
+    apply:
+      tags: [cs, es]
+
+- name: CS | Queues
+  include_tasks:
+    file: cs/50_queues.yml
+    apply:
+      tags: [cs, queues]
+
+- name: CS | SF
+  include_tasks:
+    file: cs/60_sf.yml
+    apply:
+      tags: [cs, sf]
+
+- name: CS | AI
+  include_tasks:
+    file: cs/70_ai.yml
+    apply:
+      tags: [cs, ai]

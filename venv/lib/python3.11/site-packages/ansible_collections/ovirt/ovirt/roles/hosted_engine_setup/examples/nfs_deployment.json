@@ -1,0 +1,8 @@
+{
+    "he_bridge_if": "eth0",
+    "he_fqdn": "he-engine.example.com",
+    "he_vm_mac_addr": "00:a5:3f:66:ba:12",
+    "he_domain_type": "nfs",
+    "he_storage_domain_addr": "192.168.100.50",
+    "he_storage_domain_path": "/var/nfs_folder"
+}

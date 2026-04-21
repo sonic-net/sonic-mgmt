@@ -1,0 +1,6 @@
+release_summary: Release fortinet.fortimanager 2.10.0
+minor_changes:
+  - Supported new modules in FortiManager 7.4.6, 7.4.7, 7.6.3.
+bugfixes:
+  - Added "gather_facts" to all example playbooks.
+  - Fixed a BUG that occurred when username/password and access token were used at the same time.

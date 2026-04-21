@@ -1,0 +1,202 @@
+---
+####################################################################
+# Example : LDEV Facts Playbook
+####################################################################
+- name: Logical Device Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all ldevs
+    ####################################################################
+    - name: Get all ldevs
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get ldevs within range
+    ####################################################################
+    - name: Get ldevs within range
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          start_ldev_id: 1000
+          end_ldev_id: 2000
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get ldevs from start id up to max count
+    ####################################################################
+    - name: Get ldevs from start id up to max count
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          start_ldev_id: 500
+          count: 10
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get ldev with same name
+    ####################################################################
+    - name: Get ldev with same name
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "database-volume1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one ldev
+    ####################################################################
+    - name: Get one ldev
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ldev_id: 176
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one ldev with detailed info
+    ####################################################################
+    - name: Get one ldev with detailed info
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ldev_id: 176
+          is_detailed: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################################
+    # Task Name : Get one ldev with detailed info by specifying one or more query parameters
+    #####################################################################################
+    - name: Get one ldev with detailed info
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ldev_id: 176
+          query:
+            # To retrieve command device settings of the LDEV
+            - cmd_device_settings
+            # To retrieve encryption settings of the LDEV
+            - encryption_settings
+            # To retrieve NVM subsystem information of the LDEV
+            - nvm_subsystem_info
+            # To retrieve QOS settings for the LDEV
+            - qos_settings
+            # To retrieve snapshots information of the LDEV
+            - snapshots_info
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################################
+    # Task Name : Get Free Ldev ids
+    #####################################################################################
+    - name: Get Free Ldev ids
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          query:
+            # To retrieve free ldev ids from storage, this will return a list of free ldev ids
+            - free_ldev_id
+          start_ldev_id: 100
+          count: 15
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################################
+    # Task Name : Get Ldev details using pool id
+    #####################################################################################
+    - name: Get Ldev details using pool id
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          pool_id: 1
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################################
+    # Task Name : Get Ldev details using pool journal id
+    #####################################################################################
+    - name: Get Ldev details using pool journal id
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          journal_id: 1
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################################
+    # Task Name : Get Ldev details using pool parity group id
+    #####################################################################################
+    - name: Get Ldev details using pool parity group id
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          parity_group_id: 1
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################################
+    # Task Name : Get Ldev details using pool resource group id
+    #####################################################################################
+    - name: Get Ldev details using pool resource group id
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          resource_group_id: 1
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

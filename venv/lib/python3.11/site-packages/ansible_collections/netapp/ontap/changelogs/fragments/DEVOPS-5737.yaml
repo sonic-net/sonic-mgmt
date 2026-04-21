@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_interface - new option ``fail_if_subnet_conflicts`` - requires REST and ONTAP 9.11.1 or later.
+  - na_ontap_interface - option ``subnet_name`` is now supported with REST with ONTAP 9.11.1 or later.

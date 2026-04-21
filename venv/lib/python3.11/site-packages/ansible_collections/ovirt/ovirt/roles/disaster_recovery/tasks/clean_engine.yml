@@ -1,0 +1,135 @@
+---
+- name: Clean engine main block
+  ignore_errors: "{{ dr_ignore_error_clean }}"
+  tags:
+    - fail_back
+    - clean_engine
+
+  block:
+    - name: Obtain SSO token
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ vars['dr_sites_' + dr_source_map + '_url'] }}"
+        username: "{{ vars['dr_sites_' + dr_source_map + '_username'] }}"
+        password: "{{ vars['dr_sites_' + dr_source_map + '_password'] }}"
+        ca_file: "{{ vars['dr_sites_' + dr_source_map + '_ca_file'] }}"
+
+    - name: Shutdown running VMs
+      ansible.builtin.include_tasks: clean/shutdown_vms.yml
+      with_items:
+        - "{{ dr_import_storages }}"
+      loop_control:
+        loop_var: storage
+
+    - name: Update OVF_STORE disk for storage domains
+      ansible.builtin.include_tasks: clean/update_ovf_store.yml
+      with_items:
+        - "{{ dr_import_storages }}"
+      loop_control:
+        loop_var: storage
+
+    - name: Set force remove flag to false for non master domains
+      ansible.builtin.set_fact:
+
+        # Set all the queries suffix to fetch a storage domain in a specific status.
+        # Note: Export storage domain is not supported and should not be part of storage mapping
+        dr_force: "False"
+    - name: Setup queries for storage domains
+      ansible.builtin.set_fact:
+
+        dr_active_domain_search: "status = active and type != cinder"
+        dr_maintenance_domain_search: "status = maintenance and type != cinder"
+        dr_unattached_domain_search: "status = unattached and type != cinder and type != glance"
+        dr_inactive_domain_search: "type != glance and type != cinder and status != active"
+    - name: Set master storage domain filter
+      ansible.builtin.set_fact:
+
+        only_master: "False"
+    - name: Remove non master storage domains with valid statuses
+      ansible.builtin.include_tasks: clean/remove_valid_filtered_master_domains.yml
+      with_items:
+        - "{{ dr_import_storages }}"
+      loop_control:
+        loop_var: storage
+
+    # We use inactive filter only at the end, since we are not sure if there were any storage domains
+    # which became inactive on the process or if there were any at the beginning.
+    - name: Set force remove flag to true for non master storage domains
+      ansible.builtin.set_fact:
+
+        dr_force: "True"
+    - name: Remove non master storage domains with invalid statuses using force remove
+      ansible.builtin.include_tasks: clean/remove_invalid_filtered_master_domains.yml
+      with_items:
+        - "{{ dr_import_storages }}"
+      loop_control:
+        loop_var: storage
+
+    - name: Set master storage domain filter
+      ansible.builtin.set_fact:
+
+        only_master: "True"
+    - name: Set force remove flag to false for master domain
+      ansible.builtin.set_fact:
+
+        dr_force: "False"
+    - name: Remove master storage domains with valid statuses
+      ansible.builtin.include_tasks: clean/remove_valid_filtered_master_domains.yml
+      with_items:
+        - "{{ dr_import_storages }}"
+      loop_control:
+        loop_var: storage
+
+    - name: Set force remove flag to true for master domain
+      ansible.builtin.set_fact:
+
+        dr_force: "True"
+    - name: Remove master storage domains with invalid statuses using force remove
+      ansible.builtin.include_tasks: clean/remove_invalid_filtered_master_domains.yml
+      with_items:
+        - "{{ dr_import_storages }}"
+      loop_control:
+        loop_var: storage
+
+    - name: Fetch leftover storage domains
+      ovirt.ovirt.ovirt_storage_domain_info:
+        pattern: type != glance
+        auth: "{{ ovirt_auth }}"
+      register: storage_domain_info
+
+    # TODO: Document that behavior
+    # Remove VMs only if there are no data storage domains left in the setup
+    - name: Fetch leftover VMs in the setup
+      ovirt.ovirt.ovirt_vm_info:
+        pattern: status = down
+        auth: "{{ ovirt_auth }}"
+      register: vm_info
+      when: dr_clean_orphaned_vms and storage_domain_info.ovirt_storage_domains | length == 0
+
+    - name: Remove VMs if no storage domains left in setup
+      ansible.builtin.include_tasks: clean/remove_vms.yml
+      vars:
+        vm: "{{ item }}"
+      with_items: "{{ vm_info.ovirt_vms }}"
+      when: dr_clean_orphaned_vms and storage_domain_info.ovirt_storage_domains | length == 0
+
+    # Remove direct LUN disks
+    - name: Fetch leftover direct LUN disks in the setup
+      ovirt.ovirt.ovirt_disk_info:
+        pattern: disk_type = lun and number_of_vms =0
+        auth: "{{ ovirt_auth }}"
+      register: disk_info
+      when: dr_clean_orphaned_disks and storage_domain_info.ovirt_storage_domains | length == 0
+
+    - name: Remove LUN disks if no storage domains left in setup
+      ansible.builtin.include_tasks: clean/remove_disks.yml
+      vars:
+        disk: "{{ item }}"
+      with_items: "{{ disk_info.ovirt_disks }}"
+      when: dr_clean_orphaned_disks and storage_domain_info.ovirt_storage_domains | length == 0
+
+  # Default value is set in role defaults
+  always:
+    - name: Revoke the SSO token
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"

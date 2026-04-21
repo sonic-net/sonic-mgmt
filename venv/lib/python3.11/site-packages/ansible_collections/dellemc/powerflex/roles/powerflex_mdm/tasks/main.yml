@@ -1,0 +1,8 @@
+---
+- name: Install and Configure MDM cluster
+  ansible.builtin.include_tasks: install_mdm.yml
+  when: powerflex_mdm_state == "present"
+
+- name: Uninstall MDM cluster
+  ansible.builtin.include_tasks: remove_mdm.yml
+  when: powerflex_mdm_state == "absent"

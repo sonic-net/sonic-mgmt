@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_pg - Add support for protection group SafeMode. Requires Purity//FA 6.3.0 or higher

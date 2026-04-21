@@ -1,0 +1,3 @@
+---
+ovirt_repositories_subscription_manager_repos:
+  - rhvh-4-for-rhel-8-x86_64-rpms

@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_volume - Added additional volume facts for volume update, or for no change

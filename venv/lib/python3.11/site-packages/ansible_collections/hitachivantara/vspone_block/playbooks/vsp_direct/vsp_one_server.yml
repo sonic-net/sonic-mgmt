@@ -1,0 +1,440 @@
+---
+####################################################################
+# Example : VSP One Server Playbook
+####################################################################
+- name: VSP One Server Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Register a basic server with minimal configuration
+    ####################################################################
+    - name: Register a basic server with minimal configuration
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "WebServer01"
+          protocol: "FC"
+          os_type: "Linux"
+          is_reserved: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Register a FC server with HBA WWN
+    ####################################################################
+    - name: Register a FC server with HBA WWN
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "WebServer01"
+          protocol: "FC"
+          os_type: "Linux"
+          hbas:
+            - hba_wwn: "50060e8010203040"
+            - hba_wwn: "50060e8010203041"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Register an iSCSI server with iSCSI names
+    ####################################################################
+    - name: Register an iSCSI server with iSCSI names
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "DatabaseServer01"
+          protocol: "iSCSI"
+          os_type: "Windows"
+          hbas:
+            - iscsi_name: "iqn.1991-05.com.microsoft:server01"
+            - iscsi_name: "iqn.1991-05.com.microsoft:server02"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Register server with host groups configuration
+    ####################################################################
+    - name: Register server with host groups configuration
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "VMwareCluster01"
+          protocol: "FC"
+          os_type: "VMware"
+          host_groups:
+            - host_group_name: "VMware_HG01"
+              port_id: "CL1-A"
+            - host_group_name: "VMware_HG02"
+              port_id: "CL1-B"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Register server with multiple HBAs and paths configuration
+    ####################################################################
+    - name: Register server with multiple HBAs and paths configuration
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "AppServer01"
+          protocol: "FC"
+          os_type: "Linux"
+          hbas:
+            - hba_wwn: "50060e8010203040"
+            - hba_wwn: "50060e8010203041"
+          paths:
+            - port_ids: ["CL1-A", "CL1-B"]
+              hba_wwn: "50060e8010203040"
+            - port_ids: ["CL2-A", "CL2-B"]
+              hba_wwn: "50060e8010203041"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Register iSCSI server with multiple HBAs and paths
+    ####################################################################
+    - name: Register iSCSI server with multiple HBAs and paths
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "HybridServer01"
+          protocol: "iSCSI"
+          os_type: "Linux"
+          hbas:
+            - iscsi_name: "iqn.1991-05.com.example:server01-iscsi1"
+            - iscsi_name: "iqn.1991-05.com.example:server01-iscsi2"
+          paths:
+            - port_ids: ["CL1-A"]
+              iscsi_name: "iqn.1991-05.com.example:server01-iscsi1"
+            - port_ids: ["CL1-B"]
+              iscsi_name: "iqn.1991-05.com.example:server01-iscsi2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Register reserved server with specific configuration
+    ####################################################################
+    - name: Register reserved server with specific configuration
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "ReservedServer01"
+          protocol: "FC"
+          os_type: "Solaris"
+          is_reserved: true
+          os_type_options: [1, 2]
+          hbas:
+            - hba_wwn: "50060e8010203050"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update existing server nick_name (using server_id)
+    ####################################################################
+    - name: Update existing server nick_name (using server_id)
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          nick_name: "UpdatedServerName"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update existing server settings like os type options using server_id
+    ####################################################################
+    - name: Update existing server settings like os type options using server_id
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          os_type: "Windows"
+          os_type_options: [1, 2]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add host groups to existing server
+    ####################################################################
+    - name: Add host groups to existing server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: add_host_groups
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          host_groups:
+            - host_group_name: "NewHostGroup01"
+              port_id: "CL2-A"
+            - host_group_name: "NewHostGroup02"
+              port_id: "CL2-B"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add iSCSI target to existing server
+    ####################################################################
+    - name: Add iSCSI target to existing server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: add_host_groups
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          iscsi_targets:
+            - iscsi_target_name: "iscsiTarget01"
+              port_id: "CL2-A"
+            - iscsi_target_name: "iscsiTarget02"
+              port_id: "CL2-B"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add HBA to existing FC server
+    ####################################################################
+    - name: Add HBA to existing FC server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: add_hba
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          hbas:
+            - hba_wwn: "50060e8010203042"
+            - hba_wwn: "50060e8010203043"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add iSCSI HBA to existing iSCSI server
+    ####################################################################
+    - name: Add iSCSI HBA to existing iSCSI server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: add_hba
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 124
+          hbas:
+            - iscsi_name: "iqn.1991-05.com.microsoft:server03"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Remove HBA from FC server
+    ####################################################################
+    - name: Remove HBA from FC server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: remove_hba
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          hbas:
+            - hba_wwn: "50060e8010203042"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Remove iSCSI HBA from iSCSI server
+    ####################################################################
+    - name: Remove iSCSI HBA from iSCSI server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: remove_hba
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 124
+          hbas:
+            - iscsi_name: "iqn.1991-05.com.microsoft:server03"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add path to server
+    ####################################################################
+    - name: Add path to server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: add_path
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          paths:
+            - port_ids: ["CL1-C", "CL1-D"]
+              hba_wwn: "50060e8010203040"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Remove path from server
+    ####################################################################
+    - name: Remove path from server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: remove_path
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          paths:
+            - port_ids: ["CL1-C"]
+              hba_wwn: "50060e8010203040"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Sync server nickname
+    ####################################################################
+    - name: Sync server nickname
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: sync_server_nick_name
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Change the iSCSI target settings for existing server
+    ####################################################################
+    - name: Change the iSCSI target settings for existing server
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: change_iscsi_target_settings
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          iscsi_target_settings:
+            - port_id: "CL1-A"
+              target_iscsi_name: "iqn.1992-04.com.hitachi:target01"
+            - port_id: "CL1-B"
+              target_iscsi_name: "iqn.1992-04.com.hitachi:target02"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Register HP-UX server with comprehensive configuration
+    ####################################################################
+    - name: Register HP-UX server with comprehensive configuration
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "HPUXServer01"
+          protocol: "FC"
+          os_type: "HP-UX"
+          hbas:
+            - hba_wwn: "50060e8010203070"
+            - hba_wwn: "50060e8010203071"
+          host_groups:
+            - host_group_name: "HPUX_HG01"
+              port_id: "CL3-A"
+          paths:
+            - port_ids: ["CL3-A", "CL3-B"]
+              hba_wwn: "50060e8010203070"
+          keep_lun_config: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete server by server_id and keep lun configuration
+    ####################################################################
+    - name: Delete server by server_id and keep lun configuration
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: absent
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+          keep_lun_config: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete server using nick_name
+    ####################################################################
+    - name: Delete server using nick_name
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server:
+        state: absent
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "WebServer01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

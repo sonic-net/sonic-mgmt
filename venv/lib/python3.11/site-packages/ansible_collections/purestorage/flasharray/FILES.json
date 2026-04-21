@@ -1,0 +1,3435 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "settings.json",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "02d67ecc8a46b6b4ee0955afb6bcc8e8be5739c7cc9552e0d084cb8d2dda79dd",
+   "format": 1
+  },
+  {
+   "name": "COPYING.GPLv3",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+   "format": 1
+  },
+  {
+   "name": "docs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "docs/docsite",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "docs/docsite/links.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ba87531c24128b4584a8f5dc481594ff232c9c19f1324e315149e17fe685baec",
+   "format": 1
+  },
+  {
+   "name": "playbooks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/tasks/.keep",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "playbooks/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/templates/.keep",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "playbooks/.keep",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/vars/.keep",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "playbooks/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/files/.keep",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57aafbed4adb6d68a8abbe076ae135c5e634068d4a99135ebe4fef2ca3a64ba6",
+   "format": 1
+  },
+  {
+   "name": "LICENSE",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+   "format": 1
+  },
+  {
+   "name": "roles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/.keep",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/650_fix_snmp.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9edbd197c5f8aeaa5a1d59aca8ea1dbb4cc8ead84099c4919624172946e179e6",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/556_pod_throttle.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f99f0ad865de91106d07716782a0a0a4fc4d0408f7a72ca497011a2ab93f48cf",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/249_allow_cert_reimport.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b1b80b8daae56e7b84f267a875b689f1ca8b1b69e9b061261a18121ebab54908",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/135_no_cbs_ntp.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1ce568cbe1255ecfcdb3e6e66146dcf52e8bcc5cfcc600b856958785b4c8a820",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/429_host_balance.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2f26eddba192d79e62a6e680da2917ff6067b5bb31cb1cd82dc8fa35bca8a518",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/366_add_nvme_types.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7e157e8e6dc8d2311fa1b7de576b4ac4a23875a76ab8faaab657b6b77b5c057f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/547_lacp_neighbor_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8451b969e6f2a71c80ed8e8ba94a038723d5f55c1bad9e88eba05b9c4fff9333",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/396_pod_quota.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0f34de9f8d9e99aa6da166beed42352e573c6ceb3cae457b78304a6f65fb9e59",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/336_add_servicelist.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ace44d513f29d6bd520981a19df17b54f73263d675c984701f011023fbe56664",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/697_fusion_pods.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a43b1e7c2d199a9ec72cab62cb124e195e4a1b9442e15cb2f6c2c27136949acf",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/363_overwrite_combo.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b03125168fec5bdc6800055674a23646d2d1318f68666bf3647c9588a9934ff",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/805_no_pe.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "18d480063eec17092115bdbddbcb134e235355500b0c886a91a9cbf297f44ef0",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/360_fix_volume.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "214e7d076ebe88080ae3b674f9218f3fd82c3f624c12c47c1e0f5b25a25cedff",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/175_check_pgname.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c9a31f2e60103d8c62690888c0e05c6bbb7ae74faef2705783f6091996275009",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/145_fix_missing_move_variable.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a212d6e202a5231066c55f1ef24f962bd544d31220b75c6820d58616b3ba3a20",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/642_volume_pg_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3462dcbd3467cea230c9812a98e9b1f32b99ff64eefb505157a35e2a546a1d45",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/116_add_policies.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "308c90a9b130b29db36fe30970cc4e83a86f72d909d979c251cdfa9ea37cc17d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/721_dsrole_bug.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "20ed0ac426a89ff6cbcb0980a98b8af0dab2939951301fc83da1ee3282e8255c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/527_pgsnap_rest2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "35b80dbb6d79fbe84eeff5acd53ef6d398582c28d94b55926cfed82f3aaa2351",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/707_fusion_pg.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "847fa797ba13ab5695e78451c296cc6a0ba5628d1023f058fa44ebc130e12115",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/108_fix_eradicate_idempotency.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "56a1a21cbd2337826c0b74c2e0b8fdc7488726ee48fa1039e9621bc8035ae01b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/365_pod_pgsched.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1935c18a1605977c8d6449336c30c7022829f7263ec53f61dc004e3f87f10c5a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/554_convert_dns.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8dee4fc7bc9ce01464aa1127f3c5ec077c53596cc999942bdb5beb6376b2d0a7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/328_policy_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e2241976b8065bcfaad829f6b6b682e932fe24f6750dd4467588fe2aff709a48",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/487_pgrename.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5dcfbd333705d454559b8d6819a89fefa18eebafabd012cdd1d79afeea839274",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/369_fix_host.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b504c0859681ad87a0b32f5d8e8671c523fdf1514ec4c46f815758a192971012",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/571_convert_dsrole.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "69f1be8c2c84045b385b9389497d65ae8df28f409c12df065a22cafabf8fbcc4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/121_add_multi_volume_creation.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7d63a0ff3a88738493bf7f0afee3600f0b236b28f592694bd686d38a94bdd7d7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/354_fix_promotion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7864f83fbfd6f9f8e5bc05b184b4fbd0a64c8c3f7c2819cabd1a0cb2cda5568",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/296_ad_tls.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "12284c1bee381d7b76410aad520b578b814182839662f5cd35ae917f720c89c7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/835_syslog_servers_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e268164c2726846c8460929bfce16df2d3e6690b0d808253f3614ddb504394bd",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/130_info_ds_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "947189a4487b75926ef5cd535900916d0d2107159243e41b3677dc13adcbbc84",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/696_vgroup_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "443471cea028e047053d53734721a147134489c6de8b2572ef51232c36f4d55c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/553_convert_console.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e2b54a646c84dc1593d415f2301fc5a1714433690c5e154b2fdb2948499433a5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/133_purefa_info_v6_replication.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cbb12d92a0c8c763b7e9057fe0d7e8bef92b644c016d6da016c7bda7494b6d53",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/227_missing_regex.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ab1065f5ec052ecd0bc4d6c1416cac3f1a2783478fdcb8ca434747d099ba746a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/107_host_case_clarity.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "14cdfe46c920bce4daf2066105d43bd974d27b7398f0c6021a4c7409c53ecbe9",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/109_fa_files_support_purefa_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3523ae2ba986b989876bab0ff2182888a48c112cab18373b70e17528c330c3c5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/745_host_move.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f37f0ba75ac4b6d84227b6a44e4960a865f468975a1f694213bf8534de71bc51",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/459_fix_eradication_timer_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0aee632fba57abe3de04034e9338703fa45225cf888e9015db78d7cecaa4463d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/708_pgsched_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81efd724a729bbbd877b271b4eac323b5edee72c37055d5cd3055df3b30b16f1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/213_add_kmip.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a25a4a59e2fe39675f54af4b041187ff50f2a84419ecf0ad33597f9a870e347c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/802_empty_gateway_subnet.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "45de1975c212b373bd7e14672e1d4eff608f75c7b04a5c8512e82bb78a91c394",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/712_vlan.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "af5667807cd03e3dc95555281afddee71f457101cc6d49f7b4758a55aca694b4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/461_ntp_keys.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "64309a372f6a0f8e886b2ddad8593f6fc6e56400abb19b24ccad2f37f7c2a825",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/319_lockout.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e8e8f895f0e131b6129c80938763ba06a483e419ad5be1cf5e8e262e32d7fd4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/341_pg_400s.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2f3e1a18a9d91068015a1874425c8516bd1c8b7dd82bf5f4c4db8af24ce010eb",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/445_py39.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b922ead0b741d02d100828781683d2054d43d188b383f0ff1a5eeaedf499aa59",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/292_fix_ds_password.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3c65285fc6514bcb540d9f89b7e7786e1e5c5c40dc835d459e333e87be2070b1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/239_safe_mode.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "50e022d852e1bc93695d7980834f02c62fe584f160ceab7c6fde0a50909f215b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/812_info_sso.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5b121167a8cb20856feaf7de078ba0291948f8f2903e21447952282a18c87495",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/637_volume_add_err_msg.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "664f8c826608a68d7fd5b7c98a0248b53843f8ccfa2afc94dd185aa6c666feec",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/398_hgoup_alias.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8e001322d964bedd03a888574a51c7b967a91a295b80e0f62bcca1426e58d716",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/463_nfs_version.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8ff09f0f258184ab8d4ee4f6d9517872defffa5efd9338ecee017f14d3da50d7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/234_add_vol_info_on_nochange.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4032b2d3fb21ea9f94f9ed246d926049d5d7ce8daf094fa22703ba73b1f26caf",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/791_safemode_pod.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f0d3f7ede4d48c240d3c265d9f964abc7526ffdf5dfacd29540ae126b3e28c7e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/825_conn_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0766435244d177649ce5b64e5e394ac80d7e1833830fac35abf42575c526248c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/567_newarray_network.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "133ca1f5bdf8e67168153906cfc60fbac837265a42e934b410c624e1c954c0a8",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/200_add_DAR_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d30ccf31e256808a9bfeef72c50100fed7fa0922b49c31e893f277890733dd1a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/284_volfact_for_recover.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cafe8f028e3c83d63d9dd1270249266c7fba52f22c193424e4feb5ae8c73c4d3",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/81_dsrole_old_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "290e446cc25bf95ba3da6494b9c559906b7c2add95557fa7e8848fd1d07db71a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/330_extend_vlan.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "14826f46f85309e3d52b4eeeecf757e36cb0ec71115db6aba41efdf8e8b9119d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/261_fix_bad_arrays.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "10bcda38e7401292d7eb21bfbea276bbcdaa70279475b57ead65200878682562",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/615_token_warnings_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ea1db60438f42bacd09509a49705567de62eedad18e29bb9bfdf8b73782ad99",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/638_delete_pod.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8537fc9d1456d131c5d373d0b7a750354df94e9876f44860ae57cde3bc13e51a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/833_hg_destroyed_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a12ae0cc87c7a0a41813794b9a51cb4de37ab71c5043c2052a1b6fc691a856ad",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/484_fix_repl_sched.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6dfa49e4b529929874bb184c39689ffdbea4ee4ca51a25e8a9f2bdc46e050d85",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/196_fix_activedr_api_version.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "da06077e7148e0a5647cbb4db66dbf57a87199b3ecd8961f7c070f0a223b49f6",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/320_completed_snaps.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "304300ac00c30ab4b188befe164c2d9a89bb9eb92f1ea1580d4866abdbb00c3a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/684_no_vnc.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "03555a5be52f6294de92e8d5077f509ced85adc021b4c56dd3ef3c0041b88e01",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/498_fix_pg_creation.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a76d85d910376a46b3e6be6a54d7573b58faad66e973f2cac21428287e0a39b8",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/433_certs.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95d42c0dfb19c722930e0af5f397da9514e3f2472cc32425b53a9cdb761f886c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/310_hg_vol_idempotency.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9aba6c636b1732e62a10fa765a6c3e7e1c5c25f4be439d1d603b5769356c4a02",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/782_encrypt_connect.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d97cacf17f7b62c408e0fbb17423273184d6ee3400c83ea20e7720c935276cbc",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/774_user_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7b52750ca92fa954fdb0b20b4b36083c200cffd71eb4a27aa06d7aeb976d8662",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/293_add_chassis_inventory.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c4f7b2c60b0fdddb85d2c7ac76f6f71c09b0e1de21908d4945d88203e9895d30",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/160_rename_pg.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "889571c492bfad0e49d4384c0ab89948ed4ef26b3838523d1e2d00b59c006b6e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/v1.4.0_summary.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "876598a7a2135b855db8a38e69902920412966606847157fd97d8bb49fc479d4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/505_dns_attribute.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fccee6e53d139f63be14aa1f268572126de4eea82ce79c4ced931d01d63d7bd1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/789_pg_target_change.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b1591dcf4224c1b314e73e53270c7e376a275b1b011ac3b5925f3d3b7b96ae4f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/302_fix_pg_recover_and_target_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "24bd01c41044777cec8a08dceab1e2adffefeef7454fa3856d9e90aac81986a2",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/480_rename_vg.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8cc8080ddb7e0ae0ba1ad6d628e5ebaa4ee003516bc2bde7b71cd5539ee27cda",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/550_service.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ed29a7af803d809ffe4f0e1a755431cc0c0f2e3b8330c79cfa867ce0e6914350",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/694_duration_logic.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0815906bb5b9cfdc939f88d5c1ae4d6d531e6a57f0b761b77db524cda391121c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/162_pgsnap_info_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4dbaadcb3b3f5f5cfcdac7c5a7a0434e5ee06ad88e245b22cb2857a13eea79d2",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/513_remote_snapshot_suffix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "13821b3072fc7532cc784e6199a90e578394f533cbfdd14786069dc97c9f3220",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/271_vgroup_prio.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9aef1c5e381f895a7096f7f4a14d5004445a54c3e9048f9176b77615e3f98861",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/593_hsbc_hg.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c4df977376c163a72d6dc6feb84dfd23c5ec577ebe9ff7cba19b72d030cced1d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/844_main_window.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57fcc15d70ec0672a64991f126fb312d6c1f7818b33d477db9775df1ee59249e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/242_multi_offload.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d92fd1123f4e28eb21c3a150a3d00b34a474896405a53fe5d7f7bcd8e8463a23",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/351_fix_rest_check.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e9247247ec40002f6c1cbfa6cade93009a439529a61f88b7b3d6541f2cdf2f80",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/520_add_distro.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f660b1cc27e66116661b2a7c1a026d26a5f0726c9d43c02fdfe3a7a4a35ca579",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/739_dir_quota.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "501ea9ee39fdca63df163ad3c6793642ec22397f67fe8fa52453534e9b523737",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/699_gh_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5386890e692758efbc4ee77880ec1dbd4b08518a1cf820380c49724a83da6da9",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/349_add_alerts.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0508cb660cfe0dab94258230a0378e2185e1bda6c0eb05ab362352215c91a800",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/141_add_remote_snapshot.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "658ef54ac8bea8cb8a3737ace02ac93e301ac1195044ba8a474eab5ed9f68fe4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/495_add_del_pgroup_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "279c330a0ea28864c213250b3dd40bf752e6c6074741993848546ed1c76649bd",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/152_fix_user.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "855ffc4ffbd24286e556666da375a79f19a3ec7da829ffa46d8f1983335f96d2",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/676_volume_vg_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "13c9e3e2cf162d4bd444e2c68e55df259d86522ad108f47742f7fdf821b8dd4a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/770_proxy_dict.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8c4952029be7ef8655db74e923366ee91454de62fc54149ce0a2cbd79795a8bf",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/800_network_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fc337d721380c27fd9851d11dfb70ad7d1b7ae6d1707c0ef0cd4848d9c3f0ced",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/624_dsrole_version_check.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2dbb6a27e9506fdfe2e209269883c1f3124928e16f2b1b74d0120dfc9f0c2a22",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/199_add_fc_port_enable.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1eb08594ec67b6f68fdc33cbeba0929733a4d762ad1e5775651ce28aeb8be577",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/773_vg_qos.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bbe95e66864d91485b3c32871aa679c8121cbee542ba50424e1780fd2242aae3",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/237_fix_network.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3f561b0d4d78d98e16c0b6dd42d3d1360fd2f0b8b57644a72578e9f294bf63b9",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/529_eula_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d5a9df37d095b8b77793b6833db65aba5f887544c6d49138af04c4499d003dc1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/671_hg_check_mode.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "54d23e127d5beaf38aef926cef52b8428ed06698edc2efb4c0c92bee3c1d1a9a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/294_user_map_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a8303eade7f404a0454044ac907e369cf12ab8a715dae17873ef482f959b55ce",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/441_v2_version.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e2ef872d9429b76ec5d282503e51e165303e0a742ee5826efe210542cfecaa2e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/381_change_booleans.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f04fd18a42e321cb3818a579e14cc50a6d27935196ff04632e2db44f7b807322",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/188_add_dirsnap.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a198d79ad6e69906839c509eb8522a228d7863ac7ec186911a8c8b41ccd728e2",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/305_fix_target_dempo.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f71d18b40505148907262f5f577ca2f50a881379a44ec5a95aa81bfb1b5b27f8",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/229_snapsuffix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "76c0cbc363953ab6384119e2b69f15be5ffb4f8b251966da6906cf397fb13c0a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/394_neighbors.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5c60e10bb81cef310e5ac44a3faf04d192e2be272cd0e5b967dcf53a83148fd0",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/698_pod_replica_context.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7e51f9fb5298743503a29801b1fd585cde48a120efe8cfb10b7f9694a74fd5c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/299_fix_pgsched_zero_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "794dcb8c905190621276322754f9a0c6766337e58a89e19734b8db5adc359688",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/1_27_summary.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e5b4b3ca97eae9f96b6bb84b9c8a5877756bec23bb1b5b2419cf142f7197f20",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/794_fusion_pg_default_protection.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5574f4f27e3a9fe9eddea527dd81c59920fac1dfa462ca0202df05056c1a3b5b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/464_fix_ds_add.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3a399f8c87f1e5c8a637122908eb90f957fa4d3311e984171ed0dddca9f2b226",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/136_add_vol_get_send_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "901f750d427f4fdd282bdaac8ea955e84980af5ab61cb3537842552142fa7831",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/462_info_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "515dcf5d8cf7c7a349b2f1a5bce7859b38eed16a9f603335fc6eea2a93f17317",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/131_add_v6_ds_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "688cedbf2d82b19b6d9e7ef39a9ef53e45c1371460f1b9d90dde1533275e6b23",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/246_python_precedence.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c4901627b1f73f31126c2ff78bb5ddbcd40d8b5d8f6c76fde19eb39147764875",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/524_empty_ds.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "074e821b0829379c4e21fcde46f0a64c4d733f485abfd1aeec17f271e1d0f591",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/315_spf_details.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "86798075e98bf22253d023307d6cf1e8361b9a221d826c5f4a742d715a1058c9",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/558_add_perf_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0f5d8964b5286a56b053468398ff4d937d4af276e24a91c8f7f41eeea2001d87",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/863_smb_ca.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e9b091c301c8de104e7e2bc8e0cdd8e8997a720399a8ce15627e1edf11b1d664",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/519_add_cloud_capacity.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d960cd2c1b0d2e241e04b302f50c8628aea1408ddb8e69a2a7e9897c193356df",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/813_host_pa.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7efa83fd40adb5e1d0bf619e3988e4085f825b0d20145425300eadff9a03bfa6",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/187_add_ad.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7bdf293cc4cf7f96dfa5e017da8988dd7dbcd5103f7d624c882870938ed92f78",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/788_eula_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8af1d570cfb275416c01595f09da18eb20c361e86449f5ee10a9a4aacde8b7c6",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/499_rest_227.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "474ca8fea2b15197be43b37aa10bf2353bea1ade1e9086059c94c791badd8bf1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/631_fix_alert.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7501f230a3daced44568f8bc1d0e2e4aa27d78e93d801128c66ff27ed62a196b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/488_fix_pgsnap_eradication.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c930c51c905b94b4921e8c37c2b5609206176d8382ed933a31f86956849f037",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/430_throttle_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1d8b93ee3c1f2dfcc6fedd6a3ee71a8ca7e574fd1e2ff6e25224ed1300d4d342",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/367_fix_vg.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f0a9b281dad34acdf964d12a23ab6644168adf1104b1cf51c0af829fbebf9333",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/654_delete_smtp.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cd64bef7e92453c74f27f73868346e79c3fa326c23781a3504175b40f74a3e62",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/207_fix_disable_for_remote_assist.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6f3e2568e1937dcbd0ce31e3a87ce1da72af881c77995e55e8673ec487832696",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/866_array_connection.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ecfa629b6573a054ad0434250f501a8c4f305d87714d879e977cbb812e4a3c93",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/161_offline_offload_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "954b6c0a6350782c3bc461de4e3813d05d2c441f20e906d73e74bc10ba2a5783",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/294_dns_ntp_idempotency_absent.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3621e04c4076595ad61dbd05bbdc9810304336354c40938e82be177b89e5e029",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/397_parialconnect_bug.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dcb8da9aace9eaed868a579288728ec27c58fe43de3a0ac4b2f26c0f2c045749",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/668_realms_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "249448a681cd618889f31493e181b7219ef0a9a465b5bc8fb3d23f5c272230cd",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/835_policy_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f5b9f041c97360aa2b319d119efb363ceb77c7bdf3f6bb5e87784a4be476b24d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/452_throttle_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5004483a7037d8d8bb3c9fbd74544592e97db06599f0baf1645998b4b6ed39c4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/868_phonehome_excludes.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9d135cb219ed62d51c0bec7cc2efcedf9e15be851aedffb46d3cb503eb981569",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/649_audits.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "808859faf80e96299d777fc2eeb133b7f6ed21c20720e3dd1cfd530298f63d19",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/530_ntp_rest2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6528b34d1eab43edced573ac73006e0aa8f576bab9592aba84c674dbe37ed96e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/589_fix_remote_host.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e80feb577cf1bec77f0a7b64d76efa06631022b1ca618e2c60945547349ec435",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/653_v3_user.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "14449c0a697cae35086704f69adb12af70e5c39f08072a7ea522af8bb6950dcc",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/641_dirsnap_keep_for.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a37a4246a184a32556c6425c39af80d415edb975daef3cdc1f7af353ba0915cb",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/304_host_vlan.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2453f6516a40120b2c06ad1672e860b14b9c0276b12ae9c97852194d07a2a1ef",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/870_tags_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "620165b3791253e1f907681db8986521ba9f7698b4491e6317798dfd89cce56a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/174_null_gateway.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bec4fcd5e2b2ec84d89caf3e6513843980489d6cc60c02fe8e01fbbebb658b31",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/318_vol_defaults.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7542c7e94b9cd44f3f946c5a4518e0ddf23fc02ebfc48d032b483e5d6534b8e0",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/591_typo_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7bb60610643762fc580faab7e9b5c7fd4a3c15fe58b18a701860a848aff54676",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/578_add_tests.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2efdc3e78cf7a4757069117de71a65d42df2f3e6cf202d2dca6721714f1d066a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/393_offload_recover.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99d7fa900a916022865378fcc1f766e71bcf5a8f3b9a98b272eff891de04b481",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/823_arrays_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8d75bcf2e4039050d8d0f6c251ec477e5b6bf831d2ee718d2ea0040146e11a62",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/317_add_all_squash.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d8a2830079f133a5e1f3876f720599a8b974f9337a7b7fec2d7c2957c7a0b238",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/115_add_gcp_offload.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "500050720f1fb56e313fcd73dc7a98b06abce63cdca08b37cf11a1f8d7d01a49",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/413_eradicate_pgsnap.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cfd3bbb30efde5755653c8c8aabdbfb30a26f3371493af7fad638133dfcf64a2",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/673_system_dsrole.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "635914f5da80297ac9f9dada1410ec02c11a4ef4f7e2a308b416bbb7deb20c9f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/600_pg_param_typo.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5a8f2e4668700948ce5df4296cb88855b9392ca31da07e0fcd953d9ca2df7983",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/206_add_naa_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "45e9f15e85c52453f42909582a7c48be2af6c5291f470c6c11861ad6d924bfb3",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/548_uptime.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "93269f030ad6bc92383376ff7b98e7d6fc3709b6e4d16f593aa4d86d361f3a0e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/153_syslog_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee87138221741514acab7cee37c3f0c41772129b130a8100acdcea2ec732495f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/202_add_sso.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2558b4d0697775d62ab7e12c6149fb1be85a2e56be9dafe561ee02aac2bf3920",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/238_add_dirsnap_rename.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7dfe5fa7c0d3f44e723d764cf28d28438255e6d92fb0351537b1b75aeb4cde37",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/655_kmip_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8096437d31ce8b14ffbad890ecfdc85f10be49f325281fd79c8d70b976eaa274",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/758_realm_vol.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4dfd607759ed277ef812631e63e27363ea7f9e25f80abe90d838067ca8f33861",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/412_fix_snapshot_suffix_handling.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ea3612f016a451961a56457389c8a277e7e09aaf244fb5f8058eced860d27ea7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/561_remote_snap_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "179f27b578403177cc3f2f94c141ae33d2e71e95fc2457a71bff010fe344a287",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/821_dir_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8bab1563af1f3d3b2151d8becb2c11270fe2e4728f780d3e4dcc55aed14c697e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/645_session_attr.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "284fd4e8038143a86722a640254d7014c1c1c320cc650b573523fcdeb1c06588",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/448_add_subs.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "687bba4eefbc30ab258e8c7b507101deea354529cd7504274aa07b12aabe437b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/531_ra_rest.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e18a53173d1f64ff016f65275a0ebb51b7d9e50be1d42340381d672c8b1ddaaf",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/156_snap_suffix_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "69187a1d2f2a0ceba0494eaeb883cb74ca8503f68020d29341a27e462a8dd6ea",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/647_lacp_vif.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "304ff89ba6165e84b52eb0d58c41be15e2a4bde769ec82aef47851d25ef620a4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/677_networ_perf.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8dc83409098e827d3285d53b2c68578c309601da50ce74e398d4ec9357cc4011",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/864_pod_pydantic.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "73dd8282d84d6df99353cb683ba2af2d0b0217e9f811b8d4721771b0203722dd",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/482_schedule.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e29a5531872449ad519872cea91ad29252d36df6f28fe47d16650a97fd5d7edf",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/224_add_nguid_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "afee325ee45ede0ecadb3d8cfcfc8b11caeb91c257e6fc69b221e972ae80415f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/201_increase_krb_count.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4c9af9fb7823e936ee5da520bca07919e280832c868d8e808819967cc02b2776",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/230_add_pg_deleted_vols.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bc3226ce03c0a602cc748c1e63b3a7a9bfa0b62dc2b455e28110f4a37588f40b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/415_autodir_policies.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5c7eeb95d5372ae7986c243afb87f626c203fedb6edac1e71986ec49ca9266f4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/469_fix_missing_bind_password.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "989c52d6564fe13a42f5479b408a49e674b2a4ad691cac401815ca3df094277b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/126_fix_volume_move.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0b47177157c3ab8b7f3676d9bf5f5d6dd6fecb2d7850b612067bc0dbaf457fe",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/541_r2_offload.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "df277134d1d8bb97a10833bd1f6acc6c87ee9f7bac92e55b4454952c8badc26a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/742_endpoint_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4cbe3df368709f88554d84bb77c75014b28c4732cac5206fbc1001e4328d6eb1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/113_add_exports_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5966655368d1bd6f13a19deb5ff00c2884e3015eea1fe054393e47c0a367343b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/342_add_vol_promotion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9bcce181fe8efb221844d176b0afa0afceeec84a3fdb252c4b6e9b60d262d800",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/656_no_snaptonfs.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "45ed060d76517d604ba6b728ac72c2ef1630ecd09c44fa1d92137db9d243e6b5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/610_lint_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "04fb7d3c7c8e66d70b9f7e57769794e844639af636b1b5889fcb750d6600f0f6",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/231_syslog_settings.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8554f5bb3da3ca0f967b61188806535a8d4161371ba5abcae56c3fbef98981d3",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/139_pgsnap_ac_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e44ab022a764253dabc565481afd94e7a5a2cb0e37a638bfe76a8d0e59139bdf",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/618_fix_pod_create.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0b816353d71a6f74e4f124ead68391794a2b9d61bf93e8ca01cb2bc8005392b1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/827_pe_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a4b70d2468fac65af96e36fb447604d81bd3ed0e6424db2705b2bdd7ba1255fa",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/538_arrayname_rest.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "78dbb4a2ac91f7c19c63b82814536f4bbe65afc55200521b5550d7b4bd5c9d39",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/308_add_vm.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fde532f4cb23df09dba53e242f40d796ac82bbc0bb5e2208a3642288708cdd65",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/235_eula.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f47001145eba84245d432bb58679d15acaf7065794bd486ce6f4b47d15ccc5f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/205_policy_protocl.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "13fe566546b6523cbea2cdf17fd43b01886664a7e016f093b575f107cf65f400",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/648_delete_ntp.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6139c545852df6f371ab0b0dccb1431f776d8dede56e29826401670b7888f59e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/778_remove_system.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb2db646c27671244ce92feacc96c77be940dfb24560a0c12a496edf05272f67",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/471_fix_ip_protocol.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6a5e48d2ef1218a47211a7608e89ee7eb5eb49e8f8884500f40510b56e59d88c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/483_missing_replicate.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "684d4ac8100833002dee8245bd1cb18b69d960414b5c193cd241b16e71fee31d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/149_volumes_demoted_pods_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8cf22b39b47e9256017c2a10f64e327db8e87d9f2aa4c75c081e3709fce3330e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/387_no_volume_failure.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6489276ccdaba3a849b7e24a8a5a6069fd4b62505857d2ebdd7945492b25c5ca",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/182_allow_pgroup_with_create.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b2d30f4f5efeb55578f94bd60575f7998104bedd70f9c3a4112de08918c6430a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/562_host_vol_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8e9b4f4e5e786fbd3d991227b5df5feb83eb7f1b0e72919df98b3e7fba51b8c1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/559_volume_response.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a46bd238e8734aab9aaf4c2829922bd0af48efe0180ecb2836f13c549ef05444",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/228_nguid_to_volfact.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "286446286f7b817d37b3ecd99bf40347dc9ca9e76835dae68f5042088f0ccad0",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/748_inv_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d16b484e122964c71588ed33c4027dbcc29dc9430d53e54a821c0c7b2823e43f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/211_fix_clearing_host_inititators.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8ce58291d0256cb22a7a8cb015ebfc4775474f594d5c724225875c495213d259",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/635_filesystem_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "07e53b77a522e853a21999d5decbc12c8b3a23e53abf85c00bf435b4eda2dccb",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/111_add_filesystem_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e99a34a5a71e458de587f9741aadfb712c00f98ac28795c23929d97c32468550",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/220_capacity_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2676555e4ab199c39f247eb8186470544e3f392bfea10b44bbdf27b59d963f9b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/737_add_fb_fleet.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "55273e2d21a9a09a23ecbda6777197ef382f40b6ed414a0faea66136c41bd931",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/422_sched_enable_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e5237c8f88098a0fe4c626d7ad8657745bf42f58a4f8fce2da10bac4c187175f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/506_disable_pgsched.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9de4a4a3dbd6f1d1d5ce98b60c936cad9bfa10a10c81ee106131541f5256429c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/536_inv_rest2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "49bd6e5881062ebfd0ea1303d35a498fcf4f0bf2d92009c2d244c3f448326b56",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/374_offload_pgsnap.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c57da1f0407cfd608f8dba3ab67f68abcb140d190cdf48072b7d629979492d7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/345_user_map.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1dfe18617cd617abc6ad45ca549ffce2fa88493506f3516deba1d9b6a4108a15",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/806_throttle_info_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "394318f6ec83566aa528bfea129103788448e3998979b7a39e237836839f8ab5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/551_alert_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "85226e1da101a01611d509c73e577acad373f5733ba5e1669ce1a89c29d34267",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/474_network_fixes.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "38bb04fb49d107927480ab3ab8d1bf0eb2e28f9ad921e09899417df556994e06",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/364_fc_targets.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa25ae0317807b32b3adf7fb3d2fb2ee28677408e8fb8fc5a5ec8ee47d217c6c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/226_deprecate_protocol.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "47123e52a081b333ae710eb005535c5fa84469d33a0d30ca7ec83e207d7d46c1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/666_dsrole_update.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9dbca25647f7901022e02661ab23d2b9c946abeb8377ba1dabbc199e3110fb2e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/523_nfs_policies.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3a8f974f616c2729c0b1ed99aa60e66b23c246eb2e91c8ff0e02af38f460f0f7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/743_network_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cc12d9712a822365ac3f4b36927ffe2c52bf193b77d9577fcc30e76d7f95a94c",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/444_euc_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d77c63e49dc36b2aaab0f38c1c907d43a36c6d3d64da01b18981a6c00a5b94fd",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/496_fix_cert_signing.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f9916161d203b84982579681a8d16e11263f05a5a54e7b2ec7bd901e25ea0cc5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/651_subnet_state.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8579a38863b42a17375534f62024928a04154464ccc0a7a33e6c514c629fd372",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/176_fix_promote_api_issue.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e1643ed3af96a2f4177225b32510025dad4fa8b2374279f80d960c1a8208bfa7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/252_add_saml2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ca47ce440b28f64030239cdf8e3d0d246092e93b0552043bbea7c4c769ceab8f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/214_join_ou.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b14ab70f9bd3756c7aca4c28f7d0bf7c2e40815710275232deb7d90239108b57",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/612_volume_volfact.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3ee616308a59e9419c86a103ad8ee7dba2bc7ce717a41f60778cf8e67c23a133",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/279_pg_safemode.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2c3658161baa8290c76c8ae550c7b3e267df82d78c26f11a36fb63f5ad0e3551",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/760_ds_list_error.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ffc2039e42d4c8f1dc65444ed6de46bb638dfe29301cd9e858d2da41575effee",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/288_zero_params.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "630fa677c01443af17039493a324e335da583109dca296e1f5162b12e65c4014",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/838_pg_target_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1de89a98823e0616d6a10b0b6cb29ef3a07662f2af385b61c23f84acfdf17688",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/565_fix_clear_interface.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f82f45bc0c45406a1f31e022272f5402feea9acb1fbc12558acd850b756619c6",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/344_fix_smtp.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb2f427e4bc4f43a9dcf4cfcb70387974e2239613d4363adb8d4d022a9b0cb6e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/665_offload_version_check.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa41b321df4c4b2e5d9b4cdbdf88b3c417df510ea7d7e7382ca0cc39ffb7421f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/824_audit_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "09f23d62760f04f15a433a6620aa71d380bf8b327c020d5b3ff3341150e1d8c4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/695_host_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ef7f91dcb81d0ae88331efea458e9267083b764f565f2b2e65334bb70a3899ca",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/170_pgsnap_stretch_pod_fail.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "af14d8b057b9a6947e71bf6f5ccfc1a89e8cd926a2aeb2e21561e9859d074540",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/560_snapshot_epoch.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ee78a33bdaeb6cea928365789ef208d6b5c56db648b3cea894020c9cd203983",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/112_add_directory_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6ea1e0a2ce1457141a4ce999d0538dce6943fd07f9d203dc46728fdd17121c77",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/509_check_peer.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7e2ebc389d5dd627995777ab4719829c1cab77f5483994239f7179fcb879f261",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/307_multiple_dns.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63b254118808a320dd69dbc885cdb3ffd20bf8a60c2fa636e5235b15bbb8fa7f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/718_lacp_subnet.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aec93455989665e710d2fa68467b925dba1155a92091248a0dfc7b896c7d9cf4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/383_network_idemp.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "891ed6fb13b7a9450d646736929c46d9fd657035b0a3a60858faac3c51a32cf9",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/840_eradication_idempotency.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1667bd0f5ec096c150f0c1126b0b84ca7c7b2e556628b535b56d2d7456d3bcb8",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/388_remove_27.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "79481f3b61a45b1d006a43850b16ca12b356b3157005dd866ae6b84c73279d55",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/168_dsrole_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a952b14eb16b084e107dc1e809347680de1bbabae470751ce53c1fbe8c00f7b9",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/831_messages_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9510c752ae493b4db945fa643542d094618e004a95074116bd85733a38586441",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/257_fqcn.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dff369a116a9ba4014989743704667ccbafdf9dbb792bc1387642284c2df8a1b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/691_vol_fleet.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa980055e1b5f626fafe8ca4773bfbbcace3ab5ac269683feefc416bbc38e436",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/573_ds_test.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a82313e6fbcc95610665d49001571dec1cad0f90ef8612a30513f7de9be336c7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/203_add_eradication_timer.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fabd383ba2343e7b5a9e4ac4818546ef8d991de7e93d14c90bd75f58d7f05a45",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/268_fix_quotas_issues.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c59529e1bf783c3e450ce897d8285253d9e660598604e81981d2cb1417c5d728",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/689_fix_pod_failover_preferences.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "80590e0288df634b7c50c109a7d004b59b2daf18d669645b0a9a68a54c141478",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/686_fleet_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7fb57351f33112222384a3616a20183e9dba5a16927ec8edd50ece7df7302648",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/793_fusion_syslog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4496876b3571c24539af66a9ddaf9126f8c6ae803495f1bb69048677a053b0d5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/660_create_ds_role_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "66a305ed0798d9225767da5ae060cb64b71d12af6a667affb0e3e2d6fa0f6d2e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/347_dns_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83f875d82f6573107b0a3428870ea83f37a24c97b8fb0b60732530d2bcc4d09e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/334_fix_vg_qos.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9963dd088bdc4526e0306809822f4137b6c60fc92df70bd59a535ccf66d70cd0",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/431_offload_profile.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8ec0bd0df5441b4e0de8925121989b1ec31f2252b1027665294b70eaf5fa6618",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/460_eradicaton.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee6d8e2070da03b4a99edc98a568c36c53ee37335ce0fd9e060ce352af64c096",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/450_no_gateway.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "794edfa3a274fa0739d392c586d608f2d45f314b887b3a5bf561f5d09c6d7e3b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/834_offload_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "32baabccc0cdf8eaaeb10ee690ebedebbbf9b501e0c529901b50b2cf71b1c18e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/792_fusion_ntp.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e6676f11cf9943c3c9b0727d3b04b05709824bbe4435377b1cbb48e735960f3b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/790_ad_user.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee0f765e94f16c3c94d494d4d08ddcdd87fa2621cbad44cd891fa1ee9a00c720",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/312_pg_alias.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "048f69ebae940761460f18b2c0c5b84f789dd5fa127a0ff8d6d8aafa89d7f1b7",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/795_erad.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7cfb04e81f2643a102d8b12989dbdbef6ae9bfec924063b70b30c43370fc7613",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/736_vg_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "676d7ad51001ec44207543f84d90f1c3e49e76d98e5e20a38070556d03876e57",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/818_cert_import.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "40ac58becbfe38059c7404586c5dc256d8351ad8b7875ee9432207e0498a6051",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/411_nfs_user_mapping.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b2061f97f76b8bdffb5c73bb4a39146bf88df324cf63567cabd97a1622bedc41",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/572_convert_ds.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b603eb70557c264c5eebf61d5e2f46c87e4449d3530394661f3f612481ca2962",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/265_fix_multiple_nfs_rules.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "92a7032c57aa30e06e3b7f3a8b14f1bc4a1dbd3c0f91e13ee862f9f91d894d30",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/436_snap_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3fff9af259a27393498695b348fec1d30ed60e966caaccea6f3e3a18562f7df9",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/702_snap_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "14f332f668887e808dc674e35673777240aa5ef5c054ea78ea10c8d88cbd25ce",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/602_volume_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "642fe36d11e6fde881cacdb50d13b112ef31461f35cae758464e8a9b91ab2410",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/719_pgsnap_overwrite.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2562999786d8b66022bb0dc80edf867d797250116681df75c03b7f0206fb6fed",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/516_fix_throttle.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f8e12e7a99fbc8168ec12a835c27e54941ecfb15dc3696e09054571ad4302724",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/379_cap_compat.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c135bcff0cf73fd477bc81cce7903bc90d0ed27554b4b70f938673a10141d61",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/826_ds_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "64631deeb27542ef46b793fb14633fb6f45258c31d982708c684c57f6c21b8c1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/829_exports_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4d3e55bc681babf25908d91e5b31e67f80db0131a1582ebac90056e70a27e88a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/243_sso_to_admin.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d50baeb61cf616fa61f24d6df31a7d75e1f742cb831843548dad5863267310e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/815_volume_tags_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "36b434962c13542a0272930eb08ffc38804bf0983a5e3b944e3fa8371970d176",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/210_add_rename_hgroup.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8589783011b4145d3eb5099a7d5e025e9fd2cbf50319d426f0b5b6f8e1b637af",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/348_add_default_prot.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "70909ac3544b7e941da1c84e9ba75ecd1e01898f0da9f5a58bef8f372222dbac",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/636_volume_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db24ade7d3714584db635d32f158c2d3974901b3cc272524b370ce9071e4dbdc",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/599_typo_dsroles.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fbac36d21b7604bbd16227da3988ebe69da9504caf91dc9ea9f1b8b452dc17d1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/110_add_apiclient_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a91901335be037584e59a521f7201e27431567170240b027ef9bb9f7220bf3d0",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/779_deprecate_vol_tags.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f27eb71a0769a1ade02a9c5c3d7bb732c02be24693c9ccae0375781f1a08eed3",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/208_add_directory_quota_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa55d46f1d02d324beff7238a2cf14255774b32bc4ff34921f682b5edc7b4061",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/420_proxy_protocol.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7b0d6dfcb36aa94fdb2254482b73bf06facc0a4c854b3560017fcd33a53b28cf",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/633_netaddr_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "711ea11cbdd5e5f6165b87fc981dc57dea99c62e0520b51a9d2b2509083aa936",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/485_fix_host.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5c55238368291000abb54e4d42aa6e42a6e73ae50ccdb1f970c0e0ba5b16258e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/125_dns_idempotency.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "27bba2cd35c66b07bbd99031704cce7e3234305d883af0e9841cb35dbefb14f0",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/851_network_interface.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "efecf4cfd8c5b23aefa032a16a3525cee1499a1a35a9a7e7850849bf1fdd58fb",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/163_add_maintenance_windows.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cae0c49297590fa895d7944d8ca2c9ed8ee936cfb2a7eb1e7480ddd8d363790d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/814_policy_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6025aac2c739e2cbc03812d9950666e9c174e7bb8c27c2d97ea9a6263e3b1c4f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/280_multihost_no_suffix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c31e72389decf9391a7ce5ea2504e6490b3afe0be780106152cb473ec3dd5d1b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/122_add_multi_host_creation.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f330217bef8d7c34061545e4071b372538afb841b2b013e6934e6f872af35a58",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/270_add_priority_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3ce6bf60d3a1efd2f708490a654ec6c34e1617bb80f5114c170d683dee794f56",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/714_host_vlan.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a990e8e7a6b740b77f0c3d6d0fd7c86d7e39a8e7f90894ff186a9d54e829cdfe",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/518_nfs_security.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1bcb6ca1d611f013d3c1a12bbfdcb1381b1122158138054d9522a7c70b9978ac",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/754_vol_delete.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "30f169900a48dfdc11e70d571ffc2ec202d075fa60a903ee2936fb6cc3452c74",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/741_subnet_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3156c29bd4191b4c05776a422b267c25f0a61ba9e65c4eb5f4e880f4d828e6ec",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/632_eradication_timer.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2af06fda6a874c12164b90a3a8ea2a4da355a2c6913c05d3fa562178043ac7f4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/588_disable_warnings.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5743706f26d062d78a1da5331b3beb7baca03345651dc1aea8d69fefef6102dc",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/440_null_suffix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "231b9105fcff58da4b829bcd76e0910685cd4bfadf5d2f278453ecc1b81887da",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/603_del_vol_perf.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95669c4f7e4dc372377b21c347c23acb285a1ae992e687e611bba1d1aaf22b44",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/581_convert_ph.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "525073cdd4e5bfbd3333cc9e38ee2d65a48634a825d23c2d7a7ec984470f4d55",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/468_missing_subset.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "decb4c312bfd5d8a20e0fc2f06a77b63bdb8eb1c5df4a4708ff9684adf7375a5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/653_remove_default_mtu.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "da46621444f408e4f98c0af7bb76ab4d81d78ed9838245c383a8d9f786abdfa4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/124_sdk_handshake.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "09dd30cee672d1bfcf0852933b8db73124d3465fe15be02d4b77cfe93df58c51",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/193_duplicate_initiators.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "040a717fd2d50545967a195dfefa3143d746d80b614349a18f6da93ac084398f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/830_fs_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dfeea4a14cad6893df6e06a37a4965d9fb1a20158e0c4bea0de00818f3134647",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/247_fix_smb_policy_rules.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "de2fd709d27d85d6b8e983f60b16a3aab0dd0f2bb02f44d7ccfcc99915ba3fee",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/140_pod_case.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8314f833498e81e803152d5a6b8fa4992b690a8954a7b75e4f78f55f3e6281f1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/272_volume_prio.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d5126118e5a4e014fe832b11a84fe2f0004496a45d3bcf47be4645f3fa85c11e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/137_pgsnap_regex.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "48e8092e90544ebbc947d35dd0a49b09c2b73a4547705e9a1db4ffc0745550cd",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/722_user_rest2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6bbb41b4f8c170c9da052977773f04a51880f70cac72e5b7fb0d4deafa1d720d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/592_tls_connection.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "55d58cf6d8c01d601808d67d6ce39a4f8ada99c185e3a2e766a9d8b0c2ffb136",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/679_pods_decrecate.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "53787910c4c95079f7d4f747255616a316e50d3982b377c3795b398f07fc4271",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/536_syslog_rest.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8fc95a321302077490598c5d57d224dd83a4afc4b6c9338f33d89516755169c4",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/539_rest2_vnc.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1070f2c0ca85c5267559603b6a8840b958454980e88bcdd6e3020ce1488989ec",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/169_add_certs.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "355b59a19cff9aede4aab5de882b471171cda7853e50aec1089e196c7df16e28",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/593_vol_host_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "903de8007d4fdc8efffd22cc319f63af183814718686c65b345fc1b895477ac3",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/662_add_snap_data.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e55e259e7e325d960e9c7e1c900d77a0bdc78b179ff72b51a0cc974b8068f7f1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/123_add_multi_vgroup_creation.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1dee7ff90d9aa085f7c775640e522f54a17229548c57e965c8e8229f16a51ab5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/370_add_user_role.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "713d2d7066e76f6967b51a67aa59e8dfdd666cd90b8538f7f00827fe3b7b2231",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/337_fix_non-prod_versions.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9461a330780061d2f543cda7721e4818e8c7e2245439c1737a0f4ea8d095018f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/134_ac_pg_support.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eb72b8d852fda09db8bfcd0742081fecbabd6d68c97b0311a29a26765ed67307",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/555_update_pg.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "71abc3c712ee7e9b71002f31109473aa4b5a34a8ab36dace109e0e22ee540163",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/722_timeout_v2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e1ef48e42e7a86139aafcb7f01156caddd097bd42e3bd0b3d5f65ba670746d9e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/657_pwd_policy.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "693f0030ea3fc1864c31c3081ad8ed2d858bd468e7c7d4963dd29166a8d7800d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/569_enhanced_snap_policy.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "72668007fa3552289903f4c439f82eba3cbbeaf4098a16728ef92bd0e3f70e0d",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/858_hgroups_nvme_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b127174f080916e031f2026c0f997d30c56573ffb42a77d4638adfde40538b4a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/132_fc_replication.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "31119ca85b86a8e72c64dd998590a231499f135595052c25a73df1f5b9a1965e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/259_fix_gateway_check.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "89448cb7b64a91aaeee486714624ffa318333f43cfda73519129081df032e01a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/706_pgsnap_fleet.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a349cbae96733b3f0a9cd063c875c018667cd8ad55a0393c609ca77b29a99fa5",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/628_inventory_fix.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "350b59aa95fa04f1aed6a4b68c1e2bc4ad70c73fe7a5f5e13c849d63ccfc18d6",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/428_promotion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f5eeb622fc74c1f0abe26e024c16868b3d475aa878071844b15f914720c3f013",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/278_pgsnap_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e067b4bfeb515242e2a2cf5018b4b3c45b6af2204f6cd13a8505e6c1b5c55445",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/194_vg_qos.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0e9835e8e6d6dd32ec0af6c42f7d3c38fa496eb3afb3314f80c66fa189268558",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/777_info_rest2.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d5b5720092de237984f4f6100a7448fee6bc324a83ba0e679a86250ddb62e177",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/384_update_vol_facts.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d8eb9673ceca70f3c28a1f90d394719d69bd2a0654c880a59e09fb10ea9b1bd3",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/545_4kcert.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d1ef5ef2b59240b97e1774cfecfa3555b7d6afd03045f4ffa89596de1d5bed76",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/693_update_smtp.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61bf9e9a7e105a8a107884c6d9dac8a6bfd2ee730cec4ce946cff292a755e9d8",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/343_fix_ds.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3fa3323ca7bf1ee194ad96413ad37d4dc1018d0b10dd2fff226fc233120737a6",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/822_dirsnap_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "de30d61c0d67a5404a18a464ce09c3f5b021c225b7d1807e7057b16d1f180ea1",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/375_fix_remote_hosts.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf689dc94a6aa93b1a5caefebd9bc03581fa83fa22ecdcc1f639c855dd1d3659",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/277_add_fs_repl.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "94698812175494446d89f92951b8bb0b8794eb1b8b1453aa85dbdf23e0b1522b",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/118_rename_host.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5fad30e620947f3c5878545aa55f223370e4e769ec28002f662efdf9ffd1358a",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/254_sam2_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83cf6a33a4429f2f17d2dc63f4b198e0a1cd7b2f4cb02f86f08a2deb5d5ccb66",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/579_add_smtp_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b207d83b962aff9e0a8905ae6d2cef218d24912d403f914c6d4d361dc94464a9",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/552_convert_connect.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "979a96a02af84e88cf39f14a6210d358d392e2989781cdc299f4c54f93dd4424",
+   "format": 1
+  },
+  {
+   "name": "changelogs/fragments/776_workload_info.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "240c6a21ebe8f0cf756ea066324f59ff932e7b1bca79c4b7cc3b1dd5800a01ee",
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fd709c098c298dd15ccaf837e28fb2284c1894a4e99a3386ceec6a193e88ae71",
+   "format": 1
+  },
+  {
+   "name": "changelogs/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "787229dd578477fe1009b0d84411b5c9678bf474c0c89642bd7381d6c4803c19",
+   "format": 1
+  },
+  {
+   "name": "changelogs/.plugin-cache.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e57ed6cf66a4b2e9a785765b0c1ac07fd69daf58fef475f0df06938694955fe",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8663df65095a8e14398fb134cdbd907589655625d1737d26276b43d8e36a0785",
+   "format": 1
+  },
+  {
+   "name": "meta/execution-environment.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a6458a579fbece249677d5d5473a58da36c7c8ab0a23b136891551f96e2c9b4e",
+   "format": 1
+  },
+  {
+   "name": ".git-blame-ignore-revs",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ac6beea8907c4dec17a6c8ccf9cf7728865c8323a2fa0ef1c7e3e79a3c283433",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a009a349eaaf78c93ff56072d2ef171937bdb884e4976592ab5aaa9c68e1044",
+   "format": 1
+  },
+  {
+   "name": "869_dns_fusion.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fce828b713e0c8c7373e659ce13f2e8e4e7e9549ea6c4438558a262a07c77d68",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "af64997aa74328694526d20401443e75fce32c2834919b51532e40d8041cf72d",
+   "format": 1
+  },
+  {
+   "name": ".yamllint",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3e575f76053a10a2193b1366e5873d17f5a6e93f061f1421574269d9d0de1b8f",
+   "format": 1
+  },
+  {
+   "name": "README.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2f04e9c92d502e0e15adbbcf587392c385144d8b3a1fd4b124057be5de35f1b4",
+   "format": 1
+  },
+  {
+   "name": ".github",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/feature_request_template.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4731d199ca9cbe66b2b6de02846b4860ccfb4fd0ebb2872fe6452b6cf5b73ce2",
+   "format": 1
+  },
+  {
+   "name": ".github/bug_report_template.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b4eb8821158c73fa62944e91e917f1d1b81fafed3adfe0e6ea373f99902bdf1d",
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE/bug_report.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0c8d64f29fb4536513653bf8c97da30f3340e2041b91c8952db1515d6b23a7b3",
+   "format": 1
+  },
+  {
+   "name": ".github/ISSUE_TEMPLATE/feature_request.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f48c52f209a971b8e7eae4120144d28fcf8ee38a7778a7b4d8cf1ab356617d2",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/stale.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "544ccc9f17e16d9087802e3dcec69741e6ff79e31cf7302947ce2c08126ce1d4",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "768a982424110127ece8ce148262dc07173b4a9d384968d47e9970c7e7a453ef",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/black.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "803b5d6a6d7448701e1b7eb09595f783cb7ca83bd4d298f91c60ce7143c3607b",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/ansible-lint.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f35f43f3086b437800cd29a3682700cd4e6cb4c41235ed87d79f4c5010418ff5",
+   "format": 1
+  },
+  {
+   "name": ".github/pull_request_template.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "72bc9a2e0da280485e59fcd58c6c16519047b564d02cd5a3d45514b0f3863806",
+   "format": 1
+  },
+  {
+   "name": ".github/CONTRIBUTING.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "69fb16d49892fb5d60316a051f1d27d741e71fc84f18c14ff7d388616925535e",
+   "format": 1
+  },
+  {
+   "name": "requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f079c89aa202a24a53c64c9900de5715a05636128e23ad6ceb70ee1c4d5a32b5",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7de9be30a267b2216c1c5616cfe867267096e217791f15d53a31e4eadfcff4ed",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/purestorage.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "113bfd4214cfc44912b8acc17a033de52321ddabcd96870b35f8189b22d6711c",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/common.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "17361535f8c99e29aa30ec31feb759037635c166552c061de577a8a1c1575555",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/purefa.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5b622673faca079094fa9d7f2f379c60f3cd6ddd19c8397dfcafb8b9eff435f4",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/version.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "da42772669215aa2e1592bfcba0b4cef17d06cdbcdcfeb0ae05e431252fc5a16",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_ds.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "710928da5c1ddbee2af9e6c48b43e91457d27b1757e9af5092919773b66b154f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_inventory.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5b8cb02b2eaa08acc6337d73d087c2f4da21dac01430fd14d6119a64bb848aa1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "187c21b9c2a819062a70ea7d1cd63a60fd75bd631be91f6edc14010a7af5b722",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_arrayname.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bcaa0583073eaa65c5c4c9cb7880b03b8c9f753c7d155e0fdf1b3bee9da76854",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_eradication.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f2f8adaa70df8f3fef37f6dbd544e79af53e19674b4914ed81fcf0307e15542f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_cbsexpand.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4edf2994e2705c4eab90cd9a165d16586b5c09c7cb94dca811e34a4eaec9ba61",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_pod_replica.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b3d254cad6d3ad852926a6a54092322035d0c7785e5f6c7b33ca93fdbc5edeb7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_vg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f70b0da17c9c8c25d10974d3ff55e4f9e012df7725fe51c6cade7af5712de53c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_network.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "827642a5570426dcf307ffbc00ead57c161319332f9c6f0c7ad2b4d16db76cf6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_syslog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ac57f211d583a0f0acbcef10b3654099df07d512c3be26b75f0828b4e62a2f99",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_ad.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d53d7b7a95d0ecdcbee255db028a52c62a15e85bdb9541bafcd8270c3bd97b48",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_snmp_agent.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5348e221b508172bed366442c9704de43e1f29d7adfb98e62b62050fe24def9b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_token.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cd44a934a7810eb861570b1937fd31cfe3ca6cb34eea4cf512745309f31384ba",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_pod.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "48c17a92f3eb1d0146474bacc44fc724778c54e94cca4605b53c7c9357024449",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_console.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "08bb62742be6cb1c90b6f48bc98a90c9b6f2adb42f72e5469631140eb73feee5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_maintenance.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "249f17d5ceeacef62bc5fd88d6e65ff965efd9dfc5d71b4f4373671c3f68d227",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_timeout.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6ed008c311becbb7bd6df068d4fc180512451bd44ad09b5483681f06df8e608c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_eula.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b7dce839b1a4d22b0c8045e9244719d56bb4acbf2723958ac4de77f3dcd59536",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_saml.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0196517a1e9380aad459dbfd92dc8460324f9f8fe7fe4f3ba7cb13f294b55479",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_snmp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4f23f6b874cfbd56f0ffd382789872ca53abd5f8851aa6a9f701a106aeb43e4f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_default_protection.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7c6b59c0a19e421cd2af6419f284a04f76d01ebb08158abd5253c02be398b068",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_snap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "901899cf173a2457e2a52e90bc6760655bb88e6c45e2f54ad0ac13f6aaab0753",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_pgsched.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1519719433e2115971a83f91ac1fd098302cc050103f5a1ca6f2ba69bf6990ed",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_workload.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1e0ec4e2b4fcf60c135cd69789daae60f2d58d817e694da50f2da4a30a477d44",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_endpoint.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf886f0a9d9d9ecfa7b96db4d90232e240ce03ad760246f3d8f0ba89f3d96d1c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_directory.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "487150be5ff08635e2486a691cd1809ed5d4323dff7190d0f4835c6e01c54923",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_apiclient.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0f0e9326b602ebe15e46d95812f3bbec846826b91d200a25ac4c7ee4fcf86bd6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_vlan.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0b4ba64af0c792fa3eb663d71f221b43e12edc7233f784ed1a836c1f6351f972",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_export.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2211856db6a752972beb7c080500ae5418decf734ae1c96daf3020348b8fd47c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_hg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c4a6fd05fabfff05875734e597528df046b3c339594493bcb441e6e44d0142c6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_sso.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cdec272790d6eb33af87025b1d5763a448caaa270b3f33404eba1068bb24e50c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_hardware.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f97ae6feebf767946d983c0671068181b60bdc33844e1248f3935b6c17af2493",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_smis.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7eee15fa8ee3876f9fc141400d1e5211dee3aa744e69d4b23a76da3ccdbdfcec",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_phonehome.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "49a76762fc23c60d38236ede09d0594b937fa4bb2356f3ac0a5e7f05f1ddb12e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_subnet.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fed15abe268c8834e73f0d39f23a47248d92f3ae838a8024971d29aebafa8932",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_dirsnap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2e4c263eefde9d1c217ec948837fd69fc506d1cd2f6b0cd6ffcdda5bd837bff3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_dsrole.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6507268194823e9aa30d307fd4f870218195f6343793986f694d8cb0bee3d8a5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_pg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a34c3d162fc8ff339004bf755c143ff23698729a5678ea7847c11979ca3579c8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_dsrole_old.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4925809ca78ccd27b32a88887e430c87e8600e0b4fbf8db7c80b73fe6381414d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_host.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ed5206c015eb65ed15b811f73e3de978fd15ef9ea26ea9895a11fc36b11ab69a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_user.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e23eba6e1c93f59c701cdd28ecbf52506ca30bfcedf3e9fca53f0b257b603f0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_certs.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4266ffa2e5f8beb7d74c3ad3c468f95f41e192d486c811dbd422254c5007e62",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_messages.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ae20e802d36e1ca562601cc341718ec91b39599e17536cabacb7c38c9cb5711",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_ra.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d93e8a95e333184b636d7084f791c46d376bb467c9be4c251cc154bbab4af83a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7a93359625abfd9e371a46d1ae6abaa4cb05fea647f559c5380228980bf6e64b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_file.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c89f6ee6ddd085d909fdacc4c683558d1b9d11e01aadc821a6ed21777ece18c8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_volume.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "823baab5c60e0c2c7b59a01ab1837681712ad5868079f2d5df15c7e6a38a24b5",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_banner.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0ed97e45aa384deaa1d0f8d7ddccf29a257d791c2656d622c8e4c0c8cf8361c7",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_connect.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c66489a927188e9550f37834f104a4594abb662522acf8db764cf35e03cb1152",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_volume_tags.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4f000ac6d5880bcce7d8c45ee54dac62479894e4b05553cd06f995c454c4c7f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_vnc.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "156b8490934ed5ed64ea512b43f7830ef9086ebd10ce2cbfcc64047b65d1e724",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_logging.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6aa8d0c0dce2a521684b47f4457e4916e3e3ad1d5890b5056fdc3af5f2ec33be",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_offload.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "613a3f1f979ce90f3755c5f523fdb23dbdc12c9f618ae70913a7dd43eb1875a0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_dns.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "96e41d1dc04a0094f009a55480cb2b57e461beb6f4e3e9e19dc0aa283cd08506",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_smtp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "27ecd1def8736b85256143e49d025054b793ffd20b4b20bf5fa14bf47d694866",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_syslog_settings.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d1d62155a410fa65c737227e1f46773a18c0d92f27c9f2d51f4eaa1841a87b45",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_fs.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f2899dd53047ccf2c155fee73e3e447756a11d582b6e5dff52a94a0683048cee",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_sessions.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3f98f40c0a572613c001ae9020b9ee718341923ced9d4e9d7391737da1ec3f21",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_realm.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc5af90d56967eeb768e50d1f306c872ef3cea5ba33640b24cb5e863f09ca8c2",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_ntp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf4438ae288ac8cd5da8f87f19afd761b87db7bb6d4fe232f2df46efea4bb7e9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_kmip.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db6fb5bcf7f31f47a2ec4bfd902e9578728debeb7d172e68af4eb71e032ad6ef",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_alert.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "70faa0285d4a06f1634b66f1959b01e059af961ff87ed631038a697e95d88ebd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_proxy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb0cd53e28923bdf08290e754ed205b92128de589b162c9ae8c06ad6d757a1cb",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_pgsnap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5fc3f8820cfd0bf0fad4024bf4fe795cc968fde45a49b8107ad52c396551c237",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_admin.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bd8989ead01355ffa1041e3e37fce69e38a76b740c294c7e3b6d9c0fe473c483",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_audits.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d02e207a4a015fc92ea9721cc9ad31313ceb77c309089522baa8a6c1a3b4564c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/purefa_fleet.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "19b095485f039d9f4738b4836baa7c889c545bc3d6cffb778c0521c4d6a480cc",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

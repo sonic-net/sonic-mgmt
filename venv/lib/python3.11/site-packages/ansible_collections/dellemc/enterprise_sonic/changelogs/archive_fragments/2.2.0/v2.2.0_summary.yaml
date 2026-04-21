@@ -1,0 +1,16 @@
+---
+release_summary: |
+        | Release Date: 2023-0531
+        | This release provides Ansible compliance changes required on top of the changes included in
+        | the 2.1.0 release of the enterprise_sonic Ansible network resource module collection.
+        | It addresses two issues raised by the Ansible core team with the content of the 2.1.0 release.
+        | 1) Back out the "breaking_change" made in the sonic_aaa resource module to fix a functional
+        | shortcoming in the enterprise_sonic Ansible collection. Although the change is still needed,
+        | it will be deferred to a "major" release.
+        | 2) Re-enable installation of new Ansible Netcommon repo instances when installing the
+        | enterprise_sonic Ansible collection. The 2.1.0 enterprise_sonic Ansible release included a
+        | workaround for a bug introduced in the 5.0.0 version of the Ansible Netcommon repo. This
+        | workaround was implemented in the "galaxy.yml" file for the enterprise_sonic
+        | 2.1.0 release. New versions of Ansible Netcommon were published after the problematic 5.0.0
+        | version and the revised "galaxy.yml" file for this release enables installation of these
+        | newer versions.

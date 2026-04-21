@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_ad - Increase number of kerberos and directory servers to be 3 for each.

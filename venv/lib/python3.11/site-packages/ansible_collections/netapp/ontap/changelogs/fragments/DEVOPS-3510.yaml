@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_quota - allow to turn quota on/off without providing quota_target or type.

@@ -1,0 +1,69 @@
+---
+cisco.intersight.*:
+  query: >-
+    (
+      {
+        "access.Policy": "Networking",
+        "asset.Target": "Security & Identity",
+        "bios.Policy": "Compute",
+        "boot.PrecisionPolicy": "Compute",
+        "fabric.PortPolicy": "Networking",
+        "fabric.EthNetworkPolicy": "Networking",
+        "fabric.FcNetworkPolicy": "Networking",
+        "fabric.EthNetworkGroupPolicy": "Networking",
+        "fabric.EthNetworkControlPolicy": "Networking",
+        "fabric.LinkControlPolicy": "Networking",
+        "fabric.MulticastPolicy": "Networking",
+        "fabric.SystemQosPolicy": "Networking",
+        "fabric.FcZonePolicy": "Networking",
+        "vnic.VnicTemplate": "Networking",
+        "vnic.VhbaTemplate": "Networking",
+        "vnic.LanConnectivityPolicy": "Networking",
+        "vnic.SanConnectivityPolicy": "Networking",
+        "vnic.EthAdapterPolicy": "Networking",
+        "vnic.FcAdapterPolicy": "Networking",
+        "vnic.EthQosPolicy": "Networking",
+        "vnic.FcQosPolicy": "Networking",
+        "vnic.FcNetworkPolicy": "Networking",
+        "vnic.IscsiAdapterPolicy": "Networking",
+        "vnic.IscsiBootPolicy": "Networking",
+        "vnic.IscsiStaticTargetPolicy": "Networking",
+        "vmedia.Policy": "Storage",
+        "macpool.Pool": "Networking",
+        "fcpool.Pool": "Networking",
+        "iam.EndPointUserPolicy": "Security & Identity",
+        "iqnpool.Pool": "Networking",
+        "ippool.Pool": "Networking",
+        "uuidpool.Pool": "Compute",
+        "storage.StoragePolicy": "Storage",
+        "power.Policy": "Compute",
+        "thermal.Policy": "Compute",
+        "kvm.Policy": "Compute",
+        "ipmioverlan.Policy": "Observability",
+        "ntp.Policy": "Networking",
+        "snmp.Policy": "Monitoring",
+        "syslog.Policy": "Monitoring",
+        "networkconfig.Policy": "Networking",
+        "firmware.Policy": "Compute"
+      } as $mapping |
+      (.api_response ) |
+      (if type=="array" then .[]
+        else if type=="object" then .
+              else empty end
+       end
+       ) as $data |
+        select($data.Moid != null and $data.ObjectType != null) |
+        {
+          name: $data.Moid,
+          canonical_facts: {
+            name: ($data.Name // "UNKNOWN"),
+            id: $data.Moid,
+            node_type: $data.ObjectType
+          },
+          facts: {
+            infra_type: "PrivateCloud",
+            infra_bucket: ($mapping[$data.ObjectType] // "UNKNOWN"),
+            device_type: ($data.ObjectType | split(".")[0])
+          }
+        }
+    )

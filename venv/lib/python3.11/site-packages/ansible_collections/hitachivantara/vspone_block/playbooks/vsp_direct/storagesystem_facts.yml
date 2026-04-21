@@ -1,0 +1,45 @@
+---
+####################################################################
+# Example :  Storagesystem Facts Playbook
+####################################################################
+- name: StorageSystem Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get storage system facts
+    ####################################################################
+    - name: Get storage system facts
+      hitachivantara.vspone_block.vsp.hv_storagesystem_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Getting a list of time zones that can be used in a storage system
+    ####################################################################
+    - name: Getting a list of time zones that can be used in a storage system
+      hitachivantara.vspone_block.vsp.hv_storagesystem_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          query:
+            - "time_zone"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

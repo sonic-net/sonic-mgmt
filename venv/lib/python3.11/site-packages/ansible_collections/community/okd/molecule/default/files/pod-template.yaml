@@ -1,0 +1,23 @@
+---
+kind: Template
+apiVersion: template.openshift.io/v1
+metadata:
+  name: pod-template
+objects:
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: "Pod-${{ NAME }}"
+    spec:
+      containers:
+        - args:
+            - /bin/sh
+            - -c
+            - while true; do echo $(date); sleep 15; done
+          image: python:3.7-alpine
+          imagePullPolicy: Always
+          name: python
+parameters:
+  - name: NAME
+    description: trailing name of the pod
+    required: true

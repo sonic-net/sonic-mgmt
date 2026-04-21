@@ -1,0 +1,4 @@
+minor_changes:
+  - na_sg_org_container - supports deletion of buckets when ``state`` is set to ``absent``.
+bugfixes:
+  - na_sg_org_container - fix issue with applying compliance settings on buckets.

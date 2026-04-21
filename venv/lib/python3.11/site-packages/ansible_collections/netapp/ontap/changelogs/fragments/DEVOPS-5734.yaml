@@ -1,0 +1,7 @@
+---
+bugfixes:
+  - na_ontap_active_directory - updated doc as only ZAPI is supported at present, force an error with use_rest always.
+  - na_ontap_cg_snapshot - updated doc with deprecation warning as it is a ZAPI only module.
+  - na_ontap_file_directory_policy - updated doc with deprecation warning as it is a ZAPI only module.
+  - na_ontap_quota_policy - updated doc with deprecation warning as it is a ZAPI only module.
+  - na_ontap_svm_options - updated doc with deprecation warning as it is a ZAPI only module.

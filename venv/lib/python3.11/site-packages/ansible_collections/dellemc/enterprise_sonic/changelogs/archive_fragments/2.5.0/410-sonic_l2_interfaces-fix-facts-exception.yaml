@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_l2_interfaces - Fix exception when gathering facts (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/410).

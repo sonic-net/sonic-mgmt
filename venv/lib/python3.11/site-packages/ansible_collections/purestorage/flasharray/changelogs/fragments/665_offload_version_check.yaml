@@ -1,0 +1,5 @@
+bugfixes:
+ - purefa_offload - Corrected version check logic
+ - purefa_info - Cater for zero used space in NFS offloads
+minor_changes:
+ - purefa_offload - Add support for S3 Offload ``uri`` and ``auth_region`` parameters

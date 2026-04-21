@@ -1,0 +1,32 @@
+---
+- name: "Configuring interface-naming on a SONiC device"
+  hosts: datacenter
+  connection: network_cli
+  gather_facts: false
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: "Configure description for interface in native name"
+      sonic_config:
+        commands:
+          - description Ethernet0
+        parents:
+          - interface Ethernet0
+
+    # Same prompt and answer for cli "no interface-naming standard"
+    - name: "Configure cli with prompts on SONiC device"
+      sonic_config:
+        commands:
+          - command: "interface-naming standard"
+            prompt: "Broadcast message: Interface naming mode has changed. Users running 'sonic-cli' are required to restart your session."
+            answer: "\n"
+
+    - name: "Reset ssh connection"
+      ansible.builtin.meta: reset_connection
+
+    - name: "Configure description for interface in standard naming mode"
+      sonic_config:
+        commands:
+          - description Eth1/1
+        parents:
+          - interface Eth1/1

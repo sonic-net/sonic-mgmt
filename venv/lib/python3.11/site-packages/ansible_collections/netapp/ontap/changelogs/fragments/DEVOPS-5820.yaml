@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_rest_info - fix field issue with private/cli and support/autosupport/check APIs.

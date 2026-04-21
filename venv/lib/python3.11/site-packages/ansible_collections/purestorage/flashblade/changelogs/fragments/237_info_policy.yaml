@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_info - Fixed missing atributes for SMB client policy rules

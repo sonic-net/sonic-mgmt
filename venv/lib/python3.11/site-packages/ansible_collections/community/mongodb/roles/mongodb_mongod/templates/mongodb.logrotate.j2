@@ -1,0 +1,14 @@
+{{ log_path }} {
+  daily
+  size 100M
+  rotate 5
+  missingok
+  compress
+  delaycompress
+  notifempty
+  create 640 {{ mongodb_user }} {{ mongodb_group }}
+  sharedscripts
+  postrotate
+    /bin/kill -SIGUSR1 `pidof {{ mongod_service }} 2>/dev/null` >/dev/null 2>&1
+  endscript
+}

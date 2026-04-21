@@ -1,0 +1,111 @@
+---
+- name: Filesystem Snapshot Module Operations in Unity
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    snapshot_name: "11_ansible_test_FS_snap"
+    snapshot_name_1: "11_ansible_test_FS_snap_1"
+    filesystem_name_1: "11_ansible_test_FS"
+    nas_server_name_1: "lgla**"
+    nas_server_name_2: "lgla**"
+    description: "Created using playbook"
+    new_description: "Description updated using playbook"
+    expiry_time: "04/15/2021 2:30"
+    new_expiry_time: "04/15/2021 5:30"
+    fs_access_type_1: "Checkpoint"
+    fs_access_type_2: "Protocol"
+
+  tasks:
+    - name: Create Filesystem Snapshot
+      filesystem_snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ snapshot_name_1 }}"
+        filesystem_name: "{{ filesystem_name_1 }}"
+        nas_server_name: "{{ nas_server_name_1 }}"
+        description: "{{ description }}"
+        auto_delete: true
+        fs_access_type: "{{ fs_access_type_1 }}"
+        state: "present"
+      register: result
+
+    - name: Set snapshot_id
+      ansible.builtin.set_fact:
+        snapshot_id: "{{ result.dellemc.unity.filesystem_snapshot_details.id }}"
+
+    - name: Create Filesystem Snapshot - Idempotency
+      filesystem_snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ snapshot_name_1 }}"
+        filesystem_name: "{{ filesystem_name_1 }}"
+        nas_server_name: "{{ nas_server_name_1 }}"
+        description: "{{ description }}"
+        auto_delete: true
+        fs_access_type: "{{ fs_access_type_1 }}"
+        state: "present"
+
+    - name: Get Filesystem Snapshot Details using Name
+      filesystem_snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ snapshot_name_1 }}"
+        state: "present"
+
+    - name: Get Filesystem Snapshot Details using ID
+      filesystem_snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        state: "present"
+
+    - name: Update Filesystem Snapshot attributes
+      filesystem_snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ snapshot_name_1 }}"
+        description: "{{ new_description }}"
+        auto_delete: false
+        expiry_time: "{{ new_expiry_time }}"
+        state: "present"
+
+    - name: Get Filesystem Snapshot Details
+      filesystem_snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ snapshot_name_1 }}"
+        state: "present"
+
+    - name: Delete Filesystem Snapshot using Name
+      filesystem_snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ snapshot_name_1 }}"
+        state: "absent"
+
+    - name: Delete Filesystem Snapshot using ID- Idempotency
+      filesystem_snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        state: "absent"

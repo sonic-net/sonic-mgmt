@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_user - Do not allow role changed for breakglass user (pureuser)
+ - purefa_user - Do not change role for existing user unless requested

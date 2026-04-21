@@ -1,0 +1,26 @@
+---
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2022, Felix Fontein
+
+- name: Check whether system packages are a valid source of SOPS {{ sops_version }}
+  when:
+    - _community_sops_install_system_has_system
+    - not (sops_version != 'latest' and _community_sops_install_system_has_system_latest_only)
+  ansible.builtin.set_fact:
+    _community_sops_install_effective_sops_source: system
+
+- name: Check whether GitHub is a valid source of SOPS
+  when:
+    - _community_sops_install_system_has_github
+    - _community_sops_install_effective_sops_source == 'auto'
+  ansible.builtin.set_fact:
+    _community_sops_install_effective_sops_source: github
+
+- name: Ensure that something was detected
+  ansible.builtin.fail:
+    msg: >-
+      Was not able to determine installation source for SOPS {{ sops_version }}
+      for {{ _community_sops_install_facts.distribution }} {{ _community_sops_install_facts.distribution_version }}.
+      Please open an issue in https://github.com/ansible-collections/community.sops/issues if you think this should work.
+  when: _community_sops_install_effective_sops_source == 'auto'

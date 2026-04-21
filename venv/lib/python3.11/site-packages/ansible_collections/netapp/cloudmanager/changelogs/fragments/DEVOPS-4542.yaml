@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_volume - Report error if the volume properties cannot be modified. Add support ``tiering_policy`` and ``snapshot_policy_name`` modification.

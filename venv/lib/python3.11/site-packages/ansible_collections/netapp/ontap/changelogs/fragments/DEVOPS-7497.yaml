@@ -1,0 +1,2 @@
+major_changes:
+  - na_ontap_s3_buckets - new option `snapshot_policy` added in REST, requires ONTAP 9.16.1 or later.

@@ -1,0 +1,25 @@
+---
+- name: Get name of the original scheduling policy
+  ovirt.ovirt.ovirt_scheduling_policy_info:
+    auth: "{{ ovirt_auth }}"
+    id: "{{ cluster_info.ovirt_clusters[0].scheduling_policy.id }}"
+  check_mode: "no"
+  register: sp_info
+
+- name: Remember the cluster scheduling policy
+  ansible.builtin.set_fact:
+    cluster_scheduling_policy: "{{ sp_info.ovirt_scheduling_policies[0].name }}"
+
+- name: Remember the cluster scheduling policy properties
+  ansible.builtin.set_fact:
+    cluster_scheduling_policy_properties: "{{ cluster_info.ovirt_clusters[0].custom_scheduling_policy_properties }}"
+
+- name: Set in cluster upgrade policy
+  ovirt.ovirt.ovirt_cluster:
+    auth: "{{ ovirt_auth }}"
+    name: "{{ cluster_name }}"
+    scheduling_policy: cluster_maintenance
+  register: cluster_policy
+  when:
+    - (api_info.ovirt_api.product_info.version.major >= 4 and api_info.ovirt_api.product_info.version.major >= 2) or (api_info.ovirt_api.product_info.version.major
+      == 4 and api_info.ovirt_api.product_info.version.major == 1 and api_info.ovirt_api.product_info.version.revision >= 4)  # noqa yaml[line-length]

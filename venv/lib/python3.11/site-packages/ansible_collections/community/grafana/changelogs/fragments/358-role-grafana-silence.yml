@@ -1,0 +1,2 @@
+minor_changes:
+  - Add role components for `grafana_silence` module

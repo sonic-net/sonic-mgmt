@@ -1,0 +1,47 @@
+---
+####################################################################
+# Example : Storage Controller Playbook
+####################################################################
+- name: Storage Controller Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ###########################################################################
+  # Task Name : Edit storage controller settings for all storage controllers
+  ##########################################################################
+    - name: Edit storage controller settings for all storage controllers
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_controller:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_detailed_logging_mode: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###########################################################################
+    # Task Name : Edit storage controller settings by storage controller ID
+    ##########################################################################
+    - name: Edit storage controller settings by storage controller ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_controller:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "3f9bcecc-9ac5-4c21-abed-5b03e682e7b4"
+          is_detailed_logging_mode: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

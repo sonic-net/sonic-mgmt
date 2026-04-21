@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - bgp_af - Add support for 'import vrf' commands (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/351).

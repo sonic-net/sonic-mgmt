@@ -1,0 +1,13 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    organization_id: 828099381482762270
+  gather_facts: false
+  tasks:
+    - name: Get all organization's devices statuses
+      cisco.meraki.organizations_devices_statuses_info:
+        organizationId: "{{ organization_id }}"
+      register: result
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

@@ -1,0 +1,18 @@
+---
+# Example Playbook: VLAN configuration using the [ucs] hosts group
+- hosts: ucs
+  connection: local
+  collections:
+    - cisco.ucs
+  gather_facts: false
+  tasks:
+    - name: Configure VLAN
+      ucs_vlans:
+        hostname: "{{ inventory_hostname }}"
+        username: "{{ username | default(omit) }}"
+        password: "{{ password }}"
+        state: "{{ state | default(omit) }}"
+        name: vlan2
+        id: '2'
+        native: 'no'
+      delegate_to: localhost

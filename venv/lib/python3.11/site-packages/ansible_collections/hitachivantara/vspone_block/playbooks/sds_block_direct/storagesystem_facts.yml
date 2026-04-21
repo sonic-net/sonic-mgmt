@@ -1,0 +1,30 @@
+---
+####################################################################
+# Example : StorageSystem Facts Playbook
+####################################################################
+- name: StorageSystem Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get storage system facts
+    ####################################################################
+    - name: Get storage system facts
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_system_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_vscan_scanner_pool - added REST support to Vscan Scanner Pools Configuration module, requires ONTAP 9.6 or later.

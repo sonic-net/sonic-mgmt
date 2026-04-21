@@ -1,0 +1,53 @@
+---
+- name: Copy files
+  ansible.builtin.unarchive:
+    src: "{{ item }}"
+    dest: "/var/tmp/"
+    mode: "0644"
+  register: powerflex_common_ubuntu_tar_file
+  with_fileglob:
+    - "{{ powerflex_common_file_install_location }}/*{{ file_glob_name }}*.tar"
+
+- name: Get powerflex_common_siob_file # noqa: no-handler
+  ansible.builtin.find:
+    paths: "/var/tmp/"
+    patterns: "*{{ file_glob_name }}*.siob"
+  register: powerflex_common_siob_file
+  when: powerflex_common_ubuntu_tar_file.changed
+
+- name: Execute chmod siob_extract # noqa: no-handler
+  ansible.builtin.file:
+    path: "/var/tmp/siob_extract"
+    mode: "0755"
+  when: powerflex_common_ubuntu_tar_file.changed
+
+- name: Execute the siob_extract # noqa: no-handler
+  ansible.builtin.command:
+    cmd: /var/tmp/siob_extract "{{ powerflex_common_siob_file.files[0].path }}"
+    chdir: /var/tmp
+  when: powerflex_common_ubuntu_tar_file.changed
+  register: powerflex_common_siob_extract_output
+  changed_when: powerflex_common_siob_extract_output.rc == 0
+
+- name: Copy deb file
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/var/tmp"
+    mode: "0644"
+  with_fileglob:
+    - "{{ powerflex_common_file_install_location }}/*{{ file_glob_name }}*.deb"
+  when: powerflex_common_ubuntu_tar_file.skipped
+
+- name: List the deb file
+  register: powerflex_common_package_file
+  ansible.builtin.find:
+    paths: "/var/tmp/"
+    patterns: "*{{ file_glob_name }}*.deb"
+
+- name: Install package
+  register: powerflex_common_install_package_output
+  environment: "{{ powerflex_role_environment }}"
+  ansible.builtin.package:
+    deb: "{{ powerflex_common_package_file.files[0].path }}"
+    state: "present"
+    disable_gpg_check: "{{ powerflex_gateway_disable_gpg_check | default(false) }}"

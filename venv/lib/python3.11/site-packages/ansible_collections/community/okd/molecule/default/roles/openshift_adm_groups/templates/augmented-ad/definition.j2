@@ -1,0 +1,59 @@
+units:
+  - dn: "ou=augmentedAD,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: augmentedAD
+  - dn: "ou=employee,ou=augmentedAD,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: employee
+  - dn: "ou=category,ou=augmentedAD,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: category
+groups:
+  - dn: "cn=banking,ou=category,ou=augmentedAD,{{ ldap_root }}"
+    class:
+      - groupOfNames
+    attr:
+      cn: banking
+      description: Banking employees
+      member:
+      - cn=James,ou=employee,ou=augmentedAD,{{ ldap_root }}
+      - cn=Gordon,ou=employee,ou=augmentedAD,{{ ldap_root }}
+  - dn: "cn=insurance,ou=category,ou=augmentedAD,{{ ldap_root }}"
+    class:
+      - groupOfNames
+    attr:
+      cn: insurance
+      description: Insurance employees
+      member:
+      - cn=Alice,ou=employee,ou=augmentedAD,{{ ldap_root }}
+users:
+  - dn: cn=James,ou=employee,ou=augmentedAD,{{ ldap_root }}
+    class:
+      - inetOrgPerson
+    attr:
+      cn: James
+      sn: Allan
+      mail: james-allan@ansible.org
+      businessCategory: cn=banking,ou=category,ou=augmentedAD,{{ ldap_root }}
+  - dn: cn=Gordon,ou=employee,ou=augmentedAD,{{ ldap_root }}
+    class:
+      - inetOrgPerson
+    attr:
+      cn: Gordon
+      sn: Kane
+      mail: gordon-kane@ansible.org
+      businessCategory: cn=banking,ou=category,ou=augmentedAD,{{ ldap_root }}
+  - dn: cn=Alice,ou=employee,ou=augmentedAD,{{ ldap_root }}
+    class:
+      - inetOrgPerson
+    attr:
+      cn: Alice
+      sn: Courtney
+      mail: alice-courtney@ansible.org
+      businessCategory: cn=insurance,ou=category,ou=augmentedAD,{{ ldap_root }}

@@ -1,0 +1,5 @@
+---
+file_glob_name: sdc
+file_gpg_name: RPM-GPG-KEY-ScaleIO
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_sdc_mdm_ips }}"

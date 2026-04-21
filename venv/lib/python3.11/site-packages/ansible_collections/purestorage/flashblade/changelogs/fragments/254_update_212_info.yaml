@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_info - Added enhanced information for buckets, filesystems and snapshots, based on new features in REST 2.12

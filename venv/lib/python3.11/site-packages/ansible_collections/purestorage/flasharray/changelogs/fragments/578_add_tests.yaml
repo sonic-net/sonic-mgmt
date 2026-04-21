@@ -1,0 +1,8 @@
+minor_changes:
+ - purefa_alert - Add new ``state`` of ``test`` to check alert manager configuration
+ - purefa_kmip - Add new ``state`` of ``test`` to check KMIP object configuration
+ - purefa_ntp - Add new ``state`` of ``test`` to check NTP configuration
+ - purefa_ra - Add new ``state`` of ``test`` to check remote support configuration
+ - purefa_saml - Add new ``state`` of ``test`` to check SAML2 IdP configuration
+ - purefa_snmp - Add new ``state`` of ``test`` to check SNMP manager configuration
+ - purefa_syslog - Add new ``state`` of ``test`` to check syslog server configuration

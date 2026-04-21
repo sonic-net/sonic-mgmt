@@ -1,0 +1,2 @@
+trivial:
+  - Format with black, remove unused variables

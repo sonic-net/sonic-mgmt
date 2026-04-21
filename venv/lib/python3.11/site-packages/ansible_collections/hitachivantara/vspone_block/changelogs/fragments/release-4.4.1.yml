@@ -1,0 +1,6 @@
+---
+release_summary: "This minor release of hitachivantara.vspone_block includes bug fixes and improved error handling for VSP One storage systems and VSP One SDS Block
+  storage systems."
+bugfixes:
+  - "Resolved issue during GAD pair creation when resource lock is enabled."
+  - "Various additional bug fixes and enhancements for VSP One storage systems and VSP One SDS Block storage systems."

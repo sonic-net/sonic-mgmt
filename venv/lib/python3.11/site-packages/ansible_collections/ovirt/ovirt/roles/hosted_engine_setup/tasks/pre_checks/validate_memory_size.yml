@@ -1,0 +1,44 @@
+---
+- name: Get available memory amount
+  block:
+    - name: Get free memory
+      ansible.builtin.shell: free -m | grep Mem | awk '{print $4}'
+      changed_when: true
+      register: free_mem
+    - name: Get cached memory
+      ansible.builtin.shell: free -m | grep Mem | awk '{print $6}'
+      changed_when: true
+      register: cached_mem
+    - name: Set Max memory
+      ansible.builtin.set_fact:
+        max_mem: "{{ free_mem.stdout|int + cached_mem.stdout|int - he_reserved_memory_MB + he_avail_memory_grace_MB }}"
+- name: set he_mem_size_MB to max available if not defined
+  ansible.builtin.set_fact:
+    he_mem_size_MB: "{{ he_mem_size_MB if he_mem_size_MB != 'max' else max_mem }}"
+- name: Fail if available memory is less then the minimal requirement
+  ansible.builtin.fail:
+    msg: >-
+      Available memory ( {{ max_mem }}MB ) is less then the minimal requirement ({{ he_minimal_mem_size_MB }}MB).
+      Be aware that {{ he_reserved_memory_MB }}MB is reserved for the host and cannot be allocated to the
+      engine VM.
+  when: >-
+    he_requirements_check_enabled and he_memory_requirements_check_enabled and max_mem|int < he_minimal_mem_size_MB|int
+- name: Fail if user chose less memory then the minimal requirement
+  ansible.builtin.fail:
+    msg: "Memory size must be at least {{ he_minimal_mem_size_MB }}MB, while you selected only {{ he_mem_size_MB }}MB"
+  when: >-
+    he_requirements_check_enabled and
+    he_memory_requirements_check_enabled and he_minimal_mem_size_MB|int > he_mem_size_MB|int
+- name: Fail if user chose more memory then the available memory
+  ansible.builtin.fail:
+    msg: >-
+      Not enough memory! {{ he_mem_size_MB }}MB, while only {{ max_mem }}MB are available on the host.
+      Be aware that {{ he_reserved_memory_MB }}MB is reserved for the host and cannot be allocated to the
+      engine VM.
+  when: >-
+    he_requirements_check_enabled and
+    he_memory_requirements_check_enabled and he_mem_size_MB|int > max_mem|int
+- name: Fail if he_disk_size_GB is smaller then the minimal requirement
+  ansible.builtin.fail:
+    msg: "Disk size too small: ({{ he_disk_size_GB }}GB), disk size must be at least {{ he_minimal_disk_size_GB }}GB"
+  when: he_requirements_check_enabled and he_disk_size_GB|int < he_minimal_disk_size_GB|int

@@ -1,0 +1,2 @@
+minor_changes:
+  - Support ``writing_speed_state`` modification on AWS, AZURE and GCP CVOs.

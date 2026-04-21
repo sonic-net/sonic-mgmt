@@ -1,0 +1,52 @@
+- name: Set current storage system credentials
+  include_role:
+    name: netapp_eseries.santricity.nar_santricity_common
+    tasks_from: build_info.yml
+  when: current_eseries_api_url is not defined
+  tags:
+    - always
+
+- name: Override all inventory configuration states.
+  set_fact:
+    eseries_remove_all_configuration_state: absent
+  when: eseries_remove_all_configuration is defined and eseries_remove_all_configuration == True
+  tags:
+    - always
+
+- name: Unconfigure snapshot consistency groups
+  import_tasks: snapshot.yml
+  when: eseries_remove_all_configuration == True | default(False)
+
+- name: Configure NetApp E-Series storage system disk pool configuration
+  import_tasks: storage_pool_present.yml
+  tags:
+    - storage_pools
+
+- name: Configure NetApp E-Series storage system volume configuration
+  import_tasks: volume.yml
+  tags:
+    - volumes
+
+- name: Configure NetApp E-Series storage system disk pool configuration
+  import_tasks: storage_pool_absent.yml
+  tags:
+    - storage_pools
+
+- name: Configure storage system's hosts/hostgroups initiators
+  import_tasks: initiator.yml
+  tags:
+    - initiators
+
+- name: Map storage system's volumes to host objects
+  import_tasks: lun_mapping.yml
+  tags:
+    - lun_mappings
+
+- name: Configure controllers interfaces
+  import_tasks: interface.yml
+  tags:
+    - interface
+
+- name: Configure snapshot consistency groups
+  import_tasks: snapshot.yml
+  when: eseries_remove_all_configuration == False | default(True)

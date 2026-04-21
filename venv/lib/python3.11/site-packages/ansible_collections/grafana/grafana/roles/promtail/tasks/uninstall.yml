@@ -1,0 +1,119 @@
+---
+# tasks file for promtail uninstall
+- name: Stop Promtail service
+  ansible.builtin.systemd:  # noqa ignore-errors
+    name: promtail
+    state: stopped
+  ignore_errors: true
+
+- name: Extract log files from static_configs - labels - path
+  ansible.builtin.set_fact:
+    __promtail_acl_log_files: >-
+      {{
+        promtail_scrape_configs
+        | selectattr('static_configs', 'defined')
+        | map(attribute='static_configs')
+        | flatten
+        | map(attribute='labels')
+        | map(attribute='__path__')
+        | list
+      }}
+
+- name: Extract log dirs paths from static_configs - labels - path
+  ansible.builtin.set_fact:
+    __promtail_acl_log_dirs: >-
+      {{
+        promtail_scrape_configs
+        | selectattr('static_configs', 'defined')
+        | map(attribute='static_configs')
+        | flatten
+        | map(attribute='labels')
+        | map(attribute='__path__')
+        | map('dirname')
+        | list
+      }}
+
+- name: Remove ACL Permission for log dirs - default
+  ansible.posix.acl:  # noqa ignore-errors
+    path: "{{ item }}"
+    recursive: true
+    entity: promtail
+    etype: user
+    default: true
+    state: absent
+  loop: "{{ __promtail_acl_log_dirs }}"
+  ignore_errors: true
+
+- name: Remove ACL permission for log dirs
+  ansible.posix.acl:  # noqa ignore-errors
+    path: "{{ item }}"
+    entity: promtail
+    etype: user
+    state: absent
+  loop: "{{ __promtail_acl_log_dirs }}"
+  ignore_errors: true
+
+- name: Find all existing ACL log files
+  ansible.builtin.find:
+    paths: "{{ item | dirname }}"
+    patterns: "{{ item | basename }}"
+  loop: "{{ __promtail_acl_log_files }}"
+  register: __promtail_find_files
+
+- name: Define existing ACL log files
+  ansible.builtin.set_fact:
+    __promtail_existing_acl_log_files: "{{ __promtail_find_files.results | map(attribute='files') | flatten | map(attribute='path') }}"
+
+- name: Remove ACL Permission for existing log files
+  ansible.posix.acl:  # noqa ignore-errors
+    path: "{{ item }}"
+    entity: promtail
+    etype: user
+    state: absent
+  loop: "{{ __promtail_existing_acl_log_files }}"
+  ignore_errors: true
+
+- name: Uninstall Promtail rpm package
+  ansible.builtin.dnf:
+    name: "promtail"
+    state: absent
+    autoremove: true
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
+
+- name: Uninstall Promtail deb package
+  ansible.builtin.apt:
+    name: "promtail"
+    state: absent
+    purge: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Ensure that Promtail firewalld rule is not present - tcp port {{ promtail_http_listen_port }}
+  ansible.posix.firewalld:  # noqa ignore-errors
+    immediate: true
+    permanent: true
+    port: "{{ promtail_http_listen_port }}/tcp"
+    state: disabled
+  ignore_errors: true
+
+- name: Remove Promtail directories"
+  ansible.builtin.file:
+    path: "{{ remove_me }}"
+    state: absent
+  loop:
+    - "/etc/promtail"
+    - "{{ promtail_positions_path }}"
+    - "/etc/logrotate.d/promtail_acl"
+    - "/var/log/dummy_promtail_acl"
+  loop_control:
+    loop_var: remove_me
+
+- name: Remove the Promtail system user
+  ansible.builtin.user:
+    name: "promtail"
+    force: true
+    state: absent
+
+- name: Remove Promtail system group
+  ansible.builtin.group:
+    name: "promtail"
+    state: absent

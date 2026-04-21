@@ -1,0 +1,712 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "misc",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "misc/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e61dd07deb821f7d7de15f2667c7b8c0a636efab8ad63484badfeb37ad6d7796",
+   "format": 1
+  },
+  {
+   "name": "misc/Impact DNW07 UCS Ansible Collection Lab Guide.pdf",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8cce3d380ece9706c078a39e2ab729a555d585e546c12acd4d247d78ff3dfb7f",
+   "format": 1
+  },
+  {
+   "name": "requirements.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa3e8ff6c09414944bff4bf66cd0d1b885333c1ea305c1aa7b4dde48a1abee1e",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/ucs.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a91b29311e81b8c9db22d6fa74e6aebea262e57ec4b3e8912103e5efbe90328",
+   "format": 1
+  },
+  {
+   "name": "plugins/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c82ee692702ec1dd604cdbc38ff252114e5204e1b0627045a66c9451e7a918ac",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/ucs.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7ac49f880db68eec0a6affe37f75dd03704f96a0ebaf66b0193df5623c90af06",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_vsans.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b105eeb2fb735aff8b15a6739d389cd53136aee6b2a999858393368f2f846d5d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_lan_connectivity.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "26c43b44ab1a52bb85b3ea0cf65b832f1585e97766d35a98377abf8472339d6f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_system_qos.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f69468b54f4bb0780109774c33fb22057be05da9ca06e735a361f76c04b4c926",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_managed_objects.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2ebcc5345a2ff9b608cc7d58069dac1fbc1591ba8fac4289453d39461c6f9b46",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_san_connectivity.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4dcfe7e492de11b454d71b7c0febf8b155e2294f350adc008c4c9cbf33a7a82f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_serial_over_lan_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e021ff67abeeb6b7da3ee40e6ea89383087f849267185984a76c4c931a797c3e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_wwn_pool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "77e7110af3d7f99a11bea7dc3a3ad440487ae84fb398fc88ebac10d5c3d429b9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_vhba_template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0d101517afed7b1cf371455b01f9dadef9bbc33db3fb617014dcaaaad758866a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_vlans.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6950b454ac6bd2167ecc202f654fd9faed5262ca5d2c410d597f0e47472c0b7a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_sp_vnic_order.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "96e23fc8ac863395f5e7bf8ba37779ca874c9067c3c05daa627ad83cf80ea3b4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_disk_group_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f6a49ea61ffd831d1eef75c257fb575fb33a54dce9d7f6912f992c046a43c6f3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_ntp_server.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bdb32098920251a696b54880ec64d952f7fcbccf1c4da4880a27eaad9f9373bb",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_scrub_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7c9cf3ddff4ad4fd9fd5731232be37ffb7f34cb21116b2ec63517c61b76a338d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_uuid_pool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a5f0db526eb68d1ae5b785aaa2becc8b2f7bb2f577c06fefce6e5fc0abd85efe",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_dns_server.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ff553756e6bd2d6738ef4bb764d203c8ee02106c08829d90a3142931c10cc213",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_vlan_find.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "79ef87022cccdda50095cde2bae0a2e77bcb26449f6a602221854dae25d5ec64",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_graphics_card_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6bf1e1c5db6a36770020a0e5241c4f202325b43994eeb8073f21b1d0e7db0452",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_org.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3b50c0baadd950ddf6d1dbf8b3d70a69ef55bf498b1a9bda9edb72c527a437f6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_vnic_template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "29d8bc299da847d30c4ce01caf47f84d257f58b8c36f63e9c67b5f20c0dc56fa",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_storage_profile.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9c0dc5052a8799d978e8aa2fbdfbb6c86705417ccfe1b51fe5bb8b1153ee77de",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_service_profile_association.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3144bf9435cc211aba27194e52108982456b0950d28fa8278a27dbaf55d60b40",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_vlan_to_group.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e709fa2aae92f5f243b02368edf06f515fca1f37f94b6387f2671da0da35659c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_timezone.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "082e9538afdb081cf8395aed0fc8937c7d4f22bfd4316a878012bb46865bb429",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_ip_pool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b97a4fd22591ae28008e623f67cbaef3887e119091f280c7e31af1c12e28ee3b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_service_profile_from_template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7be552a649fdb69cdd6d58de04dab7f5ba48ae285ead919f1c9e853a304d5d19",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_query.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0a12cbf50e3a76aa100dd82f64689d9f42c64a34e4e3ade41fd95b44678b46c9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_server_maintenance.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2d4a25c85354c5410a88f7450088acfdb61e25edf1e97919e3d159fcfd1d026d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_service_profile_template.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4061510f888b4d1bb513f422c872977586badcd1cdfc7eec1e089918e26b4abe",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/ucs_mac_pool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "04faba93d8e8616095488841e9bf488655b7bbe42019b8a704dc31b836bb5608",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4b09860144d96c87c5345bba1463d0a60593100b97473cdb7ead73e6304cafcf",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa2e34142e05cac25ebdf95790050adccca8011fdeb0aec65425c2547fd80f39",
+   "format": 1
+  },
+  {
+   "name": "roles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_storage_profile.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "73dd6810f42171885952bf76d4202ecb13b064fb8dc90186e708455fb24d5d69",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_wwn_pool.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "987ca74a5d8b7b54e29edd5803add2bab57c273b67d4c7d9bcda37ef2e27c7a6",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_serial_over_lan_policy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6dcfa1cbcb46ca123dd97ef08c5c434753da47c7ed685991b77ea6464f743370",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_vhba_template.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1534c4ba91d80f1600e4a8d771b1b3c4b4259d2fb425c05f541099b4d0a4085a",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_lan_connectivity.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8a53b3d27c709fca368d468f4c84739da0c4866ca72937ab3cf78779a2436ec2",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_mac_pool.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "53d9dfed80c071c7e1f8a030c08de08afded46915a386b8a4b5a78737aca0001",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_vsans.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7b61291ca5249eab7df84a70efd8603875f3182f9a814d203c1862d445d7051e",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_system_qos.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d4d6c5b5c72bcd66ad8dcba66c8453b395fb3bfa9fe0fc72a6bc3b0251c46dfa",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_ntp_server.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8a90a7e0d96b018288f033718ed236b3ab4d168dc9defb8c0884ac252c04b738",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_service_profile_from_template.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95cc60d9f502b9b3dd5d161e3f6694f5d67d42924405ad37ad80188ffe9e6b6f",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_vlan_find.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81ae309cec1159795a14808387b05f13d055cbdde5f30e54046a4ceb1fcd3c0b",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_vlan_to_group.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "96d7f24656cbd38da33aef2570ae605a64340152396bfa63cd09d43faf3b3c59",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_uuid_pool.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0ff47a26912b1bb88fdab7f88b708c0f0e800bc361f4c951429337288a5f6bef",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_service_profile_association.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9344bebf7c33fa4a7b5e0b2af6d42fb782005863469518de72372a5abe1242d3",
+   "format": 1
+  },
+  {
+   "name": "playbooks/example_playbook.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7510073bfa856bd46084f6f64817f4a4dc918eb41b06305cf6441697be4700ae",
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/service_profile_templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/service_profile_templates/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/service_profile_templates/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "76a596b849386fd161f9a0404954c6a84ce372e13ffbbc9cd8184a8f4c844599",
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/service_profiles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/service_profiles/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/service_profiles/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b03e8aa16fddd905499d0bb4fcbe84f95dfadf9cce767d321f33205b64419645",
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/defaults/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/roles/servers/defaults/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f59e652166af3b702f5f025ac0a3495b09ee2eba152e35ef3b8ca9a68ecc167c",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_managed_objects.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "91945720363aa0cf1a172677706cacfda9ff0f344e4f45ddfd8d357b29177e12",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_vnic_template.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "45ef3ff50bac1a8750c15dbd81fb5586c72d24a4a42a8d441c676b3e23466c83",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_scrub_policy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3e03124d0180685b351cc39dbcb4d2c7070204ce812753150ccfd49c7bf5ed8e",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_san_connectivity.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d45438b347de5204ff4086462b37db5ad4495ec89b059f8ea232d877fab872e9",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_server_maintenance.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f66d3bafb2811978d47b31d9148ace000c70045809e6ba70c1882cc587677f42",
+   "format": 1
+  },
+  {
+   "name": "playbooks/fw_download_config_hfp.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "17cd79e71470587a70d01b6f3d80afc8d3e4fe51daa4dd1f72b2bc2f9e8ee6c2",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_vlans.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d79534e7bbdc7e7a70de748939ec9a36d5e2ae6a43b03652f2fb8e07442c78f1",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_timezone.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "de4668c116a5597df0a00cc749accfc1846c5811e5bfc4e063ac3790fd11da2a",
+   "format": 1
+  },
+  {
+   "name": "playbooks/inventory",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fb8cee99e65566c3554036f8954a343bbeb1028c0400fb39f13d446745eb15f3",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_service_profile_template.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ec80148cf284437a006a22c96dec5cd825a680f522c58732afc4263700fc8844",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_query.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6e97470c1d336d4f0b748d4d0f8646b4b24ae2f1d3cf6c9528b169019b0cdf33",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_ip_pool.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "82ac118553cb0c621fb9249bd6ac7983af33b29ab986a631bb1fb64111576437",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_graphics_card_policy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "65ef05804963545ee353e13395751b63177949b6713003f4124502a40109e9a4",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_sp_vnic_order.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4732febd59e04f510c13372427c2351dc7d681cc4ea9281d17efa1311d6f47c3",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_org.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e12ded4fe3e60e510dfcacdabd936776114347f721270a536940932a3bd8a59e",
+   "format": 1
+  },
+  {
+   "name": "playbooks/sandbox_inventory",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f39d48e2ce1d77a8a2c7c48580e474470793757faa3f6b49adc5382277ba1182",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_dns_server.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e19c9ddc5764373ac075751ac24d93b591aef74d9aaa6e88992b695f571140e0",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_disk_group_policy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "68f457405b58dcec795dd528fe60129aced435ca390fa9d9c7c12798bb59b76a",
+   "format": 1
+  },
+  {
+   "name": "playbooks/ucs_ipv4_pool_only.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "82c9147522f5360cd6347e4ad2c54636ca6891b93348024fdd85edeb1aee5d3c",
+   "format": 1
+  },
+  {
+   "name": "playbooks/server_deploy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "087cece69b2bd12dcbe7d4b98b5783a94bd440c24ba88e9dcfe01fdd8b4790d5",
+   "format": 1
+  },
+  {
+   "name": "docs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e167c086f6323d1a3bf5217965b1867b94e29a995f6c58762bd210dcc96c1e09",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fbbde23b486e876ee1aab3a0053c76df8b996c6e0f15502013fff9c8ecdb4fcc",
+   "format": 1
+  },
+  {
+   "name": ".github",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57a505c7b1a103ad3bfe236c4616c3877bba37515c5265f0bc6bd025f48e494d",
+   "format": 1
+  },
+  {
+   "name": "LICENSE.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1babfc8408a4d1d6f39b9c01c763e313b3e0f764bf90a11fc9151a2ae556b12d",
+   "format": 1
+  },
+  {
+   "name": "Development.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9877e1ab8e3670990bf466609609750a6f38c54f8e5ddb9761fe5f7966bfd93d",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

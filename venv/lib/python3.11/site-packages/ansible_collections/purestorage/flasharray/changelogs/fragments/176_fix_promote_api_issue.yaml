@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_volume - Ensure REST version is high enough to support promotion_status

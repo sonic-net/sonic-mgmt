@@ -1,0 +1,168 @@
+---
+- name: Generate CA certificate
+  register: powerflex_mdm_generate_mgmt_ca_cert
+  ansible.builtin.command: python3 certificate_generator_MDM_USER.py --generate_ca mgmt_ca.pem
+  args:
+    chdir: /opt/emc/scaleio/mdm/cfg
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  changed_when: powerflex_mdm_generate_mgmt_ca_cert.rc == 0
+
+- name: Create CLI certificate
+  register: powerflex_mdm_generate_cli_cert
+  ansible.builtin.command: >
+    python3 certificate_generator_MDM_USER.py --generate_cli cli_certificate.p12 -CA mgmt_ca.pem --password {{ powerflex_mdm_cert_password }}
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  args:
+    chdir: /opt/emc/scaleio/mdm/cfg
+  changed_when: powerflex_mdm_generate_cli_cert.rc == 0
+
+- name: Create MDM certificate
+  register: powerflex_mdm_generate_mdm_cert
+  ansible.builtin.command: python3 certificate_generator_MDM_USER.py --generate_mdm mdm_certificate.pem -CA mgmt_ca.pem
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  args:
+    chdir: /opt/emc/scaleio/mdm/cfg
+  changed_when: powerflex_mdm_generate_mdm_cert.rc == 0
+
+- name: Create additional MDM certificates
+  register: powerflex_mdm_generate_additional_mdm_cert
+  ansible.builtin.command: python3 certificate_generator_MDM_USER.py --generate_mdm sec_mdm_certificate.pem -CA mgmt_ca.pem
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  args:
+    chdir: /opt/emc/scaleio/mdm/cfg
+  changed_when: powerflex_mdm_generate_additional_mdm_cert.rc == 0
+
+- name: Fetch all certs to localhost
+  register: powerflex_mdm_fetch_certs
+  ansible.builtin.fetch:
+    src: /opt/emc/scaleio/mdm/cfg/{{ item }}
+    dest: /tmp/
+    flat: true
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  with_items:
+    - sec_mdm_certificate.pem
+    - cli_certificate.p12
+    - mgmt_ca.pem
+
+- name: Copy MDM certificates to Secondary manager MDM node
+  register: powerflex_mdm_copy_additional_certs_to_secondary
+  ansible.builtin.copy:
+    src: /tmp/sec_mdm_certificate.pem
+    dest: /opt/emc/scaleio/mdm/cfg/mdm_certificate.pem
+    mode: preserve
+  delegate_to: "{{ powerflex_mdm_secondary_hostname }}"
+  when: powerflex_mdm_secondary_ip is defined
+
+- name: Copy CLI certificates to Secondary manager MDM node
+  register: powerflex_mdm_copy_cli_certs_to_secondary
+  ansible.builtin.copy:
+    src: /tmp/cli_certificate.p12
+    dest: /opt/emc/scaleio/mdm/cfg/cli_certificate.p12
+    mode: preserve
+  delegate_to: "{{ powerflex_mdm_secondary_hostname }}"
+  when: powerflex_mdm_secondary_ip is defined
+
+- name: Copy mgmt_ca.pem certificates to Secondary manager MDM node
+  register: powerflex_mdm_copy_mgmt_certs_to_secondary
+  ansible.builtin.copy:
+    src: /tmp/mgmt_ca.pem
+    dest: /opt/emc/scaleio/mdm/cfg/mgmt_ca.pem
+    mode: preserve
+  delegate_to: "{{ powerflex_mdm_secondary_hostname }}"
+  when: powerflex_mdm_secondary_ip is defined
+
+- name: Copy MDM certificates to Tertiary manager MDM node
+  register: powerflex_mdm_copy_additional_certs_to_tertiary
+  ansible.builtin.copy:
+    src: /tmp/sec_mdm_certificate.pem
+    dest: /opt/emc/scaleio/mdm/cfg/mdm_certificate.pem
+    mode: preserve
+  delegate_to: "{{ powerflex_mdm_tertiary_hostname }}"
+  when: powerflex_mdm_tertiary_ip is defined
+
+- name: Copy CLI certificates to Tertiary manager MDM node
+  register: powerflex_mdm_copy_cli_certs_to_tertiary
+  ansible.builtin.copy:
+    src: /tmp/cli_certificate.p12
+    dest: /opt/emc/scaleio/mdm/cfg/cli_certificate.p12
+    mode: preserve
+  delegate_to: "{{ powerflex_mdm_tertiary_hostname }}"
+  when: powerflex_mdm_tertiary_ip is defined
+
+- name: Copy mgmt_ca.pem certificates to Tertiary manager MDM node
+  register: powerflex_mdm_copy_mgmt_certs_to_tertiary
+  ansible.builtin.copy:
+    src: /tmp/mgmt_ca.pem
+    dest: /opt/emc/scaleio/mdm/cfg/mgmt_ca.pem
+    mode: preserve
+  delegate_to: "{{ powerflex_mdm_tertiary_hostname }}"
+  when: powerflex_mdm_tertiary_ip is defined
+
+- name: Add CA certificate on primary MDM
+  register: powerflex_mdm_add_mgmt_cert_to_ca_primary
+  ansible.builtin.command: scli --add_certificate --certificate_file mgmt_ca.pem
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  args:
+    chdir: /opt/emc/scaleio/mdm/cfg
+  changed_when: powerflex_mdm_add_mgmt_cert_to_ca_primary.rc == 0
+
+- name: Add CA certificate on secondary MDM
+  register: powerflex_mdm_add_mgmt_cert_to_ca_secondary
+  ansible.builtin.command: scli --add_certificate --certificate_file mgmt_ca.pem
+  delegate_to: "{{ powerflex_mdm_secondary_hostname }}"
+  when: powerflex_mdm_secondary_ip is defined
+  args:
+    chdir: /opt/emc/scaleio/mdm/cfg
+  changed_when: powerflex_mdm_add_mgmt_cert_to_ca_secondary.rc == 0
+
+- name: Add CA certificate on tertiary MDM
+  register: powerflex_mdm_add_mgmt_cert_to_ca_tertiary
+  ansible.builtin.command: scli --add_certificate --certificate_file mgmt_ca.pem
+  delegate_to: "{{ powerflex_mdm_tertiary_hostname }}"
+  when: powerflex_mdm_tertiary_ip is defined
+  args:
+    chdir: /opt/emc/scaleio/mdm/cfg
+  changed_when: powerflex_mdm_add_mgmt_cert_to_ca_tertiary.rc == 0
+
+- name: Start MDM service on primary MDM
+  register: powerflex_mdm_start_service_primary
+  ansible.builtin.service:
+    name: "mdm.service"
+    state: "restarted"
+    enabled: true
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+
+- name: Start MDM service on secondary MDM
+  register: powerflex_mdm_start_service_secondary
+  ansible.builtin.service:
+    name: "mdm.service"
+    state: "restarted"
+    enabled: true
+  delegate_to: "{{ powerflex_mdm_secondary_hostname }}"
+  when: powerflex_mdm_secondary_ip is defined
+
+- name: Start MDM service on tertiary MDM
+  register: powerflex_mdm_start_service_tertiary
+  ansible.builtin.service:
+    name: "mdm.service"
+    state: "restarted"
+    enabled: true
+  delegate_to: "{{ powerflex_mdm_tertiary_hostname }}"
+  when: powerflex_mdm_tertiary_ip is defined
+
+- name: Check MDM service status
+  register: powerflex_mdm_check_service
+  ansible.builtin.command: systemctl status mdm.service
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  changed_when: powerflex_mdm_check_service.rc == 0
+
+- name: Delete certificates from localhost
+  register: powerflex_mdm_delete_localhost_certs
+  ansible.builtin.file:
+    path: /tmp/{{ item }}
+    state: absent
+  with_items:
+    - sec_mdm_certificate.pem
+    - cli_certificate.p12
+    - mgmt_ca.pem
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"

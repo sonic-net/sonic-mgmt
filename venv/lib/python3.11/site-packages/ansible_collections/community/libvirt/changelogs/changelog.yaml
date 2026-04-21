@@ -1,0 +1,202 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      major_changes:
+      - added generic libvirt inventory plugin
+      - removed libvirt_lxc inventory script
+    fragments:
+    - 23-inventory.yml
+    release_date: '2020-08-18'
+  1.0.1:
+    changes:
+      bugfixes:
+      - libvirt_qemu - Mitigate a CPU hammering active wait loop
+      - libvirt_qemu - add import error handling
+      - virt - Correctly get the error message from libvirt
+      - virt - Return "changed" status when using "define" command and domain XML
+        was updated
+      - virt - The define action searchs for the domain name into the xml definition
+        to determine if the domain needs to be created or updated. The xml variable
+        contains the parsed definition but doesn't guarantee the existence of the
+        name tag. This change targets to fix the scenario where the xml var is not
+        empty but doesn't contain a name tag.
+      - virt_net - The name parameter is not required for the list_nets or facts command
+        so we adjust the module to allow for that.
+    fragments:
+    - 43-virt-define-fail.yml
+    - 48-virt-detect-domain-update.yml
+    - 54-virt_net-optional-name.yml
+    - 55-virt-message-property.yml
+    - 59-libvirt_qemu-import-error-handling.yml
+    - 61-libvirt_qemu-mitigate-cpu-spike.yml
+    release_date: '2021-03-05'
+  1.0.2:
+    changes:
+      bugfixes:
+      - libvirt inventory plugin - Use FQCN for the inventory plugin name for compatibility
+        with Ansible 2.10 and above (https://github.com/ansible-collections/community.libvirt/pull/73).
+      release_summary: 'This is the patch release of the ``community.libvirt`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after release 1.0.1.'
+    fragments:
+    - 1.0.2.yml
+    - 73-plugin-name-fqcn.yaml
+    release_date: '2021-07-22'
+  1.1.0:
+    changes:
+      bugfixes:
+      - replace deprecated ``distutils.spawn.find_executable`` with Ansible's ``get_bin_path``
+        in ``_search_executable`` function.
+      release_summary: 'This is the minor release of the ``community.libvirt`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release 1.0.2.'
+    fragments:
+    - 1.1.0.yml
+    - 114_replace_distutils_spawn.yml
+    - 90_add_integration_test_for_virt_pool.yml
+    release_date: '2022-05-12'
+  1.2.0:
+    changes:
+      bugfixes:
+      - virt_net - fix modify function which was not idempotent, depending on whether
+        the network was active. See https://github.com/ansible-collections/community.libvirt/issues/107.
+      - virt_pool - crashed out if pool didn't contain a target path. Fix allows this
+        not to be set. (https://github.com/ansible-collections/community.libvirt/issues/129).
+      minor_changes:
+      - libvirt - add extra guest information to inventory (https://github.com/ansible-collections/community.libvirt/pull/113).
+      - libvirt - replace the calls to listDomainsID() and listDefinedDomains() with
+        listAllDomains() in find_vm() (https://github.com/ansible-collections/community.libvirt/pull/117)
+      release_summary: 'This is the minor release of the ``community.libvirt`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.2.0.yml
+    - 108_make_virt_net_modify_idempotent.yml
+    - 113_extra_inventory_info.yml
+    - 117_find_vms_update_calls.yml
+    - virt_pool_no_path.yml
+    release_date: '2022-08-04'
+  1.3.0:
+    changes:
+      bugfixes:
+      - libvirt_qemu - connection plugin threw a warning about an improperly configured
+        remote target. Fix adds `inventory_hostname` to `options.remote_addr.vars`
+        (https://github.com/ansible-collections/community.libvirt/pull/147).
+      - libvirt_qemu - fix encoding errors on Windows guests for non-ASCII return
+        values (https://github.com/ansible-collections/community.libvirt/pull/157)
+      - virt - fix virt module to undefine a domain with nvram, managed_save, snapshot_metadata
+        or checkpoints_metadata (https://github.com/ansible-collections/community.libvirt/issues/40).
+      - virt_pool - replace discouraged function ``listAllVolumes`` with ``listAllVolumes``
+        to fix potential race conditions (https://github.com/ansible-collections/community.libvirt/pull/135).
+      - virt_pool - replace discouraged functions ``listStoragePools`` and ``listDefinedStoragePools``
+        with ``listAllStoragePools`` to fix potential race conditions (https://github.com/ansible-collections/community.libvirt/pull/134).
+      minor_changes:
+      - virt - add `mutate_flags` parameter to enable XML mutation (add UUID, MAC
+        addresses from existing domain) (https://github.com/ansible-collections/community.libvirt/pull/142/).
+      - virt - support ``--diff`` for ``define`` command (https://github.com/ansible-collections/community.libvirt/pull/142/).
+      release_summary: 'This is a new release of the ``community.libvirt`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.3.0.yml
+    - 134_virt_pool_replace_functions_listStoragePools.yml
+    - 135_virt_pool_replace_function_listVolumes.yml
+    - 136_fix_undefine_nvram.yml
+    - 142_virt_define_improvements.yml
+    - 147_fix_qemu_remote_target_warning.yml
+    - 156_fix_windows_encoding.yml
+    release_date: '2023-09-19'
+  1.3.1:
+    changes:
+      bugfixes:
+      - libvirt_lxc - add configuration for libvirt_lxc_noseclabel.
+      release_summary: 'This is the patch release of the ``community.libvirt`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 0-readme.yml
+    - 1.3.1.yml
+    - libvirt_lxc.yml
+    release_date: '2024-12-17'
+  1.4.0:
+    changes:
+      minor_changes:
+      - virt - implement basic check mode functionality (https://github.com/ansible-collections/community.libvirt/issue/98)
+      - virt - implement the gathering of Dom UUIDs as per FR https://github.com/ansible-collections/community.libvirt/issues/187
+      - virt - implement the gathering of Dom interface names and mac addresses as
+        per FR https://github.com/ansible-collections/community.libvirt/issues/189
+      - virt - implement the removal of volumes for a dom as per FR https://github.com/ansible-collections/community.libvirt/issues/177
+      release_summary: 'This is the minor release of the ``community.libvirt`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.4.0.yml
+    - 177-undefine-disks.yaml
+    - 183-check-mode.yml
+    - 187-add-uuid.yaml
+    - 189-add-interfaces.yaml
+    modules:
+    - description: Manage libvirt volumes inside a storage pool
+      name: virt_volume
+      namespace: ''
+    release_date: '2025-05-26'
+  2.0.0:
+    changes:
+      bugfixes:
+      - virt_volume - create_from was non-functional, and is now folded into create
+        (added clone_source parameter). Fixes
+      - virt_volume - info, facts, download, upload commands have been removed as
+        they were not functional (and not tested).
+      - virt_volume - wipe command now works (and is also a boolean option for 'state/absent'
+        and 'command/delete').
+      known_issues:
+      - virt_volume - check_mode is disabled. It was not fully supported in the previous
+        code either ('state/present', 'command/create' did not support it).
+      major_changes:
+      - virt_volume - a new command 'create_cidata_cdrom' enables the creation of
+        a cloud-init CDROM, which can be attached to a cloud-init enabled base image,
+        for bootstrapping networking, users etc.
+      - virt_volume - the commands create_from, delete, download, info, resize, upload,
+        wipe, facts did not work and were not tested. They have either been refactored
+        to work, and tested, or removed.
+      - virt_volume - the mechanism of passing variables to the member functions was
+        not flexible enough to cope with differing parameter requirements. All parameters
+        are now passed as kwargs, which allows the member functions to select the
+        parameters they need.
+      - virt_volume - the module appears to have been derived from virt_pool, but
+        not cleaned up to remove much non-functional code.  It has been refactored
+        to remove the pool-specific code, and to make it more flexible.
+      release_summary: 'This is a major release of the ``community.libvirt`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+      removed_features:
+      - virt_volume - PoolConnection class has been removed
+      - virt_volume - the 'deleted' state has been removed as its definition was not
+        entirely accurate, and the 'wipe' boolean option is added to 'state/absent'
+        and 'command/delete'.
+      - virt_volume - undocumented but unused FLAGS have been removed.
+      - virt_volume - undocumented but unused/non-functional functions (get_status,
+        get_status2, get_state, get_uuid, build) have been removed.
+    fragments:
+    - 2.0.0.yml
+    - 200-refactor-virt_volume.yml
+    modules:
+    - description: Provision new virtual machines using virt-install tool
+      name: virt_install
+      namespace: ''
+    release_date: '2025-07-21'

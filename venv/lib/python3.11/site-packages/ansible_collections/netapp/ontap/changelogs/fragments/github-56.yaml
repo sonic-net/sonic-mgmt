@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_lun - ``use_exact_size`` to create a lun with the exact given size so that the lun is not rounded up.

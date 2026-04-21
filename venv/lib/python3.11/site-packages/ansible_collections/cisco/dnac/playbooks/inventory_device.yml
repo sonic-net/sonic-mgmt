@@ -1,0 +1,53 @@
+---
+- name: Configure device credentials on Cisco DNA Center
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "input_inventory.yml"
+    - "credentials.yml"
+  tasks:
+    - name: Add/Update/Resync/Delete the devices in Cisco DNA Center Inventory.
+      cisco.dnac.inventory_intent:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        state: merged
+        config:
+          - username: "{{ item.username }}"
+            enable_password: "{{ item.enable_password }}"
+            password: "{{ item.password }}"
+            ip_address: "{{ item.ip_address }}"
+            snmp_auth_passphrase: "{{ item.snmp_auth_passphrase }}"
+            snmp_auth_protocol: "{{ item.snmp_auth_protocol }}"
+            snmp_mode: "{{ item.snmp_mode }}"
+            snmp_priv_passphrase: "{{ item.snmp_priv_passphrase }}"
+            snmp_priv_protocol: "{{ item.snmp_priv_protocol }}"
+            snmp_ro_community: "{{ item.snmp_ro_community }}"
+            snmp_rw_community: "{{ item.snmp_rw_community }}"
+            snmp_username: "{{ item.snmp_username }}"
+            device_updated: "{{ item.device_updated }}"
+            clean_config: "{{ item.clean_config }}"
+            type: "{{ item.type }}"
+            update_device_role:
+              role: "{{ item.role }}"
+              role_source: "{{ item.role_source }}"
+            add_user_defined_field:
+              name: "{{ item.name }}"
+              description: "{{ item.description }}"
+              value: "{{ item.value }}"
+            provision_wired_device:
+              site_name: "{{ item.site_name }}"
+            export_device_list:
+              password: "{{ item.export_device_list.password }}"
+              operation_enum: "{{ item.export_device_list.operation_enum }}"
+            reboot_device: "{{ item.reboot_device }}"
+
+      with_items: "{{ device_details }}"
+      tags:
+        - inventory_device

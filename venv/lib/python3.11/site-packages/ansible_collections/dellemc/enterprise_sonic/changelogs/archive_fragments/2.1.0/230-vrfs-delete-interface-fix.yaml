@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_vrfs - fixed the issue (GitHub issue#194) with VRF when deleting interface(https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/230)

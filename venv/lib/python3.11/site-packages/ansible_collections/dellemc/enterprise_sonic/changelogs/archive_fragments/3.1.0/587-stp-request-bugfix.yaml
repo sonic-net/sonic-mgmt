@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_stp - Update request method to use post for enabled_protocol (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/587).

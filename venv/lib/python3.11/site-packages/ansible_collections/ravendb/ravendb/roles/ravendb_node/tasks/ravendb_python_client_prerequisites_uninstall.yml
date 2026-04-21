@@ -1,0 +1,11 @@
+---
+- name: Set default virtual environment path
+  set_fact:
+    ravendb_venv_path: "{{ ansible_env.HOME }}/.ravendb_ansible"
+  when: ravendb_venv_path is not defined
+
+- name: Remove virtual environment for RavenDB
+  become: true
+  ansible.builtin.file:
+    path: "{{ ravendb_venv_path }}"
+    state: absent

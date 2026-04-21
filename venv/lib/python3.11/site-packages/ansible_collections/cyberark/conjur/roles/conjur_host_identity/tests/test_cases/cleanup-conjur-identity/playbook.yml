@@ -1,0 +1,17 @@
+---
+- name: Configuring Conjur identity on remote hosts
+  hosts: testapp
+  roles:
+    - role: "cyberark.conjur.conjur_host_identity"
+      conjur_account: "{{lookup('env', 'CONJUR_ACCOUNT')}}"
+      conjur_appliance_url: "{{lookup('env', 'CONJUR_APPLIANCE_URL')}}"
+      conjur_host_factory_token: "{{lookup('env', 'HFTOKEN')}}"
+      conjur_host_name: "cnjr_{{ ansible_hostname }}"
+      conjur_ssl_certificate: "{{lookup('file', '/cyberark/dev/conjur.pem')}}"
+      conjur_validate_certs: true
+
+- name: Revoke Conjur identity from remote hosts
+  hosts: testapp
+  roles:
+    - role: "cyberark.conjur.conjur_host_identity"
+      state: absent

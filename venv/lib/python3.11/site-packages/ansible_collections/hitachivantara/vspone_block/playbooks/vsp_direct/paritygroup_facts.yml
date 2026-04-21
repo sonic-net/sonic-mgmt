@@ -1,0 +1,44 @@
+---
+####################################################################
+# Example : Parity Group Facts Playbook
+####################################################################
+- name: Parity Group Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all paritygroups
+    ####################################################################
+    - name: Get all paritygroups
+      hitachivantara.vspone_block.vsp.hv_paritygroup_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one paritygroup
+    ####################################################################
+    - name: Get one paritygroup
+      hitachivantara.vspone_block.vsp.hv_paritygroup_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          parity_group_id: "1-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

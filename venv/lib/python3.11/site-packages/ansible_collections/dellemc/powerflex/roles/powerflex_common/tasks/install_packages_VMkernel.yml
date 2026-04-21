@@ -1,0 +1,50 @@
+---
+- name: Get the acceptance level of the ESXi node
+  register: powerflex_common_get_acceptance_output
+  ansible.builtin.shell: >
+    esxcli software acceptance get
+  changed_when: powerflex_common_get_acceptance_output.stdout != 'PartnerSupported'
+
+- name: Set the acceptance level to PartnerSupported
+  register: powerflex_common_set_acceptance_output
+  ansible.builtin.shell: >
+    esxcli software acceptance set --level=PartnerSupported
+  when: powerflex_common_get_acceptance_output.stdout != 'PartnerSupported'
+  changed_when: powerflex_common_get_acceptance_output.stdout != 'PartnerSupported'
+
+- name: Copy Esxi component and rpm files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ powerflex_common_esxi_files_location }}"
+    mode: "0644"
+  register: powerflex_common_file
+  with_fileglob:
+    - "{{ powerflex_common_file_install_location }}/*{{ file_glob_name }}*"
+    - "{{ powerflex_common_file_install_location }}/{{ file_gpg_name }}*"
+
+- name: List the zip file
+  register: powerflex_common_package_file
+  ansible.builtin.find:
+    paths: "{{ powerflex_common_esxi_files_location }}"
+    patterns: "*{{ file_glob_name }}*.zip"
+
+- name: Install SDC package for ESXi
+  register: powerflex_common_install_package_output
+  ansible.builtin.shell: >
+    esxcli software vib install -d {{ powerflex_common_package_file.files[0].path }} --no-sig-check
+  ignore_errors: true
+  changed_when: "'Reboot Required: true' in powerflex_common_install_package_output.stdout"
+
+- name: Reboot ESXi host
+  register: powerflex_common_reboot_output
+  ansible.builtin.reboot:
+    reboot_timeout: 500
+    msg: "Rebooting the ESXi host."
+  when: "'Reboot Required: true' in powerflex_common_install_package_output.stdout"
+  changed_when: powerflex_common_reboot_output.rebooted
+
+- name: Ensure the driver is loaded for SDC after reboot
+  register: powerflex_common_loaded_driver_output
+  ansible.builtin.shell: >
+    set -o pipefail && esxcli software vib list | grep sdc
+  changed_when: powerflex_common_loaded_driver_output.stdout_lines | length == 0

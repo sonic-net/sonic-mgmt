@@ -1,0 +1,27 @@
+# ansible-playbook ./temp_info.yml -e ansible_hosts=yourhostname
+- name: Get Power information from WTI device
+  hosts: "{{ansible_hosts}}"  # pass as -e ansible_hosts=wti_demo on the commandline
+  collections:
+     - wti.remote
+  connection: local
+  gather_facts: False
+
+  tasks:
+  - set_fact: use_https=True
+    when: use_https is undefined
+  - set_fact: validate_certs=True
+    when: validate_certs is undefined
+
+  - wti.remote.cpm_power_info:
+      cpm_url: "{{ansible_host}}"
+      cpm_username: "{{ansible_user}}"
+      cpm_password: "{{ansible_pw}}"
+      cpm_startdate: "02-02-2020"
+      cpm_enddate: "02-28-2020"
+      use_https: "{{use_https}}"
+      validate_certs: "{{validate_certs}}"
+
+    register: testout
+  - name: dump test output
+    debug:
+      msg: "{{ testout['data'] }}"

@@ -1,0 +1,71 @@
+---
+- name: Converge
+  hosts: all
+  become: false
+
+  vars:
+    admin_user: "admin"
+    admin_user_password: "admin"
+
+  roles:
+    - role: community.mongodb.mongodb_repository
+      tags: molecule-idempotence-notest
+    - role: community.mongodb.mongodb_install
+      when: "'config' in ansible_hostname"
+      tags: molecule-idempotence-notest
+    - role: community.mongodb.mongodb_config
+      when: "'config' in ansible_hostname"
+      tags: molecule-idempotence-notest
+    - role: community.mongodb.mongodb_mongos
+      vars:
+        config_servers: "config1:27019"
+      when: "'config' not in ansible_hostname"
+
+  tasks:
+
+    - name: Install pymongo
+      pip:
+        name: "{{ 'pymongo==3.12.*' if ansible_python_version[0:3] | float < 3.6 else 'pymongo' }}"
+      when: ansible_hostname == "config1"
+
+    - name: Determine openssl version
+      command: openssl version
+      changed_when: false
+      register: openssl
+
+    - name: Set mongosh package version
+      set_fact:
+        mongosh_package: "{{ 'mongodb-mongosh-shared-openssl3' if openssl.stdout.startswith('OpenSSL 3') else 'mongodb-mongosh-shared-openssl11' }}"
+      when: mongosh_package is not defined
+
+    - name: Install MongoDB Shell
+      package:
+        name:
+          - "{{ mongosh_package }}"
+
+    - name: Init config server replicaset
+      community.mongodb.mongodb_replicaset:
+        login_host: localhost
+        login_port: "27019"
+        replica_set: cfg
+        validate: no
+        members:
+          - config1:27019
+      when: ansible_hostname == "config1"
+
+    - name: Restart the mongos service
+      service:
+        name: mongos
+        state: started
+      when: "'config' not in ansible_hostname"
+
+    - name: Add MongoDB Admin User using localhost exception on the mongos
+      community.mongodb.mongodb_user:
+        name: "{{ admin_user }}"
+        password: "{{ admin_user_password }}"
+        login_port: "27019"
+        database: admin
+        roles:
+          - "root"
+        create_for_localhost_exception: /root/mongodb_admin.success
+      when: ansible_hostname == "config1"

@@ -1,0 +1,6 @@
+# When updating the minimal requirements please also update
+# - tests/unit/constraints.txt
+# - tests/integration/constraints.txt
+# - tests/integration/targets/setup_botocore_pip
+botocore>=1.34.0
+boto3>=1.34.0

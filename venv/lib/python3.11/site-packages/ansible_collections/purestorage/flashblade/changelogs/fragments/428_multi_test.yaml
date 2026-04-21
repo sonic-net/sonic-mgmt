@@ -1,0 +1,5 @@
+minor_changes:
+ - purefb_alert - Add new ``state`` of ``test`` to check alert manager configuration
+ - purefb_ra - Add new ``state`` of ``test`` to check remote support configuration
+ - purefb_snmp_mgr - Add new ``state`` of ``test`` to check SNMP manager configuration
+ - purefb_phonehome - Add new ``state`` of ``test`` to check phonehome configuration

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - All REST modules, will not fail if a job fails

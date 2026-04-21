@@ -1,0 +1,4 @@
+---
+powerflex_common_packages:
+        - numactl
+        - libaio

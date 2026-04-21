@@ -1,0 +1,82 @@
+---
+argument_specs:
+  main:
+    short_description: Role to manage the installation and uninstallation of
+      Powerflex SDT.
+    description:
+      - Role to manage the installation and uninstallation of Powerflex SDT.
+    options:
+      hostname:
+        required: true
+        type: str
+        description: IP or FQDN of the PowerFlex gateway.
+      username:
+        required: true
+        type: str
+        description: The username of the PowerFlex gateway.
+      password:
+        required: true
+        type: str
+        description: The password of the PowerFlex gateway.
+      port:
+        type: int
+        description: Port of the PowerFlex gateway.
+        default: 443
+      validate_certs:
+        description:
+          - If C(false), the SSL certificates will not be validated.
+          - Configure C(false) only on personally controlled sites where
+            self-signed certificates are used.
+        type: bool
+        default: false
+      timeout:
+        description: Timeout.
+        type: int
+        default: 120
+      powerflex_common_file_install_location:
+        description:
+          - Location of installation and rpm gpg files to be installed.
+          - The required, compatible installation software package based
+            on the operating system of the node.
+          - The files can be downloaded from the Dell Product support
+            page for PowerFlex software.
+        type: str
+        default: /var/tmp
+      powerflex_sdt_discovery_port:
+        description:
+          - Port used by the NVMe hosts for discovery. Set to 1 in order
+            to indicate no use of discovery port.
+        type: int
+        default: 8009
+      powerflex_sdt_ip_list:
+        required: true
+        description:
+          - Target IP list of SDT. Comma separated.
+        type: str
+      powerflex_sdt_nvme_port:
+        description:
+          - Port used by the NVMe hosts.
+        type: int
+        default: 4420
+      powerflex_sdt_protection_domain:
+        required: true
+        description:
+          - The name of the protection domain to which the SDT will be added.
+        type: str
+      powerflex_sdt_role_list:
+        required: true
+        description:
+          - Role list of SDT target IP. Comma separated.
+        type: str
+        choices: ["storage_only", "host_only", "storage_and_host"]
+      powerflex_sdt_state:
+        description:
+          - Specifies the state of SDT.
+        type: str
+        choices: ["absent", "present"]
+        default: present
+      powerflex_sdt_storage_port:
+        description:
+          - Port assigned to the SDT
+        type: int
+        default: 12200

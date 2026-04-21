@@ -1,0 +1,50 @@
+---
+- name: Icinga_service
+  icinga_service:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ service.state | default(omit) }}"
+    object_name: "{{ service.name }}"
+    display_name: "{{ service.display_name | default(omit) }}"
+    disabled: "{{ service.disabled | default(omit) }}"
+    check_command: "{{ service.check_command | default(omit) }}"
+    check_interval: "{{ service.check_interval | default(omit) }}"
+    check_period: "{{ service.check_period | default(omit) }}"
+    check_timeout: "{{ service.check_timeout | default(omit) }}"
+    enable_active_checks: "{{ service.enable_active_checks | default(omit) }}"
+    enable_event_handler: "{{ service.enable_event_handler | default(omit) }}"
+    enable_flapping: "{{ service.enable_flapping | default(omit) }}"
+    enable_notifications: "{{ service.enable_notifications | default(omit) }}"
+    enable_passive_checks: "{{ service.enable_passive_checks | default(omit) }}"
+    enable_perfdata: "{{ service.enable_perfdata | default(omit) }}"
+    event_command: "{{ service.event_command | default(omit) }}"
+    flapping_threshold_high: "{{ service.flapping_threshold_high | default(omit) }}"
+    flapping_threshold_low: "{{ service.flapping_threshold_low | default(omit) }}"
+    groups: "{{ service.groups | default(omit) }}"
+    icon_image: "{{ service.icon_image | default(omit) }}"
+    icon_image_alt: "{{ service.icon_image_alt | default(omit) }}"
+    host: "{{ service.host | default(omit) }}"
+    imports: "{{ service.imports | default(omit) }}"
+    max_check_attempts: "{{ service.max_check_attempts | default(omit) }}"
+    notes: "{{ service.notes | default(omit) }}"
+    notes_url: "{{ service.notes_url | default(omit) }}"
+    retry_interval: "{{ service.retry_interval | default(omit) }}"
+    use_agent: "{{ service.use_agent | default(omit) }}"
+    vars: "{{ service.vars | default(omit) }}"
+    volatile: "{{ service.volatile | default(omit) }}"
+    service_set: "{{ service.service_set | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_services }}"
+  loop_control:
+    loop_var: service
+  tags: service
+  notify: config_deploy

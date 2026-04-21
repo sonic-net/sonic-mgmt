@@ -1,0 +1,6 @@
+---
+file_glob_name: mdm
+file_gpg_name: RPM-GPG-KEY-ScaleIO
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_mdm_ips }}"
+  MDM_ROLE_IS_MANAGER: 1

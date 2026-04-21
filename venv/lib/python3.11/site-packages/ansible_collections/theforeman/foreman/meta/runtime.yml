@@ -1,0 +1,200 @@
+---
+action_groups:
+  foreman:
+    - activation_key
+    - architecture
+    - auth_source_ldap
+    - bookmark
+    - compute_attribute
+    - compute_profile
+    - compute_resource
+    - config_group
+    - content_credential
+    - content_export_info
+    - content_export_library
+    - content_export_repository
+    - content_export_version
+    - content_import_info
+    - content_import_library
+    - content_import_repository
+    - content_import_version
+    - content_upload
+    - content_view
+    - content_view_filter
+    - content_view_filter_info
+    - content_view_filter_rule
+    - content_view_filter_rule_info
+    - content_view_history_info
+    - content_view_info
+    - content_view_version
+    - content_view_version_info
+    - discovery_rule
+    - domain
+    - domain_info
+    - external_usergroup
+    - flatpak_remote
+    - flatpak_remote_repository_mirror
+    - flatpak_remote_scan
+    - global_parameter
+    - hardware_model
+    - host
+    - host_collection
+    - host_errata_info
+    - host_info
+    - host_power
+    - hostgroup
+    - hostgroup_info
+    - http_proxy
+    - image
+    - installation_medium
+    - job_invocation
+    - job_template
+    - lifecycle_environment
+    - location
+    - operatingsystem
+    - organization
+    - organization_info
+    - os_default_template
+    - partition_table
+    - product
+    - provisioning_template
+    - puppet_environment
+    - puppetclasses_import
+    - realm
+    - registration_command
+    - repository
+    - repository_info
+    - repository_set
+    - repository_set_info
+    - repository_sync
+    - resource_info
+    - role
+    - scap_content
+    - scap_tailoring_file
+    - scc_account
+    - scc_product
+    - setting
+    - setting_info
+    - smart_class_parameter
+    - smart_class_parameter_override_value
+    - smart_proxy
+    - snapshot
+    - snapshot_info
+    - status_info
+    - subnet
+    - subnet_info
+    - subscription_info
+    - subscription_manifest
+    - sync_plan
+    - templates_import
+    - user
+    - usergroup
+    - wait_for_task
+    - webhook
+plugin_routing:
+  modules:
+    foreman_architecture:
+      redirect: theforeman.foreman.architecture
+    foreman_auth_source_ldap:
+      redirect: theforeman.foreman.auth_source_ldap
+    foreman_bookmark:
+      redirect: theforeman.foreman.bookmark
+    foreman_compute_attribute:
+      redirect: theforeman.foreman.compute_attribute
+    foreman_compute_profile:
+      redirect: theforeman.foreman.compute_profile
+    foreman_compute_resource:
+      redirect: theforeman.foreman.compute_resource
+    foreman_config_group:
+      redirect: theforeman.foreman.config_group
+    foreman_domain:
+      redirect: theforeman.foreman.domain
+    foreman_environment:
+      redirect: theforeman.foreman.puppet_environment
+    foreman_external_usergroup:
+      redirect: theforeman.foreman.external_usergroup
+    foreman_global_parameter:
+      redirect: theforeman.foreman.global_parameter
+    foreman_host:
+      redirect: theforeman.foreman.host
+    foreman_host_power:
+      redirect: theforeman.foreman.host_power
+    foreman_hostgroup:
+      redirect: theforeman.foreman.hostgroup
+    foreman_image:
+      redirect: theforeman.foreman.image
+    foreman_installation_medium:
+      redirect: theforeman.foreman.installation_medium
+    foreman_job_template:
+      redirect: theforeman.foreman.job_template
+    foreman_location:
+      redirect: theforeman.foreman.location
+    foreman_model:
+      redirect: theforeman.foreman.hardware_model
+    foreman_operatingsystem:
+      redirect: theforeman.foreman.operatingsystem
+    foreman_organization:
+      redirect: theforeman.foreman.organization
+    foreman_os_default_template:
+      redirect: theforeman.foreman.os_default_template
+    foreman_provisioning_template:
+      redirect: theforeman.foreman.provisioning_template
+    foreman_ptable:
+      redirect: theforeman.foreman.partition_table
+    foreman_realm:
+      redirect: theforeman.foreman.realm
+    foreman_role:
+      redirect: theforeman.foreman.role
+    foreman_scap_content:
+      redirect: theforeman.foreman.scap_content
+    foreman_scap_tailoring_file:
+      redirect: theforeman.foreman.scap_tailoring_file
+    foreman_scc_account:
+      redirect: theforeman.foreman.scc_account
+    foreman_scc_product:
+      redirect: theforeman.foreman.scc_product
+    foreman_search_facts:
+      redirect: theforeman.foreman.resource_info
+    foreman_setting:
+      redirect: theforeman.foreman.setting
+    foreman_smart_class_parameter:
+      redirect: theforeman.foreman.smart_class_parameter
+    foreman_snapshot:
+      redirect: theforeman.foreman.snapshot
+    foreman_subnet:
+      redirect: theforeman.foreman.subnet
+    foreman_templates_import:
+      redirect: theforeman.foreman.templates_import
+    foreman_user:
+      redirect: theforeman.foreman.user
+    foreman_usergroup:
+      redirect: theforeman.foreman.usergroup
+    katello_activation_key:
+      redirect: theforeman.foreman.activation_key
+    katello_content_credential:
+      redirect: theforeman.foreman.content_credential
+    katello_content_view:
+      redirect: theforeman.foreman.content_view
+    katello_content_view_filter:
+      redirect: theforeman.foreman.content_view_filter
+    katello_content_view_version:
+      redirect: theforeman.foreman.content_view_version
+    katello_host_collection:
+      redirect: theforeman.foreman.host_collection
+    katello_lifecycle_environment:
+      redirect: theforeman.foreman.lifecycle_environment
+    katello_manifest:
+      redirect: theforeman.foreman.subscription_manifest
+    katello_product:
+      redirect: theforeman.foreman.product
+    katello_repository:
+      redirect: theforeman.foreman.repository
+    katello_repository_set:
+      redirect: theforeman.foreman.repository_set
+    katello_sync:
+      redirect: theforeman.foreman.repository_sync
+    katello_sync_plan:
+      redirect: theforeman.foreman.sync_plan
+    katello_upload:
+      redirect: theforeman.foreman.content_upload
+requires_ansible: '>=2.10.4'

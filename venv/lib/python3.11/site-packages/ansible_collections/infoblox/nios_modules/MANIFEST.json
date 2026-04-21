@@ -1,0 +1,37 @@
+{
+ "collection_info": {
+  "namespace": "infoblox",
+  "name": "nios_modules",
+  "version": "1.8.0",
+  "authors": [
+   "Hemanth Kumar (hkumar3@infoblox.com)",
+   "Jeenitkumar Khatri (jkhatri@infoblox.com)",
+   "Jaykumar Chhatbar (jchhatbar@infoblox.com)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "infoblox",
+   "nios",
+   "cloud",
+   "networking"
+  ],
+  "description": "Infoblox Ansible Collection for vNIOS allows managing your NIOS objects through APIs.",
+  "license": [
+   "GPL-3.0-only"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/infobloxopen/infoblox-ansible/tree/master",
+  "documentation": "https://github.com/infobloxopen/infoblox-ansible/blob/master/README.md",
+  "homepage": "https://github.com/infobloxopen/infoblox-ansible",
+  "issues": "https://github.com/infobloxopen/infoblox-ansible/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "1c13986f01f429d77eaf39b074516a44e1290f0033aa36fcb32c66965f5fe952",
+  "format": 1
+ },
+ "format": 1
+}

@@ -1,0 +1,28 @@
+---
+minor_changes:
+  - na_ontap_aggregate - add ``snaplock_type``.
+  - na_ontap_info - New info's added ``cifs_server_info``, ``cifs_share_info``, ``cifs_vserver_security_info``, ``cluster_peer_info``,
+    ``clock_info``, ``export_policy_info``, ``export_rule_info``, ``fcp_adapter_info``, ``fcp_alias_info``, ``fcp_service_info``,
+    ``job_schedule_cron_info``, ``kerberos_realm_info``, ``ldap_client``, ``ldap_config``, ``net_failover_group_info``,
+    ``net_firewall_info``, ``net_ipspaces_info``, ``net_port_broadcast_domain_info``, ``net_routes_info``, ``net_vlan_info``, ``nfs_info``,
+    ``ntfs_dacl_info``, ``ntfs_sd_info``, ``ntp_server_info``, ``role_info``, ``service_processor_network_info``, ``sis_policy_info``,
+    ``snapmirror_policy_info``, ``snapshot_policy_info``, ``vscan_info``, ``vserver_peer_info``
+  - na_ontap_igroup_initiator - ``force_remove`` to forcibly remove initiators from an igroup that is currently mapped to a LUN.
+  - na_ontap_interface - ``failover_group`` to specify the failover group for the LIF. ``is_ipv4_link_local``
+    to specify the LIF's are to acquire a ipv4 link local
+    address.
+  - na_ontap_rest_cli - add OPTIONS as a supported verb and return list of allowed verbs.
+  - na_ontap_volume - add ``group_id`` and ``user_id``.
+  - na_ontap_dns - added REST support for dns creation and modification on cluster vserver.
+
+bugfixes:
+  - na_ontap_aggregate - Fixed traceback when running as vsadmin and cleanly error out.
+  - na_ontap_command - stdout_lines_filter contains data only if include/exlude_lines parameter is used. (zeten30)
+  - na_ontap_command - stripped_line len is checked only once, filters are inside if block. (zeten30)
+  - na_ontap_interface - allow module to run on node before joining the cluster.
+  - na_ontap_net_ifgrp - Fixed error for na_ontap_net_ifgrp if no port is given.
+  - na_ontap_snapmirror - Fixed traceback when running as vsadmin.  Do not attempt to break a relationship that is 'Uninitialized'.
+  - na_ontap_snapshot_policy - Fixed KeyError on ``prefix`` issue when prefix parameter isn't supplied.
+  - na_ontap_volume - Fixed error reporting if efficiency policy cannot be read.  Do not attempt to read efficiency policy if not needed.
+  - na_ontap_volume - Fixed error when modifying volume efficiency policy.
+  - na_ontap_volume_clone - Fixed KeyError exception on ``volume``

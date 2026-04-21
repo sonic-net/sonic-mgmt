@@ -1,0 +1,57 @@
+---
+- name: Converge
+  hosts: sdc
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: "Uninstall powerflex SDC"
+      register: powerflex_sdc_uninstall_outputs
+      ansible.builtin.import_role:
+        name: "powerflex_sdc"
+      vars:
+        powerflex_sdc_state: 'absent'
+
+    - name: "Verifying uninstall package in check mode"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_uninstall_output.msg == "Check mode: No changes made, but would have if not in check mode"
+          - powerflex_sdc_uninstall_output.changed is true
+      when: ansible_check_mode
+
+    - name: "Verifying remove the sdc"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_remove_output.sdc_details is none
+      when: not ansible_check_mode and powerflex_sdc_remove_output.changed
+
+    - name: "Verifying uninstall package in Idempotency"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_uninstall_output.results[0].msg == 'Nothing to do'
+      when:
+        - not ansible_check_mode and not powerflex_sdc_uninstall_output.changed
+        - " 'WindowsOS' not in ansible_distribution "
+        - " 'VMkernel' not in ansible_distribution "
+
+    - name: "Verifying uninstall package in Idempotency for Windows node"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_uninstall_output.msg == 'All items skipped'
+      when:
+        - not ansible_check_mode and not powerflex_sdc_uninstall_output.changed
+        - " 'WindowsOS' in ansible_distribution "
+
+    - name: "Verifying uninstall package in Idempotency for ESXi node"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_uninstall_output.msg == 'All items skipped'
+      when:
+        - not ansible_check_mode and not powerflex_sdc_uninstall_output.changed
+        - " 'VMkernel' in ansible_distribution "
+
+    - name: "Verifying remove the sdc in Idempotency"
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdc_remove_output.sdc_details is none
+      when: not ansible_check_mode and not powerflex_sdc_remove_output.changed and powerflex_sdc_remove_output.sdc_details is defined

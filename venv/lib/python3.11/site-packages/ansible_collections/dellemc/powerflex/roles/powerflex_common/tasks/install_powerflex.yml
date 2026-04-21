@@ -1,0 +1,8 @@
+---
+- name: Set fact # noqa var-naming[no-role-prefix]
+  ansible.builtin.set_fact:
+    ansible_distribution: "WindowsOS"
+  when: " 'Windows' in ansible_distribution"
+
+- name: Include installation file based on distribution
+  ansible.builtin.include_tasks: "install_packages_{{ ansible_distribution }}.yml"

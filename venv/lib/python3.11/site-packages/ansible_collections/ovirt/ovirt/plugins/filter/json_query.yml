@@ -1,0 +1,22 @@
+---
+DOCUMENTATION:
+  name: json_query
+  short_description: Copy of community.general.json_query
+  description:
+    - Copy of community.general.json_query used internally in the collection to ease RPM packaging, so we don't need to package/release/support the whole community.general
+      collection for RHV customers
+    - The original can be found at link https://github.com/ansible-collections/community.general/blob/main/plugins/filter/json_query.py
+  positional: _input
+  options:
+    _input:
+      description: Value to be converted
+      type: string
+      required: true
+
+EXAMPLES: |
+  Query data using jmespath query language ( http://jmespath.org ). Example:
+   - ansible.builtin.debug: msg="{{ instance | json_query(tagged_instances[*].block_device_mapping.*.volume_id') }}"
+RETURN:
+  _value:
+    description: query
+    type: string

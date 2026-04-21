@@ -1,0 +1,44 @@
+---
+####################################################################
+# Example : Storage Node Network Setting Facts Playbook
+####################################################################
+- name: Storage Node Network Setting Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ####################################################################
+  # Task Name : Get all Storage Node Networks Settings
+  ####################################################################
+    - name: Get all Storage Node Networks Settings
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_network_settings_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one Storage Node Network Setting by id
+    ####################################################################
+    - name: Get one Storage Node Network by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node_network_settings_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "355d32ce-c97f-4adf-9057-49d2e287974b"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

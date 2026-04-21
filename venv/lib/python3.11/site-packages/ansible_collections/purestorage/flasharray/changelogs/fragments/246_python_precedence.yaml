@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_network - Resolve bug stopping management IP address being changed correctly

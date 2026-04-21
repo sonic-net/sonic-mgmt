@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_security_certificates - updated examples for create server type certificate and install with intermediate certificates.

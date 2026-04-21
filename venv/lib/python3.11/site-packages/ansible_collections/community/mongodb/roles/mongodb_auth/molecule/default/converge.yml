@@ -1,0 +1,76 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    # for this test, each machine is an isolated mongod instance
+    replicaset: false
+    sharding: false
+
+    # initially disable authorization on some hosts
+    hosts_with_auth_disabled:
+      - ubuntu2204
+      - debian12
+      - rockylinux9
+
+    # add some users for some of the hosts
+    hosts_with_extra_user:
+      - almalinux9
+      - debian12
+      - amazon2023
+    mongodb_users_empty: []
+    mongodb_users_full:
+      - db: somedatabase
+        user: someuser
+        pwd: "S0meP@ss"
+        roles: readWrite
+      - db: somedatabase
+        user: otheruser
+        pwd: "0th3rP@ss"
+        roles: readWrite
+    mongodb_users: "{% if inventory_hostname in hosts_with_extra_user %}{{ mongodb_users_full }}{% else %}{{ mongodb_users_empty }}{% endif %}"
+
+  roles:
+    - role: community.mongodb.mongodb_repository
+      tags: molecule-idempotence-notest
+    - role: community.mongodb.mongodb_mongod
+      authorization: "{% if inventory_hostname in hosts_with_auth_disabled %}disabled{% else %}enabled{% endif %}"
+      tags: molecule-idempotence-notest # avoids false positive where replacing conf file disables authorization again
+
+  tasks:
+    #- name: Add EPEL repo to CentOS 7 to allow installing pip package
+    #  become: yes
+    #  yum:
+    #    name: epel-release
+    #    state: present
+    #  when: inventory_hostname  == 'almalinux_8'
+
+    - name: Install pymongo
+      pip:
+        name: pymongo
+      when: 
+        - ansible_hostname != "debian12"
+
+    - name: Install pymongo on Debian 12
+      ansible.builtin.command: pip install pymongo --break-system-packages
+      when:
+        - ansible_hostname == "debian12"
+      changed_when: False
+
+    - name: Enable mongo auth
+      include_role:
+        name: community.mongodb.mongodb_auth
+
+    - name: Determine openssl version
+      command: openssl version
+      changed_when: false
+      register: openssl
+
+    - name: Set mongosh package version
+      set_fact:
+        mongosh_package: "{{ 'mongodb-mongosh-shared-openssl3' if openssl.stdout.startswith('OpenSSL 3') else 'mongodb-mongosh-shared-openssl11' }}"
+      when: mongosh_package is not defined
+
+    - name: Install MongoDB Shell
+      package:
+        name:
+          - "{{ mongosh_package }}"

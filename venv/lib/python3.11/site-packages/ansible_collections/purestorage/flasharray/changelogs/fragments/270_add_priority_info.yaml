@@ -1,0 +1,4 @@
+minor_changes:
+ - purefa_info - Add priority adjustment information for volumes and volume groups
+ - purefa_info - Add QoS information for volume groups
+ - purefa_info - Split volume groups into live and deleted dicts

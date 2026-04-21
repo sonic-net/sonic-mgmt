@@ -1,0 +1,34 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+DOCUMENTATION:
+  name: get_registrable_domain
+  short_description: Returns the registrable domain name of a DNS name
+  version_added: 0.1.0
+  description:
+    - Returns the registrable domain name of a DNS name.
+  options:
+    _input:
+      description:
+        - A DNS name.
+      type: string
+      required: true
+  extends_documentation_fragment:
+    - community.dns.filters
+    - community.dns.filters.registerable_domain
+    - community.dns.filters.get
+  author:
+    - Felix Fontein (@felixfontein)
+
+EXAMPLES: |
+  - name: Extract the registrable domain from a DNS name
+    ansible.builtin.set_fact:
+      public_suffix: "{{ 'www.ansible.co.uk' | community.dns.get_registrable_domain }}"
+      # Should result in 'ansible.co.uk'
+
+RETURN:
+  _value:
+    description: The registrable domain.
+    type: string

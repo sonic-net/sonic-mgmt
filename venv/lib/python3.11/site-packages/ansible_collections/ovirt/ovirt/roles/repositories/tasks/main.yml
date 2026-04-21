@@ -1,0 +1,30 @@
+---
+- name: Check if Subscription Manager is about to be used on non RHEL system
+  ansible.builtin.fail:
+    msg: "Subscription manager could be used only on Red Hat Enterprise Linux"
+  when:
+    - ovirt_repositories_use_subscription_manager | bool
+    - ansible_distribution != 'RedHat'
+
+- name: Backup current repositories
+  ansible.builtin.include_tasks: backup-repos.yml
+  when: ovirt_repositories_repos_backup
+
+- name: Setup repositories
+  when: ovirt_repositories_use_subscription_manager | bool
+
+  block:
+    - name: Install Satellite CA
+      ansible.builtin.include_tasks: install-satellite-ca.yml
+      when: ovirt_repositories_ca_rpm_url is defined
+
+    - name: Setup repositories using Subscription Manager
+      ansible.builtin.include_tasks: rh-subscription.yml
+      when: ovirt_repositories_org is not defined and ovirt_repositories_activationkey is not defined
+
+    - name: Setup repositories using Subscription Manager - Satellite
+      ansible.builtin.include_tasks: satellite-subscription.yml
+      when: ovirt_repositories_org is defined and ovirt_repositories_activationkey is defined
+- name: Setup repositories using oVirt release package
+  ansible.builtin.include_tasks: rpm.yml
+  when: not ovirt_repositories_use_subscription_manager | bool

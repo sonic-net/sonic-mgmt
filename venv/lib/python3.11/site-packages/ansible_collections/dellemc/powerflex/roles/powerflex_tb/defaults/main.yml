@@ -1,0 +1,8 @@
+---
+# defaults file for powerflex_tb
+powerflex_tb_primary_name: primary_tb
+powerflex_tb_secondary_name: secondary_tb
+powerflex_tb_cluster_mode: "ThreeNodes"
+file_glob_name: mdm
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_tb_mdm_ips }}"

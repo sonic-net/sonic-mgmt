@@ -1,0 +1,14 @@
+---
+- name: "Delete content view versions of {{ foreman_cv_name }}"
+  theforeman.foreman.content_view_version:
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    content_view: "{{ foreman_cv_name }}"
+    version: "{{ __foreman_cv_version }}"
+    state: absent
+  loop: "{{ foreman_cv_versions }}"
+  loop_control:
+    loop_var: "__foreman_cv_version"

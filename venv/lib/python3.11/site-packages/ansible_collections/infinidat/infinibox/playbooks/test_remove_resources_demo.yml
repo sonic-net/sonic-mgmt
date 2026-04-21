@@ -1,0 +1,181 @@
+---
+- name: Test Remove Resources Demo
+  hosts: localhost
+  gather_facts: false
+  vars:
+    event_prefix: "RBC DEMO ->"
+  tasks:
+
+    - name: Post a demo start event
+      infinidat.infinibox.infini_event:
+        description_template: "{{ event_prefix }} {{ ansible_play_name }} is beginning"
+        level: INFO
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove cluster
+      infinidat.infinibox.infini_cluster:
+        name: "{{ auto_prefix }}cluster_zero_hosts"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove cluster second cluster
+      infinidat.infinibox.infini_cluster:
+        name: "{{ auto_prefix }}cluster"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove mapping of volume from host
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host"
+        volume: "{{ auto_prefix }}vol"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Rescan with remove option after removing mapping
+      ansible.builtin.shell: |
+        rescan-scsi-bus.sh --remove
+      become: true
+      register: rescan
+      failed_when: "rescan.rc != 0 and 'not found' not in rescan.stderr"
+      changed_when: true
+
+    - name: Remove host
+      infinidat.infinibox.infini_host:
+        name: "{{ auto_prefix }}host"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove second host
+      infinidat.infinibox.infini_host:
+        name: "{{ auto_prefix }}host2"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove export client for export
+      infinidat.infinibox.infini_export_client:
+        client: 20.20.20.20
+        state: absent
+        access_mode: "RO"
+        export: "/{{ auto_prefix }}export"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove export of file system
+      infinidat.infinibox.infini_export:
+        name: "/{{ auto_prefix }}export"
+        filesystem: "{{ auto_prefix }}fs"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove file system
+      infinidat.infinibox.infini_fs:
+        name: "{{ auto_prefix }}fs_default"
+        size: 1GB
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove thick file system
+      infinidat.infinibox.infini_fs:
+        name: "{{ auto_prefix }}fs_thick"
+        size: 1GB
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove thin file system
+      infinidat.infinibox.infini_fs:
+        name: "{{ auto_prefix }}fs"
+        size: 1GB
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove snapshot
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_snap"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove thin volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol"
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove thick volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_thick"
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove pool
+      infinidat.infinibox.infini_pool:
+        name: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove read only user
+      infinidat.infinibox.infini_user:
+        user_name: "{{ auto_prefix }}read_only_user"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove admin user
+      infinidat.infinibox.infini_user:
+        user_name: "{{ auto_prefix }}admin_user"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove pool admin user
+      infinidat.infinibox.infini_user:
+        user_name: "{{ auto_prefix }}pool_admin_user"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Post a demo complete event
+      infinidat.infinibox.infini_event:
+        description_template: "{{ event_prefix }} {{ ansible_play_name }} has completed"
+        level: INFO
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"

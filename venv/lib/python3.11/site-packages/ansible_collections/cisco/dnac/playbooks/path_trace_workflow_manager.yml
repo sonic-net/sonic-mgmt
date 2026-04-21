@@ -1,0 +1,45 @@
+---
+- name: Create assurance path trace on Cisco Catalyst Center
+  hosts: localhost
+  vars_files:
+    - "credentials.yml"
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Create assurance path trace workflow
+      cisco.dnac.path_trace_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged
+        config_verify: true
+        config:
+          - source_ip: "204.1.2.3"  # required field
+            dest_ip: "204.1.2.4"  # required field
+            source_port: 4020  # optional field
+            dest_port: 4021  # optional field
+            protocol: "TCP"  # optional field
+            include_stats:  # optional field
+              - DEVICE_STATS
+              - INTERFACE_STATS
+              - QOS_STATS
+              - PERFORMANCE_STATS
+              - ACL_TRACE
+            periodic_refresh: false  # optional field
+            delete_on_completion: true  # optional field
+
+          - source_ip: "204.1.1.2"  # required field
+            dest_ip: "204.1.2.4"  # required field
+            get_last_pathtrace_result: true  # optional field
+            delete_on_completion: true  # optional field
+
+          - flow_analysis_id: 9e7f5c5b-58b7-4bcd-8771-021629f076b3
+            delete_on_completion: true

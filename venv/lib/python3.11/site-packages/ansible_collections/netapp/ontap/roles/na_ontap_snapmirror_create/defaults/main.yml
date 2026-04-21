@@ -1,0 +1,13 @@
+---
+# defaults file for na_ontap_snapmirror_create
+na_ontap_snapmirror_create_src_ontap:
+na_ontap_snapmirror_create_src_name:
+na_ontap_snapmirror_create_src_lif:
+na_ontap_snapmirror_create_src_vserver:
+na_ontap_snapmirror_create_src_volume:
+na_ontap_snapmirror_create_dst_ontap:
+na_ontap_snapmirror_create_dst_lif:
+na_ontap_snapmirror_create_dst_vserver:
+na_ontap_snapmirror_create_dst_volume: "{{ src_volume }}_dest"
+na_ontap_snapmirror_create_dst_aggr:
+na_ontap_snapmirror_create_passphrase: IamAp483p45a83

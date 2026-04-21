@@ -1,0 +1,40 @@
+---
+- name: ONTAP list aggregates
+  gather_facts: false
+  hosts: localhost
+
+  module_defaults:
+    group/netapp.ontap.netapp_ontap:
+      hostname: '{{ clusters.cluster1.admin_ip }}'
+      username: '{{ clusters.cluster1.admin_username }}'
+      password: '{{ clusters.cluster1.admin_password }}'
+      https: true
+      validate_certs: false
+
+  tasks:
+    - name: List aggregates
+      netapp.ontap.na_ontap_rest_info:
+        gather_subset:
+          - storage/aggregates
+        fields: 'block_storage,space'
+      # store the results to use them in another task
+      register: aggregates
+
+# call this play as:
+#
+# ansible-playbook -v list_aggregates.yaml -e@clusters.yaml
+#
+# with clusters.yaml providing credentials and IP addresses to connect to a cluster, eg:
+#
+# clusters:
+#   cluster1:
+#     admin_username: "{{ admin_username }}"
+#     admin_password: "{{ admin_password }}"
+#     admin_ip: "{{ admin_ips[0] }}"
+#   cluster2:
+#     admin_username: "{{ admin_username }}"
+#     admin_password: "{{ admin_password }}"
+#     admin_ip: "{{ admin_ips[1] }}"
+#
+# NOTE: module_defaults requires Ansible 2.12 as a minimum.
+# With earlier versions of Ansible, move the values from lines 10 to 14 under the tasks, or use an alias.

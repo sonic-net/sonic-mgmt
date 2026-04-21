@@ -1,0 +1,1006 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "015f67975520c4e720d33ac005b31e861862ee81c6ecc0b174d6a83fd03c38e6",
+   "format": 1
+  },
+  {
+   "name": "meta/execution-environment.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a98259cc52c11e7fbf90b4c659905c8fe395f821dec99a1a17a6fde984764f60",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_hostname_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d24a6df4821c4c8e9d932cdc54f917b198046b8189dce57840023e29b2b9b835",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_time_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d57a01bbcb00cc28c16aebd87d8c520c1a7e764e4b80a8ffff9a549becd83d9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_dnsservices_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0c49d61847bd37d73b9a402a2bcd4b042f1bb20b086b58c647549d0584624da6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_temp_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8c74bde6368fa1f22e4a3db33c6c59599d89818cace3905c13a4a990f62b1cde",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_time_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2fd4b00fac09af65ff30601af508b14e423da424f08706e91d532f622aa6a9ba",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_status_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "54ca431466288106e2221a815c85d450e0d04ae3ef64adef4ec45035db41f9d8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_interface_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "30ff72f27b0502e0291937407edb6ba6c9ca380dc24d650542dbc11c9967798f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_syslog_server_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f5f4f26631c5e35923468b57f2003143558e609790e4369060b4fd47affece01",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_syslog_server_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "40003bcbf4266fdd6cdd6e80220a24fcaaa8f3ead2cbfb00afe6461bf33ee3a8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_user.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c1b08530d4755f2460d6447fd75760f3c141f659084f53d42dd149b4c7d7c1b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_serial_port_action_set.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6f1f7467f4fb2e72325ad5166e07bd878642469df73234c54207a57144107939",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_current_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1afe0276e62c2c786547376e8c026664166f64d9fdc4a996abaa0d12885d7def",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_web_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "897cbf33395536513fa824dc65b2cd7d8dfc63e798456cbbbc1f07ab514b285e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_power_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81ff6cab56343c0ab161960544ad1de2a1def773a2579aef3e8763ef99554a86",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_iptables_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "177e64c5c9fe1d19f649069b944119d76686654251c26d7014815d239e98b84d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_interface_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0e5d975a7b2359d52be396b8f9200363f590296bbd9c3e8f224499251f2009c8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_syslog_client_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "64dc4b1e964d2394b578be01295c25bf55be8f9167943dccc41eba493f1a55b4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_serial_port_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "39a12b7302b15b465bb7bb20a3d316043bf2f59dfdb45e324630b2aa5937175a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_serial_port_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b61bf6ad74a9c116eb8eef487070255a81b11bab736e8faceef55cb505e67182",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_firmware_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ba0740b273ad8a5a576570d8ff5320aa246ad1a87b250a7c2d398e2f44b78858",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_iptables_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e915743bf955a02467c1c75d66849064a70fae6400a59ec25123f62958a32657",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_syslog_client_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4e2b423d20a9c4b3e7baeb631f41bd21a8de0e0712edce579039138ff3a41b38",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_web_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a3e2384446778812f35a564159c538430b618cb0f8a8375f5914ada40a0007ea",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_dnsservices_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9078cf3d7ad2ba182e655dd76533cecda4c8c9bceff22da0c141b4183e2f926d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_snmp_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "891d2b9fb5cb6bdb34281672b463e60398b2ee1ab5ea604c8040cd891f3aaebb",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_serial_port_action_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "481546812a6712090c36ed85f156f465a93e2ece564da8ec570cc87307f51960",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_plugconfig.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3a9a218f323899cabe2dcf2650df8120895e77eca5512a3d97fe2b4e8b2de901",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_snmp_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5524a189928475e96e8cdf8c45925e0a4f7ad9dcc492afa36d50b92376eb7b84",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_plugcontrol.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6c650c0e10975251b583ed49e2da95f261472014cf2c73b02329c31b8c28273f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_firmware_update.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "30cc7d41b89b98279561c154ce600991435ce51c8c3c1fb76aa10a5e25458acd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_alarm_info.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bba40f83e4e74c60bf843aa89e9abe69c84a046be6f86459db1be8c90803bc5c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_hostname_config.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "588fab43d971f44a2cb59f9cfceb6a9b63b55277ee698819d41dc220ca93717c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_config_backup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8d84bf74ff24615f6648d0f39319ea1066cf3d0192a3a581a7c9fe04057b8785",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/cpm_config_restore.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b0dedbc26baeb9589877e71b5e7c4d432f0180e5986267ca4a8f8877e3919e8e",
+   "format": 1
+  },
+  {
+   "name": "docs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_config_backup.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "874cf960b8d436850bba01b28a1b9035c5e907ad4b36e085c870e749e9215ef6",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_firmware_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2961f74e8834d862c78bd31bab44f8b1d10ef21cc6e106f043949237a683fd93",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_power_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "67716c9fef3f09a6695f31ec48b9d75bd824325b635e351bb7affeaf0bf357d8",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_dnsservices_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4d20fa676fb232cf4fc6e8384632c15f4c45367b389e26ed8a5c1aee90c00788",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_snmp_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c2b85d7e98817b47d9f3ca882cb694cfe3e57b910acf3e9e04547ae1366b9ccc",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_syslog_server_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ce6330975e434703b3729d4c2e9f046b3e748019491e83d3f38973af5a906f05",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_interface_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cceabb837bef5f57eecec3e384316583efeefaa327731779c49788130dfeae8d",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_dnsservices_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "438dbdd1cedbfc85d41165942c18dd7a4dbca99c5a827d05c4faabfbdf7018ab",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_time_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eec02e5f84385423c9f0d585233be386a1c77ac87edfa812210a883de58700b7",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_syslog_client_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ed3f96615c61c442dbc1d9f179a369f12823e6fef7a37b521aa6913800b64251",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_serial_port_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bb49a874cfa85c0b615e0322beceef9338d16e37b488c4d9603062592becc208",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_status_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "42db48949f51b96953643a68e3f3d7daf3f99ff486b805d08714688c5dacd773",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_time_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7c1fd0df687824433562fab8716ce9227ce73f292d41411a342aaa908b1bd57",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_web_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e52a408a766738fb283899fa6e28f93f005c33473a077246fce2df9b46a37964",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_temp_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3c70d59492f406e0ca1574751bd88809527c15adf7f21206cb5718e37cbda3c5",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_serial_port_action_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fd2c2a98857d8078a0bbbf5e573babaa910bb51f4e41c921667e0bd94a1cb5ba",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_plugconfig.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c6a572c88d470656f1c4d031e02310dc5c89d9ad9a1a1fb9d8667c8c2e725208",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_plugcontrol.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "697b8765d50998e9c00c661f48cf3589219a15eb04da11ee16485c989ebe3884",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_serial_port_action_set.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b1f09693503eb37d0d17990acb9924f8b16fec9e84744de24b4e1e3a51b6dd84",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_web_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "af6e90677a2792590e56c8ded8236ddb38ce2a578a41dda4aeedc5dea0544548",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_current_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b87f0f19c80d68ef902533f9b1042454906088984ca0f37ebe0a91f8283a860a",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_serial_port_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "37d7ee114ed383549f2deabeff5d94122799354bfacb2b5f09643cecb7cf4c0e",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_hostname_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "51fd1d61ce0470a3f31a44851db01cc678e9efce85964b062f3db23a818dc0db",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_user.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c19c4cc43677e6fc4145f3964cab609b4603964eece17b26c81f2c2c5219cb51",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_syslog_server_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "559c3196bff7f2ac3697524adfa627b780f2182a49b9cc7a109dd16957500730",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_iptables_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43321c21a69a492bfb589d8c84ca5b1e1f828e6d31f602a44cdc99d72a49080a",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_snmp_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e83508504250081849ed60b876d3718c17b173a19a4011d18147495d59e3b2a0",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_alarm_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "01806a6ae5dfb24d8b7a72d2502bc0309f2f49f41bf9fbebbb27a206351d49d7",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_syslog_client_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0844fb4a7f6e2339e7b7707f923adedd26d9f11a60fc8185761215a1b83bc4d5",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_config_restore.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b0b342e6535752d8f7283692c1aa11320ddce8dffe0c1b06db45970d832188f9",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_iptables_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ef22dc1a68ac50a8fc094bdca0005028e4133ce46cba241c1c10cb707f02a168",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_interface_config.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "38b500204ccbb64b70c02e2afcf0d2ac3b815ea519fbd3d9cdc806cbaae905cd",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_hostname_info.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a05e3b262bf3361314c6e357a66cd8e7a0c718429a298c215bd31f0189fdb0a6",
+   "format": 1
+  },
+  {
+   "name": "docs/cpm_firmware_update.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ad9d57c11e3ad7061174b8140dddd5843eaf7ea5a1b975faf13c82ae0bc4f42b",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6f67de75600ca88d57662c7e84823f76ca6608165f1e56845423f0ed793e73fa",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aac5d89e4c137ef7629b77b29bd7317c51de89a65d5420c9bfab5db397090fe",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/test_example.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f737a4fadf6992b6213cf9f826b05cb39fc1c9bd8029097791e5561ea10d3e94",
+   "format": 1
+  },
+  {
+   "name": "playbooks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_snmp",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_snmp/snmp_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "15d3d0a3362aa2d135781b469f62fc5feb955dfec8f1b74f4afaba46aaa3f9fa",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_snmp/snmp_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a53441daa135f40ef99f5e1f4d79272be9427c6a2ac41c36cb5aa262bd5b1ec4",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_interface/interface_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bf0e98113eeb6198786befc06ba58da3ef91b64b8bbed2d404b90b228b39e95c",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_interface/interface_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5ba6d3dc633ad8583652eee1fe568e87eea9470c8ab644640ce7e2be9acb2ce2",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_hostname",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_hostname/hostname_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a1e80e62e0869d5a75bd32dfa723047bb8f7b71e97d444a459f6db5d61b6624e",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_hostname/hostname_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "852287aea1f3bf1c0c110a4407e0f65cf9653c2c192dca48d2ec4aebc05e5a31",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_iptables",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_iptables/iptables_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ecf4bcbfe7833fc7e7cf028b1782ade9729ee6a22ce903b658571b27abeb31d2",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_iptables/iptables_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e6d3091a82fc4e0a907761b8623b2a5481249040e45d4adec2e5184dc0106f0e",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_firmwareupdate",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_firmwareupdate/firmware_upgrade.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7086ddef397ef488bddbb6dfbeffc6a883de452bb9a8e7c32f6a006a0ff821a6",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_user",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_user/user_get.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1e2751e5dbb52433d99d86bed47a2ceb06b12aceffc897383e698d5f9afe3a66",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_user/user_delete.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5a5012adaf8996706bc4c81cad7f92e7861652cd8e44481be3c3b740523ce3d8",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_user/user_add.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "736f066e4b3ea6cfd114cb43325a36a3cbcdb0fd89dc94c7bf9b021b2e73805c",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_user/user_edit.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83a15cc70c80a409a479fea9837c82fb990fe5840202e1c6e60227e56f3f7347",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_serial_ports",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_serial_ports/serial_ports_action_set.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "027264d894a3bd33e9937cb2c39e0bb4ff59cd7b1156d416e66b8712c9177dab",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_serial_ports/serial_ports_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "809180beb82d8a57d61b7b5f9187f815b53f8dfdd2181bfed167b92a5dc33318",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_serial_ports/serial_ports_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "da71edb810a3979b4c6f36e7b699f91df85c4686efc98d18199dce3cc2ae6d84",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_serial_ports/serial_ports_action_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "da692a476a68e1e149f6bd2e81e921c684672b218ff778cdbc8a0529e4ee337a",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_web",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_web/web_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "30b179550145746bab30b73f8c362e3c422066d0ab293dc02272b3ce3baa0c69",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_web/web_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d2b58059372417997266c7e39a5ae5ea662341d187d3ca649d7fbb1891b2e1e2",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_dnsservices",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_dnsservices/dnsservices_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cacd46fa94dff76686cd0c3a793998d7730ef7e64efda1724400a9da190799f4",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_dnsservices/dnsservices_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "54e0432d3dbd031bc77d56ce93f9d568203b435eb74ce633252688acd3f55457",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_dnsservices/dnsservers_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "803eec6625f74ad20d7cc29aa9ec6c4a11ec5068857c1f5dacd76f719ea4bde0",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_dnsservices/dnsservers_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d2a84553930bde6be58ec6a65e81678731d9b5782cd4271c3571a9afaf9daac5",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_plugconfig",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_plugconfig/plug_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa407e11ef8b0de377d2d84f8bf26972101defd8f4b5380f6d58ca8b437f4ee4",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_plugconfig/plug_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8d5fd4f3ba38d7930a0c7b01858eef73c86d8ade20b14043a8d1bde5c23511b6",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_status",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_status/firmware_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "774637beb1cead454af209d1f2ddc82e73ddaf3bfdd0cebb62d4aa9d663e3a1a",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_status/current_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81250969b8389fcf7b5dfca43c784687048a0802a2bb2ada7db13eb9eaa4d814",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_status/temp_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b433ae836d3a1c671e5fbcad371b9b401cd84012ef66cb259777edad2f24751",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_status/alarm_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7eaeab3f0e4683b27db4c758823dead0f308c6f7e0813162b9ab3ac1eb172e9",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_status/power_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "784e761c9f17b4d633e115f136df2da004e2123fce1d46a8578819cf240ba87c",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_status/status_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d27146b1f8948c8329aff03b4a1165d62ee1625a9431efd117908d87662749e9",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_syslog_client",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_syslog_client/syslog_client_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "22eecb650f8ec3171517905bb82b74431564ada552cb936625acf13a3c505176",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_syslog_client/syslog_client_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "27a8312607be119f05b44885b29d171400285cf7cecce2fc7e0612eb292cffa5",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_plugcontrol",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_plugcontrol/plug_control.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3bb7a2d284ca0139d23376fd627bc5ceb0b9ea276ab7cf9697a666dffd90b287",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_plugcontrol/plug_control_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0260fa35fa36b7291d16dfa011784dda9656a4789a154531e205ec303e91e709",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_time_date",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_time_date/time_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9e2db79afc89be1c9f2024f109971997b19c7db23b18b3001e1499ed471ed260",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_time_date/time_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "916778518146bc6c6c9186da9ecf8fbe609e3cb19d0b9648e9078c9246e304f3",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_config",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_config/cpm_config_restore.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dbe239f7c111ca703a49427172570006f7402d2c32344b66d1dc9a4b9d22228a",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_config/cpm_config_backup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a7823ba13671f9bc88badcf853eb1815b646c01e693f2dbc2495c18b101db46b",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_syslog_server",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_syslog_server/syslog_server_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "16b70b5f6faa36871a924030afa871140b04becc2ce695ddc2fea38c5dbefb71",
+   "format": 1
+  },
+  {
+   "name": "playbooks/cpm_syslog_server/syslog_server_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b94fc96ecb38371c2b896b05c265911a14c7fb148fcb022fb51b890da01179d7",
+   "format": 1
+  },
+  {
+   "name": ".github",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/ansible-lint.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ae89ad42cbb9130280f456b7615ffd3d28214cb9ed1c7cee56bff9a366f567b8",
+   "format": 1
+  },
+  {
+   "name": ".github/workflows/ansible-test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fd39654d59f1bec55fbebba9f740cf607c46b317699e347194ad383a25a3e409",
+   "format": 1
+  },
+  {
+   "name": "requirements-wti.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a88ffa5e594a4d9728e19ca3680bc163b3c6b96990da8caa2826ecb484c8376e",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

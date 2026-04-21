@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_snapmirror - Added use_rest condition for the REST support to work when use_rest `always`.

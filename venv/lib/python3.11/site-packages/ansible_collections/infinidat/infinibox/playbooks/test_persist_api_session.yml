@@ -1,0 +1,38 @@
+---
+# PSDEV-1330: Test persisting IBOX API session data to disk and use.
+- name: Use persistent API session
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Post event 1 using credentials and saving session
+      infinidat.infinibox.infini_event:
+        description_template: "Event 1 -> Stay logged in. Provide credentials. Persist session to disk."
+        level: INFO
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+        stay_logged_in: true        # Default is false
+        stay_logged_in_minutes: 4   # Default is 5
+
+    - name: Post event 2 using persisted session
+      infinidat.infinibox.infini_event:
+        description_template: "Event 2 -> Do not provide credentials. Depend on persisted session. Stay logged in."
+        level: INFO
+        # user: "{{ user }}"
+        # password: "{{ password }}"
+        system: "{{ system }}"
+        stay_logged_in: true
+        stay_logged_in_minutes: 4
+
+    - name: Post event 3 handling missing credentials failure
+      infinidat.infinibox.infini_event:
+        description_template: "Event 3 -> Fail due to no credentials. Do not use persisted session since not staying logged in."
+        level: INFO
+        # user: "{{ user }}"
+        # password: "{{ password }}"
+        system: "{{ system }}"
+        # stay_logged_in: false
+        # stay_logged_in_minutes: 4
+      register: event_result
+      failed_when: >
+        ("You must set" not in event_result.module_stdout)

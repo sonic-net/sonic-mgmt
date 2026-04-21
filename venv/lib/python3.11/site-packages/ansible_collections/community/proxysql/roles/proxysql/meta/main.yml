@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  author: Ben Mildren
+  description: Ansible role to install and configure ProxySQL
+  company: DigitalOcean
+
+  license: license (BSD)
+  min_ansible_version: 2.9
+
+  platforms:
+    - name: Ubuntu
+      versions:
+        - bionic
+        - focal
+
+  galaxy_tags:
+    - proxysql
+    - mysql
+
+dependencies: []

@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_volume - Provide volume facts in all cases, including when no change has occured.

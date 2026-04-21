@@ -1,0 +1,40 @@
+---
+- name: Prepare
+  hosts: all
+  become: false
+  vars:
+    redhat_packages:
+      - net-tools
+    debian_packages:
+      - net-tools
+  tasks:
+
+  - name: Ensure epel is available
+    ansible.builtin.package:
+      name: epel-release
+      state: present
+    when:
+      - ansible_os_family == "RedHat"
+      - ansible_distribution != "Amazon"
+      - ansible_distribution != "Fedora"
+
+  - name: Install redhat packages
+    ansible.builtin.package:
+      name: "{{ redhat_packages }}"
+      state: present
+    when: ansible_os_family == "RedHat"
+
+  - name: Install openssl
+    package:
+      name: openssl
+
+  - name: Update the APT cache on Debian-based systems
+    apt:
+      update_cache: yes
+    when: ansible_os_family == "Debian"
+
+  - name: Install Debian packages
+    ansible.builtin.package:
+      name: "{{ debian_packages }}"
+      state: present
+    when: ansible_os_family == "Debian"

@@ -1,0 +1,3 @@
+---
+trivial:
+  - requirements - Update the README file to document required Ansible and Python updates for this release (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/322).

@@ -1,0 +1,12 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get all Organizations
+      cisco.meraki.organizations_info:
+        meraki_suppress_logging: false
+        organizationId: "828099381482762766"
+      register: result
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

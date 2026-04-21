@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_info - Fixed issue after SMD Directory Services no longer avaible from REST 2.16

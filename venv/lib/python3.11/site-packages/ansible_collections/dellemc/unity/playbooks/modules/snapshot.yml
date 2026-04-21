@@ -1,0 +1,194 @@
+---
+- name: Snapshot Module Operations in Unity
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'admin'
+    password: 'Password123!'
+    cg_snapshot_name: "ansible_snap_cg_1_1"
+    vol_snapshot_name: "ansible_snap_lun_4_2"
+    vol_name: "ansible_snap_lun_4"
+    cg_name: "ansible_snap_cg_1"
+    description: "Created using playbook"
+    new_description: "modified description using playbook"
+    host_name: "ansible_snap_host"
+    expiry_time: "04/15/2021 2:30"
+    new_expiry_time: "04/10/2021 2:30"
+    new_snapshot_name: "new_ansible_snap_lun_4_2"
+
+  tasks:
+    - name: Create a Snapshot for a CG
+      register: result
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        cg_name: "{{ cg_name }}"
+        snapshot_name: "{{ cg_snapshot_name }}"
+        description: "{{ description }}"
+        auto_delete: false
+        state: "present"
+
+    - name: Set snapshot id
+      ansible.builtin.set_fact:
+        cg_snapshot_id: "{{ result.snapshot_details.id }}"
+
+    - name: Create a Snapshot for a CG Idempotency
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        cg_name: "{{ cg_name }}"
+        snapshot_name: "{{ cg_snapshot_name }}"
+        description: "{{ description }}"
+        auto_delete: false
+        state: "present"
+
+    - name: Create a Snapshot for a LUN with Host attached.
+      register: result
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        vol_name: "{{ vol_name }}"
+        snapshot_name: "{{ vol_snapshot_name }}"
+        expiry_time: "{{ expiry_time }}"
+        description: "{{ description }}"
+        host_name: "{{ host_name }}"
+        host_state: "mapped"
+        state: "present"
+
+    - name: Set snapshot id for LUN
+      ansible.builtin.set_fact:
+        vol_snapshot_id: "{{ result.snapshot_details.id }}"
+
+    - name: Create a Snapshot for a LUN with Host attached Idempotency.
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        vol_name: "{{ vol_name }}"
+        snapshot_name: "{{ vol_snapshot_name }}"
+        expiry_time: "{{ expiry_time }}"
+        description: "{{ description }}"
+        host_name: "{{ host_name }}"
+        host_state: "mapped"
+        state: "present"
+
+    - name: Unmap a host for a Snapshot using Id
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        snapshot_id: "{{ vol_snapshot_id }}"
+        host_name: "{{ host_name }}"
+        host_state: "unmapped"
+        state: "present"
+
+    - name: Unmap a host for a Snapshot Idempotency case
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        snapshot_name: "{{ vol_snapshot_name }}"
+        host_name: "{{ host_name }}"
+        host_state: "unmapped"
+        state: "present"
+
+    - name: Map snapshot to a host using Id
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ port }}"
+        snapshot_id: "{{ vol_snapshot_id }}"
+        host_name: "{{ host_name }}"
+        host_state: "mapped"
+        state: "present"
+
+    - name: Get Snapshot Details using Id
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ cg_snapshot_id }}"
+        state: "present"
+
+    - name: Update attributes of a Snapshot for a LUN using Id
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ vol_snapshot_id }}"
+        new_snapshot_name: "{{ new_snapshot_name }}"
+        expiry_time: "{{ new_expiry_time }}"
+        description: "{{ new_description }}"
+        host_name: "{{ host_name }}"
+        host_state: "unmapped"
+        state: "present"
+
+    - name: Update attributes of a Snapshot for a LUN Idempotency case
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ new_snapshot_name }}"
+        expiry_time: "{{ new_expiry_time }}"
+        description: "{{ new_description }}"
+        host_name: "{{ host_name }}"
+        host_state: "unmapped"
+        state: "present"
+
+    - name: Delete Snapshot of CG.
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ cg_snapshot_name }}"
+        state: "absent"
+
+    - name: Delete Snapshot of CG using Id Idempotency case.
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ cg_snapshot_id }}"
+        state: "absent"
+
+    - name: Delete Snapshot of volume.
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ new_snapshot_name }}"
+        state: "absent"
+
+    - name: Delete Snapshot of volume Idempotency.
+      snapshot:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "{{ new_snapshot_name }}"
+        state: "absent"

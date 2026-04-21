@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_syslog - ``name`` becomes a required parameter as module converts to full REST 2 support

@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_volume - new option `granular_data` added in REST, requires ONTAP 9.12 or later.
+  - na_ontap_volume - new option `nas_application_template.cifs_share_name` added in REST, requires ONTAP 9.11 or later.
+  - na_ontap_volume - new option `nas_application_template.snaplock.*` added in REST, requires ONTAP 9.12 or later.
+  - na_ontap_volume - new option `nas_application_template.snapshot_locking_enabled` added in REST, requires ONTAP 9.13.1 or later.

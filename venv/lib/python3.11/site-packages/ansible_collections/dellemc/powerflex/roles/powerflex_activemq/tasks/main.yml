@@ -1,0 +1,8 @@
+---
+- name: Install ActiveMQ
+  ansible.builtin.include_tasks: install_activemq.yml
+  when: powerflex_activemq_state == 'present'
+
+- name: Uninstall ActiveMQ
+  ansible.builtin.include_tasks: uninstall_activemq.yml
+  when: powerflex_activemq_state == 'absent'

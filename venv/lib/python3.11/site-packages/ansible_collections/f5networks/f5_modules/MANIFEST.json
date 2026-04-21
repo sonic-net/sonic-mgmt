@@ -1,0 +1,38 @@
+{
+ "collection_info": {
+  "namespace": "f5networks",
+  "name": "f5_modules",
+  "version": "1.39.0",
+  "authors": [
+   "Wojciech Wypior (@wojtek0806)",
+   "Rohit Upadhyay (@urohit011)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "f5",
+   "networking",
+   "bigip",
+   "bigiq"
+  ],
+  "description": "F5 BIG-IP Imperative Collection for Ansible",
+  "license": [
+   "GPL-3.0-only"
+  ],
+  "license_file": null,
+  "dependencies": {
+   "ansible.netcommon": ">=2.0.0"
+  },
+  "repository": "https://github.com/F5Networks/f5-ansible-f5modules",
+  "documentation": "https://clouddocs.f5.com/products/orchestration/ansible/devel/modules/module_index.html",
+  "homepage": "https://clouddocs.f5.com/products/orchestration/ansible/devel/",
+  "issues": "https://github.com/F5Networks/f5-ansible/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "c71523c780044e93d15002d52b182478cae16095de15e2ee931d98eb5983eb95",
+  "format": 1
+ },
+ "format": 1
+}

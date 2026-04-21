@@ -1,0 +1,8 @@
+{
+    "id": "FlashBlade-Collection",
+    "name": "Ansible Collection for FlashBlade",
+    "filter": "devops",
+    "image": "http://code.purestorage.com/images/32_fb_collection.png",
+    "featured": 1,
+    "priority": 3
+}

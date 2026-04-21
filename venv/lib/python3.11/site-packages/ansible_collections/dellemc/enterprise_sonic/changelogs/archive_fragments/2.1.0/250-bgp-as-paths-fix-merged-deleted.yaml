@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_bgp_as_paths - Fix issues with merged and deleted states (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/250)

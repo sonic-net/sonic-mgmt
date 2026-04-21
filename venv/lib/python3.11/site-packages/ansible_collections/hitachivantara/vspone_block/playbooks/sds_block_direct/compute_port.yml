@@ -1,0 +1,48 @@
+---
+####################################################################
+# Example : Compute Port Playbook
+####################################################################
+- name: Compute Port Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Change the compute port protocol
+    ####################################################################
+    - name: Change the compute port protocol
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          protocol: "nvme_tcp"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Edit compute port settings
+    ####################################################################
+    - name: Edit compute port settings
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "ffb1c13b-fed2-4c06-b996-8d98d878316f"
+          nick_name: "002-iSCSI-001"
+          name: "iqn.1994-04.jp.co.hitachi:rsd.sph.t.1754a.003"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

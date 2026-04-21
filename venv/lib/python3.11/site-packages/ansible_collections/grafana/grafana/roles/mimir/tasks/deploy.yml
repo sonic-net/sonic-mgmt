@@ -1,0 +1,111 @@
+---
+# tasks file for Mimir deployment
+- name: Obtain the latest version from the Mimir GitHub repo
+  when: mimir_version == "latest"
+  block:
+    - name: Scrape Github API endpoint to obtain latest Mimir version
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/grafana/mimir/releases/latest"
+        method: GET
+        body_format: json
+      become: false
+      delegate_to: localhost
+      run_once: true
+      register: __github_latest_version
+
+    - name: Latest available Mimir version
+      ansible.builtin.set_fact:
+        mimir_version: "{{ __github_latest_version.json.tag_name | regex_replace('^v?(\\d+\\.\\d+\\.\\d+)$', '\\1') }}"
+
+- name: Verify current deployed version
+  block:
+    - name: Check if Mimir binary is present
+      ansible.builtin.stat:
+        path: "/usr/bin/mimir"
+      register: __already_deployed
+
+    - name: Obtain current deployed Mimir version
+      ansible.builtin.command:
+        cmd: "/usr/bin/mimir --version"
+      changed_when: false
+      register: __current_deployed_version
+      when: __already_deployed.stat.exists | bool
+
+- name: Include RedHat/Rocky setup
+  ansible.builtin.include_tasks:
+    file: setup-Redhat.yml
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
+
+- name: Include Debian/Ubuntu setup
+  ansible.builtin.include_tasks:
+    file: setup-Debian.yml
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Check if Mimir default dir is present
+  ansible.builtin.stat:
+    path: "/tmp/mimir/boltdb-shipper-active"
+  register: __default_structure
+
+- name: Default structure cleanup
+  when: __default_structure.stat.exists | bool
+  block:
+    - name: Ensure that Mimir is stopped before default cleanup
+      ansible.builtin.systemd:
+        name: mimir.service
+        state: stopped
+
+    - name: Remove default configuration from "/tmp/mimir" directory
+      ansible.builtin.file:
+        path: "/tmp/mimir"
+        state: absent
+
+- name: Ensure that Mimir working path exists
+  ansible.builtin.file:
+    path: "{{ mimir_working_path }}"
+    state: directory
+    owner: "mimir"
+    group: "mimir"
+    mode: "0755"
+
+- name: Ensure that Mimir rule path exists
+  ansible.builtin.file:
+    path: "{{ mimir_ruler_alert_path }}"
+    state: directory
+    owner: "mimir"
+    group: "mimir"
+    mode: "0755"
+  when:
+    - mimir_ruler_alert_path is defined
+    - mimir_ruler is defined
+
+- name: Template Mimir config - /etc/mimir/config.yml
+  ansible.builtin.template:
+    src: "config.yml.j2"
+    dest: "/etc/mimir/config.yml"
+    owner: "mimir"
+    group: "mimir"
+    mode: "0644"
+    validate: "mimir -modules --config.file=%s"
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  notify:
+    - Restart mimir
+
+- name: Ensure restart has completed
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure that Mimir is started
+  ansible.builtin.systemd:
+    name: mimir.service
+    state: started
+    enabled: true
+
+
+- name: Verify that Mimir URL is responding
+  ansible.builtin.uri:
+    url: "http://{{ mimir_http_listen_address }}:{{ mimir_http_listen_port }}/ready"
+    method: GET
+  register: mimir_verify_url_status_code
+  retries: 5
+  delay: 8
+  until: mimir_verify_url_status_code.status == 200

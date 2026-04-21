@@ -1,0 +1,11 @@
+---
+grafana_organizations: []
+grafana_organization_users: []
+grafana_users: []
+grafana_teams: []
+grafana_datasources: []
+grafana_folders: []
+grafana_dashboards: []
+grafana_notification_channels: []
+grafana_silences: []
+grafana_contact_points: []

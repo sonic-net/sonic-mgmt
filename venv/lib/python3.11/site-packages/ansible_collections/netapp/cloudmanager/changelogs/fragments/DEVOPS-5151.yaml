@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_connector_azure - Support full ``subnet_id`` and ``vnet_id``.

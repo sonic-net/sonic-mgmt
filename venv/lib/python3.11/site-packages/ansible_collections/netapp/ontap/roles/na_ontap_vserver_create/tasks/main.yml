@@ -1,0 +1,198 @@
+---
+- name: Create Vserver
+  netapp.ontap.na_ontap_svm:
+    state: present
+    name: "{{ item.name }}"
+    root_volume: "{{ item.name }}_root"
+    root_volume_aggregate: "{{ item.aggr }}"
+    root_volume_security_style: "{{ 'ntfs' if item.protocol.lower() is search('cifs') else 'unix' }}"
+    # with REST, the 3 root_volume options above are not needed, and not supported
+    ignore_rest_unsupported_options: true
+    aggr_list: "{{ '*' if item.aggr_list is not defined else item.aggr_list }}"
+    max_volumes: "{{ item.max_volumes | default(omit) }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ vservers }}"
+  when: vservers != None
+- name: Setup FCP
+  netapp.ontap.na_ontap_fcp:
+    state: present
+    service_state: started
+    vserver: "{{ item.name }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ vservers }}"
+  when: item.protocol.lower() is search("fcp")
+- name: Setup iSCSI
+  netapp.ontap.na_ontap_iscsi:
+    state: present
+    service_state: started
+    vserver: "{{ item.name }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ vservers }}"
+  when: item.protocol.lower() is search("iscsi")
+- name: Modify adapter
+  netapp.ontap.na_ontap_ucadapter:
+    state: present
+    adapter_name: "{{ item.adapter_name }}"
+    node_name: "{{ item.node_name }}"
+    mode: fc
+    type: target
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ fcp }}"
+  when: fcp != None
+- name: Create IP Interface
+  netapp.ontap.na_ontap_interface:
+    state: present
+    interface_name: "{{ item.name }}"
+    home_port: "{{ item.port }}"
+    home_node: "{{ item.node }}"
+    # role and protocols are deprecated
+    role: "{{ omit if item.protocol is not defined else 'data' }}"
+    protocols: "{{ item.protocol | default(omit) }}"
+    admin_status: up
+    failover_policy: "{{ omit if (item.protocol is defined and item.protocol.lower() is search('iscsi')) else 'system-defined' }}"
+    # service_policy is prefered over firewall_policy
+    firewall_policy: "{{ omit if item.service_policy is defined else 'data' }}"
+    is_auto_revert: "{{ omit if (item.protocol is defined and item.protocol.lower() is search('iscsi')) else 'true' }}"
+    ipspace: "{{ item.ipspace | default(omit) }}"
+    broadcast_domain: "{{ item.broadcast_domain | default(omit) }}"
+    service_policy: "{{ item.service_policy | default(omit) }}"
+    # only a value of IP is supported for now.  But leave it open for FC.
+    interface_type: "{{ item.interface_type | default(omit) }}"
+    address: "{{ item.address }}"
+    netmask: "{{ item.netmask }}"
+    vserver: "{{ item.vserver }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ lifs }}"
+  when: lifs != None
+- name: Add default route
+  netapp.ontap.na_ontap_net_routes:
+    state: present
+    vserver: "{{ item.vserver }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    destination: "{{ item.destination }}"
+    gateway: "{{ item.gateway }}"
+    metric: 30
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ gateway }}"
+  when: gateway != None
+- name: Create DNS
+  netapp.ontap.na_ontap_dns:
+    state: present
+    vserver: "{{ item.vserver }}"
+    domains: "{{ item.dns_domains }}"
+    nameservers: "{{ item.dns_nameservers }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ vserver_dns }}"
+  when: vserver_dns !=None
+- name: Create CIFS Server
+  netapp.ontap.na_ontap_cifs_server:
+    state: present
+    vserver: "{{ item.vserver }}"
+    domain: "{{ item.domain }}"
+    cifs_server_name: "{{ item.cifs_server_name }}"
+    force: "{{ 'false' if item.force is not defined else item.force }}"
+    admin_password: "{{ admin_password }}"
+    admin_user_name: "{{ admin_user_name }}"
+    ou: "{{ item.ou | default(omit) }}"
+    service_state: started
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ cifs }}"
+  when: cifs != None
+- name: Create NFS Server
+  netapp.ontap.na_ontap_nfs:
+    state: present
+    service_state: started
+    vserver: "{{ item.name }}"
+    nfsv3: "{{ item.nfsv3 | default('enabled') }}"
+    nfsv4: "{{ item.nfsv4 | default('disabled') }}"
+    nfsv41: "{{ item.nfsv41 | default('disabled') }}"
+    tcp: enabled
+    udp: enabled
+    vstorage_state: disabled
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ vservers }}"
+  when:
+    - item.protocol.lower() is search("nfs")
+    - ontap_version >= 130
+- name: Create NFS Server
+  netapp.ontap.na_ontap_nfs:
+    state: present
+    service_state: started
+    vserver: "{{ item.name }}"
+    nfsv3: "{{ item.nfsv3 | default('enabled') }}"
+    nfsv4: "{{ item.nfsv4 | default('disabled') }}"
+    nfsv41: "{{ item.nfsv41 | default('disabled') }}"
+    vstorage_state: disabled
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ vservers }}"
+  when:
+    - item.protocol.lower() is search("nfs")
+    - ontap_version < 130
+- name: Setup default NFS rule
+  netapp.ontap.na_ontap_export_policy_rule:
+    state: present
+    policy_name: default
+    vserver: "{{ item.name }}"
+    client_match: 0.0.0.0/0
+    rule_index: 1
+    ro_rule: any
+    rw_rule: none
+    protocol: any
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ vservers }}"
+  when:
+    item.protocol.lower() is search("nfs")

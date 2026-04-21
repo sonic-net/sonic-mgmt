@@ -1,0 +1,624 @@
+ancestor: null
+releases:
+  1.0.0:
+    modules:
+      - description: Manage multiline banners on VyOS devices
+        name: vyos_banner
+        namespace: ""
+      - description: Run one or more commands on VyOS devices
+        name: vyos_command
+        namespace: ""
+      - description: Manage VyOS configuration on remote device
+        name: vyos_config
+        namespace: ""
+      - description: Get facts about vyos devices.
+        name: vyos_facts
+        namespace: ""
+      - description: FIREWALL global resource module
+        name: vyos_firewall_global
+        namespace: ""
+      - description: FIREWALL interfaces resource module
+        name: vyos_firewall_interfaces
+        namespace: ""
+      - description: FIREWALL rules resource module
+        name: vyos_firewall_rules
+        namespace: ""
+      - description: Interfaces resource module
+        name: vyos_interfaces
+        namespace: ""
+      - description: L3 interfaces resource module
+        name: vyos_l3_interfaces
+        namespace: ""
+      - description: LAG interfaces resource module
+        name: vyos_lag_interfaces
+        namespace: ""
+      - description: LLDP global resource module
+        name: vyos_lldp_global
+        namespace: ""
+      - description: LLDP interfaces resource module
+        name: vyos_lldp_interfaces
+        namespace: ""
+      - description: Manage logging on network devices
+        name: vyos_logging
+        namespace: ""
+      - description: OSPFv2 resource module
+        name: vyos_ospfv2
+        namespace: ""
+      - description: OSPFV3 resource module
+        name: vyos_ospfv3
+        namespace: ""
+      - description: Tests reachability using ping from VyOS network devices
+        name: vyos_ping
+        namespace: ""
+      - description: Static routes resource module
+        name: vyos_static_routes
+        namespace: ""
+      - description: Run `set system` commands on VyOS devices
+        name: vyos_system
+        namespace: ""
+      - description: Manage the collection of local users on VyOS device
+        name: vyos_user
+        namespace: ""
+      - description: Manage VLANs on VyOS network devices
+        name: vyos_vlan
+        namespace: ""
+    plugins:
+      cliconf:
+        - description: Use vyos cliconf to run command on VyOS platform
+          name: vyos
+          namespace: null
+    release_date: "2020-06-23"
+  1.0.1:
+    changes:
+      minor_changes:
+        - Add doc plugin fixes (https://github.com/ansible-collections/vyos.vyos/pull/51)
+    fragments:
+      - 51-doc-plugin-fixes.yaml
+    release_date: "2020-06-23"
+  1.0.2:
+    changes:
+      bugfixes:
+        - Added workaround to avoid set_fact dynamically assigning value. This behavior
+          seems to have been broken after ansible2.9.
+        - Make `src`, `backup` and `backup_options` in vyos_config work when module
+          alias is used (https://github.com/ansible-collections/vyos.vyos/pull/67).
+        - vyos_config - fixed issue where config could be saved while in check mode
+          (https://github.com/ansible-collections/vyos.vyos/pull/53)
+      minor_changes:
+        - Fixed the typo in the modulename of ospfv2 and ospfv3 unit tests.
+        - Updated docs.
+        - terminal plugin - Added additional escape sequence to be removed from terminal
+          output.
+    fragments:
+      - 65-remove-unwanted-terminal-chars.yaml
+      - 70-workaround-set_fact.yaml
+      - 72-modulename-typofix.yaml
+      - 73-update-docs.yaml
+      - fix_src_backup_with_module_alias.yaml
+      - prevent-vyos_config-saving-in-check-mode.yaml
+    release_date: "2020-07-31"
+  1.0.3:
+    fragments:
+      - 1.0.3.yaml
+    release_date: "2020-08-06"
+  1.0.4:
+    changes:
+      minor_changes:
+        - Moved intent testcases from integration suite to unit tests.
+        - Reformatted files with latest version of Black (20.8b1).
+    fragments:
+      - 71-refactor-interface-test.yaml
+      - 80-reformat-files.yaml
+    release_date: "2020-08-27"
+  1.0.5:
+    changes:
+      bugfixes:
+        - Added openvpn vtu interface support.
+        - Update network integration auth timeout for connection local.
+        - terminal plugin - Overhaul ansi_re to remove more escape sequences
+    fragments:
+      - 86-openvpn_vtu_interface.yaml
+      - local_auth_timeout.yaml
+      - terminal-escape-codes.yaml
+    release_date: "2020-10-08"
+  1.1.0:
+    changes:
+      minor_changes:
+        - Added ospf_interfaces resource module.
+    fragments:
+      - vyos_ospf_interfaces_rm.yaml
+    modules:
+      - description: OSPF Interfaces Resource Module.
+        name: vyos_ospf_interfaces
+        namespace: ""
+    release_date: "2020-10-30"
+  1.1.1:
+    changes:
+      bugfixes:
+        - Add version key to galaxy.yaml to work around ansible-galaxy bug
+        - Enable configuring an interface which is not present in the running config.
+        - vyos_config - Only process src files as commands when they actually contain
+          commands. This fixes an issue were the whitespace preceding a configuration
+          key named 'set' was stripped, tripping up the parser.
+    fragments:
+      - 91-new-interface.yaml
+      - config-processed-as-command.yaml
+      - galaxy-version.yaml
+    release_date: "2021-01-27"
+  2.0.0:
+    changes:
+      bugfixes:
+        - Update docs to clarify the idemptonecy related caveat and add it in the output
+          warnings (https://github.com/ansible-collections/ansible.netcommon/pull/189)
+        - cliconf plugin - Prevent `get_capabilities()` from getting larger every time
+          it is called
+      major_changes:
+        - Please refer to ansible.netcommon `changelog <https://github.com/ansible-collections/ansible.netcommon/blob/main/changelogs/CHANGELOG.rst#ansible-netcommon-collection-release-notes>`_
+          for more details.
+        - Requires ansible.netcommon v2.0.0+ to support `ansible_network_single_user_mode`
+          and `ansible_network_import_modules`
+        - ipaddress is no longer in ansible.netcommon. For Python versions without ipaddress
+          (< 3.0), the ipaddress package is now required.
+      minor_changes:
+        - Add support for configuration caching (single_user_mode).
+        - Add vyos BGP global resource module.(https://github.com/ansible-collections/vyos.vyos/pull/125).
+        - Re-use device_info dictionary in cliconf.
+    fragments:
+      - 120-remove-ipaddress.yaml
+      - 122-rpc-unbloat.yaml
+      - bgp_global_resource_module.yaml
+      - fix_docker_sanity_test_failures.yaml
+      - major_release_2.0.0.yaml
+      - modify_resource_module_class_import.yaml
+      - single_user_mode.yaml
+      - vyos_config_diff_doc_update.yaml
+    modules:
+      - description: BGP Global Resource Module.
+        name: vyos_bgp_global
+        namespace: ""
+    release_date: "2021-02-24"
+  2.1.0:
+    changes:
+      minor_changes:
+        - Add regex for delete failures to terminal_stderr_re
+        - Add vyos BGP address_family resource module (https://github.com/ansible-collections/vyos.vyos/pull/132).
+        - Enabled addition and parsing of wireguard interface.
+    fragments:
+      - 128-remove_tests_sanity_requirements.yml
+      - 132-add-vyos-bgp-address-family.yml
+      - parse_wireguard_interface.yml
+      - replace-check_required.yaml
+      - skip_no_log_sanity_error.yaml
+      - terminal_stderr_delete.yml
+    modules:
+      - description: BGP Address Family Resource Module.
+        name: vyos_bgp_address_family
+        namespace: ""
+    release_date: "2021-03-30"
+  2.2.0:
+    changes:
+      minor_changes:
+        - Add support for available_network_resources key, which allows to fetch the
+          available resources for a platform (https://github.com/ansible-collections/vyos.vyos/issues/138).
+      security_fixes:
+        - Mask values of sensitive keys in module result.
+    fragments:
+      - 147-add_ignore_txt.yml
+      - 160_available_network_resources.yaml
+      - no_log_mask.yaml
+      - remove-old-test-deps.yml
+    release_date: "2021-04-27"
+  2.3.0:
+    changes:
+      bugfixes:
+        - change admin_distance to distance while generating static_routes nexthop command.
+        - firewall_global - port-groups were not added (https://github.com/ansible-collections/vyos.vyos/issues/107)
+      minor_changes:
+        - Add vyos_route_maps resource module (https://github.com/ansible-collections/vyos.vyos/pull/156.).
+    fragments:
+      - changelog_doc_path_update.yaml
+      - fix_delete_route_maps.yaml
+      - fix_port_groups.yaml
+      - fix_static_routes_distance.yaml
+      - vyos-route-maps.yaml
+    modules:
+      - description: Route Map Resource Module.
+        name: vyos_route_maps
+        namespace: ""
+    release_date: "2021-05-18"
+  2.3.1:
+    changes:
+      bugfixes:
+        - Fix KeyError 'source' - vyos_firewall_rules
+        - Updated docs resolving spelling typos
+        - change interface to next-hop-interface while generating static_routes nexthop
+          command.
+    fragments:
+      - 172-fix-source-keyerror-firewallrules.yml
+      - docs_common_error_correction.yaml
+      - fix_static_routes_next_hop_interface.yaml
+      - update_readme_freenode_to_liberachat.yml
+    release_date: "2021-06-22"
+  2.4.0:
+    changes:
+      minor_changes:
+        - Add vyos_prefix_lists Resource Module.
+    fragments:
+      - vyos_prefix_lists.yml
+    modules:
+      - description: Prefix-Lists resource module for VyOS
+        name: vyos_prefix_lists
+        namespace: ""
+    release_date: "2021-07-06"
+  2.5.0:
+    changes:
+      bugfixes:
+        - fix issue in route-maps facts code when route-maps facts are empty.
+      deprecated_features:
+        - The vyos_logging module has been deprecated in favor of the new vyos_logging_global
+          resource module and will be removed in a release after "2023-08-01".
+      minor_changes:
+        - vyos_logging_global logging resource module.
+    fragments:
+      - fix_issue_vyos_facts.yaml
+      - vyos_logging_global_module.yaml
+    release_date: "2021-07-26"
+  2.5.1:
+    changes:
+      bugfixes:
+        - fix issue in firewall rules facts code when IPV6 ICMP type name in vyos.vyos.vyos_firewall_rules
+          is not idempotent
+    fragments:
+      - doc_updated_correct_platform.yaml
+      - fix_issue170_vyos_firewall_rules.yaml
+      - fix_pylint_issues.yaml
+      - tests_become.yaml
+    release_date: "2021-08-27"
+  2.6.0:
+    changes:
+      bugfixes:
+        - Fix vyos_firewall_rules with state replaced to only replace the specified
+          rules.
+      minor_changes:
+        - Add vyos_ntp Resource Module
+        - Adds support for specifying an `afi` for an `address_group` for `vyos.vyos.firewall_global`.  As
+          a result, `address_group` now supports IPv6.
+        - Adds support for specifying an `afi` for an `network_group` for `vyos.vyos.firewall_global`.  As
+          a result, `network_group` now supports IPv6.
+    fragments:
+      - 0-copy_ignore_txt.yml
+      - fix-firewall_rules-state-replaced.yaml
+      - set_allow_duplicates.yaml
+      - support_ipv6_address_and_network_groups.yaml
+      - vyos_ntp.yml
+    release_date: "2021-10-02"
+  2.7.0:
+    changes:
+      major_changes:
+        - Add 'pool' as value to server key in ntp_global.
+      minor_changes:
+        - Add vyos_snmp_server resource module.
+    fragments:
+      - add_snmp_server_resource_module.yaml
+      - ntp_server_add_pool.yaml
+      - remove-swap-file.yml
+      - sanity_issue_fix.yaml
+    modules:
+      - description: Manages snmp_server resource module
+        name: vyos_snmp_server
+        namespace: ""
+    release_date: "2022-01-31"
+  2.8.0:
+    changes:
+      minor_changes:
+        - Add vyos_hostname resource module.
+        - Rename V4-EGRESS/V6-EGRESS to EGRESS in the tests to test the same-name situation
+        - Update vyos_facts to support IPv4 and IPv6 rule sets having the same name
+        - Update vyos_firewall_rules to support IPv4 and IPv6 rule sets having the same
+          name
+        - vyos_firewall_rules - Add support for log enable on individual rules
+        - vyos_firewall_rules - fixed incorrect option 'disabled' passed to the rules.
+    fragments:
+      - rule_set_same_name.yaml
+      - vyos_firewall_rules_add_log.yaml
+      - vyos_firewall_rules_fix_rules_disable.yaml
+      - vyos_hostname_rm.yaml
+    modules:
+      - description: Manages hostname resource module
+        name: vyos_hostname
+        namespace: ""
+    release_date: "2022-03-01"
+  3.0.0:
+    changes:
+      bugfixes:
+        - Add symlink of modules under plugins/action
+      major_changes:
+        - Minimum required ansible.netcommon version is 2.5.1.
+        - Updated base plugin references to ansible.netcommon.
+        - "`vyos_facts` - change default gather_subset to `min` from `!config` (https://github.com/ansible-collections/vyos.vyos/issues/231)."
+      minor_changes:
+        - Change preconfig hostname from vyos to vyosuser
+    fragments:
+      - add_fqcn_ansible_connection.yaml
+      - add_symlinks_redirection.yml
+      - change_host_name.yml
+      - netcommon_ref_update.yaml
+      - vyos_facts_remove_warning.yaml
+      - vyos_facts_update.yaml
+    release_date: "2022-04-26"
+  3.0.1:
+    changes:
+      minor_changes:
+        - firewall_rules - icmpv6 type - add support for vyos sw >= 1.4.
+    fragments:
+      - firewall_rule_cli_change_version_1.4.yaml
+    release_date: "2022-05-25"
+  4.0.0:
+    changes:
+      major_changes:
+        - "Use of connection: local and the provider option are no longer valid on any
+          modules in this collection."
+      minor_changes:
+        - Update fact gathering to support v1.3 show version output
+      removed_features:
+        - vyos_interface - use vyos_interfaces instead.
+        - vyos_l3_interface - use vyos_l3_interfaces instead.
+        - vyos_linkagg - use vyos_lag_interfaces instead.
+        - vyos_lldp - use vyos_lldp_global instead.
+        - vyos_lldp_interface - use vyos_lldp_interfaces instead.
+        - vyos_static_route - use vyos_static_routes instead.
+    fragments:
+      - 271_equuleus_facts.yaml
+      - 2H22-removal.yaml
+      - fix-precommit-issues.yml
+      - fqcn.yaml
+      - gha.yaml
+      - ignores-2.15.yaml
+      - net_mods.yaml
+      - renamed.yaml
+    release_date: "2022-10-13"
+  4.0.1:
+    changes:
+      bugfixes:
+        - vyos_command - Run commands at least once even when retries is set to 0 (https://github.com/ansible-collections/cisco.nxos/issues/607).
+    fragments:
+      - command_retries.yaml
+      - prettier.yaml
+      - rm_base.yaml
+    release_date: "2023-02-27"
+  4.0.2:
+    changes:
+      bugfixes:
+        - bgp_global - changed to use `neighbor.password` rather than `neighbor.address`
+          (https://github.com/ansible-collections/vyos.vyos/issues/304).
+      doc_changes:
+        - vyos_interfaces - Updated documentation with examples and task output.
+    fragments:
+      - bgp-password-fix.yml
+      - ci_codecov.yml
+      - update_intf_doc.yaml
+    release_date: "2023-04-03"
+  4.1.0:
+    changes:
+      bugfixes:
+        - vyos-l3_interface_facts - fixed error when using no-default-link-local option.
+          (https://github.com/ansible-collections/vyos.vyos/issues/295)
+      minor_changes:
+        - vyos-l3_interface_support - Add support for Tunnel, Bridge and Dummy interfaces.
+          (https://github.com/ansible-collections/vyos.vyos/issues/265)
+    fragments:
+      - firewall.yaml
+      - l3_interfaces-support.yaml
+      - l3_interfaces.yaml
+    release_date: "2023-05-30"
+  5.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.15.0`, since previous ansible-core versions
+          are EoL now.
+      minor_changes:
+        - All GHA workflows have been updated to use ones from ansible-content-actions.
+        - Passes latest ansible-lint with production profile.
+        - Removes deprecation notice for vyos.vyos.
+        - Uncaps supported ansible-core versions, this collection now supports ansible-core>=2.15.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        that this collection requires is `2.15.0`. The last known version compatible
+        with ansible-core<2.15 is v4.1.0.
+    fragments:
+      - avoid_unsafe_conditions.yml
+      - integration_test_fix.yml
+      - release_500.yaml
+      - undeprecate.yaml
+    release_date: "2024-06-25"
+  6.0.0:
+    changes:
+      breaking_changes:
+        - Removed `vyos_logging`. Use `vyos_logging_global` instead.
+        - lldp_global - if "address" is available, merge will cause it to be added,
+          in contrast to the previous behavior where it was replaced. When used in replace
+          mode, it will remove any existing addresses and replace them with the new
+          one.
+        - vyos_bgp_address_family - Support for 1.3+ VyOS only
+        - vyos_bgp_global - Support for 1.3+ VyOS only
+        - vyos_firewall_rules - removed p2p options as they have been removed prior
+          to 1.3 of VyOS
+        - vyos_firewall_rules - tcp.flags is now a list with an inversion flag to support
+          1.4+ firewall rules, but still supports 1.3-
+        - vyos_lldp_global - civic_address is no longer a valid key (removed prior to
+          1.3)
+        - vyos_logging_global - For 1.4, `protocol` is an attribute of the syslog host,
+          not the facility
+        - vyos_snmp_server - no longer works with versions prior to 1.3
+        - vyos_snmp_server - parameter `engine_id` is no longer a `user` or `trap_target`
+          parameter and is now a `snmp_v3` parameter
+        - vyos_snmp_server - parameters `encrypted-key` and `plaintext-key` are now
+          `encrypted-password` and `plaintext-password`
+        - vyos_user - explicit support for version 1.3+ only
+        - vyos_user - removed level (and its alias, role) they were removed in 1.3
+      bugfixes:
+        - vyos_config - Fix change detection for recent Vyos versions
+        - vyos_firewall_global - Fix removing last member of a firewall group.
+        - vyos_firewall_global - Fixed ipv6 route-redirects and tests
+        - vyos_firewall_global - Fixed parsing of global-options (1.4+)
+        - vyos_firewall_global - Fixed state-policy deletion (partial and full)
+        - vyos_firewall_global - fixed behavior for stanzas processing by facts in 1.4+
+          (e.g. present/absent stanza vs enable/disable)
+        - vyos_firewall_global - fixed the facts parsers to include state-policies,
+          redirect
+        - vyos_firewall_rules - Allow deleting of firewall description.
+        - vyos_firewall_rules - Fix limit parameter processing
+        - vyos_firewall_rules - fixed behavior for log, disable attributes
+        - vyos_firewall_rules - fixed behavior for override and replaced states
+        - vyos_interfaces - fixed bug where 'replace' would delete an active disable
+          and not reinstate it
+        - vyos_interfaces - fixed over-zealous handling of disable, which could catch
+          other interface items that are disabled.
+        - vyos_l3_interfaces - fix delete in interfaces to remove vif completely if
+          in affected interface
+        - vyos_l3_interfaces - fix override in interfaces to remove vif completely if
+          not present in new config
+        - vyos_l3_interfaces - fix replace in interfaces to remove vif completely if
+          not present in new config
+        - vyos_logging_global - Fixed v1.3 and before when `protocol` and `level` were
+          set for the same host
+        - vyos_ospf_interfaces - fixed get_config to cater for unordered command lists
+          in 1.4+
+        - vyos_ospfv2 - passive-interface processing for 1.3- and 1.4+
+        - vyos_ospfv3 - added support for adding interfaces to areas
+        - vyos_static routes - fixed the facts, argspecs, config to include interface-routes
+        - vyos_user - fix handling of `full-name` in parser and module
+      deprecated_features:
+        - vyos_bgp_global - no_ipv4_unicast - deprecated for use with VyOS 1.4+, use
+          `ipv4_unicast` instead
+        - vyos_firewall_interfaces - deprecated for use with VyOS 1.4+, firewalls are
+          no longer connected directly to interfaces. See the Firewall Configuration
+          documentation for how to establish a connection betwen the firewall rulesets
+          and the flow, interface, or zone.
+        - vyos_lldp_global - `address` is deprecated, use `addresses` instead. To be
+          removed in 7.0.0.
+        - vyos_logging_global - `protocol` is deprecated for 1.4 and later, use `facility`
+          instead. To be removed in next major version where supprot for 1.3 is removed
+      doc_changes:
+        - Update module documentation to reflect 1.4+ support
+      known_issues:
+        - existing code for 1.3 facility protocol and facility level are not compatible,
+          only one will be set and level is the priority.
+      major_changes:
+        - bgp modules - Added support for 1.4+ "system-as". 1.3 embedded as_number is
+          still supported
+        - vyos bgp modules - Many configuration attributes moved from `bgp_global` to
+          `bgp_address_family` module (see documentation).
+        - vyos_bgp_address_family - Aligned with version 1.3+ configuration - aggregate_address,
+          maximum_paths, network, and redistribute moved from `bgp_global` module. These
+          are now Address-family specific. Many neighbor attributes also moved from
+          `vyos_bgp_global` to `vyos_bgp_address_family` module.
+        - vyos_bgp_global - Aligned with version 1.3+ configuration - aggregate_address,
+          maximum_paths, network, and redistribute Removed to `bgp_address_family` module.
+        - vyos_user - add support for encrypted password specification
+        - vyos_user - add support for public-key authentication
+      minor_changes:
+        - README.md - Add Communication section with Forum information.
+        - vyos_bgp_address_family - Redistribute, network stanza - added support for
+          modifiers (metric, backdoor etc as per T6829)
+        - vyos_bgp_global - Added support for `solo` neighbor attribute
+        - vyos_config - block get_config call if match is set to "none"
+        - vyos_facts - added `network_os_major_version` to facts
+        - vyos_firewall_global - Added support for input, output, and forward chains
+          (1.4+)
+        - vyos_firewall_global - Added support for log-level in state-policy (1.4+)
+        - vyos_firewall_global - with 1.4+, use the the global keyword to define global
+          firewall rules
+        - vyos_firewall_interfaces - added support for VIF interfaces
+        - vyos_firewall_interfaces - enable support for 1.4 firewall
+        - vyos_firewall_interfaces - expanded firewall interface types to match existing
+          types
+        - vyos_firewall_rules - Add support for diff mode for rulesets
+        - vyos_firewall_rules - Added support for 1.4+ firewall rules
+        - vyos_firewall_rules - Fixed comparing of firewall rules
+        - vyos_firewall_rules - added support for 1.5+ firewall `match-ipsec-in`, `match-ipsec-out`,
+          `match-none-in`, `match-none-out`
+        - vyos_firewall_rules - added support for packet-length-exclude for 1.4+ and
+          the states
+        - vyos_l3_interfaces - make l3_interfaces pick up loopback interfaces
+        - vyos_lldp_global -  address is now addresses, with appropriate coercion for
+          existing address keys
+        - vyos_ntp_global - Added ntp options for 1.5+ (interleave, ptp)
+        - vyos_ntp_global - Added support for VyOS 1.4+ (chronyd vs ntpd)
+        - vyos_ntp_global - Added syntax for allow_client in 1.4+
+        - vyos_ospf_interaces - support for 1.4 ospf interfaces
+        - vyos_ospf_interfaces - add support for VyOS 1.3- virtual interfaces
+        - vyos_ospf_interfaces - add support for VyOS 1.4+, which moved interface configuration
+          from the interfaces to ospf/ospfv3 interfaces configuration
+        - vyos_route_maps - add support for as-path-prepend policy option
+      release_summary:
+        "This is the first significant release from the VyOS community
+        for these modules.
+
+        This release is focussed on 1.3+ of VyOS and will be the last major release
+        to
+
+        support 1.3 fully. Although efforts have been made to maintain compatibility
+
+        with the existing vyos collection modules, there have  breaking changes where
+
+        necessary to configuration parameters. Please review all changes carefully
+        before updating.
+
+        "
+    fragments:
+      - 0-readme.yml
+      - 6.0.0.yml
+      - T151-prepare-for-release.yaml
+      - T6817_T6825_ovr_rep.yml
+      - T6821_route_map_options.yml
+      - T6829-ospfv3-v1.3-area-interfacces.yml
+      - T6831_ospf_vif.yml
+      - T6833_fw_rules_limit.yaml
+      - T6834-static-routes-interfaces.yml
+      - T6891-docsite.yaml
+      - T6894-ntp-integration-tests.yml
+      - T6987-logging-changes.yml
+      - T6988-fix-user.yml
+      - T7002-firewall-global-integration-tests.yml
+      - T7003-firewall-interface-integration-tests.yml
+      - T7006-interface-integration-tests.yml
+      - T7008-l3-interface-integration-tests.yml
+      - T7010-lag-interfaces-integration-tests.yaml
+      - T7011-lldp-integration-tests.yaml
+      - T7012_ospf-integration-tests.yaml
+      - T7012_ospfv2_integration_tests.yaml
+      - T7012_ospfv3_integration_tests.yaml
+      - T7013_route-maps-integration-tests.yml
+      - T7015_static_routes_integration_tests.yaml
+      - T7083_firewall_rules.yml
+      - T7088-codecoverage.yml
+      - T7127-fix-interface-integration-13.yaml
+      - T7153-remove-logging.yaml
+      - T7162-interface-preflight.yaml
+      - T7236_firewall_rules.yml
+      - T7238_logging_global.yml
+      - T7259-get_config.yaml
+      - T7260-remove-last-firewall-group-member.yaml
+      - T7284-delete_firewall_description.yml
+      - T7329_snmp_server_support.yml
+      - T7391_domain_search.yaml
+      - bgp_address_family.yaml
+      - bgp_global.yaml
+      - cliconf.yml
+      - firewall_global_14.yml
+      - firewall_global_parsing.yml
+      - firewall_interface_types.yml
+      - firewall_rules.yml
+      - firewall_rules_diff.yml
+      - fix-recent-vyos-version-change-detection.yml
+      - integration_tests_fixes.yml
+      - interfaces_update.yml
+      - ntp_global.yaml
+      - pre-release6.yaml
+      - resource_updates.yml
+      - revert-409-paramiko-compatible.yaml
+      - snmp_server.yml
+      - test_module_patch.yml
+      - tests.yml
+    release_date: "2025-06-25"

@@ -1,0 +1,41 @@
+- name: "{{'Configure' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Unconfigure' }} controller A inventory-defined controller port definitions for NVMe interface ports on RoCE"
+  na_santricity_nvme_interface:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: "{{ item['state'] | default(eseries_controller_nvme_roce_port_state | default(omit)) }}"
+    controller: A
+    channel: "{{ channel + 1 }}"
+    config_method: "{{ item['config_method'] | default(eseries_controller_nvme_roce_port_config_method | default(omit)) }}"
+    address: "{{ item['address'] | default(omit) }}"
+    gateway: "{{ item['gateway'] | default(eseries_controller_nvme_roce_port_gateway | default(omit)) }}"
+    subnet_mask: "{{ item['subnet_mask'] | default(eseries_controller_nvme_roce_port_subnet_mask | default(omit)) }}"
+    mtu: "{{ item['mtu'] | default(eseries_controller_nvme_roce_port_mtu | default(omit)) }}"
+    speed: "{{ item['speed'] | default(eseries_controller_nvme_roce_port_speed | default(omit)) }}"
+  loop: "{{ lookup('list', eseries_controller_nvme_roce_port['controller_a']) }}"
+  loop_control:
+    index_var: channel
+  when: eseries_controller_nvme_roce_port is defined and eseries_controller_nvme_roce_port['controller_a'] is defined
+
+- name: "{{'Configure' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Unconfigure' }} controller B inventory-defined controller port definitions for NVMe interface ports on RoCE"
+  na_santricity_nvme_interface:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: "{{ item['state'] | default(eseries_controller_nvme_roce_port_state | default(omit)) }}"
+    controller: B
+    channel: "{{ channel + 1 }}"
+    config_method: "{{ item['config_method'] | default(eseries_controller_nvme_roce_port_config_method | default(omit)) }}"
+    address: "{{ item['address'] | default(omit) }}"
+    gateway: "{{ item['gateway'] | default(eseries_controller_nvme_roce_port_gateway | default(omit)) }}"
+    subnet_mask: "{{ item['subnet_mask'] | default(eseries_controller_nvme_roce_port_subnet_mask | default(omit)) }}"
+    mtu: "{{ item['mtu'] | default(eseries_controller_nvme_roce_port_mtu | default(omit)) }}"
+    speed: "{{ item['speed'] | default(eseries_controller_nvme_roce_port_speed | default(omit)) }}"
+  loop: "{{ lookup('list', eseries_controller_nvme_roce_port['controller_b']) }}"
+  loop_control:
+    index_var: channel
+  when: eseries_controller_nvme_roce_port is defined and eseries_controller_nvme_roce_port['controller_b'] is defined

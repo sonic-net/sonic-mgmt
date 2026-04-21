@@ -1,0 +1,97 @@
+---
+####################################################################
+# Example : SNMP Settings Playbook
+####################################################################
+- name: SDSB SNMP Configuration Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Configure complete SNMP settings with system information
+    ####################################################################
+    - name: Configure complete SNMP settings with system information
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snmp_settings:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_snmp_agent_enabled: true
+          snmp_version: "v2c"
+          sending_trap_setting:
+            snmpv2c_settings:
+              - community: "public"
+                send_trap_to:
+                  - "192.168.16.117"
+              - community: "private"
+                send_trap_to:
+                  - "192.168.13.232"
+              - community: "public"
+                send_trap_to:
+                  - "192.168.13.235"
+          request_authentication_setting:
+            snmpv2c_settings:
+              - community: "public"
+                requests_permitted:
+                  - "192.168.16.117"
+              - community: "private"
+                requests_permitted:
+                  - "192.168.13.232"
+              - community: "public"
+                requests_permitted:
+                  - "192.168.13.235"
+          system_group_information:
+            storage_system_name: "Hitachi VSSB"
+            contact: "Hitachi Vantara LLC."
+            location: "Santa-Clara"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # ####################################################################
+    # # Task Name : Update system group information only
+    # ####################################################################
+    - name: Update system group information only
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snmp_settings:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_snmp_agent_enabled: true
+          system_group_information:
+            storage_system_name: "Updated-SDS-Block-System"
+            contact: "support@company.com"
+            location: "Data Center Room B2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Disable SNMP agent
+    ####################################################################
+    - name: Disable SNMP agent
+      hitachivantara.vspone_block.sds_block.hv_sds_block_snmp_settings:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_snmp_agent_enabled: false
+          snmp_version: "v2c"
+          system_group_information:
+            storage_system_name: "Updated-SDS-Block-System"
+            contact: "support@company.com"
+            location: "Data Center Room B2"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

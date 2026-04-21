@@ -1,0 +1,61 @@
+---
+####################################################################
+# Example : SDSB Drive Facts Playbook
+####################################################################
+- name: SDSB Drive Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ####################################################################
+  # Task Name : Get all Drives
+  ####################################################################
+    - name: Get all Drives
+      hitachivantara.vspone_block.sds_block.hv_sds_block_drives_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get Drive by ID
+    ####################################################################
+    - name: Get Drive by ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_drives_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "f41a9fa2-180e-4776-bbc4-9c536870c247"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get Drives by specifying optional parameters
+    ####################################################################
+    - name: Get Drives by specifying optional parameters
+      hitachivantara.vspone_block.sds_block.hv_sds_block_drives_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          status_summary: "Normal"
+          status: "Offline"
+          storage_node_id: "123abcz"
+          locator_led_status: "Off"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,8 @@
+---
+grafana_package: "grafana{% if ansible_facts['architecture'] == 'armv6l' %}-rpi{% endif %}{{ (grafana_version != 'latest') | ternary('=' ~ grafana_version, '') }}"
+_grafana_dependencies:
+  - apt-transport-https
+  - adduser
+  - ca-certificates
+  - libfontconfig
+  - gnupg2

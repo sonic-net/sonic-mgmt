@@ -1,0 +1,64 @@
+---
+- name: "Create product and repositories '{{ foreman_convert2rhel_rhel7_product }}'"
+  ansible.builtin.include_role:
+    name: theforeman.foreman.repositories
+  vars:
+    foreman_products:
+      - name: "{{ foreman_convert2rhel_rhel7_product }}"
+        repositories:
+          - name: "{{ foreman_convert2rhel_rhel7_repo }}"
+            content_type: "yum"
+            product: "{{ foreman_convert2rhel_rhel7_product }}"
+            url: "https://cdn-public.redhat.com/content/public/addon/dist/convert2rhel/server/7/7Server/x86_64/os/"
+            verify_ssl_on_sync: true
+            download_policy: immediate
+            state: present
+  when: foreman_content_rhel_enable_rhel7
+
+- name: "Create product and repositories '{{ foreman_convert2rhel_rhel8_product }}'"
+  ansible.builtin.include_role:
+    name: theforeman.foreman.repositories
+  vars:
+    foreman_products:
+      - name: "{{ foreman_convert2rhel_rhel8_product }}"
+        repositories:
+          - name: "{{ foreman_convert2rhel_rhel8_repo }}"
+            content_type: "yum"
+            product: "{{ foreman_convert2rhel_rhel8_product }}"
+            url: "https://cdn-public.redhat.com/content/public/addon/dist/convert2rhel8/8/x86_64/os/"
+            verify_ssl_on_sync: true
+            download_policy: immediate
+            state: present
+  when: foreman_content_rhel_enable_rhel8
+
+- name: "Create product and repositories '{{ foreman_convert2rhel_oracle7_product }}'"
+  ansible.builtin.include_role:
+    name: theforeman.foreman.repositories
+  vars:
+    foreman_products:
+      - name: "{{ foreman_convert2rhel_oracle7_product }}"
+        repositories:
+          - name: "{{ foreman_convert2rhel_oracle7_repo }}"
+            content_type: "yum"
+            product: "{{ foreman_convert2rhel_oracle7_product }}"
+            url: "https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi/server/7/7Server/x86_64/os"
+            verify_ssl_on_sync: true
+            download_policy: immediate
+            state: present
+  when: foreman_convert2rhel_enable_oracle7
+
+- name: "Create product and repositories '{{ foreman_convert2rhel_oracle8_product }}'"
+  ansible.builtin.include_role:
+    name: theforeman.foreman.repositories
+  vars:
+    foreman_products:
+      - name: "{{ foreman_convert2rhel_oracle8_product }}"
+        repositories:
+          - name: "{{ foreman_convert2rhel_oracle8_repo }}"
+            content_type: "yum"
+            product: "{{ foreman_convert2rhel_oracle8_product }}"
+            url: "https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi8/8/x86_64/baseos/os/"
+            verify_ssl_on_sync: true
+            download_policy: immediate
+            state: present
+  when: foreman_convert2rhel_enable_oracle8

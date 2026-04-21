@@ -1,0 +1,192 @@
+ancestor: null
+releases:
+  1.1.0:
+    changes:
+      minor_changes:
+      - floating_ip - added tags support (https://github.com/cloudscale-ch/ansible-collection-cloudscale/pull/16)
+    fragments:
+    - 16-floating_ip_tags.yml
+    modules:
+    - description: Manages objects users on the cloudscale.ch IaaS service
+      name: objects_user
+      namespace: ''
+    release_date: '2020-08-18'
+  1.2.0:
+    changes:
+      minor_changes:
+      - server_group - The module has been refactored and the code simplifed (https://github.com/cloudscale-ch/ansible-collection-cloudscale/pull/23).
+      - volume - The module has been refactored and the code simplifed (https://github.com/cloudscale-ch/ansible-collection-cloudscale/pull/24).
+    fragments:
+    - consolidate-modules.yml
+    modules:
+    - description: Manages networks on the cloudscale.ch IaaS service
+      name: network
+      namespace: ''
+    release_date: '2020-10-13'
+  1.3.0:
+    changes:
+      minor_changes:
+      - floating_ip - Added an optional name parameter to gain idempotency. The parameter
+        will be required for assigning a new floating IP with release of version 2.0.0
+        (https://github.com/cloudscale-ch/ansible-collection-cloudscale/pull/43/).
+      - floating_ip - Allow to reserve an IP without assignment to a server (https://github.com/cloudscale-ch/ansible-collection-cloudscale/pull/31/).
+    fragments:
+    - floating-idempotency.yml
+    - floating-ip_optional_server.yml
+    modules:
+    - description: Manages subnets on the cloudscale.ch IaaS service
+      name: subnet
+      namespace: ''
+    release_date: '2020-11-23'
+  1.3.1:
+    changes:
+      bugfixes:
+      - Fix inventory plugin failing to launch (https://github.com/cloudscale-ch/ansible-collection-cloudscale/issues/49).
+      minor_changes:
+      - Implemented identical naming support of the same resource type per zone (https://github.com/cloudscale-ch/ansible-collection-cloudscale/pull/46).
+    fragments:
+    - allow-similar-name-per-zone.yml
+    - fix-inventory-plugin-error.yml
+    release_date: '2021-01-26'
+  2.0.0:
+    changes:
+      breaking_changes:
+      - floating_ip - ``name`` is required for assigning a new floating IP.
+    fragments:
+    - floating-ip-require-name.yml
+    release_date: '2021-02-02'
+  2.1.0:
+    changes:
+      deprecated_features:
+      - The aliases ``server_uuids`` and ``server_uuid`` of the servers parameter
+        in the volume module will be removed in version 3.0.0.
+      minor_changes:
+      - Add interface parameter to server module (https://github.com/cloudscale-ch/ansible-collection-cloudscale/pull/54).
+      - Rename server_uuids parameter to servers in volume module (https://github.com/cloudscale-ch/ansible-collection-cloudscale/pull/54).
+    fragments:
+    - add-interface-parameter-to-server-module.yml
+    - deprecate-server_uuids-volume-module.yml
+    - rename-server_uuids-parameter-to-servers.yml
+    release_date: '2021-02-04'
+  2.2.0:
+    changes:
+      major_changes:
+      - Add custom_image module
+      minor_changes:
+      - Increase api_timeout to 45
+      - Read CLOUDSCALE_API_TIMEOUT environment variable
+    fragments:
+    - add-custom-image-module.yml
+    - increase-api-timeout-and-use-env.yml
+    modules:
+    - description: Manage custom images on the cloudscale.ch IaaS service
+      name: custom_image
+      namespace: ''
+    release_date: '2021-05-25'
+  2.2.1:
+    changes:
+      minor_changes:
+      - 'Updated documentation: ``ssh_keys`` is a YAML list, not a string.'
+    release_date: '2022-03-21'
+  2.2.2:
+    changes:
+      minor_changes:
+      - Fixed inventory documentation.
+    fragments:
+    - fix-sanity.yml
+    release_date: '2022-05-21'
+  2.2.3:
+    changes:
+      minor_changes:
+      - Fixed a typo in region code.
+      - Fixed various documentation typos.
+      - Streamlined the flavors to the new format ``flex-y-x`` across the related
+        modules and tests.
+    fragments:
+    - 76-region-typos.yml
+    - 78-various-typos.yml
+    - 79-flavor-format.yml
+    release_date: '2022-11-16'
+  2.2.4:
+    changes:
+      minor_changes:
+      - Add UEFI firmware type option for custom images.
+    fragments:
+    - add-uefi-option.yml
+    release_date: '2023-01-04'
+  2.3.0:
+    changes:
+      major_changes:
+      - Bump minimum required Ansible version to 2.13.0
+    fragments:
+    - ansible_version_bump.yml
+    modules:
+    - description: Manages load balancers on the cloudscale.ch IaaS service
+      name: load_balancer
+      namespace: ''
+    - description: Manages load balancers on the cloudscale.ch IaaS service
+      name: load_balancer_health_monitor
+      namespace: ''
+    - description: Manages load balancer listeners on the cloudscale.ch IaaS service
+      name: load_balancer_listener
+      namespace: ''
+    - description: Manages load balancer pools on the cloudscale.ch IaaS service
+      name: load_balancer_pool
+      namespace: ''
+    - description: Manages load balancer pool members on the cloudscale.ch IaaS service
+      name: load_balancer_pool_member
+      namespace: ''
+    release_date: '2023-06-05'
+  2.3.1:
+    changes:
+      bugfixes:
+      - Add missing modules to the "cloudscale_ch.cloud.cloudscale" action group.
+      - Remove outdated Ansible version requirement from the README.
+    fragments:
+    - add-missing-modules-to-action-group.yml
+    - fix-version-requirement-readme.yml
+    release_date: '2023-06-06'
+  2.4.0:
+    changes:
+      minor_changes:
+      - Update source_format of custom images with actually available choices.
+    fragments:
+    - source-format-for-custom-images.yml
+    release_date: '2024-07-31'
+  2.4.1:
+    changes:
+      security_fixes:
+      - Validate API tokens before passing them to Ansible, to ensure that a badly
+        formed one (i.e., one with newlines) is not accidentally logged.
+    fragments:
+    - 107-validate-api-token.yml
+    release_date: '2025-01-16'
+  2.5.0:
+    changes:
+      bugfixes:
+      - floating_ip - Fix sanity tests.
+      minor_changes:
+      - volume - Add revert parameter.
+    fragments:
+    - 108-volume-revert.yml
+    - 109-floating-ip-bugfix.yml
+    modules:
+    - description: Manage volume snapshots on the cloudscale.ch IaaS service
+      name: volume_snapshot
+      namespace: ''
+    release_date: '2025-05-21'
+  2.5.1:
+    changes:
+      minor_changes:
+      - Add ansible-core 2.19+ compatibility
+    fragments:
+    - ansible-2-19-compatibility.yml
+    release_date: '2025-05-27'
+  2.5.2:
+    changes:
+      minor_changes:
+      - Remove the custom error message from snapshots module to fix root volume snapshots/restores
+        on stopped servers
+    fragments:
+    - snapshot-error-fix.yml
+    release_date: '2025-07-29'

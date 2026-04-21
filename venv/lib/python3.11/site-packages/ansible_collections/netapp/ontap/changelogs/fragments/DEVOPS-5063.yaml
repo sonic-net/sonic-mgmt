@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_service_policy - fixed error in modify by changing resulting json of an existing record in REST.

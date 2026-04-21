@@ -1,0 +1,2 @@
+known_issues:
+ - purefb_lag - The mac_address field in the response is not populated. This will be fixed in a future FlashBlade update.

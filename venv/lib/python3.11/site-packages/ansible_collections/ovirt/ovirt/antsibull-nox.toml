@@ -1,0 +1,17 @@
+[sessions]
+
+[sessions.lint]
+# auto format (disabled for now)
+run_isort = false
+run_black = false
+
+# Lint
+run_mypy = false # We don't want static type checking
+run_pylint = false # TODO determine if we are interested in the code qa
+run_flake8 = true # TODO check if we can fix ignores in .flake8
+yamllint_config = ".yamllint.yml" # TODO check todos in .yamllint.yml 
+
+[sessions.ansible_test_sanity]
+include_devel = true
+
+[sessions.ansible_lint]

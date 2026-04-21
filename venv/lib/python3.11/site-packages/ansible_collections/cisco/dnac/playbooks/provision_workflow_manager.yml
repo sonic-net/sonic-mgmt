@@ -1,0 +1,36 @@
+---
+- name: Configure device credentials on Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Provision a wired device to a site
+      cisco.dnac.provision_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged
+        config:
+          - site_name_hierarchy: Global/USA/SAN JOSE/BLD23
+            management_ip_address: 1.1.1.1
+            primary_managed_ap_locations:
+              - Global/USA/SAN JOSE/BLD23/FLOOR1_LEVEL2
+            ap_authorization_list_name: "AP-Auth-List"
+            authorize_mesh_and_non_mesh_aps: false
+            feature_template:
+              - design_name: test
+                additional_identifiers:
+                  wlan_profile_name: ARUBA_SSID_profile
+                  site_name_hierarchy: Global/USA/SAN JOSE/BLD23
+                excluded_attributes: [certificate_settings]

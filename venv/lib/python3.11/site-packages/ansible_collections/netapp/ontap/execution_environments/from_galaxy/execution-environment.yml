@@ -1,0 +1,10 @@
+---
+version: 1
+
+# ansible_config: 'ansible.cfg'
+
+# build_arg_defaults:
+#   EE_BASE_IMAGE: 'quay.io/ansible/ansible-runner:latest'
+
+dependencies:
+  galaxy: requirements.yml

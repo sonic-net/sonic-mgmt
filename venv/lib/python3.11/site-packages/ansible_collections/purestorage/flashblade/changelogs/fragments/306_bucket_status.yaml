@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_info - Add ``time_remaining_status`` to bucket information from REST 2.14

@@ -1,0 +1,28 @@
+---
+- name: Include vars
+  ansible.builtin.include_vars: "../vars/{{ ansible_distribution }}.yml"
+
+- name: Install required packages
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ keepalived_packages }}"
+
+- name: Set the priority of keepalived
+  ansible.builtin.set_fact:
+    keepalived_priority: 100
+  run_once: true
+
+- name: Set the priority of keepalived if not defined
+  ansible.builtin.set_fact:
+    keepalived_priority: 101
+  when: keepalived_priority is not defined
+
+- name: Configure keepalived
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: "{{ keepalived_config_file_location }}/keepalived.conf"
+    mode: '0600'
+    owner: root
+    group: root
+  notify: Restart keepalived

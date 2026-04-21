@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_job_schedule - fix idempotency issue with REST when job_minutes is set to -1.

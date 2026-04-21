@@ -1,0 +1,54 @@
+---
+- name: Icinga_host
+  icinga_host:
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    state: "{{ host.state | default(omit) }}"
+    url_password: "{{ icinga_pass }}"
+    url_username: "{{ icinga_user }}"
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    accept_config: "{{ host.accept_config | default(omit) }}"
+    address: "{{ host.address | default(omit) }}"
+    address6: "{{ host.address6 | default(omit) }}"
+    check_command: "{{ host.check_command | default(omit) }}"
+    check_interval: "{{ host.check_interval | default(omit) }}"
+    check_period: "{{ host.check_period | default(omit) }}"
+    check_timeout: "{{ host.check_timeout | default(omit) }}"
+    command_endpoint: "{{ command_endpoint | default(omit) }}"
+    disabled: "{{ host.disabled | default(omit) }}"
+    display_name: "{{ host.display_name | default(omit) }}"
+    enable_active_checks: "{{ host.enable_active_checks | default(omit) }}"
+    enable_event_handler: "{{ host.enable_event_handler | default(omit) }}"
+    enable_flapping: "{{ host.enable_flapping | default(omit) }}"
+    enable_notifications: "{{ host.enable_notifications | default(omit) }}"
+    enable_passive_checks: "{{ host.enable_passive_checks | default(omit) }}"
+    enable_perfdata: "{{ host.enable_perfdata | default(omit) }}"
+    event_command: "{{ host.event_command | default(omit) }}"
+    flapping_threshold_high: "{{ host.flapping_threshold_high | default(omit) }}"
+    flapping_threshold_low: "{{ host.flapping_threshold_low | default(omit) }}"
+    groups: "{{ host.groups | default(omit) }}"
+    has_agent: "{{ host.has_agent | default(omit) }}"
+    icon_image_alt: "{{ host.icon_image_alt | default(omit) }}"
+    icon_image: "{{ host.icon_image | default(omit) }}"
+    imports: "{{ host.imports | default(icinga_host_imports) }}"
+    master_should_connect: "{{ host.master_should_connect | default(omit) }}"
+    max_check_attempts: "{{ host.max_check_attempts | default(omit) }}"
+    notes_url: "{{ host.notes_url | default(omit) }}"
+    notes: "{{ host.notes | default(omit) }}"
+    object_name: "{{ host.name }}"
+    retry_interval: "{{ host.retry_interval | default(omit) }}"
+    vars: "{{ host.vars | default(omit) }}"
+    volatile: "{{ host.volatile | default(omit) }}"
+    zone: "{{ host.zone | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_hosts }}"
+  loop_control:
+    loop_var: host
+  tags: host
+  notify: config_deploy

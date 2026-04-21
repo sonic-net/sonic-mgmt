@@ -1,0 +1,41 @@
+---
+- name: Sda anycast gateways
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Create sda anycast gateways v1
+      cisco.dnac.sda_anycast_gateways:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        payload:
+          - fabricId: "b6af9074-b1d8-4b40-82f9-776d34adb0fc"
+            virtualNetworkName: "INFRA_VN"
+            vlanId: 100
+            vlanName: "VLAN_100"
+            ipPoolName: "IP_POOL_100"
+            isCriticalPool: true
+            isGroupBasedPolicyEnforcementEnabled: true
+            isIntraSubnetRoutingEnabled: true
+            isIpDirectedBroadcast: true
+            isLayer2FloodingEnabled: true
+            isMultipleIpToMacAddresses: true
+            isSupplicantBasedExtendedNodeOnboarding: true
+            isWirelessPool: true
+            poolType: "EXTENDED_NODE"
+            securityGroupName: "SG_DEFAULT"
+            tcpMssAdjustment: 1400
+            trafficType: "DATA"
+            anchoredSiteId: "7087c88f-ec73-4df1-8f6b-136d7e2ed9e2"
+
+      register: result
+
+    - name: Show result
+      ansible.builtin.debug:
+        var: result

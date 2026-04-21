@@ -1,0 +1,2 @@
+---
+__loki_arch: "{{ ansible_facts['architecture'] }}"

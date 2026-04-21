@@ -1,0 +1,2 @@
+minor_changes:
+  - lookup - grafana_dashboards - add `validate_certs` and `ca_path` options to plugin for custom certs validation

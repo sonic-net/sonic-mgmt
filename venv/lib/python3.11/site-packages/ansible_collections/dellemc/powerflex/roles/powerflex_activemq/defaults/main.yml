@@ -1,0 +1,6 @@
+---
+file_glob_name: activemq
+file_gpg_name: RPM-GPG-KEY-ScaleIO
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_activemq_mdm_ips }}"
+powerflex_activemq_state: 'present'

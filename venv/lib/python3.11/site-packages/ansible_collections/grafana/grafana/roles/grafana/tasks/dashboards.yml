@@ -1,0 +1,245 @@
+---
+- name: "Create local grafana dashboard directory"
+  become: false
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.tempfile:
+    state: directory
+  register: __tmp_dashboards
+  changed_when: false
+  check_mode: false
+
+- name: "Download grafana.net dashboards"
+  become: false
+  delegate_to: localhost
+  when:
+    - not ansible_check_mode
+    - "grafana_dashboards | length > 0"
+  block:
+    - name: "Get latest revision id"
+      ansible.builtin.uri:
+        url: "https://grafana.com/api/dashboards/{{ item.dashboard_id }}"
+        method: GET
+        return_content: yes
+      register: __dashboard_info
+      loop: "{{ grafana_dashboards }}"
+      when: item.dashboard_url is not defined
+
+    - name: "Extract revision_id if not defined in grafana_dashboards"
+      ansible.builtin.set_fact:
+        __dashboards_with_revision: >-
+          {{
+            __dashboard_info.results | map(attribute='json.revision')
+              | map('default', 1) | map('community.general.dict_kv', 'revision_id')
+            | zip(grafana_dashboards) | map('combine')
+          }}
+
+    - name: "Download grafana dashboard from grafana.net to local directory"
+      ansible.builtin.get_url:
+        url: "{{ item.dashboard_url if item.dashboard_url is defined else
+          ('https://grafana.com/api/dashboards/' ~ item.dashboard_id ~
+           '/revisions/' ~ item.revision_id | default(1) ~ '/download') }}"
+        dest: "{{ __tmp_dashboards.path }}/{{ item.dashboard_id ~ '.json'
+          if item.dashboard_id is defined else item.dashboard_url | basename}}"
+        mode: "0644"
+      register: __download_dashboards
+      until: "__download_dashboards is succeeded"
+      retries: 5
+      delay: 2
+      changed_when: false
+      loop: "{{ __dashboards_with_revision }}"
+
+    # As noted in [1] an exported dashboard replaces the exporter's datasource
+    # name with a representative name, something like 'DS_GRAPHITE'. The name
+    # is different for each datasource plugin, but always begins with 'DS_'.
+    # In the rest of the data, the same name is used, but captured in braces,
+    # for example: '${DS_GRAPHITE}'.
+    #
+    # [1] http://docs.grafana.org/reference/export_import/#import-sharing-with-grafana-2-x-or-3-0
+    #
+    # The data structure looks (massively abbreviated) something like:
+    #
+    #   "name": "DS_GRAPHITE",
+    #   "datasource": "${DS_GRAPHITE}",
+    #
+    # If we import the downloaded dashboard verbatim, it will not automatically
+    # be connected to the data source like we want it. The Grafana UI expects
+    # us to do the final connection by hand, which we do not want to do.
+    # So, in the below task we ensure that we replace instances of this string
+    # with the data source name we want.
+    # To make sure that we're not being too greedy with the regex replacement
+    # of the data source to use for each dashboard that's uploaded, we make the
+    # regex match very specific by using the following:
+    #
+    # 1. Literal boundaries for " on either side of the match.
+    # 2. Non-capturing optional group matches for the ${} bits which may, or
+    #    or may not, be there..
+    # 3. A case-sensitive literal match for DS .
+    # 4. A one-or-more case-sensitive match for the part that follows the
+    #    underscore, with only A-Z, 0-9 and - or _ allowed.
+    #
+    # This regex can be tested and understood better by looking at the
+    # matches and non-matches in https://regex101.com/r/f4Gkvg/6
+
+    - name: "Set the correct data source name in the dashboard"
+      ansible.builtin.replace:
+        dest: "{{ item.dest }}"
+        regexp: '"(?:\${)?DS_[A-Z0-9_-]+(?:})?"'
+        replace: '"{{ item.item.datasource }}"'
+      changed_when: false
+      loop: "{{ __download_dashboards.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+- name: "Import grafana dashboards via api"
+  community.grafana.grafana_dashboard:
+    grafana_url: "{{ grafana_api_url }}"
+    grafana_user: "{{ grafana_ini.security.admin_user }}"
+    grafana_password: "{{ grafana_ini.security.admin_password }}"
+    path: "{{ item }}"
+    commit_message: "Updated by ansible role {{ ansible_role_name }}"
+    state: present
+    overwrite: true
+  no_log: "{{ 'false' if lookup('env', 'CI') else 'true' }}"
+  with_fileglob:
+    - "{{ __tmp_dashboards.path }}/*"
+    - "{{ grafana_dashboards_dir }}/*.json"
+  when: "not grafana_use_provisioning"
+
+- name: "Import grafana dashboards through provisioning"
+  when: grafana_use_provisioning
+  block:
+    - name: "Create/Update dashboards file (provisioning)"
+      ansible.builtin.copy:
+        dest: "/etc/grafana/provisioning/dashboards/ansible.yml"
+        content: |
+          apiVersion: 1
+          providers:
+            - name: 'default'
+              orgId: 1
+              folder: ''
+              type: file
+              options:
+                path: "{{ grafana_ini.paths.data }}/dashboards"
+                foldersFromFilesStructure: {{ grafana_provisioning_dashboards_from_file_structure | bool | to_nice_yaml }}
+        backup: false
+        owner: root
+        group: grafana
+        mode: "0640"
+      become: true
+      notify: restart_grafana
+
+    - name: "Register previously copied dashboards"
+      ansible.builtin.find:
+        paths: "{{ grafana_ini.paths.data }}/dashboards"
+        hidden: true
+        recurse: true
+        patterns:
+          - "*.json"
+      register: __dashboards_present
+      when: grafana_provisioning_synced | bool
+
+    - name: "Register previously created folders"
+      ansible.builtin.find:
+        paths: "{{ grafana_ini.paths.data }}/dashboards/"
+        recurse: yes
+        file_type: directory
+      register: __dashboards_dir_present
+      become: true
+      when: grafana_provisioning_synced
+
+    - name: "Import grafana.net dashboards"
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ grafana_ini.paths.data }}/dashboards/{{ item | basename }}"
+        owner: root
+        group: grafana
+        mode: "0644"
+      with_fileglob:
+        - "{{ __tmp_dashboards.path }}/*"
+      become: true
+      register: __dashboards_copied
+      notify: "provisioned dashboards changed"
+      when: not ansible_check_mode
+
+    - name: "Verify if custom grafana dashboards dir exist"
+      ansible.builtin.stat:
+        path: "{{ grafana_dashboards_dir }}"
+      delegate_to: localhost
+      become: false
+      register: __grafana_custom_dashboards_dir
+
+    - name: "Import custom grafana dashboards"
+      when: __grafana_custom_dashboards_dir.stat.exists
+      block:
+        - name: "Find which directories to create"
+          ansible.builtin.find:
+            paths: "{{ grafana_dashboards_dir }}/"
+            recurse: yes
+            file_type: directory
+          register: __dashboards_subdirs
+          delegate_to: localhost
+          become: false
+
+        - name: "Create dashboard folders"
+          ansible.builtin.file:
+            path: "{{ grafana_ini.paths.data }}/dashboards/{{ item }}"
+            state: "directory"
+            recurse: false
+            owner: "grafana"
+            group: "grafana"
+            mode: "0755"
+          loop: "{{ __dashboards_subdirs.files | map(attribute='path') | sort | regex_replace(grafana_dashboards_dir + '/*', '') }}"
+          become: true
+          register: __dashboards_dir_created
+          when: not ansible_check_mode
+          
+        - name: "Copy dashboard files"
+          ansible.builtin.copy:
+            src: "{{ item.path }}"
+            dest: '{{ grafana_ini.paths.data }}/dashboards/{{ item.path | regex_replace(grafana_dashboards_dir + "/*", "") }}'
+            owner: root
+            group: grafana
+            mode: "0644"
+          loop: "{{ __found_dashboards.files | default([]) }}"
+          become: true
+          register: __dashboards_copied_custom
+          notify: "provisioned dashboards changed"
+          when: not ansible_check_mode
+
+    - name: "Register present and copied folders list"
+      ansible.builtin.set_fact:
+        __folders_present_list: "{{ __dashboards_dir_present.files | default([]) | map(attribute='path') | list }}"
+        __folders_copied_list: "{{ __dashboards_dir_created.results | default([]) | map(attribute='path') | list }}"
+      when: not ansible_check_mode
+
+    - name: "Register present and copied dashboards list"
+      ansible.builtin.set_fact:
+        __dashboards_present_list: "{{ __dashboards_present.files | default([]) | map(attribute='path') | list }}"
+        __dashboards_copied_list: "{{
+          (
+            (__dashboards_copied.results | default([]) | map(attribute='dest') | list) +
+            (__dashboards_copied_custom.results | default([]) | map(attribute='dest') | list)
+          ) | list
+        }}"
+      when: not ansible_check_mode
+
+    - name: "Remove dashboards not present on deployer machine (synchronize)"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ __dashboards_present_list | difference(__dashboards_copied_list) }}"
+      become: true
+      when: 
+        - __dashboards_present_list is defined and __dashboards_present_list
+        - __dashboards_copied_list is defined and __dashboards_copied_list
+        - grafana_provisioning_synced | bool
+        - not ansible_check_mode
+
+    - name: "Remove folders not present on deployer machine (synchronize)"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ __folders_present_list | difference(__folders_copied_list) }}"
+      become: true
+      when: grafana_provisioning_synced and not ansible_check_mode

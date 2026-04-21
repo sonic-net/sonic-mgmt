@@ -1,0 +1,3 @@
+---
+trivial:
+  - sonic_bgp_af - Add needed prefix list configuration to BGP AF regression testing (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/588).

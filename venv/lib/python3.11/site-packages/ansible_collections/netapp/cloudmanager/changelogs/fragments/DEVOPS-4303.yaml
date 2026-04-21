@@ -1,0 +1,2 @@
+minor_changes:
+  - Adding new parameter ``capacity_package_name`` for all CVOs creation with capacity based ``license_type`` capacity-paygo or ha-capacity-paygo for HA.

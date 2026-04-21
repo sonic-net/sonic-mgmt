@@ -1,0 +1,88 @@
+---
+argument_specs:
+  main:
+    short_description: Role to manage the installation and uninstallation of Powerflex SDS.
+    description:
+      - Role to manage the installation and uninstallation of Powerflex SDS.
+    options:
+      hostname:
+        required: true
+        type: str
+        description: IP or FQDN of the PowerFlex gateway.
+      username:
+        required: true
+        type: str
+        description: The username of the PowerFlex gateway.
+      password:
+        required: true
+        type: str
+        description: The password of the PowerFlex gateway.
+      port:
+        type: int
+        description: Port of the PowerFlex gateway.
+        default: 443
+      validate_certs:
+        description:
+          - If C(false), the SSL certificates will not be validated.
+          - Configure C(false) only on personally controlled sites where self-signed certificates are used.
+        type: bool
+        default: false
+      timeout:
+        description: Timeout.
+        type: int
+        default: 120
+      powerflex_common_file_install_location:
+        description:
+          - Location of installation and rpm gpg files to be installed.
+          - The required, compatible installation software package based on the operating system of the node.
+          - The files can be downloaded from the Dell Product support page for PowerFlex software.
+        type: str
+        default: /var/tmp
+      powerflex_sds_state:
+        description:
+          - Specifies the state of SDS.
+        type: str
+        choices: ['absent', 'present']
+        default: present
+      powerflex_sds_protection_domaine:
+        required: true
+        description:
+          - The name of the protection domain to which the SDS will be added.
+        type: str
+      powerflex_sds_storage_pool:
+        required: true
+        description:
+          - The name of the storage pool to which the device will be added.
+        type: str
+      powerflex_sds_disks:
+        required: true
+        description:
+          - Disks for adding the device.
+        type: str
+      powerflex_sds_role:
+        required: true
+        description:
+          - Role of the SDS
+        type: str
+        choices: ['sdsOnly', 'sdcOnly', 'all']
+      powerflex_sds_device_media_type:
+        required: true
+        description:
+          - Media type of the device.
+        type: str
+        choices: ['HDD', 'SSD', 'NVDIMM']
+      powerflex_sds_device_name:
+        required: true
+        description:
+          - Name of the SDS device.
+        type: str
+      powerflex_sds_external_acceleration_type:
+        required: true
+        description:
+          - External acceleration type of the device added.
+        type: str
+        choices: ['Invalid', 'None', 'Read', 'Write', 'ReadAndWrite']
+      powerflex_sds_fault_set:
+        description:
+          - Fault set to which the SDS will be added.
+        type: str

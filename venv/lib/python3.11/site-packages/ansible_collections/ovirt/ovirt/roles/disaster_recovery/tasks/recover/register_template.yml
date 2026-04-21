@@ -1,0 +1,29 @@
+---
+- name: Register unregistered template main block
+  ignore_errors: "{{ dr_ignore_error_recover }}"
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    - name: "Register unregistered template '{{ unreg_template.id }}'"
+      ovirt.ovirt.ovirt_template:
+        state: registered
+        storage_domain: "{{ storage.name }}"
+        id: "{{ unreg_template.id }}"
+        allow_partial_import: "{{ dr_partial_import }}"
+        auth: "{{ ovirt_auth }}"
+        cluster_mappings: "{{ dr_cluster_map }}"
+        domain_mappings: "{{ dr_domain_map }}"
+        vnic_profile_mappings: "{{ dr_network_map }}"
+        role_mappings: "{{ dr_role_map }}"
+      register: template_register_result
+
+    - name: Log append failed template to failed_template_names
+      ansible.builtin.set_fact:
+        failed_template_names: "{{ failed_template_names }} + [ '{{ unreg_template.name }}' ]"
+      when: template_register_result is failed
+
+    - name: Log append succeeded template succeed_template_names
+      ansible.builtin.set_fact:
+        succeed_template_names: "{{ succeed_template_names }} + [ '{{ unreg_template.name }}' ]"
+      when: template_register_result is succeeded

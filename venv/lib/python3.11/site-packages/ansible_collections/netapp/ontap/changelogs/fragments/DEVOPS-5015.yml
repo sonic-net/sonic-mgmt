@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_cifs - fixed error in modifying comment if it is not set while creating CIFS share in REST.

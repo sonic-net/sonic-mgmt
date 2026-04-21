@@ -1,0 +1,17 @@
+---
+- name: Define he_maxvcpus
+  block:
+    - name: get max cpus
+      ansible.builtin.command: grep -c ^processor /proc/cpuinfo
+      changed_when: true
+      register: max_cpus
+    - name: Set he_maxvcpus
+      ansible.builtin.set_fact:
+        he_maxvcpus: "{{ max_cpus.stdout }}"
+- name: Set he_vcpus to maximum amount if not defined
+  ansible.builtin.set_fact:
+    he_vcpus: "{{ he_vcpus if he_vcpus != 'max' else he_maxvcpus }}"
+- name: Check number of chosen CPUs
+  ansible.builtin.fail:
+    msg: "Invalid number of cpu specified: {{ he_vcpus }}, while only {{ he_maxvcpus }} are available on the host"
+  when: he_maxvcpus|int < he_vcpus|int

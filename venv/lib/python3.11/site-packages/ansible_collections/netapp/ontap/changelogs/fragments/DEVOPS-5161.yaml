@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_autosupport - TypeError on ``ondemand_enabled`` field with ONTAP 9.11.
+  - na_ontap_autosupport - fix idempotency issue on ``state`` field with ONTAP 9.11.

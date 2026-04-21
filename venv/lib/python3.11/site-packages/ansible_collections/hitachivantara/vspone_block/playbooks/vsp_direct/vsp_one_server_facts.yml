@@ -1,0 +1,100 @@
+---
+####################################################################
+# Example : VSP One Server facts Playbook
+####################################################################
+- name: VSP One Server facts Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all servers
+    ####################################################################
+    - name: Get all servers
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get server by server ID
+    ####################################################################
+    - name: Get server by server ID
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          server_id: 123
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get servers by nickname
+    ####################################################################
+    - name: Get servers by nickname
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          nick_name: "WebServer01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get servers containing specific HBA WWN
+    ####################################################################
+    - name: Get servers containing specific HBA WWN
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          hba_wwn: "000000102cceccc9"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get servers containing specific iSCSI name
+    ####################################################################
+    - name: Get servers containing specific iSCSI name
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          iscsi_name: "iqn.1991-05.com.microsoft:server01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get server details with complete information
+    ####################################################################
+    - name: Get server details with complete information
+      hitachivantara.vspone_block.vsp.hv_vsp_one_server_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          include_details: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,32 @@
+# nonk8s
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: dell-ansible-unity
+  description: "Ansible Modules for Dell Technologies Unity"
+  tags:
+    - ansible
+    - devops
+    - automation
+    - storage
+    - dell
+    - infrastructure-as-code
+    - unity
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: dell/ansible-unity
+  links:
+    - url: 'https://galaxy.ansible.com/dellemc/unity'
+      title: 'Ansible Galaxy'
+      icon: 'web'
+    - url: 'https://console.redhat.com/ansible/automation-hub/repo/published/dellemc/unity'
+      title: 'Automation Hub'
+      icon: 'web'
+    - url: 'https://github.com/dell/ansible-unity/issues'
+      title: 'Contact Technical Support'
+      icon: 'help'
+spec:
+  type: service
+  lifecycle: production
+  owner: user:default/sachin_apagundi
+  visibility: all

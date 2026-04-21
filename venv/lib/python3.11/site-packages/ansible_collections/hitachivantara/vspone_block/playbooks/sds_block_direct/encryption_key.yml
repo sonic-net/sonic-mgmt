@@ -1,0 +1,48 @@
+---
+####################################################################
+# Example : Encryption Key Playbook (Create and Delete Operations)
+####################################################################
+- name: Encryption Key Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create encryption keys with number_of_keys
+    ####################################################################
+    - name: Create encryption keys with number_of_keys
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          number_of_keys: 2
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete encryption key by id
+    ####################################################################
+    - name: Delete encryption key by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          id: "fe106d7d-2654-4d4f-8402-4b5dc5b42cea"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

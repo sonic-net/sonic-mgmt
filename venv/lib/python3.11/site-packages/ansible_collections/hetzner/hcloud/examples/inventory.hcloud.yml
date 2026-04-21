@@ -1,0 +1,7 @@
+# You can list the hosts using:
+# ansible-inventory  --list -i examples/inventory.hcloud.yml --extra-vars=network_name=my-network
+
+plugin: hetzner.hcloud.hcloud
+
+network: "{{ network_name }}"
+status: [running]

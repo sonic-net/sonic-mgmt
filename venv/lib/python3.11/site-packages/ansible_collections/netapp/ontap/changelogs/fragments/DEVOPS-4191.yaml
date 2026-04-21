@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_object_store - new option ``port``, ``certificate_validation_enabled``, ``ssl_enabled`` for target server.
+bugfixes:
+  - na_ontap_object_store - when using REST, wait for job status to correctly report errors.

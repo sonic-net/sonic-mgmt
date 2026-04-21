@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_snap - Add support for remote snapshot of individual volumes to offload targets

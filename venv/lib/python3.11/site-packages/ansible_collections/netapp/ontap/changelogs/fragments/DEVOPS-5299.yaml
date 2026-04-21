@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_user - enforce that all methods are under a single application.
+  - na_ontap_user - is_locked was not properly read with ZAPI, making the module not idempotent.

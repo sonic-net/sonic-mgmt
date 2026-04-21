@@ -1,0 +1,25 @@
+---
+# TODO: Not available in ansible-base
+# - python_requirements_info:
+#     dependencies:
+#       - openshift
+#       - kubernetes
+#       - kubernetes-validate
+
+- community.okd.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: hello
+        namespace: default
+    validate:
+      fail_on_error: yes
+  ignore_errors: yes
+  register: k8s_no_validate
+
+- name: assert that k8s_no_validate fails gracefully
+  assert:
+    that:
+      - k8s_no_validate is failed
+      - k8s_no_validate.msg.startswith('Failed to import the required Python library (kubernetes-validate)')

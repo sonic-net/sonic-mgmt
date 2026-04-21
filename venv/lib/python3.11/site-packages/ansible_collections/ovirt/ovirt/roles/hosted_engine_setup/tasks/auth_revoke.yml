@@ -1,0 +1,6 @@
+---
+- name: Always revoke the SSO token
+  ovirt.ovirt.ovirt_auth:
+    state: absent
+    ovirt_auth: "{{ ovirt_sso_auth.ansible_facts.ovirt_auth }}"
+  ignore_errors: true

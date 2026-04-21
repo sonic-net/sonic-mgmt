@@ -1,0 +1,13 @@
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+
+# List your controller-side Python package requirements here if exist
+# to support easy execution environments building for your collection users
+# https://docs.ansible.com/ansible/devel/getting_started_ee/index.html
+# See https://ansible.readthedocs.io/projects/builder/en/latest/collection_metadata/#how-to-verify-collection-level-metadata
+# to learn how to test your configuration.
+# Do not delete this file even if the collection has no dependencies!
+
+proxmoxer>=2.0

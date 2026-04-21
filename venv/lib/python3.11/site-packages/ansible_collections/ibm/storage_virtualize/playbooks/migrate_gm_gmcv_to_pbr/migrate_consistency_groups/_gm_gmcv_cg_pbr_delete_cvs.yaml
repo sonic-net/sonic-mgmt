@@ -1,0 +1,25 @@
+- name: Fetch single relationship details
+  register: single_relationship_info
+  ibm.storage_virtualize.ibm_svc_info:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    gather_subset: rcrelationship
+    objectname: "{{ cg_ir_relationship.RC_rel_name }}"
+    log_path: "{{ logpath }}"
+- name: Delete Change Volumes and disassociate from master
+  ibm.storage_virtualize.ibm_svc_manage_cv:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    state: absent
+    rname: "{{ cg_ir_relationship.RC_rel_name }}"
+    cvname: "{{ single_relationship_info.RemoteCopy.master_change_vdisk_name }}"
+    log_path: "{{ logpath }}"
+- name: Delete Change Volumes and disassociate from aux
+  ibm.storage_virtualize.ibm_svc_manage_cv:
+    clustername: "{{ aux_clustername }}"
+    token: "{{ aux_auth.token }}"
+    state: absent
+    rname: "{{ cg_ir_relationship.RC_rel_name }}"
+    cvname: "{{ single_relationship_info.RemoteCopy.aux_change_vdisk_name }}"
+    ismaster: false
+    log_path: "{{ logpath }}"

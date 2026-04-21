@@ -1,0 +1,6 @@
+---
+- name: "Remove VM '{{ current_vm.name }}'"
+  ovirt.ovirt.ovirt_vm:
+    auth: "{{ ovirt_auth }}"
+    state: "absent"
+    name: "{{ current_vm.name }}"

@@ -1,0 +1,123 @@
+---
+# Example Playbook: cisco.ucs.ucs_scrub_policy
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  vars:
+    org: AnsibleOrg
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: "{{ org }}"
+        parent_org_path: root
+        description: "Org {{ org }}"
+        state: present
+      delegate_to: localhost
+
+    - name: Add Scrub Policy
+      cisco.ucs.ucs_scrub_policy:
+        <<: *login_info
+        state: present
+        org_dn: "org-root/org-{{ org }}"
+        description: Scrub All Policy
+        name: all_scrub
+        bios_settings_scrub: "yes"
+        disk_scrub: "yes"
+        flex_flash_scrub: "yes"
+        persistent_memory_scrub: "yes"
+      delegate_to: localhost
+
+    - name: Check Scrub Policy
+      cisco.ucs.ucs_scrub_policy:
+        <<: *login_info
+        state: present
+        org_dn: "org-root/org-{{ org }}"
+        description: Scrub All Policy
+        name: all_scrub
+        bios_settings_scrub: "yes"
+        disk_scrub: "yes"
+        flex_flash_scrub: "yes"
+        persistent_memory_scrub: "yes"
+      delegate_to: localhost
+      check_mode: True
+
+    - name: Add Scrub Policy
+      cisco.ucs.ucs_scrub_policy:
+        <<: *login_info
+        state: present
+        description: Scrub All Policy
+        name: all_scrub
+        bios_settings_scrub: "yes"
+        disk_scrub: "yes"
+        flex_flash_scrub: "yes"
+        persistent_memory_scrub: "yes"
+      delegate_to: localhost
+
+    - name: Idempotent Scrub Policy
+      cisco.ucs.ucs_scrub_policy:
+        <<: *login_info
+        state: present
+        description: Scrub All Policy
+        name: all_scrub
+        bios_settings_scrub: "yes"
+        disk_scrub: "yes"
+        flex_flash_scrub: "yes"
+        persistent_memory_scrub: "yes"
+      delegate_to: localhost
+
+    - name: Check Create/Update Scrub Policy
+      cisco.ucs.ucs_scrub_policy:
+        <<: *login_info
+        state: present
+        org_dn: "org-root/org-{{ org }}"
+        name: BD_scrub
+        description: Scrub BIOS and Disk Policy
+        bios_settings_scrub: "yes"
+        disk_scrub: "yes"
+        flex_flash_scrub: "no"
+        persistent_memory_scrub: "no"
+      delegate_to: localhost
+      check_mode: true
+
+    - name: Create/Update Scrub Policy
+      cisco.ucs.ucs_scrub_policy:
+        <<: *login_info
+        state: present
+        org_dn: "org-root/org-{{ org }}"
+        name: BD_scrub
+        description: Scrub BIOS and Disk Policy
+        bios_settings_scrub: "yes"
+        disk_scrub: "yes"
+        flex_flash_scrub: "no"
+        persistent_memory_scrub: "no"
+      delegate_to: localhost
+
+    - name: Delete Scrub Policy
+      cisco.ucs.ucs_scrub_policy:
+        <<: *login_info
+        state: absent
+        name: all_scrub
+      delegate_to: localhost
+
+    - name: Remove UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: "{{ org }}"
+        parent_org_path: root
+        state: absent
+      delegate_to: localhost

@@ -1,0 +1,29 @@
+---
+- name: Validate IP prefix
+  block:
+    - name: IPv4 Validation
+      when: not ipv6_deployment|bool
+      block:
+        - name: Get IPv4 route
+          ansible.builtin.command: ip route get {{ he_ipv4_subnet_prefix + ".1" }}
+          register: ip_route_result
+          changed_when: false
+        - name: Debug var ip_route_result
+          ansible.builtin.debug:
+            var: ip_route_result
+        - name: Check if route exists
+          ansible.builtin.include_tasks: search_available_network_subnet.yaml
+          when: ip_route_result.stdout.find("via") == -1
+    - name: IPv6 Validation
+      when: ipv6_deployment|bool
+      block:
+        - name: Get IPv6 route
+          ansible.builtin.command: ip route get {{ he_ipv6_subnet_prefix + "::1" }}
+          register: ip_route_result
+          changed_when: false
+        - name: Debug var ip_route_result
+          ansible.builtin.debug:
+            var: ip_route_result
+        - name: Check if route exists
+          ansible.builtin.include_tasks: search_available_network_subnet.yaml
+          when: ip_route_result.stdout.find("via") == -1

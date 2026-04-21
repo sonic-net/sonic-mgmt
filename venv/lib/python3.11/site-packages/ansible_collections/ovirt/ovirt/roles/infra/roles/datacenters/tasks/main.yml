@@ -1,0 +1,28 @@
+---
+- name: Add data center
+  ovirt.ovirt.ovirt_datacenter:
+    auth: "{{ ovirt_auth }}"
+    state: present
+    name: "{{ data_center_name }}"
+    description: "{{ data_center_description | default(omit) }}"
+    local: "{{ data_center_local | default(false) }}"
+    compatibility_version: "{{ compatibility_version }}"
+  when: data_center_state=='present'
+  tags:
+    - datacenters
+
+- name: Remove data center
+  ovirt.ovirt.ovirt_datacenter:
+    auth: "{{ ovirt_auth }}"
+    state: absent
+    name: "{{ data_center_name }}"
+  when: data_center_state=='absent' and not recursive_cleanup
+  tags:
+    - datacenters
+
+- name: Recursively remove data center
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.datacenter_cleanup
+  when: data_center_state=='absent' and recursive_cleanup
+  tags:
+    - datacenters

@@ -1,0 +1,442 @@
+---
+- name: Create OLAP (Local) connection string (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_local_cs"
+    cs_type: "OLAP"
+    properties:
+      local_settings:
+        disabled: false
+        folder_path: "/var/backups/olap"
+    state: present
+  check_mode: yes
+  register: olap_check_create
+
+- name: Assert would created CS msg (check mode)
+  ansible.builtin.assert:
+    that:
+      - olap_check_create.changed
+      - "'would create' in ((olap_check_create.msg | default('')) | lower)"
+
+- name: Verify OLAP CS not created on check mode
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: olap_after_check_create
+
+- name: Assert OLAP CS not created
+  ansible.builtin.assert:
+    that:
+      - "'olap_local_cs' not in (olap_after_check_create.json.OlapConnectionStrings | default({}))"
+
+- name: Create OLAP (Local) connection string
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_local_cs"
+    cs_type: "OLAP"
+    properties:
+      local_settings:
+        disabled: false
+        folder_path: "/var/backups/olap"
+    state: present
+  register: olap_created
+
+- name: Assert OLAP CS created
+  ansible.builtin.assert:
+    that:
+      - olap_created.changed
+      - "'created connection string' in ((olap_created.msg | default('')) | lower)"
+
+- name: Verify OLAP CS created
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: olap_after_create
+
+- name: Assert OLAP CS present
+  ansible.builtin.assert:
+    that:
+      - "'olap_local_cs' in (olap_after_create.json.OlapConnectionStrings | default({}))"
+
+- name: Create OLAP (Local) connection string (idempotency check)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_local_cs"
+    cs_type: "OLAP"
+    properties:
+      local_settings:
+        disabled: false
+        folder_path: "/var/backups/olap"
+    state: present
+  register: olap_created_again
+
+- name: Assert OLAP CS creation idempotent
+  ansible.builtin.assert:
+    that:
+      - olap_created_again.changed == false
+      - "'already exists' in ((olap_created_again.msg | default('')) | lower)"
+      - "'no changes' in ((olap_created_again.msg | default('')) | lower)"
+
+- name: Attempt to modify existing OLAP CS - should no-op
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_local_cs"
+    cs_type: "OLAP"
+    properties:
+      local_settings:
+        disabled: true
+        folder_path: "/tmp/differentfolder"
+    state: present
+  register: olap_modify_attempt
+
+- name: Assert modify attempt was a no-op
+  ansible.builtin.assert:
+    that:
+      - olap_modify_attempt is succeeded
+      - olap_modify_attempt.changed == false
+      - "'already exists' in ((olap_modify_attempt.msg | default('')) | lower)"
+      - "'no changes' in ((olap_modify_attempt.msg | default('')) | lower)"
+
+# others types just for coverage , not going to verify check_mode nor idempotency here
+- name: OLAP S3 CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_s3"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+    state: present
+  register: olap_s3_created
+
+- name: Write dummy AWS access key file
+  ansible.builtin.copy:
+    dest: /tmp/aws_access_key.txt
+    content: "AKIA_DUMMY_ACCESS_KEY"
+    mode: '0600'
+
+- name: OLAP S3 CS (key from file via lookup)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_s3_from_file"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        aws_access_key: "{{ lookup('ansible.builtin.file', '/tmp/aws_access_key.txt') | trim }}"
+        aws_secret_key: "{{ lookup('ansible.builtin.env', 'AWS_SECRET_ACCESS_KEY') | default('SECRET...', true) }}"
+    state: present
+  register: olap_s3_from_file_created
+  no_log: true
+
+- name: OLAP S3 CS custom host
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_s3_custom_host"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        custom_server_url: "https://s3.amazonaws.com"
+        force_path_style: false
+    state: present
+  register: olap_s3_custom_host_created
+
+- name: OLAP S3 CS custom host force path style
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_s3_custom_host_force_path_style"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        custom_server_url: "https://s3.amazonaws.com"
+        force_path_style: true
+    state: present
+  register: olap_s3_custom_host_force_path_style_created
+
+- name: OLAP LP + S3 CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_lp_s3"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        custom_server_url: "https://s3.amazonaws.com"
+        force_path_style: true
+      local_settings:
+        disabled: false
+        folder_path: "/var/backups/olap"
+    state: present
+  register: olap_lp_s3_created
+
+- name: OLAP LP + S3 CS - LP DISABLED
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_lp_s3_lp_disabled"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        custom_server_url: "https://s3.amazonaws.com"
+        force_path_style: true
+      local_settings:
+        disabled: true
+        folder_path: "/var/backups/olap"
+    state: present
+  register: olap_lp_s3_lp_disabled_created
+
+- name: OLAP Azure Blob CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_azure"
+    cs_type: "OLAP"
+    properties:
+      azure_settings:
+        disabled: false
+        storage_container: "mycontainer"
+        remote_folder_name: "olap/"
+        account_name: "mystorage"
+        account_key: "account-key"
+    state: present
+  register: olap_azure_created
+
+- name: OLAP Azure Blob CS from script
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_azure_from_script"
+    cs_type: "OLAP"
+    properties:
+      azure_settings:
+        disabled: false
+        overriding_external_script:
+          exec: "/usr/local/bin/prepare.sh"
+          arguments: "--target azure"
+          timeout_in_ms: 30000
+    state: present
+  register: olap_azure_from_script_created
+
+- name: OLAP Glacier CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_glacier"
+    cs_type: "OLAP"
+    properties:
+      glacier_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        remote_folder_name: "olap/"
+        vault_name: "my-vault"
+    state: present
+  register: olap_glacier_created
+
+- name: OLAP Glacier CS from script
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_glacier_from_script"
+    cs_type: "OLAP"
+    properties:
+      glacier_settings:
+        disabled: false
+        overriding_external_script:
+          exec: "/usr/local/bin/prepare.sh"
+          arguments: "--target glacier"
+          timeout_in_ms: 30000
+    state: present
+  register: olap_glacier_from_script_created
+
+- name: OLAP GCS CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_gcs"
+    cs_type: "OLAP"
+    properties:
+      google_cloud_settings:
+        disabled: false
+        bucket_name: "my-gcs-bucket"
+        remote_folder_name: "olap/"
+        google_credentials_json: '{"type":"service_account","project_id":"my-proj"}'
+    state: present
+  register: olap_gcs_created
+
+- name: OLAP FTP CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_ftp"
+    cs_type: "OLAP"
+    properties:
+      ftp_settings:
+        disabled: false
+        url: "ftp://example.com/backups"
+        user_name: "ftpuser"
+        password: "ftppass"
+        certificate_as_base64: "BASE64CERT=="
+    state: present
+  register: olap_ftp_created
+
+- name: OLAP FTP CS from script
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_ftp_from_script"
+    cs_type: "OLAP"
+    properties:
+      ftp_settings:
+        disabled: false
+        overriding_external_script:
+          exec: "/usr/local/bin/prepare.sh"
+          arguments: "--target ftp"
+          timeout_in_ms: 30000
+    state: present
+  register: olap_ftp_from_script_created
+
+- name: Assert all OLAP CS created
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - "'created connection string' in ((item.msg | default('')) | lower)"
+  loop:
+    - "{{ olap_s3_created }}"
+    - "{{ olap_s3_from_file_created }}"
+    - "{{ olap_s3_custom_host_created }}"
+    - "{{ olap_s3_custom_host_force_path_style_created }}"
+    - "{{ olap_lp_s3_created }}"
+    - "{{ olap_lp_s3_lp_disabled_created }}"
+    - "{{ olap_azure_created }}"
+    - "{{ olap_azure_from_script_created }}"
+    - "{{ olap_glacier_created }}"
+    - "{{ olap_glacier_from_script_created }}"
+    - "{{ olap_gcs_created }}"
+    - "{{ olap_ftp_created }}"
+    - "{{ olap_ftp_from_script_created }}"
+
+- name: Fetch OLAP CSs json
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: olap_json
+
+
+- name: Assert each OLAP CS exists on server
+  ansible.builtin.assert:
+    that:
+      - "item in (olap_json.json.OlapConnectionStrings | default({}))"
+  loop:
+    - "olap_s3"
+    - "olap_s3_from_file"
+    - "olap_s3_custom_host"
+    - "olap_s3_custom_host_force_path_style"
+    - "olap_lp_s3"
+    - "olap_lp_s3_lp_disabled"
+    - "olap_azure"
+    - "olap_azure_from_script"
+    - "olap_glacier"
+    - "olap_glacier_from_script"
+    - "olap_gcs"
+    - "olap_ftp"
+    - "olap_ftp_from_script"
+
+- name: Delete OLAP CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_local_cs"
+    cs_type: "OLAP"
+    state: absent
+  check_mode: yes
+  register: olap_check_delete
+
+- name: Assert would delete message (check mode)
+  ansible.builtin.assert:
+    that:
+      - olap_check_delete.changed
+      - "'would delete' in ((olap_check_delete.msg | default('')) | lower)"
+
+- name: Verify OLAP CS still exists after check-mode delete
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: olap_after_check_delete
+
+- name: Assert OLAP CS still present after check-mode delete
+  ansible.builtin.assert:
+    that:
+      - "'olap_local_cs' in (olap_after_check_delete.json.OlapConnectionStrings | default({}))"
+
+- name: Delete OLAP CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "olap_local_cs"
+    cs_type: "OLAP"
+    state: absent
+  register: olap_deleted
+
+- name: Assert OLAP CS deleted
+  ansible.builtin.assert:
+    that:
+      - olap_deleted.changed
+      - "'deleted connection string' in ((olap_deleted.msg | default('')) | lower)"
+
+- name: Verify OLAP CS is gone
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: olap_after_delete
+
+- name: Assert OLAP CS not present after delete
+  ansible.builtin.assert:
+    that:
+      - "'olap_local_cs' not in (olap_after_delete.json.OlapConnectionStrings | default({}))"

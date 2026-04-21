@@ -1,0 +1,28 @@
+---
+# legacy config
+- name: "Create/Delete/Update alert notifications channels (provisioning)"
+  ansible.builtin.copy:
+    content: |
+      apiVersion: 1
+      {{ grafana_alert_notifications | to_nice_yaml }}
+    dest: /etc/grafana/provisioning/notification/ansible.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+  become: true
+  notify: restart_grafana
+  when: grafana_use_provisioning and grafana_alert_notifications | length > 0
+
+# new alert resources
+- name: "Create/Delete/Update alert resources (provisioning)"
+  ansible.builtin.copy:
+    content: |
+      apiVersion: 1
+      {{ grafana_alert_resources | to_nice_yaml }}
+    dest: /etc/grafana/provisioning/alerting/ansible.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+  become: true
+  notify: restart_grafana
+  when: grafana_use_provisioning and grafana_alert_resources | length > 0

@@ -1,0 +1,4 @@
+---
+ovirt_repositories_subscription_manager_eus_repos:
+  - rhel-8-for-ppc64le-baseos-eus-rpms
+  - rhel-8-for-ppc64le-appstream-eus-rpms

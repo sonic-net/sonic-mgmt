@@ -1,0 +1,28 @@
+---
+- name: AutoPSK | Read existing TLS PSK identity file
+  ansible.builtin.slurp:
+    src: "{{ zabbix_agent_tlspskidentity_file }}"
+  when: zabbix_agent_tlspskidentity_check.stat.exists
+  no_log: "{{ ansible_verbosity < 3 }}"
+  register: zabbix_agent_tlspskidentity_base64
+  become: "{{ ansible_facts['os_family'] != 'Windows' }}"
+
+- name: AutoPSK | Use existing TLS PSK identity
+  ansible.builtin.set_fact:
+    zabbix_agent_tlspskidentity: "{{ zabbix_agent_tlspskidentity_base64['content'] | b64decode | trim }}"
+  when: zabbix_agent_tlspskidentity_check.stat.exists
+  no_log: "{{ ansible_verbosity < 3 }}"
+
+- name: AutoPSK | Generate new TLS PSK identity
+  ansible.builtin.set_fact:
+    zabbix_agent_tlspskidentity: >-
+      {{
+        zabbix_agent_visible_hostname
+        | default(zabbix_agent_hostname)
+        + '_'
+        + lookup('password', '/dev/null chars=hexdigits length=4')
+      }}
+  when:
+    - zabbix_agent_tlspskidentity is undefined
+    - zabbix_agent_tlspsk_auto | bool
+  no_log: "{{ ansible_verbosity < 3 }}"

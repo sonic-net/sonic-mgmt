@@ -1,0 +1,30 @@
+namespace: containers
+name: podman
+# version:
+readme: README.md
+authors:
+  - Sagi Shnaidman <sshnaidm@redhat.com>
+  - Ansible team
+description: Podman container Ansible modules
+license: GPL-3.0-or-later
+tags:
+  - containers
+  - podman
+  - libpod
+dependencies: {}
+repository: https://github.com/containers/ansible-podman-collections.git
+documentation: https://github.com/containers/ansible-podman-collections
+homepage: https://github.com/containers/ansible-podman-collections
+issues: https://github.com/containers/ansible-podman-collections/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
+build_ignore:
+  - ci
+  - tests/output
+  - build_artifact
+  - "*.tar.gz"
+  - ".gitignore"
+  - ".history"
+  - ".vscode"
+  - ".idea"
+  - ".github"
+  - contrib
+  - importer_result.json

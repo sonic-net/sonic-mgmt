@@ -1,0 +1,39 @@
+---
+- name: Create servicetemplate
+  telekom_mms.icinga_director.icinga_service_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    enable_flapping: true
+    flapping_threshold_high: "30.0"
+    flapping_threshold_low: "25.0"
+    icon_image_alt: "alt text"
+    icon_image: "http://url1"
+    object_name: fooservicetemplate
+    use_agent: false
+    vars:
+      procs_argument: consul
+      procs_critical: '1:'
+      procs_warning: '1:'
+- name: Update servicetemplate
+  telekom_mms.icinga_director.icinga_service_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: fooservicetemplate
+    notes: "example note"
+    notes_url: "'http://url1' 'http://url2'"
+    append: true
+- name: Create servicetemplate with event command
+  telekom_mms.icinga_director.icinga_service_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: apache_check_servicetemplate
+    use_agent: false
+    event_command: restart_httpd
+    notes: "example note"
+    notes_url: "'http://url1' 'http://url2'"

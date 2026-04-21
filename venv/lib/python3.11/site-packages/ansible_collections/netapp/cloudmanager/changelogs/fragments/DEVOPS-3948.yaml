@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_cvo_gcp - Change vpc_id from optional to required.

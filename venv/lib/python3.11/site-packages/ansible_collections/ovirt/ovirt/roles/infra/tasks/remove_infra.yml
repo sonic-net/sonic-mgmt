@@ -1,0 +1,4 @@
+---
+- name: Run datacenters sub-role
+  ansible.builtin.import_role:
+    name: ovirt.ovirt.infra.roles.datacenters

@@ -1,0 +1,14 @@
+---
+- name: Shutdown VM main block
+  ignore_errors: "{{ dr_ignore_error_clean }}"
+  tags:
+    - fail_back
+    - clean_engine
+  block:
+    - name: "Shutdown VM '{{ vms.name }}'"
+      ovirt.ovirt.ovirt_vm:
+        state: stopped
+        name: "{{ vms.name }}"
+        force: true
+        wait: true
+        auth: "{{ ovirt_auth }}"

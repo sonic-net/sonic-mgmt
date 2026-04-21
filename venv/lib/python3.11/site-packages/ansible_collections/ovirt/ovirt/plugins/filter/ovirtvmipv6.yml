@@ -1,0 +1,32 @@
+---
+DOCUMENTATION:
+  name: ovirtvmipv6
+  author: "oVirt Developers <devel@ovirt.org>"
+  short_description: VM IPv4
+  description:
+    - VM IPv4
+  positional: _input
+  options:
+    _input:
+      description: List of VMs
+      type: list
+      required: true
+    attr:
+      description: Attribute by which the
+      type: list
+    network_ip:
+      description: Filter the IPs by network address
+      type: string
+
+EXAMPLES: |
+  - name: Print VM IPv6
+    debug:
+      msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipv6 }}"
+  - name: Print VM IPv6
+    debug:
+      msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmipv6(attr='name') }}"
+
+RETURN:
+  _value:
+    description: VM IPv4
+    type: list

@@ -1,0 +1,19 @@
+DOCUMENTATION:
+  name: load_balancer_status
+  version_added: 4.2.0
+  short_description: Compute the status of a Load Balancer
+  description:
+    - Compute the status of a Load Balancer based on its targets.
+  options:
+    _input:
+      description: Load Balancer data.
+      type: dict
+      required: true
+EXAMPLES: |
+  # Ensure a load balancer is healthy
+  {{ result.hcloud_load_balancer_info[0] | hetzner.hcloud.load_balancer_status == "healthy" }}
+
+RETURN:
+  _value:
+    description: The status of the Load Balancer targets, can be one of C(unknown), C(unhealthy) or C(healthy).
+    type: string

@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_iscsi_security - cannot change authentication_type
+  - na_ontap_iscsi_security - IndexError list index out of range if vserver does not exist

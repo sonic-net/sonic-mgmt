@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_interface - minor example update.
+  - na_ontap_export_policy_rule - minor doc updates.
+bugfixes:
+  - na_ontap_info - Use ``node-id`` as key rather than ``current-version``.

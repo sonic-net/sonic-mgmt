@@ -1,0 +1,10 @@
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Needed for the krb5/gssapi libraries
+gcc [compile platform:rpm]
+krb5-devel [compile platform:rpm]
+krb5-libs [platform:rpm]
+python3-devel [compile platform:rpm]
+python39-devel [compile platform:centos-8 platform:rhel-8]

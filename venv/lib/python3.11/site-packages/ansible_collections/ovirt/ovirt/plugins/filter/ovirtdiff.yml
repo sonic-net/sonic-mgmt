@@ -1,0 +1,36 @@
+---
+DOCUMENTATION:
+  name: ovirtdiff
+  author: "oVirt Developers <devel@ovirt.org>"
+  short_description: Show what will be changed in next run of the VM
+  description:
+    - Show what will be changed in next run of the VM
+  positional: _input
+  options:
+    _input:
+      description: VM
+      type: dict
+      required: true
+
+EXAMPLES: |
+  - name: Get VM myvm
+    ovirt_vm_info:
+      auth: "{{ ovirt_auth }}"
+      pattern: 'name={{ myvm }}'
+      next_run: false
+    register: vm
+
+  - name: Get next_run of VM myvm
+    ovirt_vm_info:
+      auth: "{{ ovirt_auth }}"
+      pattern: 'name={{ myvm }}'
+      next_run: true
+    register: vm_next_run
+
+  - name: Print what will be changed in next run of the VM
+    debug:
+      msg: "{{ vm.ovirt_vms[0] | ovirt.ovirt.ovirtdiff(vm_next_run.ovirt_vms[0]) }}"
+RETURN:
+  _value:
+    description: VM
+    type: dict

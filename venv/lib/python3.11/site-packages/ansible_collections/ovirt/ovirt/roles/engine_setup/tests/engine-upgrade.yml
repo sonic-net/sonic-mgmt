@@ -1,0 +1,15 @@
+---
+- name: Run ovirt-ansible roles on containerized environments
+  hosts: engine
+  vars_files:
+    - passwords.yml
+  vars:
+    ovirt_engine_setup_version: "{{ ovirt_engine_setup_version }}"
+    ovirt_engine_setup_organization: "example.com"
+    ovirt_engine_setup_firewall_manager:
+    ovirt_engine_setup_dwh_db_configure: false
+    ovirt_repositories_ovirt_release_rpm: "{{ ovirt_release_rpm }}"
+  roles:
+    - role: ovirt.ovirt.repositories
+    - role: ovirt.ovirt.engine_setup
+      ovirt_engine_setup_answer_file_path: "answerfile_{{ ovirt_engine_setup_version }}_upgrade.txt.j2"

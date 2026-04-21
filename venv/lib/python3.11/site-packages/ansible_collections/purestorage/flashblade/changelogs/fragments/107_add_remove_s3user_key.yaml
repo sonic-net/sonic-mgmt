@@ -1,0 +1,2 @@
+minor_changes:
+  - purefb_s3user - Add ability to remove an S3 users existing access key

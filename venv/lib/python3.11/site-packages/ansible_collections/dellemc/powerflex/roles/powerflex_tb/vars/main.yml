@@ -1,0 +1,6 @@
+---
+# vars file for powerflex_tb
+file_glob_name: mdm
+file_gpg_name: RPM-GPG-KEY-ScaleIO
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_tb_mdm_ips }}"

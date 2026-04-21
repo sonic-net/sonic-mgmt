@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_rest_cli - added `next` key to enable API pagination support.

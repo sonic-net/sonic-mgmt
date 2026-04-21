@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_connector_azure - Change default value of ``virtual_machine_size`` to Standard_DS3_v2.

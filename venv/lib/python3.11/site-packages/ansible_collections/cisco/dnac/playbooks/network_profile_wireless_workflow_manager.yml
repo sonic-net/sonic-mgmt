@@ -1,0 +1,94 @@
+---
+# Playbook 1 Create the Network wireless profile workflow manager
+- name: Create network wireless profile on Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Create network profile for wireless
+      cisco.dnac.network_profile_wireless_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged
+        config:
+          - profile_name: Campus_Wireless_Profile
+            site_names:
+              - Global/Chennai
+            ssid_details:
+              - ssid_name: Guest_WiFi
+                dot11be_profile_name: Guest_WiFi_dot11be_profile
+                enable_fabric: false
+                vlan_group_name: VLAN_Group_10
+              - ssid_name: Corporate_Secure
+                dot11be_profile_name: Guest_WiFi_dot11be_profile
+                enable_fabric: false
+                interface_name: "GigabitEthernet0/1"
+                local_to_vlan: 2001
+            ap_zones:
+              - ap_zone_name: AP_Zone_North
+                rf_profile_name: High_Performance
+                ssids:
+                  - Guest_WiFi
+            additional_interfaces:
+              - interface_name: "GigabitEthernet0/2"
+                vlan_id: 20
+              - interface_name: "GigabitEthernet0/3"
+                vlan_id: 22
+            day_n_templates:
+              - "WLC_Standard_Config"
+            feature_template_designs:
+              - design_type: CLEANAIR_CONFIGURATION
+                feature_templates:
+                  - Campus Wireless Profile Clean Air 5GHz
+                  - Campus Wireless Profile Clean Air 6GHz
+              - design_type: ADVANCED_SSID_CONFIGURATION
+                feature_templates:
+                  - Campus Wireless Profile design
+
+          - profile_name: "Enterprise_Wireless_Profile"
+            site_names:
+              - "Global/Chennai"
+              - "Global/Madurai"
+            ssid_details:
+              - ssid_name: HQ_WiFi
+                dot11be_profile_name: HQ_WiFi_dot11be_profile
+                enable_fabric: false
+                vlan_group_name: VLAN_Group_20
+              - ssid_name: Branch_Secure
+                dot11be_profile_name: HQ_WiFi_dot11be_profile
+                enable_fabric: false
+                interface_name: GigabitEthernet0/4
+                local_to_vlan: 35
+            ap_zones:
+              - ap_zone_name: AP_Zone_South
+                rf_profile_name: Medium_Performance
+                ssids:
+                  - HQ_WiFi
+                  - Branch_Secure
+            additional_interfaces:
+              - interface_name: "GigabitEthernet0/5"
+                vlan_id: 30
+              - interface_name: "GigabitEthernet0/6"
+                vlan_id: 35
+            day_n_templates:
+              - WLC_Advanced_Config
+            feature_template_designs:
+              - design_type: ADVANCED_SSID_CONFIGURATION
+                feature_templates:
+                  - Enterprise Wireless Advanced SSID Design
+                applicability_ssids:
+                  - HQ_WiFi
+                  - Branch_Secure
+
+      register: output_list

@@ -1,0 +1,52 @@
+- name: Setting idrac_lc_status to default
+  ansible.builtin.set_fact:
+    idrac_lc_status:
+      LCStatus: ""
+    result_lc:
+      LCStatus: ""
+
+- name: Add a delay
+  ansible.builtin.pause:
+    seconds: "{{ idrac_reset_delay }}"
+
+- name: Get lifecycle controller status from iDRAC
+  ansible.builtin.uri:
+    url: "https://{{ hostname }}:{{ https_port }}/\
+      redfish/v1/Managers/iDRAC.Embedded.1/\
+      Oem/Dell/DellLCService/Actions/\
+      DellLCService.GetRemoteServicesAPIStatus"
+    user: "{{ username | default(lookup('env', 'IDRAC_USERNAME')) }}"
+    password: "{{ password |
+                default(lookup('env', 'IDRAC_PASSWORD')) }}"
+    validate_certs: "{{ validate_certs }}"
+    ca_path: "{{ ca_path | default(omit) }}"
+    headers: "{{ idrac_reset_uri_headers }}"
+    body_format: "{{ idrac_reset_uri_body_format }}"
+    return_content: "{{ idrac_reset_uri_return_content }}"
+    force_basic_auth: "{{ idrac_reset_force_basic_auth }}"
+    timeout: "{{ https_timeout }}"
+    method: "POST"
+    body: "{}"
+    status_code: 200
+  delegate_to: "{{ idrac_reset_task_delegate }}"
+  register: result_lc
+  until:
+    - result_lc is defined
+    - result_lc.json is defined
+    - result_lc.json.LCStatus is defined
+    - result_lc.json.LCStatus == 'Ready'
+  retries: '{{ idrac_reset_retries }}'
+  delay: "{{ idrac_reset_delay }}"
+
+- name: Parse lifecycle controller status response
+  ansible.builtin.set_fact:
+    idrac_lc_status:
+      LCStatus: "{{ result_lc.json.LCStatus }}"
+      RTStatus: "{{ result_lc.json.RTStatus }}"
+      ServerStatus: "{{ result_lc.json.ServerStatus }}"
+      Status: "{{ result_lc.json.Status }}"
+
+- name: Log the LC status
+  ansible.builtin.debug:
+    msg: "LC Status is Ready"
+  when: idrac_lc_status.LCStatus == "Ready"

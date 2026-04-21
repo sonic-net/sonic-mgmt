@@ -1,0 +1,36 @@
+---
+- name: Wireless enterprise ssid
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Create Wirelesss Enterprise SSID
+      cisco.dnac.wireless_enterprise_ssid:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        validate_response_schema: false
+        basicServiceSetClientIdleTimeout: 00
+        clientExclusionTimeout: 00
+        enableBasicServiceSetMaxIdle: true
+        enableBroadcastSSID: true
+        enableClientExclusion: true
+        enableDirectedMulticastService: true
+        enableFastLane: true
+        enableMACFiltering: true
+        enableNeighborList: true
+        enableSessionTimeOut: true
+        fastTransition: Adaptive
+        mfpClientProtection: Optional
+        name: Test
+        passphrase: ""
+        radioPolicy: Dual band operation (2.4GHz and 5GHz)
+        securityLevel: WPA2_ENTERPRISE
+        sessionTimeOut: 00
+        trafficType: voicedata

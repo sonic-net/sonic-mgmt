@@ -1,0 +1,9 @@
+---
+- name: Setup oVirt environment
+  hosts: localhost
+  connection: local
+  vars_files:
+    - ovirt_passwords.yml
+    - disaster_recovery_vars.yml
+  roles:
+    - ovirt.ovirt.disaster_recovery

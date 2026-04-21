@@ -1,0 +1,2 @@
+bugfixes:
+  - Added manual utf-8 encoding to handle unicode characters in passwords for HTTP Basic Authentication in netapp module utilities.

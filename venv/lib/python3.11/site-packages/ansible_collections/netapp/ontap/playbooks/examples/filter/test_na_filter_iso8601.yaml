@@ -1,0 +1,76 @@
+-
+  name: Test netapp.ontap ISO8601 filters
+  gather_facts: false
+  hosts: localhost
+
+  vars:
+    iso_duration: P689DT13H57M44S
+    iso_duration_weeks: P98W
+    seconds_duration: 59579864
+
+  tasks:
+    - name: Convert duration in ISO 8601 format to seconds
+      ansible.builtin.set_fact:
+        input: "{{ iso_duration }}"
+        out: "{{ iso_duration | netapp.ontap.iso8601_duration_to_seconds }}"
+
+    - name: Validate results
+      ansible.builtin.assert:
+        that: out | int == seconds_duration
+        quiet: true
+
+    - name: Convert seconds to duration in ISO 8601 format
+      ansible.builtin.set_fact:
+        input: "{{ seconds_duration }}"
+        out: "{{ seconds_duration | netapp.ontap.iso8601_duration_from_seconds }}"
+
+    - name: Validate results
+      ansible.builtin.assert:
+        that: out == iso_duration
+        quiet: true
+
+    - name: Convert seconds to duration in ISO 8601 format, using format specifier
+      ansible.builtin.set_fact:
+        input: "{{ seconds_duration }}"
+        out: "{{ seconds_duration | netapp.ontap.iso8601_duration_from_seconds(format='P%P') }}"
+
+    - name: Validate results
+      ansible.builtin.assert:
+        that: out == iso_duration
+        quiet: true
+
+    - name: Convert seconds to duration in ISO 8601 format, using format specifier for weeks
+      ansible.builtin.set_fact:
+        input: "{{ seconds_duration }}"
+        out: "{{ seconds_duration | netapp.ontap.iso8601_duration_from_seconds(format='P%p') }}"
+
+    - name: Validate results
+      ansible.builtin.assert:
+        that: out == iso_duration_weeks
+        quiet: true
+
+    - name: Input error, input does not match ISO format
+      ansible.builtin.set_fact:
+        out: "{{ 'dummy' | netapp.ontap.iso8601_duration_to_seconds }}"
+      ignore_errors: true
+      register: results
+
+    - name: Validate error message
+      ansible.builtin.assert:
+        that: results.msg == error
+        quiet: true
+      vars:
+        error: "iso8601_duration_to_seconds - error: Unable to parse duration string 'dummy' - expecting PnnYnnMnnDTnnHnnMnnS, received: dummy"
+
+    - name: Input error, input does not match int or float format
+      ansible.builtin.set_fact:
+        out: "{{ 'dummy' | netapp.ontap.iso8601_duration_from_seconds }}"
+      ignore_errors: true
+      register: results
+
+    - name: Validate error message
+      ansible.builtin.assert:
+        that: results.msg == error
+        quiet: true
+      vars:
+        error: "iso8601_duration_from_seconds - error: unsupported type for timedelta seconds component: str - received: dummy"

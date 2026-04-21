@@ -1,0 +1,24 @@
+- name: Using Storage Virtualize collection to create a volume group
+  hosts: localhost
+  vars:
+    clustername: 'clustername'
+    username: 'username'
+    password: 'password'
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Create a new volume group
+      ibm.storage_virtualize.ibm_svc_manage_volumegroup:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: vg1
+        state: present
+    - name: Create volumegroup with existing snapshotpolicy
+      ibm.storage_virtualize.ibm_svc_manage_volumegroup:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: vg2
+        state: present
+        snapshotpolicy: snapshotpolicy2

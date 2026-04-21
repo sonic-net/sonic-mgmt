@@ -1,0 +1,3 @@
+minor_changes:
+ - purefb_tz - Add support for FlashBlade timezone management
+ - purefb_info - Show information for current timezone

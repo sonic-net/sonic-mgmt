@@ -1,0 +1,102 @@
+units:
+  - dn: "ou=rfc2307,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: rfc2307
+  - dn: "ou=groups,ou=rfc2307,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: groups
+  - dn: "ou=people,ou=rfc2307,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: people
+  - dn: "ou=outrfc2307,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: outrfc2307
+  - dn: "ou=groups,ou=outrfc2307,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: groups
+  - dn: "ou=people,ou=outrfc2307,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: people
+groups:
+  - dn: "cn=admins,ou=groups,ou=rfc2307,{{ ldap_root }}"
+    class:
+      - groupOfNames
+    attr:
+      cn: admins
+      description: System Administrators
+      member:
+      - cn=Jane,ou=people,ou=rfc2307,{{ ldap_root }}
+  - dn: "cn=developers,ou=groups,ou=rfc2307,{{ ldap_root }}"
+    class:
+      - groupOfNames
+    attr:
+      cn: developers
+      description: Developers
+      member:
+      - cn=Jim,ou=people,ou=rfc2307,{{ ldap_root }}
+      - cn=Jordan,ou=people,ou=rfc2307,{{ ldap_root }}
+  - dn: "cn=engineers,ou=groups,ou=outrfc2307,{{ ldap_root }}"
+    class:
+      - groupOfNames
+    attr:
+      cn: engineers
+      description: Engineers
+      member:
+      - cn=Jim,ou=people,ou=rfc2307,{{ ldap_root }}
+      - cn=Jordan,ou=people,ou=rfc2307,{{ ldap_root }}
+      - cn=Julia,ou=people,ou=outrfc2307,{{ ldap_root }}
+      - cn=Matthew,ou=people,ou=outrfc2307,{{ ldap_root }}
+users:
+  - dn: cn=Jane,ou=people,ou=rfc2307,{{ ldap_root }}
+    class:
+      - person
+      - organizationalPerson
+      - inetOrgPerson
+    attr:
+      cn: Jane
+      sn: Smith
+      displayName: Jane Smith
+      mail: jane.smith@ansible.org
+    admin: yes
+  - dn: cn=Jim,ou=people,ou=rfc2307,{{ ldap_root }}
+    class:
+      - person
+      - organizationalPerson
+      - inetOrgPerson
+    attr:
+      cn: Jim
+      sn: Adams
+      displayName: Jim Adams
+      mail: jim.adams@ansible.org
+  - dn: cn=Jordan,ou=people,ou=rfc2307,{{ ldap_root }}
+    class:
+      - person
+      - organizationalPerson
+      - inetOrgPerson
+    attr:
+      cn: Jordan
+      sn: Bulls
+      displayName: Jordan Bulls
+      mail: jordanbulls@ansible.org
+  - dn: cn=Julia,ou=people,ou=outrfc2307,{{ ldap_root }}
+    class:
+      - person
+      - organizationalPerson
+      - inetOrgPerson
+    attr:
+      cn: Julia
+      sn: Abraham
+      displayName: Julia Abraham
+      mail: juliaabraham@ansible.org

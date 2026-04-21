@@ -1,0 +1,43 @@
+---
+- name: Configure device credentials on Cisco DNA Center
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "input_swim.yml"
+    - "credentials.yml"
+  tasks:
+    - name: Import an image, tag it as golden and load it on device  {{ item.device_serial_number }}
+      cisco.dnac.swim_intent:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        config:
+          - import_image_details:
+              type: "{{ item.type }}"
+              url_details:
+                payload: "{{ item.url_details.payload }}"
+            tagging_details:
+              device_role: "{{ item.device_role }}"
+              device_family_name: "{{ item.device_family_name }}"
+              device_type: "{{ item.device_type }}"
+              tagging: true
+            image_distribution_details:
+              site_name: "{{ item.site_name }}"
+              device_role: "{{ item.device_role }}"
+              device_family_name: "{{ item.device_family_name }}"
+            image_activation_details:
+              site_name: "{{ item.site_name }}"
+              device_role: "{{ item.device_role }}"
+              device_family_name: "{{ item.device_family_name }}"
+              scehdule_validate: false
+              distribute_if_needed: true
+
+      with_items: "{{ image_details }}"
+      tags:
+        - swim

@@ -1,0 +1,65 @@
+---
+####################################################################
+# Example : CLPR Playbook
+####################################################################
+- name: CLPR
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ####################################################################
+  # Task Name : Create new CLPR
+  ####################################################################
+    - name: Create new CLPR
+      hitachivantara.vspone_block.vsp.hv_clpr:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          clpr_name: "CLPRDEV"
+          cache_memory_capacity_mb: 12288
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update CLPR cache capacity
+    ####################################################################
+    - name: Update CLPR cache capacity
+      hitachivantara.vspone_block.vsp.hv_clpr:
+        connection_info: "{{ connection_info }}"
+        state: update
+        spec:
+          clpr_id: 1
+          cache_memory_capacity_mb: 24576
+          clpr_name: "CLPRDEV2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete CLPR
+    ####################################################################
+    - name: Delete CLPR
+      hitachivantara.vspone_block.vsp.hv_clpr:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          clpr_id: 1
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

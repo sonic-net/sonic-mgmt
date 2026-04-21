@@ -1,0 +1,23 @@
+---
+- name: Register unregistered templates main block
+  ignore_errors: "{{ dr_ignore_error_recover }}"
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    - name: Fetch unregistered templates from storage domain
+      ovirt.ovirt.ovirt_storage_template_info:
+        nested_attributes: "id"
+        unregistered: true
+        storage_domain: "{{ storage.name }}"
+        auth: "{{ ovirt_auth }}"
+      register: storage_template_info
+
+    - name: Register unregistered templates
+      ansible.builtin.include_tasks: register_template.yml
+      # The main task is already declared to ignore errors so that might be
+      # redundant to put it here ignore_errors: "{{ ignore | default(yes) }}"
+      with_items: "{{ storage_template_info.ovirt_storage_templates }}"
+      # We use loop_control so storage.name will not be overridden by the nested loop.
+      loop_control:
+        loop_var: unreg_template

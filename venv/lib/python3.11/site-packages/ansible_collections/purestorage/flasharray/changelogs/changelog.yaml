@@ -1,0 +1,1382 @@
+ancestor: null
+releases:
+  1.10.0:
+    changes:
+      minor_changes:
+      - purefa_ds - Add ``join_ou`` parameter for AD account creation
+      - purefa_kmip - Add support for KMIP server management
+    fragments:
+    - 213_add_kmip.yaml
+    - 214_join_ou.yaml
+    modules:
+    - description: Manage FlashArray KMIP server objects
+      name: purefa_kmip
+      namespace: ''
+    release_date: '2021-08-04'
+  1.11.0:
+    changes:
+      bugfixes:
+      - purefa_subnet - Add regex to check for correct dsubnet name
+      - purefa_user - Add regex to check for correct username
+      minor_changes:
+      - purefa_host - Deprecate ``protocol`` parameter. No longer required.
+      - purefa_info - Add NVMe NGUID value for volumes
+      - purefa_info - Add array, volume and snapshot detailed capacity information
+      - purefa_info - Add deleted members to volume protection group info
+      - purefa_info - Add snapshot policy rules suffix support
+      - purefa_info - Remove directory_services field. Deprecated in Collections 1.6
+      - purefa_policy - Add snapshot policy rules suffix support
+      - purefa_syslog_settings - Add support to manage global syslog server settings
+      - purefa_volume - Add NVMe NGUID to response dict
+    fragments:
+    - 220_capacity_info.yaml
+    - 224_add_nguid_info.yaml
+    - 226_deprecate_protocol.yaml
+    - 227_missing_regex.yaml
+    - 228_nguid_to_volfact.yaml
+    - 229_snapsuffix.yaml
+    - 230_add_pg_deleted_vols.yaml
+    - 231_syslog_settings.yaml
+    release_date: '2021-09-27'
+  1.12.0:
+    changes:
+      bugfixes:
+      - purefa_certs - Allow a certificate to be imported over an existing SSL certificate
+      - purefa_eula - Reolve EULA signing issue
+      - purefa_network - Fix bug introduced with management of FC ports
+      - purefa_policy - Fix issue with SMB Policy creation
+      deprecated_features:
+      - purefa_sso - Deprecated in favor of M(purefa_admin). Will be removed in Collection
+        2.0
+      known_issues:
+      - purefa_admin - Once `max_login` and `lockout` have been set there is currently
+        no way to rest these to zero except through the FlashArray GUI
+      minor_changes:
+      - purefa_admin - New module to set global admin settings, inclusing SSO
+      - purefa_dirsnap - Add support to rename directory snapshots not managed by
+        a snapshot policy
+      - purefa_info - Add SAML2SSO configutration information
+      - purefa_info - Add Safe Mode status
+      - purefa_info - Fix Active Directory configuration details
+      - purefa_network - Resolve bug stopping management IP address being changed
+        correctly
+      - purefa_offload - Add support for multiple, homogeneous, offload targets
+      - purefa_saml - Add support for SAML2 SSO IdPs
+      - purefa_volume - Provide volume facts in all cases, including when no change
+        has occured.
+    fragments:
+    - 234_add_vol_info_on_nochange.yaml
+    - 235_eula.yaml
+    - 237_fix_network.yaml
+    - 238_add_dirsnap_rename.yaml
+    - 239_safe_mode.yaml
+    - 242_multi_offload.yaml
+    - 243_sso_to_admin.yaml
+    - 246_python_precedence.yaml
+    - 247_fix_smb_policy_rules.yaml
+    - 249_allow_cert_reimport.yaml
+    - 252_add_saml2.yaml
+    - 254_sam2_info.yaml
+    modules:
+    - description: Configure Pure Storage FlashArray Global Admin settings
+      name: purefa_admin
+      namespace: ''
+    - description: Manage FlashArray SAML2 service and identity providers
+      name: purefa_saml
+      namespace: ''
+    release_date: '2022-01-05'
+  1.12.1:
+    changes:
+      bugfixes:
+      - purefa_info - Fix space reporting issue
+      - purefa_subnet - Fix subnet update checks when no gateway in existing subnet
+        configuration
+      minor_changes:
+      - All modules - Change examples to use FQCN for module
+    fragments:
+    - 257_fqcn.yaml
+    - 259_fix_gateway_check.yaml
+    release_date: '2022-01-21'
+  1.13.0:
+    changes:
+      bugfixes:
+      - purefa_host - Allow multi-host creation without requiring a suffix string
+      - purefa_info - Fix issue where remote arrays are not in a valid connected state
+      - purefa_policy - Fix idempotency issue with quota policy rules
+      - purefa_policy - Fix issue when creating multiple rules in an NFS policy
+      minor_changes:
+      - purefa_fs - Add support for replicated file systems
+      - purefa_info - Add QoS information for volume groups
+      - purefa_info - Add info for protection group safe mode setting (Requires Purity//FA
+        6.3.0 or higher)
+      - purefa_info - Add info for protection group snapshots
+      - purefa_info - Add priority adjustment information for volumes and volume groups
+      - purefa_info - Split volume groups into live and deleted dicts
+      - purefa_pg - Add support for protection group SafeMode. Requires Purity//FA
+        6.3.0 or higher
+      - purefa_policy - Allow directories in snapshot policies to be managed
+      - purefa_vg - Add DMM Priority Adjustment support
+      - purefa_volume - Add support for DMM Priority Adjustment
+      - purefa_volume - Provide volume facts for volume after recovery
+    fragments:
+    - 261_fix_bad_arrays.yaml
+    - 265_fix_multiple_nfs_rules.yaml
+    - 268_fix_quotas_issues.yaml
+    - 270_add_priority_info.yaml
+    - 271_vgroup_prio.yaml
+    - 272_volume_prio.yaml
+    - 277_add_fs_repl.yaml
+    - 278_pgsnap_info.yaml
+    - 279_pg_safemode.yaml
+    - 280_multihost_no_suffix.yaml
+    - 284_volfact_for_recover.yaml
+    release_date: '2022-05-02'
+  1.14.0:
+    changes:
+      bugfixes:
+      - purefa_dns - Corrects logic where API responds with an empty list rather than
+        a list with a single empty string in it.
+      - purefa_ds - Add new parameter `force_bind_password` (default = True) to allow
+        idempotency for module
+      - purefa_hg - Ensure volume disconnection from a hostgroup is idempotent
+      - purefa_ntp - Corrects workflow so that the state between desired and current
+        are checked before marking the changed flag to true during an absent run
+      - purefa_pg - Corredt issue when target for protection group is not correctly
+        amended
+      - purefa_pg - Ensure deleted protection group can be correctly recovered
+      - purefa_pg - Fix idempotency issue for protection group targets
+      - purefa_pgsched - Allow zero as a valid value for appropriate schedule parameters
+      - purefa_pgsched - Fix issue where 0 was not correctly handled for replication
+        schedule
+      - purefa_pgsnap - Resolved intermittent error where `latest` snapshot is not
+        complete and can fail. Only select latest completed snapshot to restore from.
+      minor_changes:
+      - purefa_ad - Add support for TLS and joining existing AD account
+      - purefa_dns - Support multiple DNS configurations from Puritry//FA 6.3.3
+      - purefa_info - Add NFS policy user mapping status
+      - purefa_info - Add support for Virtual Machines and Snapshots
+      - purefa_info - Ensure global admin lockout duration is measured in seconds
+      - purefa_info - Support multiple DNS configurations
+      - purefa_inventory - Add REST 2.x support and SFP details for Purity//FA 6.3.4
+        and higher
+      - purefa_inventory - Change response dict name to `purefa_inv` so doesn't clash
+        with info module response dict
+      - purefa_inventory - add chassis information to inventory
+      - purefa_pg - Changed parameter `pgroup` to `name`. Allow `pgroup` as alias
+        for backwards compatability.
+      - purefa_policy - Add ``all_squash``, ``anonuid`` and ``anongid`` to NFS client
+        rules options
+      - purefa_policy - Add support for NFS policy user mapping
+      - purefa_volume - Default Protection Group support added for volume creation
+        and copying from Purity//FA 6.3.4
+    fragments:
+    - 288_zero_params.yaml
+    - 292_fix_ds_password.yaml
+    - 293_add_chassis_inventory.yaml
+    - 294_dns_ntp_idempotency_absent.yaml
+    - 294_user_map_support.yaml
+    - 296_ad_tls.yaml
+    - 299_fix_pgsched_zero_support.yaml
+    - 302_fix_pg_recover_and_target_update.yaml
+    - 305_fix_target_dempo.yaml
+    - 307_multiple_dns.yaml
+    - 308_add_vm.yaml
+    - 310_hg_vol_idempotency.yaml
+    - 312_pg_alias.yaml
+    - 315_spf_details.yaml
+    - 317_add_all_squash.yaml
+    - 318_vol_defaults.yaml
+    - 319_lockout.yaml
+    - 320_completed_snaps.yaml
+    modules:
+    - description: Manage SafeMode default protection for a Pure Storage FlashArray
+      name: purefa_default_protection
+      namespace: ''
+    - description: List FlashArray Alert Messages
+      name: purefa_messages
+      namespace: ''
+    release_date: '2022-09-16'
+  1.15.0:
+    changes:
+      bugfixes:
+      - purefa.py - Fix issue in Purity versions numbers that are for development
+        versions
+      - purefa_policy - Fixed missing parameters in function calls
+      - purefa_vg - Fix typeerror when using newer Purity versions and setting VG
+        QoS
+      minor_changes:
+      - purefa_network - Added support for servicelist updates
+      - purefa_vlan - Extend VLAN support to cover NVMe-RoCE and file interfaces
+    fragments:
+    - 328_policy_fix.yaml
+    - 330_extend_vlan.yaml
+    - 334_fix_vg_qos.yaml
+    - 336_add_servicelist.yaml
+    - 337_fix_non-prod_versions.yml
+    release_date: '2022-11-08'
+  1.16.0:
+    changes:
+      bugfixes:
+      - purefa - Remove unneeded REST version check as causes issues with REST mismatches
+      - purefa_ds - Fixed dict syntax error
+      - purefa_info - Fiexed issue with DNS reporting in Purity//FA 6.4.0 with non-FA-File
+        system
+      - purefa_info - Fixed error in policies subsection due to API issue
+      - purefa_info - Fixed race condition with protection groups
+      - purefa_smtp - Fix parameter name
+      minor_changes:
+      - purefa_host - Add support for VLAN ID tagging for a host (Requires Purity//FA
+        6.3.5)
+      - purefa_info - Add new subset alerts
+      - purefa_info - Added default protection information to `config` section
+      - purefa_volume - Added support for volume promotion/demotion
+    fragments:
+    - 304_host_vlan.yaml
+    - 341_pg_400s.yaml
+    - 342_add_vol_promotion.yaml
+    - 343_fix_ds.yaml
+    - 344_fix_smtp.yaml
+    - 345_user_map.yaml
+    - 347_dns_fix.yaml
+    - 348_add_default_prot.yaml
+    - 349_add_alerts.yaml
+    - 351_fix_rest_check.yaml
+    modules:
+    - description: Configure the FlashArray SNMP Agent
+      name: purefa_snmp_agent
+      namespace: ''
+    release_date: '2023-01-06'
+  1.16.1:
+    changes:
+      bugfixes:
+      - purefa_volume - Fixed issue with promotion status not being called correctly
+    fragments:
+    - 354_fix_promotion.yaml
+    release_date: '2023-01-10'
+  1.16.2:
+    release_date: '2023-01-11'
+  1.17.0:
+    changes:
+      bugfixes:
+      - purefa_host - Fixed parameter name
+      - purefa_info - Fix missing FC target ports for host
+      - purefa_pgsched - Fix error when setting schedule for pod based protection
+        group
+      - purefa_vg - Fix issue with VG creation on newer Purity versions
+      - purefa_volume - Ensure promotion_stateus is returned correctly on creation
+      - purefa_volume - Fix bug when overwriting volume using invalid parmaeters
+      - purefa_volume - Fixed idempotency bug when creating volumes with QoS
+      minor_changes:
+      - purefa_network - Added support for NVMe-RoCE and NVMe-TCP service types
+      - purefa_user - Added Ops Admin role to choices
+      - purefa_vlan - Added support for NVMe-TCP service type
+    fragments:
+    - 360_fix_volume.yaml
+    - 363_overwrite_combo.yaml
+    - 364_fc_targets.yaml
+    - 365_pod_pgsched.yaml
+    - 366_add_nvme_types.yaml
+    - 367_fix_vg.yaml
+    - 369_fix_host.yaml
+    - 370_add_user_role.yaml
+    release_date: '2023-02-16'
+  1.17.1:
+    changes:
+      bugfixes:
+      - purefa_info - Fix REST response backwards compatibility issue for array capacity
+        REST response
+      - purefa_info - Resolves issue in AC environment where REST v2 host list mismatches
+        REST v1 due to remote hosts.
+      - purefa_info - Resolves issue with destroyed pgroup snapshot on an offload
+        target not have a time remaining value
+      - purefa_pg - Resolves issue with destroyed pgroup snapshot on an offload target
+        not have a time remaining value
+    fragments:
+    - 374_offload_pgsnap.yaml
+    - 375_fix_remote_hosts.yaml
+    - 379_cap_compat.yaml
+    release_date: '2023-03-02'
+  1.17.2:
+    release_date: '2023-03-02'
+  1.18.0:
+    changes:
+      bugfixes:
+      - purefa_network - Resolves network port setting idempotency issue
+      - purefa_pg - Fixed issue where volumes could not be added to a PG when one
+        of the arrays was undergoing a failover.
+      - purefa_snap - Fixed issue system generated suffixes not being allowed and
+        removed unnecessary warning message.
+      minor_changes:
+      - purefa_hg - Changed parameter hostgroup to name for consistency. Added hostgroup
+        as an alias for backwards compatability.
+      - purefa_hg - Exit gracefully, rather than failing when a specified volume does
+        not exist
+      - purefa_host - Exit gracefully, rather than failing when a specified volume
+        does not exist
+      - purefa_info - Added network neighbors info to `network` subset
+      - purefa_pod - Added support for pod quotas (from REST 2.23)
+      - purefa_snap - New response of 'suffix' when snapshot has been created.
+      - purefa_volume - Added additional volume facts for volume update, or for no
+        change
+      release_summary: '| FlashArray Collection v1.18 removes module-side support
+        for Python 2.7.
+
+        | The minimum required Python version for the FlashArray Collection is Python
+        3.6.
+
+        '
+    fragments:
+    - 381_change_booleans.yaml
+    - 383_network_idemp.yaml
+    - 384_update_vol_facts.yaml
+    - 387_no_volume_failure.yaml
+    - 388_remove_27.yaml
+    - 393_offload_recover.yaml
+    - 394_neighbors.yaml
+    - 396_pod_quota.yaml
+    - 397_parialconnect_bug.yaml
+    - 398_hgoup_alias.yaml
+    release_date: '2023-05-12'
+  1.19.0:
+    modules:
+    - description: Manage Pure Storage FlashArray Audit and Session logs
+      name: purefa_logging
+      namespace: ''
+    release_date: '2023-05-19'
+  1.19.1:
+    changes:
+      bugfixes:
+      - purefa_info - Fixed missing arguments for google_offload and pods
+    release_date: '2023-05-19'
+  1.20.0:
+    changes:
+      bugfixes:
+      - purefa_pgsched - Resolved idempotency issue with snap and replication enabled
+        flags
+      - purefa_pgsnap - Fixed issue with eradicating deleted pgsnapshot
+      - purefa_pgsnap - Update the accepted suffixes to include also numbers only.
+        Fixed the logic to retrieve the latest completed snapshot
+      - purefa_policy - Set user_mapping parameter default to True
+      minor_changes:
+      - purefa_info - Added support for autodir policies
+      - purefa_policy - Added support for autodir policies
+      - purefa_proxy - Add new protocol parameter, defaults to https
+    fragments:
+    - 411_nfs_user_mapping.yaml
+    - 412_fix_snapshot_suffix_handling.yaml
+    - 413_eradicate_pgsnap.yaml
+    - 415_autodir_policies.yaml
+    - 420_proxy_protocol.yaml
+    - 422_sched_enable_fix.yaml
+    release_date: '2023-07-10'
+  1.21.0:
+    changes:
+      bugfixes:
+      - purefa_certs - Resolved CSR issue and require export_file for state sign.
+      - purefa_info - Fix serial number generation issue for vVols
+      - purefa_snap - Fixed issue with remote snapshot retrieve. Mainly a workaround
+        to an issue with Purity REST 1.x when remote snapshots are searched.
+      - purefa_volume - Fixed bug with NULL suffix for multiple volume creation.
+      minor_changes:
+      - purefa_info - Add `port_connectivity` information for hosts
+      - purefa_info - Add promotion status information for volumes
+      - purefa_offload - Added a new profile parameter.
+      - purefa_pgsnap - Added new parameter to support snapshot throttling
+      - purefa_snap - Added new parameter to support snapshot throttling
+    fragments:
+    - 428_promotion.yaml
+    - 429_host_balance.yaml
+    - 430_throttle_support.yaml
+    - 431_offload_profile.yaml
+    - 433_certs.yaml
+    - 436_snap_fix.yaml
+    - 440_null_suffix.yaml
+    release_date: '2023-09-06'
+  1.22.0:
+    changes:
+      bugfixes:
+      - purefa_ds - Fixes error when enabling directory services while a bind_user
+        is set on the array and a bind_password is not.
+      - purefa_ds - Fixes issue with creating a new ds configuration while setting
+        force_bind_password as "false".
+      - purefa_host - Fix incorrect calling of "module.params".
+      - purefa_info - Added missing alerts subset name
+      - purefa_info - Fixed attribute errors after EUC changes
+      - purefa_info - Fixed issue with replica links in unknown state
+      - purefa_info - Fixed parameter error when enabled and disabled timers are different
+        values on purity 6.4.10+ arrays.
+      - purefa_info - Fixed py39 specific bug with multiple DNS entries
+      - purefa_network - Allow `gateway` to be set as `0.0.0.0` to remove an existing
+        gateway address
+      - purefa_network - Fixed IPv6 support issues
+      - purefa_network - Fixed idempotency issue when gateway not modified
+      - purefa_pgsched - Fixed bug with an unnecessary substitution
+      - purefa_pgsnap - Enabled to eradicate destroyed snapshots.
+      - purefa_pgsnap - Ensure that `now` and `remote` are mutually exclusive.
+      - purefa_snap - Fixed incorrect calling logic causing failure on remote snapshot
+        creation
+      - purefa_subnet - Fixed IPv4 gateway removal issue.
+      - purefa_subnet - Fixed IPv6 support issues.
+      minor_changes:
+      - purefa_eradication - Added support for disabled and enabled timers from Purity//FA
+        6.4.10
+      - purefa_info - Add array subscription data
+      - purefa_info - Added `nfs_version` to policies and rules from Purity//FA 6.4.10
+      - purefa_info - Added `total_used` to multiple sections from Purity//FA 6.4.10
+      - purefa_info - Prive array timezone from Purity//FA 6.4.10
+      - purefa_info - Report NTP Symmetric key presence from Purity//FA 6.4.10
+      - purefa_network - Add support for creating/modifying VIF and LACP_BOND interfaces
+      - purefa_network - `enabled` option added. This must now be used instead of
+        state=absent to disable a physical interface as state=absent can now fully
+        delete a non-physical interface
+      - purefa_ntp - Added support for NTP Symmetric Key from Purity//FA 6.4.10s
+      - purefa_pgsched - Change `snap_at` and `replicate_at` to be AM or PM hourly
+      - purefa_pgsnap - Add protection group snapshot rename functionality
+      - purefa_policy - Added support for multiple NFS versions from Purity//FA 6.4.10
+      - purefa_vg - Add rename parameter
+    fragments:
+    - 444_euc_fix.yaml
+    - 445_py39.yaml
+    - 448_add_subs.yaml
+    - 450_no_gateway.yaml
+    - 452_throttle_fix.yaml
+    - 459_fix_eradication_timer_info.yaml
+    - 460_eradicaton.yaml
+    - 461_ntp_keys.yaml
+    - 462_info_update.yaml
+    - 463_nfs_version.yaml
+    - 464_fix_ds_add.yaml
+    - 468_missing_subset.yaml
+    - 469_fix_missing_bind_password.yaml
+    - 471_fix_ip_protocol.yaml
+    - 474_network_fixes.yaml
+    - 480_rename_vg.yaml
+    - 482_schedule.yaml
+    - 483_missing_replicate.yaml
+    - 484_fix_repl_sched.yaml
+    - 485_fix_host.yaml
+    - 487_pgrename.yaml
+    - 488_fix_pgsnap_eradication.yaml
+    modules:
+    - description: Manage FlashArray File Copies
+      name: purefa_file
+      namespace: ''
+    release_date: '2023-10-25'
+  1.23.0:
+    changes:
+      bugfixes:
+      - purefa_cert - Fixed issue where parts of the subject where not included in
+        the CSR if they did not exist in the currently used cert.
+      - purefa_pg - Allows a protection group to be correctly created when `target`
+        is specified as well as other objects, such as `volumes` or `hosts`
+      minor_changes:
+      - purefa_info - Add NSID value for NVMe namespace in `hosts` response
+      - purefa_info - Subset `pgroups` now also provides a new dict called `deleted_pgroups`
+      - purefa_offload - Remove `nfs` as an option when Purity//FA 6.6.0 or higher
+        is detected
+    fragments:
+    - 495_add_del_pgroup_info.yaml
+    - 496_fix_cert_signing.yaml
+    - 498_fix_pg_creation.yaml
+    - 499_rest_227.yaml
+    release_date: '2023-11-07'
+  1.24.0:
+    changes:
+      bugfixes:
+      - purefa_dns - Fixed attribute error on deletion of management DNS
+      - purefa_pgsched - Fixed issue with disabling schedules
+      - purefa_pgsnap - Fixed incorrect parameter name
+      minor_changes:
+      - purefa_dns - Added facility to add a CA certifcate to management DNS and check
+        peer.
+      - purefa_snap - Add support for suffix on remote offload snapshots
+    fragments:
+    - 505_dns_attribute.yaml
+    - 506_disable_pgsched.yaml
+    - 509_check_peer.yaml
+    - 513_remote_snapshot_suffix.yaml
+    - 516_fix_throttle.yaml
+    modules:
+    - description: Manage FlashArray Hardware Identification
+      name: purefa_hardware
+      namespace: ''
+    release_date: '2023-12-01'
+  1.25.0:
+    changes:
+      minor_changes:
+      - all - ``distro`` package added as a pre-requisite
+      - multiple - Remove packaging pre-requisite.
+      - multiple - Where only REST 2.x endpoints are used, convert to REST 2.x methodology.
+      - purefa_info - Expose NFS security flavor for policies
+      - purefa_info - Expose cloud capacity details if array is a Cloud Block Store.
+      - purefa_policy - Added NFS security flavors for accessing files in the mount
+        point.
+    fragments:
+    - 441_v2_version.yaml
+    - 518_nfs_security.yaml
+    - 519_add_cloud_capacity.yaml
+    - 520_add_distro.yaml
+    release_date: '2023-12-20'
+  1.26.0:
+    changes:
+      bugfixes:
+      - purefa_ds - Fix issue with SDK returning empty data for data directory services
+        even when it does exist
+      - purefa_policy - Fix incorrect call of psot instead of patch for NFS policies
+      minor_changes:
+      - purefa_policy - Add SMB user based enumeration parameter
+      - purefa_policy - Remove default setting for nfs_version to allow for change
+        of version at policy level
+    fragments:
+    - 523_nfs_policies.yaml
+    - 524_empty_ds.yaml
+    release_date: '2024-01-12'
+  1.27.0:
+    changes:
+      bugfixes:
+      - purefa_certs - Allow certificates of over 3000 characters to be imported.
+      - purefa_info - Resolved issue with KeyError when LACP bonds are in use
+      - purefa_inventory - Fix issue with iSCSI-only FlashArrays
+      - purefa_pgsnap - Add support for restoring volumes connected to hosts in a
+        host-based protection group and hosts in a hostgroup-based protection group.
+      minor_changes:
+      - purefa_arrayname - Convert to REST v2
+      - purefa_eula - Only sign if not previously signed. From REST 2.30 name, title
+        and company are no longer required
+      - purefa_info - Add support for controller uptime from Purity//FA 6.6.3
+      - purefa_inventory - Convert to REST v2
+      - purefa_ntp - Convert to REST v2
+      - purefa_offload - Convert to REST v2
+      - purefa_pgsnap - Module now requires minimum FlashArray Purity//FA 6.1.0
+      - purefa_ra - Add ``present`` and ``absent`` as valid ``state`` options
+      - purefa_ra - Add connecting as valid status of RA to perform operations on
+      - purefa_ra - Convert to REST v2
+      - purefa_syslog - ``name`` becomes a required parameter as module converts to
+        full REST 2 support
+      - purefa_vnc - Convert to REST v2
+      release_summary: '| This release changes the minimum supported Purity//FA version.
+
+        |
+
+        | The minimum supported Purity//FA version increases to 6.1.0.
+
+        | All previous versions are classed as EOL by Pure Storage support.
+
+        |
+
+        | This change is to support the full integration to Purity//FA REST v2.x
+
+        '
+    fragments:
+    - 1_27_summary.yaml
+    - 527_pgsnap_rest2.yaml
+    - 529_eula_v2.yaml
+    - 530_ntp_rest2.yaml
+    - 531_ra_rest.yaml
+    - 536_inv_rest2.yaml
+    - 536_syslog_rest.yaml
+    - 538_arrayname_rest.yaml
+    - 539_rest2_vnc.yaml
+    - 541_r2_offload.yaml
+    - 545_4kcert.yaml
+    - 547_lacp_neighbor_info.yaml
+    - 548_uptime.yaml
+    release_date: '2024-03-08'
+  1.28.0:
+    changes:
+      bugfixes:
+      - purefa_host - Allows all current host inititators to be correctly removed
+      - purefa_host - Fix idempotency issue with connected volume
+      - purefa_volume - Ensure module response for creation of volume and rerun are
+        the same
+      - purefa_volume - Fix idempotency issue with delete volume
+      minor_changes:
+      - purefa_hg - Add support to rename existing hostgroup
+      - purefa_info - Add ``is_local`` parameter for snapshots
+      - purefa_info - Add performance data for some subsets
+      - purefa_info - Add service_mode to identify if array is Evergreen//One or standard
+        FlashArray
+      - purefa_pg - Enhance ``state absent`` to work on volumes, hosts and hostgroups
+      - purefa_snap - Add ``created_epoch`` parameter in response
+    fragments:
+    - 210_add_rename_hgroup.yaml
+    - 211_fix_clearing_host_inititators.yaml
+    - 550_service.yaml
+    - 555_update_pg.yaml
+    - 558_add_perf_info.yaml
+    - 559_volume_response.yaml
+    - 560_snapshot_epoch.yaml
+    - 561_remote_snap_info.yaml
+    - 562_host_vol_fix.yaml
+    release_date: '2024-05-01'
+  1.28.1:
+    changes:
+      bugfixes:
+      - purefa_network - Fix issue with clearing network interface addresses
+      - purefa_network - Resolve issue when setting a network port on a new array
+      - purefa_policy - Enhanced idempotency for snapshot policy rules
+    fragments:
+    - 565_fix_clear_interface.yaml
+    - 567_newarray_network.yaml
+    - 569_enhanced_snap_policy.yaml
+    release_date: '2024-05-31'
+  1.29.0:
+    changes:
+      bugfixes:
+      - purefa_info - Resolve issue with performance stats trying to report for remote
+        hosts
+      minor_changes:
+      - all - add ``disable_warnings`` parameters
+      - purefa_alert - Add new ``state`` of ``test`` to check alert manager configuration
+      - purefa_alert - Converted to REST v2
+      - purefa_connect - Convert to REST v2
+      - purefa_console - Convert to REST v2
+      - purefa_dns - Convert to REST v2
+      - purefa_ds - Add new ``state`` of ``test`` to check directory services configuration
+      - purefa_ds - Convert to REST v2 removing all parameters used unsupported Purity
+        versions
+      - purefa_dsrole - Convert to REST v2
+      - purefa_info - Add SMTP server information
+      - purefa_kmip - Add new ``state`` of ``test`` to check KMIP object configuration
+      - purefa_ntp - Add new ``state`` of ``test`` to check NTP configuration
+      - purefa_phonehome - Convert to REST v2
+      - purefa_pod - Add ``delete_contents`` parameter for eradication of pods.
+      - purefa_pod - Add support for ``throttle`` parameter from REST 2.31.
+      - purefa_pod - Convert to REST v2.
+      - purefa_ra - Add new ``state`` of ``test`` to check remote support configuration
+      - purefa_saml - Add new ``state`` of ``test`` to check SAML2 IdP configuration
+      - purefa_snmp - Add new ``state`` of ``test`` to check SNMP manager configuration
+      - purefa_syslog - Add new ``state`` of ``test`` to check syslog server configuration
+    fragments:
+    - 551_alert_v2.yaml
+    - 552_convert_connect.yaml
+    - 553_convert_console.yaml
+    - 554_convert_dns.yaml
+    - 556_pod_throttle.yaml
+    - 571_convert_dsrole.yaml
+    - 572_convert_ds.yaml
+    - 573_ds_test.yaml
+    - 578_add_tests.yaml
+    - 579_add_smtp_info.yaml
+    - 581_convert_ph.yaml
+    - 588_disable_warnings.yaml
+    - 589_fix_remote_host.yaml
+    modules:
+    - description: List FlashArray Audit Events
+      name: purefa_audits
+      namespace: ''
+    - description: List FlashArray Sessions
+      name: purefa_sessions
+      namespace: ''
+    release_date: '2024-07-05'
+  1.29.1:
+    changes:
+      bugfixes:
+      - purefa_info - Fix typo from PR
+    fragments:
+    - 591_typo_fix.yaml
+    release_date: '2024-07-10'
+  1.30.0:
+    changes:
+      bugfixes:
+      - purefa_hg - Fix edge case with incorrectly deleted hostgroup when empty array
+        sent for volumes or hosts
+      minor_changes:
+      - purefa_connect - Add support for TLS encrypted array connections
+      - purefa_info - Fix regression of code that caused volume host connectivity
+        info to be lost
+      - purefa_info - Provide array connection path information
+    fragments:
+    - 592_tls_connection.yaml
+    - 593_hsbc_hg.yaml
+    - 593_vol_host_info.yaml
+    release_date: '2024-07-12'
+  1.30.1:
+    changes:
+      bugfixes:
+      - purefa_dsrole - Fix function name typo
+      - purefa_pg - Fix parameter name typo
+    fragments:
+    - 599_typo_dsroles.yaml
+    - 600_pg_param_typo.yaml
+    release_date: '2024-07-19'
+  1.30.2:
+    changes:
+      bugfixes:
+      - purefa_info - Fixed issue trying to collect deleted volumes perfomance stats
+      - purefa_volume - Fix issue with creating volume using old Purity version (6.1.19)
+    fragments:
+    - 602_volume_fix.yaml
+    - 603_del_vol_perf.yaml
+    release_date: '2024-07-22'
+  1.31.0:
+    changes:
+      bugfixes:
+      - purefa_pod - Fix issue with pod not creating correctly
+      - purefa_subnet - Initialize varaible correctly
+      - purefa_syslog_settings - Initialize varaible correctly
+      - purefa_volume - Fixes ``eradicate`` so it doesn't report success when it hasn't
+        actually eradicated
+      - purefa_volume - Fixes ``volfact`` response when in ``check_mode``
+      - purefa_volume - Fixes issue where malformed ``volfact`` will cause the ``move``
+        to apparently fail.
+      minor_changes:
+      - purefa_token - Add ``disable_warnings`` support
+      release_summary: '| NOTE: ``purefa_ds`` module has been determined to require
+        a minimum Purity//FA version
+
+        | of 6.6.0
+
+        | To facilitate this functionality in versions 6.1.x - 6.5.x please use the
+        module
+
+        | ``purefa_dsrole_old`` '
+    fragments:
+    - 610_lint_fix.yaml
+    - 612_volume_volfact.yaml
+    - 615_token_warnings_support.yaml
+    - 618_fix_pod_create.yaml
+    modules:
+    - description: Configure FlashArray Directory Service Roles (pre-6.6.3)
+      name: purefa_dsrole_old
+      namespace: ''
+    release_date: '2024-08-20'
+  1.31.1:
+    changes:
+      bugfixes:
+      - purefa_dsrole - Fix version check logic
+    fragments:
+    - 624_dsrole_version_check.yaml
+    release_date: '2024-08-23'
+  1.32.0:
+    changes:
+      bugfixes:
+      - purefa_alert - Fix unreferenced variable error
+      - purefa_audits - Fix issue when ``start`` parameter not supplied
+      - purefa_dirsnap - Fixed issues with ``keep_for`` setting and issues related
+        to recovery of deleted snapshots
+      - purefa_dsrole - Fixed bug in role creation.
+      - purefa_eradication - Fix incorrect timer settings
+      - purefa_info - Cater for zero used space in NFS offloads
+      - purefa_info - ``exports`` dict for each share changed to a list of dicts in
+        ``filesystm`` subset
+      - purefa_inventory - Fixed quiet failures due to attribute errors
+      - purefa_network - Allow LACP bonds to be children of a VIF
+      - purefa_network - Fix compatability issue with ``netaddr>=1.2.0``
+      - purefa_ntp - Fix issue with deletion of NTP servers
+      - purefa_offload - Corrected version check logic
+      - purefa_pod - Allow pd to be deleted with contents if ``delete_contents`` specified
+      - purefa_sessions - Correctly report sessions with no start or end time
+      - purefa_smtp - Fixed SMTP deletion issue
+      - purefa_snmp - Fix issues with deleting SNMP entries
+      - purefa_snmp_agent - Fix issues with deleting v3 agent
+      - purefa_volume - Added error message to warn about moving protected volume
+      - purefa_volume - Errors out when pgroup and add_to_pgs used incorrectly
+      - purefa_volume - Fixed issue of unable to move volume from pod to vgroup
+      minor_changes:
+      - purefa_dsrole - Add support for non-system-defined directory service roles
+        with new parameter `name`
+      - purefa_info - Add ``enabled`` value for network subnets
+      - purefa_info - Add ``policies` list of dicts to ``filesystem`` subset for each
+        share.
+      - purefa_info - Add ``time_remaining`` field for non-deleted directory snapshots
+      - purefa_info - Expose directory service role management access policies if
+        they exist
+      - purefa_info - Exposed password policy information
+      - purefa_info - SnaptoNFS support removed from Purity//FA 6.6.0 and higher.
+      - purefa_info - Update KMIP information collection to use REST v2, exposing
+        full certifcate content
+      - purefa_offload - Add support for S3 Offload ``uri`` and ``auth_region`` parameters
+      - purefa_pgsnap - Expose created protection group snapshot data in the module
+        return dict
+      - purefa_policy - New policy type of ``password`` added. Currently the only
+        default management policy can be updated
+      - purefa_subnet - Remove default value for MTU t ostop restting to default on
+        enable/disable of subnet. Creation will still default to 1500 if not provided.
+    fragments:
+    - 628_inventory_fix.yaml
+    - 631_fix_alert.yaml
+    - 632_eradication_timer.yaml
+    - 633_netaddr_fix.yaml
+    - 635_filesystem_update.yaml
+    - 636_volume_fix.yaml
+    - 637_volume_add_err_msg.yaml
+    - 638_delete_pod.yaml
+    - 641_dirsnap_keep_for.yaml
+    - 642_volume_pg_fix.yaml
+    - 645_session_attr.yaml
+    - 647_lacp_vif.yaml
+    - 648_delete_ntp.yaml
+    - 649_audits.yaml
+    - 650_fix_snmp.yaml
+    - 651_subnet_state.yaml
+    - 653_remove_default_mtu.yaml
+    - 653_v3_user.yaml
+    - 654_delete_smtp.yaml
+    - 655_kmip_v2.yaml
+    - 656_no_snaptonfs.yaml
+    - 657_pwd_policy.yaml
+    - 660_create_ds_role_fix.yaml
+    - 662_add_snap_data.yaml
+    - 665_offload_version_check.yaml
+    - 666_dsrole_update.yaml
+    release_date: '2024-11-18'
+  1.33.0:
+    changes:
+      bugfixes:
+      - purefa_ds - Fixed issue with trying to create a pre-existing system-defined
+        role
+      - purefa_hg - Fixed issue when ``check_mode = true`` not reporting correct status
+        when adding new hosts to hostgroup.
+      - purefa_pod - Errored out when setting failover preference for pod
+      - purefa_ra - Fixed duration check logic
+      - purefa_volume - Fixes issue of moving protected volume into volume group
+      known_issues:
+      - All Fusion fleet members will be assumed to be at the same Purity//FA version
+        level as the array connected to by Ansible.
+      - FlashArray//CBS is not currently supported as a member of a Fusion fleet
+      minor_changes:
+      - all - Minimum ``py-pure-client`` version increased to 1.57.0 due to release
+        of Realms feature
+      - purefa_hg - Added support for Fusion
+      - purefa_host - Added Fusion support
+      - purefa_info - Add performance data for network interfaces
+      - purefa_info - Added new section ``realms``.
+      - purefa_info - Added new subset ``fleet``
+      - purefa_info - Deprecate ``network.<interface>.hwaddr`` - replaced by ``network.<interface>.mac_address``
+      - purefa_info - Deprecate ``network.<interface>.slaves`` - replaced by ``network.<interface>.subinterfaces``
+      - purefa_info - VNC feature deprecated from Purity//FA 6.8.0.
+      - purefa_pg - Added Fusion support.
+      - purefa_pgsched - Added support for Fusion.
+      - purefa_pgsnap - Added support for Fusion.
+      - purefa_pod_replica - Added Fusion support.
+      - purefa_pods - Added support for Fusion with ``context`` parameter.
+      - purefa_smtp - Added support for additional parameters, including encryption
+        mode and email prefixs and email sender name.
+      - purefa_snap - Added Fusion support.
+      - purefa_vg - Added support for Fusion
+      - purefa_vlan - Convert to REST v2
+      - purefa_vnc - VNC feature deprecated from Purity//FA 6.8.0.
+      - purefa_volume - Added ``context`` parameter to support fleet operations
+    fragments:
+    - 668_realms_info.yaml
+    - 671_hg_check_mode.yaml
+    - 673_system_dsrole.yaml
+    - 676_volume_vg_fix.yaml
+    - 677_networ_perf.yaml
+    - 679_pods_decrecate.yaml
+    - 684_no_vnc.yaml
+    - 686_fleet_info.yaml
+    - 689_fix_pod_failover_preferences.yaml
+    - 691_vol_fleet.yaml
+    - 693_update_smtp.yaml
+    - 694_duration_logic.yaml
+    - 695_host_fusion.yaml
+    - 696_vgroup_v2.yaml
+    - 697_fusion_pods.yaml
+    - 698_pod_replica_context.yaml
+    - 699_gh_fusion.yaml
+    - 702_snap_fusion.yaml
+    - 706_pgsnap_fleet.yaml
+    - 707_fusion_pg.yaml
+    - 708_pgsched_fusion.yaml
+    - 712_vlan.yaml
+    modules:
+    - description: Manage Fusion Fleet
+      name: purefa_fleet
+      namespace: ''
+    - description: Manage realms on Pure Storage FlashArrays
+      name: purefa_realm
+      namespace: ''
+    release_date: '2025-02-17'
+  1.33.1:
+    changes:
+      bugfixes:
+      - purefa_host - Fix issue with no VLAN provided when Purity//FA is a recent
+        version.
+      - purefa_host - Fix issue with setting preferred_arrays for a host.
+    fragments:
+    - 714_host_vlan.yaml
+    release_date: '2025-02-19'
+  1.34.0:
+    changes:
+      bugfixes:
+      - purefa_dsrole - Fixed bug with DS role having no group or group base cannot
+        be updated
+      - purefa_pgsnap - Fixed issue with overwrite failing
+      - purefa_vlan - Allow LACP bonds to be subnet interfaces
+      minor_changes:
+      - purefa_timeout - Convert to REST v2
+      - purefa_user - Added parameter for SSH public keys and API token timeout
+      - purefa_user - Converted to use REST v2
+      - purefa_user - When changing API token or timout for an existing user, the
+        user role must be provided or it will revert to ``readonly``
+    fragments:
+    - 718_lacp_subnet.yaml
+    - 719_pgsnap_overwrite.yaml
+    - 721_dsrole_bug.yaml
+    - 722_timeout_v2.yaml
+    - 722_user_rest2.yaml
+    release_date: '2025-03-26'
+  1.34.1:
+    changes:
+      bugfixes:
+      - purefa_vg - Fixed idempotency issue when clearing volume group QoS settings
+      - purefa_vg - Fixed issue with creating non-QoS volume groups
+    fragments:
+    - 736_vg_fix.yaml
+    release_date: '2025-03-27'
+  1.35.0:
+    changes:
+      bugfixes:
+      - purefa_volume - Fixed issue for error on volume delete w/o eradicate
+      minor_changes:
+      - purefa_endpoint - Converted to REST v2
+      - purefa_fleet - Allows FlashBlades to be added to Fusion fleets if FlashArray
+        is Purity//FA 6.8.5 or higher
+      - purefa_host - Hosts can be created in realms and renamed within the same realm
+      - purefa_host - Move function added to allow movement of host to/from realms
+      - purefa_inventory - Added support for capacity down licensing
+      - purefa_policy - Added support change a specific quota rule by name
+      - purefa_subnet - Converted to use REST 2
+      - purefa_volume - Added support for creating volumes in Realms
+    fragments:
+    - 737_add_fb_fleet.yaml
+    - 739_dir_quota.yaml
+    - 741_subnet_v2.yaml
+    - 742_endpoint_v2.yaml
+    - 745_host_move.yaml
+    - 748_inv_update.yaml
+    - 754_vol_delete.yaml
+    - 758_realm_vol.yaml
+    release_date: '2025-06-18'
+  1.35.1:
+    changes:
+      bugfixes:
+      - purefa_ds - Fixed issue with updaing a LDAP configuration fails with a list
+        error.
+      - purefa_proxy - Fixed issue with incorrect string comparison
+    fragments:
+    - 760_ds_list_error.yaml
+    - 770_proxy_dict.yaml
+    release_date: '2025-06-20'
+  1.36.0:
+    changes:
+      bugfixes:
+      - purefa_vg - Fixed issue where VG QoS updates were being ignored
+      minor_changes:
+      - purefa_user - No longer tries to expose API tokens as these are not required
+        in the module
+    fragments:
+    - 773_vg_qos.yaml
+    - 774_user_update.yaml
+    release_date: '2025-07-15'
+  1.37.0:
+    changes:
+      bugfixes:
+      - purefa_connect - Ensured that encrypted connections use encrypted connection
+        keys
+      - purefa_eradication - Fixed idempotency issue
+      - purefa_eula - Fix AttributeError when first sogning EULA
+      - purefa_pg - Changing target for PG no longer requires a ``FixedReference``
+      deprecated_features:
+      - purefa_volume_tags - Deprecated due to removal of REST 1.x support. Will be
+        removed in Collection 2.0.0
+      minor_changes:
+      - purefa_connect - Allow asynchronous FC-based replication
+      - purefa_default_protection - Added Fusion support.
+      - purefa_info - Added new subsets ``workloads`` and ``presets``
+      - purefa_info - Converted to use REST 2
+      - purefa_network - Converted to REST v2
+      - purefa_ntp - Added Fusion support.
+      - purefa_pod - Added support for SafeMode protection group configuration
+      - purefa_syslog - Added Fusion support.
+      - purefa_user - All AD users to have SSH keys and/or API tokens assigned, even
+        if they have never accessed the FlashArray before. AD users must have ``ad_user``
+        set as ``true``.
+    fragments:
+    - 743_network_v2.yaml
+    - 776_workload_info.yaml
+    - 777_info_rest2.yaml
+    - 779_deprecate_vol_tags.yaml
+    - 782_encrypt_connect.yaml
+    - 788_eula_fix.yaml
+    - 789_pg_target_change.yaml
+    - 790_ad_user.yaml
+    - 791_safemode_pod.yaml
+    - 792_fusion_ntp.yaml
+    - 793_fusion_syslog.yaml
+    - 794_fusion_pg_default_protection.yaml
+    - 795_erad.yaml
+    release_date: '2025-09-11'
+  1.37.1:
+    changes:
+      bugfixes:
+      - purefa_network - Resolve typo that causes network updates to not apply correctly
+    fragments:
+    - 800_network_fix.yaml
+    release_date: '2025-09-11'
+  1.38.0:
+    changes:
+      bugfixes:
+      - purefa_certs - Resolved error with incorrect use of ``key_size`` for imported
+        certificates
+      - purefa_host - Fixed Pydantic error when updating preferred_arrays
+      - purefa_info - Ensured that volumes, hosts, host_groups and transfers are correctly
+        listed for protection groups
+      - purefa_info - Fixed AttributeError in config section related to SSO SAML2
+      - purefa_info - Fixed issue with replication connection throttle reporting
+      - purefa_info - Fixed issue with undo-demote pods not reporting correctly
+      - purefa_info - Resolved AttributeError in volume subset
+      - purefa_subnet - Fixed failure when trying to update a subnet with no gateway
+        defined
+      minor_changes:
+      - plugins/module_utils/purefa.py - Removed ``get_system`` function as REST v1
+        no longer supported by Collection
+      - purefa_dsrole_old - Upgraded to REST v2
+      - purefa_policy - Upgraded to REST v2
+      - purefa_volume_tags - Add `tag` parameter to specify tag to be deleted by key
+        name
+      - purefa_volume_tags - Upgraded to REST v2 and added Fusion support
+    fragments:
+    - 778_remove_system.yaml
+    - 802_empty_gateway_subnet.yaml
+    - 805_no_pe.yaml
+    - 806_throttle_info_fix.yaml
+    - 812_info_sso.yaml
+    - 813_host_pa.yaml
+    - 814_policy_v2.yaml
+    - 815_volume_tags_v2.yaml
+    - 818_cert_import.yaml
+    - 81_dsrole_old_v2.yaml
+    release_date: '2025-09-19'
+  1.39.0:
+    changes:
+      bugfixes:
+      - purefa_eradication - Idempotency fix
+      - purefa_info - Fixed AttributeError for hgroups subset
+      - purefa_pg - Fixed AttributeError adding target to PG
+      minor_changes:
+      - purefa_arrayname - Added Fusion support
+      - purefa_audits - Added Fusion support
+      - purefa_banner - Added Fusion support
+      - purefa_connect - Added Fusion support
+      - purefa_console - Added Fusion support
+      - purefa_directory - Added Fusion support
+      - purefa_dirsnap - Added Fusion support
+      - purefa_ds - Added Fusion support
+      - purefa_dsrole - Added Fusion support
+      - purefa_endpoint - Added Fusion support
+      - purefa_eradication - Added Fusion support
+      - purefa_export - Added Fusion support
+      - purefa_fs - Added Fusion support
+      - purefa_maintenance - Timeout window updated
+      - purefa_messages - Added Fusion support
+      - purefa_offload - Added Fusion support
+      - purefa_policy - Added Fusion support
+      - purefa_syslog_settings - Added Fusion support
+      - purefa_timeout - Added Fusion support
+    fragments:
+    - 821_dir_fusion.yaml
+    - 822_dirsnap_fusion.yaml
+    - 823_arrays_fusion.yaml
+    - 824_audit_fusion.yaml
+    - 825_conn_fusion.yaml
+    - 826_ds_fusion.yaml
+    - 827_pe_fusion.yaml
+    - 829_exports_fusion.yaml
+    - 830_fs_fusion.yaml
+    - 831_messages_fusion.yaml
+    - 833_hg_destroyed_info.yaml
+    - 834_offload_fusion.yaml
+    - 835_policy_fusion.yaml
+    - 835_syslog_servers_fusion.yaml
+    - 838_pg_target_fix.yaml
+    - 840_eradication_idempotency.yaml
+    - 844_main_window.yaml
+    release_date: '2025-10-02'
+  1.4.0:
+    changes:
+      bugfixes:
+      - purefa_host - resolve hostname case inconsistencies
+      - purefa_host - resolve issue found when using in Pure Storage Test Drive
+      major_changes:
+      - purefa_console - manage Console Lock setting for the FlashArray
+      - purefa_endpoint - manage VMware protocol-endpoints on the FlashArray
+      - purefa_eula - sign, or resign, FlashArray EULA
+      - purefa_inventory - get hardware inventory information from a FlashArray
+      - purefa_network - manage the physical and virtual network settings on the FlashArray
+      - purefa_pgsched - manage protection group snapshot and replication schedules
+        on the FlashArray
+      - purefa_pod - manage ActiveCluster pods in FlashArrays
+      - purefa_pod_replica - manage ActiveDR pod replica links in FlashArrays
+      - purefa_proxy - manage the phonehome HTTPS proxy setting for the FlashArray
+      - purefa_smis - manage SMI-S settings on the FlashArray
+      - purefa_subnet - manage network subnets on the FlashArray
+      - purefa_timeout - manage the GUI idle timeout on the FlashArray
+      - purefa_vlan - manage VLAN interfaces on the FlashArray
+      - purefa_vnc - manage VNC for installed applications on the FlashArray
+      - purefa_volume_tags - manage volume tags on the FlashArray
+      minor_changes:
+      - purefa_hg - All LUN ID to be set for single volume
+      - purefa_host - Add CHAP support
+      - purefa_host - Add support for Cloud Block Store
+      - purefa_host - Add volume disconnection support
+      - purefa_info - Certificate times changed to human readable rather than time
+        since epoch
+      - purefa_info - new options added for information collection
+      - purefa_info - return dict names changed from ``ansible_facts`` to ``ra_info``
+        and ``user_info`` in approproate sections
+      - purefa_offload - Add support for Azure
+      - purefa_pgsnap - Add offload support
+      - purefa_snap - Allow recovery of deleted snapshot
+      - purefa_vg - Add QoS support
+      release_summary: '| Release Date: 2020-08-08
+
+        | This changlelog describes all changes made to the modules and plugins included
+        in this collection since Ansible 2.9.0
+
+        '
+    fragments:
+    - v1.4.0_summary.yaml
+    release_date: '2020-08-06'
+  1.40.0:
+    changes:
+      bugfixes:
+      - purefa_info - Resolves issue with hosthgroup info when NVMe connected volumes
+        are in a hostgroup
+      minor_changes:
+      - purefa_connection - Add new parameters for key refresh and connection refresh,
+        as well as ability to update existing connection
+      - purefa_info - Added more data to hostgroup volume information to support NVMe
+        connections
+      - purefa_info - Added tags info to entities that support them
+      - purefa_network - Addressed issues found in update_interface
+      - purefa_phonehome - Added ``excludes`` parameter, supported from Purity//FA
+        6.10.0
+      - purefa_pod - Fixed pydantic issue from lastest SDK version
+      - purefa_policy - Added Continuous Availability support for SMB policies
+    fragments:
+    - 851_network_interface.yaml
+    - 858_hgroups_nvme_fix.yaml
+    - 863_smb_ca.yaml
+    - 864_pod_pydantic.yaml
+    - 866_array_connection.yaml
+    - 868_phonehome_excludes.yaml
+    - 870_tags_info.yaml
+    release_date: '2025-11-07'
+  1.5.0:
+    changes:
+      bugfixes:
+      - purefa_host - Correctly remove host that is in a hostgroup
+      - purefa_volume - Fix failing idempotency on eradicate volume
+      minor_changes:
+      - purefa_apiclient - New module to support API Client management
+      - purefa_directory - Add support for managed directories
+      - purefa_export - Add support for filesystem exports
+      - purefa_fs - Add filesystem management support
+      - purefa_hg - Enforce case-sensitivity rules for hostgroup objects
+      - purefa_host - Enforce hostname case-sensitivity rules
+      - purefa_info - Add support for FA Files features
+      - purefa_offload - Add support for Google Cloud offload target
+      - purefa_pg - Enforce case-sensitivity rules for protection group objects
+      - purefa_policy - Add support for NFS, SMB and Snapshot policy management
+    fragments:
+    - 107_host_case_clarity.yaml
+    - 108_fix_eradicate_idempotency.yaml
+    - 109_fa_files_support_purefa_info.yaml
+    - 110_add_apiclient_support.yaml
+    - 111_add_filesystem_support.yaml
+    - 112_add_directory_support.yaml
+    - 113_add_exports_support.yaml
+    - 115_add_gcp_offload.yaml
+    - 116_add_policies.yaml
+    modules:
+    - description: Manage FlashArray API Clients
+      name: purefa_apiclient
+      namespace: ''
+    - description: Manage FlashArray File System Directories
+      name: purefa_directory
+      namespace: ''
+    - description: Manage FlashArray File System Exports
+      name: purefa_export
+      namespace: ''
+    - description: Manage FlashArray File Systems
+      name: purefa_fs
+      namespace: ''
+    - description: Manage FlashArray File System Policies
+      name: purefa_policy
+      namespace: ''
+    release_date: '2020-10-14'
+  1.5.1:
+    changes:
+      bugfixes:
+      - purefa.py - Resolve issue when pypureclient doesn't handshake array correctly
+      - purefa_dns - Fix idempotency
+      - purefa_volume - Alert when volume selected for move does not exist
+      minor_changes:
+      - purefa_host - Add host rename function
+      - purefa_host - Add support for multi-host creation
+      - purefa_vg - Add support for multiple vgroup creation
+      - purefa_volume - Add support for multi-volume creation
+    fragments:
+    - 118_rename_host.yaml
+    - 121_add_multi_volume_creation.yaml
+    - 122_add_multi_host_creation.yaml
+    - 123_add_multi_vgroup_creation.yaml
+    - 124_sdk_handshake.yaml
+    - 125_dns_idempotency.yaml
+    - 126_fix_volume_move.yaml
+    release_date: '2020-12-11'
+  1.6.0:
+    changes:
+      bugfixes:
+      - purefa_hg - Ensure all hostname chacks are lowercase for consistency
+      - purefa_pgsnap - Add check to ensure suffix name meets naming conventions
+      - purefa_pgsnap - Ensure pgsnap restores work for AC PGs
+      - purefa_pod - Ensure all pod names are lowercase for consistency
+      - purefa_snap - Update suffix regex pattern
+      - purefa_volume - Add missing variable initialization
+      minor_changes:
+      - purefa_connect - Add support for FC-based array replication
+      - purefa_ds - Add Purity v6 support for Directory Services, including Data DS
+        and updating services
+      - purefa_info - Add support for FC Replication
+      - purefa_info - Add support for Remote Volume Snapshots
+      - purefa_info - Update directory_services dictionary to cater for FA-Files data
+        DS. Change DS dict forward. Add deprecation warning.
+      - purefa_ntp - Ignore NTP configuration for CBS-based arrays
+      - purefa_pg - Add support for Protection Groups in AC pods
+      - purefa_snap - Add support for remote snapshot of individual volumes to offload
+        targets
+    fragments:
+    - 130_info_ds_update.yaml
+    - 131_add_v6_ds_update.yaml
+    - 132_fc_replication.yaml
+    - 133_purefa_info_v6_replication.yaml
+    - 134_ac_pg_support.yaml
+    - 135_no_cbs_ntp.yaml
+    - 136_add_vol_get_send_info.yaml
+    - 137_pgsnap_regex.yaml
+    - 139_pgsnap_ac_support.yaml
+    - 140_pod_case.yaml
+    - 141_add_remote_snapshot.yaml
+    - 145_fix_missing_move_variable.yaml
+    release_date: '2021-02-02'
+  1.6.2:
+    changes:
+      bugfixes:
+      - purefa_volume - Fix issues with moving volumes into demoted or linked pods
+    fragments:
+    - 149_volumes_demoted_pods_fix.yaml
+    release_date: '2021-02-04'
+  1.7.0:
+    changes:
+      bugfixes:
+      - purefa_info - Fix missing protection group snapshot info for local snapshots
+      - purefa_info - Resolve crash when an offload target is offline
+      - purefa_pgsnap - Ensure suffix rules only implemented for state=present
+      - purefa_user - Do not allow role changed for breakglass user (pureuser)
+      - purefa_user - Do not change role for existing user unless requested
+      minor_changes:
+      - purefa_maintenance - New module to set maintenance windows
+      - purefa_pg - Add support to rename protection groups
+      - purefa_syslog - Add support for naming SYSLOG servers for Purity//FA 6.1 or
+        higher
+    fragments:
+    - 152_fix_user.yaml
+    - 153_syslog_update.yaml
+    - 156_snap_suffix_fix.yaml
+    - 160_rename_pg.yaml
+    - 161_offline_offload_fix.yaml
+    - 162_pgsnap_info_fix.yaml
+    - 163_add_maintenance_windows.yaml
+    modules:
+    - description: Configure Pure Storage FlashArray Maintence Windows
+      name: purefa_maintenance
+      namespace: ''
+    release_date: '2021-03-30'
+  1.8.0:
+    changes:
+      bugfixes:
+      - purefa_dsrole - If using None for group or group_base incorrect change state
+        applied
+      - purefa_network - Allow gateway paremeter to be set as None - needed for non-routing
+        iSCSI ports
+      - purefa_pg - Check to ensure protection group name meets naming convention
+      - purefa_pgsnap - Fail with warning if trying to restore to a stretched ActiveCluster
+        pod
+      - purefa_volume - Ensure REST version is high enough to support promotion_status
+      minor_changes:
+      - purefa_certs - New module for managing SSL certificates
+      - purefa_volume - New parameter pgroup to specify an existing protection group
+        to put crwated volume(s) in.
+    fragments:
+    - 168_dsrole_fix.yaml
+    - 169_add_certs.yaml
+    - 170_pgsnap_stretch_pod_fail.yaml
+    - 174_null_gateway.yaml
+    - 175_check_pgname.yaml
+    - 176_fix_promote_api_issue.yaml
+    - 182_allow_pgroup_with_create.yaml
+    modules:
+    - description: Manage FlashArray SSL Certificates
+      name: purefa_certs
+      namespace: ''
+    release_date: '2021-04-21'
+  1.9.0:
+    changes:
+      bugfixes:
+      - purefa_host - Rollback host creation if initiators already used by another
+        host
+      - purefa_policy - Fix incorrect protocol endpoint invocation
+      - purefa_ra - fix disable feature for remote assist, this didn't work due to
+        error in check logic
+      - purefa_vg - Correct issue when setting or changing Volume Group QoS
+      - purefa_volume - Fix incorrect API version check for ActiveDR support
+      minor_changes:
+      - purefa_ad - Increase number of kerberos and directory servers to be 3 for
+        each.
+      - purefa_ad - New module to manage Active Directory accounts
+      - purefa_dirsnap - New modules to manage FA-Files directory snapshots
+      - purefa_eradication - New module to set deleted items eradication timer
+      - purefa_info - Add data-at-rest and eradication timer information to default
+        dict
+      - purefa_info - Add high-level count for directory quotas and details for all
+        FA-Files policies
+      - purefa_info - Add volume Page 83 NAA information for volume details
+      - purefa_network - Add support for enable/diable FC ports
+      - purefa_policy - Add support for FA-files Directory Quotas and associated rules
+        and members
+      - purefa_sso - Add support for setting FlashArray Single Sign-On from Pure1
+        Manage
+      - purefa_volume - Add volume Page 83 NAA information to response dict
+    fragments:
+    - 187_add_ad.yaml
+    - 188_add_dirsnap.yaml
+    - 193_duplicate_initiators.yaml
+    - 194_vg_qos.yaml
+    - 196_fix_activedr_api_version.yaml
+    - 199_add_fc_port_enable.yaml
+    - 200_add_DAR_info.yaml
+    - 201_increase_krb_count.yaml
+    - 202_add_sso.yaml
+    - 203_add_eradication_timer.yaml
+    - 205_policy_protocl.yaml
+    - 206_add_naa_info.yaml
+    - 207_fix_disable_for_remote_assist.yaml
+    - 208_add_directory_quota_support.yaml
+    modules:
+    - description: Manage FlashArray Active Directory Account
+      name: purefa_ad
+      namespace: ''
+    - description: Manage FlashArray File System Directory Snapshots
+      name: purefa_dirsnap
+      namespace: ''
+    - description: Configure Pure Storage FlashArray Eradication Timer
+      name: purefa_eradication
+      namespace: ''
+    - description: Configure Pure Storage FlashArray Single Sign-On
+      name: purefa_sso
+      namespace: ''
+    release_date: '2021-07-10'

@@ -1,0 +1,2 @@
+bugfixes:
+  - na_ontap_user - fixed issue with idempotency while creating a user account in REST.

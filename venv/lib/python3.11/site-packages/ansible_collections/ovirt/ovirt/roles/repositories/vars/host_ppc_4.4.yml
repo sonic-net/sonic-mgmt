@@ -1,0 +1,7 @@
+---
+ovirt_repositories_subscription_manager_repos:
+  - rhel-8-for-ppc64le-baseos-rpms
+  - rhel-8-for-ppc64le-appstream-rpms
+  - rhv-4-mgmt-agent-for-rhel-8-ppc64le-rpms
+  - advanced-virt-for-rhel-8-ppc64le-rpms
+  - fast-datapath-for-rhel-8-ppc64le-rpms

@@ -1,0 +1,27 @@
+---
+# Define a profiles for cluster
+profiles:
+  development:
+    description: Development cluster
+    ballooning: true
+    ksm: true
+    host_reason: false
+    vm_reason: false
+    memory_policy: server
+    migration_policy: post_copy
+
+  production:
+    description: Production cluster
+    ballooning: false
+    ksm: false
+    host_reason: true
+    vm_reason: true
+    memory_policy: disabled
+    migration_policy: suspend_workload
+    scheduling_policy: evenly_distributed
+    ha_reservation: true
+    fence_enabled: true
+    fence_skip_if_connectivity_broken: true
+    fence_skip_if_sd_active: true
+
+  _: false

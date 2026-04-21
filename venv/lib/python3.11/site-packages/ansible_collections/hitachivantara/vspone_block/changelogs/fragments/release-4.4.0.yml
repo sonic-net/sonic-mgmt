@@ -1,0 +1,35 @@
+---
+release_summary: |
+  This release introduces new snapshot management modules for VSP E series and VSP One B2X storages,
+  along with significant enhancements to SDS Block modules for VPS operations, compute node management,
+  cluster operations, and volume management. The release focuses on expanding multi-cloud support and
+  improving operational flexibility across AWS, GCP, Azure, and Bare Metal environments.
+minor_changes:
+  - Added a new "hv_vsp_one_snapshot" module to create, modify and delete snapshots on VSP E series and VSP One B2X storages.
+  - Added a new "hv_vsp_one_snapshot_facts" module to retrieve snapshot information from VSP E series and VSP One B2X storages.
+  - Added a new "hv_vsp_one_snapshot_group" module to manage snapshot group operations on VSP E series and VSP One B2X storages.
+  - Added a new "hv_vsp_one_snapshot_group_facts" module to retrieve snapshot group information from VSP E series and VSP One B2X storages.
+  - Added support to "Create a compute node in a VPS by VPS name" to hv_sds_block_compute_node module.
+  - Added support to "Create a compute node in a VPS by VPS ID" to hv_sds_block_compute_node module.
+  - Added support to "Delete compute node by name in a VPS by VPS ID" to hv_sds_block_compute_node module.
+  - Added support to "Delete compute node by name in a VPS by VPS name" to hv_sds_block_compute_node module.
+  - Added support to "Get compute nodes for a VPS by VPS name" to hv_sds_block_compute_node_facts module.
+  - Added support to "Get compute nodes for a VPS by VPS ID" to hv_sds_block_compute_node_facts module.
+  - Added support to "Create the cluster configuration file for replace_storage_node export file type for AWS" to hv_sds_block_cluster module.
+  - Added support to "Create the cluster configuration file for replace_storage_node export file type for GCP" to hv_sds_block_cluster module.
+  - Added support to "Replace storage node in the cluster by storage node ID on AWS" to hv_sds_block_cluster module.
+  - Added support to "Replace storage node in the cluster by storage node ID on Azure" to hv_sds_block_cluster module.
+  - Added support to "Replace storage node in the cluster by storage node ID on GCP" to hv_sds_block_cluster module.
+  - Added support to "Replace storage node in the cluster by storage node ID on Bare Metal" to hv_sds_block_cluster module.
+  - Added support to "Import system requirements file for performing replace storage node on Bare metal" to hv_sds_block_cluster module.
+  - Added support to "Get Snapshots using master volume name in a VPS" to hv_sds_block_snapshot_facts module.
+  - Added support to "Create a volume in a VPS by VPS name" to hv_sds_block_volume module.
+  - Added support to "Create a volume in a VPS by VPS ID" to hv_sds_block_volume module.
+  - Added support to "Delete volume by name in a VPS by VPS name" to hv_sds_block_volume module.
+  - Added support to "Delete volume by name in a VPS by VPS ID" to hv_sds_block_volume module.
+  - Added support to "Get volumes for a VPS by VPS name" to hv_sds_block_volume_facts module.
+  - Added support to "Get volumes for a VPS by VPS ID" to hv_sds_block_volume_facts module.
+  - Added support to "Create a VPS" to hv_sds_block_vps module.
+  - Added support to "Update settings of a VPS" to hv_sds_block_vps module.
+  - Added support to "Delete a VPS by name" to hv_sds_block_vps module.
+  - Added support to "Delete a VPS by ID" to hv_sds_block_vps module.

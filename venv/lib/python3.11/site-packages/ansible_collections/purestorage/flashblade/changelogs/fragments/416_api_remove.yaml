@@ -1,0 +1,5 @@
+minor_changes:
+ - purefb_admin - Remove references to unsupported API versions
+ - purefb_connect - Remove references to unsupported API versions
+ - purefb_policy - Remove references to unsupported API versions
+ - purefb_s3acc - Remove references to unsupported API versions

@@ -1,0 +1,39 @@
+units:
+  - dn: "ou=activeD,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: activeD
+  - dn: "ou=engineers,ou=activeD,{{ ldap_root }}"
+    class:
+      - organizationalUnit
+    attr:
+      ou: engineers
+users:
+  - dn: cn=Jane,ou=engineers,ou=activeD,{{ ldap_root }}
+    class:
+      - inetOrgPerson
+    attr:
+      cn: Jane
+      sn: Smith
+      displayName: Jane Smith
+      mail: jane.smith@ansible.org
+      employeeType: admins
+  - dn: cn=Jim,ou=engineers,ou=activeD,{{ ldap_root }}
+    class:
+      - inetOrgPerson
+    attr:
+      cn: Jim
+      sn: Adams
+      displayName: Jim Adams
+      mail: jim.adams@ansible.org
+      employeeType: admins
+  - dn: cn=Jordan,ou=engineers,ou=activeD,{{ ldap_root }}
+    class:
+      - inetOrgPerson
+    attr:
+      cn: Jordan
+      sn: Bulls
+      displayName: Jordan Bulls
+      mail: jordanbulls@ansible.org
+      employeeType: developers

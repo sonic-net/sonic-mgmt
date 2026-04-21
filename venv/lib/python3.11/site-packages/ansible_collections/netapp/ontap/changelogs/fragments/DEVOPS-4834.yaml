@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_vserver_peer - ignore job entry doesn't exist error with REST to bypass ONTAP issue with FSx.
+  - na_ontap_vserver_peer - report error if SVM peer does not see a peering relationship after create.

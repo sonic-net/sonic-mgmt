@@ -1,0 +1,9 @@
+---
+# defaults file for powerflex_sdr
+file_glob_name: sdr # noqa: var-naming[no-role-prefix]
+file_gpg_name: RPM-GPG-KEY-ScaleIO # noqa: var-naming[no-role-prefix]
+powerflex_common_file_install_location: "/var/tmp" # noqa: var-naming[no-role-prefix]
+powerflex_sdr_repl_journal_capacity_max_ratio: 10
+powerflex_role_environment: # noqa: var-naming[no-role-prefix]
+  MDM_IP: "{{ powerflex_sdr_mdm_primary_ip }}"
+powerflex_sdr_state: present

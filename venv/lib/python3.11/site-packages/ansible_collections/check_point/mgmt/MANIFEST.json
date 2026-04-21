@@ -1,0 +1,34 @@
+{
+ "collection_info": {
+  "namespace": "check_point",
+  "name": "mgmt",
+  "version": "6.7.0",
+  "authors": [
+   "Shiran Golzar <shirango@checkpoint.com>",
+   "Eden Brillant <edenbr@checkpoint.com>",
+   "Dor Berenstein <dorbe@checkpoint.com>"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "security"
+  ],
+  "description": "Check Point collection for the Management Server",
+  "license": [
+   "Apache-2.0"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/CheckPointSW/CheckPointAnsibleMgmtCollection",
+  "documentation": "https://docs.ansible.com/ansible/latest/collections/check_point/mgmt/index.html",
+  "homepage": "https://github.com/CheckPointSW/CheckPointAnsibleMgmtCollection",
+  "issues": "https://github.com/CheckPointSW/CheckPointAnsibleMgmtCollection/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "1bbbb2371ccba8301b15ef6eec05776880cd7d017b67048fa3aa45d3bbc0d144",
+  "format": 1
+ },
+ "format": 1
+}

@@ -1,0 +1,18 @@
+vrrp_script chk_gateway {           # Requires keepalived-1.1.13
+        script "killall -0 scaleio-gateway-wd.bash"     # cheaper than pidof
+        interval 2                      # check every 2 seconds
+        weight 2                        # add 2 points of prio if OK
+}
+
+vrrp_instance gateway_vi_1 {
+        interface {{ powerflex_gateway_virtual_interface }}
+        state MASTER
+        virtual_router_id 51
+        priority {{ keepalived_priority }}    # 101 on master, 100 on backup
+        virtual_ipaddress {
+ 	    {{ powerflex_gateway_virtual_ip }}
+        }
+        track_script {
+            chk_gateway
+        }
+}

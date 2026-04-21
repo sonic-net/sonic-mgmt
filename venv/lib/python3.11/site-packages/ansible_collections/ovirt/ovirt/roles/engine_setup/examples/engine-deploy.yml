@@ -1,0 +1,16 @@
+---
+- name: Setup ovirt repositories and deploy oVirt Engine
+  hosts: engine
+  vars_files:
+    - passwords.yml
+  vars:
+    ovirt_engine_setup_product_type: "ovirt"
+    ovirt_engine_setup_version: "4.5"
+    ovirt_engine_setup_organization: "example.com"
+    ovirt_engine_setup_dwh_db_host: "localhost"
+    ovirt_engine_setup_configure_iso_domain: true
+    ovirt_engine_setup_firewall_manager:
+    ovirt_repositories_ovirt_release_rpm: "http://plain.resources.ovirt.org/pub/yum-repo/ovirt-release44.rpm"
+  roles:
+    - role: ovirt.ovirt.repositories
+    - role: ovirt.ovirt.engine_setup

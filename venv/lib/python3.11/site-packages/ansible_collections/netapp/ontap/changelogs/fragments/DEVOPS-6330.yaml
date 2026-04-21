@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_lun - new option `qtree_name` added in REST.

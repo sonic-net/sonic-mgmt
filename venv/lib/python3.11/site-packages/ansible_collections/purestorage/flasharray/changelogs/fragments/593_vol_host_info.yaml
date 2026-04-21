@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_info - Fix regression of code that caused volume host connectivity info to be lost

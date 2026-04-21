@@ -1,0 +1,100 @@
+ancestor: null
+releases:
+  1.0.0:
+    modules:
+      - description: Trigger a qradar configuration deployment
+        name: ibm.qradar.deploy
+        namespace: ""
+      - description: Manage Log Sources in QRadar
+        name: ibm.qradar.log_source_management
+        namespace: ""
+      - description: Take action on a QRadar Offense
+        name: ibm.qradar.offense_action
+        namespace: ""
+      - description:
+          Obtain information about one or many QRadar Offenses, with filter
+          options
+        name: ibm.qradar.offense_info
+        namespace: ""
+      - description: Create or update a QRadar Offense Note
+        name: ibm.qradar.offense_note
+        namespace: ""
+      - description: Manage state of QRadar Rules, with filter options
+        name: ibm.qradar.rule
+        namespace: ""
+      - description:
+          Obtain information about one or many QRadar Rules, with filter
+          options
+        name: ibm.qradar.rule_info
+        namespace: ""
+    release_date: "2020-06-22"
+  1.0.1:
+    changes:
+      release_summary: Removed tech preview from collection Readme file.
+    release_date: "2020-06-23"
+  1.0.2:
+    changes:
+      release_summary: Releasing 1.0.2 with updated changelog.
+    release_date: "2020-08-27"
+  1.0.3:
+    changes:
+      release_summary: Re-releasing 1.0.2 with updated galaxy file.
+  2.0.0:
+    changes:
+      major_changes:
+        - Minimum required ansible.netcommon version is 2.5.1.
+        - Updated base plugin references to ansible.netcommon.
+    fragments:
+      - netcommon_ref_update.yaml
+      - update_tests_unit_black_requirements.yaml
+    release_date: "2022-04-29"
+  2.1.0:
+    changes:
+      minor_changes:
+        - Add Qradar Analytics rules resource module.
+        - Add Qradar Log Sources Management resource module.
+    fragments:
+      - add_qradar_analytics_rules_module.yaml
+      - add_qradar_log_sources_management_module.yaml
+      - doc_update_for_deprecation.yaml
+      - doc_update_with_correct_version.yaml
+      - fix_doc_for_sanity_failures.yaml
+      - undo_changelog_override.yaml
+    modules:
+      - description: Qradar Analytics Rules Management resource module
+        name: qradar_analytics_rules
+        namespace: ""
+      - description: Qradar Log Sources Management resource module
+        name: qradar_log_sources_management
+        namespace: ""
+    release_date: "2022-09-07"
+  3.0.0:
+    changes:
+      bugfixes:
+        - A bunch of ansible-lint and ansible-test sanity issues have been fixed.
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.14.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        this collection requires is `2.14.0`. The last known version compatible with
+        ansible-core<2.14 is `v2.1.0`.
+    fragments:
+      - codecov_pr.yml
+      - prep_300.yaml
+      - updates.yaml
+    release_date: "2023-12-01"
+  4.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.15.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        "With this release, the minimum required version of `ansible-core`
+        for this collection is `2.15.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.15` is v3.0.0.
+
+        "
+    fragments:
+      - bump215.yml
+    release_date: "2024-06-11"

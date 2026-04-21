@@ -1,0 +1,4 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_block` adds new modules, enhances existing features, and includes various bug fixes."
+bugfixes:
+  - Resolved an issue where adding a path to an external path group for FC and retrieving external path group facts would fail.

@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_sessions - Correctly report sessions with no start or end time

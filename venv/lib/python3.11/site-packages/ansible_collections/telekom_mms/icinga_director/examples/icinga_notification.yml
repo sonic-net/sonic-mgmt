@@ -1,0 +1,58 @@
+---
+- name: Create notification
+  telekom_mms.icinga_director.icinga_notification:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    apply_to: host
+    assign_filter: 'host.name="foohost"'
+    imports:
+      - foonotificationtemplate
+    notification_interval: 0
+    object_name: E-Mail_host
+    states:
+      - Up
+      - Down
+    types:
+      - Problem
+      - Recovery
+    users:
+      - rb
+    user_groups:
+      - OnCall
+    disabled: false
+    time_period: "24/7"
+    times_begin: 20
+    times_end: 120
+- name: Create another notification
+  telekom_mms.icinga_director.icinga_notification:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    apply_to: host
+    assign_filter: 'host.name="foohost"'
+    imports:
+      - foonotificationtemplate
+    notification_interval: 0
+    object_name: E-Mail_host
+    states:
+      - Up
+      - Down
+    types:
+      - Problem
+      - Recovery
+    users:
+      - rb
+    time_period: "24/7"
+- name: Update notification
+  telekom_mms.icinga_director.icinga_notification:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: E-Mail_host
+    vars:
+      foo: bar
+    append: true

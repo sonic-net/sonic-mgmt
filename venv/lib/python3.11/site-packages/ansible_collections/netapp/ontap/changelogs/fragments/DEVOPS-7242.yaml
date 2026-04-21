@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_volume - updated documentation for `snapshot_auto_delete`.

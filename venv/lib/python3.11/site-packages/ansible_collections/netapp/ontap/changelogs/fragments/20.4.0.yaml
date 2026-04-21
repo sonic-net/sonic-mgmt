@@ -1,0 +1,31 @@
+---
+minor_changes:
+  - na_ontap_aggregate - ``disk_count`` option allows adding additional disk to aggregate.
+  - na_ontap_info - ``max_records`` option specifies maximum number of records returned in a single ZAPI call.
+  - na_ontap_info - ``summary`` option specifies a boolean flag to control return all or none of the info attributes.
+  - na_ontap_info - new fact - iscsi_service_info.
+  - na_ontap_info - new fact - license_info.
+  - na_ontap_info - new fact - metrocluster_info.
+  - na_ontap_info - new fact - metrocluster_check_info.
+  - na_ontap_info - new fact - metrocluster_node_info.
+  - na_ontap_info - new fact - net_interface_service_policy_info.
+  - na_ontap_info - new fact - ontap_system_version.
+  - na_ontap_info - new fact - ontapi_version (and deprecate ontap_version, both fields are reported for now).
+  - na_ontap_info - new fact - qtree_info.
+  - na_ontap_info - new fact - quota_report_info.
+  - na_ontap_info - new fact - snapmirror_destination_info.
+  - na_ontap_interface - ``service_policy`` option to identify a single service or a list of services that will use a LIF.
+  - na_ontap_kerberos_realm - ``ad_server_ip`` option specifies IP Address of the Active Directory Domain Controller (DC).
+  - na_ontap_kerberos_realm - ``ad_server_name`` option specifies Host name of the Active Directory Domain Controller (DC).
+  - na_ontap_snapmirror_policy - REST is included and all defaults are removed from options.
+  - na_ontap_snapmirror - ``relationship-info-only`` option allows to manage relationship information.
+  - na_ontap_software_update - ``download_only`` options allows to download cluster image without software update.
+  - na_ontap_volume - ``snapshot_auto_delete`` option allows to manage auto delete settings of a specified volume.
+
+bugfixes:
+  - na_ontap_cifs_server - delete AD account if username and password are provided when state=absent
+  - na_ontap_info - return all records of each gathered subset.
+  - na_ontap_info - cifs_server_info - fix KeyError exception on ``domain`` if only ``domain-workgroup`` is present.
+  - na_ontap_iscsi_security - Fixed modify functionality for CHAP and typo correction
+  - na_ontap_kerberos_realm - fix ``kdc_vendor`` case sensitivity issue.
+  - na_ontap_snapmirror - calling quiesce before snapmirror break.

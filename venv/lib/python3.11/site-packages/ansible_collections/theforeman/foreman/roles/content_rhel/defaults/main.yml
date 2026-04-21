@@ -1,0 +1,6 @@
+---
+foreman_content_rhel_enable_rhel7: true
+foreman_content_rhel_enable_rhel8: true
+foreman_content_rhel_sync_now: true
+foreman_content_rhel_wait_for_syncs: true
+foreman_content_rhel_rhel8_releasever: 8

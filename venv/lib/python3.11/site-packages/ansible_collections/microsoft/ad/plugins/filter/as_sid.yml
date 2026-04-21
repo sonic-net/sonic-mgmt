@@ -1,0 +1,42 @@
+# Copyright (c) 2023 Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  name: as_sid
+  author:
+    - Jordan Borean (@jborean93)
+  short_description: Converts an LDAP value to a Security Identifier string
+  version_added: 1.1.0
+  seealso:
+    - ref: microsoft.ad.as_datetime <ansible_collections.microsoft.ad.as_datetime_filter>
+      description: microsoft.ad.as_datetime filter
+    - ref: microsoft.ad.as_guid <ansible_collections.microsoft.ad.as_guid_filter>
+      description: microsoft.ad.as_guid filter
+    - ref: microsoft.ad.ldap <ansible_collections.microsoft.ad.ldap_inventory>
+      description: microsoft.ad.ldap inventory
+  description:
+    - Converts an LDAP string or raw value to a security identifier string.
+    - Should be used with the C(microsoft.ad.ldap) plugin to convert
+      attribute values to a security identifier string.
+  positional: _input
+  options:
+    _input:
+      description:
+        - The LDAP attribute bytes or string value representing a Security
+          Identifier stored in LDAP.
+        - If using a string as input, it must be a base64 string representing
+          the SIDs bytes.
+      type: raw
+      required: true
+
+EXAMPLES: |
+  # This is an example used in the microsoft.ad.ldap plugin
+
+  attributes:
+    objectSid: raw | microsoft.ad.as_sid
+
+RETURN:
+  _value:
+    description:
+      - The security identifier string value(s).
+    type: string

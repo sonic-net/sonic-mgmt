@@ -1,0 +1,2 @@
+minor_changes:
+  - na_sg_grid_gateway - supports specifying HA Groups by name or UUID.

@@ -1,0 +1,194 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      bugfixes:
+      - Refactor RabbitMQ user module to first check the version of the daemon and
+        then, when possible add flags to `rabbitmqctl` so that a machine readable  output
+        is returned. Also, depending on the version, parse the output in correctly.
+        Expands tests accordingly. (https://github.com/ansible/ansible/issues/48890)
+      - rabbitmq lookup plugin - Fix for rabbitmq lookups failing when using pika
+        v1.0.0 and newer.
+      - rabbitmq_publish - Fix to ensure the module works correctly for pika v1.0.0
+        and later. (https://github.com/ansible/ansible/pull/61960)
+      minor_changes:
+      - rabbitmq_publish - Support for connecting with SSL certificates.
+    fragments:
+    - 55919-rabbitmq_publish-fix-for-recent-pika-versions.yml
+    - 66876-parse_post_rabbitmq_3.7_output_as_json.yaml
+    - lookup_rabbitmq-is_closing-bug.yml
+    - rabbitmq_publish-certificate-checks.yml
+    release_date: '2020-08-18'
+  1.1.0:
+    changes:
+      bugfixes:
+      - rabbitmq_policy - The ``_policy_check`` piece of the policy module (``policy_data``)
+        is typically list based on a split of the variable ``policy``. However ``policy``
+        in some cases does not contain data. The fix allows ``tags`` to attempt to
+        load as json first but in the case of failure, assign ``tags`` without using
+        the json loader (https://github.com/ansible-collections/community.rabbitmq/pull/28).
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after release 1.0.3.'
+    fragments:
+    - 1.1.0.yml
+    - 86-fix-tags-json-in-rmq-policy.yml
+    modules:
+    - description: Enables feature flag
+      name: rabbitmq_feature_flag
+      namespace: ''
+    - description: Execute rabbitmq-upgrade commands
+      name: rabbitmq_upgrade
+      namespace: ''
+    - description: Manage RabbitMQ user limits
+      name: rabbitmq_user_limits
+      namespace: ''
+    release_date: '2021-07-29'
+  1.2.0:
+    changes:
+      bugfixes:
+      - Collection core functions - use vendored version of ``distutils.version``
+        instead of the deprecated Python standard library ``distutils``.
+      minor_changes:
+      - rabbitmq_user - add support for `topic authorization <https://www.rabbitmq.com/access-control.html#topic-authorisation>`_
+        (featured in RabbitMQ 3.7.0) (https://github.com/ansible-collections/community.rabbitmq/pull/73).
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the 1.1.0 release.'
+    fragments:
+    - 0-copy_ignore_txt.yml
+    - 1.2.0.yml
+    - 115-use_vendored_looseversion.yml
+    - 73-topic-authorization.yml
+    release_date: '2022-05-12'
+  1.2.1:
+    changes:
+      bugfixes:
+      - Include ``PSF-license.txt`` file for ``plugins/module_utils/_version.py``.
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the 1.2.0 release.'
+    fragments:
+    - 1.2.1.yml
+    - psf-license.yml
+    release_date: '2022-05-16'
+  1.2.2:
+    changes:
+      bugfixes:
+      - user module - set supports_check_mode flag to False, as the module does not
+        actually support check mode.
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the 1.2.1 release.'
+    fragments:
+    - 1.2.2.yml
+    - 107-user_disable_check_support.yml
+    release_date: '2022-07-13'
+  1.2.3:
+    changes:
+      bugfixes:
+      - Various CI fixes (https://github.com/ansible-collections/community.rabbitmq/pull/139
+        & https://github.com/ansible-collections/community.rabbitmq/pull/141).
+      - rabbitmq_queue - fixing an issue where a special character in the queue name
+        would result in an API error (https://github.com/ansible-collections/community.rabbitmq/issues/114).
+      minor_changes:
+      - rabbitmq_exchange - adding ability to specify exchange types that are enabled
+        via plugins. I(x-random), I(x-consistent-hash) and I(x-recent-history) (https://github.com/ansible-collections/community.rabbitmq/pull/142).
+      - rabbitmq_publish - fixing issue with publishing to exchanges and adding exchange
+        documentation examples. Publishing to an exchange or queue is now mutually
+        exclusive (https://github.com/ansible-collections/community.rabbitmq/pull/140).
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the 1.2.2 release.'
+    fragments:
+    - 1.2.3.yml
+    - 114-queue-name-escape.yml
+    - 139_ci_add_stable_214.yml
+    - 140-fixing-publishing-to-exchanges.yaml
+    - 142-new-plugin-exchanges.yml
+    release_date: '2022-11-04'
+  1.3.0:
+    changes:
+      minor_changes:
+      - rabbitmq_user - add support to user manipulation through RabbitMQ API (https://github.com/ansible-collections/community.rabbitmq/issues/76)
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the 1.2.3 release.'
+    fragments:
+    - 1.3.0.yml
+    - 120-api-managed-users.yaml
+    release_date: '2024-03-31'
+  1.4.0:
+    changes:
+      bugfixes:
+      - rabbitmq_publish - fix support for publishing headers as a part of a message
+        (https://github.com/ansible-collections/community.rabbitmq/pull/182)
+      minor_changes:
+      - rabbitmq_policy - adjust the `apply_to` parameter to also accept the new options
+        `classic_queues`, `quorum_queues` and `streams` which are supported since
+        rabbitmq 3.12
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.4.0.yml
+    - 177-adjust-apply_to-parameter-to-support-additional-types.yml
+    - 182-support-headers-publish.yml
+    release_date: '2024-12-17'
+  1.5.0:
+    changes:
+      bugfixes:
+      - rabbitmq_binding - fix idempotency when arguments and/or routing_key are given
+        (https://github.com/ansible-collections/community.rabbitmq/pull/191)
+      minor_changes:
+      - rabbitmq_vhost - add support to vhost manipulation through RabbitMQ API (https://github.com/ansible-collections/community.rabbitmq/issues/171)
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.5.0.yml
+    - 191-fix-rabbitmq-binding-idempotency-with-arguments-and-or-routing-key.yml
+    - 193-api-managed-vhosts.yaml
+    release_date: '2025-05-26'
+  1.6.0:
+    changes:
+      bugfixes:
+      - rabbitmq_user - URL encode the `vhost` and `user` fields to allow for input
+        with '/' characters. (https://github.com/ansible-collections/community.rabbitmq/issues/205)
+      - rabbitmq_vhost - Fail module if the requests library is missing. This maintains
+        the same behavior across all the modules.
+      - setup_rabbitmq - incorrect SSL library was selected for install on Ubuntu
+        Noble. Fix now installs the correct version on newer Ubuntu versions. (https://github.com/ansible-collections/community.rabbitmq/issues/199)
+      minor_changes:
+      - rabbitmq_policy - add support to policy manipulation through RabbitMQ API
+        (https://github.com/ansible-collections/community.rabbitmq/issues/203)
+      - rabbitmq_vhost - make rabbitmqctl optional when configuring vhosts using the
+        RabbitMQ API (https://github.com/ansible-collections/community.rabbitmq/issues/201)
+      release_summary: 'This is the minor release of the ``community.rabbitmq`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 200-fix-integraton-tests-for-ubuntu-noble.yaml
+    - 202-rabbitmq-vhost-make-rabbitmqctl-optional.yaml
+    - 204-api-managed-policies.yaml
+    - 206-fix-rabbitmq-user-and-vhost-url-encoding.yaml
+    - 207-fix-rabbitmq-vhost-do-not-fallback-to-rabbitmqctl.yaml
+    release_date: '2025-07-14'

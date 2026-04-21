@@ -1,0 +1,10 @@
+# Unit test runner
+pytest-ansible
+pytest-xdist
+typing-extensions
+
+# For integration tests
+pexpect
+git+https://github.com/ansible-network/pytest-ansible-network-integration.git
+ipaddress ; python_version < '3.0'
+netaddr==0.10.1

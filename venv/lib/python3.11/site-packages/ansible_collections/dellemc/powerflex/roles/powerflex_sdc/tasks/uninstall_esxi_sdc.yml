@@ -1,0 +1,30 @@
+---
+- name: Get the name of SDC driver installed
+  register: powerflex_sdc_installed_driver_list
+  ansible.builtin.shell: >
+    set -o pipefail && esxcli software vib list | grep sdc
+  changed_when: powerflex_sdc_installed_driver_list.stdout_lines | length == 0
+  ignore_errors: true
+
+- name: Remove the SDC driver form the esxi host
+  register: powerflex_sdc_remove_driver_output
+  ansible.builtin.shell: >
+    esxcli software vib remove -n {{ powerflex_sdc_installed_driver_list.stdout.split()[0] }}
+  changed_when: "'Reboot Required: true' in powerflex_sdc_remove_driver_output.stdout"
+  when: powerflex_sdc_installed_driver_list.stdout_lines | length != 0
+
+- name: Reboot ESXi host
+  register: powerflex_sdc_remove_driver_reboot_output
+  ansible.builtin.reboot:
+    reboot_timeout: 450
+    msg: "Rebooting the ESXi host."
+  when:
+    - powerflex_sdc_installed_driver_list.stdout_lines | length != 0
+  changed_when: powerflex_sdc_remove_driver_reboot_output.rebooted
+
+- name: List the SDC driver installed
+  ansible.builtin.shell: >
+    set -o pipefail && esxcli software vib list | grep sdc
+  register: powerflex_sdc_drivers_list
+  changed_when: powerflex_sdc_drivers_list.stdout_lines | length != 0
+  failed_when: powerflex_sdc_drivers_list.stdout_lines | length != 0

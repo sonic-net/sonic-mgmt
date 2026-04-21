@@ -1,0 +1,15 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: true
+
+  tasks:
+
+    - name: Update the APT cache on Debian-based systems
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install openssl
+      package:
+        name: "openssl"

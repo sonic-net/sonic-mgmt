@@ -1,0 +1,2 @@
+minor_changes:
+ - multiple - YAML lint fixes based on updated ``ansible-lint`` version

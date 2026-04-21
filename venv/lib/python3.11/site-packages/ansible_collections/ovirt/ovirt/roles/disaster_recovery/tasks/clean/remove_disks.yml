@@ -1,0 +1,12 @@
+---
+- name: Remove disk main block
+  ignore_errors: "{{ dr_ignore_error_clean }}"
+  tags:
+    - fail_back
+    - clean_engine
+  block:
+    - name: "Remove disk '{{ disk.id }}'"
+      ovirt.ovirt.ovirt_disk:
+        state: absent
+        id: "{{ disk.id }}"
+        auth: "{{ ovirt_auth }}"

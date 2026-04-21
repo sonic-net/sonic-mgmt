@@ -1,0 +1,38 @@
+---
+- name: Parse libvirt default network configuration
+  ansible.builtin.command: virsh net-dumpxml default
+  changed_when: false
+  register: default_net_xml
+
+- name: Set network_dict from default_net_xml
+  ansible.builtin.set_fact:
+    network_dict: "{{ default_net_xml['stdout'] | ovirt.ovirt.get_network_xml_to_dict }}"
+
+- name: Create he-network-config.xml from network-config.j2 template
+  ansible.builtin.template:
+    src: templates/network-config.j2
+    dest: /tmp/he-network-config.xml
+    mode: "0644"
+
+- name: Update libvirt default network configuration, destroy
+  ansible.builtin.command: virsh net-destroy default
+  ignore_errors: true
+  changed_when: false
+
+- name: Update libvirt default network configuration, delete the bridge
+  ansible.builtin.command: ip link delete {{ network_dict['bridge']['name'] }}
+  ignore_errors: true
+  changed_when: false
+
+- name: Update libvirt default network configuration, undefine
+  ansible.builtin.command: virsh net-undefine default
+  ignore_errors: true
+  changed_when: false
+
+- name: Update libvirt default network configuration, define
+  ansible.builtin.command: virsh net-define --file /tmp/he-network-config.xml
+  changed_when: false
+
+- name: Activate default libvirt network
+  ansible.builtin.command: virsh net-start default
+  changed_when: false

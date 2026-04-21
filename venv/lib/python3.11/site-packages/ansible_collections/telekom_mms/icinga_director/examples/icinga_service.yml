@@ -1,0 +1,38 @@
+---
+- name: Create service
+  tags: service
+  telekom_mms.icinga_director.icinga_service:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "foo service"
+    display_name: "foo service"
+    check_command: hostalive
+    use_agent: false
+    host: foohost
+    vars:
+      procs_argument: consul
+      procs_critical: '1:'
+      procs_warning: '1:'
+- name: Update service
+  tags: service
+  telekom_mms.icinga_director.icinga_service:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "foo service"
+    display_name: "foo service"
+    host: foohost
+    notes: "example note"
+    notes_url: "'http://url1' 'http://url2'"
+    append: true
+- name: Create serviceset service
+  telekom_mms.icinga_director.icinga_service:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "foo service serviceset"
+    service_set: "foo_serviceset"

@@ -1,0 +1,180 @@
+---
+- name: Openshift import image testing
+  block:
+
+    - set_fact:
+        test_ns: "import-images"
+
+    - name: Ensure namespace
+      community.okd.k8s:
+        kind: Namespace
+        name: '{{ test_ns }}'
+
+    - name: Import image using tag (should import latest tag only)
+      community.okd.openshift_import_image:
+        namespace: "{{ test_ns }}"
+        name: "ansible/awx"
+      check_mode: yes
+      register: import_tag
+
+    - name: Assert only latest was imported
+      assert:
+        that:
+          - import_tag is changed
+          - import_tag.result | length == 1
+          - import_tag.result.0.spec.import
+          - import_tag.result.0.spec.images.0.from.kind == "DockerImage"
+          - import_tag.result.0.spec.images.0.from.name == "ansible/awx"
+
+    - name: check image stream
+      kubernetes.core.k8s_info:
+        kind: ImageStream
+        namespace: "{{ test_ns }}"
+        name: awx
+      register: resource
+
+    - name: assert that image stream is not created when using check_mode=yes
+      assert:
+        that:
+          - resource.resources == []
+
+    - name: Import image using tag (should import latest tag only)
+      community.okd.openshift_import_image:
+        namespace: "{{ test_ns }}"
+        name: "ansible/awx"
+      register: import_tag
+
+    - name: Assert only latest was imported
+      assert:
+        that:
+          - import_tag is changed
+
+    - name: check image stream
+      kubernetes.core.k8s_info:
+        kind: ImageStream
+        namespace: "{{ test_ns }}"
+        name: awx
+      register: resource
+
+    - name: assert that image stream contains only tag latest
+      assert:
+        that:
+          - resource.resources | length == 1
+          - resource.resources.0.status.tags.0.tag == 'latest'
+
+    - name: Import once again the latest tag
+      community.okd.openshift_import_image:
+        namespace: "{{ test_ns }}"
+        name: "ansible/awx"
+      register: import_tag
+
+    - name: assert change was performed
+      assert:
+        that:
+          - import_tag is changed
+
+    - name: check image stream
+      kubernetes.core.k8s_info:
+        kind: ImageStream
+        version: image.openshift.io/v1
+        namespace: "{{ test_ns }}"
+        name: awx
+      register: resource
+
+    - name: assert that image stream still contains unique tag
+      assert:
+        that:
+          - resource.resources | length == 1
+          - resource.resources.0.status.tags.0.tag == 'latest'
+
+    - name: Import another tags
+      community.okd.openshift_import_image:
+        namespace: "{{ test_ns }}"
+        name: "ansible/awx:17.1.0"
+      register: import_another_tag
+      ignore_errors: yes
+
+    - name: assert that another tag was imported
+      assert:
+        that:
+          - import_another_tag is failed
+          - '"the tag 17.1.0 does not exist on the image stream" in import_another_tag.msg'
+
+    - name: Create simple ImageStream (without docker external container)
+      community.okd.k8s:
+        namespace: "{{ test_ns }}"
+        name: "local-is"
+        definition:
+          apiVersion: image.openshift.io/v1
+          kind: ImageStream
+          spec:
+            lookupPolicy:
+              local: false
+            tags: []
+
+    - name: Import all tag for image stream not pointing on external container image should failed
+      community.okd.openshift_import_image:
+        namespace: "{{ test_ns }}"
+        name: "local-is"
+        all: true
+      register: error_tag
+      ignore_errors: true
+      check_mode: yes
+
+    - name: Assert module cannot import from non-existing tag from ImageStream
+      assert:
+        that:
+          - error_tag is failed
+          - error_tag.msg == "image stream "+test_ns+"/local-is does not have tags pointing to external container images"
+
+    - name: import all tags for container image ibmcom/pause and specific tag for redhat/ubi8-micro
+      community.okd.openshift_import_image:
+        namespace: "{{ test_ns }}"
+        name:
+          - "ibmcom/pause"
+          - "redhat/ubi8-micro:8.5-437"
+        all: true
+      register: multiple_import
+
+    - name: Assert that import succeed
+      assert:
+        that:
+          - multiple_import is changed
+          - multiple_import.result | length == 2
+
+    - name: Read ibmcom/pause ImageStream
+      kubernetes.core.k8s_info:
+        version: image.openshift.io/v1
+        kind: ImageStream
+        namespace: "{{ test_ns }}"
+        name: pause
+      register: pause
+
+    - name: assert that ibmcom/pause has multiple tags
+      assert:
+        that:
+          - pause.resources | length == 1
+          - pause.resources.0.status.tags | length > 1
+
+    - name: Read redhat/ubi8-micro ImageStream
+      kubernetes.core.k8s_info:
+        version: image.openshift.io/v1
+        kind: ImageStream
+        namespace: "{{ test_ns }}"
+        name: ubi8-micro
+      register: resource
+
+    - name: assert that redhat/ubi8-micro has only one tag
+      assert:
+        that:
+          - resource.resources | length == 1
+          - resource.resources.0.status.tags | length == 1
+          - 'resource.resources.0.status.tags.0.tag == "8.5-437"'
+
+  always:
+    - name: Delete testing namespace
+      community.okd.k8s:
+        state: absent
+        kind: Namespace
+        name: "{{ test_ns }}"
+      ignore_errors: yes

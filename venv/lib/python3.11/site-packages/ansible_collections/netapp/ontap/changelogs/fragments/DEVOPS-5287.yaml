@@ -1,0 +1,6 @@
+---
+bugfixes:
+  - na_ontap_service_processor_network - allow manually configuring network if all of ``ip_address``, ``netmask``, ''gateway_ip_address`` set
+    and ``dhcp`` not present in REST.
+  - na_ontap_service_processor_network - fix setting ``dhcp`` v4 takes more than ``wait_for_completion`` retries.
+  - na_ontap_service_processor_network - fix ``wait_for_completion`` ignored when trying to enable service processor network interface in ZAPI.

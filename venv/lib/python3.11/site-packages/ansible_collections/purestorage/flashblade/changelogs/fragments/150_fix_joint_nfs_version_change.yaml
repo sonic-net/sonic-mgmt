@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_fs - Fix bug where changing the state of both NFS v3 and v4.1 at the same time ignored one of these.

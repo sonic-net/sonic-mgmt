@@ -1,0 +1,171 @@
+---
+### proxysql install
+proxysql_download_src: https://github.com/sysown/proxysql/releases/download
+proxysql_version: 2.3.2
+proxysql_mysql_client_version: 5.7
+proxysql_mysql_use_custom_build: false
+proxysql_force_restart: false
+
+proxysql_user: proxysql
+proxysql_group: proxysql
+proxysql_datadir: /var/lib/proxysql
+proxysql_pidfile: "{{ proxysql_datadir }}/proxysql.pid"
+
+proxysql_restart_missing_heartbeats: 10
+
+### admin variables
+proxysql_admin_user: admin
+proxysql_admin_password: admin
+proxysql_admin_stats_user: stats
+proxysql_admin_stats_password: stats
+proxysql_admin_bind_address: 0.0.0.0
+proxysql_admin_port: 6032
+proxysql_admin_socket: /tmp/proxysql_admin.sock
+proxysql_admin_read_only: false
+proxysql_admin_refresh_interval: 2000
+proxysql_admin_hash_passwords: true
+
+# cluster
+proxysql_admin_cluster_username:
+proxysql_admin_cluster_password:
+proxysql_admin_cluster_check_interval_ms: 1000
+proxysql_admin_cluster_check_status_frequency: 10
+proxysql_admin_cluster_proxysql_servers_diffs_before_sync: 3
+proxysql_admin_cluster_proxysql_servers_save_to_disk: true
+proxysql_admin_checksum_mysql_query_rules: true
+proxysql_admin_cluster_mysql_query_rules_diffs_before_sync: 3
+proxysql_admin_cluster_mysql_query_rules_save_to_disk: true
+proxysql_admin_checksum_mysql_servers: true
+proxysql_admin_cluster_mysql_servers_diffs_before_sync: 3
+proxysql_admin_cluster_mysql_servers_save_to_disk: true
+proxysql_admin_checksum_mysql_users: true
+proxysql_admin_cluster_mysql_users_diffs_before_sync: 3
+proxysql_admin_cluster_mysql_users_save_to_disk: true
+
+# historical stats
+proxysql_admin_stats_system_cpu: 60
+proxysql_admin_stats_system_memory: 60
+proxysql_admin_stats_mysql_connection_pool: 60
+proxysql_admin_stats_mysql_connections: 60
+proxysql_admin_stats_mysql_query_cache: 60
+
+
+# web interface and REST API
+proxysql_admin_web_enabled: false
+proxysql_admin_web_port: 6080
+proxysql_admin_restapi_enabled: false
+proxysql_admin_restapi_port: 6070
+
+### mysql variables
+proxysql_mysql_bind_address: 0.0.0.0
+proxysql_mysql_port: 6033
+proxysql_mysql_socket: /tmp/proxysql.sock
+
+# connection pool
+proxysql_mysql_connect_retries_delay: 1
+proxysql_mysql_connect_retries_on_failure: 10
+proxysql_mysql_connect_timeout_server: 3000
+proxysql_mysql_connect_timeout_server_max: 10000
+proxysql_mysql_connection_delay_multiplex_ms: 0
+proxysql_mysql_connection_max_age_ms: 0
+proxysql_mysql_connpoll_reset_queue_length: 50
+proxysql_mysql_default_max_latency_ms: 1000
+proxysql_mysql_free_connections_pct: 10
+proxysql_mysql_max_connections: 2048
+proxysql_mysql_multiplexing: true
+proxysql_mysql_ping_interval_server_msec: 120000
+proxysql_mysql_ping_timeout_server: 500
+proxysql_mysql_poll_timeout: 2000
+proxysql_mysql_poll_timeout_on_failure: 100
+proxysql_mysql_session_idle_ms: 1000
+proxysql_mysql_session_idle_show_processlist: true
+proxysql_mysql_sessions_sort: true
+proxysql_mysql_shun_on_failures: 5
+proxysql_mysql_shun_recovery_time_sec: 10
+proxysql_mysql_stacksize: 1048576
+proxysql_mysql_threads: 4
+proxysql_mysql_threshold_query_length: 524288
+proxysql_mysql_threshold_resultset_size: 4194304
+proxysql_mysql_throttle_connections_per_sec_to_hostgroup: 1000000
+proxysql_mysql_throttle_max_bytes_per_second_to_client: 2147483647
+proxysql_mysql_throttle_ratio_server_to_client: 0
+
+# session
+proxysql_mysql_client_found_rows: true
+proxysql_mysql_default_charset: utf8
+proxysql_mysql_default_query_delay: 0
+proxysql_mysql_default_query_timeout: 36000000
+proxysql_mysql_default_schema: information_schema
+proxysql_mysql_init_connect:
+proxysql_mysql_max_allowed_packet: 4194304
+proxysql_mysql_max_transaction_time: 14400000
+proxysql_mysql_query_retries_on_failure: 1
+proxysql_mysql_server_capabilities: 45578
+proxysql_mysql_server_version: 5.5.30
+proxysql_mysql_mysql_wait_timeout: 28800000
+proxysql_mysql_kill_backend_connection_when_disconnect: true
+
+# ssl
+proxysql_mysql_ssl_p2s_ca:
+proxysql_mysql_ssl_p2s_cert:
+proxysql_mysql_ssl_p2s_cipher:
+proxysql_mysql_ssl_p2s_key:
+
+# query processing
+proxysql_mysql_query_processor_iterations: 0
+proxysql_mysql_query_processor_regex: 1
+
+# autocommit
+proxysql_mysql_autocommit_false_is_transaction: false
+proxysql_mysql_autocommit_false_not_reusable: false
+proxysql_mysql_enforce_autocommit_on_reads: false
+
+# prepared statements
+proxysql_mysql_max_stmts_cache: 10000
+proxysql_mysql_max_stmts_per_connection: 20
+
+# query cache
+proxysql_mysql_query_cache_size_mb: 256
+
+# mirroring
+proxysql_mysql_mirror_max_concurrency: 16
+proxysql_mysql_mirror_max_queue_length: 32000
+
+# monitor
+proxysql_mysql_monitor_username: monitor
+proxysql_mysql_monitor_password: monitor
+
+proxysql_mysql_monitor_connect_interval: 60000
+proxysql_mysql_monitor_connect_timeout: 600
+proxysql_mysql_monitor_enabled: true
+proxysql_mysql_monitor_groupreplication_healthcheck_interval: 5000
+proxysql_mysql_monitor_groupreplication_healthcheck_timeout: 800
+proxysql_mysql_monitor_history: 600000
+proxysql_mysql_monitor_ping_interval: 10000
+proxysql_mysql_monitor_ping_max_failures: 3
+proxysql_mysql_monitor_ping_timeout: 1000
+proxysql_mysql_monitor_query_interval: 60000
+proxysql_mysql_monitor_query_timeout: 100
+proxysql_mysql_monitor_read_only_interval: 1500
+proxysql_mysql_monitor_read_only_max_timeout_count: 3
+proxysql_mysql_monitor_read_only_timeout: 500
+proxysql_mysql_monitor_replication_lag_interval: 10000
+proxysql_mysql_monitor_replication_lag_timeout: 1000
+proxysql_mysql_monitor_replication_lag_use_percona_heartbeat:
+proxysql_mysql_monitor_slave_lag_when_null: 60
+proxysql_mysql_monitor_wait_timeout: true
+proxysql_mysql_monitor_writer_is_also_reader: true
+
+# stats and logging
+proxysql_mysql_commands_stats: true
+proxysql_mysql_eventslog_filename:
+proxysql_mysql_eventslog_filesize: 104857600
+proxysql_mysql_hostgroup_manager_verbose: 1
+proxysql_mysql_long_query_time: 1000
+proxysql_mysql_query_digests: true
+proxysql_mysql_query_digests_lowercase: false
+proxysql_mysql_query_digests_max_digest_length: 2048
+proxysql_mysql_query_digests_max_query_length: 65000
+proxysql_mysql_stats_time_backend_query: false
+proxysql_mysql_stats_time_query_processor: false
+proxysql_mysql_verbose_query_error: false

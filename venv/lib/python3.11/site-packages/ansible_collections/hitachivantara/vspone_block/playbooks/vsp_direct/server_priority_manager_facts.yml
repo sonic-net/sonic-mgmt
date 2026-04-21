@@ -1,0 +1,60 @@
+---
+####################################################################
+# Example :  Server Priority Management Facts Playbook
+####################################################################
+- name: Server Priority Management Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all Server Priority Manager information
+    ####################################################################
+    - name: Get all server priority managers
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##################################################################################################
+    # Task Name : Get Server Priority Manager information by specifying a volume and the WWN of an HBA
+    ##################################################################################################
+    - name: Get Server Priority Manager information by specifying a volume and the WWN of an HBA
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ldev_id: 0
+          host_wwn: "210003e08b0256f9"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################################################
+    # Task Name : Get Server Priority Manager information by specifying a volume and the iSCSI name of an HBA
+    #########################################################################################################
+    - name: Get Server Priority Manager information by specifying a volume and the iSCSI name of an HBA
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ldev_id: 80
+          iscsi_name: "eui.0900ABDC32598D269"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

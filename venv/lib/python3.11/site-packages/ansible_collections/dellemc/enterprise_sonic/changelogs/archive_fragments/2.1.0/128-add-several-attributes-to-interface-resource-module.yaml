@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_interfaces - Added speed, auto-negotiate, advertised-speed and FEC to interface resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/128)

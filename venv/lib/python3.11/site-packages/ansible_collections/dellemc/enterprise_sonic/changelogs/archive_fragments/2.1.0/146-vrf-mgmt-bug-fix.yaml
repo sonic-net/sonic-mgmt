@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_vrfs - Added tasks as a workaround to mgmt VRF bug (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/146)

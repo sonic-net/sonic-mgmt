@@ -1,0 +1,587 @@
+ancestor: null
+releases:
+  0.1.0:
+    changes:
+      release_summary: Initial release of the collection after extracing the modules
+        from `community.general <https://github.com/ansible-collections/community.general/>`_.
+    fragments:
+    - 0.1.0.yml
+    release_date: '2020-07-07'
+  1.0.0:
+    changes:
+      bugfixes:
+      - Sanity test documentation fixes (https://github.com/ansible-collections/community.digitalocean/pull/3).
+      - Update docs examples to use FQCN (https://github.com/ansible-collections/community.digitalocean/issues/14).
+    fragments:
+    - 14-docs-fqcn.yaml
+    - 3-sanity-docs-fixes.yaml
+    release_date: '2020-08-17'
+  1.1.0:
+    changes:
+      bugfixes:
+      - digital_ocean_certificate_info - fix retrieving certificate by ID (https://github.com/ansible-collections/community.digitalocean/issues/35).
+      - digital_ocean_domain - module is now idempotent when called without IP (https://github.com/ansible-collections/community.digitalocean/issues/21).
+      - digital_ocean_load_balancer_info - fix retrieving load balancer by ID (https://github.com/ansible-collections/community.digitalocean/issues/35).
+      minor_changes:
+      - digital_ocean_block_storage - included ability to resize Block Storage Volumes
+        (https://github.com/ansible-collections/community.digitalocean/issues/38).
+    fragments:
+    - 22-digital_ocean_domain-idempotent.yml
+    - 38-resize-volumes.yml
+    - 49-fix-lb-and-cert-info.yaml
+    modules:
+    - description: Manage DigitalOcean domain records
+      name: digital_ocean_domain_record
+      namespace: ''
+    - description: Manage cloud firewalls within DigitalOcean
+      name: digital_ocean_firewall
+      namespace: ''
+    plugins:
+      inventory:
+      - description: DigitalOcean Inventory Plugin
+        name: digitalocean
+        namespace: null
+    release_date: '2021-04-01'
+  1.1.1:
+    changes:
+      bugfixes:
+      - digitalocean - Drop collection version from README.md (https://github.com/ansible-collections/community.digitalocean/issues/63).
+    fragments:
+    - 63-readme-version.yml
+    release_date: '2021-04-18'
+  1.10.0:
+    changes:
+      bugfixes:
+      - digital_ocean_block_storage - fix block volumes detach idempotency (https://github.com/ansible-collections/community.digitalocean/issues/149).
+      - digital_ocean_droplet - ensure "active" state before issuing "power on" action
+        (https://github.com/ansible-collections/community.digitalocean/issues/150)
+      - digital_ocean_droplet - power on should poll/wait, resize should support "active"
+        state (https://github.com/ansible-collections/community.digitalocean/pull/143).
+      - digital_ocean_load_balancer - C(droplet_ids) are not required when C(state=absent)
+        is chosen (https://github.com/ansible-collections/community.digitalocean/pull/147).
+      - digital_ocean_load_balancer - when C(state=absent) is chosen the API returns
+        an empty response (https://github.com/ansible-collections/community.digitalocean/pull/147).
+      minor_changes:
+      - digital_ocean_kubernetes - adding the C(taints), C(auto_scale), C(min_nodes)
+        and C(max_nodes) parameters to the C(node_pools) definition (https://github.com/ansible-collections/community.digitalocean/issues/157).
+    fragments:
+    - 143-droplet-resize-wait-active.yaml
+    - 147-load-balancer-fixes.yaml
+    - 149-block-detach-not-idempotent.yaml
+    - 150-droplet-active-power-on.yaml
+    - 157-doks-auto-scale.yaml
+    modules:
+    - description: Create and delete DigitalOcean CDN Endpoints
+      name: digital_ocean_cdn_endpoints
+      namespace: ''
+    - description: Gather information about DigitalOcean CDN Endpoints
+      name: digital_ocean_cdn_endpoints_info
+      namespace: ''
+    - description: Manage DigitalOcean Load Balancers
+      name: digital_ocean_load_balancer
+      namespace: ''
+    - description: Create and delete DigitalOcean Monitoring alerts
+      name: digital_ocean_monitoring_alerts
+      namespace: ''
+    - description: Gather information about DigitalOcean Monitoring alerts
+      name: digital_ocean_monitoring_alerts_info
+      namespace: ''
+    release_date: '2021-09-11'
+  1.11.0:
+    changes:
+      bugfixes:
+      - Adding missing status badges for black and unit tests (https://github.com/ansible-collections/community.digitalocean/pull/164).
+      - Documentation URLs are fixed for the C(digital_ocean_domain_record) and C(digital_ocean_droplet_info)
+        modules (https://github.com/ansible-collections/community.digitalocean/pull/163).
+      - Serializing the cloud integration tests (https://github.com/ansible-collections/community.digitalocean/pull/165).
+      - digital_ocean_floating_ip - make floating ip return data idempotent (https://github.com/ansible-collections/community.digitalocean/pull/162).
+      - digitalocean inventory - enforce the C(timeout) parameter (https://github.com/ansible-collections/community.digitalocean/issues/168).
+      minor_changes:
+      - digitalocean inventory script - add support for Droplet tag filtering (https://github.com/ansible-collections/community.digitalocean/issues/7).
+    fragments:
+    - 162-floating-ip-data-idempotency.yaml
+    - 163-documentation-broken-links.yaml
+    - 164-add-badges.yaml
+    - 165-serialize-integration-tests.yml
+    - 168-inventory-timeout.yaml
+    - 7-inventory-script-droplet-tags.yaml
+    release_date: '2021-10-23'
+  1.12.0:
+    changes:
+      bugfixes:
+      - Update the tests so that they only run once (https://github.com/ansible-collections/community.digitalocean/issues/186).
+      - 'digital_ocean_droplet - fix resizing with C(state: active) does not actually
+        turn Droplet on (https://github.com/ansible-collections/community.digitalocean/issues/140).'
+      - digital_ocean_kubernetes - fix return value consistency (https://github.com/ansible-collections/community.digitalocean/issues/174).
+      minor_changes:
+      - digital_ocean_block_storage - adding Project support (https://github.com/ansible-collections/community.digitalocean/issues/171).
+      - digital_ocean_database - adding Project support (https://github.com/ansible-collections/community.digitalocean/issues/171).
+      - digital_ocean_domain - adding Project support (https://github.com/ansible-collections/community.digitalocean/issues/171).
+      - digital_ocean_droplet - adding Project support (https://github.com/ansible-collections/community.digitalocean/issues/171).
+      - digital_ocean_droplet - adding ability to apply and remove firewall by using
+        droplet module (https://github.com/ansible-collections/community.digitalocean/issues/159).
+      - digital_ocean_droplet - require unique_name for state=absent to avoid unintentional
+        droplet deletions.
+      - digital_ocean_firewall - inbound_rules and outbound_rules are no longer required
+        for firewall removal (https://github.com/ansible-collections/community.digitalocean/issues/181).
+      - digital_ocean_floating_ip - adding Project support (https://github.com/ansible-collections/community.digitalocean/issues/171).
+      - digital_ocean_floating_ip - adding attach and detach states to floating ip
+        module (https://github.com/ansible-collections/community.digitalocean/issues/170).
+      - digital_ocean_load_balancer - adding Project support (https://github.com/ansible-collections/community.digitalocean/issues/171).
+      - digitalocean integration tests - adding integration tests for CDN Endpoints
+        (https://github.com/ansible-collections/community.digitalocean/issues/179).
+    fragments:
+    - 140-resize-state-active.yaml
+    - 159-add-droplet-firewall.yaml
+    - 170-add-flip-states.yaml
+    - 171-add-project-support.yaml
+    - 174-return-value-fix.yml
+    - 179-cdn-integration-tests.yaml
+    - 181-firewall-destroy-fix.yaml
+    - 186-tests-running-twice.yaml
+    release_date: '2021-11-06'
+  1.13.0:
+    changes:
+      minor_changes:
+      - Set Python 3.9 as the C(python-version) and C(target-python-version) in the
+        integration, sanity, and unit tests for Ansible > 2.9 (3.8 otherwise).
+      - digital_ocean_droplet - allow the user to override the Droplet action and
+        status polling interval (https://github.com/ansible-collections/community.digitalocean/issues/194).
+      - digital_ocean_kubernetes - adding support for HA control plane (https://github.com/ansible-collections/community.digitalocean/issues/190).
+    fragments:
+    - 190-kubernetes-ha.yaml
+    - 194-droplet-sleep-variable.yaml
+    release_date: '2021-12-10'
+  1.14.0:
+    changes:
+      bugfixes:
+      - Update README.md with updated Droplet examples (https://github.com/ansible-collections/community.digitalocean/issues/199).
+      - digital_ocean_cdn_endpoints - defaulting optional string parameters as strings
+        (https://github.com/ansible-collections/community.digitalocean/issues/205).
+      - digital_ocean_cdn_endpoints - updating Spaces endpoint for the integration
+        test (https://github.com/ansible-collections/community.digitalocean/issues/205).
+      - digital_ocean_droplet - ensure that Droplet creation is successful (https://github.com/ansible-collections/community.digitalocean/issues/197).
+      - digital_ocean_droplet - fixing project assignment for the C(unique_name=False)
+        case (https://github.com/ansible-collections/community.digitalocean/issues/201).
+      - digital_ocean_droplet - update Droplet examples (https://github.com/ansible-collections/community.digitalocean/issues/199).
+      minor_changes:
+      - digital_ocean_kubernetes_info - switching C(changed=True) to C(changed=False)
+        since getting information is read-only in nature (https://github.com/ansible-collections/community.digitalocean/issues/204).
+    fragments:
+    - 199-update-droplet-docs-examples.yaml
+    - 201-droplet-unique-name.yaml
+    - 204-kubernetes-tags-and-info.yaml
+    - 205-cdn-endpoints.yaml
+    release_date: '2021-12-20'
+  1.15.0:
+    changes:
+      bugfixes:
+      - digital_ocean_droplet - move Droplet data under "droplet" key in returned
+        payload (https://github.com/ansible-collections/community.digitalocean/issues/211).
+    fragments:
+    - 211-droplet-data-key.yaml
+    modules:
+    - description: Create and remove DigitalOcean Spaces.
+      name: digital_ocean_spaces
+      namespace: ''
+    - description: List DigitalOcean Spaces.
+      name: digital_ocean_spaces_info
+      namespace: ''
+    release_date: '2022-01-19'
+  1.15.1:
+    changes:
+      bugfixes:
+      - digital_ocean_droplet - fix reporting of changed state when ``firewall`` argument
+        is present (https://github.com/ansible-collections/community.digitalocean/pull/219).
+      minor_changes:
+      - Updates DigitalOcean API documentation links to current domain with working
+        URL anchors (https://github.com/ansible-collections/community.digitalocean/issues/223).
+    fragments:
+    - 219-droplet-firewall-changed-reporting.yaml
+    - 223-fix-digitalocean-api-documentation-links.yaml
+    release_date: '2022-02-17'
+  1.16.0:
+    changes:
+      bugfixes:
+      - digital_ocean_kubernetes - add missing elements type to C(node_pools.tags)
+        and C(node_pools.taints) options (https://github.com/ansible-collections/community.digitalocean/issues/232).
+      minor_changes:
+      - black test - added a 15 minute timeout (https://github.com/ansible-collections/community.digitalocean/issues/228).
+      - digital_ocean_domain - add support for IPv6 apex domain records (https://github.com/ansible-collections/community.digitalocean/issues/226).
+      - integration tests - added a 120 minute timeout (https://github.com/ansible-collections/community.digitalocean/issues/228).
+      - sanity and unit tests - added a 30 minute timeout (https://github.com/ansible-collections/community.digitalocean/issues/228).
+    fragments:
+    - 226-ipv6-apex-domain-records.yml
+    - 228-integration-test-timeouts.yml
+    - 232-kubernetes-documentation-elements.yml
+    modules:
+    - description: Gather information about DigitalOcean domain records
+      name: digital_ocean_domain_record_info
+      namespace: ''
+    release_date: '2022-03-19'
+  1.17.0:
+    changes:
+      minor_changes:
+      - digital_ocean - parameterize the DigitalOcean API base url (https://github.com/ansible-collections/community.digitalocean/issues/237).
+    fragments:
+    - 237-parameterize-do-api-baseurl.yaml
+    release_date: '2022-04-28'
+  1.18.0:
+    changes:
+      minor_changes:
+      - ci - adding stable-2.13 to sanity and unit testing (https://github.com/ansible-collections/community.digitalocean/issues/239).
+      - digital_ocean_spaces - set C(no_log=True) for C(aws_access_key_id) parameter
+        (https://github.com/ansible-collections/community.digitalocean/issues/243).
+      - digital_ocean_spaces_info - set C(no_log=True) for C(aws_access_key_id) parameter
+        (https://github.com/ansible-collections/community.digitalocean/issues/243).
+    fragments:
+    - 239-ci-stable-2.13.yaml
+    - 243-no-log-spaces-access-key-id.yaml
+    release_date: '2022-05-03'
+  1.19.0:
+    changes:
+      bugfixes:
+      - digital_ocean_cdn_endpoints - remove non-API parameters before posting to
+        the API (https://github.com/ansible-collections/community.digitalocean/issues/252).
+      - digital_ocean_cdn_endpoints - use the correct module name in the C(EXAMPLES)
+        (https://github.com/ansible-collections/community.digitalocean/issues/251).
+      minor_changes:
+      - digital_ocean - reference C(DO_API_TOKEN) consistently in module documentation
+        and examples (https://github.com/ansible-collections/community.digitalocean/issues/248).
+    fragments:
+    - 248-oauth-token-consistency.yaml
+    - 251-cdn-endpoints-examples-wrong-module.yaml
+    - 252-cdn-endpoints-http-500.yaml
+    release_date: '2022-05-11'
+  1.2.0:
+    changes:
+      bugfixes:
+      - digital_ocean inventory script - fail cleaner on invalid ``HOST`` argument
+        to ``--host`` option (https://github.com/ansible-collections/community.digitalocean/pull/44).
+      - digital_ocean inventory script - implement unimplemented ``use_private_network``
+        option and register missing ``do_ip_address``, ``do_private_ip_address`` host
+        vars (https://github.com/ansible-collections/community.digitalocean/pull/45/files).
+      - digital_ocean inventory script - return JSON consistent with specification
+        with ``--host`` (https://github.com/ansible-collections/community.digitalocean/pull/44).
+      - digital_ocean_domain - return zone records when creating a new zone (https://github.com/ansible-collections/community.digitalocean/issues/46).
+      - digital_ocean_droplet - add missing ``required=True`` on ``do_oauth_token``
+        in ``argument_spec`` (https://github.com/ansible-collections/community.digitalocean/issues/13).
+      - digital_ocean_floating_ip - fixes idempotence (https://github.com/ansible-collections/community.digitalocean/issues/5).
+      minor_changes:
+      - digital_ocean - ``ssh_key_ids`` list entries are now validated to be strings
+        (https://github.com/ansible-collections/community.digitalocean/issues/13).
+      - digital_ocean_droplet - ``ssh_keys``, ``tags``, and ``volumes`` list entries
+        are now validated to be strings (https://github.com/ansible-collections/community.digitalocean/issues/13).
+      - digital_ocean_droplet - adding ``active`` and ``inactive`` states (https://github.com/ansible-collections/community.digitalocean/issues/23).
+      - digital_ocean_droplet - adds Droplet resize functionality (https://github.com/ansible-collections/community.digitalocean/issues/4).
+    fragments:
+    - 13-fix-sanity-tests.yaml
+    - 23-add-active-inactive-droplet.yaml
+    - 4-droplet-resize.yaml
+    - 44-fixes-inv-script-host-option.yaml
+    - 45-fix-use_private_network.yaml
+    - 46-fix-domain-create-return-records.yaml
+    - 5-fix-floating-ip-idempotence.yaml
+    modules:
+    - description: Display DigitalOcean customer balance
+      name: digital_ocean_balance_info
+      namespace: ''
+    release_date: '2021-05-02'
+  1.20.0:
+    changes:
+      bugfixes:
+      - digital_ocean_droplet - fix regression in droplet deletion where ``name``
+        and ``unique_name`` (set to true) are required and ``id`` alone is insufficient
+        (though ``id`` is sufficient to uniquely identify a droplet for deletion).
+        (https://github.com/ansible-collections/community.digitalocean/issues/260)
+      - digital_ocean_droplet - fix regression where droplet info (for example networking)
+        doesn't update when waiting during creation unless ``unique_name`` is set
+        to true (https://github.com/ansible-collections/community.digitalocean/issues/220).
+      minor_changes:
+      - digital_ocean_cdn_endpoints - update Spaces endpoint and add a few delays
+        to the integration test (https://github.com/ansible-collections/community.digitalocean/issues/267).
+      - digital_ocean_load_balancer - Allow creating a load balancer and associating
+        droplets by tag as an alternative to ``droplet_ids``.
+    fragments:
+    - 258-load-balancer-with-tag.yml
+    - 261-fix_deleting_by_id_only.yaml
+    - 265-get_updated_droplet_info_on_create_wait_by_id.yaml
+    - 267-update-cdn-endpoints.yaml
+    release_date: '2022-06-10'
+  1.21.0:
+    changes:
+      bugfixes:
+      - digital_ocean_droplet - if the JSON response lacks a key and the associated
+        variable is set to ``None``, then don't treat that variable like a ``dict``
+        and call ``get()`` on it without first testing it (https://github.com/ansible-collections/community.digitalocean/issues/272).
+      minor_changes:
+      - digital_ocean - add sanity test ignores for Ansible 2.12 and 2.13 (https://github.com/ansible-collections/community.digitalocean/issues/247).
+    fragments:
+    - 247-sanity-checks-2.12-13.yaml
+    - 273-Dont_call_get_on_None.yaml
+    release_date: '2022-06-29'
+  1.22.0:
+    changes:
+      minor_changes:
+      - collection - added an action group C(community.digitalocean.all) for use with
+        module defaults (https://docs.ansible.com/ansible/latest/user_guide/playbooks_module_defaults.html)
+        (https://github.com/ansible-collections/community.digitalocean/issues/281).
+      - digital_ocean_vpc - add C(vpc) key to returned VPC data on create (https://github.com/ansible-collections/community.digitalocean/issues/276).
+      - integration tests - perform integration testing on all modules for changes
+        in C(plugins/module_utils) or by changed module in C(plugins/modules) (https://github.com/ansible-collections/community.digitalocean/issues/286).
+      - integration tests - split the integration tests by module and run them serially
+        (https://github.com/ansible-collections/community.digitalocean/issues/280).
+    fragments:
+    - 276-vpc-inconsistent-data-return.yml
+    - 281-default-all-action-group.yml
+    - 286-refactor-pr-integration-testing.yaml
+    release_date: '2022-10-03'
+  1.23.0:
+    changes:
+      bugfixes:
+      - integration tests - add missing `environment` directive on pull request integration
+        testing (https://github.com/ansible-collections/community.digitalocean/issues/293).
+      - inventory plugin - bugfix for baseurl parameter (https://github.com/ansible-collections/community.digitalocean/pull/297).
+      minor_changes:
+      - digital_ocean_load_balancer - add support for C(size_unit) over deprecated
+        C(size); deprecate C(algorithm) completely (https://github.com/ansible-collections/community.digitalocean/issues/270).
+      - documentation - refresh the "Testing and Development" section of the C(README.md)
+        (https://github.com/ansible-collections/community.digitalocean/issues/268).
+      - integration tests - add a dedicated integration test for C(digital_ocean_database_info)
+        (https://github.com/ansible-collections/community.digitalocean/issues/289).
+      - integration tests - set pull request integration tests to run against branch
+        instead of last commit (https://github.com/ansible-collections/community.digitalocean/issues/291).
+    fragments:
+    - 268-update-dev-test-setup.yaml
+    - 270-load-balancer-size-unit.yaml
+    - 289-database-info-integration-test.yml
+    - 291-pr-integration-tests-branch.yaml
+    - 293-integration-test-pr-environment.yaml
+    release_date: '2022-12-29'
+  1.24.0:
+    changes:
+      bugfixes:
+      - digital_ocean_domain - fix ``all_domains`` by using ``get_paginated_data``
+        to retrieve all of the domains in the account from the paginated domains api
+        endpoint (https://github.com/ansible-collections/community.digitalocean/pull/307).
+      minor_changes:
+      - documentation - use C(true) and C(false) for boolean values in documentation
+        and examples (https://github.com/ansible-collections/community.digitalocean/issues/303).
+      - inventory plugin - drop C(api_token) in favor of C(oauth_token) for consistency
+        (https://github.com/ansible-collections/community.digitalocean/issues/300).
+      - tests - add C(sanity), C(units), and C(psf/black) back on merge into C(main)
+        (https://github.com/ansible-collections/community.digitalocean/pull/311).
+      - tests - drop Ansible 2.9 and Ansible Core 2.10 and 2.11 (https://github.com/ansible-collections/community.digitalocean/pull/310).
+      - tests - remove the daily runs (https://github.com/ansible-collections/community.digitalocean/pull/310).
+      - tests - run C(psf/black) across all files (https://github.com/ansible-collections/community.digitalocean/pull/310).
+      - tests - test against Ansible Core 2.12, 2.13, and 2.14 (https://github.com/ansible-collections/community.digitalocean/pull/310).
+    fragments:
+    - 300-inventory-plugin-oauth-token.yaml
+    - 303-documentation-bool-true-false.yaml
+    - 307-get-all-domains-pagination-fix.yaml
+    - 310-update-tests.yaml
+    - 311-update-tests.yaml
+    - 312-double-integration-test-timeout.yaml
+    release_date: '2023-08-12'
+  1.25.0:
+    changes:
+      bugfixes:
+      - inventory plugin - restore reading auth token from env variables (https://github.com/ansible-collections/community.digitalocean/pull/315).
+      minor_changes:
+      - fix sanity tests (https://github.com/ansible-collections/community.digitalocean/issues/323).
+    fragments:
+    - 314-add-cname-example-to-domain_record-module.yaml
+    - 316-inventory-plugin-restore-reading-auth-token-from-env-variables.yaml
+    - 323-project-resource-info-module.yaml
+    modules:
+    - description: Gather information about DigitalOcean Project Resources
+      name: digital_ocean_project_resource_info
+      namespace: ''
+    release_date: '2023-12-11'
+  1.26.0:
+    changes:
+      bugfixes:
+      - The C(project_name) parameter for many modules was used by alias C(project)
+        internally in the codebase, but to work properly C(project_name) must be used
+        in the code. Replace self.module.params.get("project") with self.module.params.get("project_name")
+        (https://github.com/ansible-collections/community.digitalocean/issues/326).
+      - digital_ocean_kubernetes - module didn't return kubeconfig properly, return
+        documentation was invalid. Fixed version returns data with the same structure
+        all the time, also it is aligned with M(community.digitalocean.digital_ocean_kubernetes_info)
+        documentation return data now. (https://github.com/ansible-collections/community.digitalocean/issues/322).
+      minor_changes:
+      - digital_ocean_kubernetes - add project_name parameter (https://github.com/ansible-collections/community.digitalocean/issues/264).
+    fragments:
+    - 264-kubernetes-project.yaml
+    - 322-k8s-module-kubeconfig.yaml
+    - 326-project-name-param.yaml
+    - 334-droplet-ci-images.yml
+    - 337-refactor-integration-tests.yml
+    - 338-refactor-integration-tests.yml
+    - 339-refactor-integration-tests.yml
+    - 340-fix-refactor-integration-tests.yml
+    release_date: '2024-01-01'
+  1.27.0:
+    changes: {}
+    fragments:
+    - 0-readme.yml
+    - 342-collection-requirements.yml
+    - 347-ansible-test-python-requires.yml
+    - 351-ansible-core-versions.yml
+    release_date: '2024-08-20'
+  1.3.0:
+    modules:
+    - description: Create and delete a DigitalOcean database
+      name: digital_ocean_database
+      namespace: ''
+    - description: Gather information about DigitalOcean databases
+      name: digital_ocean_database_info
+      namespace: ''
+    - description: Create and delete a DigitalOcean Kubernetes cluster
+      name: digital_ocean_kubernetes
+      namespace: ''
+    - description: Returns information about an existing DigitalOcean Kubernetes cluster
+      name: digital_ocean_kubernetes_info
+      namespace: ''
+    release_date: '2021-05-07'
+  1.4.0:
+    changes:
+      bugfixes:
+      - digital_ocean_droplet_info - Fix documentation link for `digital_ocean_droplet_info`
+        (https://github.com/ansible-collections/community.digitalocean/pull/81).
+      - digitalocean - Fix return docs for digital_ocean_sshkey_info (https://github.com/ansible-collections/community.digitalocean/issues/56).
+      - digitalocean - Update README.md for K8s and databases (https://github.com/ansible-collections/community.digitalocean/pull/80).
+    fragments:
+    - 80-update-readme-k8s-dbs.yaml
+    - 81-fix-document-link-digital-ocean-droplet-info.yml
+    - 82-fix-sshkey-info.yaml
+    modules:
+    - description: Gather information about DigitalOcean Droplets
+      name: digital_ocean_droplet_info
+      namespace: ''
+    release_date: '2021-05-14'
+  1.4.1:
+    changes:
+      bugfixes:
+      - digital_ocean_droplet - Add integration tests for Droplet active and inactive
+        states (https://github.com/ansible-collections/community.digitalocean/issues/66).
+      - digital_ocean_droplet - Fix Droplet inactive state (https://github.com/ansible-collections/community.digitalocean/issues/83).
+    fragments:
+    - 83-droplet-inactive.yaml
+    release_date: '2021-05-15'
+  1.4.2:
+    changes:
+      bugfixes:
+      - digital_ocean_droplet - Fixed Droplet inactive state (https://github.com/ansible-collections/community.digitalocean/pull/88).
+      - digital_ocean_sshkey - Fixed SSH Key Traceback Issue (https://github.com/ansible-collections/community.digitalocean/issues/68).
+    fragments:
+    - 68-fix-sshkey-traceback.yaml
+    - 88-droplet-integration-tests.yaml
+    release_date: '2021-05-21'
+  1.5.0:
+    changes:
+      bugfixes:
+      - digital_ocean_database - Fixed DB attribute settings (https://github.com/ansible-collections/community.digitalocean/issues/94).
+      - digital_ocean_database_info - Cleanup unused attribs (https://github.com/ansible-collections/community.digitalocean/pulls/100).
+      - digital_ocean_snapshot_info - Fix lookup of snapshot_info by_id (https://github.com/ansible-collections/community.digitalocean/issues/92).
+      - digital_ocean_tag - Fix tag idempotency (https://github.com/ansible-collections/community.digitalocean/issues/61).
+      minor_changes:
+      - digitalocean - Filter droplets in dynamic inventory plugin using arbitrary.
+        jinja2 expressions (https://github.com/ansible-collections/community.digitalocean/pull/96).
+      - digitalocean - Support templates in API tokens when using the dynamic inventory
+        plugin (https://github.com/ansible-collections/community.digitalocean/pull/98).
+    fragments:
+    - 100-fix-database-info.yaml
+    - 61-fix-tag-idempotency.yaml
+    - 92-snapshot-info-fix-get-by-id.yaml
+    - 94-fix-db-attribs.yaml
+    - 96-filter-droplets-through-jinja.yml
+    - 98-api-token-command.yml
+    release_date: '2021-05-26'
+  1.5.1:
+    changes:
+      bugfixes:
+      - digitalocean inventory plugin - Wire up advertised caching functionality (https://github.com/ansible-collections/community.digitalocean/pull/97).
+    fragments:
+    - 97-wire-up-inventory-cache.yml
+    release_date: '2021-06-04'
+  1.6.0:
+    changes:
+      bugfixes:
+      - digital_ocean_certificate_info - ensure return type is a list (https://github.com/ansible-collections/community.digitalocean/issues/55).
+      - digital_ocean_domain_info - ensure return type is a list (https://github.com/ansible-collections/community.digitalocean/issues/55).
+      - digital_ocean_firewall_info - ensure return type is a list (https://github.com/ansible-collections/community.digitalocean/issues/55).
+      - digital_ocean_load_balancer_info - ensure return type is a list (https://github.com/ansible-collections/community.digitalocean/issues/55).
+      - digital_ocean_tag_info - ensure return type is a list (https://github.com/ansible-collections/community.digitalocean/issues/55).
+      - digitalocean inventory plugin - attributes available to filters are limited
+        to explicitly required attributes and are prefixed with ``var_prefix`` (https://github.com/ansible-collections/community.digitalocean/pull/102).
+    fragments:
+    - 102-filters-prefixed-vars.yml
+    - 55-fix-info-module-return-type.yaml
+    modules:
+    - description: Manage a DigitalOcean project
+      name: digital_ocean_project
+      namespace: ''
+    - description: Gather information about DigitalOcean Projects
+      name: digital_ocean_project_info
+      namespace: ''
+    release_date: '2021-06-10'
+  1.7.0:
+    changes:
+      bugfixes:
+      - digital_ocean_certificate - fixing integration test (https://github.com/ansible-collections/community.digitalocean/issues/114).
+      - digital_ocean_droplet - state `present` with `wait` was not waiting (https://github.com/ansible-collections/community.digitalocean/issues/116).
+      - digital_ocean_firewall - fixing integration test (https://github.com/ansible-collections/community.digitalocean/issues/114).
+      - digital_ocean_tag - fixing integration test (https://github.com/ansible-collections/community.digitalocean/issues/114).
+      - digitalocean - update README.md with project_info and project module (https://github.com/ansible-collections/community.digitalocean/pull/112).
+      minor_changes:
+      - digital_ocean_kubernetes - set "latest" as the default version for new clusters
+        (https://github.com/ansible-collections/community.digitalocean/issues/114).
+    fragments:
+    - 112-update-readme.yaml
+    - 114-fix-integration-tests.yaml
+    - 116-droplet-present-wait.yaml
+    modules:
+    - description: Create and delete DigitalOcean snapshots
+      name: digital_ocean_snapshot
+      namespace: ''
+    - description: Create and delete DigitalOcean VPCs
+      name: digital_ocean_vpc
+      namespace: ''
+    - description: Gather information about DigitalOcean VPCs
+      name: digital_ocean_vpc_info
+      namespace: ''
+    release_date: '2021-06-21'
+  1.8.0:
+    changes:
+      bugfixes:
+      - digital_ocean - integration tests need community.general and jmespath (https://github.com/ansible-collections/community.digitalocean/issues/121).
+      - digital_ocean_firewall - fixed idempotence (https://github.com/ansible-collections/community.digitalocean/issues/122).
+      minor_changes:
+      - digital_ocean_database - add support for MongoDB (https://github.com/ansible-collections/community.digitalocean/issues/124).
+    fragments:
+    - 121-integration-tests.yaml
+    - 122-firewall-idempotence.yaml
+    - 124-add-mongodb.yaml
+    release_date: '2021-07-05'
+  1.9.0:
+    changes:
+      bugfixes:
+      - digital_ocean_database - increase the database creation integration test timeout
+        (https://github.com/ansible-collections/community.digitalocean).
+      - digital_ocean_floating_ip - delete all Floating IPs initially during the integration
+        test run (https://github.com/ansible-collections/community.digitalocean/issues/129).
+      - digitalocean inventory - respect the TRANSFORM_INVALID_GROUP_CHARS configuration
+        setting (https://github.com/ansible-collections/community.digitalocean/pull/138).
+      - info modules - adding missing check mode support (https://github.com/ansible-collections/community.digitalocean/issues/139).
+      minor_changes:
+      - digital_ocean - running and enforcing psf/black in the codebase (https://github.com/ansible-collections/community.digitalocean/issues/136).
+      - digital_ocean_floating_ip_info - new integration test for the `digital_ocean_floating_ip_info`
+        module (https://github.com/ansible-collections/community.digitalocean/issues/130).
+    fragments:
+    - 131-floating-ip-tests.yaml
+    - 134-database-tests.yaml
+    - 134-psf-black.yaml
+    - 138-group-name-transformations.yaml
+    - 139-info-modules-check-mode.yaml
+    release_date: '2021-08-17'

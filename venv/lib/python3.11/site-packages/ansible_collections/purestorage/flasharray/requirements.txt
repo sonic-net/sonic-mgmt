@@ -1,0 +1,8 @@
+distro
+py-pure-client >= 1.75.0
+python >= 3.6
+netaddr >= 1.2.0
+requests
+pycountry
+pytz
+urllib3

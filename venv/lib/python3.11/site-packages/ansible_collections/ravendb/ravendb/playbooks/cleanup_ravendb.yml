@@ -1,0 +1,26 @@
+###################################################################
+# playbooks/cleanup_ravendb.yml
+#
+# Purpose: Completely uninstall RavenDB from on target Linux hosts
+#
+# What it does:
+#   - Announces the cleanup action
+#   - Gathers systemd service facts
+#   - Stops and disables the ravendb systemd service
+#   - Removes the ravendb.service unit file
+#   - Purges the RavenDB .deb package
+#   - Deletes RavenDB binaries, data, config, and temp artifacts
+#   - Removes the 'ravendb' user and group
+#   - Cleans up Python client prerequisites used by the collection
+#
+# Notes:
+#   - Idempotent: all removals are conditional/safe to re-run
+####################################################################
+
+- name: Cleanup RavenDB from target hosts
+  hosts: ravendb_nodes
+  remote_user: root
+  roles:
+    - role: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: absent

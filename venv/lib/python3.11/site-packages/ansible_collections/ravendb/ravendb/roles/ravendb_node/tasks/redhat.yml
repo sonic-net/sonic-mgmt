@@ -1,0 +1,15 @@
+- name: Install prerequisites [RedHat]
+  ansible.builtin.yum:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - bzip2
+    - jq
+    - libicu
+    - unzip
+    - openssl
+    - ca-certificates
+  when: molecule is not defined
+
+- import_tasks: download_tarball.yml
+  tags: download

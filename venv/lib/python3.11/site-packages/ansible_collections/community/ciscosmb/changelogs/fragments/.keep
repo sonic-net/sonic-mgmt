@@ -1,0 +1,19 @@
+# fragment.yml
+release_summary: |
+    Release Date: 2019-10-31
+    `Porting Guide <https://docs.ansible.com/ansible/devel/porting_guides.html>`
+
+major_changes:
+- docker_container - the ``trust_image_content`` option will be removed.
+
+minor_changes:
+- docker_container - the ``trust_image_content`` option will be removed.
+
+security_fixes:
+bugfixes:
+
+breaking_changes:
+removed_features:
+deprecated_features:
+known_issues:
+trivial:

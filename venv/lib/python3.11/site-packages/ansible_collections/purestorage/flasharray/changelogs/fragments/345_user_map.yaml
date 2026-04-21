@@ -1,0 +1,2 @@
+bugfixes:
+  - purefa_info - Fixed error in policies subsection due to API issue

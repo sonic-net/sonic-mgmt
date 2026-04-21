@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_policy - Ensure undeclared variables are set correctly

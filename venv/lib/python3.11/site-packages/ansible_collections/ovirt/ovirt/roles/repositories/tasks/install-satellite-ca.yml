@@ -1,0 +1,36 @@
+---
+- name: Check if FIPS is enabled
+  ansible.builtin.command: cat /proc/sys/crypto/fips_enabled
+  changed_when: false
+  register: fips_check_command
+
+- name: Set FIPS enabled variable
+  ansible.builtin.set_fact:
+    ovirt_repositories_fips_enabled: "{{ fips_check_command.stdout == '1' }}"
+
+- name: Install Satellite certificates wihtout FIPS
+  ansible.builtin.dnf:
+    name: "{{ ovirt_repositories_ca_rpm_url }}"
+    state: present
+    validate_certs: "{{ ovirt_repositories_ca_rpm_validate_certs | default(omit) }}"
+    disable_gpg_check: "{{ ovirt_repositories_ca_rpm_disable_gpg_check | default(omit) }}"
+  when: not ovirt_repositories_fips_enabled
+
+- name: Install Satellite certificates with FIPS block
+  when: ovirt_repositories_fips_enabled
+  block:
+    - name: Download Satellite certificate rpm
+      ansible.builtin.get_url:
+        url: "{{ ovirt_repositories_ca_rpm_url }}"
+        dest: /tmp/sat_ca.rpm
+        mode: "0644"
+        validate_certs: "{{ ovirt_repositories_ca_rpm_validate_certs | default(omit) }}"
+
+    - name: Install Satellite certificates with FIPS
+      ansible.builtin.command: "rpm -U --nodigest --nofiledigest --force /tmp/sat_ca.rpm"  # noqa command-instead-of-module
+      changed_when: true
+
+    - name: Remove downloaded rpm
+      ansible.builtin.file:
+        path: /tmp/sat_ca.rpm
+        state: absent

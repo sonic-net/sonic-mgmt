@@ -1,0 +1,224 @@
+ancestor: null
+releases:
+  1.1.0:
+    changes:
+      bugfixes:
+      - Disk has been fixed to send the sourceSnapshot parameter.
+      - gcp_cloudtasks_queue - was not functional before, and is now functional.
+      - gcp_compute_* - these resources use the correct selflink (www.googleapis.com)
+        as the domain, no longer erroneously reporting changes after an execution.
+      - gcp_compute_backend_service - no longer erroneously reports changes after
+        an execution for ``capacity_scaler``.
+      - gcp_container_cluster - support GKE clusters greater than 1.19+, which cannot
+        use basic-auth.
+      - gcp_crypto_key - skip_initial_version_creation defaults to the correct value.
+      - gcp_iam_role - now properly undeletes and recognizes soft deleted roles as
+        absent.
+      - gcp_iam_role - update of a role is functional (GitHub
+      - gcp_spanner_database - recognize a non-existent resource as absent.
+      - gcp_storage_object - fix for correct version of dependency requirement.
+      minor_changes:
+      - GCE inventory plugin - a new option ``name_suffix``, to add a suffix to the
+        name parameter.
+    fragments:
+    - 0001_disk.yml
+    - bugfixes.yaml
+    release_date: '2022-12-16'
+  1.1.1:
+    changes:
+      bugfixes:
+      - fix collection to work with Python 2.7
+    fragments:
+    - fix-2.7.yml
+    release_date: '2022-12-16'
+  1.1.2:
+    changes:
+      bugfixes:
+      - fix `gcp_compute` no longer being a valid name of the inventory plugin
+    fragments:
+    - fix-inventory-plugin.yml
+    release_date: '2022-12-21'
+  1.1.3:
+    changes:
+      bugfixes:
+      - 'gcp_compute_instance_info: fix incorrect documentation for filter which incorrectly
+        pointed to the gcloud filter logic rather than the API (fixes #549)'
+    fragments:
+    - gce-changelog.yaml
+    release_date: '2023-03-04'
+  1.10.0:
+    changes:
+      bugfixes:
+      - gcp_secret_manager - return the secret value as type `str` rather than `bytes`
+        (https://github.com/ansible-collections/google.cloud/pull/721)
+      minor_changes:
+      - gcp_alloydb_* - added gcp_alloydb_cluster, gcp_alloydb_instance, gcp_alloydb_backup,
+        and gcp_alloydb_user modules (https://github.com/ansible-collections/google.cloud/pull/722)
+    fragments:
+    - 721-fix-secret-manager-lookup-return.yml
+    - 722-add-alloydb-modules.yml
+    release_date: '2025-10-31'
+  1.10.1:
+    changes:
+      bugfixes:
+      - Fix runtime.yml to correctly note Ansible 2.17 minimum version (https://github.com/ansible-collections/google.cloud/pull/730)
+    fragments:
+    - 730-ansible-2-17-required.yml
+    release_date: '2025-11-12'
+  1.10.2:
+    changes:
+      bugfixes:
+      - Revert removal of Ansible 2.16 support (https://github.com/ansible-collections/google.cloud/pull/734)
+    fragments:
+    - 730-ansible-2-16-re-enabled.yml
+    release_date: '2025-11-13'
+  1.2.0:
+    changes:
+      bugfixes:
+      - Use default service account if `service_account_email` is unset.
+      minor_changes:
+      - Add DataPlane V2 Support.
+      - Add auth support for GCP access tokens (#574).
+      - Add support for ip_allocation_policy->stack_type.
+    release_date: '2023-07-07'
+  1.3.0:
+    changes:
+      minor_changes:
+      - anisble-test - integration tests are now run against 2.14.0 and 2.15.0
+      - ansible - 2.14.0 is now the minimum version supported
+      - ansible-lint - fixed over a thousand reported errors
+      - ansible-lint - upgraded to 6.22
+      - ansible-test - add support for GCP application default credentials (https://github.com/ansible-collections/google.cloud/issues/359).
+      - gcp_serviceusage_service - added backoff when checking for operation completion.
+      - gcp_serviceusage_service - use alloyb API for the integration test as spanner
+        conflicts with other tests
+      - gcp_sql_ssl_cert - made sha1_fingerprint optional, which enables resource
+        creation
+      - gcp_storage_default_object_acl - removed non-existent fields; the resource
+        is not usable.
+    fragments:
+    - app-default-creds.yml
+    - gcp_serviceusage_service.yml
+    - gcp_sql_ssl_cert.yml
+    - gcp_storage_default_object_acl.yml
+    - upgrade-versions.yml
+    release_date: '2023-11-22'
+  1.4.0:
+    changes:
+      bugfixes:
+      - ansible-lint - remove jinja templates from test assertions
+      minor_changes:
+      - ansible - 2.16.0 is now the minimum version supported
+      - ansible - 3.10 is now the minimum Python version
+      - ansible-test - integration tests are now run against 2.16.0 and 2.17.0
+      - gcloud role - use dnf instead of yum on RHEL
+      - gcp_secret_manager - add as a module and lookup plugin (https://github.com/ansible-collections/google.cloud/pull/578)
+      - gcp_secret_manager - support more than 10 versions (https://github.com/ansible-collections/google.cloud/pull/634)
+      - restore google_cloud_ops_agents submodule (https://github.com/ansible-collections/google.cloud/pull/594)
+    fragments:
+    - release-1-4-0.yml
+    release_date: '2024-08-21'
+  1.4.1:
+    changes:
+      bugfixes:
+      - gcp_kms_filters - add DOCUMENTATION string
+      - gcp_secret_manager - make an f-string usage backward compatible
+    fragments:
+    - release-1-4-1.yml
+    release_date: '2024-08-22'
+  1.5.0:
+    changes:
+      bugfixes:
+      - ansible - 2.17 is now the minimum version supported
+      - ansible - 3.11 is now the minimum Python version
+      - ansible-test - fixed sanity tests
+      - ansible-test - integration tests are now run against 2.17 and 2.18
+      - gcp_bigquery_table - properly handle BigQuery table clustering fields
+      - gcp_pubsub_subscription - fixed improper subscription uprade PATCH request
+      major_changes:
+      - google_cloud_ops_agents - role submodule removed because it prevents the collection
+        from passing sanity and lint tests
+      minor_changes:
+      - gcp_pubsub_subscription - allows to create GCS subscription
+    fragments:
+    - fix-bigquery-table-create-clustering.yml
+    - gcp_pubsub_subscription_bugfix.yaml
+    - gcp_pubsub_subscription_gcs_feature.yaml
+    - remove-google_cloud_ops_agents-role.yml
+    - upgrade_anisble.yml
+    release_date: '2025-01-14'
+  1.5.1:
+    changes:
+      bugfixes:
+      - run integration test with Ansible 2.16 to match `requires_ansible` version
+    fragments:
+    - 667-include-2-16-in-ci.yml
+    release_date: '2025-01-30'
+  1.5.2:
+    changes:
+      bugfixes:
+      - gcp_compute - fixed get_project_disks to process all responses (https://github.com/ansible-collections/google.cloud/pull/677).
+    fragments:
+    - 677-get-project-disks.yaml
+    release_date: '2025-04-18'
+  1.5.3:
+    changes:
+      bugfixes:
+      - updated README to match required format (https://github.com/ansible-collections/google.cloud/pull/682).
+    fragments:
+    - 682-update-readme.yaml
+    release_date: '2025-04-30'
+  1.6.0:
+    changes:
+      bugfixes:
+      - gcp_secret_manager - cleaned up error responses (https://github.com/ansible-collections/google.cloud/pull/690).
+      - gcp_serviceusage_service - updated documentation (https://github.com/ansible-collections/google.cloud/pull/691).
+      minor_changes:
+      - gcp_compute - added GVNIC support to compute instance (https://github.com/ansible-collections/google.cloud/pull/688).
+      - gcp_compute - added ``discard_local_ssd`` flag to compute instance (https://github.com/ansible-collections/google.cloud/pull/686).
+      - gcp_compute - added hostname support to dynamic inventory (https://github.com/ansible-collections/google.cloud/pull/689).
+      - gcp_secret_manager - added support for regional secret manager (https://github.com/ansible-collections/google.cloud/pull/685).
+    fragments:
+    - 685-support-for-regional-secret-manager.yaml
+    - 686-add-discard_local_ssd-flag-to-compute-instance.yaml
+    - 688-add-gvnic-support.yaml
+    - 689-hostname-support-for-dynamic-inventory.yaml
+    - 690-clear-up-error-responses-from-gcp_secret_manager-lookup.yaml
+    - 691-updated-documentation-for-gcp_serviceusage_service.yaml
+    release_date: '2025-06-20'
+  1.7.0:
+    changes:
+      bugfixes:
+      - gcp_bigquery_table - fixed nested schema definitions (https://github.com/ansible-collections/google.cloud/issues/637).
+      minor_changes:
+      - gcp_parameter_manager - added module support for managing parameters and versions
+        (https://github.com/ansible-collections/google.cloud/pull/684).
+      - gcp_storage_bucket - added support for iam_configuration (https://github.com/ansible-collections/google.cloud/pull/693).
+      - lookup - added lookup via gcp_parameter_manager (https://github.com/ansible-collections/google.cloud/pull/684).
+    fragments:
+    - 684-add-support-for-parameter-manager-module-lookup.yaml
+    - 693-add-gcs-iam-configuration.yaml
+    - 694-fix-nested-bigquery-schema.yaml
+    release_date: '2025-07-29'
+  1.8.0:
+    changes:
+      bugfixes:
+      - gcp_compute_instance - add suppport for attaching disks to compute instances
+        (https://github.com/ansible-collections/google.cloud/pull/711).
+      - gcp_secret_manager - use service_account_contents instead of service_account_info
+        (https://github.com/ansible-collections/google.cloud/pull/703).
+      minor_changes:
+      - iap - enable use of Identity Aware Proxy ssh connections to compute instances
+        (https://github.com/ansible-collections/google.cloud/pull/709).
+    fragments:
+    - 703-fix-improper-names-for-service_account_contents.yml
+    - 709-iap-connection-plugin.yml
+    - 711-attach-disk-to-instance.yml
+    release_date: '2025-09-11'
+  1.9.0:
+    changes:
+      minor_changes:
+      - iap - added scp_if_ssh option (https://github.com/ansible-collections/google.cloud/pull/716).
+    fragments:
+    - 716-iap-scp-if-ssh-option.yml
+    release_date: '2025-10-03'

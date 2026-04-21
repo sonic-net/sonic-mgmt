@@ -1,0 +1,281 @@
+---
+####################################################################
+# Example :  Remote Copy Groups Playbook
+####################################################################
+- name: Remote Copy Groups
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+    secondary_connection_info:
+      address: "{{ secondary_storage_address }}"
+      username: "{{ vault_secondary_storage_username }}"
+      password: "{{ vault_secondary_storage_secret }}"
+
+  tasks:
+    #####################################################################
+    # Task Name : Split Remote Copy Group for HUR
+    ######################################################################
+    - name: Split Remote Copy Group for HUR
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "split"
+        spec:
+          local_device_group_name: "hur_local_device_group_name_1"
+          remote_device_group_name: "hur_remote_device_group_name_1"
+          copy_group_name: "hur_copy_group_name_1"
+          replication_type: "HUR"
+          is_svol_writable: false
+          do_data_suspend: false
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Split Remote Copy Group for TC
+    ######################################################################
+    - name: Split Remote Copy Group for TC
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "split"
+        spec:
+          local_device_group_name: "hur_local_device_group_name_1"
+          remote_device_group_name: "hur_remote_device_group_name_1"
+          copy_group_name: "hur_copy_group_name_1"
+          replication_type: "TC"
+          is_svol_writable: false
+          do_pvol_write_protect: false
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Split Remote Copy Group for GAD
+    ######################################################################
+    - name: Split Remote Copy Group for GAD
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "split"
+        spec:
+          local_device_group_name: "hur_local_device_group_name_1"
+          remote_device_group_name: "hur_remote_device_group_name_1"
+          copy_group_name: "hur_copy_group_name_1"
+          replication_type: "GAD"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Resync Remote Copy Group for HUR
+    ######################################################################
+    - name: Resync Remote Copy Group for HUR
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "resync"
+        spec:
+          local_device_group_name: "tc_device_group_name_1"
+          remote_device_group_name: "tc_remote_device_group_name_1"
+          copy_group_name: "tc_copy_group_name_1"
+          replication_type: "HUR"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Resync Remote Copy Group for TC
+    ######################################################################
+    - name: Resync Remote Copy Group for TC
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "resync"
+        spec:
+          local_device_group_name: "tc_local_device_group_name_1"
+          remote_device_group_name: "tc_remote_device_group_name_1"
+          copy_group_name: "tc_copy_group_name_1"
+          replication_type: "TC"
+          is_consistency_group: false
+          consistency_group_id: 2
+          fence_level: "NEVER"
+          copy_pace: 1
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Resync Remote Copy Group for GAD
+    ######################################################################
+    - name: Resync Remote Copy Group for GAD
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "resync"
+        spec:
+          local_device_group_name: "gad_local_device_group_name_1"
+          remote_device_group_name: "gad_remote_device_group_name_1"
+          copy_group_name: "gad_copy_group_name_1"
+          replication_type: "GAD"
+          is_consistency_group: false
+          consistency_group_id: 1
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################################
+    # Task Name : Swap-Split Remote Copy Group for all replication types [HUR, TC, GAD]
+    # Storages need to be swapped before swap-split operation. Please specify
+    # connection_info and secondary_connection_info accordingly.
+    ###################################################################################
+    - name: Swap-Split Remote Copy Group for all replication types [HUR, TC, GAD]
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_split"
+        spec:
+          local_device_group_name: "hur_local_device_group_name_1"
+          remote_device_group_name: "hur_remote_device_group_name_1"
+          copy_group_name: "hur_copy_group_name_1"
+          replication_type: "HUR"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Swap-Resync Remote Copy Group for HUR
+    # Similar connection info details as per swap-split
+    ######################################################################
+    - name: Swap-Resync Remote Copy Group for HUR
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_resync"
+        spec:
+          local_device_group_name: "hur_local_device_group_name_1"
+          remote_device_group_name: "hur_remote_device_group_name_1"
+          copy_group_name: "hur_copy_group_name_1"
+          replication_type: "HUR"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Swap-Resync Remote Copy Group for TC
+    # Similar connection info details as per swap-split
+    ######################################################################
+    - name: Swap-Resync Remote Copy Group for TC
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_resync"
+        spec:
+          local_device_group_name: "tc_local_device_group_name_1"
+          remote_device_group_name: "tc_remote_device_group_name_1"
+          copy_group_name: "tc_copy_group_name_1"
+          replication_type: "TC"
+          is_consistency_group: false
+          consistency_group_id: 2
+          copy_pace: 1
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Swap-Resync Remote Copy Group for GAD
+    # Similar connection info details as per swap-split
+    ######################################################################
+    - name: Swap-Resync Remote Copy Group for GAD
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_resync"
+        spec:
+          local_device_group_name: "gad_local_device_group_name_1"
+          remote_device_group_name: "gad_group_remote_device_group_name_1"
+          copy_group_name: "gad_copy_group_name_1"
+          replication_type: "GAD"
+          is_consistency_group: false
+          consistency_group_id: 1
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Delete Remote Copy Group
+    ######################################################################
+    - name: Delete Remote Copy Group
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "absent"
+        spec:
+          local_device_group_name: "rcg_local_device_group_name_1"
+          remote_device_group_name: "rcg_remote_device_group_name_1"
+          copy_group_name: "rcg_copy_group_name_1"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################################
+    # Task Name : Secondary volume takeover Remote Copy Group for HUR replication type
+    # Please specify secondary storage connection details in connection_info and
+    # remote_device_group_name in local_device_group_name:
+    ###################################################################################
+    - name: Takeover Remote Copy Group for HUR replication type
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        state: "takeover"
+        spec:
+          remote_device_group_name: "hur_remote_device_group_name_1" # required for takeover. Provide remote_device_group_name
+          copy_group_name: "hur_copy_group_name_1"
+          replication_type: "HUR"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

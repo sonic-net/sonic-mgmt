@@ -1,0 +1,95 @@
+---
+- name: Converge idrac_gather_facts for PCIeSSDBackPlane
+  hosts: all
+  connection: local
+  gather_facts: true
+  vars:
+    hostname: "{{ lookup('env', 'IDRAC_IP') }}"
+    username: "{{ lookup('env', 'IDRAC_USER') }}"
+    password: "{{ lookup('env', 'IDRAC_PASSWORD') }}"
+    idrac_port: "{{ lookup('env', 'IDRAC_PORT') }}"
+    validate_certs: false
+    target:
+      - PCIeSSDBackPlane
+    idrac_gather_facts_uri_method: "GET"
+    idrac_gather_facts_uri_headers:
+      Accept: "application/json"
+      Content-Type: "application/json"
+      OData-Version: "4.0"
+    idrac_gather_facts_uri_body_format: "json"
+    idrac_gather_facts_uri_status_code:
+      - 200
+      - 400
+      - 401
+      - 404
+      - -1
+    idrac_gather_facts_uri_return_content: true
+
+  tasks:
+
+    - name: Find the chassis API
+      ansible.builtin.include_tasks:
+        ../../tests/asserts/_check_chassis_url.yml
+
+    - name: Set 17G url
+      ansible.builtin.set_fact:
+        url1_1: "https://{{ hostname }}{{ api_chassis }}"
+        url1_2: "/Oem/Dell/DellPCIeSSDBackPlanes"
+      when:
+        - not is_omsdk_required | bool
+
+    - name: Set <17G url
+      ansible.builtin.set_fact:
+        url1_1: "https://{{ hostname }}/redfish/v1/Chassis"
+        url1_2: "/Oem/Dell/DellPCIeSSDBackPlanes"
+      when:
+        - is_omsdk_required | bool
+
+    - name: Set < 17G url
+      ansible.builtin.set_fact:
+        url1: "{{ url1_1 }}{{ url1_2 }}"
+
+    - name: Collecting PCIeSSDBackPlane information from API
+      ansible.builtin.uri:
+        url: "{{ url1 }}"
+        validate_certs: "{{ validate_certs }}"
+        ca_path: "{{ ca_path | default(omit) }}"
+        method: "{{ idrac_gather_facts_uri_method }}"
+        user: "{{ username }}"
+        password: "{{ password }}"
+        headers: "{{ idrac_gather_facts_uri_headers }}"
+        body_format: "{{ idrac_gather_facts_uri_body_format }}"
+        status_code: "{{ idrac_gather_facts_uri_status_code }}"
+        return_content: "{{ idrac_gather_facts_uri_return_content }}"
+      register: backplane_result_url
+      no_log: false
+
+    - name: Set PCIeSSDBackPlane facts
+      ansible.builtin.set_fact:
+        api_response: "{{ backplane_result_url.json.Members | ansible.utils.remove_keys(target=['@odata.context', '@odata.id', '@odata.type']) }}"
+      when: backplane_result_url.status == 200
+
+    - name: Gather Facts for the PCIeSSDBackPlane component
+      ansible.builtin.include_role:
+        name: "idrac_gather_facts"
+
+    - name: Assert backplane data
+      ansible.builtin.assert:
+        that:
+          - "((api_response | length != 0) and (backplane | length != 0))"
+        fail_msg: "The response from the role does not match"
+        success_msg: "The response from the role matches"
+      when: api_response is defined and api_response | length != 0
+
+    - name: Check whether output differs
+      ansible.builtin.set_fact:
+        result_diff: "{{ backplane | symmetric_difference(api_response) }}"
+      when: api_response is defined and api_response | length > 0
+
+    - name: Assert the differences in List
+      ansible.builtin.assert:
+        fail_msg: "The response from the role does not match"
+        success_msg: "The response from the role matches"
+        that:
+          - "{{ (result_diff | length) == 0 }}"
+      when: api_response is defined and api_response | length > 0

@@ -1,0 +1,14 @@
+breaking_changes:
+  - |
+    This version introduces a breaking change.
+    All modules have been renamed from ``nac_sg_*`` to ``na_sg_*``.
+    Playbooks and Roles must be updated to match.
+minor_changes:
+  - na_sg_grid_account - new option ``update_password`` for managing Tenant Account root password changes.
+  - na_sg_org_user - new option ``password`` and ``update_password`` for setting or updating Tenant User passwords.
+  - na_sg_grid_user - new option ``password`` and ``update_password`` for setting or updating Grid Admin User passwords.
+bugfixes:
+  - na_sg_grid_account - fixed documentation issue.
+  - na_sg_grid_account - added ``no_log`` flag to password fields.
+  - na_sg_grid_group - fixed group name parsing.
+  - na_sg_org_group - fixed group name parsing.

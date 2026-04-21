@@ -1,0 +1,26 @@
+---
+- name: Add the engine VM as an ansible host
+  block:
+    - name: Fetch the value of HOST_KEY_CHECKING
+      ansible.builtin.set_fact:
+        host_key_checking: "{{ lookup('config', 'HOST_KEY_CHECKING') }}"
+    - name: Get the username running the deploy
+      become: false
+      ansible.builtin.command: whoami
+      register: username_on_host
+      changed_when: false
+    - name: Register the engine FQDN as a host
+      ansible.builtin.add_host:
+        name: "{{ he_fqdn }}"
+        groups: engine
+        ansible_connection: smart
+        ansible_ssh_extra_args: >-
+          -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {% if he_ansible_host_name != "localhost" %}
+          -o ProxyCommand="ssh -W %h:%p -q
+          {% if not host_key_checking %} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {% endif %}
+          {{ username_on_host.stdout }}@{{ he_ansible_host_name }}" {% endif %}
+        ansible_ssh_pass: "{{ he_appliance_password }}"
+        ansible_host: "{{ he_fqdn_ansible_host }}"
+        ansible_user: root
+      no_log: true
+      ignore_errors: true

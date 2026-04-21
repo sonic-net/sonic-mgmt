@@ -1,0 +1,55 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    org_id: "828099381482762270"
+  gather_facts: false
+  tasks:
+    - name: Get all organizations summary top appliances by utilization
+      cisco.meraki.organizations_summary_top_appliances_by_utilization_info:
+        organizationId: "{{ org_id }}"
+      register: result
+    - name: Show result1
+      ansible.builtin.debug:
+        msg: "{{ result }}"
+    - name: Get all organizations summary top clients by usage
+      cisco.meraki.organizations_summary_top_clients_by_usage_info:
+        organizationId: "{{ org_id }}"
+      register: result
+    - name: Show result2
+      ansible.builtin.debug:
+        msg: "{{ result }}"
+    - name: Get all organizations summary top clients by manufacturers
+      cisco.meraki.organizations_summary_top_clients_manufacturers_by_usage_info:
+        organizationId: "{{ org_id }}"
+      register: result
+    - name: Show result3
+      ansible.builtin.debug:
+        msg: "{{ result }}"
+    - name: Get all organizations summary top devices by usage
+      cisco.meraki.organizations_summary_top_devices_by_usage_info:
+        organizationId: "{{ org_id }}"
+      register: result
+    - name: Show result4
+      ansible.builtin.debug:
+        msg: "{{ result }}"
+    - name: Get all organizations summary top devices by models
+      cisco.meraki.organizations_summary_top_devices_models_by_usage_info:
+        organizationId: "{{ org_id }}"
+      register: result
+    - name: Show result5
+      ansible.builtin.debug:
+        msg: "{{ result }}"
+    - name: Get all organizations summary top SSIDs by usage
+      cisco.meraki.organizations_summary_top_ssids_by_usage_info:
+        organizationId: "{{ org_id }}"
+      register: result
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"
+    - name: Get all organizations summary top switches by energy usage
+      cisco.meraki.organizations_summary_top_switches_by_energy_usage_info:
+        organizationId: "{{ org_id }}"
+      register: result
+    - name: Show result6
+      ansible.builtin.debug:
+        msg: "{{ result }}"

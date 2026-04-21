@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_ds - Add ``join_ou`` parameter for AD account creation

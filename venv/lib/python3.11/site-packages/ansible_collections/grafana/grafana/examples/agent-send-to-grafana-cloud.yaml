@@ -1,0 +1,95 @@
+---
+- hosts: all
+  become: true
+  vars:
+    grafana_agent_metrics_config:
+      global:
+        external_labels:
+          datacenter: primary
+          cluster: my-cluster
+          instance: "{{ ansible_host }}"
+        remote_write:
+          - url: https://prometheus-<your region>.grafana.net/api/prom/push
+            basic_auth:
+              username: "1234567"    # your username / instanceID
+              password: "..."   # your grafana.com token
+      configs:
+        - name: local
+          scrape_configs:
+            # scrape a an application on the localhost
+            - job_name: my-app
+              metrics_path: /metrics
+              static_configs:
+                - targets:
+                    - localhost:8080
+              relabel_configs: []
+              metric_relabel_configs: []
+
+    grafana_agent_logs_config:
+      global:
+        clients:
+          - url: https://logs-<your region>.grafana.net/loki/api/v1/push
+            basic_auth:
+              username: "1234567"    # your username / instanceID
+              password: "..."   # your grafana.com token
+      configs:
+        - name: local
+          positions:
+            filename: /tmp/positions.yaml
+          target_config:
+            sync_period: 10s
+          scrape_configs:
+            # scrape all of the log files in /var/log on the localhost
+            - job_name: log-files
+              static_configs:
+                - targets:
+                    - localhost
+                  labels:
+                    job: var-logs
+                    instance: "{{ ansible_host }}"
+                    __path__: /var/log/*.log
+            # scrape all of the journal logs on localhost
+            - job_name: systemd-journal
+              journal:
+                max_age: 12h
+                labels:
+                  job: systemd-journal
+              relabel_configs:
+                - source_labels:
+                    - __journal__systemd_unit
+                  target_label: systemd_unit
+                - source_labels:
+                    - __journal__hostname
+                  target_label: hostname
+                - source_labels:
+                    - __journal_syslog_identifier
+                  target_label: syslog_identifier
+                - source_labels:
+                    - __journal__pid
+                  target_label: pid
+                - source_labels:
+                    - __journal__uid
+                  target_label: uid
+                - source_labels:
+                    - __journal__transport
+                  target_label: transport
+    grafana_agent_integrations_config:
+      scrape_integrations: true
+      # get metrics about the agent
+      agent:
+        enabled: true
+        relabel_configs: []
+        metric_relabel_configs: []
+      # get node exporter metrics
+      node_exporter:
+        enabled: true
+        relabel_configs: []
+        metric_relabel_configs: []
+
+  # pre_tasks happen before roles are executed / applied
+  pre_tasks: []
+  # roles are ran after pre_tasks
+  roles:
+    - grafana_agent
+  # tasks are ran after roles
+  tasks: []

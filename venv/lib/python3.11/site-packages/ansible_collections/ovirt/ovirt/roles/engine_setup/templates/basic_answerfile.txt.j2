@@ -1,0 +1,64 @@
+[environment:default]
+{% if ovirt_engine_setup_fqdn is defined %}
+OVESETUP_CONFIG/fqdn=str:{{ ovirt_engine_setup_fqdn }}
+{% endif %}
+{% if ovirt_engine_setup_firewall_manager %}
+OVESETUP_CONFIG/updateFirewall=bool:True
+OVESETUP_CONFIG/firewallManager=str:{{ ovirt_engine_setup_firewall_manager }}
+{% else %}
+OVESETUP_CONFIG/updateFirewall=bool:False
+OVESETUP_CONFIG/firewallManager=none:None
+{% endif %}
+{% if ovirt_engine_setup_require_rollback is defined %}
+OSETUP_RPMDISTRO/requireRollback=bool:{{ovirt_engine_setup_require_rollback}}
+{% else %}
+OSETUP_RPMDISTRO/requireRollback=none:None
+{% endif %}
+OVESETUP_DB/host=str:{{ovirt_engine_setup_db_host}}
+OVESETUP_DB/user=str:{{ovirt_engine_setup_db_user}}
+OVESETUP_SYSTEM/memCheckEnabled=bool:False
+{% if ovirt_engine_setup_db_password is defined %}
+OVESETUP_DB/password=str:{{ovirt_engine_setup_db_password}}
+{% else %}
+OVESETUP_DB/password=none:None
+{% endif %}
+OVESETUP_DB/database=str:{{ovirt_engine_setup_db_name}}
+OVESETUP_DB/port=int:{{ovirt_engine_setup_db_port}}
+{% if ovirt_engine_setup_dwh_db_configure is defined and ovirt_engine_setup_dwh_db_configure %}
+OVESETUP_DWH_DB/secured=bool:False
+OVESETUP_DWH_DB/host=str:{{ovirt_engine_setup_dwh_db_host}}
+OVESETUP_DWH_DB/user=str:{{ovirt_engine_setup_dwh_db_user}}
+OVESETUP_DWH_DB/database=str:{{ovirt_engine_setup_dwh_db_name}}
+OVESETUP_DWH_DB/port=int:{{ovirt_engine_setup_dwh_db_port}}
+{% else %}
+OVESETUP_DWH_DB/secured=none:None
+OVESETUP_DWH_DB/host=none:None
+OVESETUP_DWH_DB/user=none:None
+OVESETUP_DWH_DB/password=none:None
+OVESETUP_DWH_DB/database=none:None
+OVESETUP_DWH_DB/port=none:None
+{% endif %}
+{% if ovirt_engine_setup_dwh_db_password is defined %}
+OVESETUP_DWH_DB/password=str:{{ovirt_engine_setup_dwh_db_password}}
+{% else %}
+OVESETUP_DWH_DB/password=none:None
+{% endif %}
+{% if ovirt_engine_setup_dwh_db_configure is defined and ovirt_engine_setup_dwh_db_configure %}
+OVESETUP_DWH_DB/securedHostValidation=bool:False
+{% else %}
+OVESETUP_DWH_DB/securedHostValidation=none:None
+{% endif %}
+{% if ovirt_engine_setup_organization is defined %}
+OVESETUP_PKI/organization=str:{{ ovirt_engine_setup_organization }}
+{% endif %}
+OVESETUP_CONFIG/adminPassword=str:{{ ovirt_engine_setup_admin_password }}
+{% if ovirt_engine_setup_dwh_db_configure is defined and ovirt_engine_setup_dwh_db_configure %}
+OVESETUP_DWH_CORE/enable=bool:True
+{% else %}
+OVESETUP_DWH_CORE/enable=bool:False
+{% endif %}
+{% if ovirt_engine_setup_dwh_db_configure is defined and ovirt_engine_setup_dwh_db_configure %}
+OVESETUP_DWH_PROVISIONING/postgresProvisioningEnabled=bool:True
+{% else %}
+OVESETUP_DWH_PROVISIONING/postgresProvisioningEnabled=bool:False
+{% endif %}

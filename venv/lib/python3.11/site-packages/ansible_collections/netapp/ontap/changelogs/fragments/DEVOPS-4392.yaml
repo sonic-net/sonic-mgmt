@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_snapmirror - modify policy, schedule and other parameter failure are fixed.

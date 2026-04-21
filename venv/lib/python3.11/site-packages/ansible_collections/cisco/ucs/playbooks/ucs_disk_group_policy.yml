@@ -1,0 +1,77 @@
+---
+# Example Playbook: cisco.ucs.ucs_disk_group_policy
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        description: level1 org
+        state: present
+      delegate_to: localhost
+
+    - name: Configure Disk Group Policy
+      cisco.ucs.ucs_disk_group_policy:
+        <<: *login_info
+        name: DEE-DG
+        raid_level: mirror
+        configuration_mode: manual
+        manual_disks:
+        - slot_num: '1'
+          role: normal
+        - slot_num: '2'
+          role: normal
+        org_dn: org-root/org-level1
+      delegate_to: localhost
+
+    - name: Remove Disk from Policy
+      cisco.ucs.ucs_disk_group_policy:
+        <<: *login_info
+        name: DEE-DG
+        description: Testing Ansible
+        raid_level: stripe
+        configuration_mode: manual
+        manual_disks:
+        - slot_num: '1'
+          role: normal
+        - slot_num: '2'
+          role: normal
+          state: absent
+        virtual_drive:
+          access_policy: platform-default
+          io_policy: direct
+          strip_size: 64KB
+        org_dn: org-root/org-level1
+      delegate_to: localhost
+
+    - name: Remove Disk Group Policy
+      cisco.ucs.ucs_disk_group_policy:
+        <<: *login_info
+        name: DEE-DG
+        state: absent
+        org_dn: org-root/org-level1
+      delegate_to: localhost
+
+    - name: Remove UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        state: absent
+      delegate_to: localhost

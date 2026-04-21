@@ -1,0 +1,5 @@
+minor_changes:
+  - Bump version of Python used in tests to 3.10
+  - Now testing against Grafana 9.5.13, 8.5.27, 10.2.0
+bugfixes:
+  - grafana_folder, fix an issue during delete (starting Grafana 9.3)

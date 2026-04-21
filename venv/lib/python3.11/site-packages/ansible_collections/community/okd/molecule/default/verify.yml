@@ -1,0 +1,112 @@
+---
+- name: Create inventory of pods
+  # We need to manually create the inventory of pods now that the inventory plugin has been removed
+  gather_facts: false
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Get pods
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: testing
+      register: pods
+
+    - name: Add pods to inventory
+      ansible.builtin.add_host:
+        name: "{{ item.metadata.name }}"
+        groups:
+          - namespace_testing_pods
+        ansible_oc_pod: "{{ item.metadata.name }}"
+        ansible_oc_namespace: "{{ item.metadata.namespace }}"
+        pod_phase: "{{ item.status.phase }}"
+        ansible_remote_tmp: /tmp/.ansible
+      loop: "{{ pods.resources }}"
+
+- name: Verify connection plugin
+  hosts: namespace_testing_pods
+  gather_facts: no
+  connection: community.okd.oc
+  vars:
+    file_content: |
+      Hello world
+  tasks:
+    - name: End play if host not running (TODO should we not add these to the inventory?)
+      meta: end_host
+      when: pod_phase != "Running"
+
+    - setup:
+
+    - debug: var=ansible_facts
+
+    - name: Assert the TEST environment variable was retrieved
+      assert:
+        that: ansible_facts.env.TEST == 'test'
+
+    - name: Copy a file into the host
+      copy:
+        content: '{{ file_content }}'
+        dest: /tmp/test_file
+
+    - name: Retrieve the file from the host
+      slurp:
+        src: /tmp/test_file
+      register: slurped_file
+
+    - name: Assert the file content matches expectations
+      assert:
+        that: (slurped_file.content|b64decode) == file_content
+
+
+- name: Verify
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    ansible_python_interpreter: '{{ virtualenv_interpreter }}'
+
+  tasks:
+    - pip:
+        name: kubernetes-validate==1.12.0
+        virtualenv: "{{ virtualenv }}"
+        virtualenv_command: "{{ virtualenv_command }}"
+        virtualenv_site_packages: no
+
+    - import_tasks: tasks/validate_installed.yml
+
+    - pip:
+        name: kubernetes-validate
+        state: absent
+        virtualenv: "{{ virtualenv }}"
+        virtualenv_command: "{{ virtualenv_command }}"
+        virtualenv_site_packages: no
+
+    - import_tasks: tasks/validate_not_installed.yml
+
+    - import_tasks: tasks/openshift_auth.yml
+    - import_tasks: tasks/openshift_adm_prune_auth_clusterroles.yml
+    - import_tasks: tasks/openshift_adm_prune_auth_roles.yml
+    - import_tasks: tasks/openshift_adm_prune_deployments.yml
+    - import_tasks: tasks/openshift_builds.yml
+    - import_tasks: tasks/openshift_route.yml
+    - import_tasks: tasks/openshift_import_images.yml
+    - import_tasks: tasks/openshift_prune_images.yml
+    - block:
+        - name: Create namespace
+          community.okd.k8s:
+            api_version: v1
+            kind: Namespace
+            name: process-test
+        - import_tasks: tasks/openshift_process.yml
+          vars:
+            files_dir: '{{ playbook_dir }}/files'
+            nginx_version: 1.22-ubi8
+      always:
+        - name: Delete namespace
+          community.okd.k8s:
+            api_version: v1
+            kind: Namespace
+            name: process-test
+            state: absent
+
+  roles:
+    - role: openshift_adm_groups

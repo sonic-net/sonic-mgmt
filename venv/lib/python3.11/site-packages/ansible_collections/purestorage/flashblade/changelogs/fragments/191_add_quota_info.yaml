@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_info - Added filesystem default, user and group quotas where available

@@ -1,0 +1,25 @@
+objects: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  httpapi:
+    fortios:
+      description: HttpApi Plugin for Fortinet FortiOS Appliance or VM
+      name: fortios
+      version_added: 2.0.0
+  inventory: {}
+  lookup: {}
+  module:
+    fortios_json_generic:
+      description: Config Fortinet's FortiOS and FortiGate with json generic method.
+      name: fortios_json_generic
+      namespace: ""
+      version_added: 2.0.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  vars: {}
+version: 2.4.2

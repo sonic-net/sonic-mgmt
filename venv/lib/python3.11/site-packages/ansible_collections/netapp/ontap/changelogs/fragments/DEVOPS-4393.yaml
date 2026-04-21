@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_igroup - ``force_remove_initiator`` option was ignored when removing initiators from existing igroup.

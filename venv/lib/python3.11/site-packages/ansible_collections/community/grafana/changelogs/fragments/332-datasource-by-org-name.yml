@@ -1,0 +1,4 @@
+---
+
+minor_changes:
+  - Add parameter `org_name` to `grafana_datasource`

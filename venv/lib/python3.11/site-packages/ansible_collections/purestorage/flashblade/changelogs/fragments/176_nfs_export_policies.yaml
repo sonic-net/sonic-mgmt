@@ -1,0 +1,4 @@
+minor_changes:
+ - purefb_policy - Add NFS export policies, with rules, as a new policy type
+ - purefb_info - Add NFS export policies and rules
+ - purefb_fs - Add support for NFS export policies

@@ -1,0 +1,284 @@
+objects:
+  role: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  filter: {}
+  httpapi: {}
+  inventory: {}
+  lookup: {}
+  module:
+    purefb_ad:
+      description: Manage FlashBlade Active Directory Account
+      name: purefb_ad
+      namespace: ''
+      version_added: 1.6.0
+    purefb_admin:
+      description: Configure Pure Storage FlashBlade Global Admin settings
+      name: purefb_admin
+      namespace: ''
+      version_added: 1.8.0
+    purefb_alert:
+      description: Configure Pure Storage FlashBlade alert email settings
+      name: purefb_alert
+      namespace: ''
+      version_added: 1.0.0
+    purefb_apiclient:
+      description: Manage FlashBlade API Clients
+      name: purefb_apiclient
+      namespace: ''
+      version_added: 1.6.0
+    purefb_banner:
+      description: Configure Pure Storage FlashBlade GUI and SSH MOTD message
+      name: purefb_banner
+      namespace: ''
+      version_added: 1.4.0
+    purefb_bladename:
+      description: Configure Pure Storage FlashBlade name
+      name: purefb_bladename
+      namespace: ''
+      version_added: 1.0.0
+    purefb_bucket:
+      description: Manage Object Store Buckets on a  Pure Storage FlashBlade.
+      name: purefb_bucket
+      namespace: ''
+      version_added: 1.0.0
+    purefb_bucket_access:
+      description: Manage FlashBlade bucket access policies
+      name: purefb_bucket_access
+      namespace: ''
+      version_added: 1.20.0
+    purefb_bucket_replica:
+      description: Manage bucket replica links between Pure Storage FlashBlades
+      name: purefb_bucket_replica
+      namespace: ''
+      version_added: 1.0.0
+    purefb_certgrp:
+      description: Manage FlashBlade Certifcate Groups
+      name: purefb_certgrp
+      namespace: ''
+      version_added: 1.4.0
+    purefb_certs:
+      description: Manage FlashBlade SSL Certificates
+      name: purefb_certs
+      namespace: ''
+      version_added: 1.4.0
+    purefb_connect:
+      description: Manage replication connections between two FlashBlades
+      name: purefb_connect
+      namespace: ''
+      version_added: 1.0.0
+    purefb_dns:
+      description: Configure FlashBlade DNS settings
+      name: purefb_dns
+      namespace: ''
+      version_added: 1.0.0
+    purefb_ds:
+      description: Configure FlashBlade Directory Service
+      name: purefb_ds
+      namespace: ''
+      version_added: 1.0.0
+    purefb_dsrole:
+      description: Configure FlashBlade  Management Directory Service Roles
+      name: purefb_dsrole
+      namespace: ''
+      version_added: 1.0.0
+    purefb_eula:
+      description: Sign Pure Storage FlashBlade EULA
+      name: purefb_eula
+      namespace: ''
+      version_added: 1.6.0
+    purefb_fleet:
+      description: Manage Fusion Fleet
+      name: purefb_fleet
+      namespace: ''
+      version_added: 1.20.0
+    purefb_fs:
+      description: Manage filesystemon Pure Storage FlashBlade`
+      name: purefb_fs
+      namespace: ''
+      version_added: 1.0.0
+    purefb_fs_replica:
+      description: Manage filesystem replica links between Pure Storage FlashBlades
+      name: purefb_fs_replica
+      namespace: ''
+      version_added: 1.0.0
+    purefb_groupquota:
+      description: Manage filesystem group quotas
+      name: purefb_groupquota
+      namespace: ''
+      version_added: 1.7.0
+    purefb_hardware:
+      description: Manage FlashBlade Hardware
+      name: purefb_hardware
+      namespace: ''
+      version_added: 1.15.0
+    purefb_info:
+      description: Collect information from Pure Storage FlashBlade
+      name: purefb_info
+      namespace: ''
+      version_added: 1.0.0
+    purefb_inventory:
+      description: Collect information from Pure Storage FlashBlade
+      name: purefb_inventory
+      namespace: ''
+      version_added: 1.0.0
+    purefb_keytabs:
+      description: Manage FlashBlade Kerberos Keytabs
+      name: purefb_keytabs
+      namespace: ''
+      version_added: 1.6.0
+    purefb_kmip:
+      description: Manage FlashBlade KMIP server objects
+      name: purefb_kmip
+      namespace: ''
+      version_added: 1.22.0
+    purefb_lag:
+      description: Manage FlashBlade Link Aggregation Groups
+      name: purefb_lag
+      namespace: ''
+      version_added: 1.7.0
+    purefb_lifecycle:
+      description: Manage FlashBlade object lifecycles
+      name: purefb_lifecycle
+      namespace: ''
+      version_added: 1.4.0
+    purefb_messages:
+      description: List FlashBlade Alert Messages
+      name: purefb_messages
+      namespace: ''
+      version_added: 1.10.0
+    purefb_network:
+      description: Manage network interfaces in a Pure Storage FlashBlade
+      name: purefb_network
+      namespace: ''
+      version_added: 1.0.0
+    purefb_ntp:
+      description: Configure Pure Storage FlashBlade NTP settings
+      name: purefb_ntp
+      namespace: ''
+      version_added: 1.0.0
+    purefb_phonehome:
+      description: Enable or Disable Pure Storage FlashBlade Phone Home
+      name: purefb_phonehome
+      namespace: ''
+      version_added: 1.0.0
+    purefb_pingtrace:
+      description: Employ the internal FlashBlade ping and trace mechanisms
+      name: purefb_pingtrace
+      namespace: ''
+      version_added: 1.11.0
+    purefb_policy:
+      description: Manage FlashBlade policies
+      name: purefb_policy
+      namespace: ''
+      version_added: 1.0.0
+    purefb_proxy:
+      description: Configure FlashBlade phonehome HTTPs proxy settings
+      name: purefb_proxy
+      namespace: ''
+      version_added: 1.0.0
+    purefb_ra:
+      description: Enable or Disable Pure Storage FlashBlade Remote Assist
+      name: purefb_ra
+      namespace: ''
+      version_added: 1.0.0
+    purefb_remote_cred:
+      description: Create, modify and delete FlashBlade object store remote credentials
+      name: purefb_remote_cred
+      namespace: ''
+      version_added: 1.0.0
+    purefb_s3acc:
+      description: Create or delete FlashBlade Object Store accounts
+      name: purefb_s3acc
+      namespace: ''
+      version_added: 1.0.0
+    purefb_s3user:
+      description: Create or delete FlashBlade Object Store account users
+      name: purefb_s3user
+      namespace: ''
+      version_added: 1.0.0
+    purefb_saml:
+      description: Manage FlashBlade SAML2 service and identity providers
+      name: purefb_saml
+      namespace: ''
+      version_added: 1.19.0
+    purefb_server:
+      description: Manage FlashBlade servers
+      name: purefb_server
+      namespace: ''
+      version_added: 1.20.0
+    purefb_smtp:
+      description: Configure SMTP for Pure Storage FlashBlade
+      name: purefb_smtp
+      namespace: ''
+      version_added: 1.0.0
+    purefb_snap:
+      description: Manage filesystem snapshots on Pure Storage FlashBlades
+      name: purefb_snap
+      namespace: ''
+      version_added: 1.0.0
+    purefb_snmp_agent:
+      description: Configure the FlashBlade SNMP Agent
+      name: purefb_snmp_agent
+      namespace: ''
+      version_added: 1.0.0
+    purefb_snmp_mgr:
+      description: Configure FlashBlade SNMP Managers
+      name: purefb_snmp_mgr
+      namespace: ''
+      version_added: 1.0.0
+    purefb_subnet:
+      description: Manage network subnets in a Pure Storage FlashBlade
+      name: purefb_subnet
+      namespace: ''
+      version_added: 1.0.0
+    purefb_syslog:
+      description: Configure Pure Storage FlashBlade syslog settings
+      name: purefb_syslog
+      namespace: ''
+      version_added: 1.4.0
+    purefb_target:
+      description: Manage remote S3-capable targets for a FlashBlade
+      name: purefb_target
+      namespace: ''
+      version_added: 1.0.0
+    purefb_timeout:
+      description: Configure Pure Storage FlashBlade GUI idle timeout
+      name: purefb_timeout
+      namespace: ''
+      version_added: 1.6.0
+    purefb_tz:
+      description: Configure Pure Storage FlashBlade timezone
+      name: purefb_tz
+      namespace: ''
+      version_added: 1.10.0
+    purefb_user:
+      description: Create, modify or delete FlashBlade user accounts
+      name: purefb_user
+      namespace: ''
+      version_added: 1.0.0
+    purefb_userpolicy:
+      description: Manage FlashBlade Object Store User Access Policies
+      name: purefb_userpolicy
+      namespace: ''
+      version_added: 1.6.0
+    purefb_userquota:
+      description: Manage filesystem user quotas
+      name: purefb_userquota
+      namespace: ''
+      version_added: 1.7.0
+    purefb_virtualhost:
+      description: Manage FlashBlade Object Store Virtual Hosts
+      name: purefb_virtualhost
+      namespace: ''
+      version_added: 1.6.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  test: {}
+  vars: {}
+version: 1.22.0

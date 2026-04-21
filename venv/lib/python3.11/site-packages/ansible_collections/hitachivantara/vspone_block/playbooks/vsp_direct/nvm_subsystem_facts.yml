@@ -1,0 +1,58 @@
+---
+####################################################################
+# Example : NVM Subsystems Facts Playbook
+####################################################################
+- name: NVM Subsystems Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all NVM Subsystems
+    ####################################################################
+    - name: Get all NVM Subsystems
+      hitachivantara.vspone_block.vsp.hv_nvm_subsystems_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get NVM Subsystem by name
+    ####################################################################
+    - name: Get NVM Subsystem by name
+      hitachivantara.vspone_block.vsp.hv_nvm_subsystems_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "rd_nvm_tcp_01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get NVM Subsystem by id
+    ####################################################################
+    - name: Get NVM Subsystem by id
+      hitachivantara.vspone_block.vsp.hv_nvm_subsystems_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: 1000
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

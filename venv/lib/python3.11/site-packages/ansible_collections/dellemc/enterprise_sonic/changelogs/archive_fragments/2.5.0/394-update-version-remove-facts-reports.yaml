@@ -1,0 +1,3 @@
+---
+trivial:
+  - Update module docummentation and remove extraneous regression facts reports (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/394).

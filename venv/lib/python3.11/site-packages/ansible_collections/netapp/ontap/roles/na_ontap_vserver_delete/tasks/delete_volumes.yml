@@ -1,0 +1,23 @@
+---
+# tasks file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
+
+- name: Delete all volumes for vserver
+  netapp.ontap.na_ontap_volume:
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+    state: absent
+    name: "{{ item }}"
+    vserver: "{{ vserver_name }}"
+  check_mode: "{{ enable_check_mode }}"
+  ignore_errors: "{{ ignore_errors | default(omit) }}"
+  loop:
+    "{{ volumes }}"
+  register: results
+
+- name: Debug
+  ansible.builtin.debug:
+    var: results
+  when: debug_level > 2

@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_pod - Ensure all pod names are lowercase for consistency
+ - purefa_hg - Ensure all hostname chacks are lowercase for consistency

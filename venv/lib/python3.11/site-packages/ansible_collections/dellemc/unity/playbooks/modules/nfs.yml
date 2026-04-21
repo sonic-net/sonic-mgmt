@@ -1,0 +1,551 @@
+---
+- name: NFS Share Module Operations on Unity
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    nfs_export_name_from_fs: 'ansible_nfs'
+    nfs_export_name_from_snap: 'ansible_snap_nfs'
+    filesystem_id: 'fs_377'
+    filesystem_name: 'ansible_fs'
+    nas_server_id: 'nas_3'
+    nas_server_name: 'lglad071'
+    snapshot_id: '171798692329'
+    snapshot_name: 'ansible_fs_snap'
+    description: 'Ansible Unity Module'
+    anonymous_gid: 4294967290
+    anonymous_uid: 4294967290
+    host_id1: 'Host_12'
+    host_id2: 'Host_14'
+    host_id3: 'Host_31'
+    host_id4: 'Host_63'
+    host_name1: 'testlgl3'
+    host_name2: 'testlgl2'
+    host_name3: 'testlgl1'
+    host_name4: 'test.lss.com'
+    ip_address1: '10.*.*.*/24'
+    ip_address2: 'fdfe:9042:c53d:0:250:56ff:fea2:5143'
+
+  tasks:
+    - name: Create nfs share from filesystem
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        path: '/'
+        filesystem_id: "{{ filesystem_id }}"
+        description: "{{ description }}"
+        min_security: "SYS"
+        default_access: "READ_ONLY"
+        state: "present"
+      register: result
+
+    - name: Set nfs share ID created from filesystem
+      ansible.builtin.set_fact:
+        nfs_export_id_from_fs: "{{ result['nfs_share_details']['id'] }}"
+
+    - name: Create nfs share from filesystem - idempotency
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        path: '/'
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_id: "{{ nas_server_id }}"
+        state: "present"
+      register: result
+
+    - name: Modify nfs share(fs)
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_id: "{{ nas_server_id }}"
+        description: ""
+        default_access: "READ_ONLY_ROOT"
+        anonymous_gid: "{{ anonymous_gid }}"
+        anonymous_uid: "{{ anonymous_uid }}"
+        state: "present"
+      register: result
+
+    - name: Modify nfs share(fs) - idempotency
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_id: "{{ nas_server_id }}"
+        description: ""
+        default_access: "READ_ONLY_ROOT"
+        anonymous_gid: "{{ anonymous_gid }}"
+        anonymous_uid: "{{ anonymous_uid }}"
+        state: "present"
+      register: result
+
+    - name: Create nfs share from snapshot
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        path: '/'
+        snapshot_name: "{{ snapshot_name }}"
+        description: "{{ description }}"
+        min_security: "SYS"
+        default_access: "READ_ONLY"
+        state: "present"
+      register: result
+
+    - name: Set nfs share ID created from snapshot
+      ansible.builtin.set_fact:
+        nfs_export_id_from_snap: "{{ result['nfs_share_details']['id'] }}"
+
+    - name: Create nfs share from snapshot - idempotency
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        path: '/'
+        snapshot_id: "{{ snapshot_id }}"
+        state: "present"
+      register: result
+
+    - name: Modify nfs share(snapshot)
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_id: "{{ snapshot_id }}"
+        description: ''
+        default_access: "READ_ONLY_ROOT"
+        anonymous_gid: "{{ anonymous_gid }}"
+        anonymous_uid: "{{ anonymous_uid }}"
+        state: "present"
+      register: result
+
+    - name: Modify nfs share(snapshot) - idempotency
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_id: "{{ snapshot_id }}"
+        description: ''
+        default_access: "READ_ONLY_ROOT"
+        anonymous_gid: "{{ anonymous_gid }}"
+        anonymous_uid: "{{ anonymous_uid }}"
+        state: "present"
+      register: result
+
+    - name: Add host in nfs share(fs)
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name1 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name1 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+        host_state: "present-in-export"
+        state: "present"
+      register: result
+
+    - name: Add host in nfs share(fs) - idempotency
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name1 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name1 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+        host_state: "present-in-export"
+        state: "present"
+      register: result
+
+    - name: Add more host in nfs share(fs)
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+          - host_name: "{{ host_name1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+          - host_id: "{{ host_id3 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name2 }}"
+          - host_name: "{{ host_name3 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name4 }}"
+          - host_id: "{{ host_id4 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+          - ip_address: "{{ ip_address2 }}"
+        host_state: "present-in-export"
+        state: "present"
+      register: result
+
+    - name: Remove host in nfs share(fs)
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+          - host_name: "{{ host_name1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+          - host_id: "{{ host_id3 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name2 }}"
+          - host_name: "{{ host_name3 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name4 }}"
+          - host_id: "{{ host_id4 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+          - ip_address: "{{ ip_address2 }}"
+        host_state: "absent-in-export"
+        state: "present"
+      register: result
+
+    - name: Remove host in nfs share(fs) - idempotency
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+          - host_name: "{{ host_name1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+          - host_id: "{{ host_id3 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name2 }}"
+          - host_name: "{{ host_name3 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name4 }}"
+          - host_id: "{{ host_id4 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+          - ip_address: "{{ ip_address2 }}"
+        host_state: "absent-in-export"
+        state: "present"
+      register: result
+
+    - name: Add host in nfs share(snapshot)
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_name: "{{ snapshot_name }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name1 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name2 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+        host_state: "present-in-export"
+        state: "present"
+      register: result
+
+    - name: Add host in nfs share(snapshot) - idempotency
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_name: "{{ snapshot_name }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name1 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name2 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+        host_state: "present-in-export"
+        state: "present"
+      register: result
+
+    - name: Add more host in nfs share(snapshot)
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_name: "{{ snapshot_name }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+          - host_name: "{{ host_name1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+          - host_id: "{{ host_id3 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name2 }}"
+          - host_name: "{{ host_name3 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name4 }}"
+          - host_id: "{{ host_id4 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+          - ip_address: "{{ ip_address2 }}"
+        host_state: "present-in-export"
+        state: "present"
+      register: result
+
+    - name: Remove host in nfs share(snapshot)
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_name: "{{ snapshot_name }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+          - host_name: "{{ host_name1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+          - host_id: "{{ host_id3 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name2 }}"
+          - host_name: "{{ host_name3 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name4 }}"
+          - host_id: "{{ host_id4 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+          - ip_address: "{{ ip_address2 }}"
+        host_state: "absent-in-export"
+        state: "present"
+      register: result
+
+    - name: Remove host in nfs share(snapshot) - idempotency
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_name: "{{ snapshot_name }}"
+        adv_host_mgmt_enabled: true
+        no_access_hosts:
+          - host_id: "{{ host_id1 }}"
+          - host_name: "{{ host_name1 }}"
+        read_only_hosts:
+          - host_id: "{{ host_id2 }}"
+          - host_id: "{{ host_id3 }}"
+        read_only_root_hosts:
+          - host_name: "{{ host_name2 }}"
+          - host_name: "{{ host_name3 }}"
+        read_write_hosts:
+          - host_name: "{{ host_name4 }}"
+          - host_id: "{{ host_id4 }}"
+        read_write_root_hosts:
+          - ip_address: "{{ ip_address1 }}"
+          - ip_address: "{{ ip_address2 }}"
+        host_state: "absent-in-export"
+        state: "present"
+      register: result
+
+    - name: Get nfs details by nfs ID
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_id: "{{ nfs_export_id_from_fs }}"
+        state: "present"
+      register: result
+
+    - name: Get nfs details by nfs name and filesystem ID
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        state: "present"
+      register: result
+
+    - name: Get nfs details by nfs name, filesystem name & nas server ID
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_id: "{{ nas_server_id }}"
+        state: "present"
+      register: result
+
+    - name: Get nfs details by nfs name, filesystem name & nas server name
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        state: "present"
+      register: result
+
+    - name: Get nfs details by snapshot name
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_name: "{{ snapshot_name }}"
+        state: "present"
+      register: result
+
+    - name: Get nfs details by snapshot ID
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_snap }}"
+        snapshot_id: "{{ snapshot_id }}"
+        state: "present"
+      register: result
+
+    - name: Delete nfs share by nfs ID
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_id: "{{ nfs_export_id_from_snap }}"
+        state: "absent"
+      register: result
+
+    - name: Delete nfs share by nfs name
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "{{ nfs_export_name_from_fs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        state: "absent"
+      register: result
+
+    - name: Add host in nfs share(fs) with adv_host_mgmt_enabled as false
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "csishare-csivol-346b60e518"
+        filesystem_id: "fs_14267"
+        adv_host_mgmt_enabled: false
+        no_access_hosts:
+          - domain: "google.com"
+        read_only_hosts:
+          - netgroup: "netgroup_admin"
+        read_only_root_hosts:
+          - host_name: "host5"
+        read_write_hosts:
+          - subnet: "10.*.*.*/255.255.255.0"
+        read_write_root_hosts:
+          - ip_address: "10.*.*.8"
+        host_state: "present-in-export"
+        state: "present"
+      register: result
+
+    - name: Remove host in nfs share(fs) with adv_host_mgmt_enabled as false
+      nfs:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nfs_export_name: "csishare-csivol-346b60e518"
+        filesystem_id: "fs_14267"
+        adv_host_mgmt_enabled: false
+        no_access_hosts:
+          - domain: "google.com"
+        read_only_hosts:
+          - netgroup: "netgroup_admin"
+        read_only_root_hosts:
+          - host_name: "host5"
+        read_write_hosts:
+          - subnet: "10.*.*.*/255.255.255.0"
+        read_write_root_hosts:
+          - ip_address: "10.*.*.*"
+        host_state: "absent-in-export"
+        state: "present"
+      register: result

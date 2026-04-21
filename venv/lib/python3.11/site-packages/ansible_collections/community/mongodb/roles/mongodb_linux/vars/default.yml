@@ -1,0 +1,5 @@
+---
+# Packages (default fallthrough)
+ntp_package: ntp
+ntp_service: ntpd
+gnu_c_lib: libc6

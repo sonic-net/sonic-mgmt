@@ -1,0 +1,3 @@
+release_summary: Release fortinet.fortimanager 2.8.1
+bugfixes:
+  - Fixed a bug where rc_failed and rc_succeeded did not work.

@@ -1,0 +1,15 @@
+---
+- name: Converge
+  hosts: all
+  pre_tasks:
+    - name: Install gpg for apt_key
+      ansible.builtin.apt:
+        name: gnupg
+        update_cache: true
+      when: ansible_os_family | lower == "debian"
+  roles:
+    - role: google.cloud.gcloud
+      gcloud_install_type: archive
+      gcloud_command_completion: true
+      gcloud_additional_components:
+        - cloud-build-local

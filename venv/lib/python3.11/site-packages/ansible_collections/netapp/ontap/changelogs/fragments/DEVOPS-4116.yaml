@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_job_schedule - new option ``month_offset`` to explictly select 0 or 1 for January.
+bugfixes:
+  - na_ontap_job_schedule - fix documentation for REST ranges for months.

@@ -1,0 +1,44 @@
+---
+- name: Converge
+  hosts: all
+  roles:
+    - role: community.mongodb.mongodb_repository
+      tags: molecule-idempotence-notest
+    - role: community.mongodb.mongodb_mongod
+      vars:
+        db_path: "/data/db"
+
+  tasks:
+
+    - name: Install pymongo
+      pip:
+        name: "{{ 'pymongo==3.12.*' if ansible_python_version[0:3] | float < 3.6 else 'pymongo' }}"
+      when: ansible_hostname == "ubuntu2204"
+
+    - name: Determine openssl version
+      command: openssl version
+      changed_when: false
+      register: openssl
+
+    - name: Set mongosh package version
+      set_fact:
+        mongosh_package: "{{ 'mongodb-mongosh-shared-openssl3' if openssl.stdout.startswith('OpenSSL 3') else 'mongodb-mongosh-shared-openssl11' }}"
+      when: mongosh_package is not defined
+
+    - name: Install MongoDB Shell
+      package:
+        name:
+          - "{{ mongosh_package }}"
+
+    - name: Initialise replicaset
+      community.mongodb.mongodb_replicaset:
+        login_host: localhost
+        replica_set: rs0
+        validate: no
+        members:
+          - amazon2023:27017
+          - debian12:27017
+          - ubuntu2204:27017
+          - almalinux9:27017
+          - rockylinux9:27017
+      when: ansible_hostname == "ubuntu2204"

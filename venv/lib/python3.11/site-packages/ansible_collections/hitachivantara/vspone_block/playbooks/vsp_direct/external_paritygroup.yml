@@ -1,0 +1,100 @@
+---
+####################################################################
+# Example : External Parity Group Playbook
+####################################################################
+- name: External Parity Group
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################
+    # Task Name : Create external parity group
+    ######################################################################
+    - name: Create external parity group
+      hitachivantara.vspone_block.vsp.hv_external_paritygroup:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          external_parity_group_id: "1-17"
+          external_path_group_id: 4
+          port_id: "CL6-B"
+          external_wwn: "50060e8012277d71"
+          lun_id: 20
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #######################################################################
+    # Task Name : Change the MP blade assigned to an external parity group
+    #######################################################################
+    - name: Change the MP blade assigned to an external parity group
+      hitachivantara.vspone_block.vsp.hv_external_paritygroup:
+        connection_info: "{{ connection_info }}"
+        state: "change_mp_blade"
+        spec:
+          external_parity_group_id: "1-5"
+          mp_blade_id: 0
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #######################################################################
+    # Task Name : Assign external parity group to a CLPR
+    #######################################################################
+    - name: Assign external parity group to a CLPR
+      hitachivantara.vspone_block.vsp.hv_external_paritygroup:
+        connection_info: "{{ connection_info }}"
+        state: "assign_external_parity_group"
+        spec:
+          external_parity_group_id: "1-5"
+          clpr_id: 1
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################
+    # Task Name : Disconnect from a volume on the external parity group
+    ######################################################################
+    - name: Disconnect from a volume on the external parity group
+      hitachivantara.vspone_block.vsp.hv_external_volume:
+        connection_info: "{{ connection_info }}"
+        state: "disconnect"
+        spec:
+          external_parity_group: "1-2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################
+    # Task Name : Delete external parity group
+    ######################################################################
+    - name: Delete external parity group
+      hitachivantara.vspone_block.vsp.hv_external_paritygroup:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          external_parity_group_id: "1-17"
+          force: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

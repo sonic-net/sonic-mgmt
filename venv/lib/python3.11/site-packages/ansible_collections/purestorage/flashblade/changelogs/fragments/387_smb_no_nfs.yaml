@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_fs - Ensured that NFS rules are emprty if requested filesystem is SMB only

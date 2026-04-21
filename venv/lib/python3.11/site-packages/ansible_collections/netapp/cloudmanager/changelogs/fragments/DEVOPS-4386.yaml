@@ -1,0 +1,2 @@
+bugfixes:
+  - Fix cannot find working environment if ``working_environment_name`` is provided

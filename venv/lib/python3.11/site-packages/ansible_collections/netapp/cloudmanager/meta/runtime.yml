@@ -1,0 +1,17 @@
+---
+requires_ansible: ">=2.15.0"
+action_groups:
+  netapp_cloudmanager:
+    - na_cloudmanager_aggregate
+    - na_cloudmanager_cifs_server
+    - na_cloudmanager_connector_aws
+    - na_cloudmanager_connector_azure
+    - na_cloudmanager_connector_gcp
+    - na_cloudmanager_cvo_aws
+    - na_cloudmanager_cvo_azure
+    - na_cloudmanager_cvo_gcp
+    - na_cloudmanager_info
+    - na_cloudmanager_nss_account
+    - na_cloudmanager_snapmirror
+    - na_cloudmanager_volume
+    - na_cloudmanager_aws_fsx

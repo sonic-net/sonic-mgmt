@@ -1,0 +1,10 @@
+---
+- name: Perform pre-install checks
+  ansible.builtin.include_tasks: pre_install_checks.yml
+
+- name: Install required packages for oVirt Engine deployment
+  ansible.builtin.include_tasks: install_packages.yml
+  when: not ovirt_engine_setup_perform_upgrade|bool and not ovirt_engine_setup_offline|bool
+
+- name: Run engine setup
+  ansible.builtin.include_tasks: engine_setup.yml

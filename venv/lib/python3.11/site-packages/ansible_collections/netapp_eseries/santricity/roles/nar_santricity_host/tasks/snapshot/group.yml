@@ -1,0 +1,75 @@
+- name: Determine if any snapshot consistency groups are no longer needed.
+  block:
+    - name: Retrieve all snapshot consistency groups
+      uri:
+        url: "{{ current_eseries_api_url }}storage-systems/{{ current_eseries_ssid }}/consistency-groups"
+        method: GET
+        url_password: "{{ current_eseries_api_password }}"
+        url_username: "{{ current_eseries_api_username }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+      connection: local
+      register: existing_consistency_groups
+
+    - name: Ensure all unspecified snapshot consistency groups are removed.
+      na_santricity_snapshot:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        state: absent
+        type: group
+        group_name: "{{ item }}"
+      connection: local
+      loop: "{{ unspecified_groups }}"
+      vars:
+        unspecified_groups: |-
+          {%- set unspecified_groups = [] -%}
+          {%- for existing_group in existing_consistency_groups["json"] -%}
+            {%- for group in eseries_snapshot_groups | default([]) if existing_group["name"] == group["name"] -%}
+            {%- else -%}
+              {%- if unspecified_groups.append(existing_group["name"]) -%}{%- endif -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          {{- unspecified_groups -}}
+  when: (eseries_remove_all_configuration | default(False)) == False and eseries_snapshot_remove_unspecified == True
+
+- name: "Ensure all snapshot consistency groups {{'exist' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'are removed' }}."
+  na_santricity_snapshot:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: "{{ eseries_remove_all_configuration_state | default('present') }}"
+    type: group
+    group_name: "{{ item['name'] }}"
+    maximum_snapshots: "{{ item['maximum_snapshots'] }}"
+    alert_threshold_pct: "{{ item['alert_threshold_pct'] }}"
+    reserve_capacity_full_policy: "{{ item['reserve_capacity_full_policy'] }}"
+    preferred_reserve_storage_pool: "{{ item['preferred_reserve_storage_pool'] }}"
+    rollback_priority: "{{ item['rollback_priority'] }}"
+    volumes: "{{ item['volumes'] }}"
+  connection: local
+  loop: "{{ consistency_groups }}"
+  vars:
+    consistency_groups: |-
+      {%- set consistency_groups = [] -%}
+      {%- for group in eseries_snapshot_groups | default([]) -%}
+        {%- set info = {"name": group["name"],
+                        "maximum_snapshots": group["maximum_snapshots"] | default(eseries_snapshot_groups_maximum_snapshots | default(omit)),
+                        "reserve_capacity_pct": group["reserve_capacity_pct"] | default(eseries_snapshot_groups_reserve_capacity_pct | default(omit)),
+                        "preferred_reserve_storage_pool": group["preferred_reserve_storage_pool"] | default(eseries_snapshot_groups_preferred_reserve_storage_pool | default(omit)),
+                        "reserve_capacity_full_policy": group["reserve_capacity_full_policy"] | default(eseries_snapshot_groups_reserve_capacity_full_policy | default(omit)),
+                        "alert_threshold_pct": group["alert_threshold_pct"] | default(eseries_snapshot_groups_alert_threshold_pct | default(omit)),
+                        "rollback_priority": group["rollback_priority"] | default(eseries_snapshot_rollback_priority | default(omit)),
+                        "volumes": []} -%}
+        {%- for volume in group["volumes"] -%}
+          {%- set volume_info = {"volume": volume["volume"]} -%}
+          {%- if volume["reserve_capacity_pct"] | default(False) and volume_info.update({"reserve_capacity_pct": volume["reserve_capacity_pct"]}) -%}{%- endif -%}
+          {%- if volume["reserve_capacity_pct"] | default(False) and volume_info.update({"preferred_reserve_storage_pool": volume["preferred_reserve_storage_pool"]}) -%}{%- endif -%}
+          {%- if info["volumes"].append(volume_info) -%}{%- endif -%}
+        {%- endfor -%}
+        {%- if consistency_groups.append(info) -%}{%- endif -%}
+      {%- endfor -%}
+      {{- consistency_groups -}}

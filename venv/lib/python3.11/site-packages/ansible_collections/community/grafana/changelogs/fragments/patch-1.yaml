@@ -1,0 +1,2 @@
+bugfixes:
+  - Fix var prefixes in silence-task in role

@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_inventory - Added `part_number` to hardware item information.

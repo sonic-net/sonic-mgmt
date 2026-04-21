@@ -1,0 +1,51 @@
+---
+# Playbook 1 Configure Access Point on planned location on Cisco Catalyst Center
+- name: Configure Access Point on planned location on Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Create access point location on Cisco Catalyst Center
+      cisco.dnac.accesspoint_location_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged  # Options: merged, deleted
+        config:  # Minimum 1; Maximum 100 config hierarchy
+          - floor_site_hierarchy: "Global/USA/SAN JOSE/SJ_BLD23/FLOOR1"
+            access_points:
+              - accesspoint_name: AP687D.B402.1614-AP-Test6
+                action: manage_real_ap  # Optional assign_planned_ap, manage_real_ap
+                mac_address: a4:88:73:d4:dd:80  # Required for create real ap
+                accesspoint_model: AP9120E
+                position:
+                  x_position: 30  # x-axis: from 0 to 100
+                  y_position: 30  # y-axis: from 0 to 88
+                  z_position: 8  # height: from 3.0 to 10
+                radios:  # Minimum Items: 1; Maximum Items: 4
+                  - bands: ["2.4"]  # can be 2.4, 5 and 6
+                    channel: 11
+                    tx_power: 5  # Decibel milliwatts (dBm)
+                    antenna:
+                      antenna_name: AIR-ANT2524DB-R-2.4GHz
+                      azimuth: 30  # support upto 360
+                      elevation: 30  # support -90 upto 90
+                  - bands: ["5"]  # can be 2.4, 5 and 6
+                    channel: 44
+                    tx_power: 6  # Decibel milliwatts (dBm)
+                    antenna:
+                      antenna_name: AIR-ANT2524DB-R-5GHz
+                      azimuth: 30  # support upto 360
+                      elevation: 30  # support -90 upto 90
+
+      register: output_list

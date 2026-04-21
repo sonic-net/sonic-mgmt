@@ -1,0 +1,22 @@
+---
+- name: Remove storage domain main block
+  ignore_errors: "{{ dr_ignore_error_clean }}"
+  tags:
+    - fail_back
+    - clean_engine
+  block:
+    # If we get the exception "Cannot deactivate Master Data Domain while there are running tasks on its Data Center."
+    # We should wait for some time and try again
+    - name: "Remove storage domain '{{ sd.name }}'"
+      ovirt.ovirt.ovirt_storage_domain:
+        state: absent
+        id: "{{ sd.id }}"
+        name: "{{ sd.name }}"
+        auth: "{{ ovirt_auth }}"
+        host: "{{ host }}"
+        destroy: "{{ dr_force }}"
+        data_center: "{{ sp_uuid }}"
+      register: result
+      until: dr_force or result is not failed
+      retries: "{{ dr_cleanup_retries_maintenance }}"
+      delay: "{{ dr_cleanup_delay_maintenance }}"

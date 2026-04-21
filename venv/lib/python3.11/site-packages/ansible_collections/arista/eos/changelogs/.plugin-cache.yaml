@@ -1,0 +1,192 @@
+objects:
+  role: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf:
+    eos:
+      description: Use eos cliconf to run command on Arista EOS platform
+      name: eos
+      version_added: 1.0.0
+  connection: {}
+  filter: {}
+  httpapi:
+    eos:
+      description: Use eAPI to run command on eos platform
+      name: eos
+      version_added: 1.0.0
+  inventory: {}
+  lookup: {}
+  module:
+    eos_acl_interfaces:
+      description: ACL interfaces resource module
+      name: eos_acl_interfaces
+      namespace: ""
+      version_added: 1.0.0
+    eos_acls:
+      description: ACLs resource module
+      name: eos_acls
+      namespace: ""
+      version_added: 1.0.0
+    eos_banner:
+      description: Manage multiline banners on Arista EOS devices
+      name: eos_banner
+      namespace: ""
+      version_added: 1.0.0
+    eos_bgp_address_family:
+      description: Manages BGP address family resource module
+      name: eos_bgp_address_family
+      namespace: ""
+      version_added: 1.4.0
+    eos_bgp_global:
+      description: Manages BGP global resource module
+      name: eos_bgp_global
+      namespace: ""
+      version_added: 1.4.0
+    eos_command:
+      description: Run arbitrary commands on an Arista EOS device
+      name: eos_command
+      namespace: ""
+      version_added: 1.0.0
+    eos_config:
+      description: Manage Arista EOS configuration sections
+      name: eos_config
+      namespace: ""
+      version_added: 1.0.0
+    eos_eapi:
+      description: Manage and configure Arista EOS eAPI.
+      name: eos_eapi
+      namespace: ""
+      version_added: 1.0.0
+    eos_facts:
+      description: Collect facts from remote devices running Arista EOS
+      name: eos_facts
+      namespace: ""
+      version_added: 1.0.0
+    eos_hostname:
+      description: Manages hostname resource module
+      name: eos_hostname
+      namespace: ""
+      version_added: 4.1.0
+    eos_interfaces:
+      description: Interfaces resource module
+      name: eos_interfaces
+      namespace: ""
+      version_added: 1.0.0
+    eos_l2_interfaces:
+      description: L2 interfaces resource module
+      name: eos_l2_interfaces
+      namespace: ""
+      version_added: 1.0.0
+    eos_l3_interfaces:
+      description: L3 interfaces resource module
+      name: eos_l3_interfaces
+      namespace: ""
+      version_added: 1.0.0
+    eos_lacp:
+      description: LACP resource module
+      name: eos_lacp
+      namespace: ""
+      version_added: 1.0.0
+    eos_lacp_interfaces:
+      description: LACP interfaces resource module
+      name: eos_lacp_interfaces
+      namespace: ""
+      version_added: 1.0.0
+    eos_lag_interfaces:
+      description: LAG interfaces resource module
+      name: eos_lag_interfaces
+      namespace: ""
+      version_added: 1.0.0
+    eos_lldp:
+      description: Manage LLDP configuration on Arista EOS network devices
+      name: eos_lldp
+      namespace: ""
+      version_added: 1.0.0
+    eos_lldp_global:
+      description: LLDP resource module
+      name: eos_lldp_global
+      namespace: ""
+      version_added: 1.0.0
+    eos_lldp_interfaces:
+      description: LLDP interfaces resource module
+      name: eos_lldp_interfaces
+      namespace: ""
+      version_added: 1.0.0
+    eos_logging_global:
+      description: Manages logging resource module
+      name: eos_logging_global
+      namespace: ""
+      version_added: 3.0.0
+    eos_ntp_global:
+      description: Manages ntp resource module
+      name: eos_ntp_global
+      namespace: ""
+      version_added: 3.1.0
+    eos_ospf_interfaces:
+      description: OSPF Interfaces Resource Module.
+      name: eos_ospf_interfaces
+      namespace: ""
+      version_added: 1.1.0
+    eos_ospfv2:
+      description: OSPFv2 resource module
+      name: eos_ospfv2
+      namespace: ""
+      version_added: 1.0.0
+    eos_ospfv3:
+      description: OSPFv3 resource module
+      name: eos_ospfv3
+      namespace: ""
+      version_added: 1.1.0
+    eos_prefix_lists:
+      description: Manages Prefix lists resource module
+      name: eos_prefix_lists
+      namespace: ""
+      version_added: 2.2.0
+    eos_route_maps:
+      description: Manages Route Maps resource module
+      name: eos_route_maps
+      namespace: ""
+      version_added: 2.1.0
+    eos_snmp_server:
+      description: Manages snmp_server resource module
+      name: eos_snmp_server
+      namespace: ""
+      version_added: 3.2.0
+    eos_static_routes:
+      description: Static routes resource module
+      name: eos_static_routes
+      namespace: ""
+      version_added: 1.0.0
+    eos_system:
+      description: Manage the system attributes on Arista EOS devices
+      name: eos_system
+      namespace: ""
+      version_added: 1.0.0
+    eos_user:
+      description: Manage the collection of local users on EOS devices
+      name: eos_user
+      namespace: ""
+      version_added: 1.0.0
+    eos_vlans:
+      description: VLANs resource module
+      name: eos_vlans
+      namespace: ""
+      version_added: 1.0.0
+    eos_vrf:
+      description: Manage VRFs on Arista EOS network devices
+      name: eos_vrf
+      namespace: ""
+      version_added: 1.0.0
+    eos_vrf_global:
+      description: Resource module to configure VRF definitions.
+      name: eos_vrf_global
+      namespace: ""
+      version_added: 10.0.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  test: {}
+  vars: {}
+version: 12.0.0

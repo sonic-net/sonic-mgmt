@@ -1,0 +1,70 @@
+---
+- name: Uninstall PowerFlex SDC
+  hosts: sdc
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_sdc
+  vars:
+    powerflex_sdc_state: absent
+
+- name: Uninstall PowerFlex SDS
+  hosts: sds
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_sds
+  vars:
+    powerflex_sds_state: absent
+
+- name: Uninstall PowerFlex SDR
+  hosts: sdr
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_sdr
+  vars:
+    powerflex_sdr_state: absent
+
+- name: Uninstall PowerFlex TB
+  hosts: tb
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_tb
+  vars:
+    powerflex_tb_state: absent
+
+- name: Uninstall PowerFlex MDM
+  hosts: mdm
+  roles:
+    - powerflex_mdm
+  vars_files:
+    - vars_files/connection.yml
+  vars:
+    powerflex_mdm_state: absent
+
+- name: Uninstall PowerFlex LIA
+  hosts: lia
+  roles:
+    - powerflex_lia
+  vars:
+    powerflex_lia_state: absent
+
+- name: Uninstall PowerFlex ActiveMQ
+  hosts: activemq
+  vars:
+    powerflex_activemq_state: absent
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_activemq
+
+- name: Uninstall PowerFlex SDT
+  hosts: sdt
+  vars_files:
+    - vars_files/connection.yml
+  roles:
+    - powerflex_sdt
+  vars:
+    powerflex_sdt_state: absent

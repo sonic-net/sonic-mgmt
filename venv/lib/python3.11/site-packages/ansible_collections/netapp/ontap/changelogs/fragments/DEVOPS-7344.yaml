@@ -1,0 +1,2 @@
+minor_changes:
+- na_ontap_snapshot - new option `snaplock_expiry_time` added in REST, requires ONTAP 9.15.1 or later.

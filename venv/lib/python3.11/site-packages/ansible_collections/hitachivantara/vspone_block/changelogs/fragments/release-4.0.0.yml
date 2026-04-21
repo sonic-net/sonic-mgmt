@@ -1,0 +1,44 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_block` adds new modules, enhances existing features, and includes various bug fixes."
+minor_changes:
+  - Added a new `"hv_audit_log_transfer_dest"` module to set the transfer destinations of audit log files using UDP/TCP ports.
+  - Added a new `"hv_audit_log_transfer_dest_facts"` module to get information about the transfer destinations of audit log files.
+  - Added a new `"hv_clpr"` module to create, update, and delete CLPR information.
+  - Added a new `"hv_clpr_facts"` module to get CLPR information.
+  - Added support for creating a pair with `"provisioned_secondary_volume_id"` and hostgroups to the `"hv_hur"` , `"hv_gad"` and `"hv_truecopy"` modules.
+  - Added support for creating a HUR pair with `"provisioned_secondary_volume_id"` to the `"hv_hur"`, `"hv_gad"` and `"hv_truecopy"` modules.
+  - Added support for a secondary volume takeover HUR pair to the `"hv_hur"` module.
+  - Added support for setting the CLPR ID of a volume to the `"hv_ldev"` module.
+  - Added support for getting free LDEV IDs to the `"hv_ldev_facts"` module.
+  - Added support for taking over a remote copy group for the HUR replication type to the `"hv_remote_copy_group"` module.
+  - Added a new `"hv_server_priority_manager"` module to set, change, and delete Server Priority Manager information.
+  - Added a new `"hv_server_priority_manager_facts"` module to get Server Priority Manager information.
+  - Added a new `"hv_snmp_setting"` module to manage SNMP settings.
+  - Added a new `"hv_snmp_settings_facts"` module to get SNMP settings for a storage system.
+  - Added support for creating a storage pool with a specific pool ID and LDEV numbers to the `"hv_storage_pool"` module.
+  - Added support for creating a storage pool with a specific pool ID and start and end LDEV numbers to the `"hv_storage_pool"` module.
+  - Added support for deleting a pool including pool volumes to the `"hv_storage_pool"` module.
+  - Added support for running performance monitoring of a pool to the `"hv_storage_pool"` module.
+  - Added support for performing tier relocation of a pool to the `"hv_storage_pool"` module.
+  - Added support for restoring a pool to the `"hv_storage_pool"` module.
+  - Added support for initializing the capacity saving function for a pool to the `"hv_storage_pool"` module.
+  - Added support for changing pool settings by pool name and by pool ID with new parameters to the `"hv_storage_pool"` module.
+  - Added a new `"hv_storage_system_monitor_facts"` module to get alert, hardware installed, and channel board information.
+  - Added a new `"hv_storage_system"` module to set the date and time in a storage system with NTP disabled/enabled.
+  - Added support for getting a list of time zones that can be used in a storage system to the `"hv_storagesystem_facts"` module.
+  - Added a new `"hv_upload_file"` module to upload a primary/secondary client certificate file to a storage system for audit log.
+  - Enhanced the `"hv_storagepool_facts"` module to support additional output parameters.
+  - Removed query for ports, quorum disks, journalPools, and freeLogicalUnitList from the `"hv_storagesystem_facts"` module.
+  - Added a new `"hv_external_paritygroup"` module to change the MP blade assigned to an external volume group.
+  - Added a new `"hv_external_paritygroup"` module to assign external volume groups to a CLPR.
+  - Added support for assigning a CLPR ID to a parity group to the `"hv_paritygroup"` module.
+
+removed_features:
+  - "`hv_gateway_subscriber_facts` module has been removed."
+  - "`hv_gateway_subscriber` module has been removed."
+  - "`hv_uaig_token_facts` module has been removed."
+  - "`hv_storagesystem` module has been removed."
+  - "`hv_gateway_unsubscribe_resource` module has been removed."
+  - "`hv_gateway_subscription_facts` module has been removed."
+  - "`hv_gateway_admin_password` module has been removed."
+  - "`hv_system_facts` module has been removed."

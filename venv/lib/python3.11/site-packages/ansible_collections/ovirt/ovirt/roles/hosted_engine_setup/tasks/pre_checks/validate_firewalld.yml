@@ -1,0 +1,14 @@
+---
+- name: Check firewalld status
+  block:
+    - name: Check firewalld status
+      ansible.builtin.systemd:
+        name: firewalld
+      register: firewalld_s
+    - name: Enforce firewalld status
+      ansible.builtin.fail:
+        msg: >
+          firewalld is required to be enabled and active in order
+          to correctly deploy hosted-engine.
+          Please check, fix accordingly and re-deploy.
+      when: firewalld_s.status.SubState != 'running' or firewalld_s.status.LoadState == 'masked'

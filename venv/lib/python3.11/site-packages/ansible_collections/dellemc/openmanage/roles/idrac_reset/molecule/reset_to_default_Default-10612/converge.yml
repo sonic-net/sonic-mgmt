@@ -1,0 +1,39 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: false
+  vars:
+    reset_operation: "Default"
+    reset_msg: "iDRAC reset operation completed successfully"
+
+  tasks:
+    - name: Setup Tasks
+      ansible.builtin.include_tasks:
+        file: ../_setup.yml
+
+    - name: Performing reset_to_default_all operation
+      block:
+        - name: Pre-requisite - Updating settings to non-default before reset
+          ansible.builtin.include_tasks:
+            file: ../_get_or_update_settings.yml
+          vars:
+            operation: update_settings
+
+        - name: Performing iDRAC reset with reset to default
+          ansible.builtin.import_role:
+            name: dellemc.openmanage.idrac_reset
+          vars:
+            hostname: "{{ idrac_ip }}"
+            username: "{{ idrac_user }}"
+            password: "{{ idrac_password }}"
+            reset_to_default: "{{ reset_operation }}"
+
+        - name: Fetching settings from iDRAC post reset
+          ansible.builtin.include_tasks:
+            file: ../_get_or_update_settings.yml
+
+        - name: Asserting after iDRAC reset
+          ansible.builtin.assert:
+            that:
+              - idrac_reset_out.msg == "{{ reset_msg }}"
+              - idrac_has_default_settings

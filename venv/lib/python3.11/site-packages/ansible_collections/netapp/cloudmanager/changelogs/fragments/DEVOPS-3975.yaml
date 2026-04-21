@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_volume - Add aggregate_name support on volume creation.

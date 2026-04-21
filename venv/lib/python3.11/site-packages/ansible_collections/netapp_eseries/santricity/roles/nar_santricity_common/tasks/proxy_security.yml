@@ -1,0 +1,241 @@
+- name: Ensure proxy admin password has been set
+  na_santricity_auth:
+    ssid: proxy
+    api_url: "{{ item['key'] }}"
+    api_username: "{{ item['value']['proxy_username'] }}"
+    api_password: "{{ item['value']['current_proxy_password'] }}"
+    validate_certs: "{{ item['value']['proxy_validate_certs'] }}"
+    user: admin
+    password: "{{ item['value']['proxy_password'] }}"
+    minimum_password_length: "{{ item['value']['proxy_minimum_password_length'] }}"
+  connection: local
+  loop: "{{ lookup('dict', proxy_admin, wantlist=True) }}"
+  no_log: true
+  vars:
+    proxy_admin: |-
+      {#- Build a dictionary of all inventoried proxies keyed by their api url #}
+      {%- set systems = {} %}
+      {%- for array in ansible_play_hosts_all %}
+        {%- if "eseries_proxy_api_url" in hostvars[array] and "eseries_proxy_api_password" in hostvars[array] %}
+          {%- if systems.update({hostvars[array]["eseries_proxy_api_url"]: {
+            "proxy_username": hostvars[array]["eseries_proxy_api_username"] | default('admin'),
+            "proxy_password": hostvars[array]["eseries_proxy_api_password"],
+            "current_proxy_password": hostvars[array]["eseries_proxy_api_old_password"] | default(hostvars[array]["eseries_proxy_api_password"]),
+            "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit),
+            "proxy_minimum_password_length": hostvars[array]["eseries_proxy_minimum_password_length"] | default(omit)}}) %}
+          {%- endif %}
+        {%- endif %}
+      {%- endfor %}
+      {{ systems }}
+  tags:
+    - always
+
+- name: Ensure proxy non-admin passwords have been set
+  na_santricity_auth:
+    ssid: proxy
+    api_url: "{{ item['value']['proxy_url'] }}"
+    api_username: "{{ item['value']['proxy_url_username'] }}"
+    api_password: "{{ item['value']['proxy_url_password'] }}"
+    validate_certs: "{{ item['value']['proxy_validate_certs'] }}"
+    user: "{{ item['value']['proxy_username'] }}"
+    password: "{{ item['value']['proxy_password'] }}"
+  connection: local
+  loop: "{{ lookup('dict', proxy_non_admin, wantlist=True) }}"
+  no_log: true
+  vars:
+    proxy_non_admin: |-
+      {#- Build a dictionary of all inventoried proxies keyed by their api url containing non-admin usernames/passwords #}
+      {%- set systems = {} %}
+      {%- for array in ansible_play_hosts_all %}
+        {%- if "eseries_proxy_api_url" in hostvars[array] and "eseries_proxy_api_password" in hostvars[array] and
+               (("eseries_proxy_monitor_password" in hostvars[array] and hostvars[array]["eseries_proxy_monitor_password"]) or
+                ("eseries_proxy_security_password" in hostvars[array] and hostvars[array]["eseries_proxy_security_password"]) or
+                ("eseries_proxy_storage_password" in hostvars[array] and hostvars[array]["eseries_proxy_storage_password"]) or
+                ("eseries_proxy_support_password" in hostvars[array] and hostvars[array]["eseries_proxy_support_password"])) %}
+          {%- if "eseries_proxy_monitor_password" in hostvars[array] and hostvars[array]["eseries_proxy_monitor_password"] and
+                 systems.update({[hostvars[array]["eseries_proxy_api_url"], 'monitor'] | join("-"): {
+            "proxy_url": hostvars[array]["eseries_proxy_api_url"],
+            "proxy_url_username": hostvars[array]["eseries_proxy_api_username"] | default('admin'),
+            "proxy_url_password": hostvars[array]["eseries_proxy_api_password"],
+            "proxy_username": 'monitor',
+            "proxy_password": hostvars[array]["eseries_proxy_monitor_password"],
+            "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit)}}) %}
+          {%- endif %}
+          {%- if "eseries_proxy_security_password" in hostvars[array] and hostvars[array]["eseries_proxy_security_password"] and
+                 systems.update({[hostvars[array]["eseries_proxy_api_url"], 'security'] | join("-"): {
+            "proxy_url": hostvars[array]["eseries_proxy_api_url"],
+            "proxy_url_username": hostvars[array]["eseries_proxy_api_username"] | default('admin'),
+            "proxy_url_password": hostvars[array]["eseries_proxy_api_password"],
+            "proxy_username": 'security',
+            "proxy_password": hostvars[array]["eseries_proxy_security_password"],
+            "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit)}}) %}
+          {%- endif %}
+          {%- if "eseries_proxy_storage_password" in hostvars[array] and hostvars[array]["eseries_proxy_storage_password"] and
+                 systems.update({[hostvars[array]["eseries_proxy_api_url"], 'storage'] | join("-"): {
+            "proxy_url": hostvars[array]["eseries_proxy_api_url"],
+            "proxy_url_username": hostvars[array]["eseries_proxy_api_username"] | default('admin'),
+            "proxy_url_password": hostvars[array]["eseries_proxy_api_password"],
+            "proxy_username": 'storage',
+            "proxy_password": hostvars[array]["eseries_proxy_storage_password"],
+            "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit)}}) %}
+          {%- endif %}
+          {%- if "eseries_proxy_support_password" in hostvars[array] and hostvars[array]["eseries_proxy_support_password"] and
+                 systems.update({[hostvars[array]["eseries_proxy_api_url"], 'support'] | join("-"): {
+            "proxy_url": hostvars[array]["eseries_proxy_api_url"],
+            "proxy_url_username": hostvars[array]["eseries_proxy_api_username"] | default('admin'),
+            "proxy_url_password": hostvars[array]["eseries_proxy_api_password"],
+            "proxy_username": 'support',
+            "proxy_password": hostvars[array]["eseries_proxy_support_password"],
+            "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit)}}) %}
+          {%- endif %}
+        {%- endif %}
+      {%- endfor %}
+      {{ systems }}
+
+- name: Ensure proxy client certificates are installed
+  na_santricity_client_certificate:
+    ssid: proxy
+    api_url: "{{ item['key'] }}"
+    api_username: "{{ item['value']['proxy_username'] }}"
+    api_password: "{{ item['value']['proxy_password'] }}"
+    validate_certs: "{{ item['value']['proxy_validate_certs'] }}"
+    certificates: "{{ item['value']['certificates'] }}"
+  connection: local
+  loop: "{{ lookup('dict', proxy_client_certificates, wantlist=True) }}"
+  when: item['value']['certificates'] | length > 0
+  no_log: true
+  vars:
+    proxy_client_certificates: |-
+      {#- Build a dictionary of all inventoried proxies keyed by their api url #}
+      {%- set systems = {} %}
+      {%- for array in ansible_play_hosts_all %}
+        {%- if "eseries_proxy_api_url" in hostvars[array] and "eseries_proxy_api_password" in hostvars[array] %}
+          {%- set certs = [] -%}
+
+          {#- Add common proxy client certificates -#}
+          {%- if "eseries_proxy_client_certificate_common_certificates" in (hostvars[array].keys() | list) -%}
+            {%- if hostvars[array]["eseries_proxy_client_certificate_common_certificates"] is string -%}
+              {%- if certs.append(hostvars[array]["eseries_proxy_client_certificate_common_certificates"]) -%}{%- endif -%}
+            {%- elif hostvars[array]["eseries_proxy_client_certificate_common_certificates"] is iterable -%}
+              {%- if certs.extend(hostvars[array]["eseries_proxy_client_certificate_common_certificates"]) -%}{%- endif -%}
+            {%- endif -%}
+          {%- endif -%}
+
+          {#- Add proxy specific client certificates -#}
+          {%- if "eseries_proxy_client_certificate_certificates" in (hostvars[array].keys() | list) -%}
+            {%- if hostvars[array]["eseries_proxy_client_certificate_certificates"] is string -%}
+              {%- if hostvars[array]["eseries_proxy_client_certificate_certificates"] not in certs -%}
+                {%- if certs.append(hostvars[array]["eseries_proxy_client_certificate_certificates"]) -%}{%- endif -%}
+              {%- endif -%}
+            {%- elif hostvars[array]["eseries_proxy_client_certificate_certificates"] is iterable -%}
+              {%- for client_cert in hostvars[array]["eseries_proxy_client_certificate_certificates"] if client_cert not in certs -%}
+                {%- if certs.append(client_cert) -%}{%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endif -%}
+
+          {%- if systems.update({hostvars[array]["eseries_proxy_api_url"]: {
+            "proxy_username": hostvars[array]["eseries_proxy_api_username"] | default('admin'),
+            "proxy_password": hostvars[array]["eseries_proxy_api_password"],
+            "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit),
+            "certificates": certs}}) %}
+          {%- endif %}
+        {%- endif %}
+      {%- endfor %}
+      {{ systems }}
+
+- name: Ensure proxy server certificates are installed
+  na_santricity_server_certificate:
+    ssid: proxy
+    api_url: "{{ item['key'] }}"
+    api_username: "{{ item['value']['proxy_username'] }}"
+    api_password: "{{ item['value']['proxy_password'] }}"
+    validate_certs: "{{ item['value']['proxy_validate_certs'] }}"
+    certificates: "{{ item['value']['certificates'] }}"
+    passphrase: "{{ item['value']['passphrase'] }}"
+  connection: local
+  loop: "{{ lookup('dict', proxy_server_certificates, wantlist=True) }}"
+  when: item['value']['certificates'] | length > 0
+  no_log: true
+  vars:
+    proxy_server_certificates: |-
+      {#- Build a dictionary of all inventoried proxies keyed by their api url #}
+      {%- set systems = {} %}
+      {%- for array in ansible_play_hosts_all %}
+        {%- if "eseries_proxy_api_url" in hostvars[array] and "eseries_proxy_api_password" in hostvars[array] %}
+          {%- set certs = [] -%}
+
+          {#- Add common proxy server certificates -#}
+          {%- if "eseries_proxy_server_certificate_common_certificates" in (hostvars[array].keys() | list) -%}
+            {%- if hostvars[array]["eseries_proxy_server_certificate_common_certificates"] is string -%}
+              {%- if certs.append(hostvars[array]["eseries_proxy_server_certificate_common_certificates"]) -%}{%- endif -%}
+            {%- elif hostvars[array]["eseries_proxy_server_certificate_common_certificates"] is iterable -%}
+              {%- if certs.extend(hostvars[array]["eseries_proxy_server_certificate_common_certificates"]) -%}{%- endif -%}
+            {%- endif -%}
+          {%- endif -%}
+
+          {#- Add proxy specific server certificates -#}
+          {%- if "eseries_proxy_server_certificate_certificates" in (hostvars[array].keys() | list) -%}
+            {%- if hostvars[array]["eseries_proxy_server_certificate_certificates"] is string -%}
+              {%- if hostvars[array]["eseries_proxy_server_certificate_certificates"] not in certs -%}
+                {%- if certs.append(hostvars[array]["eseries_proxy_server_certificate_certificates"]) -%}{%- endif -%}
+              {%- endif -%}
+            {%- elif hostvars[array]["eseries_proxy_server_certificate_certificates"] is iterable -%}
+              {%- for client_cert in hostvars[array]["eseries_proxy_server_certificate_certificates"] if client_cert not in certs -%}
+                {%- if certs.append(client_cert) -%}{%- endif -%}
+              {%- endfor -%}
+            {%- endif -%}
+          {%- endif -%}
+
+          {%- if systems.update({hostvars[array]["eseries_proxy_api_url"]: {
+            "proxy_username": hostvars[array]["eseries_proxy_api_username"] | default('admin'),
+            "proxy_password": hostvars[array]["eseries_proxy_api_password"],
+            "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit),
+            "certificates": certs,
+            "passphrase": hostvars[array]["eseries_proxy_server_certificate_passphrase"] | default(hostvars[array]["eseries_proxy_server_certificate_common_passphrase"] | default(omit))}}) %}
+          {%- endif %}
+        {%- endif %}
+      {%- endfor %}
+      {{ systems }}
+
+- name: Ensure proxy LDAP have been configured
+  na_santricity_ldap:
+    ssid: proxy
+    api_url: "{{ item['key'] }}"
+    api_username: "{{ item['value']['proxy_username'] }}"
+    api_password: "{{ item['value']['current_password'] | default(item['value']['proxy_password']) }}"
+    validate_certs: "{{ item['value']['proxy_validate_certs'] }}"
+    state: "{{ item['value']['ldap_state'] }}"
+    identifier: "{{ item['value']['ldap_identifier'] | default(omit) }}"
+    server_url: "{{ item['value']['ldap_server'] | default(omit) }}"
+    bind_user: "{{ item['value']['ldap_bind_username'] | default(omit) }}"
+    bind_password: "{{ item['value']['ldap_bind_password'] | default(omit) }}"
+    search_base: "{{ item['value']['ldap_search_base'] | default(omit) }}"
+    user_attribute: "{{ item['value']['ldap_user_attribute'] | default(omit) }}"
+    role_mappings: "{{ item['value']['ldap_role_mappings'] | default(omit) }}"
+  ignore_errors: true
+  connection: local
+  loop: "{{ lookup('dict', proxy_admin, wantlist=True) }}"
+  vars:
+    proxy_admin: |-
+      {#- Build a dictionary of all inventoried proxies keyed by their api url #}
+      {%- set systems = {} %}
+      {%- for array in ansible_play_hosts_all %}
+        {%- if "eseries_proxy_api_url" in hostvars[array] and "eseries_proxy_api_password" in hostvars[array] and "eseries_proxy_ldap_state" in hostvars[array] %}
+          {%- if systems.update({hostvars[array]["eseries_proxy_api_url"]: {
+            "proxy_username": hostvars[array]["eseries_proxy_api_username"] | default('admin'),
+            "proxy_password": hostvars[array]["eseries_proxy_api_password"],
+            "current_proxy_password": hostvars[array]["eseries_proxy_current_api_password"] | default(omit),
+            "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit),
+            "ldap_state": hostvars[array]["eseries_proxy_ldap_state"],
+            "ldap_identifier": hostvars[array]["eseries_proxy_ldap_identifier"] | default(omit),
+            "ldap_server": hostvars[array]["eseries_proxy_ldap_server"] | default(omit),
+            "ldap_bind_username": hostvars[array]["eseries_proxy_ldap_bind_username"] | default(omit),
+            "ldap_bind_password": hostvars[array]["eseries_proxy_ldap_bind_password"] | default(omit),
+            "ldap_search_base": hostvars[array]["eseries_proxy_ldap_search_base"] | default(omit),
+            "ldap_user_attribute": hostvars[array]["eseries_proxy_ldap_user_attribute"] | default(omit),
+            "ldap_role_mappings": hostvars[array]["eseries_proxy_ldap_role_mappings"] | default(omit)}}) %}
+          {%- endif %}
+        {%- endif %}
+      {%- endfor %}
+      {{ systems }}

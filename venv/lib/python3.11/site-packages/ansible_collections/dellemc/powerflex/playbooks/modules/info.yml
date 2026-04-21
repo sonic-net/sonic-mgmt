@@ -1,0 +1,151 @@
+---
+- name: Gatherfacts Module Operations on PowerFlex
+  hosts: localhost
+  connection: local
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: ''
+    validate_certs: false
+    host_port: 443
+  tasks:
+    - name: Get detailed list of PowerFlex Entities
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - vol
+          - storage_pool
+          - protection_domain
+          - sdc
+          - sds
+          - snapshot_policy
+          - device
+          - rcg
+          - replication_pair
+          - fault_set
+          - nvme_host
+
+    - name: Get specific volume details
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - vol
+        filters:
+          - filter_key: "name"
+            filter_operator: "equal"
+            filter_value: "ansible_test"
+
+    - name: Get specific fault set list
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - fault_set
+        filters:
+          - filter_key: "name"
+            filter_operator: "equal"
+            filter_value: "node4"
+
+    - name: Get managed device, deployments, service templates
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - managed_device
+          - deployment
+          - service_template
+
+    - name: Get deployment with filter, sort, pagination
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - deployment
+        filters:
+          - filter_key: "name"
+            filter_operator: "contains"
+            filter_value: "partial"
+        sort: name
+        limit: 10
+
+    - name: Get the list of firmware repository
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - firmware_repository
+
+    - name: Get the list of firmware repository with bundles and components
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - firmware_repository
+        include_related: true
+        include_bundles: true
+        include_components: true
+
+    - name: Get the list of firmware repository with filter
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - firmware_repository
+        filters:
+          - filter_key: "createdBy"
+            filter_operator: "equal"
+            filter_value: "admin"
+        sort: createdDate
+        limit: 10
+        include_related: true
+        include_bundles: true
+        include_components: true
+      register: result_repository_out
+
+    - name: Get the list of available firmware repository
+      ansible.builtin.debug:
+        msg: "{{ result_repository_out.FirmwareRepository |
+          selectattr('state', 'equalto', 'available') }}"
+
+    - name: Get the list of software components in the firmware repository
+      ansible.builtin.debug:
+        msg: "{{ result_repository_out.FirmwareRepository |
+          selectattr('id', 'equalto', '8aaa80788b7') |
+          map(attribute='softwareComponents') | flatten }}"
+
+    - name: Get the list of software bundles in the firmware repository
+      ansible.builtin.debug:
+        msg: "{{ result_repository_out.FirmwareRepository |
+          selectattr('id', 'equalto', '8aaa80788b7') |
+          map(attribute='softwareBundles') | flatten }}"
+
+    - name: Get the list of NVMe hosts
+      dellemc.powerflex.info:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        gather_subset:
+          - nvme_host
+        filters:
+          - filter_key: "name"
+            filter_operator: "equal"
+            filter_value: "ansible_test"

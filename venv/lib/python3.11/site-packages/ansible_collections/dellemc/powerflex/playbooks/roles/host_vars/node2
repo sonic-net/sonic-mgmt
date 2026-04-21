@@ -1,0 +1,11 @@
+# SDC params
+powerflex_sdc_name: sdc_test
+powerflex_sdc_performance_profile: Compact
+#TB params
+powerflex_tb_primary_name: primary_tb
+powerflex_tb_secondary_name: secondary_tb
+powerflex_tb_cluster_mode: "ThreeNodes"
+powerflex_protection_domain_name: "domain1"
+powerflex_fault_sets: ['fs1','fs2','fs3']
+powerflex_media_type: 'SSD'  # When version is R3
+powerflex_storage_pool_name: "pool1"

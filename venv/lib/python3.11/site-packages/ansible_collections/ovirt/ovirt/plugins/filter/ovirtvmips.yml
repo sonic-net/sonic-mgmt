@@ -1,0 +1,32 @@
+---
+DOCUMENTATION:
+  name: ovirtvmips
+  author: "oVirt Developers <devel@ovirt.org>"
+  short_description: VM all IPs
+  description:
+    - VM all IPs
+  positional: _input
+  options:
+    _input:
+      description: List of VMs
+      type: list
+      required: true
+    attr:
+      description: Attribute by which the
+      type: list
+    network_ip:
+      description: Filter the IPs by network address
+      type: string
+
+EXAMPLES: |
+  - name: Print VM all IPs
+    debug:
+      msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmips }}"
+  - name: Print VM all IPs
+    debug:
+      msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmips(attr='name') }}"
+
+RETURN:
+  _value:
+    description: All IPs
+    type: list

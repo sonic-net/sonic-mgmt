@@ -1,0 +1,4 @@
+minor_changes:
+ - purefb_s3acc - Add support for public buckets
+ - purefb_s3acc - Remove default requirements for ``hard_limit`` and ``default_hard_limit``
+ - purefb_bucket - Add support for public buckets

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_rest_info - fixed error where module would fail silently when using ``owning_resouce`` and a non-existent vserver.

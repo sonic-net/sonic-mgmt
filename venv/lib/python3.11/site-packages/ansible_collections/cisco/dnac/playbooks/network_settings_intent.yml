@@ -1,0 +1,114 @@
+---
+- name: Network settings intent
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  connection: local
+  tasks:
+
+    # Project Info  Section
+
+
+    - name: Create global pool, reserve subpool and network functions
+      cisco.dnac.network_settings_intent:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: "{{ dnac_log_level }}"
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - global_pool_details:
+              settings:
+                ip_pool:
+                  - name: Global_Pool2
+                    gateway: ''  # use this for updating
+                    ip_address_space: IPv6  # required when we are creating
+                    cidr: 2001:db8::/64   # required when we are creating
+                    pool_type: Generic
+                    dhcp_server_ips: []  # use this for updating
+                    dns_server_ips: []  # use this for updating
+                    #  prev_name: Global_Pool2
+            reserve_pool_details:
+              ipv6_address_space: true
+              ipv4_global_pool: 100.0.0.0/8
+              ipv4_prefix: true
+              ipv4_prefix_length: 9
+              ipv4_subnet: 100.128.0.0
+              ipv4_gateway: 100.128.0.1
+              # ipv4_dns_servers: [100.128.0.1]
+              name: IP_Pool_3
+              ipv6_prefix: true
+              ipv6_prefix_length: 64
+              ipv6_global_pool: 2001:db8::/64
+              ipv6_subnet: '2001:db8::'
+              site_name: Global/Chennai/Trill
+              slaac_support: true
+              # prev_name: IP_Pool_4
+              type: LAN
+            network_management_details:
+              settings:
+                dhcp_server:
+                  - 10.0.0.1
+                dns_server:
+                  domain_name: cisco.com
+                  primary_ip_address: 10.0.0.2
+                  secondary_ip_address: 10.0.0.3
+                client_and_endpoint_aaa:  # works only if we system settigns is set
+                  ip_address: 10.197.156.42  # Mandatory for ISE, sec ip for AAA
+                  network: 10.0.0.20
+                  protocol: RADIUS
+                  servers: AAA
+                  # shared_secret: string #ISE
+                message_of_the_day:
+                  banner_message: hello
+                  retain_existing_banner: 'true'
+                netflow_collector:
+                  ip_address: 10.0.0.4
+                  port: 443
+                network_aaa:  # works only if we system settigns is set
+                  ip_address: 10.0.0.21  # Mandatory for ISE, sec ip for AAA
+                  network: 10.0.0.20
+                  protocol: TACACS
+                  servers: AAA
+                  # shared_secret: string #ISE
+                ntp_server:
+                  - 10.0.0.5
+                snmp_server:
+                  configure_dnac_ip: false
+                  # ip_addresses:
+                  # - 10.0.0.6
+                syslog_server:
+                  configure_dnac_ip: false
+                  # ip_addresses:
+                  # - 10.0.0.7
+                timezone: GMT
+              site_name: Global/Chennai
+
+    - name: Delete Global Pool and Release Pool Reservation
+      cisco.dnac.network_settings_intent:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: "{{ dnac_log_level }}"
+        state: deleted
+        config_verify: true
+        config:
+          - global_pool_details:
+              settings:
+                ip_pool:
+                  - name: Global_Pool2
+            reserve_pool_details:
+              name: IP_Pool_3
+              site_name: Global/Chennai/Trill

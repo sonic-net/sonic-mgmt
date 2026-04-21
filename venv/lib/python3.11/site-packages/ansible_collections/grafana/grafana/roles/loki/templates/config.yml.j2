@@ -1,0 +1,107 @@
+{% if loki_target is defined %}
+target: {{ loki_target }}
+{% endif %}
+{% if loki_auth_enabled is defined %}
+auth_enabled: {{ loki_auth_enabled }}
+{% endif %}
+{% if loki_ballast_bytes is defined %}
+ballast_bytes: {{ loki_ballast_bytes }}
+{% endif %}
+server:
+  {{ loki_server | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% if loki_distributor is defined %}
+distributor:
+  {{ loki_distributor | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_querier is defined %}
+querier:
+  {{ loki_querier | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_query_scheduler is defined %}
+query_scheduler:
+  {{ loki_query_scheduler | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_frontend is defined %}
+frontend:
+  {{ loki_frontend | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_query_range is defined %}
+query_range:
+  {{ loki_query_range | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_ruler is defined %}
+ruler:
+  {{ loki_ruler | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_ingester_client is defined %}
+ingester_client:
+  {{ loki_ingester_client | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_ingester is defined %}
+ingester:
+  {{ loki_ingester | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_index_gateway is defined %}
+index_gateway:
+  {{ loki_index_gateway | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_storage_config is defined %}
+storage_config:
+  {{ loki_storage_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_chunk_store_config is defined %}
+chunk_store_config:
+  {{ loki_chunk_store_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_schema_config is defined %}
+schema_config:
+  {{ loki_schema_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_compactor is defined %}
+compactor:
+  {{ loki_compactor | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_limits_config is defined %}
+limits_config:
+  {{ loki_limits_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_frontend_worker is defined %}
+frontend_worker:
+  {{ loki_frontend_worker | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_table_manager is defined %}
+table_manager:
+  {{ loki_table_manager | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_memberlist is defined %}
+memberlist:
+  {{ loki_memberlist | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_runtime_config is defined %}
+runtime_config:
+  {{ loki_runtime_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_operational_config is defined %}
+operational_config:
+  {{ loki_operational_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_tracing is defined %}
+tracing:
+  {{ loki_tracing | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_analytics is defined %}
+analytics:
+  {{ loki_analytics | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_common is defined %}
+common:
+  {{ loki_common | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_bloom_build is defined %}
+bloom_build:
+  {{ loki_bloom_build | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if loki_bloom_gateway is defined %}
+bloom_gateway:
+  {{ loki_bloom_gateway | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}

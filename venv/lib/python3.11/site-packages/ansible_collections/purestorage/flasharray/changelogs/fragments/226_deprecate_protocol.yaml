@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_host - Deprecate ``protocol`` parameter. No longer required.

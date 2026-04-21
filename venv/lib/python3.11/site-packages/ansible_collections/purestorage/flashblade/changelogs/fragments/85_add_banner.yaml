@@ -1,0 +1,2 @@
+minor_changes:
+  - purefb_banner - Module to manage the GUI and SSH login message

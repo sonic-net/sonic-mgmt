@@ -1,0 +1,91 @@
+---
+####################################################################
+# Example : Parity Group Management Playbook
+####################################################################
+- name: Parity Group Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create Parity Group
+    ####################################################################
+    - name: Create Parity Group
+      hitachivantara.vspone_block.vsp.hv_paritygroup:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          parity_group_id: "1-1"
+          drive_location_ids: ["0-16", "0-17", "0-18", "0-19"]
+          raid_type: "3D+1P"
+          is_encryption_enabled: true
+          is_copy_back_mode_enabled: false
+          is_accelerated_compression_enabled: false
+          clpr_id: 0
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete Parity Group
+    ####################################################################
+    - name: Delete Parity Group
+      hitachivantara.vspone_block.vsp.hv_paritygroup:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          parity_group_id: "1-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update Parity Group
+    ####################################################################
+    - name: Update Parity Group
+      hitachivantara.vspone_block.vsp.hv_paritygroup:
+        connection_info: "{{ connection_info }}"
+        state: "update"
+
+        spec:
+          parity_group_id: "1-1"
+          is_accelerated_compression_enabled: false
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Assign CLPR ID to Parity Group
+    ####################################################################
+    - name: Assign CLPR ID to Parity Group
+      hitachivantara.vspone_block.vsp.hv_paritygroup:
+        connection_info: "{{ connection_info }}"
+        state: "assign_clpr_id"
+
+        spec:
+          parity_group_id: "1-1"
+          clpr_id: 0
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

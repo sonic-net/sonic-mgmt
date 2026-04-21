@@ -1,0 +1,19 @@
+admin_username: admin
+admin_password: password
+admin_ips:
+  - 10.10.10.11
+  - 10.10.10.12
+  - 10.10.10.21
+clusters:
+  cluster1:
+    admin_username: "{{ admin_username }}"
+    admin_password: "{{ admin_password }}"
+    admin_ip: "{{ admin_ips[0] }}"
+  cluster1_node1:
+    admin_username: "{{ admin_username }}"
+    admin_password: "{{ admin_password }}"
+    admin_ip: "{{ admin_ips[1] }}"
+  cluster2:
+    admin_username: "{{ admin_username }}"
+    admin_password: "{{ admin_password }}"
+    admin_ip: "{{ admin_ips[2] }}"

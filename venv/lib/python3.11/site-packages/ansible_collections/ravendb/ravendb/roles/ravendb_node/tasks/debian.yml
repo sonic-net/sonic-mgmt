@@ -1,0 +1,65 @@
+- name: Install prerequisites [Debian]
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - bzip2
+    - jq
+    - unzip
+    - openssl
+    - ca-certificates 
+
+- name: Install ICU for tarball path [Debian non-Ubuntu]
+  become: true
+  ansible.builtin.apt:
+    name: libicu-dev
+    state: present
+  when: ansible_facts['distribution'] != 'Ubuntu'
+
+- name: Determine architecture
+  set_fact:
+    arch: "{{ ansible_facts['architecture'] }}"
+
+- name: Fail if architecture is unsupported
+  fail:
+    msg: "Unsupported architecture: {{ arch }}"
+  when: arch not in ['x86_64', 'aarch64']
+
+- name: Determine Ubuntu version (Ubuntu only)
+  set_fact:
+    ubuntu_version: "{{ ansible_facts['distribution_version'] }}"
+  when: ansible_facts['distribution'] == 'Ubuntu'
+
+- name: Message
+  debug:
+    msg: "Downloading RavenDB {{ ravendb_version }} via {{ 'deb' if ansible_facts['distribution']=='Ubuntu' else 'tarball' }}..."
+
+- block: # deb/ubuntu
+  - name: Determine download url for latest version
+    set_fact:
+      ravendb_download_url: >-
+          https://hibernatingrhinos.com/downloads/RavenDB%20for%20Ubuntu%20{{ ubuntu_version }}%20{{ 'x64' if arch == 'x86_64' else 'arm64' if arch == 'aarch64' }}%20DEB/latest?buildType={{ ravendb_release_channel }}&version={{ ravendb_version_minor }}
+    when: ravendb_version == "latest"
+
+  - name: Determine download url for exact version
+    set_fact:
+      ravendb_download_url: "https://daily-builds.s3.amazonaws.com/ravendb_{{ ravendb_version }}-0_ubuntu.{{ ubuntu_version }}_{{ 'amd64' if arch == 'x86_64' else 'arm64' if arch == 'aarch64' }}.deb"
+    when: ravendb_version != "latest"
+
+  - name: Remove RavenDB previous download
+    ansible.builtin.file:
+      path: /tmp/ravendb.deb
+      state: absent
+
+  - name: Download RavenDB DEB package
+    ansible.builtin.get_url:
+        url: "{{ ravendb_download_url }}"
+        dest: /tmp/ravendb.deb
+  when: ansible_facts['distribution'] == 'Ubuntu'
+  tags: download
+
+- import_tasks: download_tarball.yml
+  when: ansible_facts['distribution'] != 'Ubuntu'
+  tags: download

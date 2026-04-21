@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_volume - New parameter pgroup to specify an existing protection group to put crwated volume(s) in.

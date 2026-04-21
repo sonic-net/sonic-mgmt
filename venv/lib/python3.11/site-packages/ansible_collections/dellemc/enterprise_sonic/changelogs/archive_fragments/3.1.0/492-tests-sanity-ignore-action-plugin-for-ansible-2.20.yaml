@@ -1,0 +1,3 @@
+---
+trivial:
+  - tests - Skip Ansible 2.20 checking for a module corresponding to the sonic.py action plugin to avoid invalid sanity failures (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/492).

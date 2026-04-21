@@ -1,0 +1,67 @@
+---
+####################################################################
+# Example : SDSB Web Server Playbook
+####################################################################
+- name: SDSB Web Server settings
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Configure web server client address allowlist
+    ####################################################################
+    - name: Configure web server client address allowlist
+      hitachivantara.vspone_block.sds_block.hv_sds_block_web_server:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          enable_client_address_allowlist: true
+          client_address_allowlist:
+            - "192.168.1.0"
+            - "10.0.0.100"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Import server certificate
+    ####################################################################
+    - name: Import server certificate
+      hitachivantara.vspone_block.sds_block.hv_sds_block_web_server:
+        connection_info: "{{ connection_info }}"
+        state: import_certificate
+        spec:
+          server_certificate_file_path: "/path/to/server.crt"
+          server_certificate_secret_key_file_path: "/path/to/server.key"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Disable client address allowlist
+    ####################################################################
+    - name: Disable client address allowlist
+      hitachivantara.vspone_block.sds_block.hv_sds_block_web_server:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          enable_client_address_allowlist: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

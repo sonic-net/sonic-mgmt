@@ -1,0 +1,31 @@
+- name: Using Storage Virtualize collection to initiate migration
+  hosts: localhost
+  vars_files:
+    - vol_migration_vars
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Fetch authorization token for source
+      register: src_token
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ src_cluster_ip }}"
+        username: "{{ src_cluster_username }}"
+        password: "{{ src_cluster_password }}"
+    - name: Fetch authorization token for destination
+      register: dest_token
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ dest_cluster_ip }}"
+        username: "{{ dest_cluster_username }}"
+        password: "{{ dest_cluster_password }}"
+    - name: Initiate a volume migration with replicate_hosts as false
+      ibm.storage_virtualize.ibm_svc_manage_migration:
+        source_volume: "{{ src_vol_name }}"
+        target_volume: "{{ dest_vol_name if dest_vol_name is defined else src_vol_name }}"
+        clustername: "{{ src_cluster_ip }}"
+        remote_cluster: "{{ dest_cluster_name }}"
+        token: "{{ src_token.token }}"
+        state: initiate
+        replicate_hosts: false
+        remote_token: "{{ dest_token.token }}"
+        relationship_name: "{{ rel_name if rel_name is defined else src_vol_name }}"
+        remote_pool: "{{ dest_cluster_pool_name }}"

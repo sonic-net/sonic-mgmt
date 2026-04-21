@@ -1,0 +1,7 @@
+---
+in_docker: "{{ \
+  ansible_facts.virtualization_role == 'guest' and ( \
+    ['container', 'docker'] | intersect( \
+      ansible_facts.virtualization_tech_guest | default([ansible_facts.virtualization_type]) \
+    ) | bool \
+  ) }}"

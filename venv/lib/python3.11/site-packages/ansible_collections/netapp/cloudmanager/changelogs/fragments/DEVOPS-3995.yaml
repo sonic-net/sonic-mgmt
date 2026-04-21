@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_connector_azure - Fix KeyError client_id

@@ -1,0 +1,67 @@
+---
+- name: Molecule Test for uninstallation of ActiveMQ
+  hosts: activemq
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+
+  tasks:
+    - name: Uninstall powerflex ActiveMQ
+      ansible.builtin.import_role:
+        name: powerflex_activemq
+      vars:
+        powerflex_activemq_state: absent
+
+    - name: Verifying uninstall package in normal mode
+      ansible.builtin.assert:
+        that:
+          - "'Removed:' in powerflex_activemq_uninstall_output.results[0].results[0]"
+      when:
+        - not ansible_check_mode
+        - powerflex_activemq_uninstall_output.changed
+        - ansible_distribution in ("RedHat", "CentOS", "SLES", "Rocky")
+
+    - name: Verifying uninstall package in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_activemq_uninstall_output.msg == "Check mode: No changes made"
+      when:
+        - ansible_check_mode
+        - ansible_distribution in ("RedHat", "CentOS", "SLES", "Rocky")
+
+    - name: Verifying uninstall package in Idempotency
+      ansible.builtin.assert:
+        that: >
+          "'Nothing to do' in powerflex_activemq_uninstall_output.results[0].msg" or
+          "'EMC-ScaleIO-activemq is not installed' in powerflex_activemq_uninstall_output.results[0].results[0]"
+      when:
+        - not ansible_check_mode
+        - not powerflex_activemq_uninstall_output.changed
+        - ansible_distribution in ("RedHat", "CentOS", "SLES", "Rocky")
+
+    - name: Verifying uninstall package in check mode for ubuntu
+      ansible.builtin.assert:
+        that:
+          - powerflex_activemq_uninstall_deb_output.results[0].msg == "Check mode: No changes made"
+          - powerflex_activemq_uninstall_deb_output.changed
+      when:
+        - ansible_check_mode
+        - ansible_distribution == "Ubuntu"
+
+    - name: Verifying uninstall package in normal mode for ubuntu
+      ansible.builtin.assert:
+        that:
+          - "'Removed:' in powerflex_activemq_uninstall_deb_output.results[0].results[0]"
+      when:
+        - not ansible_check_mode
+        - powerflex_activemq_uninstall_deb_output.changed
+        - ansible_distribution == "Ubuntu"
+
+    - name: Verifying uninstall package in Idempotency for ubuntu
+      ansible.builtin.assert:
+        that: >
+          "'Nothing to do' in powerflex_activemq_uninstall_deb_output.results[0].msg" or
+          "'is not installed' in powerflex_activemq_uninstall_deb_output.results[0].results[0]"
+      when:
+        - not ansible_check_mode
+        - not powerflex_activemq_uninstall_deb_output.changed
+        - ansible_distribution == "Ubuntu"

@@ -1,0 +1,8 @@
+---
+- name: Install
+  ansible.builtin.import_tasks: install.yml
+  when: state|default('present') == "present"
+
+- name: Uninstall
+  ansible.builtin.import_tasks: uninstall.yml
+  when: state|default('present') == "absent"

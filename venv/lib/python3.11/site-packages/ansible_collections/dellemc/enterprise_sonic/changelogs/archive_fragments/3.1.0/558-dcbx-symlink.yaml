@@ -1,0 +1,3 @@
+---
+trivial:
+  - sonic_dcbx - Add symlink for action plugin redirect (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/558).

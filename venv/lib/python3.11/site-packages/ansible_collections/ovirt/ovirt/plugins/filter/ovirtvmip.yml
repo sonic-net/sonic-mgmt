@@ -1,0 +1,32 @@
+---
+DOCUMENTATION:
+  name: ovirtvmip
+  author: "oVirt Developers <devel@ovirt.org>"
+  short_description: Return first IP
+  description:
+    - Return first IP
+  positional: _input, attr, network_ip
+  options:
+    _input:
+      description: List of VMs
+      type: list
+      required: true
+    attr:
+      description: Attribute by which the
+      type: list
+    network_ip:
+      description: Filter the IPs by network address
+      type: string
+
+EXAMPLES: |
+  - name: Print VM IP
+    debug:
+      msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmip }}"
+  - name: Print VM IP
+    debug:
+      msg: "{{ vms.ovirt_vms | ovirt.ovirt.ovirtvmip(attr='name') }}"
+
+RETURN:
+  _value:
+    description: First IP
+    type: list

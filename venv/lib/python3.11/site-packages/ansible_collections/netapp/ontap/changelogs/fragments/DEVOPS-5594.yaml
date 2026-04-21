@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_export_policy_rule - ``allow_device_creation`` and ``chown_mode`` is now supported in ZAPI.
+  - na_ontap_export_policy_rule - ``allow_suid``, ``allow_device_creation`` and ``chown_mode`` is now supported from ONTAP 9.9.1 or later in REST.

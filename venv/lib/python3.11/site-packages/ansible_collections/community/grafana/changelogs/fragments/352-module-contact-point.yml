@@ -1,0 +1,5 @@
+minor_changes:
+  - Add `grafana_contact_point` module
+  - Add support of `grafana_contact_point` in grafana role
+trivial:
+  - Add tests for `grafana_contact_point` module

@@ -1,0 +1,64 @@
+---
+- name: SDC Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    sdc_name: test_sdc
+
+  tasks:
+    - name: Get sdc details using sdc ip
+      register: result
+      dellemc.powerflex.sdc:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdc_ip: "1.1.1.1"
+        state: "present"
+
+    - name: Set sdc id
+      ansible.builtin.set_fact:
+        sdc_id: "{{ result.sdc_details.id }}"
+
+    - name: Rename sdc using sdc id
+      dellemc.powerflex.sdc:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdc_id: "{{ sdc_id }}"
+        sdc_new_name: "{{ sdc_name }}"
+        state: "present"
+
+    - name: Get sdc details using sdc name
+      dellemc.powerflex.sdc:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdc_name: "{{ sdc_name }}"
+        state: "present"
+
+    - name: Set performance profile of sdc using sdc name
+      dellemc.powerflex.sdc:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdc_name: "{{ sdc_name }}"
+        performance_profile: "HighPerformance"
+        state: "present"
+
+    - name: Remove sdc
+      dellemc.powerflex.sdc:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdc_name: "{{ sdc_name }}"
+        state: "absent"

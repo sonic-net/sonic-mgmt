@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_info - Report encryption state in SMB client policy rules

@@ -1,0 +1,284 @@
+---
+- name: Using the IBM Storage Virtualize collection
+  gather_facts: false
+  connection: local
+  hosts: localhost
+  vars_files:
+    - inventory.ini
+
+  vars:
+    site1: "{{ site_to_retain | default('site1') }}"
+    site2: "{{ site_to_remove | default('site2') }}"
+    logpath: "HyperSwap_PBHA_migration.log"
+
+  tasks:
+    # =============================================================================================
+    # 0. Perform the Initial Setup
+
+    # Authenticate and fetch the token for the primary cluster
+    - name: Fetch auth token for Primary Cluster
+      register: primary_cluster_auth_token
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ primary_clustername }}"
+        username: "{{ primary_cluster_username }}"
+        password: "{{ primary_cluster_password }}"
+        log_path: "{{ logpath }}"
+    - name: Fetch system details for primary cluster
+      register: primary_system_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: system
+        log_path: "{{ logpath }}"
+
+    # =============================================================================================
+    # Fetch pool info and extract site-specific pool names, for validation and migration.
+
+    - name: Fetch pool information from primary cluster
+      register: primary_pool_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: "pool"
+        log_path: "{{ logpath }}"
+
+    - name: Extract Pool Name(s) from gathered pools info
+      ansible.builtin.set_fact:
+        remove_site_pool_names: "{{ primary_pool_info.Pool | selectattr('site_name', 'equalto', site2) | map(attribute='name') | list }}"
+        retain_site_pool_names: "{{ primary_pool_info.Pool | selectattr('site_name', 'equalto', site1) | map(attribute='name') | list }}"
+
+    - name: Fail if the target pool exists in the pools of site to be removed
+      ansible.builtin.fail:
+        msg: >
+          The target pool '{{ target_pool }}' exists in the pools to be removed ({{ site2 }}).
+          Please choose a valid pool that is not in the remove list.
+      when: target_pool in remove_site_pool_names
+
+    - name: Fail if the target pool is not defined in either site's pools
+      ansible.builtin.fail:
+        msg: >
+          The target pool name '{{ target_pool }}' does not exist in either {{ site1 }} or {{ site2 }} pools.
+          Please choose a different pool.
+      when: target_pool not in remove_site_pool_names and target_pool not in retain_site_pool_names
+
+
+    # =============================================================================================
+    # Retrieve IO groups and decide which to retain
+
+    - name: Retrieve IO Groups associated with the site to be removed
+      register: io_group_to_remove
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: iog
+        filtervalue: "site_name={{ site2 }}"
+        log_path: "{{ logpath }}"
+
+    - name: Determine the IO Group to retain
+      ansible.builtin.set_fact:
+        io_group_to_retain: "{{ 'io_grp0' if io_group_to_remove.IOGroup[0].name == 'io_grp1' else 'io_grp1' }}"
+
+
+    # =============================================================================================
+    # 1. Migrate all volumes from the site to be removed to the site to retain, excluding the HyperSwap volumes.
+
+    - name: Wait for volume formatting to complete
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: vol
+        log_path: "{{ logpath }}"
+      register: all_volumes
+      until: all_volumes.Volume | selectattr("formatting", "equalto", "no") | list | length == all_volumes.Volume | length
+      retries: 15
+      delay: 20
+      ignore_errors: false
+
+    - name: Filter volumes dependent on the IO Group of the site to remove
+      ansible.builtin.set_fact:
+        dependent_volumes_on_site: >-
+          {{ all_volumes.Volume
+            | selectattr('IO_group_id', 'equalto', io_group_to_remove.IOGroup[0].id)
+            | selectattr('FC_id', 'ne', 'many')
+            | list }}
+
+    - name: Add IO group access for volumes dependent on site to be removed
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ item.name }}"
+        state: "present"
+        iogrp: "{{ io_group_to_retain }}, {{ item.IO_group_name }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ dependent_volumes_on_site }}"
+      loop_control:
+        label: "Adding IO Group {{ io_group_to_retain }} to {{ item.name }}"
+
+    - name: Move volumes to the IO group of site to be retained
+      ibm.storage_virtualize.ibm_svctask_command:
+        command: "svctask movevdisk -iogrp {{ io_group_to_retain }} {{ item.id }}"
+        clustername: "{{ primary_clustername }}"
+        username: "{{ primary_cluster_username }}"
+        password: "{{ primary_cluster_password }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ dependent_volumes_on_site }}"
+      loop_control:
+        label: "Moving volume {{ item.name }} to {{ io_group_to_retain }}"
+
+    - name: Migrate volumes to the target pool (from site to be removed to site to be retained)
+      ibm.storage_virtualize.ibm_svc_manage_migration:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        type_of_migration: across_pools
+        source_volume: "{{ item.name }}"
+        new_pool: "{{ target_pool }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ dependent_volumes_on_site }}"
+      loop_control:
+        label: "Moving Volume {{ item.name }} to {{ target_pool }}"
+
+    - name: Remove IO group access of volumes of site to be removed
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ item.name }}"
+        state: "present"
+        iogrp: "{{ io_group_to_retain }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ dependent_volumes_on_site }}"
+      loop_control:
+        label: "Removing IO Group {{ io_group_to_remove.IOGroup[0].name }} from {{ item.name }}"
+
+
+    # =============================================================================================
+    # 2. Verify if the volume copy exists, and then remove it.
+
+    - name: Retrieve HyperSwap volumes from the primary cluster
+      register: hyperswap_volumes
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: vol
+        filtervalue: "function=master"
+        log_path: "{{ logpath }}"
+
+    - name: Save HyperSwap volumes to a JSON file
+      ansible.builtin.copy:
+        content: "{{ hyperswap_volumes | to_json }}"
+        dest: "./Hyperswap_volumes_of_{{ primary_system_info.System.name }}.json"
+        mode: "0644"
+      when:
+        - hyperswap_volumes.Volume is defined and hyperswap_volumes.Volume | length > 0
+
+    - name: Display warning about HyperSwap volume file
+      ansible.builtin.debug:
+        msg: >
+          WARNING: DO NOT DELETE auto-generated file 'Hyperswap_volumes_of_{{ primary_system_info.System.name }}.json'.
+          This file acts as an input for subsequent migration sub-tasks.
+
+    - name: Check if volume copies exist on the site to be removed
+      register: volume_copy_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: vdiskcopy
+        log_path: "{{ logpath }}"
+
+    - name: Remove volume copies of site to be removed, if present
+      ibm.storage_virtualize.ibm_svctask_command:
+        command: "svctask rmvolumecopy -site {{ site2 }} -discardimage {{ item.volume_id }}"
+        clustername: "{{ primary_clustername }}"
+        username: "{{ primary_cluster_username }}"
+        password: "{{ primary_cluster_password }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ hyperswap_volumes.Volume }}"
+      loop_control:
+        label: "Removing VDiskCopy of {{ item.name }}"
+      when:
+        - volume_copy_info.VdiskCopy is defined and volume_copy_info.VdiskCopy | length > 0
+
+
+    # =============================================================================================
+    # Removing pools and marking drives as unused to ensure no issues arise during node removal from the cluster
+
+    - name: Retrieve MDisk(s) information for the site to be removed
+      register: mdisk_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: mdisk
+        filtervalue: "site_name={{ site2 }}"
+        log_path: "{{ logpath }}"
+
+    - name: Delete MDisk(s) for the site to be removed
+      ibm.storage_virtualize.ibm_svc_mdisk:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ item.name }}"
+        state: absent
+        mdiskgrp: "{{ item.mdisk_grp_name }}"
+        log_path: "{{ logpath }}"
+      loop: "{{ mdisk_info.Mdisk }}"
+
+    - name: Delete Pool(s) for the site to be removed
+      ibm.storage_virtualize.ibm_svc_mdiskgrp:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        name: "{{ item }}"
+        state: absent
+        log_path: "{{ logpath }}"
+      loop: "{{ remove_site_pool_names }}"
+
+    - name: Retrieve driveclass information associated with the site to be removed
+      register: driveclass_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: driveclass
+        filtervalue: "IO_group_id={{ io_group_to_remove.IOGroup[0].id }}"
+        log_path: "{{ logpath }}"
+
+    - name: Retrieve drive information for the specified drive class
+      register: drive_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        gather_subset: drive
+        filtervalue: "drive_class_id={{ driveclass_info.DriveClass[0].id }}"
+        log_path: "{{ logpath }}"
+      when: driveclass_info.DriveClass | length > 0
+
+    - name: Change the state of drives to 'unused'
+      ibm.storage_virtualize.ibm_sv_manage_drive:
+        clustername: "{{ primary_clustername }}"
+        token: "{{ primary_cluster_auth_token.token }}"
+        drive_id: "{{ item.id }}"
+        drive_state: unused
+        log_path: "{{ logpath }}"
+      loop: "{{ drive_info.Drive }}"
+      when: (driveclass_info.DriveClass | length > 0) and (drive_info | length > 0)
+
+
+    # =============================================================================================
+    # Verify required resources for creating pools on the secondary cluster
+
+    - name: Load HyperSwap volume info from JSON file
+      ansible.builtin.include_vars:
+        file: "./Hyperswap_volumes_of_{{ primary_system_info.System.name }}.json"
+        name: hyperswapVolumes
+
+    - name: Count number of unique pools used by HyperSwap volumes
+      ansible.builtin.set_fact:
+        hyperswap_vol_pools: "{{ hyperswapVolumes.Volume | map(attribute='parent_mdisk_grp_name') | select('defined') | unique | list }}"
+
+    - name: Print message about required drives
+      ansible.builtin.debug:
+        msg: >
+          To create {{ hyperswap_vol_pools | length }} pool(s) on the secondary cluster, ensure that
+          drives are available for allocation. Please verify the drive availability before proceeding."
+
+    - name: Display warning about HyperSwap volume file
+      ansible.builtin.debug:
+        msg: >
+          WARNING: DO NOT DELETE auto-generated file 'Hyperswap_volumes_of_{{ primary_system_info.System.name }}.json'.
+          This file acts as an input for subsequent migration sub-tasks.

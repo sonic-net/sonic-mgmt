@@ -1,0 +1,11 @@
+---
+requires_ansible: '>=2.9.10'
+action_groups:
+  all:
+    - mysql_db
+    - mysql_info
+    - mysql_query
+    - mysql_replication
+    - mysql_role
+    - mysql_user
+    - mysql_variables

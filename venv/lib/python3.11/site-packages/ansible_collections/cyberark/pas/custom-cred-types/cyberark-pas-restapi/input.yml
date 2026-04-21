@@ -1,0 +1,18 @@
+fields:
+  - id: username
+    type: string
+    label: Username
+    help_text: CyberArk REST API Username
+  - id: password
+    type: string
+    label: Password
+    secret: true
+    help_text: CyberArk REST API Password
+  - id: pvwa_url
+    type: string
+    label: PVWA URL
+    help_text: 'CyberArk PVWA URL e.g. https://pvwa.cyberark.com'
+required:
+  - username
+  - password
+  - pvwa_url

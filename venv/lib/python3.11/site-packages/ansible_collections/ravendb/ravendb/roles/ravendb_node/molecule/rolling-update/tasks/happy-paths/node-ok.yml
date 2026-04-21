@@ -1,0 +1,68 @@
+---
+# ======================================
+# scenario: rolling-upgrade-node-alive-ok
+# gates used: node_alive
+#
+# flow:
+# 1. setup 3 independent nodes with ravendb 5.4
+# 2. try to rolling upgrade to 6.2 serially:
+#   - roll A -> B -> C
+#   - pre-gate node_alive
+#   - upgrade node to 6.2
+#   - post-gate node_alive
+# 
+# checkpoints:
+#  - each node must pass node_alive gate before upgrade
+#  - each node must pass node_alive gate after upgrade
+#
+# outcome:
+# - happy path. PASS. All nodes upgraded to 6.2
+# ======================================
+
+- name: rolling Update to 6.2
+  hosts: all
+  gather_facts: true
+  serial: 1
+  tasks:
+    - name: Per-node gate pre upgrade
+      delegate_to: localhost
+      become: false
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive']
+        max_time_to_wait: 20
+        retry_interval_seconds: 2
+      register: gate_result
+   
+    - name: Upgrade node to 6.2
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version_minor: 6.2
+        ravendb_settings_preset: default
+  
+    - name: Per-node gate post upgrade
+      delegate_to: localhost
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive']
+        max_time_to_wait: 60
+        retry_interval_seconds: 3
+      register: gate_result
+    
+    - debug:
+        msg: "Gate result: {{ gate_result }}"
+
+    - name: Get RavenDB version
+      become: yes
+      command: >
+        /usr/lib/ravendb/server/Raven.Server --version
+      register: ravendb_version_result
+      changed_when: false
+
+    - name: Make sure it's updated
+      assert:
+        that:
+          - ravendb_version_result.stdout.startswith('6.2')
+        fail_msg: "Server version output: {{ ravendb_version_result.stdout }}"

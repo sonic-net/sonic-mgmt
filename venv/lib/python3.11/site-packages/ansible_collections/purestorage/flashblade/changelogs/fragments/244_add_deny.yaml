@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_policy - Add deny effect for object store policy rules. Requires Purity//FB 4.3.0+

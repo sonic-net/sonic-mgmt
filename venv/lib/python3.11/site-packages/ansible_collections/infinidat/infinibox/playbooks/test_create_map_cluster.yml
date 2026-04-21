@@ -1,0 +1,294 @@
+---
+- name: Test infini_map module
+  hosts: localhost
+  gather_facts: false
+  tasks:
+
+    - name: NEGATIVE test -> Map volume specifying both a cluster and a host
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host1"
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: result
+      failed_when:
+        - '"both to be provided" not in result.msg'
+        - not result.failed
+
+    - name: NEGATIVE test -> Unmap volume specifying both a cluster and a host
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host1"
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: result
+      failed_when:
+        - '"both to be provided" not in result.msg'
+        - not result.failed
+
+    - name: NEGATIVE test -> Stat volume specifying both a cluster and a host
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host1"
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: result
+      failed_when:
+        - '"both to be provided" not in result.msg'
+        - not result.failed
+
+    - name: POSITIVE test -> Create pool
+      infinidat.infinibox.infini_pool:
+        name: "{{ auto_prefix }}pool"
+        size: 1TB
+        vsize: 1TB
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create thin volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol"
+        size: 1GB
+        pool: "{{ auto_prefix }}pool"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create host for cluster mapping
+      infinidat.infinibox.infini_host:
+        name: "{{ auto_prefix }}host1"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create host for cluster mapping
+      infinidat.infinibox.infini_host:
+        name: "{{ auto_prefix }}host2"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create host for host mapping
+      infinidat.infinibox.infini_host:
+        name: "{{ auto_prefix }}host3"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create cluster with hosts for cluster mapping
+      infinidat.infinibox.infini_cluster:
+        name: "{{ auto_prefix }}cluster"
+        cluster_hosts:
+          - host_name: "{{ auto_prefix }}host1"
+            host_cluster_state: present
+          - host_name: "{{ auto_prefix }}host2"
+            host_cluster_state: present
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Map volume to cluster
+      infinidat.infinibox.infini_map:
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: IDEMPOTENT test -> Map volume to cluster again
+      infinidat.infinibox.infini_map:
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: result
+      failed_when:
+        - '"already exists using" not in result.msg'
+        - result.changed
+
+    - name: POSITIVE test -> Stat map of volume to cluster
+      infinidat.infinibox.infini_map:
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: cluster_stat
+
+    - name: POSITIVE test -> Show map stat
+      ansible.builtin.debug:
+        msg: "Map stat: {{ cluster_stat }}"
+
+    - name: POSITIVE test -> Map volume to host
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host3"
+        volume: "{{ auto_prefix }}vol"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: IDEMPOTENT test -> Map volume to host again
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host3"
+        volume: "{{ auto_prefix }}vol"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: result
+      failed_when:
+        - '"already exists using" not in result.msg'
+        - result.changed
+
+    - name: POSITIVE test -> Stat map of volume to host
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host3"
+        volume: "{{ auto_prefix }}vol"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: host_stat
+
+    - name: POSITIVE test -> Show map stat
+      ansible.builtin.debug:
+        msg: "Map stat: {{ host_stat }}"
+
+    # Since the host is in the cluster and the volume is already mapped to the cluster, mapping the volume to the host becomes a NOOP.
+    - name: IDEMPOTENT test -> Map volume to host which is also in cluster
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host1"
+        volume: "{{ auto_prefix }}vol"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: result
+      failed_when:
+        - '"already exists using" not in result.msg'
+        - result.changed
+
+### Test mapping of volume to a host using specified lun.
+    - name: NEGATIVE test -> Map volume to host again using lun 99 when already mapped
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host3"
+        volume: "{{ auto_prefix }}vol"
+        lun: 99
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: new_lun_fail
+      failed_when:
+        - '"Cannot change the lun" not in new_lun_fail.msg'
+        - result.changed
+
+    - name: POSITIVE test -> Unmap volume from host
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host3"
+        volume: "{{ auto_prefix }}vol"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Map volume to host using lun 99 when not already mapped
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host3"
+        volume: "{{ auto_prefix }}vol"
+        lun: 99
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Stat map of volume to host to check lun 99 used
+      infinidat.infinibox.infini_map:
+        host: "{{ auto_prefix }}host3"
+        volume: "{{ auto_prefix }}vol"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: new_lun_success
+      failed_when:
+        - '"using lun 99" not in new_lun_success.msg'
+        - new_lun_success.volume_lun != 99
+
+    - name: POSITIVE test -> Show lun mapping message
+      ansible.builtin.debug:
+        msg: "Changed lun mapping message: {{ new_lun_success.msg }}"
+### End test mapping of volume to a host using specified lun.
+
+### Test mapping of volume to a cluster using specified lun.
+    - name: NEGATIVE test -> Map volume to cluster again using lun 98 when already mapped
+      infinidat.infinibox.infini_map:
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        lun: 98
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: new_lun_fail
+      failed_when:
+        - '"Cannot change the lun" not in new_lun_fail.msg'
+        - result.changed
+
+    - name: POSITIVE test -> Unmap volume from cluster
+      infinidat.infinibox.infini_map:
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Map volume to cluster using lun 98 when not already mapped
+      infinidat.infinibox.infini_map:
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        lun: 98
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Stat map of volume to cluster to check lun 98 used
+      infinidat.infinibox.infini_map:
+        cluster: "{{ auto_prefix }}cluster"
+        volume: "{{ auto_prefix }}vol"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: new_lun_success
+      failed_when:
+        - '"using lun 98" not in new_lun_success.msg'
+        - new_lun_success.volume_lun != 98
+
+    - name: POSITIVE test -> Show lun mapping message
+      ansible.builtin.debug:
+        msg: "Changed lun mapping message: {{ new_lun_success.msg }}"
+  ### End test mapping of volume to a cluster using specified lun.

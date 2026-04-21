@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_export_policy_rule - Fixed bug that prevent ZAPI and REST calls from working correctly

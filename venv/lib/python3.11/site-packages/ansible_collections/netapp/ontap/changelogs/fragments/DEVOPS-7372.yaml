@@ -1,0 +1,2 @@
+bugfixes:
+  - na_ontap_cg_snapshot - fixed issue with CG not being found with given volumes in REST.

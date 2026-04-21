@@ -1,0 +1,8 @@
+---
+requires_ansible: ">=2.15.0"
+plugin_routing:
+  modules:
+    purefa_sso:
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: purefa_sso will be removed in a future release of this collection. Use purestorage.flasharray.purefa_admin instead.

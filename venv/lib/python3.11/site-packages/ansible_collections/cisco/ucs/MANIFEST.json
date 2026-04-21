@@ -1,0 +1,34 @@
+{
+ "collection_info": {
+  "namespace": "cisco",
+  "name": "ucs",
+  "version": "1.16.0",
+  "authors": [
+   "David Soper (@dsoper2)",
+   "John McDonough (@movinalot)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "cisco",
+   "ucs"
+  ],
+  "description": "modules for Cisco UCS Manager",
+  "license": [
+   "GPL-3.0-or-later"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/CiscoDevNet/ansible-ucs",
+  "documentation": "https://developer.cisco.com/site/ucs-dev-center",
+  "homepage": "https://github.com/CiscoDevNet/ansible-ucs",
+  "issues": "https://github.com/CiscoDevNet/ansible-ucs"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "f8391f82173b1c0126d3e7cbfbeb92730c5962d4414718951d46c88aee4dace1",
+  "format": 1
+ },
+ "format": 1
+}

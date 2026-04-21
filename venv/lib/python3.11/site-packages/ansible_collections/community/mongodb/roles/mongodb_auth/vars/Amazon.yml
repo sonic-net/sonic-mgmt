@@ -1,0 +1,2 @@
+---
+pyyaml_package: "{% if ansible_distribution_major_version == '2' %}PyYAML{% else %}python3-pyyaml{% endif %}"

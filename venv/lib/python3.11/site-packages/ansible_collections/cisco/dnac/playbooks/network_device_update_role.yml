@@ -1,0 +1,46 @@
+---
+- name: Network device update role
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Update Network Device Role
+      cisco.dnac.network_device_update_role:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        id: 0c4c83f7-1fce-46fe-a0a2-ac4b2e7dfbab
+        role: UNKNOWN
+        roleSource: AUTO
+      register: network_device_update_role_result
+
+    - name: Get task info
+      cisco.dnac.task_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        taskId: "{{ network_device_update_role_result.dnac_response.response.taskId }}"
+      when:
+        - network_device_update_role_result.dnac_response is defined
+        - network_device_update_role_result.dnac_response.response is defined
+        - network_device_update_role_result.dnac_response.response.taskId is defined
+      register: task_result
+
+    - name: Show updated network_device_update_role
+      ansible.builtin.debug:
+        msg: "{{ network_device_update_role_result }}"
+      when:
+        - network_device_update_role_result is defined
+
+    - name: Show retrieved task
+      ansible.builtin.debug:
+        msg: "{{ task_result.dnac_response.response }}"
+      when:
+        - task_result is defined
+        - task_result.dnac_response is defined

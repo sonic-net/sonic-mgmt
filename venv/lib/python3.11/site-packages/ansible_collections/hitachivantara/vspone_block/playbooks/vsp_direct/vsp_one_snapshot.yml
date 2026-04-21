@@ -1,0 +1,90 @@
+---
+####################################################################
+# Example : VSP One Snapshot Playbook
+####################################################################
+- name: VSP One Snapshot Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################################
+    # Task Name : Create VSP one snapshot pairs
+    # #####################################################################################
+    - name: Create VSP one snapshot pairs
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot:
+        connection_info: "{{ connection_info }}"
+        spec:
+          new_snapshots:
+            - master_volume_id: 37
+              pool_id: 3
+              snapshot_group_name: "rd_snapshot_group_37"
+              type: "snapshot"
+            - master_volume_id: 38
+              pool_id: 3
+              snapshot_group_name: "rd_snapshot_group_38"
+              type: "snapshot"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Map VSP one snapshot pair
+    # #####################################################################################
+    - name: Map VSP one snapshot pair
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot:
+        connection_info: "{{ connection_info }}"
+        state: "map"
+        spec:
+          master_volume_id: 27
+          snapshot_id: 7
+          pool_id: 3
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Restore VSP one snapshot pair
+    # #####################################################################################
+    - name: Restore VSP one snapshot pair
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot:
+        connection_info: "{{ connection_info }}"
+        state: "restore"
+        spec:
+          master_volume_id: 27
+          snapshot_id: 7
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete VSP one snapshot pair
+    # #####################################################################################
+    - name: Delete VSP one snapshot pair
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          master_volume_id: 27
+          snapshot_id: 7
+          should_delete_svol: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

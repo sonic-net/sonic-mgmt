@@ -1,0 +1,37 @@
+---
+- name: "Verify foreman_content_view_version_cleanup_keep is set"
+  ansible.builtin.assert:
+    that:
+      - foreman_content_view_version_cleanup_keep|int >= 0
+    fail_msg: "foreman_content_view_version_cleanup_keep needs to be set to >= 0"
+
+- name: "Find all content views"
+  theforeman.foreman.resource_info:
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    resource: content_views
+    search: "{{ foreman_content_view_version_cleanup_search | default(omit) }}"
+  register: __foreman_all_cvs
+
+- name: "Delete unused composite content view versions"  # noqa: jinja[spacing]
+  ansible.builtin.include_tasks: delete_cv_versions.yml
+  vars:
+    foreman_cv_name: "{{ __foreman_ccv.name }}"
+    foreman_cv_versions: "{{ (__foreman_ccv.versions | rejectattr('environment_ids') | map(attribute='version') | map('float') | sort
+      | map('string') | reverse | list)[(foreman_content_view_version_cleanup_keep | int):] }}"
+  loop: "{{ __foreman_all_cvs.resources | selectattr('composite') | list }}"
+  loop_control:
+    label: "{{ __foreman_ccv.label }}"
+    loop_var: "__foreman_ccv"
+  when: (__foreman_ccv.versions | rejectattr('environment_ids') | list | length) > (foreman_content_view_version_cleanup_keep | int)
+
+- name: "Find and delete unused content view versions"  # noqa: jinja[spacing]
+  ansible.builtin.include_tasks: find_and_delete_unused_cv_versions.yml
+  loop: "{{ __foreman_all_cvs.resources | rejectattr('composite') | list }}"
+  loop_control:
+    label: "{{ foreman_cv.label }}"
+    loop_var: "foreman_cv"
+  when: (foreman_cv.versions | rejectattr('environment_ids') | list | length) > (foreman_content_view_version_cleanup_keep | int)

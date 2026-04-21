@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_vserver_create role - support max_volumes option.
+  - na_ontap_cluster_config role - use na_ontap_login_messages as na_ontap_motd is deprecated.

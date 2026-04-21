@@ -1,0 +1,12 @@
+kind: LDAPSyncConfig
+apiVersion: v1
+url: "{{ ldap_server_uri }}"
+insecure: true
+activeDirectory:
+    usersQuery:
+        baseDN: "ou=engineers,ou=activeD,{{ ldap_root }}"
+        scope: sub
+        derefAliases: never
+        filter: (objectclass=inetOrgPerson)
+    userNameAttributes: [ mail ] 
+    groupMembershipAttributes: [ employeeType ]

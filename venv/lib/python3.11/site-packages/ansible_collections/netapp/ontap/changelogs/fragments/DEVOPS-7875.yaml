@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_software_update - Updated documentation for `validate_after_download` parameter.

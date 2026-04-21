@@ -1,0 +1,90 @@
+---
+# defaults file for zabbix-web
+
+zabbix_web_version_check: true
+
+# zabbix_web_version:
+zabbix_web_package_state: present
+zabbix_web_doubleprecision: false
+zabbix_web_conf_mode: "0640"
+zabbix_web_connect_ha_backend: false
+zabbix_api_server_url: zabbix.example.com
+zabbix_web_http_server: apache
+zabbix_url_aliases: []
+zabbix_web_create_vhost: true
+zabbix_web_create_php_fpm: "{{ zabbix_web_create_vhost }}"
+
+zabbix_server_name: "{{ inventory_hostname }}"
+zabbix_server_hostname: "{{ inventory_hostname }}"
+zabbix_server_listenport: 10051
+
+zabbix_web_vhost_port: 80
+zabbix_web_vhost_tls_port: 443
+zabbix_web_vhost_listen_ip: "*"
+zabbix_web_tls: false
+zabbix_timezone: Europe/Amsterdam
+zabbix_php_fpm_conf_listen: true
+# zabbix_web_tls_crt: /etc/pki/server.crt
+# zabbix_web_tls_key: /etc/pki/server.key
+# zabbix_web_tls_chain:
+# zabbix_web_SSLPassPhraseDialog: exec:/usr/libexec/httpd-ssl-pass-dialog
+# zabbix_web_SSLCryptoDevice: builtin
+# zabbix_web_max_execution_time: 300
+# zabbix_web_memory_limit: 128M
+# zabbix_web_post_max_size: 16M
+# zabbix_web_upload_max_filesize: 2M
+# zabbix_web_max_input_time: 300
+# zabbix_web_max_input_vars: 10000
+zabbix_web_ssl_session_cache_timeout: "{{ zabbix_web_SSLSessionCacheTimeout | default('!INVALID') }}"  # Remove backwards compatability in 4.0
+zabbix_web_ssl_session_cache: "{{ zabbix_web_SSLSessionCache | default('!INVALID') }}"  # Remove backwards compatability in 4.0
+zabbix_apache_custom_includes: []
+zabbix_php_fpm_conf_user: "{{ zabbix_web_user }}"
+zabbix_php_fpm_conf_group: "{{ zabbix_web_group }}"
+zabbix_web_php_fpm_mode: dynamic
+zabbix_web_php_fpm_max_childs: 50
+zabbix_web_php_fpm_start_servers: 5
+zabbix_web_php_fpm_min_spare_servers: 5
+zabbix_web_php_fpm_max_spare_servers: 35
+
+
+# Database
+zabbix_server_database: pgsql
+zabbix_server_dbuser: zabbix-server
+zabbix_server_dbpassword: zabbix-server
+zabbix_server_dbhost: localhost
+zabbix_server_dbport: "{{ _zabbix_server_database_default_port[zabbix_server_database] }}"
+zabbix_server_dbname: zabbix-server
+zabbix_server_dbencryption: false
+zabbix_server_dbverifyhost: false
+zabbix_server_dbschema:
+
+# Yum/APT Variables
+zabbix_web_version_minor: "*"
+
+# Elasticsearch
+# zabbix_server_history_url:
+#  - "'uint' => 'http://localhost:9200'"
+#  - "'text' => 'http://localhost:9200'"
+#  - "'log' => 'http://localhost:9200'"
+#  - "'dbl' => 'http://localhost:9200'"
+#  - "'str' => 'http://localhost:9200'"
+zabbix_server_history_types:
+  - "str"
+  - "text"
+  - "log"
+  - "uint"
+  - "dbl"
+
+# SELinux specific
+selinux_allow_httpd_can_connect_ldap: false
+selinux_allow_httpd_can_connect_zabbix: true
+selinux_allow_httpd_can_network_connect_db: true
+
+zabbix_repo_deb_gpg_key_url: http://repo.zabbix.com/zabbix-official-repo.key
+zabbix_repo_deb_include_deb_src: true
+# SAML certificates
+# zabbix_saml_idp_crt:
+# zabbix_saml_sp_crt:
+# zabbix_saml_sp_key:
+
+# zabbix_web_ssl_cipher_suite: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384

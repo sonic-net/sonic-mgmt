@@ -1,0 +1,14 @@
+release_summary: release fortinet.fortimanager 2.3.0
+minor_changes:
+  - Some arguments can support both list or string format input now.
+  - Support newest versions for FortiManager v6.2 ~ v7.4
+bugfixes:
+  - When the JSON data sent by FortiManager is not in the right format, the collection can still execute correctly.
+  - Fix a bug that collection may update the resource when it does not need to.
+  - Fix some modules missing revision (used for version warning).
+  - Add param 'platform' in 'fmgr_wtpprofile' and param 'interface' in 'fmgr_fsp_vlan'.
+  - Add 'access_token' in 'fmgr_generic'.
+  - Improve document.
+  - Improve sanity tests.
+  - Fixed the bug that would report an error when providing access_token and username/password at the same time.
+  - Improve fmgr_fact. 'changed' will not be true anymore if you get the result.

@@ -1,0 +1,46 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+DOCUMENTATION:
+  name: quote_txt
+  short_description: Quotes a string to use as a TXT record entry
+  version_added: 2.9.0
+  description:
+    - Given a string, quotes it so it can be used in a TXT record entry.
+  options:
+    _input:
+      description:
+        - The string to quote.
+      type: string
+      required: true
+    always_quote:
+      description:
+        - Whether to always quote the resulting string in double quotes.
+      type: bool
+      default: false
+    character_encoding:
+      description:
+        - Whether to treat numeric escape sequences (V(\\xyz)) as octal or decimal numbers.
+        - The default value V(decimal) is compatible to L(RFC 1035, https://www.ietf.org/rfc/rfc1035.txt).
+      type: str
+      default: decimal
+      choices:
+        - decimal
+        - octal
+  author:
+    - Felix Fontein (@felixfontein)
+
+EXAMPLES: |
+  - name: Quote a TXT entry
+    ansible.builtin.set_fact:
+      public_suffix: "{{ value | community.dns.quote_txt }}"
+      # Should result in '"this is a test"'
+    vars:
+      value: this is a test
+
+RETURN:
+  _value:
+    description: The quoted string that can be used for a TXT entry.
+    type: string

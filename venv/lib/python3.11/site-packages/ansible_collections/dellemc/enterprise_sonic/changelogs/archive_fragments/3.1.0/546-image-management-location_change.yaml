@@ -1,0 +1,3 @@
+---
+trivial:
+  - sonic_image_management - Change the location of the SONiC image zip file used by this regression test from a "/tmp" directory location to the "permanent" directory "/usr/local/share/script_files" (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/546).

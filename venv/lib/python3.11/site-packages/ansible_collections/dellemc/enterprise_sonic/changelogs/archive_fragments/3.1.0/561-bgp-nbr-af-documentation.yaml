@@ -1,0 +1,3 @@
+---
+trivial:
+  - sonic_bgp_neighbors_af - Fix typos in configuration examples (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/561).

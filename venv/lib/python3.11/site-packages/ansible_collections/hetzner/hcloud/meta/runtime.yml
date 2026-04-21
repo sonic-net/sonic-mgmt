@@ -1,0 +1,121 @@
+requires_ansible: ">=2.17.0"
+
+action_groups:
+  all:
+    - certificate
+    - certificate_info
+    - datacenter_info
+    - firewall
+    - firewall_info
+    - firewall_resource
+    - floating_ip
+    - floating_ip_info
+    - image_info
+    - iso_info
+    - load_balancer
+    - load_balancer_info
+    - load_balancer_network
+    - load_balancer_service
+    - load_balancer_target
+    - load_balancer_type_info
+    - location_info
+    - network
+    - network_info
+    - placement_group
+    - primary_ip
+    - primary_ip_info
+    - rdns
+    - route
+    - server
+    - server_info
+    - server_network
+    - server_type_info
+    - ssh_key
+    - ssh_key_info
+    - subnetwork
+    - volume
+    - volume_info
+    - volume_attachment
+    - zone
+    - zone_info
+    - zone_rrset
+    - zone_rrset_info
+
+plugin_routing:
+  modules:
+    hcloud_certificate_info:
+      redirect: hetzner.hcloud.certificate_info
+    hcloud_certificate:
+      redirect: hetzner.hcloud.certificate
+    hcloud_datacenter_info:
+      redirect: hetzner.hcloud.datacenter_info
+    hcloud_firewall:
+      redirect: hetzner.hcloud.firewall
+    hcloud_firewall_info:
+      redirect: hetzner.hcloud.firewall_info
+    hcloud_firewall_resource:
+      redirect: hetzner.hcloud.firewall_resource
+    hcloud_floating_ip_info:
+      redirect: hetzner.hcloud.floating_ip_info
+    hcloud_floating_ip:
+      redirect: hetzner.hcloud.floating_ip
+    hcloud_image_info:
+      redirect: hetzner.hcloud.image_info
+    hcloud_iso_info:
+      redirect: hetzner.hcloud.iso_info
+    hcloud_load_balancer_info:
+      redirect: hetzner.hcloud.load_balancer_info
+    hcloud_load_balancer_network:
+      redirect: hetzner.hcloud.load_balancer_network
+    hcloud_load_balancer_service:
+      redirect: hetzner.hcloud.load_balancer_service
+    hcloud_load_balancer_target:
+      redirect: hetzner.hcloud.load_balancer_target
+    hcloud_load_balancer_type_info:
+      redirect: hetzner.hcloud.load_balancer_type_info
+    hcloud_load_balancer:
+      redirect: hetzner.hcloud.load_balancer
+    hcloud_location_info:
+      redirect: hetzner.hcloud.location_info
+    hcloud_network_info:
+      redirect: hetzner.hcloud.network_info
+    hcloud_network:
+      redirect: hetzner.hcloud.network
+    hcloud_placement_group:
+      redirect: hetzner.hcloud.placement_group
+    hcloud_primary_ip_info:
+      redirect: hetzner.hcloud.primary_ip_info
+    hcloud_primary_ip:
+      redirect: hetzner.hcloud.primary_ip
+    hcloud_rdns:
+      redirect: hetzner.hcloud.rdns
+    hcloud_route:
+      redirect: hetzner.hcloud.route
+    hcloud_server_info:
+      redirect: hetzner.hcloud.server_info
+    hcloud_server_network:
+      redirect: hetzner.hcloud.server_network
+    hcloud_server_type_info:
+      redirect: hetzner.hcloud.server_type_info
+    hcloud_server:
+      redirect: hetzner.hcloud.server
+    hcloud_ssh_key_info:
+      redirect: hetzner.hcloud.ssh_key_info
+    hcloud_ssh_key:
+      redirect: hetzner.hcloud.ssh_key
+    hcloud_subnetwork:
+      redirect: hetzner.hcloud.subnetwork
+    hcloud_volume_info:
+      redirect: hetzner.hcloud.volume_info
+    hcloud_volume:
+      redirect: hetzner.hcloud.volume
+    hcloud_volume_attachment:
+      redirect: hetzner.hcloud.volume_attachment
+    hcloud_zone:
+      redirect: hetzner.hcloud.zone
+    hcloud_zone_info:
+      redirect: hetzner.hcloud.zone_info
+    hcloud_zone_rrset:
+      redirect: hetzner.hcloud.zone_rrset
+    hcloud_zone_rrset_info:
+      redirect: hetzner.hcloud.zone_rrset_info

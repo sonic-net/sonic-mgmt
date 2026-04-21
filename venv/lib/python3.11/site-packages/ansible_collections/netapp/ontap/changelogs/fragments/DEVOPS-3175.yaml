@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_node - added modify function for location and asset tag for node.

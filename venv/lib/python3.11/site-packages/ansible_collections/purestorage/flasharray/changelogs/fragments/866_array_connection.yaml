@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_connection - Add new parameters for key refresh and connection refresh, as well as ability to update existing connection

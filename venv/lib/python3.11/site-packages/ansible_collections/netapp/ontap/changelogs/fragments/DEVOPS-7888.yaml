@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_svm - new options `auto_enable_analytics`, `auto_enable_activity_tracking` added in REST, requires ONTAP 9.12.1 or later.

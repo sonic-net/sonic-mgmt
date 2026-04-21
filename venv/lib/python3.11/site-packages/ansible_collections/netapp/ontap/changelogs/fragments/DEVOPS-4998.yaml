@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - na_ontap_command - fix typo in example.
+minor_changes:
+  - na_ontap_volume_autosize - improve error reporting.

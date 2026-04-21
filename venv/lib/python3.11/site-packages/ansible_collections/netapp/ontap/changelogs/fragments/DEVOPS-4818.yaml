@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_command - document that a READONLY user is not supported, even for show commands.

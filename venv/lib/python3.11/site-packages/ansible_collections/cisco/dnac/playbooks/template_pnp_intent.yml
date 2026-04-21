@@ -1,0 +1,64 @@
+---
+- name: Template pnp intent
+  hosts: localhost
+  vars_files:
+    - credentials.yml
+    - device_details.template
+  gather_facts: false
+  connection: local
+  tasks:
+
+    # Project Info  Section
+
+    - name: Test project template
+      cisco.dnac.template_intent:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        state: "merged"
+        config_verify: true
+        # ignore_errors: true        # Enable this to continue execution even the task fails
+        config:
+          - configuration_templates:
+              project_name: "{{ item.proj_name }}"
+              template_name: "{{ item.temp_name }}"
+              template_content: "{{ item.device_config }}"
+              version_description: "{{ item.description }}"
+              language: "{{ item.language }}"
+              software_type: "{{ item.type }}"
+              software_variant: "{{ item.variant }}"
+              device_types:
+                - product_family: "{{ item.family }}"
+      register: template_result
+      with_items: '{{ template_details }}'
+      tags:
+        - template
+
+
+    - name: Create pnp
+      cisco.dnac.pnp_intent:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        config:
+          - site_name: "{{ item.site_name }}"
+            project_name: "{{ item.proj_name }}"
+            template_name: "{{ item.temp_name }}"
+            image_name: "{{ item.image_name }}"
+            device_info:
+              - serial_number: "{{ item.device_number }}"
+                hostname: "{{ item.device_name }}"
+                state: "{{ item.device_state }}"
+                pid: "{{ item.device_id }}"
+      register: pnp_result
+      with_items: '{{ device_details }}'
+      tags:
+        - pnp

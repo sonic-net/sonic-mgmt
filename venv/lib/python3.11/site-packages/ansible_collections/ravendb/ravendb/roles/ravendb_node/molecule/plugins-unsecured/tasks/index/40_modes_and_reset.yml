@@ -1,0 +1,240 @@
+---
+- name: Disable (check mode)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: disabled
+  check_mode: yes
+  register: ix_disable_check
+
+- name: Assert would be disabled
+  ansible.builtin.assert:
+    that:
+      - ix_disable_check.changed
+      - "'would be disabled' in ix_disable_check.msg | lower"
+
+- name: Disable (real)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: disabled
+  register: ix_disabled
+
+- name: Assert disabled
+  ansible.builtin.assert:
+    that:
+      - ix_disabled.changed
+      - "'disabled successfully' in ix_disabled.msg | lower"
+
+- name: Fetch stats (after disable)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes/stats"
+    method: GET
+    validate_certs: no
+  register: ix_stats_after_disable
+  changed_when: false
+
+- name: Normalize stats list (after disable)
+  ansible.builtin.set_fact:
+    ix_stats_list_after_disable: "{{ ix_stats_after_disable.json.Results | default(ix_stats_after_disable.json) | default([]) }}"
+
+- name: Pick stats item (after disable)
+  ansible.builtin.set_fact:
+    ix_stats_item_after_disable: "{{ (ix_stats_list_after_disable | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Assert Disabled in stats
+  ansible.builtin.assert:
+    that:
+      - "ix_stats_item_after_disable.State | default('') == 'Disabled'"
+
+- name: Disable again (idempotent)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: disabled
+  register: ix_disabled_again
+
+- name: Assert already disabled
+  ansible.builtin.assert:
+    that:
+      - "not ix_disabled_again.changed"
+      - "'already disabled' in ix_disabled_again.msg | lower"
+
+- name: Enable (real)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: enabled
+  register: ix_enabled
+
+- name: Assert enabled
+  ansible.builtin.assert:
+    that:
+      - ix_enabled.changed
+      - "'enabled successfully' in ix_enabled.msg | lower"
+
+- name: Fetch stats (after enable)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes/stats"
+    method: GET
+    validate_certs: no
+  register: ix_stats_after_enable
+  changed_when: false
+
+- name: Normalize stats list (after enable)
+  ansible.builtin.set_fact:
+    ix_stats_list_after_enable: "{{ ix_stats_after_enable.json.Results | default(ix_stats_after_enable.json) | default([]) }}"
+
+- name: Pick stats item (after enable)
+  ansible.builtin.set_fact:
+    ix_stats_item_after_enable: "{{ (ix_stats_list_after_enable | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Assert not Disabled
+  ansible.builtin.assert:
+    that:
+      - "(ix_stats_item_after_enable.State | default('')) != 'Disabled'"
+
+- name: Enable again (idempotent)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: enabled
+  register: ix_enabled_again
+
+- name: Assert already enabled
+  ansible.builtin.assert:
+    that:
+      - "not ix_enabled_again.changed"
+      - "'already enabled' in ix_enabled_again.msg | lower"
+
+- name: Pause (real)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: paused
+  register: ix_paused
+
+- name: Assert paused
+  ansible.builtin.assert:
+    that:
+      - ix_paused.changed
+      - "'paused successfully' in ix_paused.msg | lower"
+
+- name: Verify Status == Paused
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes/status"
+    method: GET
+    validate_certs: no
+  register: ix_status_after_pause
+  changed_when: false
+
+- name: Normalize status list (after pause)
+  ansible.builtin.set_fact:
+    ix_status_list: "{{ ix_status_after_pause.json.indexes | default(ix_status_after_pause.json.Indexes | default([])) }}"
+
+- name: Pick status item (after pause)
+  ansible.builtin.set_fact:
+    ix_status_item: "{{ (ix_status_list | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Assert status Paused
+  ansible.builtin.assert:
+    that:
+      - "(ix_status_item.status | default(ix_status_item.Status)) == 'Paused'"
+
+- name: Pause again (idempotent)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: paused
+  register: ix_paused_again
+
+- name: Assert already paused
+  ansible.builtin.assert:
+    that:
+      - "not ix_paused_again.changed"
+      - "'already paused' in ix_paused_again.msg | lower"
+
+- name: Resume (real)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: resumed
+  register: ix_resumed
+
+- name: Assert resumed
+  ansible.builtin.assert:
+    that:
+      - ix_resumed.changed
+      - "'resumed successfully' in ix_resumed.msg | lower"
+
+- name: Verify Status == Running
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes/status"
+    method: GET
+    validate_certs: no
+  register: ix_status_after_resume
+  changed_when: false
+
+- name: Normalize status list (after resume)
+  ansible.builtin.set_fact:
+    ix_status_list2: "{{ ix_status_after_resume.json.indexes | default(ix_status_after_resume.json.Indexes | default([])) }}"
+
+- name: Pick status item (after resume)
+  ansible.builtin.set_fact:
+    ix_status_item2: "{{ (ix_status_list2 | selectattr('Name','equalto', idx_name) | list | first) | default({}) }}"
+
+- name: Assert status Running
+  ansible.builtin.assert:
+    that:
+      - "(ix_status_item2.status | default(ix_status_item2.Status)) == 'Running'"
+
+- name: Resume again (idempotent)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: resumed
+  register: ix_resumed_again
+
+- name: Assert already running
+  ansible.builtin.assert:
+    that:
+      - "not ix_resumed_again.changed"
+      - "'already running' in ix_resumed_again.msg | lower"
+
+- name: Reset (check mode)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: reset
+  check_mode: yes
+  register: ix_reset_check
+
+- name: Assert would be reset
+  ansible.builtin.assert:
+    that:
+      - ix_reset_check.changed
+      - "'would be reset' in ix_reset_check.msg | lower"
+
+- name: Reset (real)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    mode: reset
+  register: ix_reset_real
+
+- name: Assert reset success
+  ansible.builtin.assert:
+    that:
+      - ix_reset_real.changed
+      - "'reset successfully' in ix_reset_real.msg | lower"

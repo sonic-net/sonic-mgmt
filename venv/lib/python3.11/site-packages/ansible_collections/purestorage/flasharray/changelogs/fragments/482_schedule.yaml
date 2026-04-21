@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_pgsched - Change `snap_at` and `replicate_at` to be AM or PM hourly number rather than 24-hour time.

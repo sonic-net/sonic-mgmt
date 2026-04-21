@@ -1,0 +1,16 @@
+---
+- name: Add organizations
+  theforeman.foreman.organization:
+    name: "{{ foreman_organizations_item.name }}"
+    description: "{{ foreman_organizations_item.description | default(omit) }}"
+    label: "{{ foreman_organizations_item.label | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    state: "{{ foreman_organizations_item.state | default(omit) }}"
+    ignore_types: "{{ foreman_organizations_item.ignore_types | default(omit) }}"
+    parameters: "{{ foreman_organizations_item.parameters | default(omit) }}"
+  loop: "{{ foreman_organizations | default([]) }}"
+  loop_control:
+    loop_var: foreman_organizations_item

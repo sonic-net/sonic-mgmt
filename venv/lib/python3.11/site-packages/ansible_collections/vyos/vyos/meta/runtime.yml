@@ -1,0 +1,66 @@
+---
+requires_ansible: ">=2.15.0"
+plugin_routing:
+  modules:
+    banner:
+      redirect: vyos.vyos.vyos_banner
+    bgp_global:
+      redirect: vyos.vyos.vyos_bgp_global
+    bgp_address_family:
+      redirect: vyos.vyos.vyos_bgp_address_family
+    command:
+      redirect: vyos.vyos.vyos_command
+    config:
+      redirect: vyos.vyos.vyos_config
+    facts:
+      redirect: vyos.vyos.vyos_facts
+    firewall_global:
+      redirect: vyos.vyos.vyos_firewall_global
+    firewall_interfaces:
+      redirect: vyos.vyos.vyos_firewall_interfaces
+    firewall_rules:
+      redirect: vyos.vyos.vyos_firewall_rules
+    hostname:
+      redirect: vyos.vyos.vyos_hostname
+    interfaces:
+      redirect: vyos.vyos.vyos_interfaces
+    l3_interfaces:
+      redirect: vyos.vyos.vyos_l3_interfaces
+    lag_interfaces:
+      redirect: vyos.vyos.vyos_lag_interfaces
+    lldp_global:
+      redirect: vyos.vyos.vyos_lldp_global
+    lldp_interfaces:
+      redirect: vyos.vyos.vyos_lldp_interfaces
+    logging:
+      tombstone:
+        removal_version: 6.0.0
+        warning_text: use vyos_logging_global instead
+    vyos_logging:
+      tombstone:
+        removal_version: 6.0.0
+        warning_text: use vyos_logging_global instead
+    logging_global:
+      redirect: vyos.vyos.vyos_logging_global
+    ntp_global:
+      redirect: vyos.vyos.vyos_ntp_global
+    ospfv2:
+      redirect: vyos.vyos.vyos_ospfv2
+    ospfv3:
+      redirect: vyos.vyos.vyos_ospfv3
+    ospf_interfaces:
+      redirect: vyos.vyos.vyos_ospf_interfaces
+    ping:
+      redirect: vyos.vyos.vyos_ping
+    prefix_lists:
+      redirect: vyos.vyos.vyos_prefix_lists
+    snmp_server:
+      redirect: vyos.vyos.vyos_snmp_servers
+    static_routes:
+      redirect: vyos.vyos.vyos_static_routes
+    system:
+      redirect: vyos.vyos.vyos_system
+    user:
+      redirect: vyos.vyos.vyos_user
+    vlan:
+      redirect: vyos.vyos.vyos_vlan

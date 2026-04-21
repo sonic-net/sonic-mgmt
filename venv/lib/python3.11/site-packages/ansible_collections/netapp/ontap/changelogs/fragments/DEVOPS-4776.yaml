@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_name_service_switch - added REST support.
+bugfixes:
+  - na_ontap_name_service_switch - fix AttributeError 'NoneType' object has no attribute 'get_children' if ``sources`` is '-' in current.
+  - na_ontap_name_service_switch - fix idempotency issue on ``sources`` option.

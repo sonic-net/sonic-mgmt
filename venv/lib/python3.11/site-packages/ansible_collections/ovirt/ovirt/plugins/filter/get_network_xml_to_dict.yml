@@ -1,0 +1,23 @@
+---
+DOCUMENTATION:
+  name: get_network_xml_to_dict
+  author: "oVirt Developers <devel@ovirt.org>"
+  short_description: Get network bridge and uuid to dict
+  description:
+    - Get network bridge and uuid to dict
+  positional: _input
+  options:
+    _input:
+      description: xml
+      type: string
+      required: true
+
+EXAMPLES: |
+  - name: Set network_dict from default_net_xml
+    ansible.builtin.set_fact:
+      network_dict: "{{ default_net_xml['stdout'] | ovirt.ovirt.get_network_xml_to_dict }}"
+
+RETURN:
+  _value:
+    description: Dict of network
+    type: dict

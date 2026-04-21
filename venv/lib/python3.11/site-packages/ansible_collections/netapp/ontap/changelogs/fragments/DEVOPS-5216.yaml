@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_cluster_config role - support ``broadcast_domain`` and ``service_policy`` with REST.
+  - na_ontap_interface - support ``broadcast_domain`` with REST.
+  - na_ontap_vserver_create role - support ``broadcast_domain``, ``ipspace``, and ``service_policy`` with REST.

@@ -1,0 +1,8 @@
+---
+- name: Install LIA
+  ansible.builtin.include_tasks: install_lia.yml
+  when: powerflex_lia_state == 'present'
+
+- name: Uninstall LIA
+  ansible.builtin.include_tasks: uninstall_lia.yml
+  when: powerflex_lia_state == 'absent'

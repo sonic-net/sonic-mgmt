@@ -1,0 +1,81 @@
+---
+- name: Check if mandatory variables are set
+  ansible.builtin.fail:
+    msg: "Either ovirt_repositories_pool_ids or ovirt_repositories_pools must be defined."
+  when:
+    - "ovirt_repositories_pool_ids is not defined"
+    - "ovirt_repositories_pools is not defined or ovirt_repositories_pools | list | length == 0"
+
+- name: Check if mandatory variables are set
+  ansible.builtin.fail:
+    msg: "Both ovirt_repositories_pool_ids and ovirt_repositories_pools can't be defined, only one of them."
+  when:
+    - "ovirt_repositories_pool_ids is defined"
+    - "ovirt_repositories_pools is defined"
+
+- name: Ensure subscription-manager package is installed
+  ansible.builtin.package:
+    name: subscription-manager
+    state: present
+
+- name: Register to subscription manager
+  ansible.builtin.command: |
+    subscription-manager register
+    --username {{ ovirt_repositories_rh_username }}
+    --password {{ ovirt_repositories_rh_password }}
+    {% if ovirt_repositories_force_register is defined and ovirt_repositories_force_register|bool %} --force {% endif %}
+    {% if ovirt_repositories_rhsm_environment is defined  %} --environment {{ ovirt_repositories_rhsm_environment }} {% endif %}
+    {% if ovirt_repositories_rhsm_server_hostname is defined %} --serverurl {{ ovirt_repositories_rhsm_server_hostname }} {% endif %}
+  changed_when: false
+  no_log: true
+
+- ansible.builtin.include_tasks: search-pool-id.yml
+  with_items:
+    - "{{ ovirt_repositories_pools }}"
+  when: ovirt_repositories_pools is defined
+
+- name: Subscribe to multiple pool IDs
+  ansible.builtin.command: subscription-manager attach {% for id in ovirt_repositories_pool_ids %} --pool {{ id }} {% endfor %}
+  when: ovirt_repositories_pool_ids is defined and ovirt_repositories_pool_ids | list | length != 0
+
+- name: "Include {{ ovirt_repositories_target_host }}_{{ ovirt_repositories_ovirt_version }}.yml variables"
+  ansible.builtin.include_vars: "{{ ovirt_repositories_target_host }}_{{ ovirt_repositories_ovirt_version }}.yml"
+  when: ovirt_repositories_subscription_manager_repos | list | length == 0
+
+- name: "Include {{ ovirt_repositories_target_host }}_eus_{{ ovirt_repositories_ovirt_version }}.yml variables"
+  ansible.builtin.include_vars: "{{ ovirt_repositories_target_host }}_eus_{{ ovirt_repositories_ovirt_version }}.yml"
+  when:
+    - ovirt_repositories_ovirt_version|string >= '4.4'
+    - ovirt_repositories_subscription_manager_eus_repos | list | length == 0
+
+- name: Disable all repositories
+  ansible.builtin.command: subscription-manager repos --disable=*
+  when: ovirt_repositories_clear
+
+- name: Enable required repositories
+  ansible.builtin.command: subscription-manager repos --enable={{ item }}
+  changed_when: false
+  with_items: "{{ ovirt_repositories_subscription_manager_repos }}"
+
+- name: Enable EUS repositories
+  ansible.builtin.command: subscription-manager repos --enable={{ item }}
+  changed_when: false
+  ignore_errors: true  # EUS channels might not be available, so we cannot break the installation when there is a subscription error
+  with_items: "{{ ovirt_repositories_subscription_manager_eus_repos }}"
+  when:
+    - ovirt_repositories_ovirt_version|string >= '4.4'
+
+- name: Fix RHEL version to 8.6
+  ansible.builtin.command: subscription-manager release --set=8.6
+  changed_when: false
+  when:
+    - ovirt_repositories_ovirt_version|string >= '4.4'
+
+- name: Enable dnf modules
+  ansible.builtin.command: "dnf module enable -y {{ ovirt_repositories_rh_dnf_modules | join(' ') }}"
+  when:
+    - ovirt_repositories_ovirt_version|string >= '4.4'
+    - ovirt_repositories_target_host == 'engine'
+
+- name: set ovirt_repositories_subscription_manager_repos to empty list for the next time
+  ansible.builtin.include_vars: default.yml

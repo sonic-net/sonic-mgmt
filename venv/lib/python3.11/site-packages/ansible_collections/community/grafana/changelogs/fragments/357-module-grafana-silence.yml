@@ -1,0 +1,2 @@
+minor_changes:
+  - Add new module `grafana_silence` to create and delete silences through the API

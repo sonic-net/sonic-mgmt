@@ -1,0 +1,50 @@
+---
+- name: Demonstrate creating a server that only has a private ip
+  hosts: localhost
+  connection: local
+
+  vars:
+    servers:
+      - name: my-server1
+        private_ip: 10.0.0.2
+      - name: my-server2
+        private_ip: 10.0.0.3
+
+  tasks:
+    - name: Create a network
+      hetzner.hcloud.network:
+        name: my-network
+        ip_range: 10.0.0.0/8
+        state: present
+
+    - name: Create a subnetwork
+      hetzner.hcloud.subnetwork:
+        network: my-network
+        ip_range: 10.0.0.0/16
+        network_zone: eu-central
+        type: cloud
+        state: present
+
+    - name: Create servers without public IPs
+      hetzner.hcloud.server:
+        name: "{{ item.name }}"
+        server_type: cx22
+        image: debian-12
+        enable_ipv4: false
+        enable_ipv6: false
+        state: created # A server without networking cannot be started!
+      loop: "{{ servers }}"
+
+    - name: Attach private IP to servers
+      hetzner.hcloud.server_network:
+        network: my-network
+        server: "{{ item.name }}"
+        ip: "{{ item.private_ip }}"
+        state: present
+      loop: "{{ servers }}"
+
+    - name: Start servers
+      hetzner.hcloud.server:
+        name: "{{ item.name }}"
+        state: started
+      loop: "{{ servers }}"

@@ -1,0 +1,38 @@
+---
+minor_changes:
+  - na_ontap_disks - ``disk_type`` option allows to assign specified type of disk.
+  - na_ontap_firmware_upgrade - ignore timeout when downloading image unless ``fail_on_502_error`` is set to true.
+  - na_ontap_info - ``desired_attributes`` advanced feature to select which fields to return.
+  - na_ontap_info - ``use_native_zapi_tags`` to disable the conversion of '_' to '-' for attribute keys.
+  - na_ontap_rest_info - ``fields`` options to request specific fields from subset.
+  - na_ontap_software_update - ``stabilize_minutes`` option specifies number of minutes needed to stabilize node before update.
+  - na_ontap_snapmirror - now performs restore with optional field ``source_snapshot`` for specific snapshot or uses latest.
+  - na_ontap_ucadapter - ``pair_adapters`` option allows specifying the list of adapters which also need to be offline.
+  - na_ontap_user - ``authentication_password`` option specifies password for the authentication protocol of SNMPv3 user.
+  - na_ontap_user - ``authentication_protocol`` option specifies authentication protocol fo SNMPv3 user.
+  - na_ontap_user - ``engine_id`` option specifies authoritative entity's EngineID for the SNMPv3 user.
+  - na_ontap_user - ``privacy_password`` option specifies password for the privacy protocol of SNMPv3 user.
+  - na_ontap_user - ``privacy_protocol`` option specifies privacy protocol of SNMPv3 user.
+  - na_ontap_user - ``remote_switch_ipaddress`` option specifies the IP Address of the remote switch of SNMPv3 user.
+  - na_ontap_volume - ``check_interval`` option checks if a volume move has been completed and then waits this number of seconds before checking again.
+  - na_ontap_volume - ``auto_remap_luns`` option controls automatic mapping of LUNs during volume rehost.
+  - na_ontap_volume - ``force_restore`` option forces volume to restore even if the volume has one or more newer Snapshotcopies.
+  - na_ontap_volume - ``force_unmap_luns`` option controls automatic unmapping of LUNs during volume rehost.
+  - na_ontap_volume - ``from_vserver`` option allows volume rehost from one vserver to another.
+  - na_ontap_volume - ``preserve_lun_ids`` option controls LUNs in the volume being restored will remain mapped and their identities preserved.
+  - na_ontap_volume - ``snapshot_restore`` option specifies name of snapshot to restore from.
+  - all modules - ``cert_filepath``, ``key_filepath`` to enable SSL certificate authentication (python 2.7 or 3.x).
+  - all modules - SSL certificate authentication in addition to username/password (python 2.7 or 3.x).
+  - na_ontap_pb_install_SSL_certificate.yml - playbook example - installing a self-signed SSL certificate, and enabling SSL certificate authentication.
+  - na_ontap_user - added REST support for ONTAP user creation, modification & deletion.
+
+bugfixes:
+  - na_ontap_firmware_upgrade - ignore timeout when downloading firmware images by default.
+  - na_ontap_info - conversion from '-' to '_' was not done for lists of dictionaries.
+  - na_ontap_ntfs_dacl - example fix in documentation string.
+  - na_ontap_snapmirror - could not delete all rules (bug in netapp_module).
+  - na_ontap_volume - modify was invoked multiple times when once is enough.
+  - na_ontap_volume - fix KeyError on 'style' when volume is of type - data-protection.
+  - na_ontap_volume - `wait_on_completion` is supported with volume moves.
+  - module_utils/netapp_module - cater for empty lists in get_modified_attributes().
+  - module_utils/netapp_module - cater for lists with duplicate elements in compare_lists().

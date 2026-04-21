@@ -1,0 +1,28 @@
+---
+argument_specs:
+  main:
+    version_added: "1.8.0"
+    short_description: Role to manage the installation and uninstallation of Powerflex MDM
+    description:
+      - Role to manage the installation and uninstallation of Powerflex MDM.
+    options:
+      powerflex_mdm_state:
+        required: true
+        type: str
+        description: State of the Powerflex MDM.
+      powerflex_mdm_password:
+        required: true
+        type: str
+        description: Password for the Powerflex MDM.
+      powerflex_common_file_install_location:
+        required: true
+        type: str
+        description: Common file installation location.
+      powerflex_mdm_virtual_ip:
+        type: str
+        description: Virtual IP address of MDM.
+      powerflex_mdm_cert_password:
+        type: str
+        description:
+          - Password to generate cli certificate for MDM.
+          - Required while installing MDM for Powerlex 4.x.

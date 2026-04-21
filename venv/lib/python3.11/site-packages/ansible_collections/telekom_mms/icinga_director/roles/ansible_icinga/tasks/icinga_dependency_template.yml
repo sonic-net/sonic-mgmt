@@ -1,0 +1,32 @@
+---
+- name: Icinga_dependency_template
+  icinga_dependency_template:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ dependency_template.state | default(omit) }}"
+    name: "{{ dependency_template.name | default(omit) }}"
+    object_name: "{{ dependency_template.object_name | default(omit) }}"
+    parent_host: "{{ dependency_template.parent_host | default(omit) }}"
+    parent_service: "{{ dependency_template.parent_service | default(omit) }}"
+    disable_checks: "{{ dependency_template.disable_checks | default(omit) }}"
+    disable_notifications: "{{ dependency_template.disable_notifications | default(omit) }}"
+    ignore_soft_states: "{{ dependency_template.ignore_soft_states | default(omit) }}"
+    period: "{{ dependency_template.period | default(omit) }}"
+    zone: "{{ dependency_template.zone | default(omit) }}"
+    states: "{{ dependency_template.states | default(omit) }}"
+    append: "{{ dependency_template.append | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_dependency_templates }}"
+  loop_control:
+    loop_var: dependency_template
+  tags: dependency_template
+  notify: config_deploy

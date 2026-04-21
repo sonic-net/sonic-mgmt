@@ -1,0 +1,30 @@
+---
+- name: Get serial number module
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/oneobject_node_connection_variables.yml
+  vars:
+    connection_info:
+      http_request_timeout: "{{ http_request_timeout }}"
+      http_request_retry_times: "{{ http_request_retry_times }}"
+      http_request_retry_interval_seconds: "{{ http_request_retry_interval_seconds }}"
+      ssl: "{{ ssl }}"
+      cluster_name: "{{ cluster_name }}"
+      region: "{{ region }}"
+      oneobject_node_username: "{{ oneobject_node_username }}"
+      oneobject_node_userpass: "{{ oneobject_node_userpass }}"
+      oneobject_node_client_id: "{{ oneobject_node_client_id }}"
+
+  tasks:
+    ####################################################################
+    # Task 1 : Retrieve serial number information of VSP One Object Node
+    ####################################################################
+    - name: Retrieve serial number information.
+      hitachivantara.vspone_object.oneobject_node.hv_serial_number_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Display result
+      ansible.builtin.debug:
+        var: result

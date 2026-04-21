@@ -1,0 +1,3 @@
+---
+trivial:
+  - "Event counting - Adds a event query file to count indirectly managed objects."

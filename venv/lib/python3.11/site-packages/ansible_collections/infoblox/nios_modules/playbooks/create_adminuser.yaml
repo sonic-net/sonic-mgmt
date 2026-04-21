@@ -1,0 +1,63 @@
+---
+- hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.1.1.1
+      username: admin
+      password: infoblox
+      wapi_version: "2.12.3"
+  connection: local
+  tasks:
+    - name: Create a new adminuser
+      infoblox.nios_modules.nios_adminuser:
+        name: new_user
+        admin_groups: admin-group
+        comment: "Created by Ansible"
+        auth_method: KEYPAIR_PASSWORD
+        auth_type: LOCAL
+        use_ssh_keys: true
+        ssh_keys:
+          - key_name: "ansiblekey1"
+            key_type: "RSA"
+            key_value: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+          - key_name: "ansiblekey3"
+            key_type: "ECDSA"
+            key_value: "{{ lookup('file', '~/.ssh/id_ecdsa.pub') }}"
+        password: "ABCd@1235"
+        ca_certificate_issuer: 'CN="ib-root-ca"'
+        client_certificate_serial_number: "1366fbb5e12130a95240f56572083ef65ff341fd"
+        email: "testuser@abc.com"
+        enable_certificate_authentication: true
+        time_zone: 'US/Hawaii'
+        use_time_zone: true
+        extattrs:
+          Site: "USA"
+        state: present
+        provider: "{{ nios_provider }}"
+
+    - name: Update the username
+      infoblox.nios_modules.nios_adminuser:
+        name: {new_name: ansible_user, old_name: new_user}
+        admin_groups: admin-group
+        comment: "Created by Ansible"
+        auth_method: KEYPAIR_PASSWORD
+        auth_type: LOCAL
+        use_ssh_keys: true
+        ssh_keys:
+          - key_name: "ansiblekey1"
+            key_type: "RSA"
+            key_value: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+          - key_name: "ansiblekey3"
+            key_type: "ECDSA"
+            key_value: "{{ lookup('file', '~/.ssh/id_ecdsa.pub') }}"
+        password: "ABCd@1235"
+        ca_certificate_issuer: 'CN="ib-root-ca"'
+        client_certificate_serial_number: "1366fbb5e12130a95240f56572083ef65ff341fd"
+        email: "testuser@abc.com"
+        enable_certificate_authentication: true
+        time_zone: 'US/Hawaii'
+        use_time_zone: true
+        extattrs:
+          Site: "USA"
+        state: present
+        provider: "{{ nios_provider }}"

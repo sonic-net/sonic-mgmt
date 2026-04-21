@@ -1,0 +1,28 @@
+---
+- name: Validating Role Parameters
+  ansible.builtin.assert:
+    that:
+      - aimprovider_api_base_url != ''
+      - aimprovider_state in ["present", "absent"]
+      - (not aimprovider_use_shared_logon_authentication|default(false) and password_object is defined) or
+        (aimprovider_use_shared_logon_authentication|default(false) and password_object is not defined)
+
+- name: Verify status of aimprv service initially
+  ansible.builtin.service:
+    name: aimprv
+    state: started
+  register: service_already_running
+  ignore_errors: true
+  changed_when: false
+
+- name: Debug Message
+  ansible.builtin.debug:
+    msg: "status of service RC={{ service_already_running.rc }}"
+
+- name: Import installAIMProvider tasks
+  ansible.builtin.import_tasks: installAIMProvider.yml
+  when: (aimprovider_state == "present" and service_already_running.rc != 0)
+
+- name: Import uninstallAIMProvider tasks
+  ansible.builtin.import_tasks: uninstallAIMProvider.yml
+  when: (aimprovider_state == "absent" and service_already_running.rc == 0)

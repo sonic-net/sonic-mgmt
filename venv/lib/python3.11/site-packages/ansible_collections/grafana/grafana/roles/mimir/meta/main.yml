@@ -1,0 +1,37 @@
+---
+# meta/main.yml
+galaxy_info:
+  author: "Grafana"
+  role_name: mimir
+  description: "Grafana - platform for analytics and monitoring"
+  license: "MIT"
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - bionic
+        - xenial
+    - name: Debian
+      versions:
+        - stretch
+        - buster
+    - name: EL
+      versions:
+        - "7"
+        - "8"
+    - name: Fedora
+      versions:
+        - "30"
+        - "31"
+  galaxy_tags:
+    - grafana
+    - dashboard
+    - alerts
+    - alerting
+    - presentation
+    - monitoring
+    - metrics
+
+dependencies: []
+
+allow_duplicates: true

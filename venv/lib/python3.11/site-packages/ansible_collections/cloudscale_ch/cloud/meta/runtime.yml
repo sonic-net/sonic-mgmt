@@ -1,0 +1,57 @@
+requires_ansible: '>=2.13.0'
+action_groups:
+  cloudscale:
+  - custom_image
+  - floating_ip
+  - load_balancer
+  - load_balancer_health_monitor
+  - loaad_balancer_listener
+  - load_balancer_pool
+  - load_balancer_pool_member
+  - network
+  - objects_user
+  - server_group
+  - server
+  - subnet
+  - volume
+
+plugin_routing:
+  inventory:
+    cloudscale:
+      deprecation:
+        removal_date: 2021-12-12
+        warning_text: Deprecated, use cloudscale_ch.cloud.inventory
+      redirect: cloudscale_ch.cloud.inventory
+  doc_fragments:
+    cloudscale:
+      deprecation:
+        removal_date: 2021-12-12
+        warning_text: Deprecated, use cloudscale_ch.cloud.api_parameters
+      redirect: cloudscale_ch.cloud.api_parameters
+  module_utils:
+    cloudscale:
+      deprecation:
+        removal_date: 2021-12-12
+        warning_text: Deprecated, use cloudscale_ch.cloud.api
+      redirect: cloudscale_ch.cloud.api
+  modules:
+    cloudscale_floating_ip:
+      deprecation:
+        removal_date: 2021-12-12
+        warning_text: cloudscale_ prefixed module names are deprecated, use cloudscale_ch.cloud.floating_ip
+      redirect: cloudscale_ch.cloud.floating_ip
+    cloudscale_server:
+      deprecation:
+        removal_date: 2021-12-12
+        warning_text: cloudscale_ prefixed module names are deprecated, use cloudscale_ch.cloud.server
+      redirect: cloudscale_ch.cloud.server
+    cloudscale_server_group:
+      deprecation:
+        removal_date: 2021-12-12
+        warning_text: cloudscale_ prefixed module names are deprecated, use cloudscale_ch.cloud.server_group
+      redirect: cloudscale_ch.cloud.server_group
+    cloudscale_volume:
+      deprecation:
+        removal_date: 2021-12-12
+        warning_text: cloudscale_ prefixed module names are deprecated, use cloudscale_ch.cloud.volume
+      redirect: cloudscale_ch.cloud.volume

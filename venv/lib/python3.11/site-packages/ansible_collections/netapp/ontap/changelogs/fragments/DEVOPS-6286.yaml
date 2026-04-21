@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_user - Added warning message when password is not changed.

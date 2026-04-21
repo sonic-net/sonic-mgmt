@@ -1,0 +1,256 @@
+---
+####################################################################
+# Example : Compute Node Playbook
+####################################################################
+- name: Compute Node Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create compute node
+    ####################################################################
+    - name: Create compute node
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "computenode1"
+          os_type: "VMWare"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update compute node name
+    ####################################################################
+    - name: Update compute node name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          id: "3d971bb3-40fd-4cb5-bf68-2010b30aa74d"
+          name: "computenode1a"
+          os_type: "Linux"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add iqn initiators to compute node
+    ####################################################################
+    - name: Add iqn initiators to compute node
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "add_iscsi_initiator"
+          name: "computenode1"
+          iscsi_initiators:
+            - "iqn_1991-05_com_hitachi:test-iscsi-iqn3"
+            - "iqn_1991-05_com_hitachi:test-iscsi-iqn4"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add nqn initiators to compute node
+    ####################################################################
+    - name: Add nqn initiators to compute node
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "add_host_nqn"
+          name: "computenode1a"
+          host_nqns:
+            - "nqn_1994-04_jp_co_company:nvme:sds-subsystem-sid_1-3001-nvmssid_0101"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Remove iqn initiators from compute node
+    ####################################################################
+    - name: Remove iqn initiators from compute node
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "remove_iscsi_initiator"
+          name: "computenode1"
+          iscsi_initiators:
+            - "iqn_1991-05_com_hitachi:test-iscsi-iqn3"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Remove nqn initiators from compute node
+    #########################################################################
+    - name: Remove nqn initiators from compute node
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "remove_host_nqn"
+          name: "computenode1a"
+          host_nqns:
+            - "nqn_1994-04_jp_co_company:nvme:sds-subsystem-sid_1-3001-nvmssid_0101"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Attach volumes to compute node
+    #########################################################################
+    - name: Attach volumes to compute node
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "attach_volume"
+          name: "computenode1"
+          volumes:
+            - "test-volume-3"
+            - "test-volume-4"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Detach volumes from compute node
+    #########################################################################
+    - name: Detach volumes from compute node
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "detach_volume"
+          name: "computenode1"
+          volumes:
+            - "test-volume-4"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Delete compute node by name
+    #########################################################################
+    - name: Delete compute node by name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: "computenode1"
+          should_delete_all_volumes: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Delete compute node by id
+    #########################################################################
+    - name: Delete compute node by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          id: "3d971bb3-40fd-4cb5-bf68-2010b30aa74d"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create a compute node in a VPS by VPS name
+    ####################################################################
+    - name: Create a compute node in a VPS by VPS name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: computenode2
+          os_type: Linux
+          vps_name: "RKD_VPS_02"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create a compute node in a VPS by VPS ID
+    ####################################################################
+    - name: Create a compute node in a VPS by VPS ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: computenode2
+          os_type: Linux
+          vps_id: "2a843522-a819-47ab-a208-69d190809604"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Delete compute node by name in a VPS by VPS ID
+    #########################################################################
+    - name: Delete compute node by name in a VPS by VPS ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: computenode2
+          vps_id: "2a843522-a819-47ab-a208-69d190809604"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Delete compute node by name in a VPS by VPS name
+    #########################################################################
+    - name: Delete compute node by name in a VPS by VPS name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: computenode2
+          vps_name: "RKD_VPS_02"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

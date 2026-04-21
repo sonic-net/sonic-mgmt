@@ -1,0 +1,19 @@
+[Unit]
+Description=Enable Transparent Hugepages (THP)
+DefaultDependencies=no
+After=sysinit.target local-fs.target
+Before=mongod.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '\
+  for thp in /sys/kernel/mm/*transparent_hugepage; do \
+    echo always | tee $thp/enabled > /dev/null && \
+    echo defer+madvise | tee $thp/defrag > /dev/null && \
+    echo 0 | tee $thp/khugepaged/max_ptes_none > /dev/null; \
+  done && \
+  echo 1 | tee /proc/sys/vm/overcommit_memory > /dev/null'
+
+[Install]
+WantedBy=basic.target
+ß

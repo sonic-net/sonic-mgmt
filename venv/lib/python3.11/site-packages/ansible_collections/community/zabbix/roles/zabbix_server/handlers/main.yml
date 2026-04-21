@@ -1,0 +1,10 @@
+---
+- name: zabbix-server restarted
+  ansible.builtin.service:
+    name: zabbix-server
+    state: restarted
+    enabled: true
+  tags: zabbix-server
+  become: true
+  when:
+    - zabbix_server_manage_service | bool

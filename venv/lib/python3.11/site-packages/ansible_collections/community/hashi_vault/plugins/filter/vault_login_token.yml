@@ -1,0 +1,98 @@
+# (c) 2022, Brian Scholer (@briantist)
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+---
+DOCUMENTATION:
+  name: vault_login_token
+  short_description: Extracts the Vault token from a login or token creation
+  version_added: 2.2.0
+  description:
+    - Extracts the token value from the structure returned by a Vault token creation operation.
+  seealso:
+    - module: community.hashi_vault.vault_login
+    - module: community.hashi_vault.vault_token_create
+    - plugin: community.hashi_vault.vault_login
+      plugin_type: lookup
+    - plugin: community.hashi_vault.vault_token_create
+      plugin_type: lookup
+    - ref: Filter Guide <ansible_collections.community.hashi_vault.docsite.filter_guide.vault_login_token>
+      description: The C(community.hashi_vault) Filter Guide
+  notes:
+    - >-
+      This filter is the same as reading into the I(_input) dictionary directly,
+      but it provides semantic meaning and automatically works with the differing output of the modules and lookups.
+      See the Filter guide for more information.
+  options:
+    _input:
+      description:
+        - A dictionary matching the structure returned by a login or token creation.
+      type: dict
+      required: true
+    optional_field:
+      description:
+        - >-
+          If this field exists in the input dictionary, then the value of that field is used as the I(_input) value.
+        - >-
+          The default value deals with the difference between the output of lookup plugins,
+          and does not need to be changed in most cases.
+        - See the examples or the Filter guide for more information.
+      type: string
+      default: login
+  author:
+    - Brian Scholer (@briantist)
+
+EXAMPLES: |
+  - name: Set defaults
+    vars:
+      ansible_hashi_vault_url: https://vault:9801/
+      ansible_hashi_vault_auth_method: userpass
+      ansible_hashi_vault_username: user
+      ansible_hashi_vault_password: "{{ lookup('env', 'MY_SECRET_PASSWORD') }}"
+    module_defaults:
+      community.hashi_vault.vault_login:
+        url: '{{ ansible_hashi_vault_url }}'
+        auth_method: '{{ ansible_hashi_vault_auth_method }}'
+        username: '{{ ansible_hashi_vault_username }}'
+        password: '{{ ansible_hashi_vault_password }}'
+    block:
+      - name: Perform a login with a lookup and display the token
+        vars:
+          login_response: "{{ lookup('community.hashi_vault.vault_login') }}"
+        debug:
+          msg: "The token is {{ login_response | community.hashi_vault.vault_login_token }}"
+
+      - name: Perform a login with a module
+        community.hashi_vault.vault_login:
+        register: login_response
+
+      - name: Display the token
+        debug:
+          msg: "The token is {{ login_response | community.hashi_vault.vault_login_token }}"
+
+  - name: Use of optional_field
+    vars:
+      lookup_login_response: "{{ lookup('community.hashi_vault.vault_login') }}"
+      my_data:
+        something: somedata
+        vault_login: "{{ lookup_login_response }}"
+
+      token_from_param: "{{ my_data | community.hashi_vault.vault_login_token(optional_field='vault_login') }}"
+      token_from_deref: "{{ my_data['vault_login'] | community.hashi_vault.vault_login_token }}"
+      # if the optional field doesn't exist, the dictionary itself is still checked
+      unused_optional: "{{ my_data['vault_login'] | community.hashi_vault.vault_login_token(optional_field='missing') }}"
+    block:
+      - name: Display the variables
+        ansible.builtin.debug:
+          var: '{{ item }}'
+        loop:
+          - my_data
+          - token_from_param
+          - token_from_deref
+          - unused_optional
+
+RETURN:
+  _value:
+    description: The token value.
+    returned: always
+    sample: s.nnrpog4i5gjizr6b8g1inwj3
+    type: string

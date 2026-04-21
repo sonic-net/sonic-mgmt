@@ -1,0 +1,25 @@
+---
+- name: Test playbook for na_ontap_vserver_delete
+  hosts: localhost
+  gather_facts: false
+  vars:
+    login: &login
+      hostname: XXX.XXX.XXX.XXX
+      username: admin
+      password: XXXXXXXXXXXXXXX
+      https: true
+      validate_certs: false
+  roles:
+    - role: netapp.ontap.na_ontap_vserver_delete
+      vars:
+        <<: *login
+        vserver_name: ansibleSVM
+        # uncomment the following line to accept volumes will be permanently deleted
+        # removing_volumes_permanently_destroy_user_data: I agree
+        # turn confirmation prompts on or off
+        confirm_before_removing_interfaces: false
+        # optional - change the following to false to remove any confirmation prompt before deleting volumes !!!
+        # when confirmations are on, you may receive two prompts:
+        # 1. delete all clones if they exist.  The prompt is not shown if no clone exists.
+        # 2. delete all volumes if any.  The prompt is not shown if no volume exists.
+        confirm_before_removing_volumes: true

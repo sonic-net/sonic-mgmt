@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_rest_info - support added for protocols/vscan/on-access-policies.
+  - na_ontap_rest_info - support added for protocols/vscan/on-demand-policies.
+  - na_ontap_rest_info - support added for protocols/vscan/scanner-pools.

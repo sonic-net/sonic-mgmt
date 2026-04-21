@@ -1,0 +1,7 @@
+galaxy_info:
+  author: "NetApp"
+  description: "Role for configuring an ONTAP cluster"
+  company: "NetApp"
+  license: BSD
+  min_ansible_version: "2.16"
+  galaxy_tags: [netapp, ontap]

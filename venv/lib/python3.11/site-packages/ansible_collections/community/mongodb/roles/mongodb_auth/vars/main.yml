@@ -1,0 +1,2 @@
+---
+mongodb_python: "{{ ansible_python_interpreter | default( (ansible_python|default({})).get('executable', 'python') ) }}"

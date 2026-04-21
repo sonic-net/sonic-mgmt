@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_vlan_mapping - Removed platform checks (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/262)

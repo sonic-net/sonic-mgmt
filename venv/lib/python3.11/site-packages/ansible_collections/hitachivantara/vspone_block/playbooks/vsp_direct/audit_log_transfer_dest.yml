@@ -1,0 +1,84 @@
+---
+####################################################################
+# Example :  Getting information about the transfer destinations of audit log files
+####################################################################
+- name: Getting information about the transfer destinations of audit log files
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Setting the transfer destinations of audit log files using UDP port
+    ####################################################################
+    - name: Setting the transfer destinations of audit log files using UDP port
+      hitachivantara.vspone_block.vsp.hv_audit_log_transfer_dest:
+        connection_info: "{{ connection_info }}"
+        spec:
+          transfer_protocol: UDP
+          location_name: datacenter11
+          secondary_syslog_server:
+            is_enabled: true
+            ip_address: 203.0.113.1
+            port: 514
+          primary_syslog_server:
+            is_enabled: true
+            ip_address: 203.0.113.2
+            port: 514
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Setting the transfer destinations of audit log files using TCP port
+    ####################################################################
+    - name: Setting the transfer destinations of audit log files using TCP port
+      hitachivantara.vspone_block.vsp.hv_audit_log_transfer_dest:
+        connection_info: "{{ connection_info }}"
+        spec:
+          transfer_protocol: TLS
+          location_name: datacenter11
+          retries: true
+          retry_interval: 60
+          is_detailed: true
+          secondary_syslog_server:
+            is_enabled: true
+            ip_address: 203.0.113.1
+            port: 514
+            client_cert_file_name: client-cert.pem
+            client_cert_file_password: CHANGE_ME_SET_YOUR_PASSWORD
+            root_cert_file_name: root-cert.pem
+          primary_syslog_server:
+            is_enabled: true
+            ip_address: 203.0.113.2
+            port: 514
+            client_cert_file_name: client-cert2.pem
+            client_cert_file_password: CHANGE_ME_SET_YOUR_PASSWORD
+            root_cert_file_name: root-cert2.pem
+      register: result_facts
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result_facts
+    ####################################################################
+    # Task Name : Sending test messages to the transfer destinations of audit log files
+    ####################################################################
+    - name: Sending test messages to the transfer destinations of audit log files
+      hitachivantara.vspone_block.vsp.hv_audit_log_transfer_dest:
+        connection_info: "{{ connection_info }}"
+        state: test
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

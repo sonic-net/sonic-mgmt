@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_bgp_nbr - Fix 'auth_pwd' diff calculation bug (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/583).

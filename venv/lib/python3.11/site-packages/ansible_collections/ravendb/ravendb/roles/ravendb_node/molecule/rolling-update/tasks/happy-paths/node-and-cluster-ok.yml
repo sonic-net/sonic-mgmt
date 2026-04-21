@@ -1,0 +1,115 @@
+# ======================================
+# scenario: rolling-upgrade-node-and-cluster-ok
+# gates used: node_alive, cluster_connectivity
+#
+# flow:
+# 1. setup 3 independent nodes with ravendb 5.4
+# 2. form a cluster out of them
+# 3. try to rolling upgrade to 6.2 serially:
+#    - roll A -> B -> C
+#    - pre-gate node_alive + cluster_connectivity
+#    - upgrade node to 6.2
+#    - post-gate node_alive + cluster_connectivity
+#
+# checkpoints:
+# - each node must pass node_alive gate before upgrade
+# - each node must pass cluster_connectivity (peer ping + has leader) gate before upgrade
+# - each node must pass node_alive gate before after upgrade
+# - each node must pass cluster_connectivity (peer ping + has leader) gate after upgrade
+#
+# outcome:
+# - PASS. All nodes upgraded to 6.2; cluster healthy at each step
+# ======================================
+
+- name: Form cluster (A,B,C) - pre-upgrade
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Add B as Member
+      ravendb.ravendb.node:
+        tag: "B"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-b:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Add C as Member
+      ravendb.ravendb.node:
+        tag: "C"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-c:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Let cluster stabilize
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Fetch topology
+      ansible.builtin.uri:
+        url: "http://ubuntu-bionic-node-a:8080/cluster/topology"
+        method: GET
+        status_code: 200
+        return_content: yes
+        validate_certs: no
+      register: topo
+
+    - name: Extract member tags
+      ansible.builtin.set_fact:
+        member_tags: "{{ topo.json.Topology.Members.keys() | list | unique }}"
+
+    - name: Assert B,C present in Members
+      ansible.builtin.assert:
+        that:
+          - "'B' in member_tags"
+          - "'C' in member_tags"
+
+
+- name: rolling Update to 6.2
+  hosts: all
+  gather_facts: true
+  serial: 1
+  tasks:
+    - name: Per-node gates pre upgrade
+      delegate_to: localhost
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive', 'cluster_connectivity']
+        max_time_to_wait: 60
+        retry_interval_seconds: 3
+      register: gate_result
+
+    - debug:
+        msg: "Gate result: {{ gate_result }}"
+
+    - name: "Include ravendb_node"
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version_minor: 6.2
+        ravendb_settings_preset: default
+  
+    - name: Per-node gates post upgrade
+      delegate_to: localhost
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive', 'cluster_connectivity']
+        max_time_to_wait: 60
+        retry_interval_seconds: 3
+      register: gate_result
+    
+    - debug:
+        msg: "Gate result: {{ gate_result }}"
+
+    - name: Get RavenDB version
+      become: yes
+      command: >
+        /usr/lib/ravendb/server/Raven.Server --version
+      register: ravendb_version_result
+      changed_when: false
+
+    - name: Make sure it's updated
+      assert:
+        that:
+          - ravendb_version_result.stdout.startswith('6.2')
+        fail_msg: "Server version output: {{ ravendb_version_result.stdout }}"

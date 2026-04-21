@@ -1,0 +1,14 @@
+---
+ovirt_repositories_repos_backup: true
+ovirt_repositories_repos_backup_path: "/tmp/repo-backup-{{ '%Y-%m-%d-%H:%M:%S' | strftime(ansible_date_time.epoch) }}"
+ovirt_repositories_use_subscription_manager: false
+ovirt_repositories_force_register: false
+ovirt_repositories_clear: false
+ovirt_repositories_ovirt_version: 4.4
+ovirt_repositories_target_host: engine
+ovirt_repositories_subscription_manager_repos: []
+ovirt_repositories_subscription_manager_eus_repos: []
+ovirt_repositories_ovirt_dnf_modules: ["pki-deps", "postgresql:12", "javapackages-tools", "mod_auth_openidc:2.3", "nodejs:14"]
+ovirt_repositories_rh_dnf_modules: ["pki-deps", "postgresql:12", "nodejs:14"]
+ovirt_repositories_ovirt_release_rpm_gpg: https://plain.resources.ovirt.org/pub/keys/RPM-GPG-ovirt-v2
+ovirt_repositories_disable_gpg_check: "{{ True if 'master.rpm' in ovirt_repositories_ovirt_release_rpm else False }}"

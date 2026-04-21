@@ -1,0 +1,2 @@
+bugfixes:
+  - na_ontap_ndmp - fix idempotency issue and added example for ndmp user generate password in REST.

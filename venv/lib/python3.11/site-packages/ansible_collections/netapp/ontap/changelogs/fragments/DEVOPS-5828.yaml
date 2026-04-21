@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_cg_snapshot - added REST support to the cg snapshot module, requires ONTAP 9.10.1 or later.

@@ -1,0 +1,16 @@
+---
+- name: Demo rules with webhook as source
+  hosts: all
+  sources:
+    - cyberark.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+
+  rules:
+    - name: Listen For User Suspension Event Webhook, Then Disble The User
+      condition: event.payload.syslog.audit_record.Severity == "Error" and event.payload.syslog.audit_record.MessageID == "5"
+      action:
+        run_playbook:
+          name: ../../../cyberark/pas/tests/disable_user.yml
+          extra_vars:
+            username: "{{ event.payload.syslog.audit_record.Issuer }}"

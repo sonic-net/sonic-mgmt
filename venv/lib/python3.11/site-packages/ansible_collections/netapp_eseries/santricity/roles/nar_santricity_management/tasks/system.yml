@@ -1,0 +1,26 @@
+- name: Ensure storage array has the correct array globals
+  netapp_eseries.santricity.na_santricity_global:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    name: "{{ eseries_system_name | default(omit) }}"
+    cache_block_size: "{{ eseries_system_cache_block_size | default(omit) }}"
+    cache_flush_threshold: "{{ eseries_system_cache_flush_threshold | default(omit) }}"
+    automatic_load_balancing: "{{ eseries_system_autoload_balance | default(omit) }}"
+    host_connectivity_reporting: "{{ eseries_system_host_connectivity_reporting | default(omit) }}"
+    default_host_type: "{{ eseries_system_default_host_type | default(omit) }}"
+    login_banner_message: "{{ eseries_system_login_banner_message | default(omit) }}"
+    controller_shelf_id: "{{ eseries_system_controller_shelf_id | default(omit) }}"
+  connection: local
+  when: "eseries_system_name is defined or
+         eseries_system_cache_block_size is defined or
+         eseries_system_cache_flush_threshold is defined or
+         eseries_system_autoload_balance is defined or
+         eseries_system_host_connectivity_reporting is defined or
+         eseries_system_default_host_type is defined or
+         eseries_system_login_banner_message is defined or
+         eseries_system_controller_shelf_id is defined"
+  tags:
+    - system

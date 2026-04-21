@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_mcc_mediator - Fix error that would prevent mediator deletion,

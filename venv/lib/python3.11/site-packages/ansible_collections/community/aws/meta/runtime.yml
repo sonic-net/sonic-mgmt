@@ -1,0 +1,545 @@
+---
+requires_ansible: '>=2.17.0'
+action_groups:
+  aws:
+    - accessanalyzer_validate_policy_info
+    - acm_certificate
+    - acm_certificate_info
+    - api_gateway
+    - api_gateway_domain
+    - api_gateway_info
+    - application_autoscaling_policy
+    - autoscaling_complete_lifecycle_action
+    - autoscaling_launch_config
+    - autoscaling_launch_config_find
+    - autoscaling_launch_config_info
+    - autoscaling_lifecycle_hook
+    - autoscaling_policy
+    - autoscaling_scheduled_action
+    - aws_acm
+    - aws_acm_info
+    - aws_api_gateway
+    - aws_api_gateway_domain
+    - aws_application_scaling_policy
+    - aws_batch_compute_environment
+    - aws_batch_job_definition
+    - aws_batch_job_queue
+    - aws_codebuild
+    - aws_codecommit
+    - aws_codepipeline
+    - aws_config_aggregation_authorization
+    - aws_config_aggregator
+    - aws_config_delivery_channel
+    - aws_config_recorder
+    - aws_config_rule
+    - aws_direct_connect_confirm_connection
+    - aws_direct_connect_connection
+    - aws_direct_connect_gateway
+    - aws_direct_connect_link_aggregation_group
+    - aws_direct_connect_virtual_interface
+    - aws_eks_cluster
+    - aws_elasticbeanstalk_app
+    - aws_glue_connection
+    - aws_glue_crawler
+    - aws_glue_job
+    - aws_inspector_target
+    - aws_msk_cluster
+    - aws_msk_config
+    - aws_region_info
+    - aws_s3_cors
+    - aws_secret
+    - aws_ses_identity
+    - aws_ses_identity_policy
+    - aws_ses_rule_set
+    - aws_sgw_info
+    - aws_ssm_parameter_store
+    - aws_step_functions_state_machine
+    - aws_step_functions_state_machine_execution
+    - aws_waf_condition
+    - aws_waf_info
+    - aws_waf_rule
+    - aws_waf_web_acl
+    - batch_compute_environment
+    - batch_job_definition
+    - batch_job_queue
+    - cloudformation_exports_info
+    - cloudformation_stack_set
+    - cloudfront_distribution
+    - cloudfront_distribution_info
+    - cloudfront_info
+    - cloudfront_invalidation
+    - cloudfront_origin_access_identity
+    - cloudfront_response_headers_policy
+    - codebuild_project
+    - codecommit_repository
+    - codepipeline
+    - config_aggregation_authorization
+    - config_aggregator
+    - config_delivery_channel
+    - config_recorder
+    - config_rule
+    - data_pipeline
+    - directconnect_confirm_connection
+    - directconnect_connection
+    - directconnect_gateway
+    - directconnect_link_aggregation_group
+    - directconnect_virtual_interface
+    - dms_endpoint
+    - dms_replication_subnet_group
+    - dynamodb_table
+    - dynamodb_table_info
+    - dynamodb_ttl
+    - ec2_ami_copy
+    - ec2_asg
+    - ec2_asg_info
+    - ec2_asg_lifecycle_hook
+    - ec2_asg_scheduled_action
+    - ec2_customer_gateway
+    - ec2_customer_gateway_info
+    - ec2_elb
+    - ec2_lc
+    - ec2_lc_find
+    - ec2_lc_info
+    - ec2_metric_alarm
+    - ec2_scaling_policy
+    - ec2_snapshot_copy
+    - ec2_win_password
+    - ecs_attribute
+    - ecs_cluster
+    - ecs_ecr
+    - ecs_service
+    - ecs_service_info
+    - ecs_tag
+    - ecs_task
+    - ecs_taskdefinition
+    - ecs_taskdefinition_info
+    - efs
+    - efs_info
+    - efs_tag
+    - eks_cluster
+    - eks_fargate_profile
+    - eks_nodegroup
+    - elasticache
+    - elasticache_info
+    - elasticache_parameter_group
+    - elasticache_snapshot
+    - elasticache_subnet_group
+    - elasticbeanstalk_app
+    - elb_classic_lb
+    - elb_instance
+    - elb_network_lb
+    - elb_target
+    - elb_target_group
+    - elb_target_group_info
+    - elb_target_info
+    - glue_connection
+    - glue_crawler
+    - glue_job
+    - iam_saml_federation
+    - iam_server_certificate
+    - iam_server_certificate_info
+    - inspector_target
+    - kinesis_stream
+    - lightsail
+    - lightsail_snapshot
+    - lightsail_static_ip
+    - mq_broker
+    - mq_broker_config
+    - mq_broker_info
+    - mq_user
+    - mq_user_info
+    - msk_cluster
+    - msk_config
+    - networkfirewall
+    - networkfirewall_info
+    - networkfirewall_policy
+    - networkfirewall_policy_info
+    - networkfirewall_rule_group
+    - networkfirewall_rule_group_info
+    - opensearch
+    - opensearch_info
+    - redshift
+    - redshift_cross_region_snapshots
+    - redshift_info
+    - redshift_subnet_group
+    - route53_wait
+    - s3_bucket_notification
+    - s3_cors
+    - s3_lifecycle
+    - s3_logging
+    - s3_metrics_configuration
+    - s3_sync
+    - s3_website
+    - secretsmanager_secret
+    - ses_identity
+    - ses_identity_policy
+    - ses_rule_set
+    - sns
+    - sns_topic
+    - sns_topic_info
+    - sqs_queue
+    - ssm_inventory_info
+    - ssm_parameter
+    - stepfunctions_state_machine
+    - stepfunctions_state_machine_execution
+    - storagegateway_info
+    - sts_session_token
+    - waf_condition
+    - waf_info
+    - waf_rule
+    - waf_web_acl
+    - wafv2_ip_set
+    - wafv2_ip_set_info
+    - wafv2_resources
+    - wafv2_resources_info
+    - wafv2_rule_group
+    - wafv2_rule_group_info
+    - wafv2_web_acl
+    - wafv2_web_acl_info
+plugin_routing:
+  connection:
+    aws_ssm:
+      redirect: amazon.aws.aws_ssm
+  modules:
+    autoscaling_group_info:
+      redirect: amazon.aws.autoscaling_group_info
+    autoscaling_group:
+      redirect: amazon.aws.autoscaling_group
+    aws_acm:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.acm_certificate
+    aws_acm_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.acm_certificate_info
+    aws_api_gateway:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.api_gateway
+    aws_api_gateway_domain:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.api_gateway_domain
+    aws_application_scaling_policy:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.application_autoscaling_policy
+    aws_batch_compute_environment:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.batch_compute_environment
+    aws_batch_job_definition:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.batch_job_definition
+    aws_batch_job_queue:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.batch_job_queue
+    aws_codebuild:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.codebuild_project
+    aws_codecommit:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.codecommit_repository
+    aws_codepipeline:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.codepipeline
+    aws_config_aggregation_authorization:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.config_aggregation_authorization
+    aws_config_aggregator:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.config_aggregator
+    aws_config_delivery_channel:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.config_delivery_channel
+    aws_config_recorder:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.config_recorder
+    aws_config_rule:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.config_rule
+    aws_direct_connect_confirm_connection:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.directconnect_confirm_connection
+    aws_direct_connect_connection:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.directconnect_connection
+    aws_direct_connect_gateway:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.directconnect_gateway
+    aws_direct_connect_link_aggregation_group:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.directconnect_link_aggregation_group
+    aws_direct_connect_virtual_interface:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.directconnect_virtual_interface
+    aws_eks_cluster:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.eks_cluster
+    aws_elasticbeanstalk_app:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.elasticbeanstalk_app
+    aws_glue_connection:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.glue_connection
+    aws_glue_crawler:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.glue_crawler
+    aws_glue_job:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.glue_job
+    aws_inspector_target:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.inspector_target
+    aws_kms:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.kms_key
+    aws_kms_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.kms_key_info
+    aws_msk_cluster:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.msk_cluster
+    aws_msk_config:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.msk_config
+    aws_region_info:
+      redirect: amazon.aws.aws_region_info
+    aws_s3_bucket_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.s3_bucket_info
+    aws_s3_cors:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.s3_cors
+    aws_secret:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.secretsmanager_secret
+    aws_ses_identity:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.ses_identity
+    aws_ses_identity_policy:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.ses_identity_policy
+    aws_ses_rule_set:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.ses_rule_set
+    aws_sgw_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.storagegateway_info
+    aws_ssm_parameter_store:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.ssm_parameter
+    aws_step_functions_state_machine:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.stepfunctions_state_machine
+    aws_step_functions_state_machine_execution:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.stepfunctions_state_machine_execution
+    aws_waf_condition:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.waf_condition
+    aws_waf_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.waf_info
+    aws_waf_rule:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.waf_rule
+    aws_waf_web_acl:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.waf_web_acl
+    cloudtrail:
+      # Deprecation for this alias should not *start* prior to 2024-11-01
+      redirect: amazon.aws.cloudtrail
+    cloudfront_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.cloudfront_distribution_info
+    cloudwatchevent_rule:
+      redirect: amazon.aws.cloudwatchevent_rule
+    cloudwatchlogs_log_group:
+      redirect: amazon.aws.cloudwatchlogs_log_group
+    cloudwatchlogs_log_group_info:
+      redirect: amazon.aws.cloudwatchlogs_log_group_info
+    cloudwatchlogs_log_group_metric_filter:
+      redirect: amazon.aws.cloudwatchlogs_log_group_metric_filter
+    cloudwatch_metric_alarm:
+      redirect: amazon.aws.cloudwatch_metric_alarm
+    ec2_asg:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.autoscaling_group
+    ec2_asg_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.autoscaling_group_info
+    ec2_asg_instance_refresh:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.autoscaling_instance_refresh
+    ec2_asg_instance_refresh_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.autoscaling_instance_refresh_info
+    ec2_asg_lifecycle_hook:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.autoscaling_lifecycle_hook
+    ec2_asg_scheduled_action:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.autoscaling_scheduled_action
+    ec2_eip:
+      redirect: amazon.aws.ec2_eip
+    ec2_eip_info:
+      redirect: amazon.aws.ec2_eip_info
+    ec2_elb:
+      redirect: community.aws.elb_instance
+    ec2_metric_alarm:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.cloudwatch_metric_alarm
+    ec2_instance:
+      redirect: amazon.aws.ec2_instance
+    ec2_instance_info:
+      redirect: amazon.aws.ec2_instance_info
+    ec2_lc:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.autoscaling_launch_config
+    ec2_lc_find:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.autoscaling_launch_config_find
+    ec2_lc_info:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.autoscaling_launch_config_info
+    ec2_scaling_policy:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: community.aws.autoscaling_policy
+    ec2_vpc_endpoint:
+      redirect: amazon.aws.ec2_vpc_endpoint
+    ec2_vpc_endpoint_info:
+      redirect: amazon.aws.ec2_vpc_endpoint_info
+    ec2_vpc_endpoint_service_info:
+      redirect: amazon.aws.ec2_vpc_endpoint_service_info
+    ec2_vpc_igw:
+      redirect: amazon.aws.ec2_vpc_igw
+    ec2_vpc_igw_info:
+      redirect: amazon.aws.ec2_vpc_igw_info
+    ec2_vpc_nat_gateway:
+      redirect: amazon.aws.ec2_vpc_nat_gateway
+    ec2_vpc_nat_gateway_info:
+      redirect: amazon.aws.ec2_vpc_nat_gateway_info
+    ec2_vpc_route_table:
+      redirect: amazon.aws.ec2_vpc_route_table
+    ec2_vpc_route_table_info:
+      redirect: amazon.aws.ec2_vpc_route_table_info
+    elb_classic_lb:
+      redirect: amazon.aws.ec2_elb_lb
+    elb_application_lb:
+      redirect: amazon.aws.elb_application_lb
+    elb_application_lb_info:
+      redirect: amazon.aws.elb_application_lb_info
+    execute_lambda:
+      # Deprecation for this alias should not *start* prior to 2024-09-01
+      redirect: amazon.aws.lambda_execute
+    iam_access_key:
+      redirect: amazon.aws.iam_access_key
+    iam_access_key_info:
+      redirect: amazon.aws.iam_access_key_info
+    iam_group:
+      redirect: amazon.aws.iam_group
+    iam_managed_policy:
+      redirect: amazon.aws.iam_managed_policy
+    iam_mfa_device_info:
+      redirect: amazon.aws.iam_mfa_device_info
+    iam_password_policy:
+      redirect: amazon.aws.iam_password_policy
+    iam_policy:
+      redirect: amazon.aws.iam_policy
+    iam_policy_info:
+      redirect: amazon.aws.iam_policy_info
+    iam_role:
+      redirect: amazon.aws.iam_role
+    iam_role_info:
+      redirect: amazon.aws.iam_role_info
+    iam_user:
+      redirect: amazon.aws.iam_user
+    iam_user_info:
+      redirect: amazon.aws.iam_user_info
+    kms_key:
+      redirect: amazon.aws.kms_key
+    kms_key_info:
+      redirect: amazon.aws.kms_key_info
+    lambda:
+      redirect: amazon.aws.lambda
+    lambda_alias:
+      redirect: amazon.aws.lambda_alias
+    lambda_event:
+      redirect: amazon.aws.lambda_event
+    lambda_execute:
+      redirect: amazon.aws.lambda_execute
+    lambda_info:
+      redirect: amazon.aws.lambda_info
+    lambda_policy:
+      redirect: amazon.aws.lambda_policy
+    rds_cluster:
+      redirect: amazon.aws.rds_cluster
+    rds_cluster_info:
+      redirect: amazon.aws.rds_cluster_info
+    rds_cluster_snapshot:
+      redirect: amazon.aws.rds_cluster_snapshot
+    rds_instance:
+      redirect: amazon.aws.rds_instance
+    rds_instance_info:
+      redirect: amazon.aws.rds_instance_info
+    rds_instance_snapshot:
+      redirect: amazon.aws.rds_instance_snapshot
+    rds_option_group:
+      redirect: amazon.aws.rds_option_group
+    rds_option_group_info:
+      redirect: amazon.aws.rds_option_group_info
+    rds_param_group:
+      redirect: amazon.aws.rds_param_group
+    rds_snapshot_info:
+      redirect: amazon.aws.rds_snapshot_info
+    rds_subnet_group:
+      redirect: amazon.aws.rds_subnet_group
+    route53:
+      redirect: amazon.aws.route53
+    route53_health_check:
+      redirect: amazon.aws.route53_health_check
+    route53_info:
+      redirect: amazon.aws.route53_info
+    route53_zone:
+      redirect: amazon.aws.route53_zone
+    s3_bucket_info:
+      redirect: amazon.aws.s3_bucket_info
+    sts_assume_role:
+      redirect: amazon.aws.sts_assume_role
+    ec2_vpc_egress_igw:
+      redirect: amazon.aws.ec2_vpc_egress_igw
+    ec2_transit_gateway_vpc_attachment:
+      redirect: amazon.aws.ec2_transit_gateway_vpc_attachment
+    ec2_transit_gateway_vpc_attachment_info:
+      redirect: amazon.aws.ec2_transit_gateway_vpc_attachment_info
+    elb_classic_lb_info:
+      redirect: amazon.aws.elb_classic_lb_info
+    ec2_vpc_nacl:
+      redirect: amazon.aws.ec2_vpc_nacl
+    ec2_vpc_nacl_info:
+      redirect: amazon.aws.ec2_vpc_nacl_info
+    ec2_vpc_peer:
+      redirect: amazon.aws.ec2_vpc_peer
+    ec2_vpc_peering_info:
+      redirect: amazon.aws.ec2_vpc_peering_info
+    ec2_placement_group:
+      redirect: amazon.aws.ec2_placement_group
+    ec2_placement_group_info:
+      redirect: amazon.aws.ec2_placement_group_info
+    ec2_launch_template:
+      redirect: amazon.aws.ec2_launch_template
+    ec2_vpc_vgw:
+      redirect: amazon.aws.ec2_vpc_vgw
+    ec2_vpc_vgw_info:
+      redirect: amazon.aws.ec2_vpc_vgw_info
+    ec2_vpc_vpn:
+      redirect: amazon.aws.ec2_vpc_vpn
+    ec2_vpc_vpn_info:
+      redirect: amazon.aws.ec2_vpc_vpn_info
+    autoscaling_instance_refresh:
+      redirect: amazon.aws.autoscaling_instance_refresh
+    autoscaling_instance_refresh_info:
+      redirect: amazon.aws.autoscaling_instance_refresh_info
+    ec2_transit_gateway_info:
+      redirect: amazon.aws.ec2_transit_gateway_info
+    ec2_transit_gateway:
+      redirect: amazon.aws.ec2_transit_gateway
+  module_utils:
+    route53:
+      redirect: amazon.aws.route53

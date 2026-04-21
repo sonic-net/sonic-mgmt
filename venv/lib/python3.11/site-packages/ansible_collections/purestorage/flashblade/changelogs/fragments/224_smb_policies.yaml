@@ -1,0 +1,4 @@
+minor_changes:
+ - purefb_info - Added support for SMB client and share policies
+ - purefb_fs - Added support for SMB client and share policies
+ - purefb_policy - Added support for SMB client and share policies

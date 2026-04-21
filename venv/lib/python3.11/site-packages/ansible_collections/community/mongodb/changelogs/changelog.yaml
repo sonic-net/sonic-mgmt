@@ -1,0 +1,386 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      release_summary: |
+        The first stable release of the commmunity.mongodb collection.
+        Many of the plugins and modules were previously released in ansible itself.
+    modules:
+    - description: Manages the MongoDB Sharded Cluster Balancer.
+      name: mongodb_balancer
+      namespace: ''
+    - description: Creates or drops indexes on MongoDB collections.
+      name: mongodb_index
+      namespace: ''
+    - description: Gather information about MongoDB instance.
+      name: mongodb_info
+      namespace: ''
+    - description: Enables or disables maintenance mode for a secondary member.
+      name: mongodb_maintenance
+      namespace: ''
+    - description: Resizes the MongoDB oplog.
+      name: mongodb_oplog
+      namespace: ''
+    - description: Change an administrative parameter on a MongoDB server
+      name: mongodb_parameter
+      namespace: ''
+    - description: Initialises a MongoDB replicaset.
+      name: mongodb_replicaset
+      namespace: ''
+    - description: Add or remove shards from a MongoDB Cluster
+      name: mongodb_shard
+      namespace: ''
+    - description: Cleans up all database resources and then terminates the mongod/mongos
+        process.
+      name: mongodb_shutdown
+      namespace: ''
+    - description: Validates the status of the cluster.
+      name: mongodb_status
+      namespace: ''
+    - description: Step down the MongoDB node from a PRIMARY state.
+      name: mongodb_stepdown
+      namespace: ''
+    - description: Adds or removes a user from a MongoDB database
+      name: mongodb_user
+      namespace: ''
+    plugins:
+      cache:
+      - description: This cache uses per host records saved in MongoDB.
+        name: mongodb
+        namespace: ''
+      lookup:
+      - description: 'The ``MongoDB`` lookup runs the *find()* command on a given *collection* on a given *MongoDB* server.'
+        name: mongodb
+        namespace: ''
+    objects:
+      role:
+      - description: Configure the CSRS Config Server Replicaset for a MongoDB sharded
+          cluster. (Use mongodb_mongod for Standalone installations - this does not
+          create mongo.conf)
+        name: mongodb_config
+        namespace: null
+      - description: Install MongoDB packages on Debian and RedHat based platforms.
+        name: mongodb_install
+        namespace: null
+      - description: A simple role to configure Linux Operating System settings, as
+          advised in the MongoDB Production Notes.
+        name: mongodb_linux
+        namespace: null
+      - description: Configure the mongod service (includes populating mongod.conf)
+          which is a MongoDB replicaset or standalone server.
+        name: mongodb_mongod
+        namespace: null
+      - description: Configure the mongos service (includes populating mongos.conf)
+          which only runs in a sharded MongoDB cluster.
+        name: mongodb_mongos
+        namespace: null
+      - description: Configures a package repository for MongoDB on Debian and RedHat
+          based platforms.
+        name: mongodb_repository
+        namespace: null
+      - description: Configure SELinux for MongoDB.
+        name: mongodb_selinux
+        namespace: null
+    release_date: '2020-08-06'
+  1.1.0:
+    changes:
+      release_summary: |
+        This release adds the mongodb_shell module and the mongodb_auth role.
+    modules:
+    - description: Run commands via the MongoDB shell.
+      name: mongodb_shell
+      namespace: ''
+    objects:
+      role:
+      - description: Configure auth on MongoDB servers.
+        name: mongodb_auth
+        namespace: null
+    release_date: '2020-10-24'
+  1.1.1:
+    changes:
+      bugfixes:
+      - 235 - Fix namespace.
+    release_date: '2020-11-04'
+  1.1.2:
+    changes:
+      bugfixes:
+      - 252 - Fix config template override in various roles.
+      - 255 - Add replica_set param to mongodb_index module.
+      - 264 - Only add force parameter to shutdown command when set to true.
+      - 275 - Use OrderedDict class in the following modules, mongodb_balancer, mongodb_oplog,
+        mongodb_shutdown.
+    release_date: '2021-01-06'
+  1.2.0:
+    changes:
+      release_summary: |
+        A variety of idempotency and reliability improvements.
+      bugfixes:
+      - 281 - mongodb_linux Fixes disable-transparent-huge-pages.service idempotency.
+      - 282 - Add restart handler, and bool variable to control to mongofb_config/mongod/mongos
+        roles.
+      - 285 - Output users and roles dict by database to avoid overwriting entries.
+      - 287 - Fixes return value on older versions of MongoDB.
+      - 290 - Adds pseudo-idempotency feature to module.
+    release_date: '2021-01-31'
+  1.2.1:
+    changes:
+      minor_changes:
+      - 304 - Adds validate parameter to mongodb_status module.
+    release_date: '2021-02-09'
+  1.3.0:
+    changes:
+      release_summary: |
+        This release improves sharded cluster management, and adds schema validator management.
+        Several bug fixes improve compatibility with python3.6.
+      security_fixes:
+      - 312 - Set no_log True for ssl_keyfile.
+      bugfixes:
+      - 315 - Fix exception handling for mongodb_stepdown module on python3.6
+      - 320 - Fix exception handling for modules mongodb_balancer, mongodb_shard,
+        and mongodb_status.
+      - 352 - Add ansible.posix collection to dependencies list.
+      minor_changes:
+      - 338 - role monogdb_repository - Variablize repository details.
+      - 345 - roles mongodb_config, mongodb_mongod, mongodb_mongos - Make security.keyFile
+        configurable.
+      - 346 - roles mongodb_config, mongodb_mongod, mongodb_mongos - Allow using net.bindIpAll
+        instead of net.bindIp.
+      - 347 - roles mongodb_config, mongodb_mongod, mongodb_mongos - Allow overriding
+        net.compression.compressors in mongo*.conf
+    modules:
+    - description: Manages the free monitoring feature.
+      name: mongodb_monitoring
+      namespace: ''
+    - description: Manages MongoDB Document Schema Validators.
+      name: mongodb_schema
+      namespace: ''
+    - description: Manage Shard Tags.
+      name: mongodb_shard_tag
+      namespace: ''
+    - description: Manage Shard Zones.
+      name: mongodb_shard_zone
+      namespace: ''
+    release_date: '2021-07-20'
+  1.3.1:
+    release_summary: |
+      This release is a maintenance release. The GitHub CI has been updated to include MongoDB 5.0 as well
+      as a few new features. The mongosh shell is now supported in the mongodb_shell module. Support for the
+      old mongo shell will be removed in a future release.
+    minor_changes:
+      - 360 - mongodb_shell - Adds support for the mongosh shell now available with MongoDB 5.0.
+      - 368 - mongodb_shell - Use shlex escape function.
+      - 370 - mongodb_install - Adds mongodb_hold_packages variable. Runs the lock_mongodb_packages.sh script
+        to either lock mongodb-org packages at a specific version or to release the lock.
+        Set to "HOLD" or "NOHOLD" as desired. No checks are made to see if the hold already exists or not.
+        By default this variable is undefined and the script is not executed.
+        The task is executed at the end and it is possible that packages could be upgraded
+        before the lock is initially applied.
+    deprecated_features:
+      - mongodb_shell - Support for the mongo shell is deprecated and will be removed in a future version.
+  1.3.2:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 413 - mongodb_shell - Adds escape_param function that will work better across various python versions.
+      - 414-416 - Minor documentation improvements.
+      - 411 - mongodb_shell - FIx missing db parameter when fiel parmeter is used.
+      - 403 - Make db path configurable in roles.
+      - 401 - mongodb_replicaset - Add further examples.
+      - 399 - Removes unused imports from modules.
+      - 396 - Add tags to roles.
+      - 387 - Fix documentation for mongod cache plugin.
+    major_changes:
+      - 397 & 376 - mongodb_replicaset - Add reconfigure abilities to module. Add and removes members from replicasets.
+  1.3.3:
+    release_summary: |
+      This release is a maintenance release.
+    bugfixes:
+      - 448 - Fix issue in roles where mongod does not restart when a custom bind_ip is set.
+      - 440 - Fix incorrect alias ssl_crlfile.
+      - 450 - Fix issues with mongodb_replicaset connecting with the pymongo 4.0.X driver.
+    minor_changes:
+      - 450 - mongodb_replicaset. Introduce cluster_cmd parameter. Can be set to isMaster or hello.
+        hello is the default. isMaster is useful for older versions of MongoDB.
+        See [db.hello()](https://www.mongodb.com/docs/manual/reference/method/db.hello/) for more.
+  1.3.4:
+    release_summary: |
+      This release is a maintenance release.
+    bugfixes:
+      - 466 & 467 - Fixes localhost exception bug due to directConnection parameter in newer pymongo versions.
+  1.4.0:
+    release_summary: |
+      This release is a maintenance release. Pymongo versions 3.12.* or 4.* are now required. MongoDB version 4+ are also required but can be overriden if desired.
+    major_changes:
+      - 470 - Removes depreciated distutils package and require Pymongo 3.12+ and MongoDB 4+
+        Adds a new parameter strict_compatibility (default true).
+        Set to false to disable Pymongo and MongoDB requirements.
+  1.4.1:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 474 - Adds log_path parameter to mongodb_mongod, mongodb_mongos and mongodb_config roles.
+    bugfixes:
+      - 479 - mongodb_shell - Correct supports_check_mode value. Used to be true, which is wrong, now false.
+  1.4.2:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 483 - Removes previous upper bound restriction for communiry.general collection,
+      - 483 - Use extended FQCN for pam_limits (community.general.system.pam_limits instead of community.general.pam_limits).
+  1.5.0:
+    release_summary: |
+      This release is a maintenance release.
+    changes:
+      minor_changes:
+        - 544 mongodb_replicaset - Module documentation improvements.
+        - 494 mongodb_shutdown - Fix examples block.
+        - 491 mongodb_shell - Add feature to detect if mongo or mongosh is available.
+        - 530 mongodb_role - Adds new module to manage MongoDB roles.
+        - 547 mongodb_repository - Bump default of MongoDB to 6.0.
+        - 536 mongodb_auth - Add user after enabling authentication.
+        - 528 multiple roles - Use first ip address when multiple bind IPs provided.
+        - 524 mongodb_auth - Add supports for Amazon Linux 2.
+        - 514 mongodb_linux - Remove extended FQCN for pam_limits.
+        - 511 mongodb_auth - Adds support for deletion of users.
+        - 494 mongodb_auth - Removes module_defaults from role.
+      bug_fixes:
+        - 540 mongodb_replicaset - replicaset member priority updates.
+        - 488 mongodb_info - Better handling of json data types.
+    modules:
+      - description:
+          - Manage MongoDB User Roles (#530).
+        name: mongodb_role
+        namespace: community
+  1.5.1:
+    release_summary: |
+      This release is a maintenance release.
+    changes:
+      bug_fixes:
+        - 534 mongodb_selinux - Reinstall SELinux policy when changed.
+  1.5.2:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 558 mongodb_replicaset - Minor documentation update.
+    bugfixes:
+      - 565 mongodb_role - Replaces integers with booleans used in query doc to obtain role info. Only MongoDB <= 4.4 was affected.
+  1.6.0:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 569 - All pymongo modules - Better support for MongoDB Atlas.
+      - 568 - Minor documentation updates.
+  1.6.1:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 578 - mongodb_role - More robust comparison of user roles.
+  1.6.2:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 583 - mongodb_linux - Add vars for RedHat 9 to role.
+      - 586 - mongodb_auth - Add ssl vars to role.
+      - 589 - mongodb_linux - Adds vars to better handle ntp package installation and handling.
+      - 588 - mongodb_linux - Default ntp system to systemd-timesyncd for Debian12.
+      - 593 - mongodb_linux - Add vm.max_map_count = 128000 sysctl config.
+      - 597 - mongodb_monitoring - Module has been deleted as Free Monitoring service has been stopped.
+      - 595 - mongodb_linux - Improvements to transparent_hugepage handling.
+  1.6.3:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+     - 600 - Remove delete module from README.md.
+     - 601 - mongodb_install - Fix issue with specific_mongodb_version on RedHat OS family.
+  1.7.0:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 622 - mongodb_mongod - Allow systemd configuration override.
+      - 620 - mongodb_common - Use SSL constants in shared connection code.
+      - 609 - mongodb_mongod, mongodb_mongos, mongodb_config - support for allowConnectionsWithoutCertificates.
+      - 605 - mongodb_mongod, mongodb_mongos, mongodb_config - support for security.disabledProtocols.
+    bugfixes:
+      - 614 - mongodb_replicaset - Count voting members based on the sum of "votes" and using a comprehension list.
+      - 611 - mongodb_role - lambda function changed to support non-existing keys.
+    modules:
+      - description:
+          - Manage database clusters in Atlas (#612)
+        name: mongodb_atlas_cluster
+        namespace: community
+      - description:
+          - Manage LDAP users in Atlas (#612)
+        name: mongodb_atlas_ldap_user
+        namespace: community
+      - description:
+          - Manage database users in Atlas (#612)
+        name: mongodb_atlas_user
+        namespace: community
+      - description:
+          - Manage IP whitelists in Atlas (#612)
+        name: mongodb_atlas_whitelist
+        namespace: community
+  1.7.1:
+    release_summary: |
+      This release is a maintenance release.
+    bugfixes:
+      - 631 - cache/mongodb.py - Support pymongo 4.0+. This plugin no longer support pymongo 3.12.*.
+  1.7.2:
+    release_summary: |
+      This release is a maintenance release.
+    bugfixes:
+      - 638 - mongodb_replicaset - Allow module to update replicaset horizons.
+  1.7.3:
+    release_summary: |
+      This release is a maintenance release.
+    bugfixes:
+      - 641 - mongodb_mongod -  Add test condition for storage option in mongod.conf template file.
+  1.7.4:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 644 - mongodb_shell - Add ssl/tls options.
+  1.7.5:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 648 - mongodb_auth - make create_for_localhost_exception configurable.
+      - 653 - mongodb_auth - Use mongod_host variable instead of hardcoded localhost.
+      - 657 - mongodb_common (all modules) - Handle arbiters in test for auth. This was done for the mongodb_status module but affects all modules using this shared code.
+      - 660 - runtime.yml - Adds atlas, mongodb and all action_groups to collection.
+  1.7.6:
+    release_summary: |
+      This release is a maintenance release.
+    bugfixes:
+      - 666 - mongodb_linux - Fix check for Transparent Huge Pages.
+      - 669 - mongodb_common - Replaces readfp function with read_file to support Python 3.12.
+    minor_changes:
+      - 667 - Several modules - Minor documentation update.
+  1.7.7:
+    release_summary: |
+      This release is a maintenance release.
+    bugfixes:
+      - 678 - mongodb_shell - This module did not implement the standard connection_options 
+        feature since it is not a pymongo module. This has now been implemented in this module.
+        The connection_options parameter will be parsed, in a similar way to pymongo based modules,
+        and those options will be appended to the mongodb connection url. 
+        e.g. mongodb://localhost:3001/test?replicaSet=myReplSet
+    minor_changes:
+      - 675 & 673 - Minor documentation updates.
+  1.7.8:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 681 - mongodb_repository - Updates the default of apt_key_url.
+  1.7.9:
+    release_summary: |
+      This release is a maintenance release.
+    bugfixes:
+      - 684 - mongodb_shell / Rework escapre_param to work on Python 3.13.
+      - 689 - mongodb_mongod & mongodb_config - Make version compare Jinja2 filter more robust to work across Python versions.
+  1.7.10:
+    release_summary: |
+      This release is a maintenance release.
+    minor_changes:
+      - 695 - mongodb_linux - New method for managing THP (#697).
+      - 696 & 703 - Minor documentation improvements.

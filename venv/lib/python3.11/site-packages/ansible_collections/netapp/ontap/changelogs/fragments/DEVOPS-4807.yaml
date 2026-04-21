@@ -1,0 +1,6 @@
+---
+bugfixes:
+  - na_ontap_vserver_peer - Fixed AttributeError if ``dest_hostname`` or ``peer_options`` not present.
+  - na_ontap_vserver_peer - Fixed ``local_name_for_peer`` and ``local_name_for_source`` options silently ignored in REST.
+  - na_ontap_vserver_peer - Added cluster peer accept code in REST.
+  - na_ontap_vserver_peer - Get peer cluster name if remote peer exist else use local cluster name.

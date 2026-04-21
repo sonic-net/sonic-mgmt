@@ -1,0 +1,102 @@
+---
+- name: "Set default ip address for zabbix_agent_ip | Windows"
+  ansible.builtin.set_fact:
+    zabbix_agent_ip: "{{ ansible_facts['ip_addresses'] | ansible.utils.ipaddr('private') | first }}"
+  when:
+    - zabbix_agent_ip is not defined
+    - ansible_facts['os_family'] == 'Windows'
+
+- name: "Set default ip address for zabbix_agent_ip | {{ ansible_facts['os_family'] }}"
+  ansible.builtin.set_fact:
+    zabbix_agent_ip: "{{ ansible_facts['default_ipv4'].address }}"
+  when:
+    - zabbix_agent_ip is not defined
+    - ansible_facts['default_ipv4'].address is defined
+    - ansible_facts['os_family'] != 'Windows'
+
+# Fun fact, the first set_fact that successfully defines zabbix_agent_ip
+# breaks the block, so no further tasks are run within the block.
+- name: "Detect IPv4 address"
+  when:
+    - zabbix_agent_ip is not defined
+    - zabbix_agent_detect_ip
+    - ansible_facts['os_family'] != 'Windows"
+  block:
+    - name: "Set first private ip address for zabbix_agent_ip"
+      ansible.builtin.set_fact:
+        zabbix_agent_ip: "{{ ansible_facts['all_ipv4_addresses'] | ansible.utils.ipaddr('private') | first }}"
+      when: ansible_facts['all_ipv4_addresses'] | ansible.utils.ipaddr('private') | length > 0
+
+    - name: "Set first public ip address for zabbix_agent_ip"
+      ansible.builtin.set_fact:
+        zabbix_agent_ip: "{{ ansible_facts['all_ipv4_addresses'] | ansible.utils.ipaddr('public') | first }}"
+      when: ansible_facts['all_ipv4_addresses'] | ansible.utils.ipaddr('public') | length > 0
+
+
+- name: "API | Create host groups"
+  community.zabbix.zabbix_group:
+    host_groups: "{{ zabbix_host_groups }}"
+    state: present
+  when:
+    - zabbix_api_create_hostgroup | bool
+  register: zabbix_api_hostgroup_created
+  until: zabbix_api_hostgroup_created is succeeded
+  retries: 10
+  delegate_to: "{{ zabbix_api_server_host }}"
+  become: false
+  tags:
+    - api
+
+- name: "API | Create a new host or update an existing host's info"
+  community.zabbix.zabbix_host:
+    host_name: "{{ zabbix_agent_hostname }}"
+    status: "{{ zabbix_host_status }}"
+    description: "{{ zabbix_agent_description | default(omit) }}"
+    force: "{{ zabbix_agent_host_update }}"
+    host_groups: "{{ zabbix_host_groups }}"
+    interfaces: "{{ zabbix_agent_interfaces }}"
+    inventory_mode: "{{ zabbix_agent_inventory_mode }}"
+    inventory_zabbix: "{{ zabbix_agent_inventory_zabbix | default({}) }}"
+    ipmi_authtype: "{{ zabbix_agent_ipmi_authtype | default(omit) }}"
+    ipmi_password: "{{ zabbix_agent_ipmi_password| default(omit) }}"
+    ipmi_privilege: "{{ zabbix_agent_ipmi_privilege | default(omit) }}"
+    ipmi_username: "{{ zabbix_agent_ipmi_username | default(omit) }}"
+    link_templates: "{{ zabbix_agent_link_templates }}"
+    monitored_by: "{{ zabbix_agent_monitored_by | default(omit) }}"
+    proxy: "{{ zabbix_agent_proxy }}"
+    proxy_group: "{{ zabbix_agent_proxy_group | default(omit) }}"
+    state: "{{ zabbix_agent_host_state }}"
+    tls_accept: "{{ zabbix_agent_tls_config[zabbix_agent_tlsaccept | default('unencrypted')] }}"
+    tls_connect: "{{ zabbix_agent_tls_config[zabbix_agent_tlsconnect | default('unencrypted')] }}"
+    tls_issuer: "{{ zabbix_agent_tlsservercertissuer | default(omit) }}"
+    tls_psk: "{{ zabbix_agent_tlspsk_secret | default(omit) }}"
+    tls_psk_identity: "{{ zabbix_agent_tlspskidentity | default(omit) }}"
+    tls_subject: "{{ zabbix_agent_tls_subject | default(omit) }}"
+    tags: "{{ zabbix_agent_tags | default(omit) }}"
+    visible_name: "{{ zabbix_agent_visible_hostname | default(zabbix_agent_hostname) }}"
+  register: zabbix_api_host_created
+  until: zabbix_api_host_created is succeeded
+  retries: 10
+  delegate_to: "{{ zabbix_api_server_host }}"
+  become: false
+  changed_when: false
+  tags:
+    - api
+
+- name: "API | Updating host configuration with macros"
+  community.zabbix.zabbix_hostmacro:
+    host_name: "{{ zabbix_agent_hostname }}"
+    macro_name: "{{ item.macro_key }}"
+    macro_value: "{{ item.macro_value }}"
+    macro_type: "{{ item.macro_type|default('text') }}"
+  with_items: "{{ zabbix_agent_macros | default([]) }}"
+  when:
+    - item.macro_key is defined
+  register: zabbix_api_hostmarcro_created
+  until: zabbix_api_hostmarcro_created is succeeded
+  retries: 10
+  no_log: "{{ ansible_verbosity < 3 }}"
+  delegate_to: "{{ zabbix_api_server_host }}"
+  become: false
+  tags:
+    - api

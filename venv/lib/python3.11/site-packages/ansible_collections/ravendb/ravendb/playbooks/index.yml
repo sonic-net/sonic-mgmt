@@ -1,0 +1,213 @@
+##################################################################################################
+# playbooks/index.yml
+#
+# Purpose: Demonstrate common usage patterns for the RavenDB index module
+#
+# What it does:
+#   - Shows index lifecycle tasks:
+#       * Create/update an index (map / map-reduce / multi-map)
+#       * Delete an index
+#       * Enable/disable/pause/resume/reset an index
+#   - Demonstrates use of check mode for dry-runs
+#   - Applies per-index configuration (e.g., Indexing.*)
+#   - Shows how to define deployment modes (rolling/parallel) via the index definition
+#
+# Notes:
+#   - Existing indexes are updated when the supplied `index_definition` differs (state: present).
+#   - Deployment mode is set inside the `index_definition` (e.g., `deployment_mode: rolling|parallel`).
+#   - Use `cluster_wide: true` for enable/disable across the cluster when relevant.
+#   - All snippets here supports check mode can be run with `check_mode: yes`
+#
+# See the module documentation for more details: plugins/modules/index.py
+###############################################################################################
+
+
+# -----------------------------------------------------------------------------------------------
+# 1) Ensure index is present (map)
+# -----------------------------------------------------------------------------------------------
+- name: Ensure RavenDB Index is present
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersAndOrdersByName"
+    index_definition:
+      map:
+        - "from c in docs.Users select new { Name = c.name, UserCount = 1, OrderCount = 0, TotalCount = 1 }"
+    state: present
+
+
+# -----------------------------------------------------------------------------------------------
+# 2) Ensure index is present (map-reduce)
+# -----------------------------------------------------------------------------------------------
+- name: Ensure RavenDB Index is present
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    index_definition:
+      map:
+        - "from c in docs.Users select new { c.name, count = 5 }"
+      reduce: >
+        from result in results
+        group result by result.name
+        into g
+        select new
+        {
+          name = g.Key,
+          count = g.Sum(x => x.count)
+        }
+    state: present
+
+# -----------------------------------------------------------------------------------------------
+# 3) Ensure index is present - CHECK MODE (supports check mode)
+# -----------------------------------------------------------------------------------------------
+- name: Ensure RavenDB Index is present (check mode)
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    index_definition:
+      map:
+        - "from c in docs.Users select new { c.name, count = 5 }"
+      reduce: >
+        from result in results
+        group result by result.name
+        into g
+        select new
+        {
+          name = g.Key,
+          count = g.Sum(x => x.count)
+        }
+    state: present
+  check_mode: yes
+
+# -----------------------------------------------------------------------------------------------
+# 4) Ensure index is present (multi-map)
+# -----------------------------------------------------------------------------------------------
+- name: Ensure RavenDB Index is present
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersAndOrdersByName"
+    index_definition:
+      map:
+        - "from c in docs.Users select new { Name = c.name, UserCount = 1, OrderCount = 0, TotalCount = 1 }"
+        - "from o in docs.Orders select new { Name = o.customer, UserCount = 0, OrderCount = 1, TotalCount = 1 }"
+      reduce: >
+        from result in results
+        group result by result.Name
+        into g
+        select new
+        {
+          Name = g.Key,
+          UserCount = g.Sum(x => x.UserCount),
+          OrderCount = g.Sum(x => x.OrderCount),
+          TotalCount = g.Sum(x => x.TotalCount)
+        }
+    state: present
+
+# -----------------------------------------------------------------------------------------------
+# 5) Ensure index is absent - CHECK MODE
+# -----------------------------------------------------------------------------------------------
+- name: Ensure RavenDB index is absent (check mode)
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    state: absent
+  check_mode: yes
+
+# -----------------------------------------------------------------------------------------------
+# 6) Ensure index is absent
+# -----------------------------------------------------------------------------------------------
+- name: Ensure RavenDB index is absent
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# 7) Modes: Enable/Disable/Pause/Resume/Reset
+# -----------------------------------------------------------------------------------------------
+- name: Ensure RavenDB Index is disabled
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    mode: disabled
+
+- name: Ensure RavenDB Index is enabled
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    mode: enabled
+    cluster_wide: true
+
+- name: Ensure RavenDB Index is paused
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    mode: paused
+
+- name: Ensure RavenDB Index is reset
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    mode: reset
+
+- name: Ensure RavenDB Index is resumed
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersByName"
+    mode: resumed
+
+# -----------------------------------------------------------------------------------------------
+# 8) Deployment mode via index definition (rolling / parallel)
+# -----------------------------------------------------------------------------------------------
+- name: Ensure RavenDB Index is present (rolling deployment)
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersAndOrdersByName"
+    index_definition:
+      map:
+        - "from c in docs.Users select new { Name = c.name, UserCount = 1, OrderCount = 0, TotalCount = 1 }"
+      deployment_mode: rolling
+    state: present
+
+- name: Ensure RavenDB Index is present (parallel deployment)
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersAndOrdersByName"
+    index_definition:
+      map:
+        - "from c in docs.Users select new { Name = c.name, UserCount = 1, OrderCount = 0, TotalCount = 1 }"
+      deployment_mode: parallel
+    state: present
+
+# -----------------------------------------------------------------------------------------------
+# 9) Delete index
+# -----------------------------------------------------------------------------------------------
+- name: Delete index
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersAndOrdersByName"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# 10) Delete index - CHECK MODE
+# -----------------------------------------------------------------------------------------------
+- name: Delete index
+  ravendb.ravendb.index:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    index_name: "UsersAndOrdersByName"
+    state: absent
+  check_mode: yes

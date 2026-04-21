@@ -1,0 +1,19 @@
+botocore
+boto3
+
+# coverage==4.5.4
+python-dateutil # Used by autoscaling_scheduled_action
+placebo
+mock
+pytest
+pytest-forked
+pytest-mock
+pytest-xdist
+pytest-ansible
+
+# Needed for ansible.utils.ipaddr in tests
+netaddr
+# Sometimes needed where we don't have features we need in modules
+awscli
+# Used for comparing SSH Public keys to the Amazon fingerprints and ec2_win_password
+cryptography

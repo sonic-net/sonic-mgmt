@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_connector_aws - Return newly created Azure client ID in cloud manager, instance ID and account ID. New option ``proxy_certificates``.

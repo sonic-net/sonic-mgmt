@@ -1,0 +1,26 @@
+---
+- name: 'Create or Delete Activation Keys'  # noqa: args[module]
+  theforeman.foreman.activation_key:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ item.organization | default(foreman_organization) }}"
+    name: "{{ item.name }}"
+    description: "{{ item.description | default(omit) }}"
+    lifecycle_environment: "{{ item.lifecycle_environment | default('Library') }}"
+    content_view: "{{ item.content_view | default('Default Organization View') }}"
+    host_collections: "{{ item.host_collections | default(omit) }}"
+    subscriptions: "{{ item.subscriptions | default(omit) }}"
+    content_overrides: "{{ item.content_overrides | default(omit) }}"
+    auto_attach: "{{ item.auto_attach | default(omit) }}"
+    unlimited_hosts: "{{ item.unlimited_hosts | default(omit) }}"
+    max_hosts: "{{ item.max_hosts | default(omit) }}"
+    release_version: "{{ item.release_version | default(omit) }}"
+    service_level: "{{ item.service_level | default(omit) }}"
+    purpose_usage: "{{ item.purpose_usage | default(omit) }}"
+    purpose_role: "{{ item.purpose_role | default(omit) }}"
+    purpose_addons: "{{ item.purpose_addons | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+  with_items:
+    - "{{ foreman_activation_keys }}"

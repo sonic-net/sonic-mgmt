@@ -1,0 +1,144 @@
+---
+# tasks file for promtail deploy
+
+- name: Obtain the latest version from the GitHub repo
+  when: promtail_version == "latest"
+  block:
+    - name: Scrape Github API endpoint to obtain latest Promtail version
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/grafana/loki/releases/latest"
+        method: GET
+        body_format: json
+      become: false
+      delegate_to: localhost
+      run_once: true
+      check_mode: false
+      register: __github_latest_version
+
+    - name: Latest available Promtail version
+      ansible.builtin.set_fact:
+        promtail_version: "{{ __github_latest_version.json.tag_name | regex_replace('^v?(\\d+\\.\\d+\\.\\d+)$', '\\1') }}"
+
+- name: Verify current deployed version
+  block:
+    - name: Check if Promtail binary is present
+      ansible.builtin.stat:
+        path: "/usr/bin/promtail"
+      register: __already_deployed
+
+    - name: Obtain current deployed Promtail version
+      ansible.builtin.command:
+        cmd: "/usr/bin/promtail --version"
+      changed_when: false
+      register: __current_deployed_version
+      when: __already_deployed.stat.exists | bool
+
+- name: Include RedHat/Rocky setup
+  ansible.builtin.include_tasks:
+    file: setup-RedHat.yml
+  when: ansible_facts['os_family'] in ['RedHat', 'Rocky']
+
+- name: Include Debian/Ubuntu setup
+  ansible.builtin.include_tasks:
+    file: setup-Debian.yml
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Ensure that Promtail position path exists
+  ansible.builtin.file:
+    path: "{{ promtail_positions_path }}"
+    state: directory
+    owner: "promtail"
+    group: "root"
+    mode: "0750"
+  notify: restart promtail
+
+- name: Template Promtail config - /etc/promtail/config.yml
+  ansible.builtin.template:
+    src: "config.yml.j2"
+    dest: "/etc/promtail/config.yml"
+    owner: "promtail"
+    group: "root"
+    mode: "0644"
+    validate: "/usr/bin/promtail -config.expand-env=true -check-syntax -config.file %s"
+  notify: restart promtail
+
+- name: Template Promtail systemd - /etc/systemd/system/promtail.service
+  ansible.builtin.template:
+    src: "promtail.service.j2"
+    dest: "/etc/systemd/system/promtail.service"
+    owner: "root"
+    group: "root"
+    mode: "0644"
+  notify: restart promtail
+
+- name: Add the Promtail system user to additional group
+  ansible.builtin.user:
+    name: "promtail"
+    groups: "{{ item }}"
+    system: true
+    append: true
+    create_home: false
+    state: present
+  loop: "{{ promtail_user_append_groups }}"
+  when:
+    - promtail_user_append_groups | length > 0
+    - promtail_runtime_mode == "acl"
+
+- name: Include Promtail ACL permission configuration
+  ansible.builtin.include_tasks:
+    file: "acl_configuration.yml"
+  when:
+    - promtail_scrape_configs | length > 0
+    - promtail_runtime_mode == "acl"
+    - not ansible_check_mode
+
+- name: Get firewalld state
+  ansible.builtin.systemd:
+    name: "firewalld"
+  register: __firewalld_service_state
+
+- name: Enable firewalld rule to expose Promtail tcp port {{ promtail_http_listen_port }}
+  ansible.posix.firewalld:
+    immediate: true
+    permanent: true
+    port: "{{ promtail_http_listen_port }}/tcp"
+    state: enabled
+  when:
+    - __firewalld_service_state.status.ActiveState == "active"
+    - promtail_expose_port | bool
+
+- name: Flush handlers after deployment
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure that Promtail is started
+  ansible.builtin.systemd:
+    name: promtail.service
+    state: started
+  when: not ansible_check_mode
+
+- name: Stat position file
+  ansible.builtin.stat:
+    path: "{{ promtail_positions_path }}/positions.yaml"
+  register: __promtail_stat_position_file
+
+- name: Ensure correct owner and group for Promtail position file
+  ansible.builtin.file:
+    path: "{{ promtail_positions_path }}/positions.yaml"
+    state: file
+    owner: "promtail"
+  notify: restart promtail
+  when:
+    - __promtail_stat_position_file.stat.exists
+    - promtail_runtime_mode == "acl"
+
+- name: Verify that Promtail URL is responding
+  ansible.builtin.uri:
+    url: "http://{{ promtail_http_listen_address }}:{{ promtail_http_listen_port }}/ready"
+    method: GET
+  register: promtail_verify_url_status_code
+  retries: 5
+  delay: 8
+  until: promtail_verify_url_status_code.status == 200
+  when:
+    - promtail_expose_port | bool
+    - not ansible_check_mode

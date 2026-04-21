@@ -1,0 +1,2 @@
+minor_changes:
+  - purefb_info - Added bucket quota and safemode information per bucket

@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_rest_info - support added for `application/consistency-groups/metrics`.

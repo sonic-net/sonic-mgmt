@@ -1,0 +1,9 @@
+---
+minor_changes:
+  - na_ontap_snapmirror - validate source endpoint for ZAPI and REST, accounting for vserver local name.
+  - na_ontap_snapmirror - new option ``validate_source_path`` to disable this validation.
+  - na_ontap_snapmirror - improve errror messages to be more specific and consistent.
+  - na_ontap_snapmirror - wait for the relationship to come back to idle after a resync.
+bugfixes:
+  - na_ontap_snapmirror - relax check for source when using REST.
+  - na_ontap_snapmirror - fix potential issue when destination is using REST but source is using ZAPI.

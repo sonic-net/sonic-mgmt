@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_aggregate - Fixed UUID issue when attempting to attach object store as part of creating the aggregate with REST.

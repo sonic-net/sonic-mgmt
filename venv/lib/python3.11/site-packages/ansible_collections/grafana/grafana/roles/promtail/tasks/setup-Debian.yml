@@ -1,0 +1,14 @@
+---
+- name: APT - Ensure that ACL is present
+  ansible.builtin.apt:
+    name: "acl"
+    state: present
+    update_cache: yes
+  when: promtail_runtime_mode == "acl"
+
+- name: APT - Install Promtail
+  ansible.builtin.apt:
+    deb: "{{ promtail_download_url_deb }}"
+    state: present
+  notify: restart promtail
+  when: __current_deployed_version.stdout is not defined or promtail_version not in __current_deployed_version.stdout

@@ -1,0 +1,63 @@
+---
+- name: Set sensitive vms
+  ansible.builtin.set_fact:
+    sensitive_vms: "{{ vms }}"
+  no_log: true
+
+- name: Check if VMs are correct
+  ansible.builtin.set_fact:
+    vms: "{{ vms | ovirt.ovirt.removesensitivevmdata }}"
+
+- name: Main block
+  block:
+    - name: Login to oVirt
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ engine_url | default(lookup('env','OVIRT_URL')) | default(omit) }}"
+        hostname: "{{ engine_fqdn | default(lookup('env','OVIRT_HOSTNAME')) | default(omit) }}"
+        username: "{{ engine_user | default(lookup('env','OVIRT_USERNAME')) | default(omit) }}"
+        password: "{{ engine_password | default(lookup('env','OVIRT_PASSWORD')) | default(omit) }}"
+        ca_file: "{{ engine_cafile | default(lookup('env','OVIRT_CAFILE')) | default(omit) }}"
+        insecure: "{{ engine_insecure | default(true) }}"
+      when: ovirt_auth is undefined or not ovirt_auth
+      register: loggedin
+
+    - name: Split list of VMs
+      ansible.builtin.set_fact:
+        create_vms: "{{ create_vms | default([]) + [item] }}"
+      with_items: "{{ vms }}"
+      when: (item.state is undefined and item.profile.state is defined and item.profile.state != 'absent') or (item.state is defined and item.state != 'absent') or
+        (item.state is undefined and item.profile.state is undefined)
+      # Uses item state first if not defined it will check profile state and use it.
+
+    - name: Split list of sensitive VMs
+      ansible.builtin.set_fact:
+        create_sensitive_vms: "{{ create_sensitive_vms | default([]) + [item] }}"
+      with_items: "{{ sensitive_vms }}"
+      no_log: true
+      when: (item.state is undefined and item.profile.state is defined and item.profile.state != 'absent') or (item.state is defined and item.state != 'absent') or
+        (item.state is undefined and item.profile.state is undefined)
+      # Uses item state first if not defined it will check profile state and use it.
+
+    - name: Delete VM
+      ansible.builtin.include_tasks: vm_state_absent.yml
+      with_items: "{{ vms }}"
+      loop_control:
+        loop_var: current_vm
+      when: (current_vm.state is defined and current_vm.state == 'absent') or (current_vm.profile.state is defined and current_vm.state is undefined and current_vm.profile.state
+        == 'absent')
+
+    - name: Include create VM
+      ansible.builtin.include_tasks: vm_state_present.yml
+      when: create_vms is defined
+
+  always:
+    - name: Unset facts
+      ansible.builtin.set_fact:
+        create_vms: []
+        create_sensitive_vms: []
+
+    - name: Logout from oVirt
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      when: not loggedin.skipped | default(false)

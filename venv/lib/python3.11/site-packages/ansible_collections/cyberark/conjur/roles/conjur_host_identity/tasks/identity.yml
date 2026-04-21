@@ -1,0 +1,79 @@
+---
+- name: Create group conjur
+  ansible.builtin.group:
+    name: conjur
+    state: present
+
+- name: SSL Configuration
+  when: ssl_configuration
+  block:
+    - name: Install "ca-certificates"
+      ansible.builtin.package:
+        name: ca-certificates
+      retries: 10
+      delay: 2
+
+    - name: Place Conjur public SSL certificate
+      ansible.builtin.copy:
+        dest: "{{ conjur_ssl_certificate_path }}"
+        content: "{{ conjur_ssl_certificate }}"
+        mode: "0644"
+
+    - name: Symlink Conjur public SSL certificate into /etc/ssl/certs
+      ansible.builtin.file:
+        src: "{{ conjur_ssl_certificate_path }}"
+        dest: /etc/ssl/certs/conjur.crt
+        state: link
+      register: cert_symlink
+
+    - name: Install openssl-perl Package
+      ansible.builtin.dnf:
+        name: openssl-perl
+      when: ansible_os_family == 'RedHat'
+      retries: 10
+      delay: 2
+
+    - name: Rehash certs
+      ansible.builtin.command: "c_rehash"
+      when: cert_symlink.changed
+- name: Render /etc/conjur.conf
+  ansible.builtin.template:
+    src: templates/conjur.conf.j2
+    dest: /etc/conjur.conf
+    mode: "0644"
+
+- name: Not Conjurized
+  when: not conjurized
+  block:
+    - name: Warn against disabling cert validation
+      ansible.builtin.debug:
+        msg: "[WARNING]: Certificate validation has been disabled. Please enable with conjur_validate_certs variable."
+      when: not conjur_validate_certs
+
+    - name: Request identity from Conjur
+      ansible.builtin.uri:
+        url: "{{ conjur_appliance_url }}/host_factories/hosts"
+        method: POST
+        body: "id={{ conjur_host_name }}&annotations%5Bauthn%2Fapi-key%5D=true"
+        headers:
+          Authorization: Token token="{{ conjur_host_factory_token }}"
+          Content-Type: "application/x-www-form-urlencoded"
+          x-cybr-telemetry: >-
+            {{
+              ('in=Ansible Collections&it=cybr-secretsmanager&iv=' +
+              lookup('file', '../../../VERSION') +
+              '&vn=Ansible') | b64encode | regex_replace('=', '')
+            }}
+        status_code: 201
+        validate_certs: "{{ conjur_validate_certs }}"
+      register: host_factory_response
+      retries: 3
+      delay: 10
+      until: host_factory_response.status == 201
+
+    - name: Place identity file /etc/conjur.identity
+      ansible.builtin.template:
+        src: templates/conjur.identity.j2
+        dest: /etc/conjur.identity
+        mode: "0640"
+        group: conjur

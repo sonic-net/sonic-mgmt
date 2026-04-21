@@ -1,0 +1,163 @@
+# ======================================
+# scenario: db-online-timeout-continue-soft-pass
+# gates used: node_alive, cluster_connectivity, db_groups_available_excluding_target (policy=continue on timeout)
+#
+# flow:
+# 1. setup 3 independent nodes with ravendb 5.4
+# 2. form a cluster out of them
+# 3. Create RF=3 database replicated on A/B/C
+# 4. stop ravendb service on A,C
+# 5. try to rolling upgrade to 6.2 serially:
+#    - roll A -> B -> C
+#    - pre-gate node_alive + cluster_connectivity + db_groups_available_excluding_target
+#    - upgrade node to 6.2
+#    - post-gate node_alive + cluster_connectivity + db_groups_available_excluding_target
+#
+# checkpoints:
+# - timeout on pre-gate db_groups_available_excluding_target on B - no explicit failure, proceed although lack of confirmation
+#
+# outcome:
+# - PASS (soft pass). assert timeout. all nodes upgraded.
+# ===============================
+
+---
+- name: Form cluster (A,B,C) - pre-upgrade
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Add B as Member
+      ravendb.ravendb.node:
+        tag: "B"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-b:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Add C as Member
+      ravendb.ravendb.node:
+        tag: "C"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-c:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Let cluster stabilize
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Fetch topology
+      ansible.builtin.uri:
+        url: "http://ubuntu-bionic-node-a:8080/cluster/topology"
+        method: GET
+        status_code: 200
+        return_content: yes
+        validate_certs: no
+      register: topo
+
+    - name: Extract member tags
+      ansible.builtin.set_fact:
+        member_tags: "{{ topo.json.Topology.Members.keys() | list | unique }}"
+
+    - name: Assert B,C present in Members
+      ansible.builtin.assert:
+        that:
+          - "'B' in member_tags"
+          - "'C' in member_tags"
+
+- name: Create DB replicated on all nodes RF=3
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Ensure RF=3 database exists
+      ravendb.ravendb.database:
+        url: "http://ubuntu-bionic-node-a:8080"
+        database_name: "my_db"
+        state: present
+        replication_factor: 3
+
+- name: rolling Update to 6.2
+  hosts: all
+  gather_facts: true
+  serial: 1
+  vars:
+    node_a: "ubuntu-bionic-node-a"
+    node_b: "ubuntu-bionic-node-b"
+    node_c: "ubuntu-bionic-node-c"
+    peers_down: ["{{ node_a }}", "{{ node_c }}"]    
+  tasks:
+    - name: Derive per-host pre-gate policy
+      ansible.builtin.set_fact:
+        _is_b: "{{ inventory_hostname == node_b }}"
+        _pre_gate_timeout: "{{ 6 if inventory_hostname == node_b else 60 }}"
+        _pre_gate_retry: 2
+        _pre_gate_checks: >-
+          {{ ['node_alive','db_groups_available_excluding_target']
+            if inventory_hostname == node_b
+            else ['node_alive','cluster_connectivity','db_groups_available_excluding_target'] }}
+
+
+    - name: Stop ravendb on A and C
+      when: _is_b
+      become: true
+      delegate_to: "{{ item }}"
+      loop: "{{ peers_down }}"
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: stopped
+
+    - name: Let DB's NodesTopology status to update
+      when: _is_b
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Per-node gates pre upgrade
+      delegate_to: localhost
+      become: false
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: "{{ _pre_gate_checks }}"
+        max_time_to_wait: "{{ _pre_gate_timeout }}"
+        retry_interval_seconds: "{{ _pre_gate_retry }}"
+        on_db_timeout: continue
+      register: gate_result
+
+    - debug:
+        msg: "Gate result: {{ gate_result }}"
+    
+    - name: Assert db_groups_available_excluding_target TIMEOUT on B (soft pass)
+      when: _is_b
+      delegate_to: localhost
+      ansible.builtin.assert:
+        that:
+          - "'db_groups_available_excluding_target TIMEOUT' in (gate_result.msg | default(''))"
+        fail_msg: "Expected db_groups_available_excluding_target TIMEOUT soft-pass on B. Full: {{ gate_result | to_nice_json }}"
+
+    - name: Restart a,c
+      when: _is_b
+      become: true
+      delegate_to: "{{ item }}"
+      loop: "{{ peers_down }}"
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: started
+
+    - name: Upgrade node to 6.2
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version_minor: 6.2
+        ravendb_settings_preset: default
+  
+    - name: Get RavenDB version
+      become: yes
+      command: >
+        /usr/lib/ravendb/server/Raven.Server --version
+      register: ravendb_version_result
+      changed_when: false
+
+    - name: Make sure it's updated
+      assert:
+        that:
+          - ravendb_version_result.stdout.startswith('6.2')
+        fail_msg: "Server version output: {{ ravendb_version_result.stdout }}"

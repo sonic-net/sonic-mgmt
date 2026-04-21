@@ -1,0 +1,159 @@
+---
+####################################################################
+# Example : User Playbook
+####################################################################
+- name: User Account Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################################
+    # Task Name : Create a User Account
+    ######################################################################################
+    - name: Create a User Account
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "devUser"
+          authentication: "local"
+          password: "CHANGE_ME_SET_YOUR_PASSWORD"
+          group_names: ["Audit Log Administrator (View Only) User Group", "Storage Administrator (View & Modify) User Group"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Change User Password by User ID
+    ######################################################################################
+    - name: Change User Password by User ID
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "devUser"
+          password: "CHANGE_ME_SET_YOUR_PASSWORD"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Change User Password by User Name
+    ######################################################################################
+    - name: Change User Password by User Name
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "devUser"
+          password: "CHANGE_ME_SET_YOUR_PASSWORD"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Add User to User Groups by User ID
+    ######################################################################################
+    - name: Add User to User Groups by User ID
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: add_user_group
+          id: "devUser"
+          group_names: ["devGroup3_new_4"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Add User to User Groups by User Name
+    ######################################################################################
+    - name: Add User to User Groups by User Name
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: add_user_group
+          name: "devUser"
+          group_names: ["devGroup3_new_4"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Remove User from  User Groups by User ID
+    ######################################################################################
+    - name: Remove User from  User Groups by User ID
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: remove_user_group
+          id: "devUser"
+          group_names: ["devGroup3_new_4"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Remove User from  User Groups by Name
+    ######################################################################################
+    - name: Remove User from  User Groups by Name
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: remove_user_group
+          name: "devUser"
+          group_names: ["devGroup3_new_4"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete User by ID
+    # ######################################################################################
+    - name: Delete User by ID
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          id: "devUser"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete User by name
+    # ######################################################################################
+    - name: Delete User by name
+      hitachivantara.vspone_block.vsp.hv_user:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          name: "devUser"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

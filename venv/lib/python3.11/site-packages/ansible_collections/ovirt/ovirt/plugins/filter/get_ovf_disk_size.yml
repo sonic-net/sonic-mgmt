@@ -1,0 +1,26 @@
+---
+DOCUMENTATION:
+  name: get_ovf_disk_size
+  author: "oVirt Developers <devel@ovirt.org>"
+  # version_added: 'historical'
+  short_description: Get OVF disk size
+  description:
+    - Get OVF disk size.
+  positional: _input
+  options:
+    _input:
+      description: OVF data
+      type: string
+      required: true
+
+EXAMPLES: |
+  - name: Get ovf data
+    ansible.builtin.command: cat "{{ path }}"
+    register: ovf_data
+  - name: Get disk size from ovf data
+    ansible.builtin.set_fact:
+      disk_size: "{{ ovf_data['stdout'] | ovirt.ovirt.get_ovf_disk_size }}"
+RETURN:
+  _value:
+    description: OVF disk size
+    type: string

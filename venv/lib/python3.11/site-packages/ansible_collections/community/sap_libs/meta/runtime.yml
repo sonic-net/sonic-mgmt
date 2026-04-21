@@ -1,0 +1,15 @@
+---
+requires_ansible: ">=2.14.0"
+
+plugin_routing:
+  modules:
+    hana_query:
+      redirect: community.sap_libs.sap_hdbsql
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: Use community.sap_libs.sap_hdbsql instead.
+    sapcontrol:
+      redirect: community.sap_libs.sap_control_exec
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: Use community.sap_libs.sap_control_exec instead.

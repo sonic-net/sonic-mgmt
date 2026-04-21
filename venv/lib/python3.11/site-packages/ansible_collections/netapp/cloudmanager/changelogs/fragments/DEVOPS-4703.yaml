@@ -1,0 +1,2 @@
+minor_changes:
+  - Set license_type default value 'capacity-paygo' for single node 'ha-capacity-paygo' for HA and 'capacity_package_name' value 'Essential'

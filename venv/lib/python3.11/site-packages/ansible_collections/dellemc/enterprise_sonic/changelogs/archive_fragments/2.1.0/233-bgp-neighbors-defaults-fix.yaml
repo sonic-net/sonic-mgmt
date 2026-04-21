@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_neighbors - Fixed handling of default attributes (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/233)

@@ -1,0 +1,3 @@
+minor_changes:
+  - purefa_policy - New policy type of ``password`` added. Currently the only default management policy can be updated
+  - purefa_info - Exposed password policy information

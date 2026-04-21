@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_fs - Add ``group_ownership`` parameter from Purity//FB 4.4.0.

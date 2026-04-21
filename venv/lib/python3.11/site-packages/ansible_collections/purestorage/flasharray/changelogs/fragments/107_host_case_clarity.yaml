@@ -1,0 +1,7 @@
+minor_changes:
+ - purefa_host - Enforce hostname case-sensitivity rules
+ - purefa_hg - Enforce case-sensitivity rules for hostgroup objects
+ - purefa_pg - Enforce case-sensitivity rules for protection group objects
+
+bugfixes:
+ - purefa_host - Correctly remove host that is in a hostgroup

@@ -1,0 +1,30 @@
+---
+- name: Molecule Test for uninstallation of LIA
+  hosts: lia
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+
+  tasks:
+    - name: Uninstall powerflex lia
+      ansible.builtin.import_role:
+        name: powerflex_lia
+      vars:
+        powerflex_lia_state: 'absent'
+
+    - name: Verifying uninstall package in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_lia_uninstall_output.msg == "Check mode: No changes made
+      when: ansible_check_mode
+
+    - name: Verifying uninstall package in normal mode
+      ansible.builtin.assert:
+        that:
+          - "'Removed: EMC-ScaleIO-lia' in powerflex_lia_uninstall_output.results[0].results[0]"
+      when: not ansible_check_mode and powerflex_lia_uninstall_output.changed
+
+    - name: Verifying uninstall package in Idempotency
+      ansible.builtin.assert:
+        that:
+          - "'Nothing to do' in powerflex_lia_uninstall_output.results[0].msg"
+      when: not ansible_check_mode and not powerflex_lia_uninstall_output.changed

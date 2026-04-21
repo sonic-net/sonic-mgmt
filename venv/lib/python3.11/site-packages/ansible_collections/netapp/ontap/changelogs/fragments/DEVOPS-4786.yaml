@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_qos_policy_group - Added REST only supported option ``fixed_qos_options`` for configuring max/min throughput policy.
+  - na_ontap_qos_policy_group - Added REST support.

@@ -1,0 +1,63 @@
+---
+- name: MDM installation
+  hosts: mdm
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  tasks:
+    - name: Install common packages
+      ansible.builtin.import_role:
+        name: powerflex_common
+
+    - name: Install and configure Powerflex MDM
+      ansible.builtin.import_role:
+        name: powerflex_mdm
+      vars:
+        powerflex_mdm_state: present
+
+    - name: Verifying install package in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_install_package_output.msg == "Check mode: No changes made"
+      when: ansible_check_mode
+
+    - name: Verifying installation package in normal mode
+      ansible.builtin.assert:
+        that:
+          - "'Installed' in powerflex_common_install_package_output.results[0]"
+      when: not ansible_check_mode and powerflex_common_install_package_output.changed
+
+    - name: Verifying add primary mdm in normal mode
+      ansible.builtin.assert:
+        that:
+          - "'Successfully created the MDM Cluster' in powerflex_mdm_add_primary_output.stdout"
+      when: not ansible_check_mode and powerflex_mdm_add_primary_output.changed
+
+    - name: Verifying add secondary mdm in normal mode
+      ansible.builtin.assert:
+        that:
+          - "'Successfully added a standby MDM' in powerflex_mdm_add_secondary_output.stdout"
+      when: not ansible_check_mode and powerflex_mdm_add_secondary_output.changed
+
+    - name: Verifying add tertiary mdm in normal mode
+      ansible.builtin.assert:
+        that:
+          - "'Successfully added a standby MDM' in powerflex_mdm_add_tertiary_output.stdout"
+      when: not ansible_check_mode and powerflex_mdm_add_tertiary_output.changed
+
+    - name: Verifying primary mdm configuration in Idempotency
+      ansible.builtin.assert:
+        that:
+          - "'The Primary MDM is already configured' in powerflex_mdm_add_primary_output.stderr_lines[0]"
+      when: not ansible_check_mode and not powerflex_mdm_add_primary_output.changed
+
+    - name: Verifying secondary mdm configuration in Idempotency
+      ansible.builtin.assert:
+        that:
+          - "'An MDM with the same name already exists' in powerflex_mdm_add_secondary_output.stderr_lines[0]"
+      when: not ansible_check_mode and not powerflex_mdm_add_secondary_output.changed
+
+    - name: Verifying tertiary mdm configuration in Idempotency
+      ansible.builtin.assert:
+        that:
+          - "'An MDM with the same name already exists' in powerflex_mdm_add_tertiary_output.stderr_lines[0]"
+      when: not ansible_check_mode and powerflex_mdm_tertiary_ip is defined and not powerflex_mdm_add_tertiary_output.changed

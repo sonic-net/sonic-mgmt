@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_file_security_permissions - updated notes to indicate ONTAP 9.9.1 or later is required.
+  - na_ontap_file_security_permissions_acl - updated notes to indicate ONTAP 9.9.1 or later is required.

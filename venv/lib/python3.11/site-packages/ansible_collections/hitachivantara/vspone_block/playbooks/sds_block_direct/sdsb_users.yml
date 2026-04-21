@@ -1,0 +1,119 @@
+---
+####################################################################
+# Example : Users Playbook
+####################################################################
+- name: User Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ####################################################################
+  # Task Name : Create a user
+  ####################################################################
+    - name: Create a user
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          id: "new_user"
+          password: "CHANGE_ME_SET_YOUR_PASSWORD"
+          user_group_ids:
+            - "SecurityAdministrators"
+          authentication: "local"
+          is_enabled_console_login: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update user settings
+    ###################################################################
+    - name: Update user settings
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          id: "new_user"
+          password: "CHANGE_ME_SET_YOUR_NEW_PASSWORD"
+          is_enabled: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update user password
+    ####################################################################
+    - name: Update user password
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+        connection_info: "{{ connection_info }}"
+        state: update
+        spec:
+          id: "new_user"
+          current_password: "CHANGE_ME_SET_YOUR_CURRENT_PASSWORD"
+          new_password: "CHANGE_ME_SET_YOUR_NEW_PASSWORD"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete a user
+    ####################################################################
+    - name: Delete a user
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          id: "radey-vps02-admin"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # ####################################################################
+    # # Task Name : Add user to user groups
+    # ####################################################################
+    - name: Add user to user groups
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+        connection_info: "{{ connection_info }}"
+        state: add_user_group
+        spec:
+          id: "testUser"
+          user_group_ids: ["admin-vps02", "testGroup-vps02"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Remove user from user groups
+    ####################################################################
+    - name: Remove user from user groups
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+        connection_info: "{{ connection_info }}"
+        state: remove_user_group
+        spec:
+          id: "testUser"
+          user_group_ids: ["admin-vps02"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

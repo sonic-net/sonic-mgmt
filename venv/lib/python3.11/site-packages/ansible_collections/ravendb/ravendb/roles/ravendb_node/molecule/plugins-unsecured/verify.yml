@@ -1,0 +1,30 @@
+---
+- name: Verify
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
+
+  tasks:
+    - name: Install RavenDB Python client prerequisites
+      include_role:
+        name: ravendb.ravendb.ravendb_python_client_prerequisites
+
+    - name: Reset SSH connection to pick up interpreter
+      ansible.builtin.meta: reset_connection
+
+    - name: Include common init
+      import_tasks: tasks/init.yml
+      tags: [always]
+
+    - name: Database suite
+      import_tasks: tasks/db.yml
+      tags: [db]
+
+    - name: Index suite
+      import_tasks: tasks/index.yml
+      tags: [index]
+
+    - name: Connection String suite
+      import_tasks: tasks/cs.yml
+      tags: [cs]

@@ -1,0 +1,67 @@
+# Run Mimir in single process mode, with all components running in 1 process.
+target: all,alertmanager,overrides-exporter
+
+# Configure Mimir to use Minio as object storage backend.
+common:
+{% if mimir_storage is defined %}
+  {{ mimir_storage | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+# Blocks storage requires a prefix when using a common object storage bucket.
+{% if mimir_blocks_storage is defined %}
+blocks_storage:
+  {{ mimir_blocks_storage | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+# Blocks storage requires a prefix when using a common object storage bucket.
+{% if mimir_ruler_storage is defined %}
+ruler_storage:
+  {{ mimir_ruler_storage | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+# Alertmanager storage requires a prefix when using a common object storage bucket.
+{% if mimir_alertmanager_storage is defined %}
+alertmanager_storage:
+  {{ mimir_alertmanager_storage | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+# Use memberlist, a gossip-based protocol, to enable the 3 Mimir replicas to communicate.
+{% if mimir_memberlist is defined %}
+memberlist:
+  {{ mimir_memberlist | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+{% if mimir_ruler is defined %}
+ruler:
+  {{ mimir_ruler | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+{% if mimir_alertmanager is defined %}
+alertmanager:
+  {{ mimir_alertmanager | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+{% if mimir_server is defined %}
+server:
+  {{ mimir_server | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+{% if mimir_limits is defined %}
+limits:
+  {{ mimir_limits | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+{% if mimir_distributor is defined %}
+distributor:
+  {{ mimir_distributor | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+{% if mimir_ingester is defined %}
+ingester:
+  {{ mimir_ingester | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}
+
+{% if mimir_querier is defined %}
+querier:
+  {{ mimir_querier | to_nice_yaml(indent=2, sort_keys=False) | indent(2, False)}}
+{% endif %}

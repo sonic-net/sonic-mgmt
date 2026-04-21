@@ -1,0 +1,91 @@
+---
+- name: Interface Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+
+  tasks:
+    - name: Add Interface as Backup to NAS Server
+      interface:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        ethernet_port_name: "SP A 4-Port Card Ethernet Port 0"
+        role: "BACKUP"
+        interface_ip: "xx.xx.xx.xx"
+        netmask: "xx.xx.xx.xx"
+        gateway: "xx.xx.xx.xx"
+        vlan_id: 324
+        state: "present"
+
+    - name: Add Interface as Backup to NAS Server - Idempotency
+      interface:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        ethernet_port_name: "SP A 4-Port Card Ethernet Port 0"
+        role: "BACKUP"
+        interface_ip: "xx.xx.xx.xx"
+        netmask: "xx.xx.xx.xx"
+        gateway: "xx.xx.xx.xx"
+        vlan_id: 324
+        state: "present"
+
+    - name: Get Interface details
+      interface:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        interface_ip: "xx.xx.xx.xx"
+        state: "present"
+
+    - name: Add Interface as Production to NAS Server
+      interface:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        ethernet_port_name: "SP A 4-Port Card Ethernet Port 0"
+        role: "PRODUCTION"
+        interface_ip: "xx.xx.xx.xx"
+        netmask: "xx.xx.xx.xx"
+        gateway: "xx.xx.xx.xx"
+        vlan_id: 324
+        state: "present"
+
+    - name: Add Interface as Production to NAS Server - Idempotency
+      interface:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        ethernet_port_name: "SP A 4-Port Card Ethernet Port 0"
+        role: "PRODUCTION"
+        interface_ip: "xx.xx.xx.xx"
+        netmask: "xx.xx.xx.xx"
+        gateway: "xx.xx.xx.xx"
+        vlan_id: 324
+        state: "present"
+
+    - name: Delete Interface
+      interface:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        interface_ip: "xx.xx.xx.xx"
+        state: "absent"

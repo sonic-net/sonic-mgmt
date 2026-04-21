@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_qos_policy_group - new REST only option ``adaptive_qos_options.block_size`` added, requires ONTAP 9.10.1 or later version.
+  - na_ontap_qos_policy_group - skip checking modify when ``state`` is absent.
+bugfixes:
+  - na_ontap_qos_policy_group - one occurrence of msg missing in call to fail_json.

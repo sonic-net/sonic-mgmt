@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_vxlan - Fix failing regression tests for sonic_vxlan (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/471)

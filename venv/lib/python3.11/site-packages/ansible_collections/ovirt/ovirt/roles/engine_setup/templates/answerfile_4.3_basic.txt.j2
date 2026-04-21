@@ -1,0 +1,11 @@
+{% include "./templates/answerfile_4.2_basic.txt.j2" %}
+{% if ovirt_engine_cinderlib_enable is defined %}
+QUESTION/1/ovirt-cinderlib-enable=str:{{ ovirt_engine_cinderlib_enable | ternary('yes','no')  }}
+{% endif %}
+{% if ovirt_engine_apache_config_root_redirection is defined %}
+QUESTION/1/OVESETUP_APACHE_CONFIG_ROOT_REDIRECTION=str:{{ ovirt_engine_apache_config_root_redirection | ternary('yes','no')  }}
+{% endif %}
+{% if ovirt_engine_apache_config_ssl is defined %}
+QUESTION/1/OVESETUP_APACHE_CONFIG_SSL=str:{{ ovirt_engine_apache_config_ssl | ternary('automatic','manual') }}
+{% endif %}
+QUESTION/1/OVESETUP_IGNORE_SNAPSHOTS_WITH_OLD_COMPAT_LEVEL=str:yes

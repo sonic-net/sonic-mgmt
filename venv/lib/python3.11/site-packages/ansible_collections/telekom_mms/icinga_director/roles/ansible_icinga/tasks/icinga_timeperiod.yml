@@ -1,0 +1,25 @@
+---
+- name: Icinga_timeperiod
+  icinga_timeperiod:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ timeperiod.state | default(omit) }}"
+    object_name: "{{ timeperiod.name }}"
+    display_name: "{{ timeperiod.display_name | default(omit) }}"
+    imports: "{{ timeperiod.imports | default(omit) }}"
+    ranges: "{{ timeperiod.ranges | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_timeperiods }}"
+  loop_control:
+    loop_var: timeperiod
+  tags: timeperiod
+  notify: config_deploy

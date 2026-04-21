@@ -1,0 +1,80 @@
+---
+- name: Pnp device
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    # - name: Delete by id
+    #   cisco.dnac.pnp_device:
+    #     dnac_host: "{{ dnac_host }}"
+    #     dnac_username: "{{ dnac_username }}"
+    #     dnac_password: "{{ dnac_password }}"
+    #     dnac_verify: "{{ dnac_verify }}"
+    #     dnac_port: "{{ dnac_port }}"
+    #     dnac_version: "{{ dnac_version }}"
+    #     dnac_debug: "{{ dnac_debug }}"
+    #     state: absent
+    #     id: 5f96f83854ee220008a9c456
+    #   register: pnp_device_delete_result
+
+    # - name: Show deleted pnp_device
+    #   debug:
+    #     msg: "{{ pnp_device_delete_result }}"
+    #   when:
+    #     - pnp_device_delete_result is defined
+
+    - name: Adds or Updates a device to the PnP database
+      cisco.dnac.pnp_device:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        version: 2
+        deviceInfo:
+          serialNumber: FOCTEST2
+          name: FOCTEST2
+          state: Unclaimed
+          # onbState: Not Contacted
+          # cmState: Not Contacted
+          location: {}
+          source: User
+          reloadRequested: false
+          aaaCredentials:
+            username: ""
+            password: ""
+          populateInventory: false
+          poeSupported: false
+          capwapBackOff: false
+          redirectionState: NONE
+          dayN: false
+          dayNClaimOperation: NO_OP
+          tlsState: NO_OP
+          reProvision: false
+          authOperation: AUTHORIZATION_NOT_REQUIRED
+          stack: false
+          sudiRequired: false
+          validActions:
+            editSUDI: true
+            editWfParams: true
+            delete: true
+            claim: true
+            unclaim: true
+            reset: false
+            authorize: false
+            resetMsg: This device is not in Error state. Only Error devices may be Reset.
+            authorizeMsg: This Device is not in PendingAuthorization state.
+        workflowParameters: {}
+        tenantId: 5cdc6c45a8405f00c80c6ba3
+        id: 610ab95c07a77b0fbec39f22
+      register: pnp_device_result
+
+    - name: Show new pnp_device
+      ansible.builtin.debug:
+        msg: "{{ pnp_device_result }}"
+      when:
+        - pnp_device_result is defined

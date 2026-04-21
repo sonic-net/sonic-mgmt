@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_pgsnap - Add check to ensure suffix name meets naming conventions
+ - purefa_snap - Update suffix regex pattern

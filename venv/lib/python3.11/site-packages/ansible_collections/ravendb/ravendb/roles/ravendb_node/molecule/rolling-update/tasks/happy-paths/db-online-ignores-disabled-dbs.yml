@@ -1,0 +1,208 @@
+# ======================================
+# scenario: db-online-ignores-disabled-dbs
+# gates used: gates used: node_alive, cluster_connectivity, db_groups_available_excluding_target, db_groups_available
+#
+# flow:
+# 1. setup 3 independent nodes with ravendb 5.4
+# 2. form a cluster out of them
+# 3. Create RF=3 "ok_db" replicated on A/B/C
+# 4. Create RF=3 "bad_db" replicated on A/B/C
+# 5. corrupt "bad_db" on A,C
+# 6. Disable "bad_db"
+# 7. try to rolling upgrade to 6.2 serially:
+#    - roll A -> B -> C
+#    - pre-gate node_alive + cluster_connectivity + db_groups_available_excluding_target
+#    - upgrade node to 6.2
+#    - post-gate node_alive + cluster_connectivity + db_groups_available_excluding_target
+#
+# checkpoints:
+# - Gate passes because disabled DBs are skipped
+#
+# outcome:
+# - PASS, all node upgraded
+# ======================================
+
+---
+- name: Form cluster (A,B,C) - pre-upgrade
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Add B as Member
+      ravendb.ravendb.node:
+        tag: "B"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-b:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Add C as Member
+      ravendb.ravendb.node:
+        tag: "C"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-c:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Let cluster stabilize
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Fetch topology
+      ansible.builtin.uri:
+        url: "http://ubuntu-bionic-node-a:8080/cluster/topology"
+        method: GET
+        status_code: 200
+        return_content: yes
+        validate_certs: no
+      register: topo
+
+    - name: Extract member tags
+      ansible.builtin.set_fact:
+        member_tags: "{{ topo.json.Topology.Members.keys() | list | unique }}"
+
+    - name: Assert B,C present in Members
+      ansible.builtin.assert:
+        that:
+          - "'B' in member_tags"
+          - "'C' in member_tags"
+
+
+- name: Create DB replicated on all nodes RF=3
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Ensure RF=3 database exists on A
+      ravendb.ravendb.database:
+        url: "http://ubuntu-bionic-node-a:8080"
+        database_name: "my_db"
+        state: present
+        replication_factor: 3
+
+- name: Create RF=3 database bad_db
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - ravendb.ravendb.database:
+        url: "http://ubuntu-bionic-node-a:8080"
+        database_name: "bad_db"
+        state: present
+        replication_factor: 3
+
+- name: Sabotage bad_db only on A and C
+  hosts: "ubuntu-bionic-node-a,ubuntu-bionic-node-c"
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Stop RavenDB
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: stopped
+
+    - name: Remove bad_db directory
+      ansible.builtin.file:
+        path: /var/lib/ravendb/data/Databases/bad_db
+        state: absent
+
+    - name: Create placeholder file so dir cannot be recreated
+      ansible.builtin.shell: |
+        touch /var/lib/ravendb/data/Databases/bad_db
+        chmod 000 /var/lib/ravendb/data/Databases/bad_db
+      args:
+        executable: /bin/bash
+
+    - name: Start RavenDB
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: started
+    
+    - name: Let DB's NodesTopology status to update
+      ansible.builtin.pause:
+        seconds: 5
+
+
+- name: Disable bad_db
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: POST /admin/databases/disable
+      ansible.builtin.uri:
+        url: "http://ubuntu-bionic-node-a:8080/admin/databases/disable"
+        method: POST
+        body_format: json
+        body:
+          DatabaseNames: ["bad_db"]
+        status_code: 200
+
+    - name: Let cluster register disabled_db
+      ansible.builtin.pause:
+        seconds: 3
+
+- name: rolling Update to 6.2
+  hosts: all
+  gather_facts: true
+  serial: 1       
+  tasks:
+    - name: Per-node gates pre upgrade
+      delegate_to: localhost
+      become: false
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive', 'cluster_connectivity', 'db_groups_available_excluding_target']
+        max_time_to_wait: 20
+        retry_interval_seconds: 3
+      register: gate_result
+
+    - debug:
+        msg: "Gate result: {{ gate_result }}"
+    
+    - name: Upgrade node to 6.2
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version_minor: 6.2
+        ravendb_settings_preset: default
+  
+    - name: Per-node gates post upgrade
+      delegate_to: localhost
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive', 'cluster_connectivity', 'db_groups_available_excluding_target']
+        max_time_to_wait: 20
+        retry_interval_seconds: 3
+      register: gate_result
+    
+    - name: Get RavenDB version
+      become: yes
+      command: >
+        /usr/lib/ravendb/server/Raven.Server --version
+      register: ravendb_version_result
+      changed_when: false
+
+    - name: Make sure it's updated
+      assert:
+        that:
+          - ravendb_version_result.stdout.startswith('6.2')
+        fail_msg: "Server version output: {{ ravendb_version_result.stdout }}"
+
+- name: Final cluster-wide database-group availability (no exclusion)
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: db_groups_available should be OK after rollout
+      ravendb.ravendb.healthcheck:
+        url: "http://ubuntu-bionic-node-a:8080"
+        checks: ['db_groups_available']
+        max_time_to_wait: 60
+        db_retry_interval_seconds: 5
+      register: final_gate
+
+    - name: Assert cluster-wide db_groups_available OK
+      ansible.builtin.assert:
+        that:
+          - final_gate.changed == false
+          - final_gate.msg is search('db_groups_available OK')
+        fail_msg: "Expected db_groups_available OK. Full: {{ final_gate | to_nice_json }}"

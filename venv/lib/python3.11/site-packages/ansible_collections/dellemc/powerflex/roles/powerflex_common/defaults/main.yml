@@ -1,0 +1,4 @@
+---
+powerflex_common_file_install_location: "/var/tmp"
+powerflex_common_esxi_files_location: "/tmp/"
+powerflex_common_win_package_location: "C:\\Windows\\Temp"

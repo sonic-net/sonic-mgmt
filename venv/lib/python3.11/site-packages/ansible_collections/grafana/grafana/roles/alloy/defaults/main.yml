@@ -1,0 +1,36 @@
+---
+# defaults file for alloy
+alloy_version: "latest"
+alloy_uninstall: false
+alloy_expose_port: false
+alloy_github_api_url: "https://api.github.com/repos/grafana/alloy/releases/latest"
+alloy_download_url_rpm: "https://github.com/grafana/alloy/releases/download/v{{ alloy_version }}/alloy-{{ alloy_version }}-1.{{ __alloy_arch }}.rpm"
+alloy_download_url_deb: "https://github.com/grafana/alloy/releases/download/v{{ alloy_version }}/alloy-{{ alloy_version }}-1.{{ __alloy_arch }}.deb"
+alloy_readiness_check_use_https: false
+alloy_readiness_check_use_proxy: true
+
+alloy_user_groups: []
+# alloy_user_groups:
+#   - "systemd-journal"
+
+alloy_env_file_vars: {}
+# alloy_env_file_vars:
+#   CONFIG_FILE: "/custom/path"
+#   CUSTOM_ARGS: "--server.http.listen-addr=0.0.0.0:12345 --stability.level=public-preview --feature.community-components.enabled=true"
+
+alloy_systemd_override: {}
+# alloy_systemd_override: |
+#   [Service]
+#   User=root
+
+alloy_config: {}
+# alloy_config: |
+#   prometheus.scrape "default" {
+#       targets = [{"__address__" = "127.0.0.1:12345"}]
+#       forward_to = [prometheus.remote_write.prom.receiver]
+#   }
+#   prometheus.remote_write "prom" {
+#     endpoint {
+#         url = "http://mimir:9009/api/v1/push"
+#     }
+#   }

@@ -1,0 +1,296 @@
+---
+# ######################################################################################
+# Example : Resource Group  Playbook
+# ######################################################################################
+- name: Resource Group Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################################
+    # Task Name : Create a Resource Group without any resources
+    ######################################################################################
+    - name: Create a Resource Group without any resources
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "rd_rg_01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Create a Resource Group with virtual storage serial number of VSM
+    ######################################################################################
+    - name: Create a Resource Group with virtual storage serial number of VSM
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "rd_rg_02"
+          virtual_storage_serial: 10075
+          virtual_storage_model: "VSP"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Create a Resource Group with ldevs
+    ######################################################################################
+    - name: Create a Resource Group with ldevs
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "rd_rg_03"
+          ldevs: [100, 150, 200]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Create a Resource Group with the following resources
+    # Resources : ldevs, parity groups, ports, host groups, nvm subsystem ids
+    ######################################################################################
+    - name: Create a Resource Group with above resources
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "rd_rg_04"
+          ldevs: [100, 150, 200]
+          parity_groups: ["1-1", "1-2"]
+          ports: ["CL1-A", "CL1-B"]
+          host_groups:
+            - port: "CL1-A"
+              name: "rd-test-host-group"
+            - port: "CL1-A"
+              name: "rd-test-host-group-2"
+          nvm_subsystem_ids: [1, 2]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Create a Resource Group with storage pool IDs, and parity groups
+    ######################################################################################
+    - name: Create a Resource Group with storage pool IDs, and parity groups
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "rd_rg_05"
+          storage_pool_ids: [1, 2]
+          parity_groups: ["1-1", "1-2"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Create a Resource Group with external parity groups
+    ######################################################################################
+    - name: Create a Resource Group with external parity groups
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "rd_rg_06"
+          external_parity_groups: ["1-1", "1-2"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Add the following resources to an existing Resource Group by ID
+    # Resources : ldevs, ports, host groups, nvm subsystem ids
+    ######################################################################################
+    - name: Add the above resources to an existing Resource Group by ID
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: "add_resource"
+          id: 5
+          ldevs: [300, 400]
+          ports: ["CL1-C"]
+          host_groups:
+            - port: "CL1-A"
+              name: "rd-test-host-group-3"
+            - port: "CL1-A"
+              name: "rd-test-host-group-4"
+          nvm_subsystem_ids: [3]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Add the following resources to an existing Resource Group by Name
+    # Resources : ldevs, ports, host groups, iscsi targets
+    ######################################################################################
+    - name: Add the above resources to an existing Resource Group by Name
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: "add_resource"
+          name: "rd_rg_04"
+          ldevs: [300, 400]
+          ports: ["CL1-C"]
+          host_groups:
+            - port: "CL1-A"
+              name: "rd-test-host-group-5"
+          iscsi_targets:
+            - port: "CL4-C"
+              name: "rd-test-iscsi-target-1"
+            - port: "CL4-C"
+              name: "rd-test-iscsi-target-2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Add ldevs using ldev range to an existing Resource Group by ID
+    ######################################################################################
+    - name: Add ldevs using ldev range to an existing Resource Group by ID
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: "add_resource"
+          id: 5
+          start_ldev: 300
+          end_ldev: 310
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Remove ldevs using ldev range from an existing Resource Group by ID
+    ######################################################################################
+    - name: Remove ldevs using ldev range from an existing Resource Group by ID
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: "remove_resource"
+          id: 5
+          start_ldev: 300
+          end_ldev: 310
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Remove the following resources from an existing Resource Group by ID
+    # Resources : ldevs, ports, host groups, nvm subsystem ids
+    ######################################################################################
+    - name: Remove resources from an existing Resource Group by ID
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: "remove_resource"
+          id: 5
+          ldevs: [300, 400]
+          ports: ["CL1-C"]
+          host_groups:
+            - port: "CL1-A"
+              name: "rd-test-host-group-3"
+          nvm_subsystem_ids: [3]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Remove the following resources from an existing Resource Group by Name
+    # Resources : ldevs, ports, host groups, iscsi targets
+    ######################################################################################
+    - name: Remove resources from an existing Resource Group by Name
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        spec:
+          state: "remove_resource"
+          name: "rd_rg_04"
+          ldevs: [300, 400]
+          ports: ["CL1-C"]
+          host_groups:
+            - port: CL1-A
+              name: rd-test-host-group-5
+          iscsi_targets:
+            - port: CL4-C
+              name: rd-test-iscsi-target-1
+            - port: CL4-C
+              name: rd-test-iscsi-target-2
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete a Resource Group by ID
+    ######################################################################################
+    - name: Delete a Resource Group by ID
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          id: 5
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete a Resource Group by Name
+    ######################################################################################
+    - name: Delete a Resource Group by ID
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: "rd_rg_04"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete a Resource Group by ID forcefully
+    ######################################################################################
+    - name: Delete a Resource Group by ID forcefully
+      hitachivantara.vspone_block.vsp.hv_resource_group:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          id: 5
+          force: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,41 @@
+---
+- name: Configure ICAP on Cisco Catalyst Center
+  hosts: localhost
+  vars_files:
+    - "credentials.yml"
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Configure ICAP Assurance Settings
+      cisco.dnac.assurance_icap_settings_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged
+        config_verify: true
+        config:
+          - assurance_icap_settings:
+              - capture_type: ONBOARDING
+                preview_description: "ICAP capture for client onboarding analysis"
+                duration_in_mins: 30
+                client_mac: 50:91:E3:47:AC:9E
+                wlc_name: NY-IAC-EWLC.cisco.local
+              - capture_type: FULL
+                preview_description: "Full ICAP capture for detailed onboarding diagnostics"
+                duration_in_mins: 30
+                client_mac: 50:91:E3:47:AC:9E
+                wlc_name: NY-IAC-EWLC.cisco.local
+            assurance_icap_download:
+              - capture_type: ONBOARDING
+                client_mac: 50:91:E3:47:AC:9E
+                start_time: "2025-03-05 11:56:00"
+                end_time: "2025-03-05 12:01:00"
+                file_path: /Users/mekandar/Desktop

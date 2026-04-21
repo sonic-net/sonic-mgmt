@@ -1,0 +1,73 @@
+- name: Using Storage Virtualize collection to automate initial setup configuration
+  hosts: localhost
+  gather_facts: false
+  vars:
+    clustername: 'clustername'
+    username: 'username'
+    password: 'password'
+    address: 'address'
+    city: 'city'
+    company_name: 'company_name'
+    contact_email: 'contact_email'
+    contact_name: 'contact_name'
+    country: 'country'
+    location: 'location'
+    primary_phonenumber: 'primary_phonenumber'
+    postal_code: 'postal_code'
+    province: 'province'
+    server_ip: 'x.x.x.x'
+    server_port: 'xxxx'
+    system_name: 'system_name'
+  connection: local
+  tasks:
+    - name: Get auth token
+      register: results
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+    - name: 1.initial setup config
+      ibm.storage_virtualize.ibm_svc_initial_setup:
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        system_name: "{{ system_name }}"
+        dnsname:
+          - dnsserver01
+        dnsip:
+          - 'x.x.x.x'
+    - name: 2.Configure callhome with "email"
+      ibm.storage_virtualize.ibm_svc_manage_callhome:
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: "enabled"
+        callhome_type: "email"
+        address: "{{ address }}"
+        city: "{{ city }}"
+        company_name: "{{ company_name }}"
+        contact_email: "{{ contact_email }}"
+        contact_name: "{{ contact_name }}"
+        country: "{{ country }}"
+        location: "{{ location }}"
+        phonenumber_primary: "{{ primary_phonenumber }}"
+        postalcode: "{{ postal_code }}"
+        province: "{{ province }}"
+        serverIP: "{{ server_ip }}"
+        serverPort: "{{ server_port }}"
+        inventory: "on"
+        invemailinterval: 1
+        enhancedcallhome: "on"
+        censorcallhome: "on"
+    - name: 3.Configure SRA
+      ibm.storage_virtualize.ibm_svc_manage_sra:
+        clustername: "{{ clustername }}"
+        token: "{{ results.token }}"
+        state: enabled
+        name: SRA
+        sra_ip: y.y.y.y
+        sra_port: 22
+        support: remote
+    - name: 4.Complete initial setup
+      ibm.storage_virtualize.ibm_svc_complete_initial_setup:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"

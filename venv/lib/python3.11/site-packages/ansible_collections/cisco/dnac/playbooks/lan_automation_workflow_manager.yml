@@ -1,0 +1,110 @@
+---
+- name: Lan automation workflow manager
+  hosts: dnac_servers
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Start a LAN Automation session and update LAN Automated devices
+      cisco.dnac.lan_automation_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log_level: "{{ dnac_log_level }}"
+        dnac_log: true
+        dnac_log_append: false
+        config_verify: false
+        state: deleted
+        config:
+          - lan_automation:
+              discovered_device_site_name_hierarchy: "Global/USA/SAN JOSE"
+              peer_device_management_ip_address: "91.1.1.2"
+              primary_device_management_ip_address: "204.1.1.4"
+              primary_device_interface_names:
+                - "HundredGigE1/0/2"
+                - "HundredGigE1/0/29"
+                - "HundredGigE1/0/35"
+                - "HundredGigE1/0/33"
+                - "HundredGigE1/0/31"
+              ip_pools:
+                - ip_pool_name: "underlay_sub"
+                  ip_pool_role: "MAIN_POOL"
+                - ip_pool_name: "underlay_sub_small"
+                  ip_pool_role: "PHYSICAL_LINK_POOL"
+              multicast_enabled: true
+              redistribute_isis_to_bgp: true
+              host_name_prefix: "San-Jose"
+              isis_domain_pwd: "cisco"
+              discovery_level: 5
+              discovery_timeout: 40
+              discovery_devices:
+                - device_serial_number: "FJC27172JDX"
+                  device_host_name: "SR-LAN-9300-IM1"
+                  device_site_name_hierarchy: "Global/USA/SAN JOSE/BLD23"
+                  device_management_ip_address: "204.1.1.10"
+                - device_serial_number: "FJC2721261G"
+                  device_host_name: "SR-LAN-9300-IM2"
+                  device_site_name_hierarchy: "Global/USA/SAN JOSE/BLD20"
+                  device_management_ip_address: "204.1.1.11"
+                - device_serial_number: "FCW2152L02V"
+                  device_host_name: "SR-LAN-9300-TRANSIT"
+                  device_management_ip_address: "204.1.1.12"
+                  device_site_name_hierarchy: "Global/USA/SAN JOSE/BLD23"
+                - device_serial_number: "FXS2429Q0WE"
+                  device_host_name: "SR-LAN-9400X-EDGE1"
+                  device_management_ip_address: "204.1.1.13"
+                  device_site_name_hierarchy: "Global/USA/SAN JOSE/BLD20/BLD20_FLOOR1"
+                - device_serial_number: "FOC2722YGWW"
+                  device_host_name: "SR-LAN-9300X-EDGE2"
+                  device_management_ip_address: "204.1.1.14"
+                  device_site_name_hierarchy: "Global/USA/SAN JOSE/BLD20/BLD20_FLOOR1"
+                - device_serial_number: "FCW2213G01S"
+                  device_host_name: "SR-LAN-9300-EDGE3"
+                  device_management_ip_address: "204.1.1.15"
+                  device_site_name_hierarchy: "Global/USA/SAN JOSE/BLD23/FLOOR1_LEVEL1"
+                - device_serial_number: "FJC271915XB"
+                  device_host_name: "SR-LAN-9200CX-AEN1"
+                  device_management_ip_address: "204.1.1.16"
+                  device_site_name_hierarchy: "Global/USA/SAN JOSE/BLD23/FLOOR1_LEVEL1"
+              launch_and_wait: false
+              pnp_authorization: false
+              device_serial_number_authorization:
+                - "FJC27172JDX"
+                - "FJC2721261G"
+                - "FCW2152L02V"
+                - "FXS2429Q0WE"
+                - "FOC2722YGWW"
+                - "FCW2213G01S"
+                - "FJC271915XB"
+
+          - lan_automated_device_update:
+              loopback_update_device_list:
+                - device_management_ip_address: "204.1.2.3"
+                  new_loopback0_ip_address: "204.1.1.20"
+                - device_management_ip_address: "204.1.1.11"
+                  new_loopback0_ip_address: "204.1.1.19"
+
+          - lan_automated_device_update:
+              hostname_update_devices:
+                - device_management_ip_address: "24.61.1.10"
+                  new_host_name: "SR-LAN-9400X-EDGE1"
+
+          - lan_automated_device_update:
+              link_add:
+                source_device_management_ip_address: "204.1.1.10"
+                source_device_interface_name: "TwoGigabitEthernet1/0/20"
+                destination_device_management_ip_address: "204.1.1.15"
+                destination_device_interface_name: "GigabitEthernet1/0/20"
+                ip_pool_name: "underlay_sub"
+
+          - lan_automated_device_update:
+              link_delete:
+                source_device_management_ip_address: "204.1.1.20"
+                source_device_interface_name: "TwoGigabitEthernet1/0/20"
+                destination_device_management_ip_address: "204.1.1.15"
+                destination_device_interface_name: "GigabitEthernet1/0/20"

@@ -1,0 +1,33 @@
+{
+ "collection_info": {
+  "namespace": "ibm",
+  "name": "qradar",
+  "version": "4.0.0",
+  "authors": [
+   "Ansible Security Team (https://github.com/ansible-security)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "security",
+   "qradar"
+  ],
+  "description": "Ansible Security Collection for IBM Qradar SIEM",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {
+   "ansible.netcommon": ">=6.0.0"
+  },
+  "repository": "https://github.com/ansible-collections/ibm.qradar",
+  "documentation": "https://github.com/ansible-collections/ibm.qradar",
+  "homepage": "https://github.com/ansible-collections/ibm.qradar",
+  "issues": "https://github.com/ansible-collections/ibm.qradar/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "9931aad2c14236eb0ea6ac8f9a10a73c8e841606b23cdda6afffecfec5197431",
+  "format": 1
+ },
+ "format": 1
+}

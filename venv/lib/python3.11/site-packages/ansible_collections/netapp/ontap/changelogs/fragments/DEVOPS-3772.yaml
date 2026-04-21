@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_igroups - new option ``initiator_objects`` to support initiator comments (requires ONTAP 9.9).
+  - na_ontap_igroups - new option ``initiator_names`` as a replacement for ``initiators`` (still supported as an alias).

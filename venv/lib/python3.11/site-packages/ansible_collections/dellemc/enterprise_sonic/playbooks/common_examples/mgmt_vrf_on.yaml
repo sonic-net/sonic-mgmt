@@ -1,0 +1,7 @@
+---
+- name: Create mgmt VRF configuration
+  sonic_vrfs:
+    config:
+      - name: mgmt
+    state: merged
+  ignore_errors: true  # noqa: ignore-errors

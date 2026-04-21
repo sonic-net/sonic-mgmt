@@ -1,0 +1,31 @@
+---
+# https://cloud.google.com/sdk/docs/install#rpm
+- name: Gcloud | RHEL | Add a dnf signing key, uses whichever key is at the URL
+  ansible.builtin.yum_repository:
+    name: google-cloud-sdk
+    description: Google Cloud SDK
+    baseurl: https://packages.cloud.google.com/yum/repos/cloud-sdk-el9-x86_64
+    enabled: true
+    gpgcheck: true
+    repo_gpgcheck: false
+    gpgkey:
+      - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+
+- name: Gcloud | RHEL | Install the google-cloud-sdk package
+  ansible.builtin.dnf:
+    name: google-cloud-sdk
+    update_cache: "yes"
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+
+- name: Gcloud | Debian | Install the google-cloud-sdk additional components
+  ansible.builtin.dnf:
+    name: google-cloud-sdk-{{ item }}
+    update_cache: "yes"
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+  loop: "{{ gcloud_additional_components }}"

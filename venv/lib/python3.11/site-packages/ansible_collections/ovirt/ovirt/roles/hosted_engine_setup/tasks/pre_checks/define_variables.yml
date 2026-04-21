@@ -1,0 +1,52 @@
+---
+- name: Define Variables
+  block:
+    - name: Define he_cloud_init_domain_name
+      when: he_cloud_init_domain_name is not defined
+      block:
+        - name: Get domain name
+          ansible.builtin.command: hostname -d
+          changed_when: true
+          register: host_domain_name
+        - name: Set he_cloud_init_domain_name
+          ansible.builtin.set_fact:
+            he_cloud_init_domain_name: "{{ host_domain_name.stdout_lines[0] if host_domain_name.stdout_lines else '' }}"
+    - name: Define he_cloud_init_host_name
+      ansible.builtin.set_fact:
+        he_cloud_init_host_name: "{{ he_fqdn }}"
+    - name: Define he_vm_uuid
+      block:
+        - name: Get uuid
+          ansible.builtin.command: uuidgen
+          changed_when: true
+          register: uuid
+        - name: Set he_vm_uuid
+          ansible.builtin.set_fact:
+            he_vm_uuid: "{{ uuid.stdout }}"
+    - name: Define he_nic_uuid
+      block:
+        - name: Get uuid
+          ansible.builtin.command: uuidgen
+          changed_when: true
+          register: uuid
+        - name: Set he_nic_uuid
+          ansible.builtin.set_fact:
+            he_nic_uuid: "{{ uuid.stdout }}"
+    - name: Define he_cdrom_uuid
+      block:
+        - name: Get uuid
+          ansible.builtin.command: uuidgen
+          changed_when: true
+          register: uuid
+        - name: Set he_cdrom_uuid
+          ansible.builtin.set_fact:
+            he_cdrom_uuid: "{{ uuid.stdout }}"
+    - name: Define Timezone
+      block:
+        - name: get timezone
+          ansible.builtin.shell: timedatectl | grep "Time zone" | awk '{print $3}'
+          changed_when: true
+          register: timezone
+        - name: Set he_time_zone
+          ansible.builtin.set_fact:
+            he_time_zone: "{{ timezone.stdout }}"

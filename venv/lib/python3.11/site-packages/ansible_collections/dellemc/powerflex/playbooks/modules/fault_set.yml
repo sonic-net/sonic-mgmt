@@ -1,0 +1,67 @@
+---
+- name: Fault set Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    host_port: 443
+    fault_set_name: "sample_fault_set_name_1"
+    protection_domain_name: "Ansible-PD1"
+
+  tasks:
+    - name: Create fault set
+      dellemc.powerflex.fault_set:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        fault_set_name: "{{ fault_set_name }}"
+        protection_domain_name: "{{ protection_domain_name }}"
+
+    - name: Get fault set details using name and protection domain
+      register: result
+      dellemc.powerflex.fault_set:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        fault_set_name: "{{ fault_set_name }}"
+        protection_domain_name: "{{ protection_domain_name }}"
+
+    - name: Get fault set details using ID
+      dellemc.powerflex.fault_set:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        fault_set_id: "{{ result.fault_set_details.id }}"
+        state: "present"
+
+    - name: Rename fault set details using ID
+      dellemc.powerflex.fault_set:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        fault_set_id: "{{ result.fault_set_details.id }}"
+        fault_set_new_name: "fault_set_new_name"
+        state: "present"
+
+    - name: Delete fault set
+      dellemc.powerflex.fault_set:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        fault_set_name: "fault_set_new_name"
+        protection_domain_name: "{{ protection_domain_name }}"
+        state: "absent"

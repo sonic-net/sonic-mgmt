@@ -1,0 +1,49 @@
+- name: Add storage systems to SANtricity Web Services Proxy
+  na_santricity_proxy_systems:
+    api_url: "{{ item['key'] }}"
+    api_username: "{{ item['value']['proxy_username'] }}"
+    api_password: "{{ item['value']['proxy_password'] }}"
+    validate_certs: "{{ item['value']['proxy_validate_certs'] | default(omit) }}"
+    accept_certificate: "{{ item['value']['proxy_accept_certifications'] | default(omit) }}"
+    subnet_mask: "{{ item['value']['proxy_subnet'] }}"
+    password: "{{ item['value']['proxy_default_password'] | default(omit) }}"
+    tags: "{{ item['value']['proxy_default_system_tags'] | default(omit) }}"
+    systems: "{{ item['value']['proxy_systems'] }}"
+  connection: local
+  loop: "{{ lookup('dict', proxy_systems_info, wantlist=True) }}"
+  no_log: true
+  vars:
+    proxy_systems_info: |-
+      {#- Build a dictionary of all inventoried proxies keyed by their api url #}
+      {%- set systems = {} %}
+      {%- for array in ansible_play_hosts_all %}
+        {%- if hostvars[array]["current_eseries_api_is_proxy"]  %}
+          {%- set array_info = {} %}
+          {%- if "eseries_system_serial" in hostvars[array] or "eseries_system_addresses" in hostvars[array] %}
+            {%- if array_info.update({
+              "ssid": hostvars[array]["current_eseries_ssid"] | default(omit),
+              "password": hostvars[array]["eseries_system_password"] | default(omit),
+              "serial": hostvars[array]["eseries_system_serial"] | default(omit),
+              "addresses": hostvars[array]["eseries_system_addresses"] | default(omit),
+              "tags": hostvars[array]["eseries_system_tags"] | default(omit)}) %}
+            {%- endif %}
+          {%- endif %}
+          {%- if "eseries_proxy_api_url" in hostvars[array] and "eseries_proxy_api_password" in hostvars[array] %}
+            {%- if hostvars[array]["eseries_proxy_api_url"] in systems %}
+              {%- if systems[hostvars[array]["eseries_proxy_api_url"]]["proxy_systems"].append(array_info) %}{%- endif %}
+            {%- else %}
+              {%- if systems.update({hostvars[array]["eseries_proxy_api_url"]: {
+                "proxy_username": hostvars[array]["eseries_proxy_api_username"] | default("admin"),
+                "proxy_password": hostvars[array]["eseries_proxy_api_password"] | default(omit),
+                "proxy_subnet": hostvars[array]["eseries_subnet"] | default(omit),
+                "proxy_systems": [array_info],
+                "proxy_validate_certs": hostvars[array]["eseries_validate_certs"] | default(omit),
+                "proxy_accept_certifications": hostvars[array]["eseries_proxy_accept_certifications"] | default(omit),
+                "proxy_default_system_tags": hostvars[array]["eseries_proxy_default_system_tags"] | default(omit),
+                "proxy_default_password": hostvars[array]["eseries_proxy_default_password"] | default(omit)}}) %}
+              {%- endif %}
+            {%- endif %}
+          {%- endif %}
+        {%- endif %}
+      {%- endfor %}
+      {{ systems }}

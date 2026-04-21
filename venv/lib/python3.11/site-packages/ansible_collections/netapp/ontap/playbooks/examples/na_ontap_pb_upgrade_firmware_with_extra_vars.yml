@@ -1,0 +1,51 @@
+---
+- name: Ontap Upgrade Firmware
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # TODO: use --extra_vars to provide values for these variables
+    # ontap_firmware_url: TBD
+    # ontap_admin_ip: TBD
+    # ontap_admin_username: admin
+    # ontap_admin_password: TBD
+    # we recommend to use https, but it requires a valid SSL certificate
+    # if these variables are defined in --extra_vars, the following values are ignored
+    ontap_use_https: true
+    ontap_validate_certs: false
+    # do not change anything else
+
+    login: &login
+      hostname: "{{ ontap_admin_ip }}"
+      username: "{{ ontap_admin_username }}"
+      password: "{{ ontap_admin_password }}"
+      https: "{{ ontap_use_https }}"
+      validate_certs: "{{ ontap_validate_certs }}"
+
+  tasks:
+    - name: Run ontap info module to check connectivity
+      netapp.ontap.na_ontap_info:
+        <<: *login
+        gather_subset: ontap_system_version
+      register: ontap
+    - name: Print info
+      ansible.builtin.debug:
+        var: ontap
+
+    - name: Run ontap command module to validate access permissions
+      netapp.ontap.na_ontap_command:
+        <<: *login
+        command: version
+        return_dict: false
+      register: ontap
+    - name: Print info
+      ansible.builtin.debug:
+        var: ontap
+
+    - name: Run ontap firmware download module
+      netapp.ontap.na_ontap_firmware_upgrade:
+        <<: *login
+        package_url: "{{ ontap_firmware_url }}"
+      register: ontap
+    - name: Print info
+      ansible.builtin.debug:
+        var: ontap

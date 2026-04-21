@@ -1,0 +1,88 @@
+---
+####################################################################
+# Example : Compute Node Facts Playbook
+####################################################################
+- name: Compute Node Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all compute nodes
+    ####################################################################
+    - name: Get all compute nodes
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get compute nodes by names
+    ####################################################################
+    - name: Get compute nodes by names
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          names:
+            - "computenode1"
+            - "computenode2"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get compute nodes by hba_name
+    ####################################################################
+    - name: Get compute nodes by hba_name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          hba_name: "iqn_1991-05_com_hitachi:test-iscsi-iqn0002"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get compute nodes for a VPS by VPS name
+    ####################################################################
+    - name: Get compute nodes for a VPS by VPS name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          vps_name: "RKD_VPS_02"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get compute nodes for a VPS by VPS ID
+    ####################################################################
+    - name: Get compute nodes for a VPS by VPS ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_compute_node_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          vps_id: "2a843522-a819-47ab-a208-69d190809604"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

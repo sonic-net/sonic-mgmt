@@ -1,0 +1,89 @@
+---
+- name: Create command
+  telekom_mms.icinga_director.icinga_command:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    arguments:
+      '--authpassphrase':
+        value: $snmpv3_priv_key$
+      '--authprotocol':
+        value: $snmpv3_auth_protocol$
+      '--critical':
+        value: $centreon_critical$
+      '--filter':
+        value: $centreon_filter$
+      '--hostname':
+        value: $snmp_address$
+      '--maxrepetitions':
+        value: $centreon_maxrepetitions$
+      '--mode':
+        value: $centreon_mode$
+      '--plugin':
+        value: $centreon_plugin$
+      '--privpassphrase':
+        value: $snmpv3_auth_key$
+      '--privprotocol':
+        value: $snmpv3_priv_protocol$
+      '--snmp-community':
+        value: $snmp_community$
+      '--snmp-timeout':
+        value: $snmp_timeout$
+      '--snmp-username':
+        value: $snmpv3_user$
+      '--snmp-version':
+        value: $snmp_version$
+      '--subsetleef':
+        value: $centreon_subsetleef$
+      '--verbose':
+        set_if: $centreon_verbose$
+      '--warning':
+        value: $centreon_warning$
+      '--dummy-arg':
+        description: "dummy arg using Icinga DSL code"
+        value:
+          type: "Function"
+          body: 'return macro("$dummy_var$")'
+    command: "/opt/centreon-plugins/centreon_plugins.pl"
+    command_type: "PluginCheck"
+    disabled: false
+    object_name: centreon-plugins
+    imports:
+      - centreon-plugins-template
+    vars:
+      centreon_maxrepetitions: 20
+      centreon_subsetleef: 20
+      centreon_verbose: false
+      snmp_address: $address$
+      snmp_timeout: 60
+      snmp_version: '2'
+      snmpv3_auth_key: authkey
+      snmpv3_priv_key: privkey
+      snmpv3_user: user
+- name: Update command
+  telekom_mms.icinga_director.icinga_command:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: centreon-plugins
+    timeout: "1m"
+    append: true
+- name: Create event command
+  telekom_mms.icinga_director.icinga_command:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    command: "/opt/scripts/restart_httpd"
+    object_name: "restart_httpd"
+    command_type: "PluginEvent"
+    arguments:
+      '-s':
+        value: $service.state$
+      '-t':
+        value: $service.state_type$
+      '-a':
+        set_if: $service.check_attempt$
+        value: $restart_service$

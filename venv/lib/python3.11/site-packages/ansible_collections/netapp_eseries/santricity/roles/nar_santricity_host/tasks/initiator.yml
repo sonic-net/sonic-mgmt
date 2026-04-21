@@ -1,0 +1,114 @@
+---
+# netapp_eseries_iscsi/tasks/initiator.yml
+
+- name: Collect facts on the storage array
+  na_santricity_facts:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+  connection: local
+  register: storage_array_facts
+  when: eseries_host_object is defined
+
+- name: Organize current and expected hostgroups
+  set_fact:
+    current_storage_array_hostgroups: |-
+      {%- set current_hostgroup={} %}
+      {%- for group in storage_array_facts["storage_array_facts"]["netapp_host_groups"] %}
+        {%- if current_hostgroup.update( {group["name"]: []} ) %}{%- endif %}
+        {%- for host in storage_array_facts["storage_array_facts"]["netapp_hosts"] %}
+          {%- if group["id"] == host["group_id"] and current_hostgroup[group["name"]].append(host["name"]) %}{%- endif %}
+        {%- endfor %}
+      {%- endfor %}
+      {{ current_hostgroup }}
+    hostgroups: |-
+      {%- set hostgroups=[] %}
+      {%- for host in eseries_host_object %}
+        {%- if "group" in (host.keys()|list) and host["group"] not in hostgroups and
+               ("state" not in (host.keys()|list) or host["state"] == "present") and hostgroups.append(host["group"]) %}
+        {%- endif %}
+      {%- endfor %}
+      {{ hostgroups }}
+  when: eseries_host_object is defined
+
+- name: "{{'Configure' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Unconfigure' }} inventory-defined hostgroup definitions"
+  na_santricity_hostgroup:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: "{{ eseries_remove_all_configuration_state | default('present') }}"
+    name: "{{ item }}"
+    hosts: "{{ current_storage_array_hostgroups[item] | default(omit) }}"
+  connection: local
+  loop: "{{ lookup('list', hostgroups) }}"
+  when: eseries_host_object is defined and (hostgroups | length > 0)
+
+- name: "{{'Configure' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Unconfigure' }} inventory-defined host definitions"
+  na_santricity_host:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: "{{ eseries_remove_all_configuration_state | default(item['state'] | default(omit)) }}"
+    name: "{{ item['name'] }}"
+    ports: "{{ item['ports'] | default(omit) }}"
+    force_port: "{{ item['force_port'] | default(eseries_host_force_port | default(omit)) }}"
+    group: "{{ item['group'] | default(eseries_host_group | default(omit)) }}"
+    host_type: "{{ item['host_type_index'] | default(item['host_type'] | default(eseries_host_type_index | default(omit))) }}"
+  connection: local
+  loop: "{{ lookup('list', eseries_host_object) }}"
+  when: eseries_host_object is defined
+
+- name: Collect facts on the storage array
+  na_santricity_facts:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+  connection: local
+  register: storage_array_facts
+  when: eseries_host_object is defined
+
+- name: Update the current storage array hostgroups
+  set_fact:
+    current_storage_array_hostgroups: |-
+      {%- set current_hostgroup={} %}
+      {%- for group in storage_array_facts["storage_array_facts"]["netapp_host_groups"] %}
+        {%- if current_hostgroup.update( {group["name"]: []} ) %}{%- endif %}
+        {%- for host in storage_array_facts["storage_array_facts"]["netapp_hosts"] %}
+          {%- if group["id"] == host["group_id"] and current_hostgroup[group["name"]].append(host["name"]) %}{%- endif %}
+        {%- endfor %}
+      {%- endfor %}
+      {{ current_hostgroup }}
+  when: eseries_host_object is defined
+
+- name: Create list of unused hostgroups
+  set_fact:
+    unused_hostgroups: |-
+      {%- set unused_hostgroup = [] %}
+      {%- for current_host_name in (current_storage_array_hostgroups.keys()|list) %}
+        {%- if (current_storage_array_hostgroups[current_host_name]|length==0) and unused_hostgroup.append(current_host_name) %}{%- endif %}
+      {%- endfor %}
+      {{ unused_hostgroup }}
+  when: eseries_host_object is defined
+
+- name: "{{'Configure' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Unconfigure' }} inventory-defined hostgroup definitions"
+  na_santricity_hostgroup:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: absent
+    name: "{{ item }}"
+    hosts: "{{ current_storage_array_hostgroups[item] | default(omit) }}"
+  connection: local
+  loop: "{{ lookup('list', unused_hostgroups) }}"
+  when: "eseries_host_object is defined and (unused_hostgroups|length>0) and eseries_host_remove_unused_hostgroup is
+         defined and eseries_host_remove_unused_hostgroup"

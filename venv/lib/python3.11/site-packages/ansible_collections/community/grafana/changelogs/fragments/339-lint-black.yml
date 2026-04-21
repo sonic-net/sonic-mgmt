@@ -1,0 +1,3 @@
+---
+trivial:
+  - added python black linting action

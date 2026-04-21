@@ -1,0 +1,4 @@
+bugfixes:
+ - purefa_volume - Fixes issue where malformed ``volfact`` will cause the ``move`` to apparently fail.
+ - purefa_volume - Fixes ``eradicate`` so it doesn't report success when it hasn't actually eradicated
+ - purefa_volume - Fixes ``volfact`` response when in ``check_mode``

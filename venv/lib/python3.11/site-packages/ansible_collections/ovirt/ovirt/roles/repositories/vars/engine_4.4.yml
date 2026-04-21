@@ -1,0 +1,9 @@
+---
+ovirt_repositories_subscription_manager_repos:
+  - rhel-8-for-x86_64-baseos-rpms
+  - rhel-8-for-x86_64-appstream-rpms
+  - rhv-4.4-manager-for-rhel-8-x86_64-rpms
+  - jb-eap-7.4-for-rhel-8-x86_64-rpms
+  - fast-datapath-for-rhel-8-x86_64-rpms
+  - openstack-16.2-cinderlib-for-rhel-8-x86_64-rpms
+  - rhceph-4-tools-for-rhel-8-x86_64-rpms

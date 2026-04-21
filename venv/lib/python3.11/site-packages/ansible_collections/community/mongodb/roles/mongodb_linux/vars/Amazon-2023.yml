@@ -1,0 +1,5 @@
+---
+# Packages for Amazon-2023 distros
+ntp_package: chrony
+ntp_service: chronyd
+gnu_c_lib: glibc

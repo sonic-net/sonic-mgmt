@@ -1,0 +1,12 @@
+---
+requires_ansible: '>=2.16.0'
+plugin_routing:
+  modules:
+    bigip_device_facts:
+      redirect: f5networks.f5_modules.bigip_device_info
+    bigia_device_facts:
+      redirect: f5networks.f5_modules.bigiq_device_info
+    bigip_appsvcs_extension:
+      tombstone:
+        removal_date: 2020-03-05
+        warning_text: bigip_appsvcs_extension has been removed.

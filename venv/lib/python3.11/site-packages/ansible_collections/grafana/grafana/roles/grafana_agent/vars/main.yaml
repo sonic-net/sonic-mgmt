@@ -1,0 +1,29 @@
+---
+_grafana_agent_github_org: grafana
+_grafana_agent_github_repo: agent
+
+# set the go cpu arch
+_download_cpu_arch_map:
+  i386: '386'
+  x86_64: amd64
+  aarch64: arm64
+  armv7l: armv7
+  armv6l: armv6
+
+_grafana_agent_cpu_arch: "{{ _download_cpu_arch_map[ansible_facts['architecture']] | default(ansible_facts['architecture']) }}"
+
+# set the go os family
+_grafana_agent_os_family: "{{ ansible_facts['system'] | lower }}"
+
+# set the name of the archive file to download
+_grafana_agent_download_archive_file: "grafana-agent-{{ _grafana_agent_os_family }}-{{ _grafana_agent_cpu_arch }}.zip"
+
+# set the name of the binary file
+_grafana_agent_download_binary_file: "grafana-agent-{{ _grafana_agent_os_family }}-{{ _grafana_agent_cpu_arch }}"
+
+# systemd info
+_grafana_agent_systemd_dir: /lib/systemd/system/
+_grafana_agent_systemd_unit: grafana-agent.service
+
+# Server http address, used in self health check after start
+_grafana_agent_healthcheck_endpoint: "http://{{ grafana_agent_flags_extra['server.http.address'] if grafana_agent_flags_extra['server.http.address'] is defined else '127.0.0.1:12345' }}/-/ready"

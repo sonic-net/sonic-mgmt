@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_ospf_area - Fix OSPF area bug (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/466).

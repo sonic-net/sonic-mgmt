@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_bgp_communities - Add unit tests for BGP communities resource module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/185)

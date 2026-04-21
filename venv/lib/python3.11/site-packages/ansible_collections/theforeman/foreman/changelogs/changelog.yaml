@@ -1,0 +1,1014 @@
+---
+ancestor: 0.8.1
+releases:
+  1.0.0:
+    changes:
+      breaking_changes:
+        - 'All modules were renamed to drop the ``foreman_`` and ``katello_`` prefixes.
+
+          Additionally to the prefix removal, the following modules were further ranamed:
+
+
+          * katello_upload to content_upload
+
+          * katello_sync to repository_sync
+
+          * katello_manifest to subscription_manifest
+
+          * foreman_search_facts to resource_info
+
+          * foreman_ptable to partition_table
+
+          * foreman_model to hardware_model
+
+          * foreman_environment to puppet_environment
+
+          '
+      release_summary: 'This is the first stable release of the ``theforeman.foreman``
+        collection.
+
+        '
+    modules:
+      - description: Manage Activation Keys
+        name: activation_key
+        namespace: ''
+      - description: Manage Architectures
+        name: architecture
+        namespace: ''
+      - description: Manage LDAP Authentication Sources
+        name: auth_source_ldap
+        namespace: ''
+      - description: Manage Bookmarks
+        name: bookmark
+        namespace: ''
+      - description: Manage Compute Attributes
+        name: compute_attribute
+        namespace: ''
+      - description: Manage Compute Profiles
+        name: compute_profile
+        namespace: ''
+      - description: Manage Compute Resources
+        name: compute_resource
+        namespace: ''
+      - description: Manage (Puppet) Config Groups
+        name: config_group
+        namespace: ''
+      - description: Manage Content Credentials
+        name: content_credential
+        namespace: ''
+      - description: Upload content to a repository
+        name: content_upload
+        namespace: ''
+      - description: Manage Content Views
+        name: content_view
+        namespace: ''
+      - description: Manage Content View Filters
+        name: content_view_filter
+        namespace: ''
+      - description: Manage Content View Versions
+        name: content_view_version
+        namespace: ''
+      - description: Manage Domains
+        name: domain
+        namespace: ''
+      - description: Manage External User Groups
+        name: external_usergroup
+        namespace: ''
+      - description: Manage Global Parameters
+        name: global_parameter
+        namespace: ''
+      - description: Manage Hardware Models
+        name: hardware_model
+        namespace: ''
+      - description: Manage Hosts
+        name: host
+        namespace: ''
+      - description: Manage Host Collections
+        name: host_collection
+        namespace: ''
+      - description: Manage Power State of Hosts
+        name: host_power
+        namespace: ''
+      - description: Manage Hostgroups
+        name: hostgroup
+        namespace: ''
+      - description: Manage Images
+        name: image
+        namespace: ''
+      - description: Manage Installation Media
+        name: installation_medium
+        namespace: ''
+      - description: Manage Job Templates
+        name: job_template
+        namespace: ''
+      - description: Manage Lifecycle Environments
+        name: lifecycle_environment
+        namespace: ''
+      - description: Manage Locations
+        name: location
+        namespace: ''
+      - description: Manage Operating Systems
+        name: operatingsystem
+        namespace: ''
+      - description: Manage Organizations
+        name: organization
+        namespace: ''
+      - description: Manage Default Template Associations To Operating Systems
+        name: os_default_template
+        namespace: ''
+      - description: Manage Partition Table Templates
+        name: partition_table
+        namespace: ''
+      - description: Manage Products
+        name: product
+        namespace: ''
+      - description: Manage Provisioning Templates
+        name: provisioning_template
+        namespace: ''
+      - description: Manage Puppet Environments
+        name: puppet_environment
+        namespace: ''
+      - description: Manage Realms
+        name: realm
+        namespace: ''
+      - description: Interact with a Red Hat Satellite Subscription Manifest
+        name: redhat_manifest
+        namespace: ''
+      - description: Manage Repositories
+        name: repository
+        namespace: ''
+      - description: Enable/disable Repositories in Repository Sets
+        name: repository_set
+        namespace: ''
+      - description: Sync a Repository or Product
+        name: repository_sync
+        namespace: ''
+      - description: Gather information about resources
+        name: resource_info
+        namespace: ''
+      - description: Manage Roles
+        name: role
+        namespace: ''
+      - description: Manage SCAP content
+        name: scap_content
+        namespace: ''
+      - description: Manage SCAP Tailoring Files
+        name: scap_tailoring_file
+        namespace: ''
+      - description: Manage SUSE Customer Center Accounts
+        name: scc_account
+        namespace: ''
+      - description: Subscribe SUSE Customer Center Account Products
+        name: scc_product
+        namespace: ''
+      - description: Manage Settings
+        name: setting
+        namespace: ''
+      - description: Manage Smart Class Parameters
+        name: smart_class_parameter
+        namespace: ''
+      - description: Manage Snapshots
+        name: snapshot
+        namespace: ''
+      - description: Manage Subnets
+        name: subnet
+        namespace: ''
+      - description: Manage Subscription Manifests
+        name: subscription_manifest
+        namespace: ''
+      - description: Manage Sync Plans
+        name: sync_plan
+        namespace: ''
+      - description: Sync Templates from a repository
+        name: templates_import
+        namespace: ''
+      - description: Manage Users
+        name: user
+        namespace: ''
+      - description: Manage User Groups
+        name: usergroup
+        namespace: ''
+    release_date: '2020-06-19'
+  1.0.1:
+    changes:
+      release_summary: 'Documentation fixes to reflect the correct module names.
+
+        '
+    release_date: '2020-06-29'
+  1.1.0:
+    changes:
+      bugfixes:
+        - inventory plugin - fix want_params handling (https://github.com/theforeman/foreman-ansible-modules/issues/847)
+      minor_changes:
+        - activation_key - add ``description`` parameter (https://github.com/theforeman/foreman-ansible-modules/issues/915)
+        - callback plugin - add reporter to report logs sent to Foreman (https://github.com/theforeman/foreman-ansible-modules/issues/836)
+        - document return values of modules (https://github.com/theforeman/foreman-ansible-modules/pull/901)
+        - inventory plugin - allow to control batch size when pulling hosts from Foreman
+          (https://github.com/theforeman/foreman-ansible-modules/pull/865)
+        - subnet - Require mask/cidr only on ipv4 (https://github.com/theforeman/foreman-ansible-modules/issues/878)
+    fragments:
+      - 836-add-reporter-to-callback.yaml
+      - 847-want_params-fix.yaml
+      - 865-limit-inventory-per-host.yaml
+      - 878-cidr-only-v4.yaml
+      - 901-document-return-values.yaml
+      - 915-activation_key-description.yaml
+    modules:
+      - description: Manage HTTP Proxies
+        name: http_proxy
+        namespace: ''
+    release_date: '2020-08-17'
+  1.2.0:
+    changes:
+      bugfixes:
+        - image - fix quoting of search values (https://github.com/theforeman/foreman-ansible-modules/issues/927)
+      minor_changes:
+        - compute_resource - added ``caching_enabled`` option for VMware compute resources
+        - domain, host, hostgroup, operatingsystem, subnet - manage parameters in
+          a single API call (https://bugzilla.redhat.com/show_bug.cgi?id=1855008)
+        - host - add ``compute_attributes`` parameter to module (https://bugzilla.redhat.com/show_bug.cgi?id=1871815)
+        - provisioning_template - update list of possible template kinds (https://bugzilla.redhat.com/show_bug.cgi?id=1871978)
+        - repository - update supported parameters (https://github.com/theforeman/foreman-ansible-modules/issues/935)
+    fragments:
+      - 927-image-quoting.yaml
+      - 932-host-add-compute_attributes.yaml
+      - 935-repository-params.yaml
+      - 939-compute_resource-added_caching_enabled.yaml
+      - bz1855008-single_call_parameters.yaml
+      - bz1871978-template_kinds.yaml
+    release_date: '2020-09-03'
+  1.3.0:
+    changes:
+      bugfixes:
+        - content_view - remove CVs from lifecycle environments before deleting them
+          (https://bugzilla.redhat.com/show_bug.cgi?id=1875314)
+        - external_usergroup - support non-LDAP external groups (https://github.com/theforeman/foreman-ansible-modules/issues/956)
+        - host - properly scope image lookups by the compute resource (https://bugzilla.redhat.com/show_bug.cgi?id=1878693)
+        - inventory plugin - include empty parent groups in the inventory (https://github.com/theforeman/foreman-ansible-modules/issues/919)
+      minor_changes:
+        - external_usergroup - rename the ``auth_source_ldap`` parameter to ``auth_source``
+          (``auth_source_ldap`` is still supported via an alias)
+        - server URL and credentials can now also be specified using environment variables
+          (https://github.com/theforeman/foreman-ansible-modules/issues/837)
+        - subnet - add support for external IPAM (https://github.com/theforeman/foreman-ansible-modules/issues/966)
+    fragments:
+      - 837-env-fallback.yaml
+      - 919-include-empty-parent-groups.yml
+      - 956-external_usergroup-non-ldap.yaml
+      - 966-subnet-external_ipam.yaml
+      - bz1875314-content_view-remove.yaml
+      - bz1878693-scope_image_lookups.yaml
+    modules:
+      - description: Get status info
+        name: status_info
+        namespace: ''
+    release_date: '2020-09-22'
+  1.4.0:
+    changes:
+      bugfixes:
+        - Don't try to update an entity, if only parameters that aren't supported
+          by the server are detected as changed. (https://github.com/theforeman/foreman-ansible-modules/issues/975)
+        - allow to pass an empty string when refering to entities, thus unsetting
+          the value (https://github.com/theforeman/foreman-ansible-modules/issues/969)
+        - compute_profile - don't fail when trying to update compute attributes of
+          a profile (https://github.com/theforeman/foreman-ansible-modules/issues/997)
+        - host, hostgroup - support ``None`` as the ``pxe_loader`` (https://github.com/theforeman/foreman-ansible-modules/issues/971)
+        - job_template - don't fail when trying to update template_inputs
+        - os_default_template - document possible template kind choices (https://bugzilla.redhat.com/show_bug.cgi?id=1889952)
+        - smart_class_parameters - don't fail when trying to update override_values
+      minor_changes:
+        - global_parameter - allow to set hidden flag (https://github.com/theforeman/foreman-ansible-modules/issues/1024)
+        - job_template - stricter validation of ``template_inputs`` sub-options
+        - redhat_manifest - allow configuring content access mode (https://github.com/theforeman/foreman-ansible-modules/issues/820)
+        - subnet - verify the server has the ``remote_execution`` plugin when specifying
+          ``remote_execution_proxies``
+        - the ``apypie`` library is vendored inside the collection, so users only
+          have to install ``requests`` manually now.
+    fragments:
+      - 820-redhat_manifest-sca.yaml
+      - 969-allow-unset-entity.yml
+      - 971-pxe_loader-none.yaml
+      - 975-filter-update-payload.yml
+      - 997-compute_profile-update.yaml
+      - bz1889952-os_default_template-kind.yaml
+      - global_parameter-hidden_values.yaml
+      - job_template-template_inputs-validation.yaml
+      - rex-proxy-subnet-check.yaml
+      - venored_apypie.yaml
+    modules:
+      - description: Invoke Remote Execution Jobs
+        name: job_invocation
+        namespace: ''
+      - description: Manage Smart Proxies
+        name: smart_proxy
+        namespace: ''
+    release_date: '2020-10-21'
+  1.5.0:
+    changes:
+      bugfixes:
+        - content_upload - Fix upload of files bigger than 2MB in Pulp3-based setups
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1043)
+        - job_invocation - properly submit ``ssh``, ``recurrence``, ``scheduling``
+          and ``concurrency_control`` to the server
+        - repository - don't emit a false warning about ``organization_id`` not being
+          supported by the server (https://github.com/theforeman/foreman-ansible-modules/issues/1055)
+        - repository_set, repository - clarify documentation which module should be
+          used for Red Hat Repositories (https://github.com/theforeman/foreman-ansible-modules/issues/1059)
+      minor_changes:
+        - content_upload - use ``to_native`` to decode RPM headers if needed (RPM
+          4.15+ returns strings)
+        - content_view_version - provide examples how to obtain detailed information
+          about content view versions (https://bugzilla.redhat.com/show_bug.cgi?id=1868145)
+        - content_view_version_cleanup - new role for cleaning up unused content view
+          versions (https://github.com/theforeman/foreman-ansible-modules/issues/497)
+        - host - allow management of interfaces (https://github.com/theforeman/foreman-ansible-modules/issues/757)
+        - inventory plugin - add support for the Report API present in Foreman 1.24
+          and later
+        - inventory plugin - allow to compose the ``inventory_hostname`` (https://github.com/theforeman/foreman-ansible-modules/issues/1070)
+        - manifest - new role for easier handling of subscription manifest workflows
+        - subnet - add new ``externalipam_group`` parameter
+        - update vendored ``apypie`` to 0.3.2
+    fragments:
+      - 1043-chunked_content_upload.yml
+      - 1059-repository_set-docs.yml
+      - 1062-warnings.yml
+      - 1070-compose_inventory_hostname.yml
+      - 757-host_interfaces.yml
+      - bz1868145-cv_version_examples.yml
+      - content_upload-decode-old-rpm.yml
+      - inventory_plugin_report_api.yml
+      - subnet-externalipam_group.yml
+      - theforeman.foreman.content_view_version_cleanup_role.yml
+      - theforeman.foreman.manifest_role.yml
+    release_date: '2020-12-03'
+  2.0.0:
+    changes:
+      breaking_changes:
+        - All role variables are now prefixed with ``foreman_`` to avoid clashes with
+          similarly named variables from roles outside this collection.
+      bugfixes:
+        - content_view_version - make the ``version`` parameter not fail when the
+          version was entered without a minor part (https://github.com/theforeman/foreman-ansible-modules/issues/1087)
+        - host - allow moving hosts between Organizations and Locations (https://bugzilla.redhat.com/show_bug.cgi?id=1901716)
+        - host - fix subnet/domain assignment when multiple interfaces are defined
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1095)
+        - host, hostgroup - select kickstart_repository based on lifecycle_environment
+          and content_view if those are set (https://github.com/theforeman/foreman-ansible-modules/issues/1090,
+          https://bugzilla.redhat.com/1915872)
+        - resource_info - correctly show the exact resource when passing ``id`` in
+          ``params``
+      minor_changes:
+        - Add a role `activation_keys` to manage activation keys
+        - Add a role `lifecycle_environments` to manage lifecycle environments
+        - Add a role `repositories` to manage products, repositories, and repository_sets
+        - Add a role `sync_plans` to manage sync plans
+        - activation_key - add support for selecting subscriptions by ``upstream_pool_id``
+        - compute_resource - add ``set_console_password``, ``keyboard_layout`` and
+          ``public_key`` parameters (https://github.com/theforeman/foreman-ansible-modules/issues/1052)
+        - host - clarify that ``owner`` refers to a users login, not their full name
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1045)
+        - host - look up the correct network id for a network given as part of ``interfaces_attributes``
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1104)
+        - host, hostgroup - add ``activation_keys`` parameter to ease configuring
+          activation keys for deploments
+    fragments:
+      - 1027-repositories_role.yml
+      - 1045-host-owner.yml
+      - 1052-compute_resource-params.yaml
+      - 1065-sync-plans_role.yml
+      - 1068-activation-keys_role.yml
+      - 1087-content_view_version-safenet.yml
+      - 1090-scope_kickstart_repository_tighter.yml
+      - 1095-nested_list-lookup-fix.yml
+      - 1096-lifecycle-environments-role.yml
+      - 1104-network_id-lookup.yml
+      - 1145-role_prefix.yml
+      - 541-activation-key-upstream-pool.yml
+      - bz1901716-dont_scope_requests.yml
+      - host-hostgroup-ak-parameter.yml
+      - resource_info-params-id.yml
+    modules:
+      - description: Fetch information about Hosts
+        name: host_info
+        namespace: ''
+      - description: Import Puppet Classes from a Proxy
+        name: puppetclasses_import
+        namespace: ''
+      - description: Fetch information about Repositories
+        name: repository_info
+        namespace: ''
+    release_date: '2021-02-22'
+  2.0.1:
+    changes:
+      bugfixes:
+        - host - don't filter ``false`` values for ``interfaces_attributes`` (https://github.com/theforeman/foreman-ansible-modules/issues/1148)
+        - host_info, repository_info - correctly fetch all entities when neither ``name``
+          nor ``search`` is set
+        - host_info, repository_info - enforce mutual exclusivity of ``name`` and
+          ``search``
+    fragments:
+      - 1148-dont-filter-false-params.yml
+      - 20210224-info_module_fixes.yml
+    release_date: '2021-03-02'
+  2.1.0:
+    changes:
+      bugfixes:
+        - host - pass the right image id to the compute resource when creating a host
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1160, https://bugzilla.redhat.com/show_bug.cgi?id=1911670)
+      minor_changes:
+        - Add a domain_info module
+        - Add a hostgroups role (https://github.com/theforeman/foreman-ansible-modules/issues/1116)
+        - Add a role `content_rhel` to perform basic setup for registering and syncing
+          RHEL content hosts
+        - Add content credentials role
+        - callback plugin - collect facts during the run, merge them correctly and
+          upload them once at the end
+        - compute_resource - add ``cloud`` param for the AzureRm provider, to select
+          which Azure cloud to use
+        - compute_resource - add ``sub_id`` parameter for handling the Azure Subscription
+          ID instead of the ``user`` parameter
+        - host - Add ``Redfish`` to list of possible BMC providers of an interface
+        - host, compute_profile - look up the correct id for storage pods and domains
+          given as part of ``volumes_attributes`` (https://bugzilla.redhat.com/show_bug.cgi?id=1885234)
+        - hostgroup - add a ``ansible_roles`` parameter (https://github.com/theforeman/foreman-ansible-modules/issues/1123)
+        - new ``content_views`` role to manage content views (https://github.com/theforeman/foreman-ansible-modules/issues/1111)
+        - new ``organizations`` role to manage organizations (https://github.com/theforeman/foreman-ansible-modules/issues/1109)
+        - subnet - add ``bmc_proxy`` parameter to configure BMC proxies for subnets
+    fragments:
+      - 1097-content-rhel-role.yml
+      - 1109-organizations-role.yml
+      - 1111-content_views_role.yml
+      - 1116-hostgroups-role.yml
+      - 1123-ansible-roles-for-hostgroups.yml
+      - 1160-pass-image-in-compute-attributes.yml
+      - 1196-content_credentials-role.yml
+      - azure-clouds.yml
+      - azure-subid.yml
+      - bz1885234-storage-lookup.yml
+      - domain-info-module.yml
+      - foreman-fact-upload.yml
+      - host-redfish-bmc.yml
+      - subnet-bmc-proxy-param.yml
+    modules:
+      - description: Fetch information about Content Views
+        name: content_view_info
+        namespace: ''
+      - description: Fetch information about Content Views
+        name: content_view_version_info
+        namespace: ''
+      - description: Fetch information about Domains
+        name: domain_info
+        namespace: ''
+      - description: Fetch information about Host Errata
+        name: host_errata_info
+        namespace: ''
+      - description: Fetch information about Red Hat Repositories
+        name: repository_set_info
+        namespace: ''
+      - description: Fetch information about Settings
+        name: setting_info
+        namespace: ''
+      - description: Fetch information about Subnets
+        name: subnet_info
+        namespace: ''
+      - description: Fetch information about Subscriptions
+        name: subscription_info
+        namespace: ''
+    release_date: '2021-05-20'
+  2.1.1:
+    changes:
+      bugfixes:
+        - external_usergroup - always lookup the ID of the usergroup, instead of passing
+          the name to the API (https://bugzilla.redhat.com/show_bug.cgi?id=1967649)
+        - host, hostgroup - don't override already set parameters when passing an
+          activation key only (and vice versa) (https://bugzilla.redhat.com/show_bug.cgi?id=1967904)
+    fragments:
+      - bz1967649-usergroup_lookup.yml
+      - bz1967904-dont_override_params.yml
+    release_date: '2021-06-22'
+  2.1.2:
+    changes:
+      bugfixes:
+        - activation_key - submit organization_id when querying subs, required for
+          Katello 4.1
+        - content_view_version_cleanup - sort content view versions before deleting
+          (https://github.com/RedHatSatellite/satellite-ansible-collection/issues/30,
+          https://bugzilla.redhat.com/show_bug.cgi?id=1980274)
+        - content_view_version_cleanup role - properly clean up when users set keep=0
+          (https://bugzilla.redhat.com/show_bug.cgi?id=1974314)
+        - host, compute_profile - when resolving cluster and other values in vm_attrs,
+          compare them as strings (https://github.com/theforeman/foreman-ansible-modules/issues/1245)
+        - subscription_info - mark ``organization`` parameter as required, to match
+          Katello
+    fragments:
+      - 1245-search_vm_attr_as_string.yml
+      - BZ1974314-cv_cleanup_keep_0.yml
+      - bz1980274.yml
+      - katello41-subscription-org-required.yml
+    release_date: '2021-07-13'
+  2.2.0:
+    changes:
+      bugfixes:
+        - host, hostgroup - don't accidentally duplicate ``kt_activation_keys`` param
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1268)
+      minor_changes:
+        - repository - add support for filtering repositories by OS version based
+          on API feature apidoc/v2/repositories/create.html
+    fragments:
+      - 1268-ak_param_duplicate.yml
+      - repository.yml
+    release_date: '2021-08-24'
+  3.0.0:
+    changes:
+      breaking_changes:
+        - Set use_reports_api default value to true for the inventory plugin
+        - Support for Ansible 2.8 is removed
+      bugfixes:
+        - host, hostgroup - fix updating puppetclasses while also updating description
+          (or other string-like attributes) (https://github.com/theforeman/foreman-ansible-modules/issues/1231)
+      minor_changes:
+        - Add a role `convert2rhel` to perform setup for converting systems to RHEL
+        - inventory plugin - enable certificate validation by default
+        - repository - add ``arch`` parameter to limit architectures of the repository
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1265)
+    fragments:
+      - 1231-puppetclasses-and-description-update.yml
+      - 1265-repository-arch.yml
+      - 1291-foreman-ansible-inventory-default.yml
+      - convert2rhel.yml
+      - drop-ansible28.yml
+      - validate-inventory-certs.yml
+    release_date: '2021-11-11'
+  3.1.0:
+    changes:
+      bugfixes:
+        - callback plugin - include timezone information in the callback reported
+          data (https://github.com/theforeman/foreman-ansible-modules/issues/1171)
+        - hostgroup, location - don't fail when trying to delete a Hostgroup or Location
+          where the parent is already absent
+        - inventory plugin - fetch *all* facts, not only the first 250, when using
+          the old Hosts API
+      minor_changes:
+        - Warn if the user tries to use a plain HTTP server URL and fail if the URL
+          is neither HTTPS nor HTTP.
+        - new ``compute_profiles`` role to manage compute profiles
+        - new ``compute_resources`` role to manage compute resources
+        - new ``content_view_publish`` role to publish a list of content views (https://github.com/theforeman/foreman-ansible-modules/issues/1209)
+        - new ``domains`` role to manage domains
+        - new ``operatingsystems`` role to manage operating systems
+        - new ``provisioning_templates`` role to manage provisioning templates
+        - new ``settings`` role to manage settings
+        - new ``subnets`` role to manage subnets
+        - repository - new ``download_concurrency`` parameter (https://github.com/theforeman/foreman-ansible-modules/issues/1273)
+    fragments:
+      - 1171-timezone.yml
+      - 1209-content_views_role.yml
+      - 1301-failsafe-parents.yml
+      - 1303-foreman-repository-download-concurrency.yml
+      - add-compute-profile-role.yml
+      - add-compute-resource-role.yml
+      - add-domains-role.yml
+      - add-operatingsystems-role.yml
+      - add-provisioning-templates-role.yml
+      - add-settings-role.yml
+      - add-subnets-role.yml
+      - explicit-http-warning.yml
+      - inventory-facts-batch-size.yml
+    release_date: '2022-01-14'
+  3.10.0:
+    changes:
+      bugfixes:
+        - auth_sources_ldap role - don't assume ``account`` and ``account_password``
+          are set, they are documented as optional
+        - auth_sources_ldap role, compute_resources role, repositories role - do not
+          log loop data when it contains sensitive data (https://bugzilla.redhat.com/show_bug.cgi?id=2183357)
+      minor_changes:
+        - content_export_library, content_export_repository, content_export_version
+          - add ``format`` option to control the export format
+        - content_view_filter - add support for creating modulemd filters
+        - content_view_publish role - also accept a list of dicts as the ``content_views``
+          role for publishing (https://github.com/theforeman/foreman-ansible-modules/issues/1436)
+        - setting - document how to obtain valid setting names (https://bugzilla.redhat.com/show_bug.cgi?id=2174367)
+    fragments:
+      - 1436-cv-publish-vars.yml
+      - 1573-cv-filter-modulemd.yml
+      - auth_sources_ldap_role-dont_force_account.yml
+      - bz2174367.yml
+      - bz2183357-role-log.yml
+      - content-export-format.yml
+    release_date: '2023-04-04'
+  3.11.0:
+    changes:
+      bugfixes:
+        - compute_profile, host - properly support nested VMware clusters (https://bugzilla.redhat.com/show_bug.cgi?id=2211394)
+        - content_credential - don't require ``content_type`` and ``content`` parameters
+          when removing credentials (https://github.com/theforeman/foreman-ansible-modules/issues/1588)
+        - content_credentials role - don't require ``content_type`` and ``content``
+          parameters when removing credentials
+        - content_view_filter - don't fail when creating a modulemd filter (https://github.com/theforeman/foreman-ansible-modules/issues/1608,
+          https://bugzilla.redhat.com/show_bug.cgi?id=2208557)
+        - repositories role - don't log repository information when creating products
+          (https://bugzilla.redhat.com/show_bug.cgi?id=2183357)
+      minor_changes:
+        - content_view_promote role - also accept all parameters of the `content_view_version`
+          module (https://github.com/theforeman/foreman-ansible-modules/issues/1591)
+        - content_view_version - include information about the published version in
+          the return value of the module
+        - job-invocation - add ``recurrence purpose`` and ``description_format`` parameters
+        - organizations role - accept ``parameters`` and ``ignore_types`` like the
+          module does
+    fragments:
+      - 1588-content_credential-absent.yml
+      - 1591-cv-promote-parameters.yml
+      - 1608-cv-filter-modulemd.yml
+      - bz2183357-do_not_log_repositories_for_products.yml
+      - bz2211394-nested-vmware-clusters.yml
+      - content_view_version-return_value.yml
+      - job-invocation-parameters.yml
+      - organizations_role-parameters_ignore_types.yml
+    release_date: '2023-06-14'
+  3.12.0:
+    changes:
+      bugfixes:
+        - convert2rhel role - Sync repos before CV publish (https://bugzilla.redhat.com/show_bug.cgi?id=2216907)
+      minor_changes:
+        - content_view_filter - add deb filter type
+        - content_view_filter_rule - add spec for deb filter rules
+        - locations role - New role to manage locations
+    fragments:
+      - 2023-06-26-forgotten-changelogs.yml
+      - content_view_filter_deb_support.yml
+    release_date: '2023-07-10'
+  3.13.0:
+    changes:
+      bugfixes:
+        - repository - don't fail when removing a content credential from a repository
+          (https://bugzilla.redhat.com/show_bug.cgi?id=2224122)
+        - smart_class_parameter - correctly allow setting ``override`` to ``false``
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1644)
+      minor_changes:
+        - compute_resource - add support for OpenStack
+        - repositories role - allow disabling/removing of repositories by setting
+          the ``state`` parameter
+    fragments:
+      - 1641-openstack.yml
+      - 1644-smart_class_parameter-override_false.yml
+      - bz2224122-repo-org-scope.yml
+      - repositories_role-state_override.yml
+    modules:
+      - description: Wait for a task
+        name: wait_for_task
+        namespace: ''
+    release_date: '2023-08-15'
+  3.14.0:
+    changes:
+      bugfixes:
+        - content_view_publish role - correctly pass ``version`` not ``description``
+          to the module (https://bugzilla.redhat.com/show_bug.cgi?id=2234444)
+    fragments:
+      - bz2234444.yaml
+    modules:
+      - description: Manage Smart Class Parameter Override Values
+        name: smart_class_parameter_override_value
+        namespace: ''
+    release_date: '2023-09-08'
+  3.15.0:
+    changes:
+      bugfixes:
+        - content_view_filter_rule - handle multiple rules for the same package but
+          different architectures and versions correctly (https://bugzilla.redhat.com/show_bug.cgi?id=2189687)
+      minor_changes:
+        - content_view_publish role - allow passing ``async`` and ``poll`` to the
+          module (https://github.com/theforeman/foreman-ansible-modules/pull/1676)
+        - convert2rhel role - install ``convert2rhel`` from ``cdn-public.redhat.com``,
+          dropping the requirement of a custom CA cert
+    fragments:
+      - 1672-convert2rhel-cdn-public.yml
+      - 1676-content_view_version-async-poll.yml
+      - bz2189687-content_view_filter_rule-handle-arch-version.yml
+    release_date: '2023-11-15'
+  3.2.0:
+    changes:
+      bugfixes:
+        - content_upload - clarify that ``src`` refers to a remote file (https://bugzilla.redhat.com/show_bug.cgi?id=2055416)
+      minor_changes:
+        - new ``auth_sources_ldap`` role to manage LDAP authentication sources
+    fragments:
+      - add-auth-source-ldaps-role.yml
+      - bz2055416.yaml
+    release_date: '2022-03-01'
+  3.3.0:
+    changes:
+      minor_changes:
+        - content_upload - add support for OSTree content uploads (https://github.com/theforeman/foreman-ansible-modules/issues/628,
+          https://projects.theforeman.org/issues/33299)
+        - os_default_template, provisioning_template - add ``host_init_config`` to
+          list of possible template types
+    fragments:
+      - 1297-host_init_config.yml
+      - 628-ostree.yml
+    release_date: '2022-04-04'
+  3.4.0:
+    changes:
+      bugfixes:
+        - content_upload - properly detect SRPMs and ensure idempotency during uploads
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1274)
+        - inventory plugin - fix caching for Report API (https://github.com/theforeman/foreman-ansible-modules/issues/1246)
+        - operatingsystem - find operatingsystems by title or full (name,major,minor)
+          tuple (https://github.com/theforeman/foreman-ansible-modules/issues/1401)
+        - os_default_template, provisioning_template - don't document invalid template
+          kind ``ptable`` (https://bugzilla.redhat.com/show_bug.cgi?id=1970132)
+      minor_changes:
+        - add support for module defaults groups for Ansible core 2.12 (https://github.com/theforeman/foreman-ansible-modules/issues/1015)
+        - all modules - report smaller diffs by dropping ``null`` values. This should
+          result in not showing fields that were unset to begin with, and mark fields
+          that were explicitly removed as "deleted" instead of "replaced by ``null``"
+        - compute_resource - update libvirt examples (https://bugzilla.redhat.com/show_bug.cgi?id=1990119)
+        - content_view - add support to set label during creation.
+        - repository - add ``rhel-9`` to os version filter choices
+        - repository - add support for ``mirroring_policy`` for Katello 4.4+ (https://github.com/theforeman/foreman-ansible-modules/issues/1388)
+    fragments:
+      - 1015-action_groups.yml
+      - 1246-inventory_reports_cache.yml
+      - 1274-content_upload-srpm.yml
+      - 1388-repository-mirroring_policy.yml
+      - 1397-content_view-label.yml
+      - 1401-os-search-title.yml
+      - 1970132-no-ptable-kind.yml
+      - 1990119-libvirt-examples.yml
+      - repository-rhel9.yml
+      - smaller-diffs.yml
+    release_date: '2022-05-17'
+  3.5.0:
+    changes:
+      minor_changes:
+        - add execution environment metadata
+        - installation_medium, operatingsystem, partition_table - add ``Fcos``, ``Rhcos``,
+          ``VRP`` OS families
+        - job_template - add ``hidden_value`` to ``template_inputs`` parameters
+        - job_template - allow ``value_type`` to be ``resource``
+        - operatingsystems role - make ``provisioning_template`` parameter optional
+        - repositories role - add ``ansible_collection_requirements``
+        - repositories role - add ``arch`` and ``os_versions`` parameters
+        - repositories role - support ``mirroring_policy``
+        - repository, smart_proxy - document deprecation/removal status of ``download_policy=background``
+        - setting - the ``foreman_setting`` return entry is deprecated and kept for
+          backwards compatibility, please use ``entity`` as with any other module
+        - smart_proxy - add ``inherit`` to possible values of ``download_policy``
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1438)
+        - smart_proxy - add ``streamed`` download policy
+        - snapshot - add include_ram option when creating VMWare snapshot
+    fragments:
+      - 1438-smart_proxy-download_policy-inherit.yml
+      - setting-return-deprecate.yml
+    modules:
+      - description: List pulp3 content exports
+        name: content_export_info
+        namespace: ''
+      - description: Manage content exports
+        name: content_export_library
+        namespace: ''
+      - description: Manage Host Discovery Rules
+        name: discovery_rule
+        namespace: ''
+    release_date: '2022-08-22'
+  3.6.0:
+    modules:
+      - description: Manage repository content exports
+        name: content_export_repository
+        namespace: ''
+      - description: Manage content view version content exports
+        name: content_export_version
+        namespace: ''
+    release_date: '2022-09-01'
+  3.7.0:
+    changes:
+      bugfixes:
+        - Properly use FQCN notation when redirecting the old ``foreman_*`` and ``katello_*``
+          module names. (https://github.com/theforeman/foreman-ansible-modules/issues/1484)
+        - convert2rhel role - Content views for activation keys (https://bugzilla.redhat.com/2118790)
+      minor_changes:
+        - repository - add support for ``include_tags`` and ``exclude_tags`` parameters
+          for Katello 4.4+
+        - subscription_manifest - increase the import timeout to 10 minutes (https://github.com/theforeman/foreman-ansible-modules/issues/1474)
+        - sync_plans role - document the ``enabled`` parameter (https://github.com/theforeman/foreman-ansible-modules/issues/1477)
+        - sync_plans role - expose the ``state`` parameter of the underlying module,
+          thus allowing to delete plans (https://github.com/theforeman/foreman-ansible-modules/issues/1477)
+    fragments:
+      - 1474-subscription_manifest-timeout.yaml
+      - 1477-sync_plans-enhancements.yml
+      - 1484-redirect-fqcn.yaml
+      - bz2118790.yml
+      - repository-include-exclude-tags.yaml
+    release_date: '2022-10-05'
+  3.8.0:
+    changes:
+      bugfixes:
+        - activation_key - properly fetch *all* repositories when managing content
+          overrides (https://bugzilla.redhat.com/show_bug.cgi?id=2134605)
+        - redhat_manifest - properly report http errors (https://github.com/theforeman/foreman-ansible-modules/issues/1497)
+        - repository_sync - report an error instead of syncing the whole product when
+          the repository could not be found
+      minor_changes:
+        - job_template - add ``default`` option to the ``template_inputs`` parameter
+        - location, organization - add ``ignore_types`` parameter to adjust automatic
+          association of resources
+        - redhat_manifest - Search by UUID on the server side if UUID is known. This
+          is faster and allows fetching of manifest in big accounts (>1000 allocations).
+        - redhat_manifest - return the UUID of the manifest so it can be reused later
+        - redhat_manifest - set default ``quantity`` to 1 (https://github.com/theforeman/foreman-ansible-modules/pull/1499)
+    fragments:
+      - 1497-redhat_manifest-report-error.yml
+      - 1509-taxonomy-ignore_types.yaml
+      - 1519-job_template-input-default.yml
+      - 2134605-ak-product_contents-per_page.yml
+      - manifest-uuid-return.yml
+      - redhat_manifest-default_quantity.yml
+      - redhat_manifest-uuid-search.yml
+      - repository_sync-no-failsaife-repository.yml
+    modules:
+      - description: Fetch information about Foreman Snapshots
+        name: snapshot_info
+        namespace: ''
+    release_date: '2022-12-20'
+  3.9.0:
+    changes:
+      bugfixes:
+        - content_export_* - increase task timeout to 12h as export tasks can be time
+          intensive (https://bugzilla.redhat.com/show_bug.cgi?id=2162678)
+    fragments:
+      - bz2162678-content_export-timeout.yaml
+    modules:
+      - description: Fetch information about a Content View Filter
+        name: content_view_filter_info
+        namespace: ''
+      - description: Manage content view filter rules
+        name: content_view_filter_rule
+        namespace: ''
+      - description: Fetch information about a Content View Filter Rule
+        name: content_view_filter_rule_info
+        namespace: ''
+      - description: Get information about hostgroup(s)
+        name: hostgroup_info
+        namespace: ''
+    release_date: '2023-02-20'
+  4.0.0:
+    changes:
+      breaking_changes:
+        - content_view_filter - stop managing rules from this module, ``content_view_filter_rule``
+          should be used for that
+        - inventory plugin - do not default to ``http://localhost:3000`` as the Foreman
+          URL, providing a URL is now mandatory
+      bugfixes:
+        - compute_profile, host - refer to VMware storage pods by name, not id (https://github.com/theforeman/foreman-ansible-modules/issues/1247)
+    fragments:
+      - 1247-reference_storage_pod_name.yml
+      - content_view_filter-drop-rule-management.yml
+      - inventory-no-default-localhost.yml
+    modules:
+      - description: Manage Registration Command
+        name: registration_command
+        namespace: ''
+      - description: Manage Webhooks
+        name: webhook
+        namespace: ''
+    release_date: '2024-01-12'
+  4.1.0:
+    changes:
+      minor_changes:
+        - redhat_manifest - report ``changed`` when manifest is regenerated and downloaded
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1473)
+    fragments:
+      - 1473-redhat_manifest-export_changed.yml
+    modules:
+      - description: List content imports
+        name: content_import_info
+        namespace: ''
+      - description: Manage library content imports
+        name: content_import_library
+        namespace: ''
+      - description: Manage repository content imports
+        name: content_import_repository
+        namespace: ''
+      - description: Manage content view version content imports
+        name: content_import_version
+        namespace: ''
+    release_date: '2024-07-12'
+  4.2.0:
+    changes:
+      bugfixes:
+        - callback plugin - correctly catch facts with vault data and replace it with
+          ``ENCRYPTED_VAULT_VALUE_NOT_REPORTED``, preventing ``Object of type AnsibleVaultEncryptedUnicode
+          is not JSON serializable`` errors
+        - redhat_manifest - do not send empty JSON bodies in GET requests which confuse
+          the portal sometimes (https://github.com/theforeman/foreman-ansible-modules/issues/1768)
+      minor_changes:
+        - content_export_* - document that ``chunk_size_gb`` parameter is only applicable
+          for ``importable`` exports (https://github.com/theforeman/foreman-ansible-modules/issues/1738)
+        - lifecycle_environments role - allow setting ``state`` for the LCE, allowing
+          deletion of existing ones
+        - location, locations role - add ``description`` parameter to set the description
+    fragments:
+      - 1724-location_description.yml
+      - 1738-export_chunk_size.yml
+      - 1768-empty-get-body.yml
+      - 1769-callback-vault-facts.yml
+      - lce-role-state.yml
+    release_date: '2024-08-30'
+  5.0.0:
+    changes:
+      breaking_changes:
+        - Drop support for Ansible 2.9.
+        - Drop support for Python 2.7 and 3.5.
+      minor_changes:
+        - host, hostgroup, domain, operatingsystem, subnet, organization, location
+          - support setting hidden parameters
+    fragments:
+      - 1785-hidden_parameters.yml
+      - drop-ansible-29.yaml
+      - drop-python-pre-36.yaml
+    release_date: '2024-11-22'
+  5.1.0:
+    changes:
+      bugfixes:
+        - inventory - Drop fallback to Host API when Reports API fails, as this leads
+          to possibly wrong data being used
+      minor_changes:
+        - templates_import - Support configuring HTTP Proxy behaviour for template
+          import
+    fragments:
+      - drop-host-api-fallback.yml
+    release_date: '2024-12-06'
+  5.2.0:
+    changes:
+      bugfixes:
+        - callback plugin - fix another exception when serializing secrets (https://github.com/theforeman/foreman-ansible-modules/pull/1819)
+      minor_changes:
+        - snapshot - add ``quiesce`` option (https://github.com/theforeman/foreman-ansible-modules/pull/1810)
+    release_date: '2025-03-11'
+  5.3.0:
+    changes:
+      minor_changes:
+        - 'Support Kerberos/GSSAPI authentication by passing ``use_gssapi: true``
+          instead of ``username`` and ``password``.'
+        - Support setting a specific CA file for certificate validation
+        - activation_keys, content_credentials, content_view_publish, content_views,
+          lifecycle_environments, repositories, sync_plans roles - Allow specifying
+          the organization for each item individually (https://github.com/theforeman/foreman-ansible-modules/issues/1653)
+    fragments:
+      - 1653.yml
+      - ca_path.yml
+      - kerberos.yml
+    release_date: '2025-03-20'
+  5.4.0:
+    changes:
+      bugfixes:
+        - content_upload - lower chunk size to 1MB to avoid generating too big requests
+          (https://github.com/theforeman/foreman-ansible-modules/issues/1862)
+        - host - ensure LCE and CV are always sent together when updating one of them
+      minor_changes:
+        - repository - add ``rhel-10`` to os version filter choices
+        - repository - add support for the ``retain_package_versions_count`` parameter
+    fragments:
+      - 1862-content-upload-chunk-size.yml
+      - 1867-host-always-send-lce-cv.yml
+      - repository-retain_package_versions_count.yml
+      - repository-rhel-10.yml
+    release_date: '2025-06-10'
+  5.5.0:
+    changes:
+      bugfixes:
+        - activation_key - ensure LCE and CV are always sent together when updating
+          one of them
+        - hostgroup - fix idempotency of hostgroup module when assigning Ansible roles
+          to a hostgroup with a parent hostgroup (https://github.com/theforeman/foreman-ansible-modules/issues/1865)
+      minor_changes:
+        - content_view - add ``rolling``-flag to create a Rolling Content View
+    fragments:
+      - ak-always-send-lce-cv.yml
+      - content_view-add_rolling.yml
+      - hostgroup_idempotency.yml
+    modules:
+      - description: Manage Flatpak Remotes
+        name: flatpak_remote
+        namespace: ''
+      - description: Mirror a Flatpak Remote Repository
+        name: flatpak_remote_repository_mirror
+        namespace: ''
+      - description: Scan a Flatpak Remote
+        name: flatpak_remote_scan
+        namespace: ''
+    release_date: '2025-08-08'
+  5.6.0:
+    changes:
+      minor_changes:
+        - content_upload - fall-back to rpm binary when library can't be imported
+        - registration_command - clarify example to show where the generated command
+          needs to be executed
+    release_date: '2025-09-16'
+  5.7.0:
+    modules:
+      - description: Fetch history of a Content View
+        name: content_view_history_info
+        namespace: ''
+    release_date: '2025-10-14'

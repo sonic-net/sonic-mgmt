@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_igroup - new option ``os_type`` to replace ``ostype`` (but ostype is still accepted).
+  - na_ontap_lun - new option ``os_type`` to replace ``ostype`` (but ostype is still accepted), and removed default to ``image``.
+  - na_ontap_lun - new option ``san_application_template`` to create LUNs without explicitly creating a volume and using REST APIs.

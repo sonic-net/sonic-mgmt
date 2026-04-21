@@ -1,0 +1,158 @@
+#!/usr/bin/python3
+
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
+
+import logging as logg
+import os
+import sys
+import time
+import getopt
+
+from configparser import ConfigParser
+
+import fail_back
+import fail_over
+import generate_vars
+import validator
+
+VALIDATE = 'validate'
+GENERATE = 'generate'
+FAILOVER = 'failover'
+FAILBACK = 'failback'
+LOG_FILE = 'log-file'
+LOG_LEVEL = 'log-level'
+DEF_LOG_FILE = ""
+DEF_DEBUG_LEVEL = 'DEBUG'
+DEF_CONF_FILE = 'dr.conf'
+
+
+def main(argv):
+    action, conf_file, log_file, log_level = _init_vars(argv)
+    while not os.path.isfile(conf_file):
+        conf_file = input(
+            "Conf file '" + conf_file + "' does not exist."
+            " Please provide the configuration file location: ")
+
+    if action != 'validate':
+        log_file = log_file.format(int(round(time.time() * 1000)))
+        if log_level not in ['DEBUG', 'INFO', 'WARNING', 'ERROR']:
+            print("ovirt-dr: log level must be 'DEBUG' 'INFO' 'WARNING' 'ERROR'\n"
+                  "Use 'ovirt-dr --help' for more information.")
+            sys.exit(2)
+
+        create_log_dir(log_file)
+        _print_log_file_name(log_file)
+    if action == 'validate':
+        validator.ValidateMappingFile().run(conf_file)
+    elif action == 'generate':
+        generate_vars.GenerateMappingFile().run(conf_file,
+                                                log_file,
+                                                logg.getLevelName(log_level))
+        _print_log_file_name(log_file)
+    elif action == 'failover':
+        fail_over.FailOver().run(conf_file,
+                                 log_file,
+                                 logg.getLevelName(log_level))
+        _print_log_file_name(log_file)
+    elif action == 'failback':
+        fail_back.FailBack().run(conf_file,
+                                 log_file,
+                                 logg.getLevelName(log_level))
+        _print_log_file_name(log_file)
+    elif action == '--help':
+        help_log()
+    else:
+        print("\tError: action '%s' is not defined" % action)
+        help_log()
+
+
+def _print_log_file_name(log_file):
+    if log_file is not None and log_file != '':
+        print("Log file: '%s'" % log_file)
+
+
+def _init_vars(argv):
+    conf_file = DEF_CONF_FILE
+    log_file = ''
+    log_level = ''
+
+    if len(argv) == 0:
+        print("ovirt-dr: missing action operand\n"
+              "Use 'ovirt-dr --help' for more information.")
+        sys.exit(2)
+    action = argv[0]
+
+    try:
+        opts, args = \
+            getopt.getopt(argv[1:], "f:log:level:",
+                          ["conf-file=", "log-file=", "log-level="])
+    except getopt.GetoptError:
+        help_log()
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt in ("-f", "--conf-file"):
+            conf_file = arg
+        if opt in ("-log", "--log-file"):
+            log_file = arg
+        if opt in ("-level", "--log-level"):
+            log_level = arg
+
+    log_file, log_level = _get_log_conf(conf_file, log_file, log_level)
+    return action, conf_file, log_file, log_level.upper()
+
+
+def _get_log_conf(conf_file, log_file, log_level):
+    log_section = "log"
+    log_file_conf = "log_file"
+    log_level_conf = "log_level"
+    while not os.path.isfile(conf_file):
+        conf_file = input(
+            "Conf file '" + conf_file + "' does not exist."
+            " Please provide the configuration file location: ")
+    settings = ConfigParser()
+    settings.read(conf_file)
+    if log_section not in settings.sections():
+        settings.add_section(log_section)
+    if settings.has_option(log_section, log_file_conf) and \
+            (log_file is None or log_file == ''):
+        log_file = settings.get(log_section, log_file_conf)
+    if settings.has_option(log_section, log_level_conf) and \
+            (log_level is None or log_level == ''):
+        log_level = settings.get(log_section, log_level_conf)
+    else:
+        log_level = "DEBUG"
+    return log_file, log_level
+
+
+def create_log_dir(fname):
+    _dir = os.path.dirname(fname)
+    if _dir != '' and not os.path.exists(_dir):
+        os.makedirs(_dir)
+
+
+def help_log():
+    print(
+        '''
+       \tusage: ovirt-dr <%s/%s/%s/%s>
+                        [--conf-file=dr.conf]
+                        [--log-file=log_file.log]
+                        [--log-level=DEBUG/INFO/WARNING/ERROR]\n
+       \tHere is a description of the following actions:\n
+       \t\t%s\tGenerate the mapping var file based on primary setup
+       \t\t%s\tValidate the var file mapping
+       \t\t%s\tStart a failover process to the target setup
+       \t\t%s\tStart a failback process to the source setup
+        ''' % (GENERATE,
+               VALIDATE,
+               FAILOVER,
+               FAILBACK,
+               GENERATE,
+               VALIDATE,
+               FAILOVER,
+               FAILBACK))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

@@ -1,0 +1,19 @@
+- name: "{{'Configure' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Unconfigure' }} all snapshot consistency groups."
+  import_tasks: snapshot/group.yml
+  when: eseries_snapshot_groups | default(False) or eseries_snapshot_remove_unspecified == True
+  tags:
+    - snapshot_group
+
+- name: "{{'Configure' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Unconfigure' }} all snapshot consistency group views."
+  import_tasks: snapshot/view.yml
+  when: eseries_snapshot_views | default(False) or eseries_snapshot_remove_unspecified == True
+  tags:
+    - snapshot_view
+
+- name: Rollback base volumes to point-in-time snapshot images.
+  import_tasks: snapshot/rollback.yml
+  when: 'eseries_remove_all_configuration == False | default(True) and
+         (eseries_snapshot_rollbacks | default(False) or
+          eseries_snapshot_remove_unspecified == True)'
+  tags:
+    - snapshot_rollback

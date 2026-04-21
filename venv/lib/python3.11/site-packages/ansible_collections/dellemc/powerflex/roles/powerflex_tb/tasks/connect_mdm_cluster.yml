@@ -1,0 +1,131 @@
+---
+- name: Get login token
+  ansible.builtin.uri:
+    url: "https://{{ hostname }}:{{ port }}/api/gatewayLogin"
+    validate_certs: "{{ validate_certs }}"
+    user: "{{ username }}"
+    password: "{{ password }}"
+    method: GET
+    force_basic_auth: true
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  run_once: true
+  no_log: true
+  register: powerflex_tb_login_token_response
+
+- name: Get LIA credentials
+  ansible.builtin.uri:
+    url: "https://{{ hostname }}:{{ port }}/api/V1/Credential?filter=eq,label,DELL_POWERFLEX_LIA"
+    method: GET
+    validate_certs: "{{ validate_certs }}"
+    headers:
+      Authorization: "Bearer {{ powerflex_tb_login_token_response.json }}"
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  run_once: true
+  register: powerflex_tb_lia_credentials
+
+- name: Set credential ID
+  ansible.builtin.set_fact:
+    powerflex_tb_lia_credential_id: "{{ powerflex_tb_lia_credentials.json.credentialList[0].credential.id }}"
+  when: powerflex_tb_lia_credentials is defined and powerflex_tb_lia_credentials.json.credentialList | length > 0
+
+- name: Create LIA credentials if not exists
+  when: powerflex_tb_lia_credentials.json.credentialList | length == 0
+  block:
+    - name: Create LIA credentials payload
+      ansible.builtin.set_fact:
+        powerflex_tb_lia_credential:
+          credential:
+            type: "ManagementSystemCredential"
+            label: "DELL_POWERFLEX_LIA"
+            password: "{{ powerflex_lia_token }}"
+            liaPassword: "{{ powerflex_lia_token }}"
+
+    - name: Create LIA credentials
+      ansible.builtin.uri:
+        url: "https://{{ hostname }}:{{ port }}/api/V1/Credential"
+        validate_certs: "{{ validate_certs }}"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ powerflex_tb_login_token_response.json }}"
+          Content-Type: "application/json"
+        body: "{{ powerflex_tb_lia_credential | to_json }}"
+      register: powerflex_tb_lia_create_credentials
+      delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+      run_once: true
+      changed_when: powerflex_tb_lia_create_credentials.status == 200
+
+    - name: Set credential ID
+      ansible.builtin.set_fact:
+        powerflex_tb_lia_credential_id: "{{ powerflex_tb_lia_create_credentials.json.credential.id }}"
+      when: powerflex_tb_lia_create_credentials is defined
+
+- name: Set discovery request payload
+  ansible.builtin.set_fact:
+    discovery_request_payload:
+      discoveryRequestList:
+        DiscoverIPRangeDeviceRequest:
+          - deviceManagementSystemCredRef: "{{ powerflex_tb_lia_credential_id }}"
+            deviceManagementSystemIPAddress: "{{ powerflex_tb_device_management_system_ip_address }}"
+            deviceManagementSystemId: "{{ powerflex_tb_system_id }}"
+            deviceType: "powerflex_management_system"
+            hostName: "block-legacy-gateway"
+            unmanaged: false
+            reserved: false
+            serverPoolId: ""
+            autoConfigureAlerts: true
+            snmpConfigure: true
+  when: powerflex_tb_lia_credentials is defined
+
+- name: Create connect mdm cluster payload
+  ansible.builtin.uri:
+    url: "https://{{ hostname }}:{{ port }}/api/V1/DiscoveryRequest"
+    validate_certs: "{{ validate_certs }}"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ powerflex_tb_login_token_response.json }}"
+      Content-Type: "application/json"
+    body: "{{ discovery_request_payload | to_json }}"
+    status_code: 202
+  when: powerflex_tb_lia_credentials is defined
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  run_once: true
+  register: powerflex_tb_connect_mdm_cluster_output
+  changed_when: powerflex_tb_connect_mdm_cluster_output.status == 202
+
+- name: Extract Job ID from connect mdm cluster output
+  ansible.builtin.set_fact:
+    powerflex_tb_connect_mdm_cluster_job_id: "{{ powerflex_tb_connect_mdm_cluster_output.link | regex_search('Job-[a-zA-Z0-9-]+') }}"
+  when: powerflex_tb_connect_mdm_cluster_output is defined
+
+- name: Track job
+  register: powerflex_tb_connect_mdm_cluster_job_status
+  ansible.builtin.uri:
+    url: "https://{{ hostname }}:{{ port }}/API/V1/JobHistory/{{ powerflex_tb_connect_mdm_cluster_job_id }}/status"
+    validate_certs: "{{ validate_certs }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ powerflex_tb_login_token_response.json }}"
+    status_code: 200
+  run_once: true
+  retries: 5
+  delay: 10
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  when: powerflex_tb_connect_mdm_cluster_job_id is defined
+  until: powerflex_tb_connect_mdm_cluster_job_status.json != "IN_PROGRESS"
+  failed_when: powerflex_tb_connect_mdm_cluster_job_status.json == "FAILED"
+  changed_when: powerflex_tb_connect_mdm_cluster_job_status.json == "SUCCEESSFUL"
+
+- name: Wait for API login call to be successful
+  register: powerflex_tb_api_login
+  ansible.builtin.uri:
+    url: "https://{{ hostname }}:{{ port }}/api/login"
+    user: "{{ username }}"
+    password: "{{ password }}"
+    validate_certs: "{{ validate_certs }}"
+    method: GET
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  run_once: true
+  ignore_errors: true
+  retries: 5
+  delay: 10
+  until: powerflex_tb_api_login.status == 200

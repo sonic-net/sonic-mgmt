@@ -1,0 +1,2 @@
+ovirt-engine-sdk-python>=4.5.0
+ovirt-imageio

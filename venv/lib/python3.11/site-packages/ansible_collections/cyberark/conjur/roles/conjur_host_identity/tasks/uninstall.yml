@@ -1,0 +1,36 @@
+---
+- name: Uninstall Summon
+  block:
+    - name: Clean Summon binary
+      ansible.builtin.file:
+        path: /usr/local/bin/summon
+        state: absent
+    - name: Clean Summon library
+      ansible.builtin.file:
+        path: /usr/local/lib/summon/
+        state: absent
+
+- name: Clean conjur.identity
+  ansible.builtin.file:
+    path: /etc/conjur.identity
+    state: absent
+
+- name: Clean conjur.conf
+  ansible.builtin.file:
+    path: /etc/conjur.conf
+    state: absent
+
+- name: Clean Conjur SSL certificate Symlink
+  ansible.builtin.file:
+    path: /etc/ssl/certs/conjur.crt
+    state: absent
+
+- name: Clean Conjur SSL certificate
+  ansible.builtin.file:
+    path: /etc/conjur.pem
+    state: absent
+
+- name: Remove group conjur
+  ansible.builtin.group:
+    name: conjur
+    state: absent

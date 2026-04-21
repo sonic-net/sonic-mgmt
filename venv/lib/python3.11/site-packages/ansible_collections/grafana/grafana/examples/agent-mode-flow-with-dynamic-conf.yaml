@@ -1,0 +1,12 @@
+- hosts: all
+  tasks:
+    - name: Install Grafana Agent
+      ansible.builtin.include_role:
+        name: grafana.grafana.grafana_agent
+      vars:
+        grafana_agent_mode: flow
+        # Change config file on the host to .river
+        grafana_agent_config_filename: config.river
+        # Remove default flags
+        grafana_agent_flags_extra:
+          server.http.listen-addr: '0.0.0.0:12345'

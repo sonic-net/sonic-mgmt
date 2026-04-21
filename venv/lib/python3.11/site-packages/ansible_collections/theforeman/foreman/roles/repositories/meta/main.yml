@@ -1,0 +1,4 @@
+---
+galaxy_info:
+  description: Define Products and Custom Repositories and enables Red Hat Repositories
+  standalone: false

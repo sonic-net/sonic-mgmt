@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume - Fixed issue that would fail the module in REST when changing `is_online` if two vserver volume had the same name.

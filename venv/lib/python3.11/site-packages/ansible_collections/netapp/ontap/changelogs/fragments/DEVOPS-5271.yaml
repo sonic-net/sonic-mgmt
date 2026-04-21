@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_rest_info -- Will now warn you if a ``gather_subset`` is not supported by your version of ONTAP.
+  - na_ontap_rest_info -- Will now include a message in return output about ``gather_subset`` not supported by your version of ONTAP.

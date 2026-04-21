@@ -1,0 +1,4 @@
+---
+# defaults file for roles/ravendb_python_client_prerequisites
+
+ravendb_venv_path: "{{ ansible_env.HOME }}/.ravendb_ansible"

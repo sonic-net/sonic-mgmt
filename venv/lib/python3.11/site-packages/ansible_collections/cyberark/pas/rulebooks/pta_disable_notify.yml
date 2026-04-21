@@ -1,0 +1,43 @@
+---
+- name: Disable CyberArk User Notification
+  hosts: all
+  connection: local
+
+  tasks:
+
+    - name: Logon to CyberArk Vault using PAS Web Services SDK
+      cyberark.pas.cyberark_authentication:
+        api_base_url: "https://BASE_URL"
+        validate_certs: false
+        username: "USERNAME"
+        password: "PASSWORD"
+
+    - name: Disabling a CyberArk User
+      cyberark.pas.cyberark_user:
+        username: "{{ username | regex_search('.+?(?=\\()') }}"
+        disabled: true
+        cyberark_session: "{{ cyberark_session }}"
+      register: cyberarkaction
+
+    - name: Debug message
+      ansible.builtin.debug:
+        var: cyberarkaction
+
+    - name: Logoff from CyberArk Vault
+      cyberark.pas.cyberark_authentication:
+        state: absent
+        cyberark_session: "{{ cyberark_session }}"
+
+    # - name: Sending an e-mail using Gmail SMTP servers
+    #   community.general.mail:
+    #     host: SMTPSERVER
+    #     port: PORT
+    #     username: username@mail.com
+    #     password: password
+    #     to: First Last <first.last@mail.com>
+    #     subject: Ansible-Rulebook Report
+    #     body: >
+    #       Ansible Rulebook notify of PTA Event {{ username }} - {{ eventname }} -
+    #       from host {{ station }} - For more info please visit -
+    #       {{ eventurl }} - user disabled!
+    #   delegate_to: localhost

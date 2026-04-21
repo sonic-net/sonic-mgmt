@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_quotas - attempt to retry on ``13001:success`` ZAPI error.  Add debug data.

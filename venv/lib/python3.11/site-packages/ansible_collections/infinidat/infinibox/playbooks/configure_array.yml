@@ -1,0 +1,419 @@
+---
+# PSDEV-1108: Create playbook automating cluster configuration mobility.
+- name: Configure an Infinibox Array
+  hosts: localhost
+  gather_facts: false
+  vars_prompt:
+    - name: ad_changes_enabled
+      prompt: Enter true to setup Active Directory?
+      private: false
+  tasks:
+    - name: Configuration
+      ansible.builtin.debug:
+        msg:
+          - "user: {{ user }}"
+          # - "password: {{ password }}"
+          - "system: {{ system }}"
+
+    - name: Pause
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Create temporary setup email notification rule setup_email for addresses {{ setup_alerting_emails }}
+      infinidat.infinibox.infini_notification_rule:
+        name: "setup_email"
+        event_level: "{{ alerting_event_levels }}"
+        include_events: "{{ alerting_includes }}"
+        exclude_events: "{{ alerting_excludes }}"
+        recipients: "{{ setup_alerting_emails }}"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Temporarily remove production email notification rule for {{ prod_alerting_emails }}
+      infinidat.infinibox.infini_notification_rule:
+        name: "production_email"
+        state: "absent"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Configure Single Sign On (SSO)
+      infinidat.infinibox.infini_sso:
+        issuer: http://www.okta.com/exkra32oyyU6KCUCk2p7
+        name: OKTA
+        sign_on_url: https://infinidat.okta.com/app/infinidat_ibox2503_1/exkrwdi7dmXSKdC4l2p7/sso/saml
+        signed_assertion: false
+        signed_response: false
+        signing_certificate: "{{ sso_signing_certificate }}"
+        enabled: true
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Stat Single Sign On (SSO)
+      infinidat.infinibox.infini_sso:
+        name: OKTA
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: sso_stat
+
+    - name: Show sso_stat
+      ansible.builtin.debug:
+        var: sso_stat
+
+    - name: Enable compression
+      infinidat.infinibox.infini_config:
+        config_group: "mgmt"
+        key: "pool.compression_enabled_default"
+        value: true
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Set capacity units
+      infinidat.infinibox.infini_metadata:
+        object_type: "system"
+        key: "ui-dataset-base2-units"
+        value: "{{ use_base2_units }}"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Set dataset default provisioning to {{ dataset_default_provisioning }}
+      infinidat.infinibox.infini_metadata:
+        object_type: "system"
+        key: "ui-dataset-default-provisioning"
+        value: "{{ dataset_default_provisioning }}"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Configure Infinibox - Set maximum export rows to {{ table_export_limit }}
+      infinidat.infinibox.infini_metadata:
+        object_type: "system"
+        key: "ui-table-export-limit"
+        value: "{{ table_export_limit }}"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Configure Infinibox - Setup Active Directory
+      infinidat.infinibox.infini_users_repository:
+        name: "{{ ldap_name }}"
+        bind_password: "tuFrAxahuYe4"
+        bind_username: "conldap"
+        ad_domain_name: "infinidat.com"
+        repository_type: "ActiveDirectory"
+        schema_group_class: "group"
+        schema_group_memberof_attribute: "memberof"
+        schema_group_name_attribute: "cn"
+        schema_groups_basedn: ""
+        schema_user_class: "user"
+        schema_username_attribute: "sAMAccountName"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      when: ad_changes_enabled | bool
+
+    - name: Test user login using Active Directory credentials
+      infinidat.infinibox.infini_user:
+        user_name: "admin"  # Must be an AD account, not local
+        user_password: "123456"
+        state: "login"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Configure 'CO-ReadOnly' LDAP user group
+      infinidat.infinibox.infini_user:
+        user_ldap_group_name: "CO-ReadOnly"
+        user_ldap_group_dn: "CN=Infinidat,OU=Security Groups,OU=Groups,OU=Corp,DC=infinidat,DC=com"
+        user_ldap_group_ldap: "{{ ldap_name }}"
+        user_ldap_group_role: "read_only"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    # - name: Configure 'CO-StorageAdmin' LDAP user group
+    #   infinidat.infinibox.infini_user:
+    #     user_ldap_group_name: "CO-StorageAdmin"
+    #     user_ldap_group_dn: "CN=Infinidat,OU=Security Groups,OU=Groups,OU=Corp,DC=infinidat,DC=com"
+    #     user_ldap_group_ldap: "{{ ldap_name }}"
+    #     user_ldap_group_role: "admin"
+    #     state: "present"
+    #     user: "{{ user }}"
+    #     password: "{{ password }}"
+    #     system: "{{ system }}"
+
+    # - name: Configure 'ETS-CommVault' LDAP user group
+    #   infinidat.infinibox.infini_user:
+    #     user_ldap_group_name: "ETS-CommVault"
+    #     user_ldap_group_dn: "CN=Infinidat,OU=Security Groups,OU=Groups,OU=Corp,DC=infinidat,DC=com"
+    #     user_ldap_group_ldap: "{{ ldap_name }}"
+    #     user_ldap_group_role: "pool_admin"
+    #     user_group_pools: [ "pool-a", "pool-b", "pool-c" ]
+    #     state: "present"
+    #     user: "{{ user }}"
+    #     password: "{{ password }}"
+    #     system: "{{ system }}"
+
+    - name: Set up an admin user
+      infinidat.infinibox.infini_user:
+        user_name: "{{ admin_user_name }}"
+        user_email: "{{ admin_user_email }}"
+        user_password: "{{ admin_user_password }}"
+        user_role: "admin"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove existing syslog notification rules
+      # Rule removal is required since targets cannot be modified if there rules that use them
+      infinidat.infinibox.infini_notification_rule:
+        name: "{{ item.rule_name }}"
+        state: "absent"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      loop:
+        "{{ syslogs }}"
+
+    - name: Create syslog notification targets
+      infinidat.infinibox.infini_notification_target:
+        state: "present"
+        name: "{{ item.target_name }}"
+        protocol: "{{ item.protocol }}"
+        host: "{{ item.host }}"
+        port: "{{ item.port }}"
+        facility: "{{ item.facility }}"
+        transport: "{{ item.transport }}"
+        post_test: "{{ item.post_test }}"  # Force a dummy event for notification to be posted
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      loop:
+        "{{ syslogs }}"
+
+    - name: Create syslog notification rules
+      infinidat.infinibox.infini_notification_rule:
+        name: "{{ item.rule_name }}"
+        target: "{{ item.target_name }}"
+        event_level: "{{ alerting_event_levels }}"
+        include_events: "{{ alerting_includes }}"
+        exclude_events: "{{ alerting_excludes }}"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      loop:
+        "{{ syslogs }}"
+
+    - name: Remove replication network space named Replication
+      infinidat.infinibox.infini_network_space:
+        name: Replication
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Create replication network space named Replication
+      infinidat.infinibox.infini_network_space:
+        name: Replication
+        state: present
+        interfaces:
+          - 80
+          - 81
+          - 82
+        service: RMR_SERVICE
+        netmask: 16
+        network: 172.20.0.0
+        default_gateway: 172.20.95.254
+        # rate_limit: 8
+        # mtu: 1500
+        # async_only: true
+        ips:  # IPs borrowed from https://labs.infinidat.com/gdc/systems/psus-vbox-aws44-1/ip/
+          - 172.20.50.111
+          - 172.20.50.70
+          - 172.20.49.243
+          - 172.20.49.241
+          - 172.20.49.239
+          - 172.20.49.237
+          - 172.20.49.235
+          - 172.20.49.233
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Configure infinimetrics readonly user
+      infinidat.infinibox.infini_user:
+        user_name: "{{ ibox_readonly_user }}"
+        user_email: "{{ ibox_readonly_email }}"
+        user_password: "{{ admin_user_password }}"
+        user_role: "read_only"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove Infinibox from Infinimetrics
+      infinidat.infinibox.infini_infinimetrics:
+        ibox_serial: "{{ ibox_serial }}"
+        imx_system: "{{ imx_system }}"
+        imx_user: "{{ imx_user }}"
+        imx_password: "{{ imx_password }}"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove Infinibox from Infinimetrics again to test idempotency
+      infinidat.infinibox.infini_infinimetrics:
+        ibox_serial: "{{ ibox_serial }}"
+        imx_system: "{{imx_system}}"
+        imx_user: "{{ imx_user }}"
+        imx_password: "{{ imx_password }}"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Add Infinibox to Infinimetrics
+      infinidat.infinibox.infini_infinimetrics:
+        ibox_serial: "{{ ibox_serial }}"
+        ibox_url: "{{ ibox_url }}"
+        ibox_readonly_user: "{{ ibox_readonly_user }}"
+        ibox_readonly_password: "{{ ibox_readonly_password }}"
+        imx_system: "{{imx_system}}"
+        imx_user: "{{ imx_user }}"
+        imx_password: "{{ imx_password }}"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Pause 25 seconds to allow IMX to reflect addition of Infinibox
+      ansible.builtin.pause:
+        seconds: 25
+
+    - name: Add Infinibox to Infinimetrics again to test idempotency
+      infinidat.infinibox.infini_infinimetrics:
+        ibox_serial: "{{ ibox_serial }}"
+        ibox_url: "{{ ibox_url }}"
+        ibox_readonly_user: "{{ ibox_readonly_user }}"
+        ibox_readonly_password: "{{ ibox_readonly_password }}"
+        imx_system: "{{imx_system}}"
+        imx_user: "{{ imx_user }}"
+        imx_password: "{{ imx_password }}"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Create pools
+      infinidat.infinibox.infini_pool:
+        name: "{{ item.name }}"
+        size: "{{ item.size }}"
+        vsize: "{{ item.vsize }}"
+        physical_capacity_warning: "{{ item.physical_capacity_warning }}"
+        physical_capacity_critical: "{{ item.physical_capacity_critical }}"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      loop:
+        - { name: 'CDRFS',       size: "{{ pool_size }}", vsize: "{{ pool_vsize }}", physical_capacity_warning: '100', physical_capacity_critical: '100'}
+        - { name: 'HNS',         size: "{{ pool_size }}", vsize: "{{ pool_vsize }}", physical_capacity_warning: '80',  physical_capacity_critical: '90' }
+        - { name: 'PHYSICAL',    size: "{{ pool_size }}", vsize: "{{ pool_vsize }}", physical_capacity_warning: '80',  physical_capacity_critical: '90' }
+        - { name: 'POWER',       size: "{{ pool_size }}", vsize: "{{ pool_vsize }}", physical_capacity_warning: '80',  physical_capacity_critical: '90' }
+        - { name: 'RECLAIM',     size: "{{ pool_size }}", vsize: "{{ pool_vsize }}", physical_capacity_warning: '80',  physical_capacity_critical: '90' }
+        - { name: 'VIRTUAL',     size: "{{ pool_size }}", vsize: "{{ pool_vsize }}", physical_capacity_warning: '80',  physical_capacity_critical: '90' }
+        - { name: 'VIRTUAL_REP', size: "{{ pool_size }}", vsize: "{{ pool_vsize }}", physical_capacity_warning: '80',  physical_capacity_critical: '90' }
+
+    - name: Set up pool admin user for CDRFS pool
+      infinidat.infinibox.infini_user:
+        user_name: "{{ pool_admin_user_name }}"
+        user_email: "{{ pool_admin_user_email }}"
+        user_password: "{{ pool_admin_user_password }}"
+        user_role: "pool_admin"
+        user_pool: "CDRFS"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Update a fibre channel switch label
+      infinidat.infinibox.infini_fibre_channel_switch:
+        switch_name: VSAN 100
+        new_switch_name: Switch1000
+        state: "rename"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: switch_label_result
+      failed_when: >  # WARNING: This should be removed if the array has FC configured
+        ("Cannot find switch" not in switch_label_result.msg)
+
+    - name: Install SSL certificate
+      infinidat.infinibox.infini_certificate:
+        certificate_file_name: ../signed-certificate-with-pkey.pem
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      when: false
+
+    - name: Pause for a short period since the SSL certificate was updated
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Stat SSL certificate
+      infinidat.infinibox.infini_certificate:
+        state: "stat"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: cert_out
+
+    - name: Show SSL stat
+      ansible.builtin.debug:
+        msg: "{{ cert_out }}"
+
+    - name: Create production email notification rule production_email for addresses {{ prod_alerting_emails }}
+      infinidat.infinibox.infini_notification_rule:
+        name: "production_email"
+        event_level: "{{ alerting_event_levels }}"
+        include_events: "{{ alerting_includes }}"
+        exclude_events: "{{ alerting_excludes }}"
+        recipients: "{{ prod_alerting_emails }}"
+        state: "present"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Configure Infinibox - Post event that Infinibox configuration is complete
+      infinidat.infinibox.infini_event:
+        description_template: Infinibox {{ system }} configuration is complete
+        level: INFO
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: Remove temporary setup email notification rule for {{ setup_alerting_emails }}
+      infinidat.infinibox.infini_notification_rule:
+        name: "setup_email"
+        state: "absent"
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"

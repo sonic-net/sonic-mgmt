@@ -1,0 +1,35 @@
+---
+- name: TB installation
+  hosts: tb
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  gather_facts: true
+  tasks:
+    - name: Install common packages
+      ansible.builtin.import_role:
+        name: powerflex_common
+
+    - name: "Install PowerFlex TieBreaker"
+      ansible.builtin.import_role:
+        name: "powerflex_tb"
+      vars:
+        powerflex_tb_state: present
+      register: powerflex_tb_results
+
+    - name: "Verifying installation package"
+      ansible.builtin.assert:
+        that:
+          - " 'Installed' in powerflex_common_install_package_output.results[0]"
+      when: not ansible_check_mode and powerflex_common_install_package_output.changed
+
+    - name: "Verifying cluster mode switch from 1 node to 3 node MDM cluster"
+      ansible.builtin.assert:
+        that:
+          - powerflex_tb_cluster_to_three_output.stdout == "Successfully switched the cluster mode."
+      when: not ansible_check_mode and powerflex_tb_cluster_to_three_output.changed and powerflex_tb_cluster_mode == "ThreeNodes"
+
+    - name: "Verifying cluster mode switch from 1 node to 5 node MDM cluster"
+      ansible.builtin.assert:
+        that:
+          - powerflex_tb_cluster_to_five_output.stdout == "Successfully switched the cluster mode."
+      when: not ansible_check_mode and powerflex_tb_cluster_to_five_output.changed and powerflex_tb_cluster_mode == "FiveNodes"

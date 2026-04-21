@@ -1,0 +1,173 @@
+---
+- name: NAS Server Module Operations in Unity
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    nas_server_name: "lglad073"
+    nas_server_new_name: "new_lglad073"
+  tasks:
+    - name: Get NAS Server Details using Name
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "{{ nas_server_name }}"
+        state: "present"
+
+    - name: Rename NAS Server to new Name
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "{{ nas_server_name }}"
+        nas_server_new_name: "{{ nas_server_new_name }}"
+        state: "present"
+
+    - name: Rename NAS Server to Old Name
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "{{ nas_server_new_name }}"
+        nas_server_new_name: "{{ nas_server_name }}"
+        state: "present"
+
+    - name: Modify Details of NAS Server
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "{{ nas_server_name }}"
+        current_unix_directory_service: "NONE"
+        is_packet_reflect_enabled: true
+        state: "present"
+
+    - name: Enable replication for NAS Server on Local System
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_id: "nas_10"
+        replication_reuse_resource: false
+        replication_params:
+          replication_name: "test_replication"
+          destination_nas_server_name: "destination_nas"
+          replication_mode: "asynchronous"
+          rpo: 60
+          replication_type: "local"
+          destination_pool_name: "Pool_Ansible_Neo_DND"
+          destination_sp: "SPA"
+          is_backup: true
+        replication_state: "enable"
+        state: "present"
+
+    - name: Enable replication for NAS Server on Remote System
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        replication_reuse_resource: false
+        replication_params:
+          replication_name: "test_replication"
+          destination_nas_server_name: "destination_nas"
+          replication_mode: "asynchronous"
+          rpo: 60
+          replication_type: "remote"
+          remote_system:
+            remote_system_host: '10.*.*.*'
+            remote_system_verifycert: false
+            remote_system_username: 'test1'
+            remote_system_password: 'test1!'
+          destination_pool_name: "fastVP_pool"
+          destination_sp: "SPA"
+          is_backup: true
+        replication_state: "enable"
+        state: "present"
+
+    - name: Enable replication for NAS Server on Remote System in existing NAS Server
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        replication_reuse_resource: true
+        replication_params:
+          destination_nas_server_name: "destination_nas"
+          replication_mode: "asynchronous"
+          rpo: 60
+          replication_type: "remote"
+          replication_name: "test_replication"
+          remote_system:
+            remote_system_host: '10.*.*.*'
+            remote_system_verifycert: false
+            remote_system_username: 'test1'
+            remote_system_password: 'test1!'
+          destination_pool_name: "fastVP_pool"
+        replication_state: "enable"
+        state: "present"
+
+    - name: Modify replication for NAS Server
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        replication_params:
+          replication_name: "test_repl_rename"
+          new_replication_name: "test_replication"
+          rpo: 20
+          replication_mode: "asynchronous"
+        replication_state: "enable"
+        state: "present"
+
+    - name: Modify replication for NAS Server - Idempotency
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        replication_params:
+          replication_name: "test_replication"
+          new_replication_name: "test_repl_rename"
+          rpo: 20
+          replication_mode: "asynchronous"
+        replication_state: "enable"
+        state: "present"
+
+    - name: Disable replication for NAS Server
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        replication_params:
+          replication_name: "test_replication"
+        replication_state: "disable"
+        state: "present"
+
+    - name: Disable replication for NAS Server - Idempotency
+      nasserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "dummy_nas"
+        replication_params:
+          replication_name: "test_replication"
+        replication_state: "disable"
+        state: "present"

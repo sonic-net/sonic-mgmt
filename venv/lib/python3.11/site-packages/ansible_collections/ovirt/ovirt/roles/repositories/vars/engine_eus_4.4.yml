@@ -1,0 +1,4 @@
+---
+ovirt_repositories_subscription_manager_eus_repos:
+  - rhel-8-for-x86_64-baseos-eus-rpms
+  - rhel-8-for-x86_64-appstream-eus-rpms

@@ -1,0 +1,126 @@
+---
+####################################################################
+# Example : Storage Pool Playbook
+####################################################################
+- name: Storage Pool
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Expand storage pool by pool name
+    ####################################################################
+    - name: Expand storage pool by pool name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool:
+        connection_info: "{{ connection_info }}"
+        state: "expand"
+        spec:
+          name: "SP01"
+          drive_ids: ["6a14d3cb-264f-41b1-81c0-cdbfab73d358"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Expand storage pool by pool ID
+    ####################################################################
+    - name: Expand storage pool by pool ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool:
+        connection_info: "{{ connection_info }}"
+        state: "expand"
+        spec:
+          id: "3f9bcecc-9ac5-4c21-abed-5b03e682e7b4"
+          drive_ids: ["6a14d3cb-264f-41b1-81c0-cdbfab73d358"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    # #########################################################################
+    # # Task Name : Edit storage pool settings by ID
+    # #########################################################################
+    - name: Edit storage pool settings by ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "7ab327f8-2a70-4a55-8b32-f14fd5c25a05"
+          rebuild_capacity_policy: "Fixed"
+          number_of_tolerable_drive_failures: 1
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Enable encryption for storage pool by ID
+    ####################################################################
+    - name: Enable encryption for storage pool by ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "b78fe7d7-22f3-4d43-a9cf-81af3b4d7bf6"
+          is_encryption_enabled: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Enable encryption for storage pool by name
+    ####################################################################
+    - name: Enable encryption for storage pool by name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "SP01"
+          is_encryption_enabled: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Disable encryption for storage pool
+    ####################################################################
+    - name: Disable encryption for storage pool
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "SP01"
+          is_encryption_enabled: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Disable encryption for storage pool using ID
+    ####################################################################
+    - name: Disable encryption for storage pool using ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_pool:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "7ab327f8-2a70-4a55-8b32-f14fd5c25a05"
+          is_encryption_enabled: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

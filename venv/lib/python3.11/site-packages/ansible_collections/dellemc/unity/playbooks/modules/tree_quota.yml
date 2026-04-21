@@ -1,0 +1,138 @@
+---
+- name: Tree Quota Operations
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    filesystem_name: "SP_Filesystem_test"
+    filesystem_id: "fs_2279"
+    nas_server_name: "lglad068"
+    path: "/sample_quota"
+    soft_limit: 2
+    state_present: "present"
+    state_absent: "absent"
+
+  tasks:
+    - name: Create quota tree of filesystem
+      register: result
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        path: "{{ path }}"
+        hard_limit: 2
+        cap_unit: "TB"
+        description: "Sample quota tree"
+        state: "{{ state_present }}"
+
+    - name: Set tree_quota_id
+      ansible.builtin.set_fact:
+        tree_quota_id: "{{ result.get_tree_quota_details.id }}"
+
+    - name: Create quota tree of filesystem -- Idempotency
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        path: "{{ path }}"
+        hard_limit: 2
+        cap_unit: "TB"
+        description: "Sample quota tree"
+        state: "{{ state_present }}"
+
+    - name: Get quota tree details by quota tree path
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        path: "{{ path }}"
+        state: "{{ state_present }}"
+
+    - name: Get quota tree details by quota tree id
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        tree_quota_id: "{{ tree_quota_id }}"
+        state: "{{ state_present }}"
+
+    - name: Modify quota tree of filesystem by quota tree path
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        path: "{{ path }}"
+        soft_limit: "{{ soft_limit }}"
+        cap_unit: "TB"
+        description: "Sample quota tree modified"
+        state: "{{ state_present }}"
+
+    - name: Modify quota tree of filesystem -- Idempotency
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        path: "{{ path }}"
+        soft_limit: "{{ soft_limit }}"
+        cap_unit: "TB"
+        description: "Sample quota tree modified"
+        state: "{{ state_present }}"
+
+    - name: Modify quota tree of filesystem by quota tree id
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        tree_quota_id: "{{ tree_quota_id }}"
+        soft_limit: "{{ soft_limit }}"
+        cap_unit: "TB"
+        description: "Sample quota tree modified"
+        state: "{{ state_present }}"
+
+    - name: Delete quota tree of filesystem by quota tree path
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        path: "{{ path }}"
+        state: "{{ state_absent }}"
+
+    - name: Delete quota tree of filesystem -- Idempotency
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        path: "{{ path }}"
+        state: "{{ state_absent }}"
+
+    - name: Delete quota tree of filesystem by quota tree id
+      tree_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        tree_quota_id: "treequota_171798700679_1"
+        state: "{{ state_absent }}"

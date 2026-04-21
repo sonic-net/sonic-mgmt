@@ -1,0 +1,43 @@
+---
+- name: Testing the IBM Storage Virtualize collection ibm_svc_vol_map
+  hosts: localhost
+  vars:
+    clustername: 'clustername'
+    username: 'username'
+    password: 'password'
+    domain: 'domain'
+    test_vdisk: 'vdisk_name'
+    pool: 'pool'
+    test_host: 'host_name'
+    fcwwpn1: 'fcwwpn'
+
+  gather_facts: false
+  connection: local
+  tasks:
+    - name: Create volume
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "{{ test_vdisk }}"
+        state: present
+        pool: "{{ pool }}"
+        size: "1024"
+        unit: "mb"
+    - name: Creating Host
+      ibm.storage_virtualize.ibm_svc_host:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        name: "{{ test_host }}"
+        state: present
+        fcwwpn: "{{ fcwwpn1 }}"
+    - name: Map Host to Vdisk
+      ibm.storage_virtualize.ibm_svc_vol_map:
+        clustername: "{{ clustername }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        volname: "{{ test_vdisk }}"
+        host: "{{ test_host }}"
+        state: present
+        scsi: 0

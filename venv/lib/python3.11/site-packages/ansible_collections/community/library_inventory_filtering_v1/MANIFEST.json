@@ -1,0 +1,33 @@
+{
+ "collection_info": {
+  "namespace": "community",
+  "name": "library_inventory_filtering_v1",
+  "version": "1.1.5",
+  "authors": [
+   "Felix Fontein (github.com/felixfontein)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "inventory",
+   "filtering"
+  ],
+  "description": "Library for inventory plugins in other collections that allows to filter hosts in a generic way.",
+  "license": [
+   "GPL-3.0-or-later"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/ansible-collections/community.library_inventory_filtering",
+  "documentation": null,
+  "homepage": "https://github.com/ansible-collections/community.library_inventory_filtering",
+  "issues": "https://github.com/ansible-collections/community.library_inventory_filtering/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "d091b2f604ef4325c79f7d8da416c91c03686fabdfec30360e5b7c05c5f91f80",
+  "format": 1
+ },
+ "format": 1
+}

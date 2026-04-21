@@ -1,0 +1,68 @@
+---
+####################################################################
+# Example : Quorum Disk Playbook
+####################################################################
+- name: Quorum Disk
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Register Quorum Disk
+    ####################################################################
+    - name: Register Quorum Disk
+      hitachivantara.vspone_block.vsp.hv_quorum_disk:
+        connection_info: "{{ connection_info }}"
+        spec:
+          remote_storage_serial_number: 715036
+          remote_storage_type: M8
+          ldev_id: 3028
+          id: 4
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Deregister Quorum Disk
+    ####################################################################
+    - name: Deregister Quorum Disk
+      hitachivantara.vspone_block.vsp.hv_quorum_disk:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          id: 4
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Register LDEV-less Quorum Disk and auto select free id
+    ####################################################################
+    - name: Register LDEV-less Quorum Disk and auto select free id
+      hitachivantara.vspone_block.vsp.hv_quorum_disk:
+        connection_info: "{{ connection_info }}"
+        spec:
+          remote_storage_serial_number: 715036
+          remote_storage_type: M8
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

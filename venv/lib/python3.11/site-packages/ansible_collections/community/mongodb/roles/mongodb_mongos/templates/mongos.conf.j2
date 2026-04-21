@@ -1,0 +1,34 @@
+systemLog:
+  destination: file
+  path: {{ log_path }}
+  logAppend: true
+  logRotate: reopen
+net:
+{% if bind_ip_all %}
+  bindIpAll: true
+{% else %}
+  bindIp: {{ bind_ip }}
+{% endif %}
+  port: {{ mongos_port }}
+{% if net_compressors %}
+  compression:
+    compressors: {{ net_compressors }}
+{% endif %}
+{% if mongodb_use_tls %}
+  tls:
+    mode: requireTLS
+    certificateKeyFile: {{ mongodb_certificate_key_file }}
+    CAFile: {{ mongodb_certificate_ca_file }}
+{% if mongodb_disabled_tls_protocols != "" %}
+    disabledProtocols: {{ mongodb_disabled_tls_protocols }}
+{% endif %}
+{% if mongodb_allow_connections_without_certificates %}
+    allowConnectionsWithoutCertificates: true
+{% endif %}
+{% endif %}
+sharding:
+  configDB: "{{ config_repl_set_name }}/{{ config_servers }}"
+processManagement:
+  timeZoneInfo: /usr/share/zoneinfo
+security:
+  keyFile: {{ openssl_keyfile_path }}

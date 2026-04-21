@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_net_routes - metric was not always modified with ZAPI.
+  - na_ontap_net_routes - support cluster-scoped routes with REST.

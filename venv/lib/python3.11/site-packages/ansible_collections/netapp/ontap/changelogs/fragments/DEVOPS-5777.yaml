@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - all modules supporting REST - avoid duplicate calls to api/cluster to get ONTAP version.

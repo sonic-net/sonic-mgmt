@@ -1,0 +1,65 @@
+---
+- name: Create iGroup
+  netapp.ontap.na_ontap_igroup:
+    state: present
+    name: "{{ item.name }}"
+    vserver: "{{ item.vserver }}"
+    initiator_group_type: "{{ item.group_type }}"
+    ostype: "{{ item.ostype }}"
+    initiator: "{{ item.initiator }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ igroups }}"
+  when: igroups != None
+- name: Create volume
+  netapp.ontap.na_ontap_volume:
+    state: present
+    name: "{{ item.vol_name }}"
+    aggregate_name: "{{ item.aggr }}"
+    size: "{{ (item.size | int * 1.05) | round(0, 'ceil') | int }}"
+    size_unit: gb
+    space_guarantee: none
+    vserver: "{{ item.vserver }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ luns }}"
+- name: Lun Create
+  netapp.ontap.na_ontap_lun:
+    state: present
+    name: "{{ item.name }}"
+    flexvol_name: "{{ item.vol_name }}"
+    vserver: "{{ item.vserver }}"
+    size: "{{ item.size }}"
+    size_unit: gb
+    ostype: "{{ item.ostype }}"
+    space_reserve: "{{ item.space_reserve }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ luns }}"
+  when: luns != None
+- name: Create LUN mapping
+  netapp.ontap.na_ontap_lun_map:
+    state: present
+    initiator_group_name: "{{ item.igroup }}"
+    path: "/vol/{{ item.vol_name }}/{{ item.name }}"
+    vserver: "{{ item.vserver }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ luns }}"
+  when: luns != None

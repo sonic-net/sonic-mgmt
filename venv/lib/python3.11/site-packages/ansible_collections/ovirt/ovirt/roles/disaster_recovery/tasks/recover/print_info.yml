@@ -1,0 +1,20 @@
+---
+- name: Print report file main block
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    - name: Generate log file through template
+      ansible.builtin.template:
+        src: report_log_template.j2
+        dest: /tmp/{{ dr_report_file }}
+        mode: preserve
+
+    - name: Print report file
+      ansible.builtin.command: cat /tmp/{{ dr_report_file }}
+      changed_when: false
+      register: content
+
+    - name: Print report file to stdout
+      ansible.builtin.debug:
+        msg: "{{ content.stdout_lines | quote }}"

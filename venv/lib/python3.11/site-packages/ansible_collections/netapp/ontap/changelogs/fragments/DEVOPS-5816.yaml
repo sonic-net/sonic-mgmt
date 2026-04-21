@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_cifs - new options ``browsable`` and ``show_previous_versions`` added in REST.

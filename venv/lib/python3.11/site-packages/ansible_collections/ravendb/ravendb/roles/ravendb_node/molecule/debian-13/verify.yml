@@ -1,0 +1,65 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    
+    - name: Load settings.json
+      become: true
+      slurp:
+        src: "/etc/ravendb/settings.json"
+      register: settings_file
+
+    - name: Decode and parse settings.json
+      set_fact:
+        settings: "{{ settings_file['content'] | b64decode | from_json }}"
+
+    - name: Assert that settings override was applied
+      ansible.builtin.assert:
+        that:
+          - settings['Logs.Mode'] == "Information"
+
+    - name: Assert it's unsecured
+      ansible.builtin.assert:
+        that:
+          - settings['ServerUrl'] is not regex('^https:')
+
+    - name: Get service status
+      become: true
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: started
+      register: service_status
+
+    - name: Assert service state
+      ansible.builtin.assert:
+        that:
+          - service_status.status['ActiveState'] == 'active'
+      
+    - name: Check if can get RavenDB studio HTML
+      ansible.builtin.uri:
+        url: http://localhost:8080/studio/index.html
+
+    - name: Get databases
+      ansible.builtin.uri:
+        url: http://localhost:8080/databases
+      register: databases
+
+    - name: Set random DB name
+      set_fact:
+        db_name: "db{{ 1000000 | random }}"
+    
+    - name: Create a database
+      ansible.builtin.uri:
+        url: "http://localhost:8080/admin/databases?name={{ db_name }}&replicationFactor=1"
+        method: PUT
+        body_format: json
+        body: |
+          {
+            "DatabaseName": "{{ db_name }}",
+            "Settings": {}, 
+            "Disabled": false,
+            "Encrypted": false,
+            "Topology": { "DynamicNodesDistribution": false } 
+          }
+        status_code: 201

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - requirements - Update requires_ansible version in meta/runtime.yml to the oldest supported version (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/321).

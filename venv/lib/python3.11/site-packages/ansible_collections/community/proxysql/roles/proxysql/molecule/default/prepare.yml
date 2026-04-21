@@ -1,0 +1,20 @@
+---
+- name: Prepare
+  hosts: all
+  tasks:
+    - name: fix trusty image
+      block:
+
+        - name: remove removed repo
+          file:
+            name: '/etc/apt/sources.list.d/jonathonf-python-2_7-trusty.list'
+            state: absent
+
+        - name: install python-apt
+          apt:
+            name:
+              - python-apt
+              - python-pkg-resources=3.3-1ubuntu1
+            state: present
+
+      when: ansible_lsb.major_release|int == 14

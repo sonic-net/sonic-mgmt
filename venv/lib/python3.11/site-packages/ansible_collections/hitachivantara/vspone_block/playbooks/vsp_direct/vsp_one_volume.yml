@@ -1,0 +1,276 @@
+---
+####################################################################
+# Example : VSP Volume Playbook
+####################################################################
+- name: VSP Volume Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create a basic volume with capacity and pool_id
+    ####################################################################
+    - name: Create a basic volume with capacity and pool_id
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          capacity: 1GB
+          pool_id: 1
+          volume_name:
+            base_name: "DataVol"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create multiple volumes with custom nickname sequence
+    ####################################################################
+    - name: Create multiple volumes with custom nickname sequence
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          number_of_volumes: 3
+          volume_name:
+            base_name: "DataVol"
+            start_number: 10
+            number_of_digits: 3
+          pool_id: 2
+          capacity: 500MB
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create volume with data reduction sharing enabled
+    ####################################################################
+    - name: Create volume with data reduction sharing enabled
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          capacity: 200MB
+          volume_name:
+            base_name: "DataVol"
+          is_data_reduction_share_enabled: true
+          capacity_saving: "deduplication_and_compression"
+          pool_id: 3
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create a single volume with QoS threshold settings
+    ####################################################################
+    - name: Create a single volume with QoS threshold settings
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          capacity: 1GB
+          pool_id: 4
+          volume_name:
+            base_name: "DataVol"
+          qos_settings:
+            threshold:
+              is_upper_iops_enabled: true
+              upper_iops: 2000
+              is_lower_iops_enabled: true
+              lower_iops: 1000
+              is_upper_transfer_rate_enabled: true
+              upper_transfer_rate: 200
+              is_lower_transfer_rate_enabled: false
+              is_response_priority_enabled: true
+              response_priority: 2
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Attach volume to servers
+    ####################################################################
+    - name: Attach volume to servers
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: attach_server
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_id: 1234
+          server_ids:
+            - 1
+            - 2
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Detach volume from servers
+    ####################################################################
+    - name: Detach volume from servers
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: detach_server
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_id: 1234
+          server_ids:
+            - 1
+            - 2
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Change the threshold QOS settings of an existing volume
+    ####################################################################
+    - name: Change the threshold QOS settings of an existing volume
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: change_qos_settings
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_id: 5
+          qos_settings:
+            threshold:
+              is_upper_iops_enabled: true
+              upper_iops: 2000
+              is_lower_iops_enabled: true
+              lower_iops: 1000
+              is_upper_transfer_rate_enabled: true
+              upper_transfer_rate: 200
+              is_lower_transfer_rate_enabled: false
+              is_response_priority_enabled: true
+              response_priority: 2
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Change the alert QOS settings of an existing volume
+    ####################################################################
+    - name: Change the alert QOS settings of an existing volume
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: change_qos_settings
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_id: 5
+          qos_settings:
+            alert_setting:
+              is_upper_alert_enabled: true
+              upper_alert_allowable_time: 10
+              is_lower_alert_enabled: true
+              lower_alert_allowable_time: 20
+              is_response_alert_enabled: true
+              response_alert_allowable_time: 30
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Expand the volume size of an existing volume
+    ####################################################################
+    - name: Expand the volume size of an existing volume
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          capacity: 10GB
+          volume_id: 5
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Change the nickname the Volume settings of an existing volume
+    ####################################################################
+    - name: Change the nickname the Volume settings of an existing volume
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_id: 5
+          volume_name:
+            base_name: "Updated_Volume_Name"
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update the Volume capacity saving and compression_acceleration of an existing volume
+    ####################################################################
+    - name: Update the Volume capacity saving and compression_acceleration of an existing volume
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: present
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_id: 5
+          capacity_saving: "deduplication_and_compression"
+          compression_acceleration: true
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Attach multiple volumes to multiple servers in one operation
+    ####################################################################
+    - name: Attach multiple volumes to multiple servers in one operation
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: server_present
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_ids:
+            - 1234
+            - 5678
+          server_ids:
+            - 1
+            - 2
+            - 3
+
+      register: result
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete volume by volume_id
+    ####################################################################
+    - name: Delete volume by volume_id
+      hitachivantara.vspone_block.vsp.hv_vsp_one_volume:
+        state: absent
+        connection_info: "{{ connection_info }}"
+        spec:
+          volume_id: 1234
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

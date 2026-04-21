@@ -1,0 +1,23 @@
+---
+- name: Template
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Create an configuration_template_project
+      cisco.dnac.configuration_template_project:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        name: Cloud Test Template 5
+      register: configuration_template_project_result
+
+    - name: Show new configuration_template_project
+      ansible.builtin.debug:
+        msg: "{{ configuration_template_project_result }}"
+      when:
+        - configuration_template_project_result is defined

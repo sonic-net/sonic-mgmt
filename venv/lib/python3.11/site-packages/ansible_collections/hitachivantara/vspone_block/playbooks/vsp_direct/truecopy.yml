@@ -1,0 +1,558 @@
+---
+####################################################################
+# Example :  TrueCopy Playbook
+####################################################################
+- name: TrueCopy pair operations module
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+    secondary_connection_info:
+      address: "{{ secondary_storage_address }}"
+      username: "{{ vault_secondary_storage_username }}"
+      password: "{{ vault_secondary_storage_secret }}"
+
+  tasks:
+    #########################################################################
+    # Task Name : Create a TrueCopy pair by specifying only the required fields
+    #########################################################################
+    - name: Create TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "present"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+          primary_volume_id: 188
+          secondary_pool_id: 0
+          secondary_hostgroups:
+            - name: "hostgroup-server1"
+              port: "CL1-A"
+              lun_id: 5
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #######################################################################################
+    # Task Name : Create a TrueCopy pair by specifying the provisioned_secondary_volume_id.
+    # Use this playbook if the secondary volume is already attached to hostgroups or iscsi
+    # targets, and there is no need to attach additional hostgroups or iscsi targets.
+    #######################################################################################
+    - name: Create TrueCopy pair with provisioned_secondary_volume_id
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "present"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+          primary_volume_id: 188
+          provisioned_secondary_volume_id: 188
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #######################################################################################
+    # Task Name : Create a TrueCopy pair by specifying the provisioned_secondary_volume_id.
+    # Use this playbook if the secondary volume is not already attached to hostgroups
+    # or if you want to attach additional hostgroups to the secondary volume.
+    #######################################################################################
+    - name: Create TrueCopy Pair with provisioned_secondary_volume_id and hostgroups
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          copy_group_name: "tc-copy-group-10"
+          copy_pair_name: "tc-copy-pair-10"
+          primary_volume_id: 1361
+          provisioned_secondary_volume_id: 5609
+          secondary_hostgroups:
+            - name: "smrha-2449965918"
+              port: CL2-B
+            - name: "smrha-1840203863"
+              port: CL2-B
+              lun_id: 3
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Create a TrueCopy pair by specifying all the fields
+    #####################################################################
+    - name: Create TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "present"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          copy_pair_name: "tc-copy-pair-2"
+          primary_volume_id: 189
+          secondary_pool_id: 0
+          secondary_hostgroups:
+            - name: "hostgroup-server1"
+              port: "CL1-A"
+              lun_id: 5
+          fence_level: "NEVER"
+          path_group_id: 5
+          local_device_group_name: "ansible-local-device-group-1"
+          remote_device_group_name: "ansible-remote-device-group-1"
+          is_consistency_group: true
+          consistency_group_id: 14
+          do_initial_copy: true
+          copy_pace: "MEDIUM"
+          is_data_reduction_force_copy: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #######################################################################
+    # Task Name : Create a TC pair using a range for secondary volume id
+    #######################################################################
+    - name: Create a TC pair using a range for secondary volume id
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          copy_group_name: TCDemoCopyGroup51
+          copy_pair_name: TCDemoCopyPair52
+          primary_volume_id: 2707
+          begin_secondary_volume_id: 4720
+          end_secondary_volume_id: 4730
+          secondary_hostgroups:
+            - name: "smrha-5565537478"
+              port: CL1-A
+          fence_level: NEVER
+          secondary_pool_id: 0
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    #################################################################################
+    # Task Name : Create a TrueCopy-NVMe pair by specifying only the required fields
+    #################################################################################
+    - name: Create TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "present"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+          primary_volume_id: 188
+          secondary_pool_id: 0
+          secondary_nvm_subsystem:
+            name: gk-nvm-sub-75
+            paths:
+              - "nqn.2014-08.com.ucpa-sc-hv:nvme:gk-test-12346"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ########################################################################
+    # Task Name : Create a TrueCopy-NVMe pair by specifying all the fields
+    ########################################################################
+    - name: Create TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "present"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          copy_pair_name: "tc-copy-pair-2"
+          primary_volume_id: 189
+          secondary_pool_id: 0
+          secondary_nvm_subsystem:
+            name: gk-nvm-sub-75
+            paths:
+              - "nqn.2014-08.com.ucpa-sc-hv:nvme:gk-test-12346"
+          fence_level: "NEVER"
+          path_group_id: 5
+          local_device_group_name: "ansible-local-device-group-1"
+          remote_device_group_name: "ansible-remote-device-group-1"
+          is_consistency_group: true
+          consistency_group_id: 14
+          do_initial_copy: true
+          copy_pace: "MEDIUM"
+          is_data_reduction_force_copy: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##################################################################################
+    # Task Name : Create a TrueCopy-ISCSI pair by specifying only the required fields
+    ##################################################################################
+    - name: Create TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "present"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+          primary_volume_id: 188
+          secondary_pool_id: 0
+          secondary_iscsi_targets:
+            - name: "test"
+              port: "CL1-A"
+              lun_id: 5
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Create a TrueCopy-ISCSI pair by specifying all the fields
+    #########################################################################
+    - name: Create TrueCopy-ISCSI pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "present"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          copy_pair_name: "tc-copy-pair-2"
+          primary_volume_id: 189
+          secondary_pool_id: 0
+          secondary_iscsi_targets:
+            - name: "test"
+              port: "CL1-A"
+              lun_id: 5
+          fence_level: "NEVER"
+          path_group_id: 5
+          local_device_group_name: "ansible-local-device-group-1"
+          remote_device_group_name: "ansible-remote-device-group-1"
+          is_consistency_group: true
+          consistency_group_id: 14
+          do_initial_copy: true
+          copy_pace: "MEDIUM"
+          is_data_reduction_force_copy: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Split TrueCopy pair by specifying only the required fields
+    ######################################################################
+    # To make SVOL readable and writable after the split,
+    # is_svol_readwriteable must be set to true. Default is false.
+    - name: Split TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "split"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+          is_svol_readwriteable: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Split TrueCopy pair
+    #####################################################################
+    - name: Split TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "split"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          copy_pair_name: "tc-copy-pair-2"
+          local_device_group_name: "ansible-local-device-group-1"
+          remote_device_group_name: "ansible-remote-device-group-1"
+          is_svol_readwriteable: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################
+    # Task Name : Split TrueCopy pair by copy_group_name and primary volume ID
+    ################################################################################
+    - name: Split TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "split"
+        spec:
+          copy_group_name: "tc-copy-group-3"
+          primary_volume_id: 188
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #######################################################################
+    # Task Name : Resync TrueCopy pair by copy_group_name and copy_pair_name
+    #######################################################################
+    - name: Resync TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "resync"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Resync TrueCopy pair
+    ######################################################################
+    - name: Resync TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "resync"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          copy_pair_name: "tc-copy-pair-2"
+          local_device_group_name: "ansible-local-device-group-1"
+          remote_device_group_name: "ansible-remote-device-group-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##################################################################################
+    # Task Name : Resync TrueCopy pair by copy_group_name and primary volume ID
+    ##################################################################################
+    - name: Resync TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "resync"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          primary_volume_id: 188
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##############################################################################
+    # Task Name : Swap-Split TrueCopy pair by copy_group_name and copy_pair_name
+    # Storages need to be swapped before swap-split operation. Please
+    # specify connection_info and secondary_connection_info accordingly.
+    ##############################################################################
+    - name: Swap-Split TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_split"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###################################################################################
+    # Task Name : Swap-Split TrueCopy pair
+    #             Storages need to be swapped before swap-split operation. Please specify
+    #             connection_info and secondary_connection_info accordingly.
+    ###################################################################################
+    - name: Swap-Split TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_split"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          copy_pair_name: "tc-copy-pair-2"
+          local_device_group_name: "ansible-local-device-group-1"
+          remote_device_group_name: "ansible-remote-device-group-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################################
+    # Task Name : Swap-Split TrueCopy pair by copy_group_name and primary volume ID
+    #             Storages need to be swapped before swap-split operation. Please specify
+    #             connection_info and secondary_connection_info accordingly.
+    #####################################################################################
+    - name: Swap-Split TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection detailser
+        state: "swap_split"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          primary_volume_id: 188
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ############################################################################
+    # Task Name : Swap-Resync TrueCopy pair by copy_group_name and copy_pair_name
+    #             Similar connection info details as per swap-split
+    ############################################################################
+    - name: Swap-Resync TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_resync"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ############################################################################
+    # Task Name : Swap-Resync TrueCopy pair
+    #             Similar connection info details as per swap-split
+    ############################################################################
+    - name: Swap-Resync TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_resync"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          copy_pair_name: "tc-copy-pair-2"
+          local_device_group_name: "ansible-local-device-group-1"
+          remote_device_group_name: "ansible-remote-device-group-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #######################################################################################
+    # Task Name : Swap-Resync TrueCopy pair by copy_group_name and primary volume ID
+    #             Similar connection info details as per swap-split
+    #######################################################################################
+    - name: Swap-Resync TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ secondary_connection_info }}" # Remote Storage connection details
+        secondary_connection_info: "{{ connection_info }}" # Local Storage connection details
+        state: "swap_resync"
+        spec:
+          copy_group_name: "tc-copy-group-2"
+          primary_volume_id: 188
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ########################################################################
+    # Task Name : Delete TrueCopy pair by copy_group_name and copy_pair_name
+    ########################################################################
+    - name: Delete TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "absent"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+          should_delete_svol: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Delete TrueCopy pair
+    ######################################################################
+    - name: Delete TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "absent"
+        spec:
+          copy_group_name: " tc-copy-group-2"
+          copy_pair_name: "tc-copy-pair-2"
+          local_device_group_name: "ansible-local-device-group-1"
+          remote_device_group_name: "ansible-remote-device-group-1"
+          should_delete_svol: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##################################################################################
+    # Task Name : Delete TrueCopy pair by copy_group_name and primary volume ID
+    ##################################################################################
+    - name: Delete TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "absent"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          primary_volume_id: 188
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################
+    # Task Name : Expand TrueCopy pair
+    ######################################################################
+    - name: Expand TrueCopy pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        state: "expand"
+        spec:
+          copy_group_name: "tc-copy-group-1"
+          copy_pair_name: "tc-copy-pair-1"
+          new_volume_size: "10GB"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

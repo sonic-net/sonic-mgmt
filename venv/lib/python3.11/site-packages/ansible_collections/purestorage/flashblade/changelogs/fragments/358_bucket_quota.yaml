@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_bucket - Resolved issue with removing bucket quota

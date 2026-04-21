@@ -1,0 +1,26 @@
+---
+- name: Converge
+  hosts: all
+  pre_tasks:
+    - name: Update package cache
+      ansible.builtin.package:
+        update_cache: "yes"
+      changed_when: false
+      register: task_result
+      until: task_result is success
+      retries: 10
+      delay: 2
+    - name: Create containerd folder
+      ansible.builtin.file:
+        path: /etc/systemd/system/containerd.service.d
+        state: directory
+        mode: "0755"
+      when: ansible_service_mgr == "systemd"
+    - name: Override file for containerd
+      ansible.builtin.copy:
+        src: files/override.conf
+        dest: /etc/systemd/system/containerd.service.d/override.conf
+        mode: "0644"
+      when: ansible_service_mgr == "systemd"
+  roles:
+    - role: google.cloud.gcloud

@@ -1,0 +1,5 @@
+---
+- name: Install pre-requisite java
+  ansible.builtin.package:
+    name: "java-11-openjdk-headless"
+    state: "present"

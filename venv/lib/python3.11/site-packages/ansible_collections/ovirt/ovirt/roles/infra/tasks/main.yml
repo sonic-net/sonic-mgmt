@@ -1,0 +1,49 @@
+---
+- name: Main block
+  block:
+    - name: Check if mandatory parameters are correct
+      ansible.builtin.fail:
+        msg: "one of mandatory parameter data_center_name or compatibility_version is undefined"
+      when: "data_center_name is undefined or compatibility_version is undefined"
+
+    - name: Get list of oVirt infra hosts we can use throughtout the role
+      ansible.builtin.set_fact:
+        ovirt_infra_hosts: "{{ lookup('vars', hosts_var_name, default=[]) }}"
+
+    - name: Check if hosts are correct
+      ansible.builtin.fail:
+        msg: "'{{ lookup('vars', hosts_var_name) }}' variable does not contain mandatory parameter '{{ item[1] }}'"
+      when: item[1] not in item[0]
+      with_nested:
+        - "{{ ovirt_infra_hosts }}"
+        - ["name"]
+
+    - name: Login to oVirt
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ engine_url | default(lookup('env','OVIRT_URL')) | default(omit) }}"
+        username: "{{ engine_user | default(lookup('env','OVIRT_USERNAME')) | default(omit) }}"
+        hostname: "{{ engine_fqdn | default(lookup('env','OVIRT_HOSTNAME')) | default(omit) }}"
+        password: "{{ engine_password | default(lookup('env','OVIRT_PASSWORD')) | default(omit) }}"
+        ca_file: "{{ engine_cafile | default(lookup('env','OVIRT_CAFILE')) | default(omit) }}"
+        insecure: "{{ engine_insecure | default(true) }}"
+      when: ovirt_auth is undefined or not ovirt_auth
+      register: loggedin
+      tags:
+        - always
+
+    - name: Create infrastrucutre
+      ansible.builtin.import_tasks: create_infra.yml
+      when: data_center_state == 'present'
+
+    - name: Remove infrastrucutre
+      ansible.builtin.import_tasks: remove_infra.yml
+      when: data_center_state == 'absent'
+
+  always:
+    - name: Logout from oVirt
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      when: not loggedin.skipped | default(false)
+      tags:
+        - always

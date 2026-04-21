@@ -1,0 +1,7 @@
+---
+- name: APT - Install Alloy
+  ansible.builtin.apt:
+    deb: "{{ alloy_download_url_deb }}"
+    state: present
+  notify: restart alloy
+  when: __current_deployed_version.stdout is not defined or alloy_version not in __current_deployed_version.stdout

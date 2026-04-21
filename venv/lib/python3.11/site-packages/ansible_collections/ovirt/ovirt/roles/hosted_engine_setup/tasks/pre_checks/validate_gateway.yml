@@ -1,0 +1,25 @@
+---
+- name: Define default gateway
+  block:
+    - name: Get default gateway IPv4
+      ansible.builtin.shell: ip r | grep default | awk '{print $3}'
+      changed_when: true
+      register: get_gateway_4
+      when: he_default_gateway_4 is not defined or he_default_gateway_4 is none or not he_default_gateway_4
+    - name: Get default gateway IPv6
+      ansible.builtin.shell: ip -6 r | grep default | awk '{print $3}'
+      changed_when: true
+      register: get_gateway_6
+      when: he_default_gateway_6 is not defined or he_default_gateway_6 is none or not he_default_gateway_6
+    - name: Set he_gateway
+      ansible.builtin.set_fact:
+        he_gateway: >-
+          {{ get_gateway_4.stdout_lines[0] if get_gateway_4.stdout_lines else
+          get_gateway_6.stdout_lines[0] if get_gateway_6.stdout_lines else
+          ''
+          }}
+      when: he_gateway is not defined or he_gateway is none or not he_gateway|trim
+- name: Fail if there is no gateway
+  ansible.builtin.fail:
+    msg: "No default gateway is defined"
+  when: he_gateway is none or not he_gateway|trim

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_stp - Fix STP check mode bug (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/518).

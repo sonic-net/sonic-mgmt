@@ -1,0 +1,33 @@
+---
+- name: 'Create Compute Resources'  # noqa: args[module]
+  theforeman.foreman.compute_resource:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    name: "{{ item.name }}"
+    description: "{{ item.description | default(omit) }}"
+    organizations: "{{ item.organizations | default(omit) }}"
+    locations: "{{ item.locations | default(omit) }}"
+    provider: "{{ item.provider | default(omit) }}"
+    provider_params: "{{ item.provider_params | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ foreman_compute_resources }}"
+
+- name: 'Create Images'
+  theforeman.foreman.image:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    name: "{{ item.1.name }}"
+    architecture: "{{ item.1.architecture | default(omit) }}"
+    compute_resource: "{{ item.0.name | default(omit) }}"
+    image_password: "{{ item.1.image_password | default(omit) }}"
+    image_username: "{{ item.1.image_username | default(omit) }}"
+    operatingsystem: "{{ item.1.operatingsystem | default(omit) }}"
+    user_data: "{{ item.1.user_data | default(omit) }}"
+    uuid: "{{ item.1.uuid | default(omit) }}"
+    state: "{{ item.1.state | default('present') }}"
+  loop: "{{ foreman_compute_resources | subelements('images', {'skip_missing': True}) }}"
+  no_log: "{{ item.1.image_password is defined }}"

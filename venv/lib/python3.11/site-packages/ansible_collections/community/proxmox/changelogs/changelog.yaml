@@ -1,0 +1,240 @@
+---
+ancestor: null
+releases:
+  0.1.0:
+    changes:
+      release_summary: 'This is the first community.proxmox release. It contains mainly
+        the state of the Proxmox content in community.general 10.6.0.
+
+        The minimum required ansible-core version for community.proxmox is ansible-core
+        2.17, which implies Python 3.7+.
+
+        The minimum required proxmoxer version is 2.0.0.
+
+        '
+    fragments:
+      - 0.1.0.yml
+    release_date: '2025-05-12'
+  1.0.0:
+    changes:
+      breaking_changes:
+        - proxmox - ``update`` and ``force`` are now mutually exclusive (https://github.com/ansible-collections/community.proxmox/pull/92).
+        - proxmox - the default of ``update`` changed from ``false`` to ``true`` (https://github.com/ansible-collections/community.proxmox/pull/92).
+      bugfixes:
+        - proxmox - fix crash in module when the used on an existing LXC container
+          with ``state=present`` and ``force=true`` (https://github.com/ansible-collections/community.proxmox/pull/91).
+      minor_changes:
+        - proxmox - add support for creating and updating containers in the same task
+          (https://github.com/ansible-collections/community.proxmox/pull/92).
+        - proxmox module util - do not hang on tasks that throw warnings (https://github.com/ansible-collections/community.proxmox/issues/96,
+          https://github.com/ansible-collections/community.proxmox/pull/100).
+        - proxmox_kvm - add ``rng0`` option to specify an RNG device (https://github.com/ansible-collections/community.proxmox/pull/18).
+        - proxmox_kvm - remove redundant check for duplicate names as this is allowed
+          by PVE API (https://github.com/ansible-collections/community.proxmox/issues/97,
+          https://github.com/ansible-collections/community.proxmox/pull/99).
+        - proxmox_snap - correctly handle proxmox_snap timeout parameter (https://github.com/ansible-collections/community.proxmox/issues/73,
+          https://github.com/ansible-collections/community.proxmox/issues/95, https://github.com/ansible-collections/community.proxmox/pull/101).
+      release_summary: 'This is the first stable release of the ``community.proxmox``
+        collection since moving from ``community.general``, released on 2025-06-08.
+
+        '
+    fragments:
+      - 1.0.0.yml
+      - 100-proxmox-utils-fix-warnings.yml
+      - 101-proxmox-snap.yml
+      - 10114-proxmox-kvm-add-rng.yml
+      - 91-proxmox-bugfix.yml
+      - 92-proxmox-update.yml
+      - 99-proxmox-kvm-namecheck.yml
+    modules:
+      - description: Schedule VM backups and removing them.
+        name: proxmox_backup_schedule
+        namespace: ''
+      - description: Create and join Proxmox VE clusters.
+        name: proxmox_cluster
+        namespace: ''
+      - description: Retrieve the join information of the Proxmox VE cluster.
+        name: proxmox_cluster_join_info
+        namespace: ''
+    release_date: '2025-06-08'
+  1.0.1:
+    changes:
+      minor_changes:
+        - proxmox module utils - fix handling warnings in LXC tasks (https://github.com/ansible-collections/community.proxmox/pull/104).
+      release_summary: 'This is a minor bugfix release for the ``community.proxmox``
+        collections.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+      - 1.0.1.yml
+      - 104-fix-warnings.yml
+    release_date: '2025-06-09'
+  1.1.0:
+    changes:
+      bugfixes:
+        - proxmox inventory plugin - avoid using deprecated option when templating
+          options (https://github.com/ansible-collections/community.proxmox/pull/108).
+      minor_changes:
+        - proxmox - allow force deletion of LXC containers (https://github.com/ansible-collections/community.proxmox/pull/105).
+        - proxmox - validate the cluster name length (https://github.com/ansible-collections/community.proxmox/pull/119).
+      release_summary: 'This is the minor release of the ``community.proxmox`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+      - 1.1.0.yml
+      - 105-allow-lxc-force-delete.yml
+      - 108--disable_lookups.yml
+      - 119-validate-cluster-name-lengths.yml
+    modules:
+      - description: Management of ACLs for objects in Proxmox VE Cluster.
+        name: proxmox_access_acl
+        namespace: ''
+      - description: Management of HA groups in Proxmox VE Cluster.
+        name: proxmox_cluster_ha_groups
+        namespace: ''
+      - description: Management of HA groups in Proxmox VE Cluster.
+        name: proxmox_cluster_ha_resources
+        namespace: ''
+    release_date: '2025-07-04'
+  1.2.0:
+    changes:
+      minor_changes:
+        - proxmox inventory plugin - always provide basic information regardless of
+          want_facts (https://github.com/ansible-collections/community.proxmox/pull/124).
+        - proxmox_cluster - cluster creation has been made idempotent (https://github.com/ansible-collections/community.proxmox/pull/125).
+        - proxmox_pct_remote - allow forward agent with paramiko (https://github.com/ansible-collections/community.proxmox/pull/130).
+      release_summary: 'This is the minor release of the ``community.proxmox`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+        that have been made after the previous release.'
+    fragments:
+      - 1.2.0.yml
+      - 124-inventory-expose-basic-info.yml
+      - 125-cluster-idempotent.yml
+      - 130-connection-forward-agent.yml
+    modules:
+      - description: Group management for Proxmox VE cluster.
+        name: proxmox_group
+        namespace: ''
+      - description: Manage Proxmox VE nodes.
+        name: proxmox_node
+        namespace: ''
+      - description: User management for Proxmox VE cluster.
+        name: proxmox_user
+        namespace: ''
+    release_date: '2025-07-16'
+  1.3.0:
+    changes:
+      bugfixes:
+        - proxmox_pct_remote connection plugin - avoid deprecated ansible-core paramiko
+          import helper, import paramiko directly instead (https://github.com/ansible-collections/community.proxmox/issues/146,
+          https://github.com/ansible-collections/community.proxmox/pull/151).
+      minor_changes:
+        - proxmox* modules - added fallback environment variables for ``api_token``,
+          ``api_secret``, and ``validate_certs`` (https://github.com/ansible-collections/community.proxmox/issues/63,
+          https://github.com/ansible-collections/community.proxmox/pull/136).
+        - proxmox_cluster_ha_groups - fix idempotency in proxmox_cluster_ha_groups
+          module (https://github.com/ansible-collections/community.proxmox/issues/138,
+          https://github.com/ansible-collections/community.proxmox/pull/139).
+        - proxmox_cluster_ha_resources -  Fix idempotency proxmox_cluster_ha_resources
+          (https://github.com/ansible-collections/community.proxmox/pull/135).
+        - proxmox_kvm - Add missing 'storage' parameter to create_vm()-call.
+        - proxmox_kvm - add new purge parameter to proxmox_kvm module (https://github.com/ansible-collections/community.proxmox/issues/60,
+          https://github.com/ansible-collections/community.proxmox/pull/148).
+      release_summary: 'This is the minor release of the ``community.proxmox`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+      - 1.3.0.yml
+      - 135-fix-idempotency-ha-resources.yml
+      - 136-api-token-env-var-support.yml
+      - 139-ha-group-idempotency.yml
+      - 148-kvm-purge-parameter.yml
+      - 151-connection-paramiko.yml
+      - 152-fix-module_ignores_storage_param.yml
+    modules:
+      - description: Manage storage in PVE clusters and nodes.
+        name: proxmox_storage
+        namespace: ''
+    release_date: '2025-08-12'
+  1.4.0:
+    changes:
+      bugfixes:
+        - proxmox inventory plugin and proxmox module utils - avoid Python 2 compatibility
+          imports (https://github.com/ansible-collections/community.proxmox/pull/175).
+        - proxmox_kvm - remove limited choice for vga option in proxmox_kvm (https://github.com/ansible-collections/community.proxmox/pull/185)
+        - proxmox_kvm, proxmox_template - remove ``ansible.module_utils.six`` dependency
+          (https://github.com/ansible-collections/community.proxmox/pull/201).
+        - proxmox_storage - fixed adding PBS-type storage by ensuring its parameters
+          (server, datastore, etc.) are correctly sent to the Proxmox API (https://github.com/ansible-collections/community.proxmox/pull/171).
+        - proxmox_user - added a third case when testing for not-yet-existant user
+          (https://github.com/ansible-collections/community.proxmox/issues/163)
+        - proxmox_vm_info - do not throw exception when iterating through machines
+          and optional api results are missing (https://github.com/ansible-collections/community.proxmox/pull/191)
+      minor_changes:
+        - proxmox - Add delete parameter to delete settings (https://github.com/ansible-collections/community.proxmox/pull/195).
+        - proxmox_cluster -  Add master_api_password for authentication against master
+          node (https://github.com/ansible-collections/community.proxmox/pull/140).
+        - proxmox_cluster - added link0 and link1 to join command (https://github.com/ansible-collections/community.proxmox/issues/168,
+          https://github.com/ansible-collections/community.proxmox/pull/172).
+        - proxmox_kvm - update description of machine parameter in proxmox_kvm.py
+          (https://github.com/ansible-collections/community.proxmox/pull/186)
+        - proxmox_storage - added `dir` and `zfspool` storage types (https://github.com/ansible-collections/community.proxmox/pull/184)
+        - proxmox_tasks_info - add source option to specify tasks to consider (https://github.com/ansible-collections/community.proxmox/pull/179)
+        - proxmox_template -  Add 'import' to allowed content types of proxmox_template,
+          so disk images and can be used as disk images on VM creation (https://github.com/ansible-collections/community.proxmox/pull/162).
+      release_summary: 'This is the minor release of the ``community.proxmox`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+      - 1.4.0.yml
+      - 140-add-master-api-password.yml
+      - 162-allow-import-content-templates.yml
+      - 163-proxmox-cant-create-user-bugfix.yml
+      - 168-add-link-arguments-to-cluster.yaml
+      - 171.bugfix.yml
+      - 175-imports.yml
+      - 179-add-source-option-to-tasks-info.yaml
+      - 184-add-storage-types.yml
+      - 185-change-vga-option-kvm.yaml
+      - 186-update-description-machine-parameter.yml
+      - 191-vm_info-optional-var-access.yml
+      - 195-proxmox-delete-parameter.yml
+      - 201-six.yml
+    modules:
+      - description: Management of HA rules.
+        name: proxmox_cluster_ha_rules
+        namespace: ''
+      - description: Manage firewall rules in Proxmox.
+        name: proxmox_firewall
+        namespace: ''
+      - description: Manage firewall rules in Proxmox.
+        name: proxmox_firewall_info
+        namespace: ''
+      - description: Retrieve information about IPAMs.
+        name: proxmox_ipam_info
+        namespace: ''
+      - description: Create/Update/Delete subnets from SDN.
+        name: proxmox_subnet
+        namespace: ''
+      - description: Manage virtual networks in Proxmox SDN.
+        name: proxmox_vnet
+        namespace: ''
+      - description: Retrieve information about one or more Proxmox VE SDN vnets.
+        name: proxmox_vnet_info
+        namespace: ''
+      - description: Manage Proxmox zone configurations.
+        name: proxmox_zone
+        namespace: ''
+      - description: Get Proxmox zone info.
+        name: proxmox_zone_info
+        namespace: ''
+    release_date: '2025-10-27'

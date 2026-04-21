@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+if [ ! -d /var/log/mongodb ]; then
+  mkdir -p /var/log/mongodb && chown {{ mongodb_user }}:{{ mongodb_group }} /var/log/mongodb
+fi

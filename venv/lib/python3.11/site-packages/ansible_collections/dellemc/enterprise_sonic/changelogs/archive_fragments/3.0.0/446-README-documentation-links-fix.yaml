@@ -1,0 +1,3 @@
+---
+trivial:
+  - README - Update all links to module documentation to use the new Ansible documentation web site on the galaxy.ansible.com domain(https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/446).

@@ -1,0 +1,7 @@
+---
+- name: APT - Install Loki
+  ansible.builtin.apt:
+    deb: "{{ loki_download_url_deb }}"
+    state: present
+  notify: restart loki
+  when: __current_deployed_version.stdout is not defined or loki_version not in __current_deployed_version.stdout

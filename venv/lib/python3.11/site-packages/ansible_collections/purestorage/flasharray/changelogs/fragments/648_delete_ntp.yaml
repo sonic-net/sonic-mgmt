@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_ntp - Fix issue with deletion of NTP servers

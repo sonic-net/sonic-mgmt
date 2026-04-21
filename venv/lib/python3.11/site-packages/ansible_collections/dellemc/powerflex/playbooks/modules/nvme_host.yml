@@ -1,0 +1,56 @@
+---
+- name: NVMe Host Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    nvme_host_name: test_nvme_host
+    nvme_host_new_name: test_nvme_host_new
+    nqn: nqn
+    max_num_paths: '5'
+    max_num_sys_ports: '12'
+
+  tasks:
+    - name: Create NVMe host
+      dellemc.powerflex.nvme_host:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nqn: "{{ nqn }}"
+        nvme_host_name: "{{ nvme_host_name }}"
+        state: "present"
+
+    - name: Rename nvme_host using NVMe host id
+      dellemc.powerflex.nvme_host:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nvme_host_name: "{{ nvme_host_name }}"
+        nvme_host_new_name: "{{ nvme_host_new_name }}"
+        state: "present"
+
+    - name: Set maximum number of paths per volume and maximum Number of Ports Per Protection Domain of nvme_host
+      dellemc.powerflex.nvme_host:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nvme_host_name: "{{ nvme_host_name }}"
+        max_num_paths: "{{ max_num_paths }}"
+        max_num_sys_ports: "{{ max_num_sys_ports }}"
+        state: "present"
+
+    - name: Remove nvme_host
+      dellemc.powerflex.nvme_host:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nvme_host_name: "{{ nvme_host_name }}"
+        state: "absent"

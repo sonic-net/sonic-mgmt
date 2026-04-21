@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_interfaces - Remove the restriction preventing configuration of interface speed for port channel member interfaces (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/470).

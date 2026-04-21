@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_phonehome - Added ``excludes`` parameter, supported from Purity//FA 6.10.0

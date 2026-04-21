@@ -1,0 +1,6 @@
+minor_changes:
+  - purefa_admin - New module to set global admin settings, inclusing SSO
+deprecated_features:
+  - purefa_sso - Deprecated in favor of M(purefa_admin). Will be removed in Collection 2.0
+known_issues:
+  - purefa_admin - Once `max_login` and `lockout` have been set there is currently no way to rest these to zero except through the FlashArray GUI

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_snapshot - fix cannot modify ``snapmirror_label``, ``expiry_time`` and ``comment`` if not configured in create.

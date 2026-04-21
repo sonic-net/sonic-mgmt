@@ -1,0 +1,111 @@
+# Molecule managed
+
+{% if item.registry is defined %}
+FROM {{ item.registry.url }}/{{ item.image }}
+{% else %}
+FROM {{ item.image }}
+{% endif %}
+ENV container=docker
+
+{# Initial Package Installs and Container Prep #}
+{% if item.image.split(':', 1)[0] in ["ubuntu"] %}
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+     locales software-properties-common rsyslog systemd systemd-cron sudo \
+     iproute2
+RUN sed -i 's/^\($ModLoad imklog\)/#\1/' /etc/rsyslog.conf
+{% elif item.image.split(':', 1)[0] in ["debian"] %}
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       sudo systemd systemd-sysv \
+       build-essential wget
+{% elif item.image.split(':', 1)[0] in ["centos"] %}
+{% if item.image in ["centos:7"] %}
+RUN yum makecache fast && yum -y install deltarpm \
+{% elif item.image in ["centos:8"] %}
+RUN yum makecache --timer \
+{% endif %}
+    && yum -y install epel-release \
+    && yum -y update \
+    && yum -y install sudo which
+{% endif %}
+
+
+{# Install of Python2 #}
+{% if item.image in ["ubuntu:16.04"] %}
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python-setuptools wget \
+    && wget https://bootstrap.pypa.io/get-pip.py \
+    && python get-pip.py
+{% elif item.image in ["debian:9"] %}
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libffi-dev libssl-dev \
+       python-pip python-dev python-setuptools python-wheel
+{% elif item.image in ["centos:7"] %}
+RUN yum -y install python-pip
+{% endif %}
+
+{# Install of Python3 #}
+{% if item.image in ["ubuntu:18.04", "ubuntu:20.04", "ubuntu:24.04", "debian:10", "debian:11", "debian:12"] %}
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       apt-utils python3-setuptools python3-pip
+{% endif %}
+{% if item.image in ["centos:8"] %}
+RUN yum -y install hostname python3 python3-pip
+{% endif %}
+
+{# Steps for cleanup #}
+{% if item.image.split(':', 1)[0] in ["ubuntu", "debian"] %}
+RUN rm -Rf /var/lib/apt/lists/* \
+    && rm -Rf /usr/share/doc && rm -Rf /usr/share/man \
+    && apt-get clean
+{% elif item.image.split(':', 1)[0] in ["centos"] %}
+RUN yum clean all
+{% endif %}
+
+{# Steps for clenaup of systemd #}
+{% if item.image in ["centos:7", "centos:8", "debian:9"] %}
+RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == \
+  systemd-tmpfiles-setup.service ] || rm -f $i; done); \
+  rm -f /lib/systemd/system/multi-user.target.wants/*;\
+  rm -f /etc/systemd/system/*.wants/*;\
+  rm -f /lib/systemd/system/local-fs.target.wants/*; \
+  rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+  rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+  rm -f /lib/systemd/system/basic.target.wants/*;\
+  rm -f /lib/systemd/system/anaconda.target.wants/*; \
+  mkdir -p /run/systemd/system
+{% endif %}
+{% if item.image in ["ubuntu:18.04", "ubuntu:20.04"] %}
+# Remove unnecessary getty and udev targets that result in high CPU usage when using
+# multiple containers with Molecule (https://github.com/ansible/molecule/issues/1104)
+RUN rm -f /lib/systemd/system/systemd*udev* \
+  && rm -f /lib/systemd/system/getty.target
+{% endif %}
+
+
+{% if item.image in ["centos:7", "centos:8"] %}
+# Disable requiretty.
+RUN sed -i -e 's/^\(Defaults\s*requiretty\)/#--- \1/'  /etc/sudoers
+{% endif %}
+
+{% if item.image.split(':', 1)[0] not in ["centos", "debian"] %}
+# Fix potential UTF-8 errors with ansible-test.
+RUN locale-gen en_US.UTF-8
+{% endif %}
+
+# Install Ansible inventory file.
+RUN mkdir -p /etc/ansible
+RUN echo "[local]\nlocalhost ansible_connection=local" > /etc/ansible/hosts
+
+{% if item.image in ["centos:7", "centos:8", "debian:9", "debian:10", "debian:11", "debian:12"] %}
+VOLUME ["/sys/fs/cgroup"]
+{% elif item.image in ["ubuntu:16.04", "ubuntu:18.04", "ubuntu:20.04", "ubuntu:24.04"] %}
+VOLUME ["/sys/fs/cgroup", "/tmp", "/run"]
+{% endif %}
+{% if item.image in ["centos:7", "centos:8"] %}
+CMD ["/usr/sbin/init"]
+{% elif item.image in ["ubuntu:16.04", "ubuntu:18.04", "ubuntu:20.04", "ubuntu:24.04", "debian:9", "debian:10", "debian:11", "debian:12"] %}
+CMD ["/lib/systemd/systemd"]
+{% endif %}

@@ -1,0 +1,10 @@
+---
+minor_changes:
+  - na_ontap_firmware_upgrade - ``reboot_sp`` - reboot service processor before downloading package.
+  - na_ontap_firmware_upgrade - ``rename_package`` - rename file when downloading service processor package.
+  - na_ontap_firmware_upgrade - ``replace_package`` - replace local file when downloading service processor package.
+
+bugfixes:
+  - na_ontap_firmware_upgrade - images are not downloaded, but the module reports success.
+  - na_ontap_user - fixed KeyError if password is not provided.
+  - na_ontap_password - do not error out if password is identical to previous password (idempotency).

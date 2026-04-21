@@ -1,0 +1,110 @@
+---
+####################################################################
+# Example : Storage Node Playbook
+####################################################################
+- name: Storage Node
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ###################################################################
+    # Task Name : Block storage node for maintenance by node ID
+    ###################################################################
+    - name: Block storage node for maintenance by node ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node:
+        connection_info: "{{ connection_info }}"
+        state: "maintenance"
+        spec:
+          id: "3d0997ce-7065-4e4a-9095-4dc62b36f300"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###################################################################
+    # Task Name : Block storage node for maintenance by node name
+    ###################################################################
+    - name: Block storage node for maintenance by node name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node:
+        connection_info: "{{ connection_info }}"
+        state: "maintenance"
+        spec:
+          name: "vssbesxi5"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###################################################################
+    # Task Name : Restore storage node from maintenance by node ID
+    ###################################################################
+    - name: Restore storage node from maintenance by node ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node:
+        connection_info: "{{ connection_info }}"
+        state: "restore"
+        spec:
+          id: "3d0997ce-7065-4e4a-9095-4dc62b36f300"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###################################################################
+    # Task Name : Restore storage node from maintenance by node name
+    ###################################################################
+    - name: Restore storage node from maintenance by node name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node:
+        connection_info: "{{ connection_info }}"
+        state: "restore"
+        spec:
+          name: "vssbesxi5"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################
+    # Task Name : Edit the capacity balancing settings of a storage node by ID
+    ###############################################################################
+    - name: Edit the capacity balancing settings of a storage node by ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          id: "f3d27b43-8763-4638-838c-60cd9aa60805"
+          is_capacity_balancing_enabled: false
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##############################################################################
+    # Task Name : Edit the capacity balancing settings of a storage node by name
+    #############################################################################
+    - name: Edit the capacity balancing settings of a storage node by name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_node:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "SDSB-NODE6"
+          is_capacity_balancing_enabled: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

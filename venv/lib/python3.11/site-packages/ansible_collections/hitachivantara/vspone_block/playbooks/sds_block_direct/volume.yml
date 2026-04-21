@@ -1,0 +1,257 @@
+---
+####################################################################
+# Example : Volume Playbook
+####################################################################
+- name: Volume Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create volume
+    ####################################################################
+    - name: Create volume
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "test-volume1"
+          capacity: "100MB"
+          pool_name: "SP01"
+          capacity_saving: "Compression"
+          compute_nodes: ["compute-node1", "compute-node2"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create volume with QoS parameters
+    ####################################################################
+    - name: Create volume with QoS parameters
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        state: "present"
+        connection_info: "{{ connection_info }}"
+        spec:
+          pool_name: "SP01"
+          name: "SDSB-volume-4"
+          capacity: "100MB"
+          qos_param:
+            upper_limit_for_iops: 100
+            upper_limit_for_transfer_rate_mb_per_sec: 100
+            upper_alert_allowable_time_in_sec: 100
+          compute_nodes: ["compute-node1", "compute-node2"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update volume
+    ####################################################################
+    - name: Update volume
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          id: "df63a5d9-32ea-4ae1-879a-7c23fbc574db"
+          name: "new-test-volume1"
+          capacity_saving: " Compression"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update volume QoS parameters
+    ####################################################################
+    - name: Update volume QoS parameters
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        state: "present"
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "SDSB-volume-4"
+          qos_param:
+            upper_limit_for_iops: 100
+            upper_limit_for_transfer_rate_mb_per_sec: 100
+            upper_alert_allowable_time_in_sec: 100
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Expand volume by name
+    ####################################################################
+    - name: Expand volume by name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "test-volume1"
+          capacity: "500MB"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Expand volume by id
+    ####################################################################
+    - name: Expand volume by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          id: "df63a5d9-32ea-4ae1-879a-7c23fbc574db"
+          capacity: "750GB"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Add volume to compute nodes
+    ####################################################################
+    - name: Add volume to compute nodes
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "add_compute_node"
+          name: "test-volume1"
+          compute_nodes: ["compute-node1", "compute-node2"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Remove volume from compute nodes
+    ####################################################################
+    - name: Remove volume from compute nodes
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          state: "remove_compute_node"
+          name: "test-volume1"
+          compute_nodes: ["compute-node1", "compute-node2"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete volume by name
+    ####################################################################
+    - name: Delete volume by name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: "test-volume1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete volume by id
+    ####################################################################
+    - name: Delete volume by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          id: "df63a5d9-32ea-4ae1-879a-7c23fbc574db"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create a volume in a VPS by VPS name
+    ####################################################################
+    - name: Create a volume in a VPS by VPS name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "test-vps02-volume6"
+          capacity: "100MB"
+          vps_name: "RKD_VPS_02"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Create a volume in a VPS by VPS ID
+    ####################################################################
+    - name: Create a volume in a VPS by VPS ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          name: "test-vps02-volume6"
+          capacity: "100MB"
+          vps_id: "2a843522-a819-47ab-a208-69d190809604"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete volume by name in a VPS by VPS name
+    ####################################################################
+    - name: Delete volume by name in a VPS by VPS name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: "test-vps02-volume6"
+          vps_name: "RKD_VPS_02"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete volume by name in a VPS by VPS ID
+    ####################################################################
+    - name: Delete volume by name in a VPS by VPS ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          name: "test-vps02-volume6"
+          vps_id: "2a843522-a819-47ab-a208-69d190809604"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

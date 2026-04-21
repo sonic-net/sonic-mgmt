@@ -1,0 +1,9 @@
+release_summary: Release fortinet.fortimanager 2.7.0
+minor_changes:
+  - Supported FortiManager 7.6.0. Added 7 new modules.
+  - Supported check mode for all modules except "fmgr_generic".
+    You can use "ansible-playbook -i <your-host-file> <your-playbook> --check" to validate
+    whether your playbook will make any changes to the FortiManager.
+bugfixes:
+  - Fixed Bug in "fmgr_fact"
+  - Improved documentation.

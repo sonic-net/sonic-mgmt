@@ -1,0 +1,8 @@
+---
+- name: Install SDC
+  ansible.builtin.include_tasks: install_sdc.yml
+  when: powerflex_sdc_state == 'present'
+
+- name: Remove SDC
+  ansible.builtin.include_tasks: remove_sdc.yml
+  when: powerflex_sdc_state == 'absent'

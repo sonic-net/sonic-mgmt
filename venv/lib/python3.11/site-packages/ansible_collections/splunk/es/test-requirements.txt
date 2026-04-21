@@ -1,0 +1,8 @@
+# For ansible-tox-linters
+black==23.3.0
+yamllint
+
+# Unit test runner
+pytest-ansible
+pytest-xdist
+pytest-cov

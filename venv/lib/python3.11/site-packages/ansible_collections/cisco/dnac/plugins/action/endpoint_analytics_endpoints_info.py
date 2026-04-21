@@ -1,0 +1,159 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Copyright (c) 2021, Cisco Systems
+# GNU General Public License v3.0+ (see LICENSE or
+# https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+from ansible.plugins.action import ActionBase
+
+try:
+    from ansible_collections.ansible.utils.plugins.module_utils.common.argspec_validate import (
+        AnsibleArgSpecValidator,
+    )
+except ImportError:
+    ANSIBLE_UTILS_IS_INSTALLED = False
+else:
+    ANSIBLE_UTILS_IS_INSTALLED = True
+from ansible.errors import AnsibleActionFail
+from ansible_collections.cisco.dnac.plugins.plugin_utils.dnac import (
+    DNACSDK,
+    dnac_argument_spec,
+)
+
+# Get common arguments specification
+argument_spec = dnac_argument_spec()
+# Add arguments specific for this module
+argument_spec.update(
+    dict(
+        profilingStatus=dict(type="str"),
+        macAddress=dict(type="str"),
+        macAddresses=dict(type="list"),
+        ip=dict(type="str"),
+        deviceType=dict(type="str"),
+        hardwareManufacturer=dict(type="str"),
+        hardwareModel=dict(type="str"),
+        operatingSystem=dict(type="str"),
+        registered=dict(type="bool"),
+        randomMac=dict(type="bool"),
+        trustScore=dict(type="str"),
+        authMethod=dict(type="str"),
+        postureStatus=dict(type="str"),
+        aiSpoofingTrustLevel=dict(type="str"),
+        changedProfileTrustLevel=dict(type="str"),
+        natTrustLevel=dict(type="str"),
+        concurrentMacTrustLevel=dict(type="str"),
+        ipBlocklistDetected=dict(type="bool"),
+        unauthPortDetected=dict(type="bool"),
+        weakCredDetected=dict(type="bool"),
+        ancPolicy=dict(type="str"),
+        limit=dict(type="int"),
+        offset=dict(type="int"),
+        sortBy=dict(type="str"),
+        order=dict(type="str"),
+        include=dict(type="str"),
+        epId=dict(type="str"),
+        headers=dict(type="dict"),
+    )
+)
+
+required_if = []
+required_one_of = []
+mutually_exclusive = []
+required_together = []
+
+
+class ActionModule(ActionBase):
+    def __init__(self, *args, **kwargs):
+        if not ANSIBLE_UTILS_IS_INSTALLED:
+            raise AnsibleActionFail(
+                "ansible.utils is not installed. Execute 'ansible-galaxy collection install ansible.utils'"
+            )
+        super(ActionModule, self).__init__(*args, **kwargs)
+        self._supports_async = False
+        self._supports_check_mode = True
+        self._result = None
+
+    # Checks the supplied parameters against the argument spec for this module
+    def _check_argspec(self):
+        aav = AnsibleArgSpecValidator(
+            data=self._task.args,
+            schema=dict(argument_spec=argument_spec),
+            schema_format="argspec",
+            schema_conditionals=dict(
+                required_if=required_if,
+                required_one_of=required_one_of,
+                mutually_exclusive=mutually_exclusive,
+                required_together=required_together,
+            ),
+            name=self._task.action,
+        )
+        valid, errors, self._task.args = aav.validate()
+        if not valid:
+            raise AnsibleActionFail(errors)
+
+    def get_object(self, params):
+        new_object = dict(
+            profiling_status=params.get("profilingStatus"),
+            mac_address=params.get("macAddress"),
+            mac_addresses=params.get("macAddresses"),
+            ip=params.get("ip"),
+            device_type=params.get("deviceType"),
+            hardware_manufacturer=params.get("hardwareManufacturer"),
+            hardware_model=params.get("hardwareModel"),
+            operating_system=params.get("operatingSystem"),
+            registered=params.get("registered"),
+            random_mac=params.get("randomMac"),
+            trust_score=params.get("trustScore"),
+            auth_method=params.get("authMethod"),
+            posture_status=params.get("postureStatus"),
+            ai_spoofing_trust_level=params.get("aiSpoofingTrustLevel"),
+            changed_profile_trust_level=params.get("changedProfileTrustLevel"),
+            nat_trust_level=params.get("natTrustLevel"),
+            concurrent_mac_trust_level=params.get("concurrentMacTrustLevel"),
+            ip_blocklist_detected=params.get("ipBlocklistDetected"),
+            unauth_port_detected=params.get("unauthPortDetected"),
+            weak_cred_detected=params.get("weakCredDetected"),
+            anc_policy=params.get("ancPolicy"),
+            limit=params.get("limit"),
+            offset=params.get("offset"),
+            sort_by=params.get("sortBy"),
+            order=params.get("order"),
+            include=params.get("include"),
+            ep_id=params.get("epId"),
+            headers=params.get("headers"),
+        )
+        return new_object
+
+    def run(self, tmp=None, task_vars=None):
+        self._task.diff = False
+        self._result = super(ActionModule, self).run(tmp, task_vars)
+        self._result["changed"] = False
+        self._check_argspec()
+
+        self._result.update(dict(dnac_response={}))
+
+        dnac = DNACSDK(params=self._task.args)
+
+        id = self._task.args.get("epId")
+        if id:
+            response = dnac.exec(
+                family="ai_endpoint_analytics",
+                function="get_endpoint_details",
+                params=self.get_object(self._task.args),
+            )
+            self._result.update(dict(dnac_response=response))
+            self._result.update(dnac.exit_json())
+            return self._result
+        if not id:
+            response = dnac.exec(
+                family="ai_endpoint_analytics",
+                function="query_the_endpoints",
+                params=self.get_object(self._task.args),
+            )
+            self._result.update(dict(dnac_response=response))
+            self._result.update(dnac.exit_json())
+            return self._result

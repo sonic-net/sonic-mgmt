@@ -1,0 +1,98 @@
+- name: Using Storage Virtualize collection to extract source cluster config
+  hosts: localhost
+  vars_files:
+    - vars/src_cluster_vars
+  vars:
+    src_file: "vars/src"
+    dest_file: "vars/replication_vars"
+
+  gather_facts: false
+  connection: local
+  tasks:
+
+    - name: Fetch authorization token for source
+      register: svc_token
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ cluster_ip }}"
+        username: "{{ cluster_username }}"
+        password: "{{ cluster_password }}"
+
+    - name: Get details of the cluster
+      register: sysinfo
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ cluster_ip }}"
+        token: "{{ svc_token.token }}"
+        gather_subset: [system, dnsserver, ownershipgroup, usergroup, user, emailserver, emailuser]
+        log_path: /tmp/sysinfo.debug
+
+    - name: Define variables
+      ansible.builtin.set_fact:
+        settable_system_info: {}
+        settable_info_tasks:
+          DnsServer: settable_dns_info
+          Ownershipgroup: settable_ownershipgrp_info
+          UserGrp: settable_usergrp_info
+          User: settable_user_info
+
+    - name: Get settable system parameters from list
+      ansible.builtin.set_fact:
+        settable_system_info: "{{ settable_system_info | combine({item: sysinfo.System[item]}) }}"
+      loop: "{{ settable_fields.System_fields }}"
+      when: sysinfo.System[item] is defined
+
+    - name: Get settable parameters from list
+      ansible.builtin.set_fact:
+        settable_results: "{{ settable_results | default({}) | combine({item.value: sysinfo[item.key] | json_query(req_query)}) }}"
+      vars:
+        req_query: "[*].{ {% for field in settable_fields[item.key ~ '_fields'] %} {{ field }}: {{ field }}{% if not loop.last %},{% endif %}{% endfor %} }"
+      loop: "{{ settable_info_tasks | dict2items }}"
+      when: sysinfo[item.key] is defined
+
+    - name: Get current timestamp
+      ansible.builtin.command: "date '+%Y%m%d%H%M%S'"
+      register: timestamp_output
+      changed_when: false
+
+    - name: Add timestamp to the temp file
+      ansible.builtin.set_fact:
+        src_file: "{{ src_file }}_{{ timestamp_output.stdout }}"
+
+    - name: Create empty file
+      ansible.builtin.file:
+        path: "{{ src_file }}"
+        state: touch
+        force: 'yes'
+        mode: '0600'
+      register: src_creation
+
+    - name: Write content into file
+      ansible.builtin.lineinfile:
+        path: "{{ src_file }}"
+        line: "System: {{ settable_system_info }}\nDnsServer: {{ settable_dns_info }}\nOwnershipGroup: {{ settable_ownershipgrp_info }}\n
+              UserGrp: {{ settable_usergrp_info }}\nUser: {{ settable_user_info }}"
+
+    - name: Read file content
+      register: file_data
+      ansible.builtin.slurp:
+        src: "{{ src_file }}"
+
+    - name: Modify file content
+      ansible.builtin.set_fact:
+        modified_content: "{{ file_data.content | b64decode }}"
+
+    - name: Search and replace strings
+      loop: "{{ search_replace_pairs }}"
+      ansible.builtin.set_fact:
+        modified_content: "{{ modified_content | regex_replace(item.search, item.replace) }}"
+
+    - name: Write modified content to destination file
+      ansible.builtin.copy:
+        content: "{{ modified_content }}"
+        dest: "{{ dest_file }}"
+        force: 'yes'
+        mode: '0600'
+
+    - name: Deleting temporary source file
+      ansible.builtin.file:
+        path: "{{ src_file }}"
+        state: absent

@@ -1,0 +1,3 @@
+minor_changes:
+ - purefa_policy - Add support for FA-files Directory Quotas and associated rules and members
+ - purefa_info - Add high-level count for directory quotas and details for all FA-Files policies

@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_s3user - Fix maximum access_key count logic

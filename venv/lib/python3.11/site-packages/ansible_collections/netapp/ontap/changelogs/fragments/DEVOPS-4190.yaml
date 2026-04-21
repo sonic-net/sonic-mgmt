@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_cifs_server - ``force`` option is supported when state is absent to ignore communication errors.
+bugfixes:
+  - na_ontap_vserver_delete role - delete iSCSI igroups and CIFS server before deleting vserver.

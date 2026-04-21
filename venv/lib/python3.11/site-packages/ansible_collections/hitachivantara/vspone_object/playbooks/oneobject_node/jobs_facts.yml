@@ -1,0 +1,63 @@
+---
+- name: Get jobs facts module
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/oneobject_node_connection_variables.yml
+  vars:
+    connection_info:
+      http_request_timeout: "{{ http_request_timeout }}"
+      http_request_retry_times: "{{ http_request_retry_times }}"
+      http_request_retry_interval_seconds: "{{ http_request_retry_interval_seconds }}"
+      ssl: "{{ ssl }}"
+      cluster_name: "{{ cluster_name }}"
+      region: "{{ region }}"
+      oneobject_node_username: "{{ oneobject_node_username }}"
+      oneobject_node_userpass: "{{ oneobject_node_userpass }}"
+      oneobject_node_client_id: "{{ oneobject_node_client_id }}"
+  tasks:
+    ####################################################################
+    # Task 1 : List all the jobs
+    ####################################################################
+    - name: List all jobs
+      hitachivantara.vspone_object.oneobject_node.hv_jobs_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          # user_id: -468170324
+          # bucket_name: "samplebucketname"
+      register: result
+
+    - name: Display result
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task 2 : Get info of the job by id
+    ####################################################################
+    - name: Get info of the job by id
+      hitachivantara.vspone_object.oneobject_node.hv_jobs_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          query_type: "STATUS"
+          job_id: 766208961
+      register: result
+
+    - name: Display result
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task 3 : List n number of jobs
+    ####################################################################
+    - name: List n number of jobs
+      hitachivantara.vspone_object.oneobject_node.hv_jobs_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          # user_id: -468170324
+          # bucket_name: "samplebucketname"
+          page_size: 5
+      register: result
+
+    - name: Display result
+      ansible.builtin.debug:
+        var: result

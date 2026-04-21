@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_host - Add support for VLAN ID tagging for a host (Requires Purity//FA 6.3.5)

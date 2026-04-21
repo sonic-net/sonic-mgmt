@@ -1,0 +1,22 @@
+server:
+  {{ promtail_server | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% if promtail_positions is defined %}
+positions:
+  {{ promtail_positions | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if promtail_clients is defined %}
+clients:
+  {{ promtail_clients | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if promtail_scrape_configs is defined %}
+scrape_configs:
+  {{ promtail_scrape_configs | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if promtail_limits_config is defined %}
+limits_config:
+  {{ promtail_limits_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}
+{% if promtail_target_config is defined %}
+target_config:
+  {{ promtail_target_config | to_nice_yaml(indent=2,sort_keys=False) | indent(2, False) }}
+{% endif %}

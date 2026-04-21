@@ -1,0 +1,281 @@
+---
+- name: FileSystem Operations
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    filesystem_name: "FS_Ansible"
+    nas_server_name: "lgla**"
+    size: 10
+    pool_name: "Ansible_Unity_SP_2"
+    cap_gb: "GB"
+    description: "Ansible demo"
+    snap_schedule_name_1: "SS9_empty_DesRet_SS"
+    snap_schedule_name_2: "Ansible_vol_snap_schedule1"
+    pool_id: "pool_2"
+    tiering_policy: "LOWEST"
+    is_thin: true
+    data_reduction: true
+    state_present: "present"
+    state_absent: "absent"
+    state_mapped: "mapped"
+    state_unmapped: "unmapped"
+
+  tasks:
+    - name: Create FileSystem
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        pool_name: "{{ pool_name }}"
+        size: "{{ size }}"
+        description: "{{ description }}"
+        snap_schedule_name: "{{ snap_schedule_name_2 }}"
+        state: "{{ state_present }}"
+      register: fs_result
+
+    - name: Create FileSystem - idempotency
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        pool_name: "{{ pool_name }}"
+        size: "{{ size }}"
+        description: "{{ description }}"
+        snap_schedule_name: "{{ snap_schedule_name_2 }}"
+        state: "{{ state_present }}"
+
+    - name: Set filesystem_id
+      ansible.builtin.set_fact:
+        filesystem_id: "{{ fs_result.filesystem_details.id }}"
+
+    - name: Create FileSystem with quota configuration
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "SP_FS_test_quota_config_1"
+        nas_server_name: "{{ nas_server_name }}"
+        pool_id: "{{ pool_id }}"
+        size: "{{ size }}"
+        description: "{{ description }}"
+        quota_config:
+          default_hard_limit: 10
+          grace_period_unit: "minutes"
+          is_user_quota_enabled: true
+          grace_period: 100
+        state: "{{ state_present }}"
+
+    - name: Create FileSystem with quota configuration -- Idempotency
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "SP_FS_test_quota_config_1"
+        nas_server_name: "{{ nas_server_name }}"
+        pool_id: "{{ pool_id }}"
+        size: "{{ size }}"
+        description: "{{ description }}"
+        quota_config:
+          default_hard_limit: 10
+          grace_period_unit: "minutes"
+          is_user_quota_enabled: true
+          grace_period: 100
+        state: "{{ state_present }}"
+
+    - name: Expand FileSystem Size
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        size: 15
+        state: "present"
+
+    - name: Expand FileSystem Size - Idempotency
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        size: 15
+        state: "present"
+
+    - name: Modify FileSystem smb_properties
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        smb_properties:
+          is_smb_op_locks_enabled: true
+          smb_notify_on_change_dir_depth: 5
+          is_smb_notify_on_access_enabled: true
+        state: "present"
+
+    - name: Modify FileSystem smb_properties - Idempotency
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        smb_properties:
+          is_smb_op_locks_enabled: true
+          smb_notify_on_change_dir_depth: 5
+          is_smb_notify_on_access_enabled: true
+        state: "present"
+
+    - name: Modify FileSystem snap schedule
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        snap_schedule_name: "{{ snap_schedule_name_1 }}"
+        state: "{{ state_present }}"
+
+    - name: Modify FileSystem snap schedule - Idempotency
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        snap_schedule_name: "{{ snap_schedule_name_1 }}"
+        state: "{{ state_present }}"
+
+    - name: Remove snap-schedule from filesystem
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        snap_schedule_name: ""
+        state: "{{ state_present }}"
+
+    - name: Get details of FileSystem using id
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        state: "present"
+
+    - name: Delete a FileSystem using id
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        state: "absent"
+
+    - name: Delete a FileSystem using id -Idempotency
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        state: "absent"
+
+    - name: Enable replication for filesystem
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "test_fs_rrepl_repl"
+        nas_server_name: "test_nas1"
+        replication_params:
+          replication_name: "local_repl_new"
+          replication_mode: "asynchronous"
+          replication_type: "remote"
+          rpo: 20
+          remote_system:
+            remote_system_host: '10.*.*.*'
+            remote_system_verifycert: false
+            remote_system_username: 'user'
+            remote_system_password: '**'
+          destination_pool_name: "test_pool"
+        replication_state: "enable"
+        state: "present"
+
+    - name: Enable replication for filesystem - Idempotency
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "test_fs_rrepl_repl"
+        nas_server_name: "test_nas1"
+        replication_params:
+          replication_name: "local_repl_new"
+          replication_mode: "asynchronous"
+          replication_type: "remote"
+          rpo: 20
+          remote_system:
+            remote_system_host: '10.*.*.*'
+            remote_system_verifycert: false
+            remote_system_username: 'user'
+            remote_system_password: '**'
+          destination_pool_name: "test_pool"
+        replication_state: "enable"
+        state: "present"
+
+    - name: Modify replication for filesystem
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "test_fs_rrepl_repl"
+        nas_server_name: "test_nas1"
+        replication_params:
+          replication_name: "local_repl_new"
+          new_replication_name: "local_repl_234"
+          replication_mode: "asynchronous"
+        replication_state: "enable"
+        state: "present"
+
+    - name: Disable replication for filesystem
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "test_fs_rrepl_repl"
+        nas_server_name: "test_nas1"
+        replication_params:
+          replication_name: "local_repl_234"
+        replication_state: "disable"
+        state: "present"
+
+    - name: Disable replication for filesystem - Idempotency
+      filesystem:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "test_fs_rrepl_repl"
+        nas_server_name: "test_nas1"
+        replication_state: "disable"
+        state: "present"

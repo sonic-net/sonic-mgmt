@@ -1,0 +1,12 @@
+---
+- name: Set the name for add_host
+  ansible.builtin.set_fact:
+    he_fqdn_ansible_host: "{{ local_vm_ip.stdout_lines[0] }}"
+- name: Register the engine VM as an ansible host
+  ansible.builtin.import_tasks: add_engine_as_ansible_host.yml
+- name: Sync on engine machine
+  ansible.builtin.command: sync
+  changed_when: true
+  ignore_errors: true
+  ignore_unreachable: true
+  delegate_to: "{{ groups.engine[0] }}"

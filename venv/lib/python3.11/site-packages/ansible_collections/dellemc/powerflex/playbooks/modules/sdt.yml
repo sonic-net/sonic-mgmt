@@ -1,0 +1,93 @@
+---
+- name: SDT Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: "x.x.x.x"
+    username: "admin"
+    password: "Password"
+    validate_certs: false
+    host_port: 443
+    sdt_name: "sdt_example"
+    sdt_new_name: "sdt_new"
+    protection_domain_name: "PD1"
+    sdt_ip1: "172.169.xx.xx"
+    sdt_ip2: "172.169.yy.yy"
+    sdt_ip3: "172.169.zz.zz"
+
+  tasks:
+    - name: Create SDT
+      dellemc.powerflex.sdt:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdt_name: "{{ sdt_name }}"
+        sdt_ip_list:
+          - ip: "{{ sdt_ip1 }}"
+            role: "StorageAndHost"
+          - ip: "{{ sdt_ip2 }}"
+            role: "StorageAndHost"
+        protection_domain_name: "{{ protection_domain_name }}"
+        storage_port: 12200
+        nvme_port: 4420
+        discovery_port: 8009
+        state: "present"
+
+    - name: Rename SDT
+      dellemc.powerflex.sdt:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdt_name: "{{ sdt_name }}"
+        sdt_new_name: "{{ sdt_new_name }}"
+        state: "present"
+
+    - name: Modify SDT port
+      dellemc.powerflex.sdt:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdt_name: "{{ sdt_name }}"
+        nvme_port: 4421
+        discovery_port: 8008
+        state: "present"
+
+    - name: Change maintenance mode
+      dellemc.powerflex.sdt:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdt_name: "{{ sdt_name }}"
+        maintenance_mode: "active"
+        state: "present"
+
+    - name: Set IP and role to SDT
+      dellemc.powerflex.sdt:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdt_name: "{{ sdt_name }}"
+        storage_port: 12200
+        nvme_port: 4420
+        discovery_port: 8009
+        sdt_ip_list:
+          - ip: "{{ sdt_ip1 }}"
+            role: "StorageAndHost"
+          - ip: "{{ sdt_ip3 }}"
+            role: "StorageAndHost"
+        state: "present"
+
+    - name: Remove SDT
+      dellemc.powerflex.sdt:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        sdt_name: "{{ sdt_name }}"
+        state: "absent"

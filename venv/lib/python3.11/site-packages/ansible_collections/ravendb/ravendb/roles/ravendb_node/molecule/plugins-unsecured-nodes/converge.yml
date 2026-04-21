@@ -1,0 +1,99 @@
+---
+- name: Unsecured
+  hosts: all
+  gather_facts: true
+
+  vars:
+    ravendb_state: present
+    ravendb_version: latest
+    ravendb_version_minor: 6.2
+    ravendb_release_channel: stable
+    ravendb_arch: linux-x64
+    ravendb_settings_preset: default
+    ravendb_license_file: "/tmp/license.json"
+    ravendb_settings_override:
+      Security.UnsecuredAccessAllowed: PublicNetwork
+      ServerUrl: "http://0.0.0.0:8080"
+      ServerUrl.Tcp: "tcp://0.0.0.0:38888"
+      PublicServerUrl: "http://{{ ansible_hostname }}:8080"
+      PublicServerUrl.Tcp: "tcp://{{ ansible_hostname }}:38888"
+
+  tasks:
+    - name: "Include ravendb_node"
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+
+    - name: Ensure service is actually up
+      become: true
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: started
+      register: _svc
+
+    - name: Assert service active
+      ansible.builtin.assert:
+        that:
+          - _svc.status.ActiveState == 'active'
+
+    - name: Wait for RavenDB to be responsive (inside container)
+      ansible.builtin.uri:
+        url: http://localhost:8080/studio/index.html
+        status_code: 200
+        validate_certs: no
+      register: _probe
+      retries: 60
+      delay: 2
+      until: _probe.status == 200
+
+- name: Build docker hosts block on controller
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Inspect Docker network (controller)
+      command: docker network inspect ravendbnet
+      changed_when: false
+      register: ravendbnet_inspect
+
+    - name: Build hosts block using container names (controller)
+      set_fact:
+        docker_hosts_block: |-
+          {% set containers = (ravendbnet_inspect.stdout | from_json)[0].Containers | default({}) %}
+          {% for c in containers | dict2items | map(attribute='value') | list | sort(attribute='Name') %}
+          {{ c.IPv4Address.split('/')[0] }} {{ c.Name }}
+          {% endfor %}
+
+- name: Update /etc/hosts inside each container
+  hosts: all
+  gather_facts: no
+  become: true
+  tasks:
+    - name: Append docker hosts block into /etc/hosts (on target)
+      become: true
+      ansible.builtin.shell: |
+        {% for line in hostvars['localhost'].docker_hosts_block.splitlines() %}
+        grep -qxF "{{ line }}" /etc/hosts || echo "{{ line }}" >> /etc/hosts
+        {% endfor %}
+    
+    # ENABLE FOR CI / COMMENT OUT FOR LOCAL TESTING
+    - name: Update /etc/hosts on controller
+      delegate_to: localhost
+      run_once: true
+      become: true
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE RAVENDBNET"
+        block: "{{ hostvars['localhost'].docker_hosts_block | trim }}"
+
+    - name: Verify Studio is reachable from controller for each host
+      delegate_to: localhost
+      become: false
+      ansible.builtin.uri:
+        url: "http://{{ inventory_hostname }}:8080/studio/index.html"
+        method: GET
+        status_code: 200
+        validate_certs: no
+        follow_redirects: all
+      register: verify_result
+      failed_when: verify_result.status != 200
+      changed_when: false

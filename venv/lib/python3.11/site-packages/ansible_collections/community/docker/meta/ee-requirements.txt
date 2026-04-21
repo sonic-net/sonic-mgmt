@@ -1,0 +1,16 @@
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+docker
+urllib3
+requests
+paramiko
+pyyaml
+
+# We assume that EEs are not based on Windows, and have Python >= 3.5.
+# (ansible-builder does not support conditionals, it will simply add
+# the following unconditionally to the requirements)
+#
+# pywin32 ; sys_platform == 'win32'
+# backports.ssl-match-hostname ; python_version < '3.5'

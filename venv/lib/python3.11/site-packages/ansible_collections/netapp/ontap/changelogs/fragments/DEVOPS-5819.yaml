@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_aggregate - try to offline aggregate when disk add operation is in progress in ZAPI.

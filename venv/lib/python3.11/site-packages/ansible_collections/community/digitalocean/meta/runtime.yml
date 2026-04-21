@@ -1,0 +1,120 @@
+requires_ansible: '>=2.9.10'
+action_groups:
+  all:
+    - digital_ocean
+    - digital_ocean_account_facts
+    - digital_ocean_account_info
+    - digital_ocean_balance_info
+    - digital_ocean_block_storage
+    - digital_ocean_cdn_endpoints_info
+    - digital_ocean_cdn_endpoints
+    - digital_ocean_certificate
+    - digital_ocean_certificate_facts
+    - digital_ocean_certificate_info
+    - digital_ocean_database_info
+    - digital_ocean_database
+    - digital_ocean_domain
+    - digital_ocean_domain_facts
+    - digital_ocean_domain_info
+    - digital_ocean_domain_record_info
+    - digital_ocean_domain_record
+    - digital_ocean_droplet
+    - digital_ocean_droplet_info
+    - digital_ocean_firewall
+    - digital_ocean_firewall_facts
+    - digital_ocean_firewall_info
+    - digital_ocean_floating_ip
+    - digital_ocean_floating_ip_facts
+    - digital_ocean_floating_ip_info
+    - digital_ocean_image_facts
+    - digital_ocean_image_info
+    - digital_ocean_kubernetes_info
+    - digital_ocean_kubernetes
+    - digital_ocean_load_balancer
+    - digital_ocean_load_balancer_facts
+    - digital_ocean_load_balancer_info
+    - digital_ocean_monitoring_alerts
+    - digital_ocean_monitoring_alerts_info
+    - digital_ocean_project_info
+    - digital_ocean_project
+    - digital_ocean_region_facts
+    - digital_ocean_region_info
+    - digital_ocean_size_facts
+    - digital_ocean_size_info
+    - digital_ocean_snapshot_facts
+    - digital_ocean_snapshot_info
+    - digital_ocean_snapshot
+    - digital_ocean_spaces_info
+    - digital_ocean_spaces
+    - digital_ocean_sshkey
+    - digital_ocean_sshkey_facts
+    - digital_ocean_sshkey_info
+    - digital_ocean_tag
+    - digital_ocean_tag_facts
+    - digital_ocean_tag_info
+    - digital_ocean_volume_facts
+    - digital_ocean_volume_info
+    - digital_ocean_vpc
+    - digital_ocean_vpc_info
+plugin_routing:
+  modules:
+    digital_ocean:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_account_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_certificate_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_domain_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_firewall_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_floating_ip_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_image_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_load_balancer_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_region_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_size_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_snapshot_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_sshkey_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_tag_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    digital_ocean_volume_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details
+    docker_image_facts:
+      deprecation:
+        removal_version: 2.0.0
+        warning_text: see plugin documentation for details

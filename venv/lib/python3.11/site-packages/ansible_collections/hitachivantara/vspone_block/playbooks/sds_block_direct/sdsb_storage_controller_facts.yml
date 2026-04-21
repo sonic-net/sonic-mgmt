@@ -1,0 +1,44 @@
+---
+####################################################################
+# Example : Storage Controller Facts Playbook
+####################################################################
+- name: Storage Controller Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ####################################################################
+  # Task Name : Get all Storage Controllers
+  ####################################################################
+    - name: Get all Storage Controllers
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_controller_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one Storage Controller by id
+    ####################################################################
+    - name: Get one Storage Controller by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_controller_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "25244614-4af4-4922-839a-8528c9e4fd7f"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

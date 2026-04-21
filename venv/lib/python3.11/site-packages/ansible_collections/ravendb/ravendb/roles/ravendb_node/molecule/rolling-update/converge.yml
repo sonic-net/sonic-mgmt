@@ -1,0 +1,5 @@
+- name: Init (5.4 baseline, reachability, hosts mapping)
+  import_playbook: tasks/init.yml
+
+- name: Run selected rolling upgrade UC
+  import_playbook: "tasks/{{ rolling_uc | default('happy-paths/node-cluster-and-db-online-ok.yml') }}"

@@ -1,0 +1,5 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_block` bugfixes and improves existing functionality."
+bugfixes:
+  - "Resolved various documentation inconsistencies."
+  - "Fixed the mapping lun to multiple HostGroup/Iscsi Target issues for remote replication."

@@ -1,0 +1,13 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    sn: Q4AC-YTF3-WQ66
+  gather_facts: false
+  tasks:
+    - name: Get device's LLDP and CDP neighbors
+      cisco.meraki.devices_lldp_cdp_info:
+        serial: "{{ sn }}"
+      register: result
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

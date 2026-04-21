@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_security_ssh - new option `host_key_algorithms`, requires ONTAP 9.16.1 or later.

@@ -1,0 +1,67 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# Copyright (c) 2021, Cisco Systems
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION = r"""
+---
+module: site_count_info
+short_description: Information module for Site Count
+description:
+  - Get all Site Count.
+  - Get the site count of the specified site's sub-hierarchy
+    inclusive of the provided site .
+version_added: '3.1.0'
+extends_documentation_fragment:
+  - cisco.dnac.module_info
+author: Rafael Campos (@racampos)
+options:
+  headers:
+    description: Additional headers.
+    type: dict
+  siteId:
+    description:
+      - SiteId query parameter. Site instance UUID.
+    type: str
+requirements:
+  - dnacentersdk >= 2.10.1
+  - python >= 3.5
+seealso:
+  - name: Cisco DNA Center documentation for Sites GetSiteCount
+    description: Complete reference of the GetSiteCount
+      API.
+    link: https://developer.cisco.com/docs/dna-center/#!get-site-count
+notes:
+  - SDK Method used are
+    sites.Sites.get_site_count,
+  - Paths used are
+    get /dna/intent/api/v1/site/count,
+"""
+
+EXAMPLES = r"""
+---
+- name: Get all Site Count
+  cisco.dnac.site_count_info:
+    dnac_host: "{{dnac_host}}"
+    dnac_username: "{{dnac_username}}"
+    dnac_password: "{{dnac_password}}"
+    dnac_verify: "{{dnac_verify}}"
+    dnac_port: "{{dnac_port}}"
+    dnac_version: "{{dnac_version}}"
+    dnac_debug: "{{dnac_debug}}"
+    headers: "{{my_headers | from_json}}"
+    siteId: string
+  register: result
+"""
+RETURN = r"""
+dnac_response:
+  description: A dictionary or list with the response returned by the Cisco DNAC Python SDK
+  returned: always
+  type: dict
+  sample: >
+    {
+      "response": 0,
+      "version": "string"
+    }
+"""

@@ -1,0 +1,131 @@
+---
+- name: Initial engine tasks
+  block:
+    - name: Wait for the local VM
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 3600
+    - name: Add an entry for this host on /etc/hosts on the local VM
+      ansible.builtin.lineinfile:
+        dest: /etc/hosts
+        line: >-
+          {{ hostvars[he_ansible_host_name]['he_host_ip'] }} {{ hostvars[he_ansible_host_name]['he_host_address'] }}
+    - name: Set FQDN
+      ansible.builtin.command: hostnamectl set-hostname {{ he_fqdn }}
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+    - name: Force the local VM FQDN to temporary resolve on the natted network address
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ hostvars[he_ansible_host_name]['local_vm_ip']['stdout_lines'][0] }} {{ he_fqdn }} # hosted-engine-setup-{{ hostvars[he_ansible_host_name]['he_local_vm_dir']
+          }}"
+    - name: Reconfigure IPv6 default gateway
+      ansible.builtin.command: ip -6 route add default via "{{ he_ipv6_subnet_prefix + '::1' }}"
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      when: hostvars[he_ansible_host_name]['ipv6_deployment']|bool
+    - name: Restore sshd reverse DNS lookups
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^UseDNS"
+        line: "UseDNS yes"
+    - name: Add lines to answerfile
+      ansible.builtin.lineinfile:
+        path: /root/ovirt-engine-answers
+        line: "{{ item }}"
+      no_log: true
+      with_items:
+        - "OVESETUP_CONFIG/adminPassword=str:{{ he_admin_password }}"
+    - name: Add lines to answerfile
+      ansible.builtin.lineinfile:
+        path: /root/ovirt-engine-answers
+        line: "{{ item }}"
+      no_log: true
+      with_items:
+        - "OVESETUP_DB/password=str:{{ he_db_password }}"
+      when: he_db_password is defined
+    - name: Add lines to answerfile
+      ansible.builtin.lineinfile:
+        path: /root/ovirt-engine-answers
+        line: "{{ item }}"
+      no_log: true
+      with_items:
+        - "OVESETUP_DWH_DB/password=str:{{ he_dwh_db_password }}"
+      when: he_dwh_db_password is defined
+    - name: Add keycloak line to answerfile
+      ansible.builtin.lineinfile:
+        path: /root/ovirt-engine-answers
+        line: "{{ item }}"
+      with_items:
+        - "OVESETUP_CONFIG/keycloakEnable=bool:{{ he_enable_keycloak }}"
+    - name: Enable security policy
+      when: he_apply_openscap_profile|bool or he_enable_fips|bool
+      block:
+        - ansible.builtin.import_tasks: ../get_appliance_dist.yml
+        - name: Apply Security profile
+          block:
+            - name: Import OpenSCAP task
+              ansible.builtin.import_tasks: ../apply_openscap_profile.yml
+              when: he_apply_openscap_profile|bool
+        - name: Enable FIPS on the engine VM
+          ansible.builtin.command: >-
+            fips-mode-setup --enable
+          changed_when: true
+          when: he_enable_fips|bool
+        - name: Reboot the engine VM to apply security rules
+          ansible.builtin.reboot:
+            reboot_timeout: 1200
+        - name: Check if FIPS mode is enabled
+          when: he_enable_fips|bool
+          block:
+            - name: Check if FIPS mode is enabled
+              ansible.builtin.command: sysctl -n crypto.fips_enabled
+              changed_when: true
+              register: he_fips_enabled
+            - name: Enforce FIPS mode
+              ansible.builtin.fail:
+                msg: "FIPS mode is not enabled as required"
+              when: he_fips_enabled.stdout != "1"
+    - name: Include before engine-setup custom tasks files for the engine VM
+      ansible.builtin.include_tasks: "{{ before_engine_setup_item }}"
+      with_fileglob: "hooks/enginevm_before_engine_setup/*.yml"
+      loop_control:
+        loop_var: before_engine_setup_item
+      register: include_before_engine_setup_results
+    - name: Pause the execution to allow the user to configure the bootstrap engine VM
+      when: he_pause_before_engine_setup|bool
+      block:
+        - name: Allow the user to connect to the bootstrap engine VM and change configuration
+          ansible.builtin.debug:
+            msg: >-
+              You can now connect from this host to the bootstrap engine VM using ssh as root
+              and the temporary IP address - {{ hostvars[he_ansible_host_name]['local_vm_ip']['stdout_lines'][0] }}
+        - ansible.builtin.include_tasks: ../pause_execution.yml
+    - name: Restore a backup
+      when: he_restore_from_file is defined and he_restore_from_file
+      block:
+        - ansible.builtin.include_tasks: ../restore_backup.yml
+  rescue:
+    - name: Sync on engine machine
+      ansible.builtin.command: sync
+      changed_when: true
+    - name: Fetch logs from the engine VM
+      ansible.builtin.import_tasks: fetch_engine_logs.yml
+      ignore_errors: true
+      delegate_to: "{{ he_ansible_host_name }}"
+    - name: Get local VM dir path
+      ansible.builtin.set_fact:
+        he_local_vm_dir: "{{ hostvars[he_ansible_host_name]['he_local_vm_dir'] }}"
+    - name: Clean bootstrap engine VM
+      ansible.builtin.import_tasks: ../clean_localvm_dir.yml
+      delegate_to: "{{ he_ansible_host_name }}"
+    - name: Clean local storage pools
+      ansible.builtin.import_tasks: ../clean_local_storage_pools.yml
+      delegate_to: "{{ he_ansible_host_name }}"
+    - name: Notify the user about a failure
+      ansible.builtin.fail:
+        msg: >
+          There was a failure deploying the engine on the local engine VM.
+          The system may not be provisioned according to the playbook
+          results: please check the logs for the issue,
+          fix accordingly or re-deploy from scratch.

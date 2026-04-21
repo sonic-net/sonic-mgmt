@@ -1,0 +1,45 @@
+---
+####################################################################
+# Example : External Path Group facts Playbook
+####################################################################
+- name: External Path Group facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all External Path Groups
+    ####################################################################
+    - name: Get all External Path Groups
+      hitachivantara.vspone_block.vsp.hv_external_path_group_facts:
+        connection_info: "{{ connection_info }}"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get a specific External Path Group
+    ####################################################################
+    - name: Get a specific External Path Group
+      hitachivantara.vspone_block.vsp.hv_external_path_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          external_path_group_id: 1
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

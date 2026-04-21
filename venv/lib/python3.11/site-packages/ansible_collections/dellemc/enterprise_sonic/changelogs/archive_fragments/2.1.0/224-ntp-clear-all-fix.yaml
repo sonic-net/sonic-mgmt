@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_ntp - fixed the issue (GitHub issue#205) with NTP clear all without config given (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/224)

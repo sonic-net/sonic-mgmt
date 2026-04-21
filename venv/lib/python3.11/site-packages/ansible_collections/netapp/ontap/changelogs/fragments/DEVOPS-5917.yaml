@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_security_config - new option ``supported_cipher_suites`` added in REST.
+  - na_ontap_security_config - Replaced private cli with REST API for GET and PATCH.
+  - na_ontap_security_config - Added support for protocol version ``TLSV1.3``.

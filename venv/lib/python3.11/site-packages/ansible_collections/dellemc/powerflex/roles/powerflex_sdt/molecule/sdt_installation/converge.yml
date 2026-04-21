@@ -1,0 +1,58 @@
+---
+- name: Molecule Test for installation of SDT
+  hosts: sdt
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+
+  tasks:
+    - name: Install and configure Powerflex SDT
+      ansible.builtin.import_role:
+        name: powerflex_sdt
+      vars:
+        powerflex_sdt_state: present
+
+    - name: Verifying install package in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_install_package_output.msg == "Check mode: No changes made"
+      when: ansible_check_mode
+
+    - name: Verifying add sdt in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_add_sdt_result.msg == "Check mode: No changes made"
+      when: ansible_check_mode
+
+    - name: Verifying installation package in converge mode
+      ansible.builtin.assert:
+        that:
+          - not powerflex_common_install_package_output.failed
+          - powerflex_common_install_package_output.state == "present"
+      when:
+        - not ansible_check_mode
+        - powerflex_common_install_package_output.changed
+
+    - name: Verifying add sdt in converge mode
+      ansible.builtin.assert:
+        that:
+          - not powerflex_add_sdt_result.failed
+      when:
+        - not ansible_check_mode
+        - powerflex_add_sdt_result.changed
+
+    - name: Verifying installation package in Idempotency mode
+      ansible.builtin.assert:
+        that:
+          - not powerflex_common_install_package_output.failed
+          - powerflex_common_install_package_output.state == "present"
+      when:
+        - not ansible_check_mode
+        - not powerflex_common_install_package_output.changed
+
+    - name: Verifying add sdt in Idempotency mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_add_sdt_result.rc == 7
+      when:
+        - not ansible_check_mode
+        - not powerflex_add_sdt_result.changed

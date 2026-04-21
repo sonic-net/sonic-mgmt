@@ -1,0 +1,9 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get all organizations _configtemplates
+      cisco.meraki.organizations_config_templates_info:
+        meraki_suppress_logging: true
+        organizationId: "828099381482762270"
+      register: result

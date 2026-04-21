@@ -1,0 +1,667 @@
+##################################################################################################
+# playbooks/connection_string.yml
+#
+# Purpose: Demonstrate common usage patterns for the RavenDB connection_string module
+#
+# What it does:
+#   - Creates or deletes connection strings for supported providers:
+#       * RAVEN, SQL, OLAP, ELASTIC_SEARCH, QUEUE, SNOWFLAKE, AI
+#   - Supports secured server connections (HTTPS) with client certs and optional CA verification
+#   - Supports check mode to simulate create/delete without applying changes
+#
+# Notes:
+#   - Idempotency model:*by name
+#       * state: present → creates when absent; if item already exists, it is left unchanged (no in-place updates)
+#       * state: absent  → deletes when present
+#   - Secret handling in properties:
+#       * Secrets (e.g., keys, tokens) may be inline or loaded from files.
+#       * Use Ansible lookups to load a secret from a controller-side file (see examples below).
+#   - All snippets here support check mode can be run with `check_mode: yes`
+#
+# See the module documentation for more details: plugins/modules/connection_string.py
+##################################################################################################
+
+
+# -----------------------------------------------------------------------------------------------
+# Raven CS - create/delete (+ check mode)
+# -----------------------------------------------------------------------------------------------
+
+- name: Create Raven connection string (check mode)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    properties:
+      database: "my_database"
+      urls:
+        - "http://192.168.100.15:8080"
+    state: present
+  check_mode: yes
+
+- name: Create Raven connection string
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    properties:
+      database: "my_database"
+      urls:
+        - "http://192.168.100.15:8080"
+    state: present
+
+- name: Delete Raven CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    state: absent
+  check_mode: yes
+
+- name: Delete Raven CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "raven_cs"
+    cs_type: "RAVEN"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# SQL CS
+# -----------------------------------------------------------------------------------------------
+
+- name: Create SQL connection string
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "sql_cs"
+    cs_type: "SQL"
+    properties:
+      connection_string: "Server=sql.local;Database=db;User Id=user;Password=pass;"
+      factory_name: "System.Data.SqlClient"
+    state: present
+  register: sql_created
+
+# -----------------------------------------------------------------------------------------------
+# OLAP CS - Local & S3 variants (incl. loading secrets from controller-side files)
+# -----------------------------------------------------------------------------------------------
+
+- name: Create OLAP (Local) connection string
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_local_cs"
+    cs_type: "OLAP"
+    properties:
+      local_settings:
+        disabled: false
+        folder_path: "/var/backups/olap"
+    state: present
+
+- name: OLAP S3 CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_s3"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+    state: present
+
+- name: OLAP S3 CS (key from file)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_s3_from_file"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        aws_access_key: "{{ lookup('ansible.builtin.file', '/tmp/aws_access_key.txt') | trim }}"
+        aws_secret_key: "SECRET..."
+    state: present
+
+- name: OLAP S3 CS custom host
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_s3_custom_host"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        custom_server_url: "https://s3.amazonaws.com"
+        force_path_style: false
+    state: present
+
+- name: OLAP S3 CS custom host (force path style)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_s3_custom_host_force_path_style"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        custom_server_url: "https://s3.amazonaws.com"
+        force_path_style: true
+    state: present
+
+- name: OLAP Local+S3 CS (hybrid)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_lp_s3"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        custom_server_url: "https://s3.amazonaws.com"
+        force_path_style: true
+      local_settings:
+        disabled: false
+        folder_path: "/var/backups/olap"
+    state: present
+
+- name: OLAP Local+S3 CS - Local disabled
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_lp_s3_lp_disabled"
+    cs_type: "OLAP"
+    properties:
+      s3_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        bucket_name: "my-bucket"
+        remote_folder_name: "olap/"
+        custom_server_url: "https://s3.amazonaws.com"
+        force_path_style: true
+      local_settings:
+        disabled: true
+        folder_path: "/var/backups/olap"
+    state: present
+
+- name: OLAP Azure Blob CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_azure"
+    cs_type: "OLAP"
+    properties:
+      azure_settings:
+        disabled: false
+        storage_container: "mycontainer"
+        remote_folder_name: "olap/"
+        account_name: "mystorage"
+        account_key: "account-key"
+    state: present
+
+- name: OLAP Azure Blob CS (from script)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_azure_from_script"
+    cs_type: "OLAP"
+    properties:
+      azure_settings:
+        disabled: false
+        overriding_external_script:
+          exec: "/usr/local/bin/prepare.sh" # host-side script to prepare connection (e.g., fetch keys)
+          arguments: "--target azure"
+          timeout_in_ms: 30000
+    state: present
+
+- name: OLAP Glacier CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_glacier"
+    cs_type: "OLAP"
+    properties:
+      glacier_settings:
+        disabled: false
+        aws_access_key: "AKIA..."
+        aws_secret_key: "SECRET..."
+        aws_region_name: "us-east-1"
+        remote_folder_name: "olap/"
+        vault_name: "my-vault"
+    state: present
+
+- name: OLAP Glacier CS (from script)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_glacier_from_script"
+    cs_type: "OLAP"
+    properties:
+      glacier_settings:
+        disabled: false
+        overriding_external_script:
+          exec: "/usr/local/bin/prepare.sh"
+          arguments: "--target glacier"
+          timeout_in_ms: 30000
+    state: present
+
+- name: OLAP GCS CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_gcs"
+    cs_type: "OLAP"
+    properties:
+      google_cloud_settings:
+        disabled: false
+        bucket_name: "my-gcs-bucket"
+        remote_folder_name: "olap/"
+        google_credentials_json: '{"type":"service_account","project_id":"my-proj"}'
+    state: present
+
+- name: OLAP FTP CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_ftp"
+    cs_type: "OLAP"
+    properties:
+      ftp_settings:
+        disabled: false
+        url: "ftp://example.com/backups"
+        user_name: "ftpuser"
+        password: "ftppass"
+        certificate_as_base64: "BASE64CERT=="
+    state: present
+
+- name: OLAP FTP CS (from script)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_ftp_from_script"
+    cs_type: "OLAP"
+    properties:
+      ftp_settings:
+        disabled: false
+        overriding_external_script:
+          exec: "/usr/local/bin/prepare.sh"
+          arguments: "--target ftp"
+          timeout_in_ms: 30000
+    state: present
+
+- name: Delete OLAP CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "olap_local_cs"
+    cs_type: "OLAP"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# Elastic Search CS - basic & auth variants
+# -----------------------------------------------------------------------------------------------
+
+- name: Elastic CS (create)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "elastic"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+    state: present
+
+- name: Elastic CS API Key
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "elastic_api_key"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+      authentication:
+        api_key:
+          api_key_id: "id123"
+          api_key: "secret"
+    state: present
+
+- name: Elastic CS encoded API Key
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "elastic_encoded_api_key"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+      authentication:
+        api_key:
+          api_key_id: "id456"
+          encoded_api_key: "ZXhhbXBsZS1lbmNvZGVk"
+    state: present
+
+- name: Elastic CS Basic
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "elastic_basic"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+      authentication:
+        basic:
+          username: "elastic"
+          password: "password"
+    state: present
+
+- name: Elastic CS Certificate
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "elastic_cert"
+    cs_type: "ELASTIC_SEARCH"
+    properties:
+      nodes:
+        - "http://localhost:9200"
+      authentication:
+        certificate:
+          certificates_base64:
+            - "{{ lookup('ansible.builtin.file', '/tmp/client.pfx.b64') | trim }}"
+    state: present
+
+- name: Delete Elastic CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "elastic"
+    cs_type: "ELASTIC_SEARCH"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# Queue CS - Kafka / RabbitMQ / Azure Queue Storage / Amazon SQS
+# -----------------------------------------------------------------------------------------------
+
+- name: Queue Kafka CS (create)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_kafka"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "KAFKA"
+      kafka_settings:
+        bootstrap_servers: "localhost:9092"
+    state: present
+
+- name: Queue Kafka CS with connection options
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_kafka_co"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "KAFKA"
+      kafka_settings:
+        bootstrap_servers: "localhost:9092"
+        connection_options:
+          acks: "all"
+          batch.size: "16384"
+    state: present
+
+- name: Queue RabbitMQ CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_rabbit"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "RABBIT_MQ"
+      rabbit_mq_settings:
+        connection_string: "amqp://guest:guest@localhost:5672/"
+    state: present
+
+- name: Queue Azure QS (Entra ID) CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_azq_entra"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AZURE_QUEUE_STORAGE"
+      azure_queue_storage_settings:
+        entra_id:
+          storage_account_name: "mystorage"
+          tenant_id: "tenant-id"
+          client_id: "client-id"
+          client_secret: "client-secret"
+    state: present
+
+- name: Queue Azure QS (Passwordless) CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_azq_pwless"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AZURE_QUEUE_STORAGE"
+      azure_queue_storage_settings:
+        passwordless:
+          storage_account_name: "mystorage"
+    state: present
+
+- name: Queue Azure QS (ConnString) CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_azq_conn"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AZURE_QUEUE_STORAGE"
+      azure_queue_storage_settings:
+        connection_string: "DefaultEndpointsProtocol=https;AccountName=acc;AccountKey=key;EndpointSuffix=core.windows.net"
+    state: present
+
+- name: Queue Amazon SQS CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_sqs"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AMAZON_SQS"
+      amazon_sqs_settings:
+        basic:
+          access_key: "AKIA..."
+          secret_key: "SECRET..."
+          region_name: "us-east-1"
+    state: present
+
+- name: Queue Amazon SQS CS (passwordless)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_sqs_pwless"
+    cs_type: "QUEUE"
+    properties:
+      broker_type: "AMAZON_SQS"
+      amazon_sqs_settings:
+        passwordless: true
+    state: present
+
+- name: Queue Kafka CS (delete)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "queue_kafka"
+    cs_type: "QUEUE"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# Snowflake CS - create/delete
+# -----------------------------------------------------------------------------------------------
+
+- name: Snowflake CS (create)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "snowflake"
+    cs_type: "SNOWFLAKE"
+    properties:
+      connection_string: "account=myacct;user=myuser;password=mypass;warehouse=mywh;database=mydb;schema=public"
+    state: present
+
+- name: Snowflake CS (delete)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "snowflake"
+    cs_type: "SNOWFLAKE"
+    state: absent
+
+# -----------------------------------------------------------------------------------------------
+# AI CS - OpenAI / Azure OpenAI / Ollama / Embedded / Google / Hugging Face / Mistral
+# -----------------------------------------------------------------------------------------------
+
+- name: OpenAI AI CS (create)
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "ai_openai"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-openai"
+      model_type: "CHAT"
+      openai_settings:
+        api_key: "sk-XXXX"
+        endpoint: "https://api.openai.com/v1/"
+        model: "gpt-4"
+    state: present
+
+- name: Azure OpenAI AI CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "ai_azure_openai"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-azure-openai"
+      model_type: "CHAT"
+      azure_openai_settings:
+        api_key: "az-XXXX"
+        endpoint: "https://my-azure-openai.openai.azure.com"
+        model: "gpt-4o"
+        deployment_name: "gpt4o-deploy"
+        dimensions: 1536
+        temperature: 0.4
+    state: present
+
+- name: Ollama AI CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "ai_ollama"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-ollama"
+      model_type: "CHAT"
+      ollama_settings:
+        uri: "http://localhost:11434"
+        model: "llama3"
+        think: true
+        temperature: 0.7
+    state: present
+
+- name: Embedded AI CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "ai_embedded"
+    cs_type: "AI"
+    properties:
+      identifier: "embedded"
+      model_type: "TEXT_EMBEDDINGS"
+      embedded_settings: {}
+    state: present
+
+- name: Google AI CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "ai_google"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-google"
+      model_type: "TEXT_EMBEDDINGS"
+      google_settings:
+        model: "gemini-1.5-pro"
+        api_key: "google-key-XXXX"
+        ai_version: "V1"
+        dimensions: 768
+    state: present
+
+- name: Hugging Face AI CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "ai_hf"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-hf"
+      model_type: "TEXT_EMBEDDINGS"
+      huggingface_settings:
+        api_key: "hf-XXXX"
+        model: "mistralai/Mistral-7B-v0.1"
+        endpoint: "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-v0.1"
+    state: present
+
+- name: Mistral AI CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "ai_mistral"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-mistral"
+      model_type: "TEXT_EMBEDDINGS"
+      mistral_ai_settings:
+        api_key: "mistral-XXXX"
+        model: "mistral-medium"
+        endpoint: "https://api.mistral.ai"
+    state: present
+
+- name: Delete OpenAI AI CS
+  ravendb.ravendb.connection_string:
+    url: "http://192.168.100.15:8080"
+    database_name: "my_database"
+    name: "ai_openai"
+    cs_type: "AI"
+    state: absent

@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_info - Add data-at-rest and eradication timer information to default dict

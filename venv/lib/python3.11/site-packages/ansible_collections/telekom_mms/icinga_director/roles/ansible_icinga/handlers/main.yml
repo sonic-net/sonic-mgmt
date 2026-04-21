@@ -1,0 +1,14 @@
+---
+- name: Deploy the icinga config
+  telekom_mms.icinga_director.icinga_deploy:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    timeout: "{{ icinga_deploy_timeout | default(omit) }}"
+  when: icinga_deploy_config and icinga_deploy_config is defined
+  listen: config_deploy

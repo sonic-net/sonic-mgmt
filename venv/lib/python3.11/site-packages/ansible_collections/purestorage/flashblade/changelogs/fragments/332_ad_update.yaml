@@ -1,0 +1,3 @@
+minor_changes:
+ - purefb_ad - Add support for Global Catalog Servers
+ - purefb_info - Add support for Active Directory Global Catalog Servers

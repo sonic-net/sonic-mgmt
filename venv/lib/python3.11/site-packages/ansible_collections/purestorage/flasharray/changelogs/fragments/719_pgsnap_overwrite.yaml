@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_pgsnap - Fixed issue with overwrite failing

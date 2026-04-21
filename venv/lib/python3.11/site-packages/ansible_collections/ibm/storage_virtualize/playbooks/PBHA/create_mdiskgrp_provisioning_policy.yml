@@ -1,0 +1,56 @@
+- name: Create mdiskgrp
+  ibm.storage_virtualize.ibm_svc_mdiskgrp:
+    clustername: '{{ item.cluster_ip }}'
+    username: '{{ item.cluster_username }}'
+    password: '{{ item.cluster_password }}'
+    log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+    name: "{{ pool_name }}"
+    state: present
+    datareduction: 'yes'
+    ext: 1024
+
+- name: Get drive info
+  register: results
+  ibm.storage_virtualize.ibm_svc_info:
+    clustername: "{{ item.cluster_ip }}"
+    username: "{{ item.cluster_username }}"
+    password: "{{ item.cluster_password }}"
+    log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+    gather_subset: "drive"
+
+- name: Make drive in candidate state
+  ibm.storage_virtualize.ibm_sv_manage_drive:
+    clustername: "{{ item.cluster_ip }}"
+    username: "{{ item.cluster_username }}"
+    password: "{{ item.cluster_password }}"
+    log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+    drive_state: candidate
+    drive_id: "{{ Drive.id }}"
+  loop: "{{ results.Drive }}"
+  loop_control:
+    loop_var: Drive
+  when: Drive.use != "member"
+
+- name: Create distributed array
+  ibm.storage_virtualize.ibm_svc_mdisk:
+    clustername: "{{ item.cluster_ip }}"
+    username: "{{ item.cluster_username }}"
+    password: "{{ item.cluster_password }}"
+    log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+    name: "{{ mdisk_name }}"
+    state: "present"
+    level: "{{ level }}"
+    drivecount: "{{ drivecount }}"
+    driveclass: 0
+    encrypt: 'no'
+    mdiskgrp: "{{ pool_name }}"
+
+- name: Create provisioning policy
+  ibm.storage_virtualize.ibm_sv_manage_provisioning_policy:
+    clustername: "{{ item.cluster_ip }}"
+    username: "{{ item.cluster_username }}"
+    password: "{{ item.cluster_password }}"
+    log_path: "{{ log_path | default('/tmp/ansiblePB.debug') }}"
+    name: "{{ provisioning_policy_name | default('provisioning_policy0') }}"
+    capacitysaving: "drivebased"
+    state: "present"

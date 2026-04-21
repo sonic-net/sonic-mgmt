@@ -1,0 +1,12 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get all Organizations Admins
+      cisco.meraki.organizations_admins_info:
+        meraki_suppress_logging: true
+        organizationId: "828099381482762270"
+      register: result
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

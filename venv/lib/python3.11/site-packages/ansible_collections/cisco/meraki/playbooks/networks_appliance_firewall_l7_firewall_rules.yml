@@ -1,0 +1,20 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Update all
+      cisco.meraki.networks_appliance_firewall_l7_firewall_rules:
+        state: present
+        meraki_suppress_logging: false
+        networkId: L_828099381482771185 # Lab Network ID
+        rules:
+          - policy: deny
+            type: applicationCategory
+            value:
+              id: meraki:layer7/category/5
+              name: Sports
+          - policy: deny
+            type: applicationCategory
+            value:
+              id: meraki:layer7/category/6
+              name: Gaming

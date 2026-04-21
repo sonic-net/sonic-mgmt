@@ -1,0 +1,23 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    org_id: 828099381482762270
+  gather_facts: false
+  tasks:
+    - name: Get security login settings
+      cisco.meraki.organizations_login_security_info:
+        meraki_suppress_logging: false
+        organizationId: "{{ org_id }}"
+      register: result
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"
+    - name: Update security login settings
+      cisco.meraki.organizations_login_security:
+        meraki_suppress_logging: false
+        organizationId: "{{ org_id }}"
+        state: present
+        accountLockoutAttempts: 3
+        idleTimeoutMinutes: 10
+        enforceIdleTimeout: true
+        enforceTwoFactorAuth: false

@@ -1,0 +1,2 @@
+minor_changes:
+  - na_sg_org_container - supports versioning configuration for S3 buckets available in StorageGRID 11.6+.

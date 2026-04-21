@@ -1,0 +1,108 @@
+---
+###########################
+# REST API variables
+###########################
+engine_fqdn: ovirt-engine.example.com
+engine_user: admin@internal
+engine_cafile: /etc/pki/ovirt-engine/ca.pem
+
+###########################
+# Common
+###########################
+compatibility_version: 4.4
+
+# Data center
+data_center_name: Default
+
+###########################
+# Clusters
+###########################
+clusters:
+  - name: Default
+    cpu_type: Intel Conroe Family
+    profile: production
+
+###########################
+# Hosts
+###########################
+ovirt_hosts:
+  - name: host1
+    address: 1.2.3.5
+    cluster: Default
+    password: 123456
+  - name: host2
+    address: 1.2.3.6
+    cluster: Default
+    password: 123456
+
+###########################
+# Storage
+###########################
+storages:
+  data:
+    master: true
+    state: present
+    nfs:
+      address: 1.2.3.4
+      path: /om02
+
+###########################
+# Networks
+###########################
+logical_networks:
+  - name: int_network_002
+    clusters:
+      - name: Default
+        assigned: true
+        required: true
+        display: false
+        migration: true
+        gluster: false
+
+host_networks:
+  - name: host2
+    check: true
+    save: true
+    bond:
+      name: bond0
+      mode: 2
+      interfaces:
+        - eth1
+        - eth2
+    networks:
+      - name: int_network_002
+        boot_protocol: dhcp
+
+###########################
+# Users & Groups
+###########################
+users:
+  - name: user1
+    authz_name: internal-authz
+    password: 1234568
+    valid_to: "2018-01-01 00:00:00Z"
+  - name: user2
+    authz_name: internal-authz
+    password: 1234568
+    valid_to: "2018-01-01 00:00:00Z"
+
+user_groups:
+  - name: group1
+    authz_name: internal-authz
+    users:
+      - user1
+
+permissions:
+  - state: present
+    user_name: user1
+    authz_name: internal-authz
+    role: UserRole
+    object_type: cluster
+    object_name: Default
+
+  - state: present
+    group_name: group1
+    authz_name: internal-authz
+    role: UserRole
+    object_type: cluster
+    object_name: Default

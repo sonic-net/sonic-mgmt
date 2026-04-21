@@ -1,0 +1,45 @@
+---
+####################################################################
+# Example : External Parity Group facts Playbook
+####################################################################
+- name: External Parity Group facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all External Parity Groups
+    ####################################################################
+    - name: Get all External Parity Groups
+      hitachivantara.vspone_block.vsp.hv_external_paritygroup_facts:
+        connection_info: "{{ connection_info }}"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get a specific External Parity Group
+    ####################################################################
+    - name: Get a specific External Parity Group
+      hitachivantara.vspone_block.vsp.hv_external_paritygroup_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          external_parity_group: "1-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

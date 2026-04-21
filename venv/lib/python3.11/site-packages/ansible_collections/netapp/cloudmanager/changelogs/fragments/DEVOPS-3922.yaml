@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_cvo_aws - Fix incorrect placement of platformSerialNumber in the resulting json structure

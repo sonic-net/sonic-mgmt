@@ -1,0 +1,41 @@
+{
+ "collection_info": {
+  "namespace": "ravendb",
+  "name": "ravendb",
+  "version": "1.0.4",
+  "authors": [
+   "Grzegorz Lachowski <gregolsky@ravendb.net>",
+   "Omer Ratsaby <omer.ratsaby@ravendb.net>"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "ravendb",
+   "database",
+   "cluster",
+   "nosql",
+   "devops",
+   "automation",
+   "ansible",
+   "ubuntu",
+   "rhel"
+  ],
+  "description": "An Ansible collection for deploying, configuring, and managing RavenDB clusters on Linux-based environments.",
+  "license": [
+   "GPL-3.0-or-later"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/ravendb/ansible-collection-ravendb",
+  "documentation": "https://ravendb.net/docs",
+  "homepage": "https://ravendb.net",
+  "issues": "https://github.com/ravendb/ansible-collection-ravendb/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "206f0c7a7790d22ff85c10b47bfce570a32c4f40ad8f7555d680ab18c78a8390",
+  "format": 1
+ },
+ "format": 1
+}

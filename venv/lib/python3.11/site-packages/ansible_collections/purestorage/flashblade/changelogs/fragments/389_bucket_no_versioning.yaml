@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_bucket - Fixed issue where a bucket with no versioning defined was incorrectly created.

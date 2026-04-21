@@ -1,0 +1,250 @@
+---
+- block:
+    - set_fact:
+        build_ns: "builds"
+        build_config: "start-build"
+        is_name: "ruby"
+        prune_build: "prune-build"
+
+    - name: Ensure namespace
+      kubernetes.core.k8s:
+        kind: Namespace
+        name: "{{ build_ns }}"
+
+    - name: Create ImageStream
+      community.okd.k8s:
+        namespace: "{{ build_ns }}"
+        definition:
+          apiVersion: image.openshift.io/v1
+          kind: ImageStream
+          metadata:
+            name: "{{ is_name }}"
+          spec:
+            lookupPolicy:
+              local: false
+            tags: []
+
+    - name: Create build configuration
+      community.okd.k8s:
+        namespace: "{{ build_ns }}"
+        definition:
+          kind: BuildConfig
+          apiVersion: build.openshift.io/v1
+          metadata:
+            name: "{{ build_config }}"
+          spec:
+            source:
+              dockerfile: |
+                FROM openshift/ruby-22-centos7
+                RUN sleep 60s
+                USER ansible
+            strategy:
+              type: Docker
+            output:
+              to:
+                kind: "ImageStreamTag"
+                name: "{{ is_name }}:latest"
+
+    - name: Start Build from Build configuration
+      community.okd.openshift_build:
+        namespace: "{{ build_ns }}"
+        build_config_name: "{{ build_config }}"
+      register: new_build
+
+    - name: Assert that a build has been created
+      assert:
+        that:
+          - new_build is changed
+          - new_build.builds.0.metadata.name == build_config+"-1"
+
+    - name: Start a new Build from previous Build
+      community.okd.openshift_build:
+        namespace: "{{ build_ns }}"
+        build_name: "{{ new_build.builds.0.metadata.name }}"
+      register: rerun_build
+
+    - name: Assert that another build has been created
+      assert:
+        that:
+          - rerun_build is changed
+          - rerun_build.builds.0.metadata.name == build_config+"-2"
+
+    - name: Cancel first build created
+      community.okd.openshift_build:
+        namespace: "{{ build_ns }}"
+        build_name: "{{ build_config }}-1"
+        state: cancelled
+        wait: yes
+      register: cancel
+
+    - name: Assert that the Build was cancelled
+      assert:
+        that:
+          - cancel is changed
+          - cancel.builds | length == 1
+          - cancel.builds.0.metadata.name == build_config+"-1"
+          - cancel.builds.0.metadata.namespace == build_ns
+          - '"cancelled" in cancel.builds.0.status'
+          - cancel.builds.0.status.cancelled
+
+    - name: Get info for 1st Build
+      kubernetes.core.k8s_info:
+        version: build.openshift.io/v1
+        kind: Build
+        namespace: "{{ build_ns }}"
+        name: "{{ cancel.builds.0.metadata.name }}"
+      register: build
+
+    - name: Assert that build phase is cancelled
+      assert:
+        that:
+          - build.resources | length == 1
+          - '"cancelled" in build.resources.0.status'
+          - build.resources.0.status.cancelled
+          - build.resources.0.status.phase == 'Cancelled'
+
+    - name: Cancel and restart Build using build config name
+      community.okd.openshift_build:
+        namespace: "{{ build_ns }}"
+        build_config_name: "{{ build_config }}"
+        state: restarted
+        build_phases:
+          - Pending
+          - Running
+          - New
+      register: restart
+
+    - name: assert that new build was created
+      assert:
+        that:
+          - restart is changed
+          - restart.builds | length == 1
+          - restart.builds.0.metadata.name == build_config+"-3"
+
+    - name: Get info for 2nd Build
+      kubernetes.core.k8s_info:
+        version: build.openshift.io/v1
+        kind: Build
+        namespace: "{{ build_ns }}"
+        name: "{{ build_config }}-2"
+      register: build
+
+    - name: Assert that build phase is cancelled
+      assert:
+        that:
+          - build.resources | length == 1
+          - '"cancelled" in build.resources.0.status'
+          - build.resources.0.status.cancelled
+          - build.resources.0.status.phase == 'Cancelled'
+
+    - name: Get info for 3rd build
+      kubernetes.core.k8s_info:
+        version: build.openshift.io/v1
+        kind: Build
+        namespace: "{{ build_ns }}"
+        name: "{{ build_config }}-3"
+      register: build
+
+    - name: Assert that Build is not cancelled
+      assert:
+        that:
+          - build.resources | length == 1
+          - '"cancelled" not in build.resources.0.status'
+          - "build.resources.0.status.phase in ('New', 'Pending', 'Running')"
+
+    - name: Prune Builds keep younger than 30min
+      community.okd.openshift_adm_prune_builds:
+        keep_younger_than: 30
+        namespace: "{{ build_ns }}"
+      register: prune
+      check_mode: yes
+
+    - name: Assert that no Builds were found
+      assert:
+        that:
+          - not prune.changed
+          - prune.builds | length == 0
+
+    - name: Prune Builds without namespace
+      community.okd.openshift_adm_prune_builds:
+      register: prune_without_ns
+      check_mode: yes
+
+    - name: Assert that completed build are candidate for prune
+      assert:
+        that:
+          - prune_without_ns is changed
+          - prune_without_ns.builds | length > 0
+          - 'build_config+"-1" in build_names'
+          - 'build_config+"-2" in build_names'
+      vars:
+        build_names: '{{ prune_without_ns.builds | map(attribute="metadata") | flatten | map(attribute="name") | list }}'
+
+    - name: Prune Builds using namespace
+      community.okd.openshift_adm_prune_builds:
+        namespace: "{{ build_ns }}"
+      register: prune_with_ns
+      check_mode: yes
+
+    - name: Assert that prune operation found the completed build
+      assert:
+        that:
+          - prune_with_ns is changed
+          - prune_with_ns.builds | length == 2
+
+    - name: Check Build before prune
+      kubernetes.core.k8s_info:
+        kind: Build
+        api_version: build.openshift.io/v1
+        name: "{{ build_config }}-1"
+        namespace: "{{ build_ns }}"
+      register: resource
+
+    - name: Validate that any previous build operation executed with check_mode did not deleted the build
+      assert:
+        that:
+          - resource.resources | length == 1
+
+    - name: Execute prune operation
+      community.okd.openshift_adm_prune_builds:
+        namespace: "{{ build_ns }}"
+      register: prune
+
+    - name: assert prune is changed
+      assert:
+        that:
+          - prune is changed
+
+    - name: Check Build
+      kubernetes.core.k8s_info:
+        kind: Build
+        api_version: build.openshift.io/v1
+        name: "{{ build_config }}-1"
+        namespace: "{{ build_ns }}"
+      register: resource
+
+    - name: Assert that the Build does not exist anymore
+      assert:
+        that:
+          - resource.resources | length == 0
+
+    - name: Check Build
+      kubernetes.core.k8s_info:
+        kind: Build
+        api_version: build.openshift.io/v1
+        name: "{{ build_config }}-2"
+        namespace: "{{ build_ns }}"
+      register: resource
+
+    - name: Assert that the Build does not exist anymore
+      assert:
+        that:
+          - resource.resources | length == 0
+
+  always:
+    - name: Ensure namespace is deleted
+      kubernetes.core.k8s:
+        state: absent
+        kind: Namespace
+        name: "{{ build_ns }}"
+      ignore_errors: true

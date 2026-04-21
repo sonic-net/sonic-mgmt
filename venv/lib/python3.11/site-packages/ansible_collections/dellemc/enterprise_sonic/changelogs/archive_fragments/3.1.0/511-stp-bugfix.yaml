@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_stp - Add handling for removal of empty data structures for merge state (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/511).

@@ -1,0 +1,7 @@
+---
+- name: Query a hostgroup in icinga
+  telekom_mms.icinga_director.icinga_hostgroup_info:
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    query: "foohostgroup"

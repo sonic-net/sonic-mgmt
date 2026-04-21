@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_certs - Fix parameter mispelling of ``intermeadiate_cert`` to ``intermediate_cert``. Keep original mispelling as an alias.

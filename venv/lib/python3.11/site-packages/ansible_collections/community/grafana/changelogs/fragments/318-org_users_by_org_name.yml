@@ -1,0 +1,7 @@
+---
+
+minor_changes:
+  - Add parameter `org_name` to `grafana_organization_user`
+
+trivial:
+  - Add tests for new `grafana_organization_user`-parameter `org_name`

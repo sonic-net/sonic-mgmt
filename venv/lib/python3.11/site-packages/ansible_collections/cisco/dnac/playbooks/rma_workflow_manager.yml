@@ -1,0 +1,29 @@
+---
+- name: Rma workflow manager
+  hosts: localhost
+  connection: local
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: RMA workflow for faulty device replacement
+      cisco.dnac.rma_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        resync_retry_count: 1000
+        resync_retry_interval: 30
+        ccc_poll_interval: 2
+        timeout_interval: 100
+        state: replaced
+        config:
+          - faulty_device_ip_address: 204.1.2.9
+            replacement_device_ip_address: 204.1.2.10
+      register: result

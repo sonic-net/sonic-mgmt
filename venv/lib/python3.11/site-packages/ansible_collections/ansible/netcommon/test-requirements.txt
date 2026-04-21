@@ -1,0 +1,15 @@
+# For ansible-tox-linters
+black==23.3.0
+flake8
+yamllint
+
+# Unit test runner
+pytest-ansible
+pytest-xdist
+pytest-cov
+
+# The following are 3rd party libs for cli_parse
+ntc_templates
+pyats
+genie
+passlib

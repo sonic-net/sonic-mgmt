@@ -1,0 +1,93 @@
+---
+################################
+## User & groups internal
+################################
+- name: Check if ovirt-aaa-jdbc-tool exists
+  ansible.builtin.stat:
+    path: "{{ aaa_jdbc_prefix }}/ovirt-aaa-jdbc-tool"
+  register: aaa_jdbc_path_stat
+  tags:
+    - ovirt-aaa-jdbc
+    - users
+
+- name: Fail the role if aaa-jdbc-tool don't exist
+  ansible.builtin.fail:
+    msg: "{{ aaa_jdbc_prefix }}/ovirt-aaa-jdbc-tool doesn't exist, are you on engine machine?"
+  when: not aaa_jdbc_path_stat.stat.exists
+  tags:
+    - ovirt-aaa-jdbc
+    - users
+
+- name: Manage internal users
+  no_log: true
+  ansible.builtin.command: "{{ aaa_jdbc_prefix }}/ovirt-aaa-jdbc-tool user {{ (item.state is undefined or item.state == 'present') | ternary('add','delete') }} {{
+    item.name }}"  # noqa yaml[line-length]
+  with_items:
+    - "{{ users | default([]) }}"
+  register: out_users
+  changed_when: "out_users.rc != 5 and out_users.rc != 4"
+  # 5 == user already exists
+  # 4 == no user to be removed
+  # 0 == all OK
+  failed_when: "out_users.rc != 5 and out_users.rc != 0 and out_users.rc != 4"
+  tags:
+    - ovirt-aaa-jdbc
+    - users
+
+- name: Update users according to attributes
+  ansible.builtin.command: "{{ aaa_jdbc_prefix }}/ovirt-aaa-jdbc-tool user edit {{ item.name }} {% for attr, value in item['attributes'].items() %} --attribute={{
+    attr }}='{{ value }}' {% endfor %}"  # noqa yaml[line-length]
+  with_items:
+    - "{{ users | default([]) }}"
+  register: out_users
+  when: "item.attributes is defined"
+  changed_when: "out_users.rc != 5 and out_users.rc != 4"
+  # 5 == user already exists
+  # 4 == no user to be removed
+  # 0 == all OK
+  failed_when: "out_users.rc != 5 and out_users.rc != 0 and out_users.rc != 4"
+  tags:
+    - ovirt-aaa-jdbc
+    - users
+
+# FIXME: when user try to change the password which was already set in history
+# but is not current password we continue with changed=false:
+- name: Manage internal users passwords
+  no_log: true
+  ansible.builtin.command: "{{ aaa_jdbc_prefix }}/ovirt-aaa-jdbc-tool user password-reset {{ item.name }} --password=\"pass:{{ item.password }}\" --password-valid-to=\"\
+    {{ item.valid_to }}\""  # noqa yaml[line-length]
+  with_items:
+    - "{{ users | default([]) }}"
+  register: out_users
+  when: "item.password is defined"
+  changed_when: "out_users.rc != 1"
+  failed_when: "out_users.rc != 1 and out_users.rc != 0"
+  tags:
+    - ovirt-aaa-jdbc
+    - users
+
+- name: Manage internal groups
+  ansible.builtin.command: "{{ aaa_jdbc_prefix }}/ovirt-aaa-jdbc-tool group {{ (item.state is undefined or item.state == 'present') | ternary('add','delete') }} {{
+    item.name }}"  # noqa yaml[line-length]
+  with_items:
+    - "{{ user_groups | default([]) }}"
+  register: out_groups
+  changed_when: "out_groups.rc != 5 and out_groups.rc != 4"
+  failed_when: "out_groups.rc != 5 and out_groups.rc != 0 and out_groups.rc != 4"
+  tags:
+    - ovirt-aaa-jdbc
+    - user_groups
+
+# FIXME: Support only add, if the user is removed from list, it's not removed from the group:
+- name: Manage groups members
+  ansible.builtin.command: "{{ aaa_jdbc_prefix }}/ovirt-aaa-jdbc-tool group-manage {{ (item.state is undefined or item.state == 'present') | ternary('useradd','userdel')
+    }} {{ item.0.name }} --user {{ item.1 }}"  # noqa yaml[line-length]
+  with_subelements:
+    - "{{ user_groups | default([]) }}"
+    - users
+  register: out_group_member
+  changed_when: "out_group_member.rc != 3 "
+  failed_when: "out_group_member.rc != 3 and out_group_member.rc != 0"
+  tags:
+    - ovirt-aaa-jdbc
+    - user_groups

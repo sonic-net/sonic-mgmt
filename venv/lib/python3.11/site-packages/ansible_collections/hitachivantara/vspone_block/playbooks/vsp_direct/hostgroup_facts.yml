@@ -1,0 +1,121 @@
+---
+####################################################################
+# Example : Hostgroup Facts Playbook
+####################################################################
+- name: Hostgroup Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all hostgroups
+    ####################################################################
+    - name: Get all hostgroups
+      hitachivantara.vspone_block.vsp.hv_hg_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get hostgroups of specific ports
+    ####################################################################
+    - name: Get hostgroups of specific ports
+      hitachivantara.vspone_block.vsp.hv_hg_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-A"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ########################################################################
+    # Task Name : Get hostgroups of specific ports with same hostgroup name
+    ########################################################################
+    - name: Get hostgroups of specific ports with same hostgroup name
+      hitachivantara.vspone_block.vsp.hv_hg_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-A", "CL2-A"]
+          name: "hatestdummy5"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #######################################################################
+    # Task Name : Get hostgroups of specific ports, include wwns and ldevs
+    #######################################################################
+    - name: Get hostgroups of specific ports, include wwns and ldevs
+      hitachivantara.vspone_block.vsp.hv_hg_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL2-B"]
+          query:
+            - wwns
+            - ldevs
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get hostgroup details using hostgroup number
+    ####################################################################
+    - name: Get hostgroup details using hostgroup number
+      hitachivantara.vspone_block.vsp.hv_hg_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL2-B"]
+          host_group_number: 208
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get hostgroup details using hostgroup name
+    ####################################################################
+    - name: Get hostgroup details using hostgroup number
+      hitachivantara.vspone_block.vsp.hv_hg_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL2-B"]
+          name: "name_of_hostgroup"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get hostgroup details with specific lun number
+    ####################################################################
+    - name: Get hostgroup details with specific lun number
+      hitachivantara.vspone_block.vsp.hv_hg_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL2-B"]
+          lun: 0
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

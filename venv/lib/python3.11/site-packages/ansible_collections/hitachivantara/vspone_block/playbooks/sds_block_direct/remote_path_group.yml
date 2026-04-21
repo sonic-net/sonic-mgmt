@@ -1,0 +1,103 @@
+---
+####################################################################
+# Example : Remote Path Group Playbook
+####################################################################
+- name: Remote Path Group Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ################################################################################################
+  # Task Name : Create a remote path group
+  ################################################################################################
+    - name: Create a remote path group
+      hitachivantara.vspone_block.sds_block.hv_sds_block_remote_path_group:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          remote_serial: "810045" # required
+          remote_storage_system_type: "M8" # required
+          local_port: "CL1-C" # required
+          remote_port: "CL2-C" # required
+          path_group_id: 15 # required
+          remote_io_timeout_in_sec: 20
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################################
+    # Task Name : Update remote path group settings
+    ################################################################################################
+    - name: Update remote path group settings
+      hitachivantara.vspone_block.sds_block.hv_sds_block_remote_path_group:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          # id: "1574b14b-72df-4089-b9a7-6cc89b983715"
+          remote_io_timeout_in_sec: 80
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete a remote path group
+    ####################################################################
+    - name: Delete a remote path group
+      hitachivantara.vspone_block.sds_block.hv_sds_block_remote_path_group:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          id: "1574b14b-72df-4089-b9a7-6cc89b983715"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################################
+    # Task Name : Add a remote path to a remote path group
+    ################################################################################################
+    - name: Add a remote path to a remote path group
+      hitachivantara.vspone_block.sds_block.hv_sds_block_remote_path_group:
+        connection_info: "{{ connection_info }}"
+        state: "add_remote_path"
+        spec:
+          id: "ebd7dece-5c69-4536-9fd3-50c57a99a401"
+          local_port: "CL1-C"
+          remote_port: "CL2-C"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################################
+    # Task Name : Remove a remote path from a remote path group
+    ################################################################################################
+    - name: Remove a remote path from a remote path group
+      hitachivantara.vspone_block.sds_block.hv_sds_block_remote_path_group:
+        connection_info: "{{ connection_info }}"
+        state: "remove_remote_path"
+        spec:
+          id: "72b765af-5159-405d-9d60-a899ad8f751c"
+          local_port: "CL1-C"
+          remote_port: "CL2-C"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

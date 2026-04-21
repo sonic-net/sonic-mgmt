@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_snapmirror - new option ``identity_preservation`` added in REST.

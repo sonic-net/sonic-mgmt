@@ -1,0 +1,32 @@
+---
+- name: Install gateway with invalid rpm path
+  hosts: gateway
+  gather_facts: true
+  tasks:
+    - name: Install and configure powerflex gateway with no rpm
+      ansible.builtin.import_role:
+        name: "powerflex_gateway"
+      vars:
+        powerflex_common_file_install_location: "/opt/empty"
+        powerflex_gateway_state: present
+      ignore_errors: true
+      register: powerflex_gateway_install_config_no_rpm_result
+
+    - name: Verifying failure of install package with respect to no rpm file
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_package_file.files | length == 0
+
+    - name: Install and configure powerflex gateway with wrong file path
+      ansible.builtin.import_role:
+        name: "powerflex_gateway"
+      vars:
+        powerflex_common_file_install_location: "/opt/aaab"
+        powerflex_gateway_state: present
+      ignore_errors: true
+      register: powerflex_gateway_install_config_wrong_path_result
+
+    - name: Verifying failure of install package with wrong file path
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_package_file.files | length == 0

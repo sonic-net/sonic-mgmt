@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_subnet - Remove default value for MTU t ostop restting to default on enable/disable of subnet. Creation will still default to 1500 if not provided.

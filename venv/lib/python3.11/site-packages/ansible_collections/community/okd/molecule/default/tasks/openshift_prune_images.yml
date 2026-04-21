@@ -1,0 +1,217 @@
+---
+- name: Read registry information
+  community.okd.openshift_registry_info:
+    check: yes
+  register: registry
+
+- name: Display registry information
+  debug: var=registry
+
+- block:
+    - set_fact:
+        prune_ns: "prune-images"
+        prune_registry: "{{ registry.public_hostname }}"
+        container:
+          name: "httpd"
+          from: "centos/python-38-centos7:20210629-304c7c8"
+        pod_name: "test-pod"
+
+    - name: Ensure namespace is created
+      community.okd.k8s:
+        kind: Namespace
+        name: "{{ prune_ns }}"
+
+    - name: Import image into internal registry
+      community.okd.openshift_import_image:
+        namespace: "{{ prune_ns }}"
+        name: "{{ container.name }}"
+        source: "{{ container.from }}"
+
+    - name: Create simple Pod
+      community.okd.k8s:
+        namespace: "{{ prune_ns }}"
+        wait: yes
+        definition:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: "{{ pod_name }}"
+          spec:
+            containers:
+              - name: test-container
+                image: "{{ prune_registry }}/{{ prune_ns }}/{{ container.name }}:latest"
+                command:
+                  - /bin/sh
+                  - -c
+                  - while true;do date;sleep 5; done
+
+    - name: Create limit range for images size
+      community.okd.k8s:
+        namespace: "{{ prune_ns }}"
+        definition:
+          kind: "LimitRange"
+          metadata:
+            name: "image-resource-limits"
+          spec:
+            limits:
+              - type: openshift.io/Image
+                max:
+                  storage: 1Gi
+
+    - name: Prune images from namespace
+      community.okd.openshift_adm_prune_images:
+        registry_url: "{{ prune_registry }}"
+        namespace: "{{ prune_ns }}"
+      check_mode: yes
+      register: prune
+
+    - name: Assert that nothing to prune as image is in used
+      assert:
+        that:
+          - prune is not changed
+          - prune is successful
+          - prune.deleted_images == []
+          - prune.updated_image_streams == []
+
+    - name: Delete Pod created before
+      community.okd.k8s:
+        state: absent
+        name: "{{ pod_name }}"
+        kind: Pod
+        namespace: "{{ prune_ns }}"
+        wait: yes
+
+    - name: Prune images from namespace
+      community.okd.openshift_adm_prune_images:
+        registry_url: "{{ prune_registry }}"
+        namespace: "{{ prune_ns }}"
+      check_mode: yes
+      register: prune
+
+    - name: Read ImageStream
+      kubernetes.core.k8s_info:
+        version: image.openshift.io/v1
+        kind: ImageStream
+        namespace: "{{ prune_ns }}"
+        name: "{{ container.name }}"
+      register: isinfo
+
+    - set_fact:
+        is_image_name: "{{ isinfo.resources.0.status.tags[0]['items'].0.image }}"
+
+    - name: Assert that corresponding Image and ImageStream were candidate for pruning
+      assert:
+        that:
+          - prune is changed
+          - prune.deleted_images | length == 1
+          - prune.deleted_images.0.metadata.name == is_image_name
+          - prune.updated_image_streams | length == 1
+          - prune.updated_image_streams.0.metadata.name == container.name
+          - prune.updated_image_streams.0.metadata.namespace == prune_ns
+          - prune.updated_image_streams.0.status.tags == []
+
+    - name: Prune images from namespace keeping images and referrer younger than 60minutes
+      community.okd.openshift_adm_prune_images:
+        registry_url: "{{ prune_registry }}"
+        namespace: "{{ prune_ns }}"
+        keep_younger_than: 60
+      check_mode: yes
+      register: younger
+
+    - assert:
+        that:
+          - younger is not changed
+          - younger is successful
+          - younger.deleted_images == []
+          - younger.updated_image_streams == []
+
+    - name: Prune images over size limit
+      community.okd.openshift_adm_prune_images:
+        registry_url: "{{ prune_registry }}"
+        namespace: "{{ prune_ns }}"
+        prune_over_size_limit: yes
+      check_mode: yes
+      register: prune_over_size
+
+    - assert:
+        that:
+          - prune_over_size is not changed
+          - prune_over_size is successful
+          - prune_over_size.deleted_images == []
+          - prune_over_size.updated_image_streams == []
+
+    - name: Update limit range for images size
+      community.okd.k8s:
+        namespace: "{{ prune_ns }}"
+        definition:
+          kind: "LimitRange"
+          metadata:
+            name: "image-resource-limits"
+          spec:
+            limits:
+              - type: openshift.io/Image
+                max:
+                  storage: 1Ki
+
+    - name: Prune images over size limit (check_mode=yes)
+      community.okd.openshift_adm_prune_images:
+        registry_url: "{{ prune_registry }}"
+        namespace: "{{ prune_ns }}"
+        prune_over_size_limit: yes
+      check_mode: yes
+      register: prune
+
+    - name: Assert Images and ImageStream were candidate for prune
+      assert:
+        that:
+          - prune is changed
+          - prune.deleted_images | length == 1
+          - prune.deleted_images.0.metadata.name == is_image_name
+          - prune.updated_image_streams | length == 1
+          - prune.updated_image_streams.0.metadata.name == container.name
+          - prune.updated_image_streams.0.metadata.namespace == prune_ns
+          - prune.updated_image_streams.0.status.tags == []
+
+    - name: Prune images over size limit
+      community.okd.openshift_adm_prune_images:
+        registry_url: "{{ prune_registry }}"
+        namespace: "{{ prune_ns }}"
+        prune_over_size_limit: yes
+      register: prune
+
+    - name: Assert that Images and ImageStream were candidate for prune
+      assert:
+        that:
+          - prune is changed
+          - prune.deleted_images | length == 1
+          - prune.deleted_images.0.details.name == is_image_name
+          - prune.updated_image_streams | length == 1
+          - prune.updated_image_streams.0.metadata.name == container.name
+          - prune.updated_image_streams.0.metadata.namespace == prune_ns
+          - '"tags" not in prune.updated_image_streams.0.status'
+
+    - name: Validate that ImageStream was updated
+      kubernetes.core.k8s_info:
+        version: image.openshift.io/v1
+        kind: ImageStream
+        namespace: "{{ prune_ns }}"
+        name: "{{ container.name }}"
+      register: stream
+
+    - name: Assert that ImageStream was updated
+      assert:
+        that:
+          - stream.resources | length == 1
+          - '"tags" not in stream.resources.0.status'
+
+  always:
+    - name: Delete namespace
+      community.okd.k8s:
+        name: "{{ prune_ns }}"
+        kind: Namespace
+        state: absent
+      ignore_errors: true
+
+  when:
+    - registry.public_hostname
+    - registry.check.reached

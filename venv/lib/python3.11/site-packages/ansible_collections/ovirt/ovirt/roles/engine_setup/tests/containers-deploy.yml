@@ -1,0 +1,10 @@
+---
+- name: "Update python because of ovirt-imageio-proxy"
+  hosts: engine
+  tasks:
+    - name: Update python
+      yum:
+        name: python-libs
+        state: latest
+      tags:
+        - skip_ansible_lint  # ANSIBLE0010

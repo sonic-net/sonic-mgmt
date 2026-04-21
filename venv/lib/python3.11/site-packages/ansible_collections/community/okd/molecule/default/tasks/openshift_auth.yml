@@ -1,0 +1,111 @@
+---
+- block:
+    - set_fact:
+        admin_user: test
+        admin_pass: testing123
+
+    - name: Retrieve cluster info
+      kubernetes.core.k8s_cluster_info:
+      register: k8s_cluster
+
+    - name: set openshift host value
+      set_fact:
+        openshift_host: "{{ k8s_cluster.connection.host }}"
+
+    - name: Log in (obtain access token)
+      community.okd.openshift_auth:
+        username: "{{ admin_user }}"
+        password: "{{ admin_pass }}"
+        host: '{{ openshift_host }}'
+        verify_ssl: false
+      register: openshift_auth_results
+
+    - set_fact:
+        auth_api_key: "{{ openshift_auth_results.openshift_auth.api_key }}"
+
+    - name: "Get the {{ admin_user }} User"
+      kubernetes.core.k8s_info:
+        api_key: "{{ auth_api_key }}"
+        host: '{{ openshift_host }}'
+        verify_ssl: false
+        kind: User
+        api_version: user.openshift.io/v1
+        name: "{{ admin_user }}"
+      register: user_result
+
+    - name: assert that the user was found
+      assert:
+        that: (user_result.resources | length) == 1
+
+    - name: list available tokens
+      kubernetes.core.k8s_info:
+        kind: UserOAuthAccessToken
+        version: oauth.openshift.io/v1
+      register: tokens
+
+    - debug: var=tokens
+
+    - set_fact:
+        token_names: "{{ tokens.resources | map(attribute='metadata.name') | list }}"
+
+    - block:
+        - debug: var=token_names
+
+        - name: Revoke access token
+          community.okd.openshift_auth:
+            state: absent
+            api_key: "{{ auth_api_key }}"
+            host: '{{ openshift_host }}'
+            verify_ssl: false
+          register: _revoke
+
+        - name: Ensure that token has been revoked
+          assert:
+            that:
+              - _revoke is changed
+
+        - name: "Get the {{ admin_user }} User (after token deletion)"
+          kubernetes.core.k8s_info:
+            api_key: "{{ auth_api_key }}"
+            host: '{{ openshift_host }}'
+            verify_ssl: false
+            kind: User
+            api_version: user.openshift.io/v1
+            name: "{{ admin_user }}"
+          ignore_errors: true
+          retries: 50
+          until: user_result is failed
+          delay: 20
+          register: user_result
+
+        - name: Ensure that task has failed due to revoked token
+          assert:
+            that:
+              - user_result is failed
+
+        - name: Revoke access token once again (should fail)
+          community.okd.openshift_auth:
+            state: absent
+            api_key: "{{ auth_api_key }}"
+            host: '{{ openshift_host }}'
+            verify_ssl: false
+          register: _revoke
+          ignore_errors: true
+
+        - name: Ensure that nothing changed
+          assert:
+            that:
+              - _revoke is failed
+              - _revoke.msg.startswith("Couldn't delete user oauth access token")
+
+      when: token_names | length > 0
+
+  always:
+    - name: If login succeeded, try to log out (revoke access token)
+      when: auth_api_key is defined
+      community.okd.openshift_auth:
+        state: absent
+        api_key: "{{ auth_api_key }}"
+        host: '{{ openshift_host }}'
+        verify_ssl: false
+      ignore_errors: true

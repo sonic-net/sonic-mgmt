@@ -1,0 +1,20 @@
+- name: Create OpenTelemetry Collector config directory
+  ansible.builtin.file:
+    path: "{{ otel_collector_config_dir }}"
+    state: directory
+    owner: "{{ otel_collector_service_user }}"
+    group: "{{ otel_collector_service_group }}"
+    mode: '0755'
+  become: true
+
+- name: Deploy OpenTelemetry Collector configuration file
+  ansible.builtin.template:
+    src: otel_collector_config.yml.j2
+    dest: "{{ otel_collector_config_dir }}/{{ otel_collector_config_file }}"
+    owner: "{{ otel_collector_service_user }}"
+    group: "{{ otel_collector_service_group }}"
+    mode: '0644'
+    validate: '{{ otel_collector_installation_dir }}/{{ otel_collector_executable }} --config=%s validate'
+  notify: Restart OpenTelemetry Collector
+  become: true
+  no_log: "{{ 'false' if lookup('env', 'CI') else 'true' }}"

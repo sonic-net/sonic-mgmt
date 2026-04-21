@@ -1,0 +1,46 @@
+---
+- name: Create host template
+  telekom_mms.icinga_director.icinga_host_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    accept_config: true
+    check_command: hostalive
+    check_interval: 90s
+    check_timeout: 60
+    command_endpoint: fooendpoint
+    disabled: false
+    display_name: foohosttemplate
+    enable_active_checks: true
+    enable_event_handler: false
+    enable_flapping: false
+    enable_notifications: true
+    enable_passive_checks: false
+    enable_perfdata: false
+    flapping_threshold_high: "30.0"
+    flapping_threshold_low: "25.0"
+    has_agent: true
+    icon_image_alt: "alt text"
+    icon_image: "http://url1"
+    master_should_connect: true
+    max_check_attempts: 3
+    object_name: foohosttemplate
+    retry_interval: "1m"
+    volatile: false
+    groups:
+      - "foohostgroup"
+    imports:
+      - ''
+    vars:
+      dnscheck: "no"
+- name: Update host template
+  telekom_mms.icinga_director.icinga_host_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foohosttemplate
+    notes: "example note"
+    notes_url: "'http://url1' 'http://url2'"
+    append: true

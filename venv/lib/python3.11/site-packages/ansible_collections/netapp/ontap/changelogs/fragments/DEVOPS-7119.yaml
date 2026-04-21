@@ -1,0 +1,6 @@
+---
+bugfixes:
+  - na_ontap_rest_info - rectified subset name to `cluster/firmware/history`.
+
+minor_changes:
+  - na_ontap_rest_info - updated `extends_documentation_fragment` & argument spec.

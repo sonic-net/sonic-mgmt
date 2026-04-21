@@ -1,0 +1,21 @@
+---
+# defaults file for ravendb-node
+
+# common variables
+ravendb_version: latest
+ravendb_version_minor: 6.2
+ravendb_release_channel: stable
+ravendb_arch: linux-x64
+
+# settings options
+ravendb_settings_preset: default 
+ravendb_settings_override: {}
+
+ravendb_license_file: ""
+ravendb_hostname: "localhost"
+ravendb_node_tag: "A"
+
+# secure setup variables
+ravendb_certificate_file: ""
+ravendb_certificate_password: ""
+ravendb_setup_package: ""

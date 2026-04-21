@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_net_vlan - Added REST support to the net vlan module.
+  - na_ontap_net_vlan - new REST options ``broadcast_domain``, ``ipspace`` and ``enabled`` added.

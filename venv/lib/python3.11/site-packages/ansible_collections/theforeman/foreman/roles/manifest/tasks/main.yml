@@ -1,0 +1,18 @@
+---
+- name: Download Subscription Manifest from Red Hat Customer Portal
+  theforeman.foreman.redhat_manifest:
+    uuid: "{{ foreman_manifest_uuid }}"
+    username: "{{ foreman_rhsm_username }}"
+    password: "{{ foreman_rhsm_password }}"
+    path: "{{ foreman_manifest_path }}"
+  when: foreman_manifest_download
+
+- name: Upload Subscription Manifest to Foreman
+  theforeman.foreman.subscription_manifest:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    manifest_path: "{{ foreman_manifest_path }}"
+    state: "{{ foreman_manifest_state | default('present') }}"

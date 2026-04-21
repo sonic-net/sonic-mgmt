@@ -1,0 +1,4 @@
+bugfixes:
+ - purefb_fs - Fix conflict with SMB mode and ACL safeguarding
+minor_changes:
+ - purefb_fs - Set default for group_ownership to be creator

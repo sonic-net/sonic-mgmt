@@ -1,0 +1,29 @@
+---
+# Execution of a task that adds or deletes the configuration of the
+# management VRF ("mgmt") causes a disruption of the
+# management interface connection on which playbook configuration
+# commands are executing. As a result, playbook execution is aborted
+# unless the management VRF configuration task is constructed to
+# ignore errors.
+#
+# This example demonstrates how to combine tasks that configure other
+# resource modules ("sonic_vrfs", in this case) with tasks that add or remove
+# "management VRF" configuration.
+
+- name: Example playbook of configuring with mgmt_vrf_on and mgmt_vrf_off tasks.
+  hosts: datacenter
+  gather_facts: false
+  connection: httpapi
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+    - name: Turn on management VRF
+      ansible.builtin.include_tasks: mgmt_vrf_on.yaml
+    - name: Add VLANs
+      sonic_vlans:
+        config:
+          - vlan_id: 11
+          - vlan_id: 12
+        state: merged
+    - name: Turn off management VRF
+      ansible.builtin.include_tasks: mgmt_vrf_off.yaml

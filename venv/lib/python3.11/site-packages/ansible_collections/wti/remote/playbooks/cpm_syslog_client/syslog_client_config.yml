@@ -1,0 +1,43 @@
+# ansible-playbook ./syslog_client_config.yml -e ansible_hosts=nameofhost
+- name: Set Network SYSLOG Client Parameters
+  hosts: "{{ansible_hosts}}"  # pass as -e ansible_hosts=wti_demo on the commandline
+  collections:
+     - wti.remote
+  connection: local
+  gather_facts: False
+
+  tasks:
+  - set_fact: use_https=True
+    when: use_https is undefined
+  - set_fact: validate_certs=True
+    when: validate_certs is undefined
+
+  - name: run Set interface parameters
+    cpm_syslog_client_config:
+      cpm_url: "{{ansible_host}}"
+      cpm_username: "{{ansible_user}}"
+      cpm_password: "{{ansible_pw}}"
+      use_https: "{{use_https}}"
+      validate_certs: "{{validate_certs}}"
+      protocol: 0
+      clear: 1
+      index:
+          - 1
+          - 3
+      address:
+          - "11.22.33.44"
+          - "55.66.77.88"
+      port:
+          - 555
+          - 557
+      transport:
+          - 1
+          - 0
+      secure:
+          - 0
+          - 1
+
+    register: testout
+  - name: dump test output
+    debug:
+      msg: "{{ testout['data'] }}"

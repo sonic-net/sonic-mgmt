@@ -1,0 +1,3 @@
+---
+removed_features:
+  - removed deprecated `message` argument in `grafana_dashboard`

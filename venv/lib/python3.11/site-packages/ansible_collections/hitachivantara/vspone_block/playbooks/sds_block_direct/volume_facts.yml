@@ -1,0 +1,115 @@
+---
+####################################################################
+# Example : Volume Facts Playbook
+####################################################################
+- name: Volume Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get volumes by default count
+    ####################################################################
+    - name: Get volumes by default count
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get volumes by count
+    ####################################################################
+    - name: Get volumes by count
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          count: 200
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get volumes by names
+    ####################################################################
+    - name: Get volumes by names
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          names: ["test-volume1", "test-volume2"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get volumes by nicknames
+    ####################################################################
+    - name: Get volumes by nicknames
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          nicknames: ["nickname1", "nickname2"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get volumes by other filters
+    ####################################################################
+    - name: Get volumes by other filters
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          count: 200
+          capacity_saving: "Disabled"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get volumes for a VPS by VPS name
+    ####################################################################
+    - name: Get volumes for a VPS by VPS name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          vps_name: "RKD_VPS_02"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get volumes for a VPS by VPS ID
+    ####################################################################
+    - name: Get volumes for a VPS by VPS ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_volume_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          vps_id: "2a843522-a819-47ab-a208-69d190809604"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

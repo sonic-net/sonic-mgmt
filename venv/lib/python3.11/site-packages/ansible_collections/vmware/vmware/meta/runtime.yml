@@ -1,0 +1,46 @@
+---
+requires_ansible: ">=2.16.0"
+action_groups:
+    vmware:
+        - appliance_info
+        - cluster
+        - cluster_dpm
+        - cluster_drs
+        - cluster_drs_recommendations
+        - cluster_ha
+        - cluster_info
+        - cluster_vcls
+        - content_library_item_info
+        - content_template
+        - deploy_content_library_ovf
+        - deploy_content_library_template
+        - esxi_connection
+        - esxi_host
+        - esxi_maintenance_mode
+        - folder
+        - folder_template_from_vm
+        - guest_info
+        - license_info
+        - local_content_library
+        - subscribed_content_library
+        - import_content_library_ovf
+        - import_content_library_iso
+        - tags
+        - tag_categories
+        - vcsa_backup_schedule
+        - vcsa_backup_schedule_info
+        - vcsa_settings
+        - vm_advanced_settings
+        - vm_list_group_by_clusters_info
+        - vm_portgroup_info
+        - vm_powerstate
+        - vm_resource_info
+        - vm_snapshot
+        - vm
+
+plugin_routing:
+    modules:
+        vm_list_group_by_clusters:
+            tombstone:
+                removal_version: 2.0.0
+                warning_text: Use M(vmware.vmware.vm_list_group_by_clusters_info) instead.

@@ -1,0 +1,33 @@
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+combine_as_imports = true
+add_imports = ["from __future__ import annotations"]
+
+[tool.pylint.main]
+py-version = "3.9"
+recursive = true
+jobs = 0
+
+max-line-length = 120
+ignore-paths = [
+  "plugins/module_utils/vendor",
+]
+
+[tool.pylint.reports]
+output-format = "colorized"
+
+[tool.pylint.basic]
+good-names = ["i", "j", "k", "ex", "_", "ip", "id"]
+
+[tool.pylint.messages_control]
+disable = [
+  "wrong-import-position",
+  "missing-module-docstring",
+  "missing-class-docstring",
+  "missing-function-docstring",
+  "duplicate-code",
+  "use-dict-literal",
+]

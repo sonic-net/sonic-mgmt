@@ -1,0 +1,164 @@
+---
+- name: Create VMs
+  ansible.builtin.include_tasks: create_vms.yml
+  with_items: "{{ create_vms }}"
+  loop_control:
+    loop_var: "current_vm"
+
+- name: Wait for VMs to be added
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  with_items: "{{ all_vms }}"
+  when: all_vms is defined
+  until: job_result.finished
+  retries: "{{ (vm_infra_create_all_timeout | int // vm_infra_create_poll_interval) + 1  }}"
+  delay: "{{ vm_infra_create_poll_interval }}"
+
+- name: Apply any Affinity Groups
+  ansible.builtin.import_tasks: affinity_groups.yml
+
+- name: Apply any Affinity Labels
+  ansible.builtin.import_tasks: affinity_labels.yml
+
+- name: Rename and resize boot disk
+  ansible.builtin.include_tasks: rename_resize_boot_disk.yml
+  with_items: "{{ create_vms }}"
+  loop_control:
+    loop_var: "current_vm"
+
+- name: Manage profile disks
+  ovirt.ovirt.ovirt_disk:
+    auth: "{{ ovirt_auth }}"
+    name: "{% if item.1.name_prefix | default(true) %}{{ item.0.name }}_{% endif %}{{ item.1.name }}"
+    vm_name: "{{ item.0.name }}"
+    id: "{{ item.1.id | default(omit) }}"
+    size: "{{ item.1.size | default(omit) }}"
+    format: "{{ item.1.format | default(omit) }}"
+    storage_domain: "{{ item.1.storage_domain | default(omit) }}"
+    interface: "{{ item.1.interface | default(omit) }}"
+    bootable: "{{ item.1.bootable | default(omit) }}"
+    activate: "{{ item.1.activate | default(omit) }}"
+    wait: true
+  # When there is no profile disks it will use vms disks
+  with_subelements:
+    - "{{ create_vms }}"
+    - "profile.disks"
+    - flags:
+      skip_missing: true
+
+- name: Manage virtual machines disks
+  ovirt.ovirt.ovirt_disk:
+    auth: "{{ ovirt_auth }}"
+    name: "{% if item.1.name_prefix | default(true) %}{{ item.0.name }}_{% endif %}{{ item.1.name }}"
+    vm_name: "{{ item.0.name }}"
+    id: "{{ item.1.id | default(omit) }}"
+    size: "{{ item.1.size | default(omit) }}"
+    format: "{{ item.1.format | default(omit) }}"
+    storage_domain: "{{ item.1.storage_domain | default(omit) }}"
+    interface: "{{ item.1.interface | default(omit) }}"
+    bootable: "{{ item.1.bootable | default(omit) }}"
+    activate: "{{ item.1.activate | default(omit) }}"
+    wait: true
+  # When there is profile with disks, vms disks will update them
+  with_subelements:
+    - "{{ create_vms }}"
+    - "disks"
+    - flags:
+      skip_missing: true
+
+- name: Manage profile NICs
+  ovirt.ovirt.ovirt_nic:
+    auth: "{{ ovirt_auth }}"
+    vm: "{{ item.0.name }}"
+    name: "{{ item.1.name | default(omit) }}"
+    interface: "{{ item.1.interface | default(omit) }}"
+    mac_address: "{{ item.1.mac_address | default(omit) }}"
+    profile: "{{ item.1.profile | default(omit) }}"
+    network: "{{ item.1.network | default(omit) }}"
+  # When there is no profile NICs it will use vms NICs
+  with_subelements:
+    - "{{ create_vms }}"
+    - "profile.nics"
+    - flags:
+      skip_missing: true
+
+- name: Manage virtual machines NICs
+  ovirt.ovirt.ovirt_nic:
+    auth: "{{ ovirt_auth }}"
+    vm: "{{ item.0.name }}"
+    name: "{{ item.1.name | default(omit) }}"
+    interface: "{{ item.1.interface | default(omit) }}"
+    mac_address: "{{ item.1.mac_address | default(omit) }}"
+    profile: "{{ item.1.profile | default(omit) }}"
+    network: "{{ item.1.network | default(omit) }}"
+  # When there is profile with nics, vms nics will update them
+  with_subelements:
+    - "{{ create_vms }}"
+    - "nics"
+    - flags:
+      skip_missing: true
+
+- name: Manage VMs state
+  ansible.builtin.include_tasks: manage_state.yml
+  with_items: "{{ create_sensitive_vms }}"
+  loop_control:
+    loop_var: "current_vm"
+  no_log: true
+
+- name: Wait for VMs to be started
+  no_log: "{{ not debug_vm_create }}"
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  with_items: "{{ started_vms }}"
+  when: started_vms is defined
+  until: job_result.finished
+  retries: "{{ (vm_infra_create_all_timeout | int // vm_infra_create_poll_interval) + 1  }}"
+  delay: "{{ vm_infra_create_poll_interval }}"
+
+# to_json|from_json in vms is WA for: https://github.com/ansible/ansible/issues/27299
+- name: Apply tags from VM profiles
+  ovirt.ovirt.ovirt_tag:
+    auth: "{{ ovirt_auth }}"
+    name: "{{ item }}"
+    vms: "{{ create_vms | to_json | from_json | ovirt.ovirt.json_query(query) | map(attribute='name') | list }}"
+  with_items: "{{ create_vms | selectattr('tag', 'defined') | map(attribute='tag') | list | unique }}"
+  vars:
+    query: "[?contains(tag, '{{ item }}')]"
+
+- name: Apply tags from VMs
+  ovirt.ovirt.ovirt_tag:
+    auth: "{{ ovirt_auth }}"
+    name: "{{ item }}"
+    vms: "{{ create_vms | to_json | from_json | ovirt.ovirt.json_query(query) | map(attribute='name') | list }}"
+  with_items: "{{ create_vms | selectattr('profile', 'defined') | map(attribute='profile') | selectattr('tag', 'defined') | map(attribute='tag') | list | unique }}"
+  vars:
+    query: "[?contains(profile.tag, '{{ item }}')]"
+    defined_vms: "{{ create_vms | selectattr('profile.tag', 'defined') | list | unique }}"
+
+- name: Wait for IP block
+  when: "wait_for_ip"
+  block:
+    - name: Filter ovirt_vms to get IP
+      ansible.builtin.set_fact:
+        ip_cond: "vm_info.ovirt_vms | ovirt.ovirt.ovirtvmip{{ wait_for_ip_version }}(network_ip='{{ wait_for_ip_range }}') | length > 0"
+
+    - name: Wait for VMs IP
+      ovirt.ovirt.ovirt_vm_info:
+        auth: "{{ ovirt_auth }}"
+        pattern: "name={{ item.name }}"
+        fetch_nested: true
+        nested_attributes: ips
+      with_items:
+        - "{{ create_vms }}"
+      until: "ip_cond"
+      retries: "{{ vm_infra_wait_for_ip_retries }}"
+      register: vm_info
+      delay: "{{ vm_infra_wait_for_ip_delay }}"
+      when: "(item.state is undefined and item.profile.state is defined and item.profile.state != 'stopped') and (item.state is defined and item.state != 'stopped')
+        | default('present') != 'stopped'"
+      # FIXME: Refactor the condition
+
+    - name: Create inventory
+      ansible.builtin.include_tasks: create_inventory.yml

@@ -1,0 +1,32 @@
+{
+ "collection_info": {
+  "namespace": "lowlydba",
+  "name": "sqlserver",
+  "version": "2.7.0",
+  "authors": [
+   "John McCall (github.com/lowlydba)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "sqlserver",
+   "mssql",
+   "database"
+  ],
+  "description": "Ansible collection using PowerShell to configure and maintain SQL Server.",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {},
+  "repository": "https://github.com/LowlyDBA/lowlydba.sqlserver",
+  "documentation": "https://lowlydba.github.io/lowlydba.sqlserver",
+  "homepage": "https://github.com/LowlyDBA/lowlydba.sqlserver",
+  "issues": "https://github.com/LowlyDBA/lowlydba.sqlserver/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "c0466cbc3263a3133016d94be95458747f1f98a95e08c8ad0f248d8d2910b7de",
+  "format": 1
+ },
+ "format": 1
+}

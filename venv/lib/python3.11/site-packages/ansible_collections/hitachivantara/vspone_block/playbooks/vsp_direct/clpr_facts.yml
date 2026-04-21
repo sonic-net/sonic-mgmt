@@ -1,0 +1,44 @@
+---
+####################################################################
+# Example :  CLPR Facts Playbook
+####################################################################
+- name: CLPR Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all CLPRs
+    ####################################################################
+    - name: Get all CLPRs
+      hitachivantara.vspone_block.vsp.hv_clpr_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one CLPR using clpr_id
+    ####################################################################
+    - name: Get one CLPR using clpr_id
+      hitachivantara.vspone_block.vsp.hv_clpr_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          clpr_id: 0
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

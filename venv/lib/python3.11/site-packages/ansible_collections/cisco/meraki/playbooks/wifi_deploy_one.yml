@@ -1,0 +1,16 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    org_id: "828099381482762270"
+    corp_name: ACME
+    network_id: L_828099381482770865
+  gather_facts: false
+  tasks:
+    - name: Create corporate SSID
+      cisco.meraki.networks_wireless_ssids:
+        meraki_suppress_logging: true
+        state: present
+        enabled: true
+        name: "{{ corp_name }}"
+        networkId: "{{ network_id }}"
+        number: "1"

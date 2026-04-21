@@ -1,0 +1,58 @@
+---
+####################################################################
+# Example : VSP One Snapshot Group Facts Playbook
+####################################################################
+- name: VSP One Snapshot Group Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    #######################################################################################
+    # Task Name : Get all snapshot groups
+    #######################################################################################
+    - name: Get all snapshot groups
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot_group_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Get snapshot group with snapshot pairs by snapshot_group_name
+    ######################################################################################
+    - name: Get snapshot group with snapshot pairs by snapshot_group_name
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          snapshot_group_name: "Thin-AnsibleAuto222303"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Get all snapshot pairs in snapshot groups by include_snapshots
+    ######################################################################################
+    - name: Get all snapshot pairs in snapshot groups by include_snapshots
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          include_snapshots: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

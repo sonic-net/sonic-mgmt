@@ -1,0 +1,37 @@
+---
+- name: Set Third Party VPN
+  hosts: localhost
+  gather_facts: false
+  tasks:
+
+    - name: Set Third Party VPN
+      cisco.meraki.organizations_appliance_vpn_third_party_vpnpeers:
+        state: present
+        meraki_suppress_logging: false
+        organizationId: "828099381482762270"
+        peers:
+          - ikeVersion: '2'
+            ipsecPolicies:
+              childAuthAlgo:
+                - sha1
+              childCipherAlgo:
+                - aes256
+              childLifetime: 28800
+              childPfsGroup:
+                - group14
+              ikeAuthAlgo:
+                - sha256
+              ikeCipherAlgo:
+                - aes256
+              ikeDiffieHellmanGroup:
+                - group14
+              ikeLifetime: 28800
+              ikePrfAlgo:
+                - prfsha256
+            name: TEST 3
+            networkTags:
+              - all
+            privateSubnets:
+              - 192.168.1.0/24
+            publicIp: 123.123.123.1
+            secret: Sample_Password2

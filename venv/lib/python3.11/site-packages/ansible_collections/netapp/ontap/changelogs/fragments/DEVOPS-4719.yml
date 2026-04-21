@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_rest_info - Fixed an issues with adding field to specific info that didn't have a direct REST equivalent.
+  - na_ontap_lun_map - Fixed bug when deleting lun map using REST.

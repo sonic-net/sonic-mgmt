@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Query management information
+      cisco.meraki.devices_management_interface_info:
+        serial: Q3XX-XXXX-XXXX
+      register: result
+    - name: Show Results
+      ansible.builtin.debug:
+        msg: "{{ result }}"

@@ -1,0 +1,118 @@
+---
+# Switch from three or five to cluster one node for PowerFlex version 3.6
+- name: Login to primary MDM node of PowerFlex version 3.x
+  ansible.builtin.command: scli --login --username {{ username }} --password "{{ password }}"
+  run_once: true
+  register: powerflex_tb_login_output
+  changed_when: powerflex_tb_login_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_scli_version[0] == '3'
+
+- name: Switch cluster mode from three nodes to one node
+  ansible.builtin.command: |
+    scli --switch_cluster_mode --cluster_mode "1_node" --remove_slave_mdm_ip
+    "{{ powerflex_tb_mdm_secondary_ip }}" --remove_tb_ip "{{ powerflex_tb_primary_ip }}"
+  run_once: true
+  register: powerflex_tb_cluster_to_one_output
+  changed_when: powerflex_tb_cluster_to_one_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_mdm_cluster_mode[0] == "3_node" and powerflex_tb_scli_version[0] == '3'
+
+- name: Switch cluster mode from five nodes to one node
+  ansible.builtin.command: |
+    scli --switch_cluster_mode --cluster_mode "1_node" --remove_slave_mdm_ip
+    "{{ powerflex_tb_mdm_secondary_ip }}","{{ powerflex_tb_mdm_tertiary_ip }}" --remove_tb_ip "{{ powerflex_tb_primary_ip }}","{{ powerflex_tb_secondary_ip }}"
+  run_once: true
+  register: powerflex_tb_cluster_to_one_output
+  changed_when: powerflex_tb_cluster_to_one_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_mdm_cluster_mode[0] == "5_node" and powerflex_tb_scli_version[0] == '3'
+
+# Switch from three or five to cluster one node for PowerFlex version 4.5
+- name: Generate login certificate for PowerFlex version 4.x
+  block:
+    - name: Generate login certificate using management_system_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ hostname }} --username {{ username }} --password {{ password }}
+        --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_tb_generate_login_certificate
+      changed_when: powerflex_tb_generate_login_certificate.rc == 0
+      delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+      when: powerflex_tb_scli_version[0] >= '4'
+  rescue:
+    - name: Generate login certificate using primary_mdm_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ powerflex_tb_primary_ip }} --username {{ username }}
+        --password {{ password }} --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_tb_generate_login_certificate_mdm_ip
+      changed_when: powerflex_tb_generate_login_certificate_mdm_ip.rc == 0
+      delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+      when: powerflex_tb_scli_version[0] >= '4'
+
+- name: Login to MDM for PowerFlex version 4.x
+  ansible.builtin.command: scli --login --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }}
+  run_once: true
+  register: powerflex_tb_login_output
+  changed_when: powerflex_tb_login_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_scli_version[0] >= '4'
+
+- name: Switch cluster mode from three nodes to one node
+  ansible.builtin.command: |
+    scli --switch_cluster_mode --cluster_mode "1_node" --remove_secondary_mdm_ip
+    "{{ powerflex_tb_mdm_secondary_ip }}" --remove_tb_ip "{{ powerflex_tb_primary_ip }}"
+  run_once: true
+  register: powerflex_tb_cluster_three_to_one_output
+  changed_when: powerflex_tb_cluster_three_to_one_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_mdm_cluster_mode[0] == "3_node" and powerflex_tb_scli_version[0] >= '4'
+
+- name: Switch cluster mode from five nodes to one node
+  ansible.builtin.command: |
+    scli --switch_cluster_mode --cluster_mode "1_node" --remove_secondary_mdm_ip
+    "{{ powerflex_tb_mdm_secondary_ip }}","{{ powerflex_tb_mdm_tertiary_ip }}" --remove_tb_ip "{{ powerflex_tb_primary_ip }}","{{ powerflex_tb_secondary_ip }}"
+  run_once: true
+  register: powerflex_tb_cluster_five_to_one_output
+  changed_when: powerflex_tb_cluster_five_to_one_output.rc == 0
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_mdm_cluster_mode[0] == "5_node" and powerflex_tb_scli_version[0] >= '4'
+
+# Remove the standby MDMs
+- name: Remove primary tb from standby mdm
+  ansible.builtin.command: scli --remove_standby_mdm --remove_mdm_ip "{{ powerflex_tb_primary_ip }}"
+  run_once: true
+  register: powerflex_tb_remove_primary_tb_output
+  changed_when: powerflex_tb_remove_primary_tb_output.rc == 0
+  ignore_errors: true
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+
+- name: Remove secondary tb from standby mdm
+  ansible.builtin.command: scli --remove_standby_mdm --remove_mdm_ip "{{ powerflex_tb_secondary_ip }}"
+  run_once: true
+  register: powerflex_tb_remove_secondary_tb_output
+  changed_when: powerflex_tb_remove_secondary_tb_output.rc == 0
+  ignore_errors: true
+  delegate_to: "{{ powerflex_tb_mdm_primary_hostname }}"
+  when: powerflex_tb_secondary_ip is defined
+
+- name: Uninstall package
+  register: powerflex_tb_uninstall_output
+  environment:
+    I_AM_SURE: "{{ i_am_sure | int }}"
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: "absent"
+  with_items:
+    - EMC-ScaleIO-mdm
+  when: ansible_distribution in ("RedHat", "CentOS", "SLES")
+
+- name: Uninstall deb package
+  register: powerflex_tb_uninstall_output
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - EMC-ScaleIO-mdm
+  when: ansible_distribution == "Ubuntu"

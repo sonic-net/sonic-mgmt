@@ -1,0 +1,40 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+requires_ansible: '>=2.14.0'
+action_groups:
+  robot:
+    - boot
+    - failover_ip
+    - failover_ip_info
+    - firewall
+    - firewall_info
+    - reset
+    - reset_info
+    - reverse_dns
+    - server
+    - server_info
+    - ssh_key
+    - ssh_key_info
+    - storagebox
+    - storagebox_info
+    - storagebox_set_password
+    - storagebox_snapshot
+    - storagebox_snapshot_info
+    - storagebox_snapshot_plan
+    - storagebox_snapshot_plan_info
+    - storagebox_subaccount
+    - storagebox_subaccount_info
+    - v_switch
+  api:
+    - storagebox
+    - storagebox_info
+    - storagebox_set_password
+    - storagebox_snapshot
+    - storagebox_snapshot_info
+    - storagebox_snapshot_plan
+    - storagebox_snapshot_plan_info
+    - storagebox_subaccount
+    - storagebox_subaccount_info

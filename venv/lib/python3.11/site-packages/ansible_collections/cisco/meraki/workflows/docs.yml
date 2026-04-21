@@ -1,0 +1,39 @@
+name: docs
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+    branches:
+      - main
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: configure git
+        run: |
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@bots.github.com"
+          git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: make doc-setup
+      - name: Build docs
+        run: make doc
+      - name: commit docs
+        run: |
+          git checkout gh-pages
+          rm -rf $(basename ${GITHUB_REF})
+          mv docs/_build/html $(basename ${GITHUB_REF})
+          git show origin/main:docs/_gh_include/header.inc > index.html
+          (echo main; dirname v*/index.html | sort --version-sort --reverse) | xargs -I@@ -n1 echo '<div class="col-md-4 center"><a href="@@/" class="btn-doc btn"><i class="fa fa-newspaper-o"></i><p>@@</p></a></div>' >> index.html
+          git show origin/main:docs/_gh_include/footer.inc >> index.html
+          git add $(basename ${GITHUB_REF}) index.html
+          git commit -m "update docs for $(basename ${GITHUB_REF})" || true
+      - name: push docs
+        run: git push origin gh-pages

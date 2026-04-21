@@ -1,0 +1,4 @@
+---
+
+bugfixes:
+  - Add `grafana_organiazion_user` to `action_groups.grafana`

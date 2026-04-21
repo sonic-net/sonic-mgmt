@@ -1,0 +1,150 @@
+---
+- name: Force facts gathering
+  ansible.builtin.setup:
+  tags:
+    - initial_clean
+    - final_clean
+    - bootstrap_local_vm
+    - create_storage_domain
+    - create_target_vm
+    - iscsi_discover
+    - iscsi_getdevices
+    - fc_getdevices
+    - get_network_interfaces
+    - validate_hostnames
+    - never
+
+- name: Initial validations and cleanups
+  tags: [initial_clean, bootstrap_local_vm, never]
+  block:
+    - name: Install required packages for oVirt Hosted Engine deployment
+      ansible.builtin.import_tasks: install_packages.yml
+      when: not he_offline_deployment|bool
+
+    - name: System configuration validations
+      ansible.builtin.include_tasks: "{{ pre_checks_item }}"
+      with_fileglob: "pre_checks/*.yml"
+      loop_control:
+        loop_var: pre_checks_item
+
+    - name: Clean environment before deployment
+      ansible.builtin.import_tasks: initial_clean.yml
+
+- name: Bootstrap local engine VM
+  tags: [bootstrap_local_vm, never]
+  block:
+    - name: Bootstrap local engine VM
+      block:
+        - name: 01 Bootstrap local VM
+          ansible.builtin.import_tasks: bootstrap_local_vm/01_prepare_routing_rules.yml
+
+        - name: 02 Bootstrap local VM
+          ansible.builtin.import_tasks: bootstrap_local_vm/02_create_local_vm.yml
+
+    - name: Local engine VM installation - Pre tasks
+      block:
+        - name: 03 Bootstrap local VM
+          ansible.builtin.import_tasks: bootstrap_local_vm/03_engine_initial_tasks.yml
+          delegate_to: "{{ groups.engine[0] }}"
+
+    - name: Engine Setup on local VM
+      block:
+        - name: Run engine-setup
+          vars:
+            ovirt_engine_setup_hostname: "{{ he_fqdn.split('.')[0] }}"
+            ovirt_engine_setup_organization: "{{ he_cloud_init_domain_name }}"
+            ovirt_engine_setup_dwh_db_host: "{{ he_fqdn.split('.')[0] }}"
+            ovirt_engine_setup_firewall_manager:
+            ovirt_engine_setup_answer_file_path: /root/ovirt-engine-answers
+            ovirt_engine_setup_use_remote_answer_file: true
+            ovirt_engine_setup_offline: "{{ he_offline_deployment }}"
+            ovirt_engine_setup_package_list: "{{ he_additional_package_list }}"
+            ovirt_engine_setup_admin_password: "{{ he_admin_password }}"
+          ansible.builtin.import_role:
+            name: ovirt.ovirt.engine_setup
+          delegate_to: "{{ groups.engine[0] }}"
+      rescue:
+        - name: Sync on engine machine
+          ansible.builtin.command: sync
+          changed_when: true
+          delegate_to: "{{ groups.engine[0] }}"
+        - name: Fetch logs from the engine VM
+          ansible.builtin.import_tasks: fetch_engine_logs.yml
+          ignore_errors: true
+          delegate_to: "{{ he_ansible_host_name }}"
+        - name: Notify the user about a failure
+          ansible.builtin.fail:
+            msg: >
+              There was a failure deploying the engine on the local engine VM.
+              The system may not be provisioned according to the playbook
+              results: please check the logs for the issue,
+              fix accordingly or re-deploy from scratch.
+
+    - name: Local engine VM installation - Post tasks
+      block:
+        - name: 04 Bootstrap local VM
+          ansible.builtin.import_tasks: bootstrap_local_vm/04_engine_final_tasks.yml
+          delegate_to: "{{ groups.engine[0] }}"
+
+    - name: Add first HE host
+      block:
+        - name: 05 Bootstrap local VM
+          ansible.builtin.import_tasks: bootstrap_local_vm/05_add_host.yml
+
+- name: Create hosted-engine storage domain
+  tags: [create_storage_domain, never]
+  block:
+    - name: Create Storage Domain
+      ansible.builtin.import_tasks: create_storage_domain.yml
+
+- name: Create and configure target VM
+  tags: [create_target_vm, never]
+  block:
+    - name: Fetch host IP address
+      ansible.builtin.import_tasks: fetch_host_ip.yml
+
+    - name: Create target hosted engine vm
+      ansible.builtin.import_tasks: create_target_vm/01_create_target_hosted_engine_vm.yml
+
+    - name: Configure database settings
+      ansible.builtin.import_tasks: create_target_vm/02_engine_vm_configuration.yml
+      delegate_to: "{{ groups.engine[0] }}"
+
+- name: Hosted engine final tasks
+  ansible.builtin.import_tasks: create_target_vm/03_hosted_engine_final_tasks.yml
+  tags: [create_target_vm, never]
+
+- name: Sync on engine machine
+  ansible.builtin.import_tasks: sync_on_engine_machine.yml
+  changed_when: true
+  ignore_errors: true
+  tags: [final_clean, never]
+
+- name: Final clean
+  ansible.builtin.import_tasks: final_clean.yml
+  tags: [final_clean, never]
+
+
+- name: Validate network interface
+  ansible.builtin.import_tasks: "pre_checks/001_validate_network_interfaces.yml"
+  tags: [get_network_interfaces, never]
+
+
+- name: Validate hostnames
+  ansible.builtin.import_tasks: "pre_checks/002_validate_hostname_tasks.yml"
+  tags: [validate_hostnames, never]
+
+
+- name: Get FC devices
+  ansible.builtin.import_tasks: "fc_getdevices.yml"
+  tags: [fc_getdevices, never]
+
+
+- name: iSCSI discover
+  ansible.builtin.import_tasks: "iscsi_discover.yml"
+  tags: [iscsi_discover, never]
+
+
+- name: Get iSCSI devices
+  ansible.builtin.import_tasks: "iscsi_getdevices.yml"
+  tags: [iscsi_getdevices, never]

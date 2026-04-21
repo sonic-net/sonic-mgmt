@@ -1,0 +1,45 @@
+---
+#eseries_subnet:                       # Network subnet to search for the storage system specified in CIDR form. Example: 192.168.1.0/24
+eseries_subnet_default_prefix: 22      # Default subnet prefix to use when no other prefix is supplied. Default: 22
+eseries_template_api_url: https://0.0.0.0:8443/devmgr/v2/   # Template for the web services api url. Default: https://0.0.0.0:8443/devmgr/v2/
+#eseries_validate_certs:               # Whether SSL certificates should be verified. Used for both embedded and proxy. Choices: true, false
+eseries_prefer_embedded: false         # Overrides the default behavior of using Web Services Proxy when eseries_proxy_api_url is defined. This will only
+                                       #    effect storage systems that have Embedded Web Services.
+
+# Storage system specific variables
+# ---------------------------------
+#eseries_proxy_ssid:                   # Arbitrary string for the proxy to represent the storage system. eseries_system_serial will be used when not defined.
+#eseries_system_serial:                # Storage system serial number (This is located on a label at the top-left towards the front on the device)
+#eseries_system_addresses:             # Storage system management IP addresses. Only required when eseries_system_serial or eseries_system_api_url are not
+                                       #   defined. When not specified, addresses will be populated with eseries_management_interfaces controller addresses
+#eseries_system_api_url:               # Url for the storage system's for embedded web services rest api. Example: https://192.168.10.100/devmgr/v2
+eseries_system_username: admin         # Username for the storage system's for embedded web services rest api
+#eseries_system_password:              # Password for the storage system's for embedded web services rest api and when the admin password has not been set
+                                       #   eseries_system_password will be used to set it.
+#eseries_system_tags:                  # Meta tags to associate with storage system when added to the proxy.
+
+# Storage system management interface information
+# -----------------------------------------------
+# Note: eseries_management_interfaces will be used when eseries_system_serial, eseries_system_api_url, or eseries_system_addresses are not defined.
+#eseries_management_interfaces:        # Subset of the eseries_management_interface variable found in the nar_santricity_management role
+#  controller_a:
+#    - address:                        # Controller A port 1's IP address
+#    - address:                        # Controller A port 2's IP address
+#  controller_b:
+#    - address:                        # Controller B port 1's IP address
+#    - address:                        # Controller B port 2's IP address
+
+# Web Services Proxy specific variable
+# ------------------------------------
+# Note: eseries_proxy_* variables are required to discover storage systems prior to SANtricity OS version 11.60.2.
+#eseries_proxy_api_url:                # Url for the storage system's for proxy web services rest api. Example: https://192.168.10.100/devmgr/v2
+eseries_proxy_api_username: admin      # Username for the storage system's for proxy web services rest api.
+#eseries_proxy_api_password:           # Password for the storage system's for proxy web services rest api and when the admin password has not been set
+                                       #   eseries_proxy_api_password will be used to set it.
+#eseries_proxy_monitor_password:       # Proxy password for the monitor username
+#eseries_proxy_security_password:      # Proxy password for the security username
+#eseries_proxy_storage_password:       # Proxy password for the monitor username
+#eseries_proxy_support_password:       # Proxy password for the support username
+#eseries_proxy_accept_certifications:  # Force automatic acceptance of all storage system's certificate
+#eseries_proxy_default_system_tags:    # Default meta tags to associate with all storage systems
+#eseries_proxy_default_password:       # Default password to associate with all storage systems. This is overridden by eseries_system_password.

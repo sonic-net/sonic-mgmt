@@ -1,0 +1,59 @@
+---
+- name: Converge
+  hosts: localhost
+  environment:
+    http_proxy: "{{ lookup('env', 'HTTP_PROXY') | default(omit)  }}"
+    https_proxy: "{{ lookup('env', 'HTTPS_PROXY') | default(omit) }}"
+    no_proxy: "{{ lookup('env', 'NO_PROXY') | default(omit) }}"
+
+  vars:
+    grafana_url: http://localhost:3000
+    grafana_username: admin
+    grafana_password: admin
+
+    grafana_organizations:
+      - name: my_org
+
+    grafana_datasources:
+      - name: Loki
+        ds_type: loki
+        ds_url: http://127.0.0.1:3100
+        tls_skip_verify: true
+
+    grafana_folders:
+      - name: my_service
+      - name: other_service
+
+    grafana_teams:
+      - name: my_team
+        email: myteam@example.de
+
+    grafana_users:
+      - name: Test User
+        login: testuser
+        password: supersecure!123
+        email: testuser@example.de
+
+    grafana_organization_users:
+      - login: testuser
+        org_id: 1
+      - login: testuser
+        org_name: my_org
+
+    grafana_dashboards:
+      - folder: my_service
+        path: test_dashboard.json
+        overwrite: true
+
+    grafana_silences:
+      - comment: molecule test
+        created_by: ansible
+        ends_at: "2030-01-01T00:00:00.000Z"
+        matchers:
+          - isEqual: true
+            isRegex: false
+            name: environment
+            value: test
+        starts_at: "2029-12-31T23:23:59.000Z"
+
+  roles: [{role: community.grafana.grafana}]

@@ -1,0 +1,507 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      bugfixes:
+        - linting and formatting for CI
+      minor_changes:
+        - Add cli_parse module and plugins (https://github.com/ansible-collections/ansible.utils/pull/28)
+        - Added fact_diff plugin and sub plugin
+        - Added validate module/lookup/filter/test plugin to validate data based on
+          given criteria
+    fragments:
+      - 23 linting and formatting.yaml
+      - 28_cli_parse_plugins_add.yaml
+      - 29-add_docs_for_Cli_parse.yaml
+      - add_fact_diff.yaml
+      - docs_copyedit.yaml
+      - validate.yaml
+    modules:
+      - description: Parse cli output or text using a variety of parsers
+        name: cli_parse
+        namespace: ""
+      - description: Find the difference between currently set facts
+        name: fact_diff
+        namespace: ""
+      - description: Update currently set facts
+        name: update_fact
+        namespace: ""
+      - description: Validate data with provided criteria
+        name: validate
+        namespace: ""
+    plugins:
+      lookup:
+        - description: Retrieve the value in a variable using a path
+          name: get_path
+          namespace: null
+        - description: Find the indices of items in a list matching some criteria
+          name: index_of
+          namespace: null
+        - description: Flatten a complex object into a dictionary of paths and values
+          name: to_paths
+          namespace: null
+        - description: Validate data with provided criteria
+          name: validate
+          namespace: null
+    release_date: "2020-12-08"
+  1.0.1:
+    changes:
+      minor_changes:
+        - Move CHANGELOG.rst file under changelogs folder as required
+    fragments:
+      - fix_changelog_file_location.yaml
+    release_date: "2020-12-08"
+  2.0.0:
+    changes:
+      breaking_changes:
+        - If added custom sub plugins in your collection move from old location `plugins/<sub-plugin-name>`
+          to the new location `plugins/sub_plugins/<sub-plugin-name>` and update the
+          imports as required
+        - Move sub plugins cli_parsers, fact_diff and validate to `plugins/sub_plugins`
+          folder
+        - The `cli_parsers` sub plugins folder name is changed to `cli_parse` to have
+          consistent naming convention, that is all the cli_parse subplugins will now
+          be in `plugins/sub_plugins/cli_parse` folder
+    fragments:
+      - 32_doc_updates.yaml
+      - sub_plugins_dir_change.yaml
+      - upcap_ansible.yaml
+    release_date: "2021-01-29"
+  2.0.1:
+    changes:
+      bugfixes:
+        - Fix ansible.utils.cli_parse action plugin to support old cli_parse sub-plugin
+          structure in ansible.netcommon collection.
+    fragments:
+      - ansible-doc.yaml
+      - cli_parse_fix.yaml
+    release_date: "2021-02-25"
+  2.0.2:
+    changes:
+      bugfixes:
+        - Fix cli_parse template_path read error (https://github.com/ansible-collections/ansible.utils/pull/51).
+        - Fix jsonschema input data format checking (https://github.com/ansible-collections/ansible.utils/pull/50).
+    fragments:
+      - cli_parse_errors_return.yaml
+      - jsonschema_data_validation_fix.yaml
+    release_date: "2021-03-29"
+  2.1.0:
+    changes:
+      bugfixes:
+        - Add missing test requirements (https://github.com/ansible-collections/ansible.utils/pull/57).
+      minor_changes:
+        - Add from_xml and to_xml fiter plugin (https://github.com/ansible-collections/ansible.utils/pull/56).
+    fragments:
+      - 63-add_ignore_txt.yml
+      - add-xmltojson-and-jsontoxml-filter.yaml
+      - add_missing_test_requirements.yml
+      - fix_tests.yaml
+    release_date: "2021-04-27"
+  2.10.0:
+    release_date: "2023-05-11"
+  2.10.1:
+    release_date: "2023-05-12"
+  2.10.2:
+    changes:
+      minor_changes:
+        - validate - Add option `check_format` for the jsonschema engine to disable
+          JSON Schema format checking.
+        - validate - Add support for JSON Schema draft 2019-09 and 2020-12 as well as
+          automatically choosing the draft from the `$schema` field of the criteria.
+    fragments:
+      - netaddr_error.yml
+      - pre-commit.yaml
+      - validate_jsonschema_update.yaml
+    release_date: "2023-05-13"
+  2.10.3:
+    fragments:
+      - fix_workflow_names.yml
+    release_date: "2023-05-17"
+  2.10.4:
+    release_date: "2023-05-19"
+  2.11.0:
+    changes:
+      bugfixes:
+        - Validate input for ipv4_hex(https://github.com/ansible-collections/ansible.utils/issues/281)
+      minor_changes:
+        - Add ipcut filter plugin.(https://github.com/ansible-collections/ansible.utils/issues/251)
+        - Add ipv6form filter plugin.(https://github.com/ansible-collections/ansible.utils/issues/230)
+    fragments:
+      - Bugfix_ipv4_hex.yaml
+      - ipcut.yaml
+      - ipv6form.yaml
+    plugins:
+      filter:
+        - description: This filter is designed to get 1st or last few bits of IP address.
+          name: ipcut
+          namespace: null
+        - description:
+            This filter is designed to convert ipv6 address in different
+            formats. For example expand, compressetc.
+          name: ipv6form
+          namespace: null
+    release_date: "2023-09-07"
+  2.12.0:
+    changes:
+      minor_changes:
+        - Fact_diff filter plugin - Add fact_diff filter plugin. (https://github.com/ansible-collections/ansible.utils/issues/78).
+    fragments:
+      - fact_diff_filter_plugin.yaml
+    plugins:
+      filter:
+        - description: Find the difference between currently set facts
+          name: fact_diff
+          namespace: null
+    release_date: "2023-11-27"
+  2.2.0:
+    changes:
+      minor_changes:
+        - Add in_any_network, in_network, in_one_network test plugins
+        - Add ip, ip_address test plugins
+        - Add ipv4, ipv4_address, ipv4_hostmask, ipv4_netmask test plugins
+        - Add ipv6, ipv6_address, ipv6_ipv4_mapped, ipv6_sixtofour, ipv6_teredo test
+          plugins
+        - Add loopback, mac, multicast test plugins
+        - Add private, public, reserved test plugins
+        - Add resolvable test plugins
+        - Add subnet_of, supernet_of, unspecified test plugins
+    fragments:
+      - add_netaddr_test_plugins_1.yml
+      - add_netaddr_test_plugins_2.yml
+      - add_netaddr_test_plugins_3.yml
+      - add_netaddr_test_plugins_4.yml
+      - add_netaddr_test_plugins_5.yml
+      - add_netaddr_test_plugins_6.yml
+      - add_netaddr_test_plugins_7.yml
+      - add_netaddr_test_plugins_8.yml
+    release_date: "2021-05-17"
+  2.3.0:
+    changes:
+      bugfixes:
+        - Also include empty lists and mappings into the output dictionary (https://github.com/ansible-collections/ansible.utils/pull/58).
+      doc_changes:
+        - Update doc for usable_range filter plugin
+      minor_changes:
+        - Add usable_range test plugin
+    fragments:
+      - add_usable_range_filter_plugin.yml
+      - empty_list_mapping.yml
+      - improve_coverage_for_filter_plugins.yaml
+      - update_doc_for_usable_range_filter_plugin.yml
+    release_date: "2021-06-22"
+  2.3.1:
+    changes:
+      bugfixes:
+        - Add support for the validation of formats to the jsonschema validator.
+        - Improve test coverage
+    fragments:
+      - 81_add_support_for_format.yaml
+    release_date: "2021-07-26"
+  2.4.0:
+    changes:
+      bugfixes:
+        - Update validate to use 2.11 ArgumentSpecValidator if available.
+      minor_changes:
+        - Add new plugin param_list_compare that generates the final param list after
+          comparing base and provided/target param list.
+    fragments:
+      - 85_update_validate_plugin.yaml
+      - 88_compare_resource_list_filter_plugin.yaml
+      - param_list_compare_docs_added.yaml
+    release_date: "2021-08-28"
+  2.4.1:
+    changes:
+      release_summary: Rereleased 2.4.0 with trivial changes.
+    fragments:
+      - 2.4.1.yaml
+      - fix_network_ee.yaml
+    release_date: "2021-09-24"
+  2.4.2:
+    changes:
+      release_summary: Rereleased 2.4.1 with valid requirement.txt.
+    fragments:
+      - 2.4.2.yaml
+      - add_ignore_2.13.yaml
+      - bugfix_100.yaml
+    release_date: "2021-10-07"
+  2.4.3:
+    changes:
+      release_summary: Rereleased 2.4.2 with fix of network ee tests.
+    fragments:
+      - 2.4.3.yaml
+      - fix_network_ee.yaml
+    release_date: "2021-12-07"
+  2.5.0:
+    changes:
+      doc_changes:
+        - Enhancement in documentation and docstring.
+      minor_changes:
+        - "'keep_keys' filter plugin added."
+        - "'remove_keys' filter plugin added."
+        - "'replace_keys' filter plugin added."
+        - Add cli_merge ipaddr filter plugin.
+        - Add ip4_hex filter plugin.
+        - Add ipaddr filter plugin.
+        - Add ipmath filter plugin.
+        - Add ipsubnet filter plugin.
+        - Add ipv4 filter plugin.
+        - Add ipv6 filter plugin.
+        - Add ipwrap filter plugin.
+        - Add network_in_network filter plugin.
+        - Add network_in_usable filter plugin.
+        - Add next_nth_usable filter plugin.
+        - Add nthhost filter plugin.
+        - Add previous_nth_usable filter plugin.
+        - Add reduce_on_network filter plugin.
+        - Add slaac,hwaddr,mac filter plugin.
+        - New validate sub-plugin "config" to validate device configuration against
+          user-defined rules (https://github.com/ansible-collections/ansible.network/issues/15).
+    fragments:
+      - 112-validate-config-plugin.yaml
+      - add_cli_merge_filter_plugin.yaml
+      - add_ip4_hex_filter.yaml
+      - add_ipaddr_filter_plugin.yaml
+      - add_ipmath_filter.yaml
+      - add_ipsubnet_filter_plugin.yaml
+      - add_ipv4_filter_plugin.yaml
+      - add_ipv6_filter_plugin.yaml
+      - add_ipwrap_filter_plugin.yaml
+      - add_network_in_network_filter.yaml
+      - add_network_in_usable_filter.yaml
+      - add_next_nth_usable_filter.yaml
+      - add_nthhost_filter.yaml
+      - add_previous_nth_usable_filter.yaml
+      - add_reduce_on_network_filter.yaml
+      - add_slaac_mac_hwaddr_filter.yaml
+      - docfix_minor_corrections.yaml
+      - recursive_filter_plugins.yaml
+    release_date: "2022-01-31"
+  2.5.1:
+    changes:
+      doc_changes:
+        - "`in_any_network` - plugin doc fix for redundant line."
+    fragments:
+      - Improve_test_covrage.yaml
+      - minor_doc_update.yaml
+      - unit_test_container_venv.yaml
+    release_date: "2022-03-01"
+  2.5.2:
+    changes:
+      bugfixes:
+        - Fix issue in ipaddr,ipv4,ipv6,ipwrap filters.(https://github.com/ansible-collections/ansible.utils/issues/148).
+        - ipaddr - Add valid network for link-local (https://github.com/ansible-collections/ansible.netcommon/issues/350).
+        - ipaddr - Fix issue of breaking ipaddr filter with netcommon 2.6.0(https://github.com/ansible-collections/ansible.netcommon/issues/375).
+    fragments:
+      - bugfix_ipaddr_filter.yaml
+    release_date: "2022-03-04"
+  2.6.0:
+    changes:
+      minor_changes:
+        - "'consolidate' filter plugin added."
+    fragments:
+      - 0-ignore.yml
+      - consolidate_filter_plugin.yml
+      - enable_upgrade_black.yml
+      - pre-commit-enable.yml
+      - pre-commit-skip.yml
+    release_date: "2022-04-12"
+  2.6.1:
+    changes:
+      release_summary: Rereleased 2.6.0 with fixes for internal testing.
+    fragments:
+      - 2.6.1-notes.yaml
+      - check_mode.yaml
+      - pylint-black-flake.yml
+      - sanity_fix.yaml
+      - test inits.yml
+    release_date: "2022-04-25"
+  2.7.0:
+    changes:
+      bugfixes:
+        - Fix filters to only raise AnsibleFilterError exceptions (https://github.com/ansible-collections/ansible.utils/issues/209).
+        - ipsubnet - interacting with large subnets could cause performance constraints.
+          the result would be the system would appear to hang while it built out a list
+          of all possible subnets or stepped through all possible subnets one at a time.
+          when sending a prefix that is a supernet of the passed in network the behavior
+          wasn't consistent. this now returns an AnsibleFilterError in that scenario
+          across all python releases. (https://github.com/ansible-collections/ansible.utils/issues/132)
+      minor_changes:
+        - Add support for content template parser
+        - Added new connection base class similar to ansible.netcommon's NetworkConnectionBase
+          without the network-specific option masking (https://github.com/ansible-collections/ansible.utils/pull/213).
+        - ipsubnet - the index parameter should only ever be an integer if it is provided.
+          this changes the argument type from str to int.
+    fragments:
+      - 172.yaml
+      - 179.yaml
+      - 180.yaml
+      - 183.yaml
+      - 184.yaml
+      - 185.yaml
+      - 186.yaml
+      - 187.yaml
+      - 188.yaml
+      - 189.yaml
+      - 190.yaml
+      - 207-trivial.yaml
+      - 209.yaml
+      - 217-test-filter-docs.yaml
+      - ccontent_template_parser.yaml
+      - ipsubnet_performance.yaml
+      - persistent.yaml
+      - tests.yaml
+      - use-before.yaml
+    release_date: "2022-11-03"
+  2.8.0:
+    changes:
+      bugfixes:
+        - Accept int input for ipaddr filters.
+      minor_changes:
+        - to_xml - Added support for using spaces to indent an XML doc via a new `indent`
+          parameter.
+    fragments:
+      - Ansible_lint_fix1.yaml
+      - Bugfix_162_accept_int_input.yaml
+      - pre-commit.yaml
+      - to_xml_indent_with_spaces.yaml
+    release_date: "2022-11-30"
+  2.9.0:
+    changes:
+      bugfixes:
+        - mac - reorganize regexes to work around 3.11 regex changes. (https://github.com/ansible-collections/ansible.utils/pull/231)
+      minor_changes:
+        - to_xml - Added support to disable xml declartion with full_document flag.
+    fragments:
+      - 3.11_fixes.yaml
+      - add_ipfilter_doc_ut.yaml
+      - fix_ansible_lint.yaml
+      - fix_pre_commit.yaml
+      - to_xml_disable_xml_declaration.yaml
+    release_date: "2023-01-30"
+  3.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.14.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        this collection requires is `2.14.0`. That last known version compatible with
+        ansible-core<2.14 is `v2.12.0`.
+    fragments:
+      - update_requires_ansible.yaml
+    release_date: "2023-11-30"
+  3.1.0:
+    changes:
+      bugfixes:
+        - Avoid unnecessary use of persistent connection in `cli_parse`, `fact_diff`,
+          `update_fact` and `validate` as this action does not require a connection.
+      doc_changes:
+        - ipv6form filter plugin - Fix to be displayed correctly.
+        - validate lookup plugin - Fix syntax in EXAMPLES.
+        - validate module - Fix syntax in EXAMPLES.
+      minor_changes:
+        - Add support in fact_diff filter plugin to show common lines.(https://github.com/ansible-collections/ansible.utils/issues/311)
+    fragments:
+      - Fre_fact_diff.yaml
+      - add_require_Connection.yaml
+      - ipv6form-doc.yaml
+      - validate-doc.yaml
+    release_date: "2024-01-30"
+  4.0.0:
+    changes:
+      major_changes:
+        - Bumping `netaddr` to `>=0.10.1`, means that starting from this release, the
+          minimum `netaddr` version this collection requires is `>=0.10.1`.
+        - This release mainly addresses the breaking changes in the `netaddr` library.
+        - With the new release of `netaddr` 1.0.0, the `IPAddress.is_private()` method
+          has been removed and instead, the `IPAddress.is_global()` method has been
+          extended to support the same functionality. This change has been reflected
+          in the `ipaddr` filter plugin.
+      release_summary:
+        Starting from this release, the minimum `netaddr` version this
+        collection requires is `>=0.10.1`.
+    fragments:
+      - netaddr_is_private_deprecation.yaml
+      - trivial_tests_updates.yaml
+    release_date: "2024-03-28"
+  4.1.0:
+    changes:
+      release_summary:
+        In the last release (`v4.0.0`), we bumped the minimum required
+        `netaddr` version to be `>=0.10.1`. However, since `netaddr>=0.10.1` is not
+        yet available in many sources other than PyPI, we have temporarily added a
+        fallback method to support the `ipaddr` filter with older `netaddr` versions
+        with this release. Once the latest `netaddr` is available in all major sources,
+        we will deprecate this support and eventually remove it.
+    fragments:
+      - ipaddress_is_global_fallback.yaml
+    release_date: "2024-04-15"
+  5.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.15.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        With this release, the minimum required version of `ansible-core`
+        for this collection is `2.15.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.15` is v4.1.0.
+    fragments:
+      - bump_215.yaml
+    release_date: "2024-06-10"
+  5.1.0:
+    changes:
+      doc_changes:
+        - Add a wildcard mask/hostmask documentation to ipaddr filter doc page to obtain
+          an IP address's wildcard mask/hostmask.
+      minor_changes:
+        - Allows the cli_parse module to find parser.template_path inside roles or collections
+          when a path relative to the role/collection directory is provided.
+        - Fix cli_parse module to require a connection.
+        - Previously, the ansible.utils.ipcut filter only supported IPv6 addresses,
+          leading to confusing error messages when used with IPv4 addresses. This fix
+          ensures that the filter now appropriately handles both IPv4 and IPv6 addresses.
+        - Removed conditional check for deprecated ansible.netcommon.cli_parse from
+          ansible.utils.cli_parse
+        - The from_xml filter returns a python dictionary instead of a json string.
+    fragments:
+      - 200.yaml
+      - 203.yaml
+      - 204.yaml
+      - 324.yaml
+      - 358_ipcut.yaml
+      - add_template_path.yaml
+      - fix_cli_parse.yaml
+      - fix_from_xml.yaml
+      - todo_condition.yml
+    release_date: "2024-08-05"
+  5.1.1:
+    changes:
+      bugfixes:
+        - keep_keys - Fixes issue where all keys are removed when data is passed in
+          as a dict.
+    fragments:
+      - 0-readme.yml
+      - keep_keys.yaml
+    release_date: "2024-09-05"
+  5.1.2:
+    changes:
+      bugfixes:
+        - keep_keys - Fixes keep_keys filter to retain the entire node when a key match
+          occurs, rather than just the leaf node values.
+    fragments:
+      - keep_keys_greedy.yaml
+    release_date: "2024-09-30"
+  6.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.16.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        "With this release, the minimum required version of `ansible-core`
+        for this collection is `2.16.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.16` is v5.1.2."
+    fragments:
+      - bump_216.yaml
+      - ipaddr.yaml
+      - test_ansibleundefined.yaml
+    release_date: "2025-04-08"

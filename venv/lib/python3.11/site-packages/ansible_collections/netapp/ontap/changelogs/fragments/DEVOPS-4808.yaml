@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_autosupport - Fixed `partner_address` not working in REST.

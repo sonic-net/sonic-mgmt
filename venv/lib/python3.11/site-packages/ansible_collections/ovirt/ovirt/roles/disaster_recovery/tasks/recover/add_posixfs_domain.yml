@@ -1,0 +1,33 @@
+---
+- name: Add POSIX storage domain main block
+  ignore_errors: "{{ dr_ignore_error_recover }}"
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    - name: Add POSIX storage domain
+      ovirt.ovirt.ovirt_storage_domain:
+        name: "{{ posix_storage['dr_' + dr_target_host + '_name'] }}"
+        critical_space_action_blocker: "{{ posix_storage['dr_critical_space_action_blocker'] }}"
+        domain_function: "{{ posix_storage['dr_storage_domain_type'] }}"
+        warning_low_space: "{{ posix_storage['dr_warning_low_space'] }}"
+        wipe_after_delete: "{{ posix_storage['dr_wipe_after_delete'] }}"
+        backup: "{{ posix_storage['dr_backup'] }}"
+        host: "{{ host_info.ovirt_hosts[0].name }}"
+        data_center: "{{ posix_storage['dr_' + dr_target_host + '_dc_name'] }}"
+        auth: "{{ ovirt_auth }}"
+        posixfs:
+          vfs_type: "{{ posix_storage['dr_' + dr_target_host + '_vfs_type'] }}"
+          path: "{{ posix_storage['dr_' + dr_target_host + '_path'] }}"
+          address: "{{ posix_storage['dr_' + dr_target_host + '_address'] }}"
+      register: result
+
+    - name: Log append to succeed_storage_domains
+      ansible.builtin.set_fact:
+        succeed_storage_domains: "{{ succeed_storage_domains }} + [ \"{{ posix_storage['dr_' + dr_target_host + '_name'] }}\" ]"
+      when: result is succeeded
+
+    - name: Log append to failed_storage_domains
+      ansible.builtin.set_fact:
+        failed_storage_domains: "{{ failed_storage_domains }} + [ \"{{ posix_storage['dr_' + dr_target_host + '_name'] }}\" ]"
+      when: result is failed

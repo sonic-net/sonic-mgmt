@@ -1,0 +1,30 @@
+- name: Get single consistency groups detailed info
+  register: cg_info
+  ibm.storage_virtualize.ibm_svc_info:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    gather_subset: rcconsistgrp
+    objectname: "{{ cg_cleanup }}"
+    log_path: "{{ logpath }}"
+- name: Cleanup each consistency group
+  when: cg_info.RCConsistgrp != None
+  block:
+    - name: Stop consistency groups
+      ibm.storage_virtualize.ibm_svc_start_stop_replication:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ cg_cleanup }}"
+        state: stopped
+        isgroup: true
+        log_path: "{{ logpath }}"
+    - name: Delete consistency group
+      ibm.storage_virtualize.ibm_svc_manage_replicationgroup:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ cg_cleanup }}"
+        state: absent
+        force: true
+        log_path: "{{ logpath }}"
+    - name: Delete all relationships and cleanup
+      ansible.builtin.include_tasks: _gm_gmcv_cg_pbr_cleanup_ir.yaml
+      loop: "{{ cg_info.RCConsistgrp[1:] }}"

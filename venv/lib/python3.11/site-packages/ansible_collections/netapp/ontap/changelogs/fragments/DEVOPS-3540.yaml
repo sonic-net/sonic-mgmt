@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - All REST modules - ONTAP 9.4 and 9.5 are incorrectly detected as supporting REST with ``use_rest:auto``.

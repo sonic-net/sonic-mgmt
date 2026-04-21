@@ -1,0 +1,24 @@
+---
+- name: Check if webui package is available
+  delegate_to: localhost
+  ansible.builtin.find:
+    paths: "{{ powerflex_common_file_install_location }}"
+    patterns: "*{{ file_glob_name }}*"
+
+- name: Get configured MDM IP addresses
+  dellemc.powerflex.mdm_cluster:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    port: "{{ port }}"
+    validate_certs: "{{ validate_certs }}"
+    state: present
+  register: powerflex_webui_result
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Set fact - powerflex_webui_mdm_ips
+  ansible.builtin.set_fact:
+    powerflex_webui_mdm_ips: "{{ powerflex_webui_result.mdm_cluster_details.mdmAddresses | join(',') }}"
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml

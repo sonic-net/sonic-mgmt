@@ -1,0 +1,181 @@
+---
+- name: Recover engine main block
+  ignore_errors: "{{ dr_ignore_error_recover }}"
+  tags:
+    - fail_over
+    - fail_back
+  block:
+    - name: Obtain SSO token
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ vars['dr_sites_' + dr_target_host + '_url'] }}"
+        username: "{{ vars['dr_sites_' + dr_target_host + '_username'] }}"
+        password: "{{ vars['dr_sites_' + dr_target_host + '_password'] }}"
+        ca_file: "{{ vars['dr_sites_' + dr_target_host + '_ca_file'] }}"
+      ignore_errors: false
+
+    - name: Delete previous report log
+      ansible.builtin.file:
+        path: "/tmp/{{ dr_report_file }}"
+        state: absent
+      ignore_errors: true
+
+    - name: Create report file
+      ansible.builtin.file:
+        path: "/tmp/{{ dr_report_file }}"
+        state: touch
+        mode: "0644"
+
+    - name: Init entity status list
+      ansible.builtin.set_fact:
+        failed_vm_names: []
+        succeed_vm_names: []
+        failed_template_names: []
+        succeed_template_names: []
+        failed_to_run_vms: []
+        succeed_to_run_vms: []
+        succeed_storage_domains: []
+        failed_storage_domains: []
+
+    # TODO: We should add a validation task that will validate whether
+    # all the hosts in the other site (primary or secondary) could not be connected
+    # and also set a timer that will wait at least 180 seconds until the first
+    # attach will take place. We should do that to prevent Sanlock failure with acquire
+    # lockspace. We should use a flag with default true whether to have this check
+    # or not.
+
+    # TODO: What happens if master is failed to be attached,
+    # do we still want to continue and attach the other storage
+    # domain (which will make another storage domain as master instead).
+    - name: Add master storage domain to the setup
+      ansible.builtin.include_tasks: recover/add_domain.yml
+      vars:
+        storage: "{{ item }}"
+      with_items:
+        - "{{ dr_import_storages }}"
+      when: item['dr_' + dr_target_host + '_master_domain']
+
+    - name: Add non master storage domains to the setup
+      ansible.builtin.include_tasks: recover/add_domain.yml
+      vars:
+        storage: "{{ item }}"
+      with_items:
+        - "{{ dr_import_storages }}"
+      when: not item['dr_' + dr_target_host + '_master_domain']
+
+    # Get all the active storage domains in the setup to register
+    # all the templates/VMs/Disks
+    - name: Fetching active storage domains
+      ovirt.ovirt.ovirt_storage_domain_info:
+        pattern: "status=active"
+        auth: "{{ ovirt_auth }}"
+      register: storage_domain_info
+
+    - name: Set initial Maps
+      ansible.builtin.set_fact:
+        dr_cluster_map: "{{ [] }}"
+        dr_affinity_group_map: "{{ [] }}"
+        dr_affinity_label_map: "{{ [] }}"
+        dr_domain_map: "{{ [] }}"
+        dr_role_map: "{{ [] }}"
+        dr_lun_map: "{{ [] }}"
+        dr_network_map: "{{ [] }}"
+
+    - name: Set Cluster Map
+      ansible.builtin.set_fact:
+        dr_cluster_map: "{{ dr_cluster_map + [ { 'source_name': item[dr_source_map + '_name'] | default('EMPTY_ELEMENT', true), 'dest_name': item[dr_target_host +
+          '_name'] | default('EMPTY_ELEMENT', true) } ] }}"
+      with_items: "{{ dr_cluster_mappings }}"
+      when: dr_cluster_mappings is not none
+
+    - name: Set Affinity Group Map
+      ansible.builtin.set_fact:
+        dr_affinity_group_map: "{{ dr_affinity_group_map + [ { 'source_name': item[dr_source_map + '_name'] | default('EMPTY_ELEMENT', true), 'dest_name': item[dr_target_host
+          + '_name'] | default('EMPTY_ELEMENT', true) } ] }}"
+      with_items: "{{ dr_affinity_group_mappings }}"
+      when: dr_affinity_group_mappings is not none
+
+    - name: Set Network Map
+      ansible.builtin.set_fact:
+        dr_network_map: "{{ dr_network_map + [ { 'source_network_name': item[dr_source_map + '_network_name'] | default('EMPTY_ELEMENT', true), 'source_profile_name':
+          item[dr_source_map + '_profile_name'] | default('EMPTY_ELEMENT', true), 'target_network_dc': item[dr_target_host + '_network_dc'] | default('EMPTY_ELEMENT',
+          true), 'target_profile_id': item[dr_target_host + '_profile_id'] | default('00000000-0000-0000-0000-000000000000', true) } ] }}"
+      with_items: "{{ dr_network_mappings }}"
+      when: dr_network_mappings is not none
+
+    - name: Set Affinity Label Map
+      ansible.builtin.set_fact:
+        dr_affinity_label_map: "{{ dr_affinity_label_map + [ { 'source_name': item[dr_source_map + '_name'] | default('EMPTY_ELEMENT', true), 'dest_name': item[dr_target_host
+          + '_name'] | default('EMPTY_ELEMENT', true) } ] }}"
+      with_items: "{{ dr_affinity_label_mappings }}"
+      when: dr_affinity_label_mappings is not none
+
+    - name: Set aaa extensions Map
+      ansible.builtin.set_fact:
+        dr_domain_map: "{{ dr_domain_map + [ { 'source_name': item[dr_source_map + '_name'] | default('EMPTY_ELEMENT', true), 'dest_name': item[dr_target_host + '_name']
+          | default('EMPTY_ELEMENT', true) } ] }}"
+      with_items: "{{ dr_domain_mappings }}"
+      when: dr_domain_mappings is not none
+
+    - name: Set Role Map
+      ansible.builtin.set_fact:
+        dr_role_map: "{{ dr_role_map + [ { 'source_name': item[dr_source_map + '_name'] | default('EMPTY_ELEMENT', true), 'dest_name': item[dr_target_host + '_name']
+          | default('EMPTY_ELEMENT', true) } ] }}"
+      with_items: "{{ dr_role_mappings }}"
+      when: dr_role_mappings is not none
+
+    - name: Set Lun Map
+      ansible.builtin.set_fact:
+        dr_lun_map: "{{ dr_lun_map + [ { 'source_logical_unit_id': item[dr_source_map + '_logical_unit_id'] | default('EMPTY_ELEMENT', true), 'source_storage_type':
+          item[dr_source_map + '_storage_type'] | default('EMPTY_ELEMENT', true), 'dest_logical_unit_id': item[dr_target_host + '_logical_unit_id'] | default('EMPTY_ELEMENT',
+          true), 'dest_storage_type': item[dr_target_host + '_storage_type'] | default('EMPTY_ELEMENT', true), 'dest_logical_unit_address': item[dr_target_host +
+          '_logical_unit_address'] | default('EMPTY_ELEMENT', true), 'dest_logical_unit_port': item[dr_target_host + '_logical_unit_port'] | default('3260' | int,
+          true), 'dest_logical_unit_portal': item[dr_target_host + '_logical_unit_portal'] | default('1', true), 'dest_logical_unit_username': item[dr_target_host
+          + '_logical_unit_username'] | default('', true), 'dest_logical_unit_password': item[dr_target_host + '_logical_unit_password'] | default('', true), 'dest_logical_unit_target':
+          item[dr_target_host + '_logical_unit_target'] | default('[]', true) } ] }}"
+      with_items: "{{ dr_lun_mappings }}"
+      when: dr_lun_mappings is not none
+
+    # First register all the unregistered templates based on the
+    # active storage domains we fetched before.
+    # We register the Templates first since we might have
+    # VMs which are based on them
+    - name: Register templates
+      ansible.builtin.include_tasks: recover/register_templates.yml
+      vars:
+        storage: "{{ item }}"
+      with_items:
+        - "{{ storage_domain_info.ovirt_storage_domains }}"
+
+    # Register all the unregistered VMs after we registered
+    # all the templates from the active storage domains fetched before.
+    - name: Register VMs
+      ansible.builtin.include_tasks: recover/register_vms.yml
+      vars:
+        storage: "{{ item }}"
+      with_items:
+        - "{{ storage_domain_info.ovirt_storage_domains }}"
+
+    # Run all the high availability VMs.
+    - name: Run highly available VMs
+      ansible.builtin.include_tasks: recover/run_vms.yml
+      vars:
+        vms: "{{ item }}"
+      with_items: "{{ unreg_vms }}"
+      when: item.status == 'up' and item.high_availability.enabled | bool
+
+    # Run all the rest of the VMs.
+    - name: Run the rest of the VMs
+      ansible.builtin.include_tasks: recover/run_vms.yml
+      vars:
+        vms: "{{ item }}"
+      with_items: "{{ unreg_vms }}"
+      when: item.status == 'up' and not item.high_availability.enabled | bool
+
+  # Default value is set in role defaults
+  always:
+    - name: Print operation summary
+      ansible.builtin.include_tasks: recover/print_info.yml
+    - name: Revoke the SSO token
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"

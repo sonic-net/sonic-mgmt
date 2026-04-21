@@ -1,0 +1,30 @@
+---
+- name: Icinga_scheduled_downtime
+  telekom_mms.icinga_director.icinga_scheduled_downtime:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ downtime.state | default(omit) }}"
+    object_name: "{{ downtime.name }}"
+    author: "{{ downtime.author }}"
+    comment: "{{ downtime.comment }}"
+    fixed: "{{ downtime.fixed }}"
+    with_services: "{{ downtime.with_services | default(omit) }}"
+    apply_to: "{{ downtime.apply_to }}"
+    assign_filter: "{{ downtime.assign_filter | default(omit) }}"
+    duration: "{{ downtime.duration | default(omit) }}"
+    ranges: "{{ downtime.ranges | default(omit) }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_scheduled_downtimes }}"
+  loop_control:
+    loop_var: downtime
+  tags: downtime
+  notify: config_deploy

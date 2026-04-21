@@ -1,0 +1,107 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    ":gitSignOff",
+    ":dependencyDashboard"
+  ],
+  "labels": [
+    "release-note-none"
+  ],
+  "prConcurrentLimit": 3,
+  "enabledManagers": [
+    "custom.regex",
+    "github-actions"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^hack/e2e-setup.sh$"
+      ],
+      "matchStrings": [
+        "KIND_VERSION=\\${KIND_VERSION:-(?<currentValue>.*?)}"
+      ],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "kubernetes-sigs/kind"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^.github/workflows/integration.yml$"
+      ],
+      "matchStrings": [
+        "\\sversion: (?<currentValue>.*?)\\n"
+      ],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "kubernetes-sigs/kind"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^hack/e2e-setup.sh$"
+      ],
+      "matchStrings": [
+        "KUBECTL_VERSION=\\${KUBECTL_VERSION:-(?<currentValue>.*?)}"
+      ],
+      "datasourceTemplate": "custom.k8s",
+      "depNameTemplate": "kubectl"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^hack/e2e-setup.sh$"
+      ],
+      "matchStrings": [
+        "KUBEVIRT_VERSION=\\${KUBEVIRT_VERSION:-(?<currentValue>.*?)}"
+      ],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "kubevirt/kubevirt"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^hack/e2e-setup.sh$"
+      ],
+      "matchStrings": [
+        "KUBEVIRT_CDI_VERSION=\\${KUBEVIRT_CDI_VERSION:-(?<currentValue>.*?)}"
+      ],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "kubevirt/containerized-data-importer"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^hack/e2e-setup.sh$"
+      ],
+      "matchStrings": [
+        "CNAO_VERSION=\\${CNAO_VERSION:-(?<currentValue>.*?)}"
+      ],
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "kubevirt/cluster-network-addons-operator"
+    }
+  ],
+  "customDatasources": {
+    "k8s": {
+      "defaultRegistryUrlTemplate": "https://cdn.dl.k8s.io/release/stable.txt",
+      "format": "plain"
+    }
+  },
+  "packageRules": [
+    {
+      "matchFileNames": [
+        "hack/e2e-setup.sh",
+        ".github/workflows/integration.yml"
+      ],
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "groupName": "e2e-setup versions"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub actions"
+    }
+  ]
+}

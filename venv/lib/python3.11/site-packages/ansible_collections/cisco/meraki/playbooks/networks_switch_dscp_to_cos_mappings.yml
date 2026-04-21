@@ -1,0 +1,13 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Update all
+      cisco.meraki.networks_switch_dscp_to_cos_mappings:
+        meraki_suppress_logging: false
+        state: present
+        mappings:
+          - cos: 2
+            dscp: 1
+            title: Video
+        networkId: L_828099381482771185

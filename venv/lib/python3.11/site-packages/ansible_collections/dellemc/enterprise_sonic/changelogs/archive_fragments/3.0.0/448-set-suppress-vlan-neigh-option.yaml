@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic-vxlan - Add 'suppress_vlan_neigh' vlan list option (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/448).

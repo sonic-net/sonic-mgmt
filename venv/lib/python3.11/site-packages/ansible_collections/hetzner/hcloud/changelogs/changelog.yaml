@@ -1,0 +1,762 @@
+ancestor: null
+releases:
+  0.1.0:
+    modules:
+    - description: Create and manage cloud Floating IPs on the Hetzner Cloud.
+      name: hcloud_floating_ip
+      namespace: ''
+    - description: Create and manage cloud Load Balancers on the Hetzner Cloud.
+      name: hcloud_load_balancer
+      namespace: ''
+    - description: Manage the relationship between Hetzner Cloud Networks and Load
+        Balancers
+      name: hcloud_load_balancer_network
+      namespace: ''
+    - description: Create and manage the services of cloud Load Balancers on the Hetzner
+        Cloud.
+      name: hcloud_load_balancer_service
+      namespace: ''
+    - description: Manage Hetzner Cloud Load Balancer targets
+      name: hcloud_load_balancer_target
+      namespace: ''
+    - description: Gather infos about the Hetzner Cloud Load Balancer types.
+      name: hcloud_load_balancer_type_info
+      namespace: ''
+    release_date: '2020-06-29'
+  0.2.0:
+    changes:
+      bugfixes:
+      - hcloud inventory plugin - Allow usage of hcloud.yml and hcloud.yaml - this
+        was removed by error within the migration from build-in ansible to our collection
+    fragments:
+    - inventory-allow-usage-of-pre-migration-configuration-fuiles.yml
+    release_date: '2020-06-30'
+  1.0.0:
+    changes:
+      minor_changes:
+      - hcloud_load_balancer Allow changing the type of a Load Balancer
+      - hcloud_server Allow the creation of servers with enabled backups
+    fragments:
+    - gh7-allow-enabling-of-backups-on-server-creation.yml
+    - lb-allow-change-type.yml
+    release_date: '2020-08-11'
+  1.1.0:
+    changes:
+      bugfixes:
+      - hcloud_floating_ip Fix idempotency when floating ip is assigned to server
+      minor_changes:
+      - hcloud_floating_ip Allow creating Floating IP with protection
+      - hcloud_load_balancer Allow creating Load Balancer with protection
+      - hcloud_network Allow creating Network with protection
+      - hcloud_server Allow creating server with protection
+      - hcloud_volume Allow creating Volumes with protection
+    fragments:
+    - fix-idempotency-floating-ip.yml
+    - gh-28-allow-setting-of-protection-on-creation.yml
+    release_date: '2020-10-05'
+  1.10.0:
+    changes:
+      breaking_changes:
+      - inventory plugin - Python v3.5+ is now required.
+      minor_changes:
+      - hcloud_server - add private_networks_info containing name and private ip in
+        responses
+      - hcloud_server_info - add private_networks_info containing name and private
+        ip in responses
+      - inventory plugin - Add list of all private networks to server variables.
+      - inventory plugin - Add new connect_with setting public_ipv6 to connect to
+        discovered servers via public IPv6 address.
+      - inventory plugin - Add public IPv6 address to server variables.
+      - inventory plugin - Log warning instead of crashing when some servers do not
+        work with global connect_with setting.
+    fragments:
+    - inventory-connect-via-ipv6.yml
+    - inventory-handle-invalid-connect-with.yml
+    - inventory-ipv6-adress-variable.yml
+    - inventory-private-network-info.yml
+    - server-private-networks-info.yml
+    release_date: '2023-02-01'
+  1.10.1:
+    changes:
+      bugfixes:
+      - hcloud_server - Prevent backups from being disabled when undefined
+      - hcloud_server - Server locked after attaching to placement group
+    fragments:
+    - server-fix-backups.yml
+    - server-race-condition-pg-attach.yml
+    release_date: '2023-04-03'
+  1.11.0:
+    changes:
+      minor_changes:
+      - hcloud_image_info - Add cpu architecture field to return value.
+      - hcloud_image_info - Allow filtering images by cpu architecture.
+      - hcloud_server - Select matching image for the cpu architecture of the server
+        type on create & rebuild.
+      - hcloud_server_type_info - Add cpu architecture field to return value.
+      - inventory plugin - Add cpu architecture to server variables.
+    fragments:
+    - arm-features.yaml
+    release_date: '2023-04-11'
+  1.12.0:
+    changes:
+      breaking_changes:
+      - hcloud-python 1.20.0 is now required for full compatibility
+      minor_changes:
+      - hcloud_server_type_info - Add field included_traffic to returned server types
+    fragments:
+    - server-type-included-traffic.yml
+    release_date: '2023-05-16'
+  1.13.0:
+    changes:
+      bugfixes:
+      - hcloud_server - TypeError when trying to use deprecated image with allow_deprecated_image
+      minor_changes:
+      - hcloud_primary_ip_info Create hcloud_primary_ip_info module
+      - hcloud_server Show warning if used server_type is deprecated.
+      - hcloud_server_type_info Return deprecation info for server types.
+    fragments:
+    - create_primary_ip_info.yml
+    - server-type-deprecation.yml
+    - server_error_deprecated_image.yml
+    release_date: '2023-06-20'
+  1.14.0:
+    changes:
+      minor_changes:
+      - hcloud_network Add expose_routes_to_vswitch field.
+      - hcloud_network_info Return expose_routes_to_vswitch for network.
+    fragments:
+    - add-field-expose_routes_to_vswitch.yml
+    release_date: '2023-06-22'
+  1.15.0:
+    changes:
+      bugfixes:
+      - hcloud_image_info Fix facts modules deprecated result key
+      - hcloud_location_info Fix facts modules deprecation warnings
+      - hcloud_server_type_info Fix facts modules deprecated result dict
+      - hcloud_server_type_info Fix facts modules deprecation warnings
+      minor_changes:
+      - hcloud_iso_info Create hcloud_iso_info module
+    fragments:
+    - add-hcloud_iso_info-module.yml
+    - fix-facts-modules-deprecation.yml
+    release_date: '2023-07-04'
+  1.16.0:
+    changes:
+      minor_changes:
+      - Bundle hcloud python dependency inside the collection.
+      - python-dateutil >= 2.7.5 is now required by the collection. If you already
+        have the hcloud package installed, this dependency should also be installed.
+      - requests >= 2.20 is now required by the collection. If you already have the
+        hcloud package installed, this dependency should also be installed.
+      release_summary: This release bundles the hcloud dependency in the collection,
+        this allows us to ship new features or bug fixes without having to release
+        new major versions and require the users to upgrade their version of the hcloud
+        dependency.
+    fragments:
+    - vendor-hcloud-python-dependency.yml
+    release_date: '2023-07-13'
+  1.2.0:
+    changes:
+      minor_changes:
+      - Dynamic Inventory Add option to specifiy the token_env variable which is used
+        for identification if now token is set
+      - Improve imports of API Exception
+      - hcloud_server_network Allow updating alias ips
+      - hcloud_subnetwork Allow creating vswitch subnetworks
+    modules:
+    - description: Gather infos about your Hetzner Cloud load_balancers.
+      name: hcloud_load_balancer_info
+      namespace: ''
+    release_date: '2020-12-01'
+  1.2.1:
+    changes:
+      bugfixes:
+      - Inventory Restore Python 2.7 compatibility
+    release_date: '2020-12-16'
+  1.3.0:
+    changes:
+      minor_changes:
+      - Add firewalls to hcloud_server module
+    modules:
+    - description: Manage Hetzner Cloud Firewalls
+      name: hcloud_firewall
+      namespace: ''
+    release_date: '2021-03-11'
+  1.3.1:
+    changes:
+      bugfixes:
+      - hcloud_server - fix a crash related to check mode if ``state=started`` or
+        ``state=stopped`` (https://github.com/ansible-collections/hetzner.hcloud/issues/54).
+    fragments:
+    - 64-hcloud_server_fix_checkmode_state_started.yml
+    release_date: '2021-03-18'
+  1.4.0:
+    changes:
+      bugfixes:
+      - hcloud_firewall - fix idempotence related to rules comparison (https://github.com/ansible-collections/hetzner.hcloud/pull/71).
+      - hcloud_load_balancer_service - fix imported wrong HealthCheck from hcloud-python
+        (https://github.com/ansible-collections/hetzner.hcloud/pull/73).
+      - hcloud_server - fix idempotence related to firewall handling (https://github.com/ansible-collections/hetzner.hcloud/pull/71).
+      security_fixes:
+      - hcloud_certificate - mark the ``private_key`` parameter as ``no_log`` to prevent
+        potential leaking of secret values (https://github.com/ansible-collections/hetzner.hcloud/pull/70).
+    fragments:
+    - 70-no_log_security_fixes.yml
+    - 71-hcloud_firewall_fix_idempotence.yml
+    - 73-hcloud_load_balancer_service_fix_wrong_import.yml
+    release_date: '2021-04-06'
+  1.4.1:
+    changes:
+      minor_changes:
+      - hcloud_server - improve the handling of deprecated images
+      - hcloud_server - improve the validation and error response for not existing
+        images
+      - inventory - support jinjia templating within `token`
+    fragments:
+    - 74-hcloud_server-improve-error-message-images.yml
+    release_date: '2021-04-07'
+  1.4.2:
+    changes:
+      bugfixes:
+      - inventory fix image name was set as server type instead of the correct server
+        type
+    fragments:
+    - inventory-fix-server-type-wrong-value.yml
+    release_date: '2021-04-14'
+  1.4.3:
+    changes:
+      bugfixes:
+      - hcloud_server Fix incompatbility with python < 3.6
+      - hcloud_server Improve error handling when using not existing server types
+    fragments:
+    - hcloud-server-py36.yaml
+    - hcloud-server-server-type.yaml
+    release_date: '2021-04-22'
+  1.4.4:
+    changes:
+      bugfixes:
+      - hcloud_server Improve Error Message when attaching a not existing firewall
+        to a server
+      - hcloud_volume Force detaching of volumes on servers before deletion
+    fragments:
+    - hcloud_server-improve-error-message-on-not-existing-firewall.yml
+    - hcloud_volume-force-detach-before-deletion.yml
+    release_date: '2021-07-19'
+  1.5.0:
+    changes:
+      bugfixes:
+      - hcloud_rdns improve error message on not existing server/Floating IP
+      - hcloud_server backups property defaults to None now instead of False
+      major_changes:
+      - Introduction of placement groups
+      minor_changes:
+      - hcloud_firewall Add description field to firewall rules
+    fragments:
+    - hcloud_firewall-add-description-field-to-rules.yml
+    - hcloud_placement_group.yml
+    - hcloud_rdns-improve-validation-of-input.yml
+    - hcloud_server_default-backups-to-none.yml
+    release_date: '2021-08-16'
+  1.6.0:
+    changes:
+      minor_changes:
+      - hcloud_rdns Add support for load balancer
+    fragments:
+    - hcloud_rdns-add-support-for-load-balancers.yml
+    release_date: '2021-08-17'
+  1.7.0:
+    changes:
+      minor_changes:
+      - inventory - support jinjia templating within `network`
+    fragments:
+    - inventory-network-templating.yml
+    release_date: '2022-06-09'
+  1.7.1:
+    changes:
+      bugfixes:
+      - hcloud_server_network - fixes changed alias_ips by using sorted
+      minor_changes:
+      - inventory - allow filtering by server status
+    fragments:
+    - hcloud_server_network-alias-ips.yaml
+    - inventory-filter-by-status.yaml
+    release_date: '2022-06-13'
+  1.8.0:
+    modules:
+    - description: Create and manage cloud Primary IPs on the Hetzner Cloud.
+      name: hcloud_primary_ip
+      namespace: hetzner.hcloud
+    release_date: '2022-06-29'
+  1.8.1:
+    release_date: '2022-06-29'
+  1.8.2:
+    changes:
+      bugfixes:
+      - dynamic inventory - fix crash when having servers without IPs (flexible networks)
+      - hcloud_server - When state stopped and server is created, do not start the
+        server
+      - hcloud_server_info - fix crash when having servers without IPs (flexible networks)
+    fragments:
+    - flexible-networks-hcloud-server-info.yml
+    - inventory.yml
+    release_date: '2022-09-14'
+  1.9.0:
+    changes:
+      bugfixes:
+      - hcloud_firewall - the deletion could fail if the firewall was referenced right
+        before
+      - hcloud_server - fix backup window was given out as "None" instead of null
+      - hcloud_server_info - fix backup window was given out as "None" instead of
+        null
+      - hcloud_volume - fix server name was given out as "None" instead of null if
+        no server was attached
+      - hcloud_volume_info - fix server name was given out as "None" instead of null
+        if no server was attached
+      minor_changes:
+      - dynamic inventory - add support changing the name of the top level group all
+        servers are added to
+      - hcloud_firewall - add support for esp and gre protocols
+    fragments:
+    - hcloud_firewall-deletion.yml
+    - hcloud_firewall-esp-gre.yml
+    - hcloud_inventory.yml
+    - hcloud_server_backup_window.yml
+    - hcloud_volume_server_none.yml
+    release_date: '2022-11-10'
+  1.9.1:
+    changes:
+      bugfixes:
+      - hcloud_server - externally attached networks (using hcloud_server_network)
+        were removed when not specified in the hcloud_server resource
+    fragments:
+    - hcloud_server-removed-networks.yml
+    release_date: '2022-12-20'
+  2.0.0:
+    changes:
+      breaking_changes:
+      - Drop support for ansible-core 2.12
+      - Drop support for python 3.7
+      - inventory plugin - Don't set the server image variables (`image_id`, `image_os_flavor`
+        and `image_name`) when the server image is not defined.
+      minor_changes:
+      - Bundle hcloud python dependency inside the collection.
+      - python-dateutil >= 2.7.5 is now required by the collection. If you already
+        have the hcloud package installed, this dependency should also be installed.
+      - requests >= 2.20 is now required by the collection. If you already have the
+        hcloud package installed, this dependency should also be installed.
+      release_summary: This release bundles the hcloud dependency in the collection,
+        this allows us to ship new features or bug fixes without having to release
+        new major versions and require the users to upgrade their version of the hcloud
+        dependency.
+      removed_features:
+      - hcloud_datacenter_facts Removed deprecated facts module
+      - hcloud_floating_ip_facts Removed deprecated facts module
+      - hcloud_image_facts Removed deprecated facts module
+      - hcloud_location_facts Removed deprecated facts module
+      - hcloud_server_facts Removed deprecated facts module
+      - hcloud_server_type_facts Removed deprecated facts module
+      - hcloud_ssh_key_facts Removed deprecated facts module
+      - hcloud_volume_facts Removed deprecated facts module
+    fragments:
+    - do-not-set-inventory-server-image-variables-when-undefined.yml
+    - drop-support-for-ansible-core-2.12.yml
+    - drop-support-for-python-3.7.yml
+    - remove-deprecated-facts-modules.yml
+    - vendor-hcloud-python-dependency.yml
+    release_date: '2023-07-24'
+  2.1.0:
+    changes:
+      bugfixes:
+      - '`*_info` - Consistently fail on invalid ID in `*_info` modules.'
+      minor_changes:
+      - Use the collection version in the hcloud user-agent instead of the ansible-core
+        version.
+      - hcloud_floating_ip_info - Allow querying floating ip by name.
+      - hcloud_load_balancer_info - Add targets health status field.
+      - inventory - Allow caching the hcloud inventory.
+    fragments:
+    - add-target-health-status-in-hcloud_load_balancer_info.yml
+    - allow-caching-hcloud-inventory.yml
+    - consistently-fail-on-invalid-id.yml
+    - query-hcloud_floating_ip_info-by-name.yml
+    - use-collection-version-in-user-agent.yml
+    release_date: '2023-08-17'
+  2.1.1:
+    changes:
+      bugfixes:
+      - hcloud_server - Fix string formatting error on deprecated server type warning
+    fragments:
+    - fix-string-formatting-error-on-deprecated-server-type-warning.yml
+    release_date: '2023-08-23'
+  2.1.2:
+    changes:
+      bugfixes:
+      - hcloud_firewall - The port argument is required when the firewall rule protocol
+        is `udp` or `tcp`.
+      - hcloud_load_balancer_service - In the returned data, the invalid `health_check.http.certificates`
+        field was renamed to `health_check.http.status_codes`.
+    fragments:
+    - rename-load-balancer-service-http-health-check-dict.yaml
+    - require-firewall-port-argument-on-tcp-or-udp-protocol.yaml
+    release_date: '2023-10-05'
+  2.2.0:
+    changes:
+      minor_changes:
+      - hcloud_iso_info - Add deprecation field
+      - hcloud_load_balancer_network - Allow selecting a `load_balancer` or `network`
+        using its ID.
+      - hcloud_load_balancer_service - Allow selecting a `load_balancer` using its
+        ID.
+      - hcloud_load_balancer_target - Allow selecting a `load_balancer` or `server`
+        using its ID.
+      - hcloud_rdns - Allow selecting a `server`, `floating_ip`, `primary_ip` or `load_balancer`
+        using its ID.
+      - hcloud_route - Allow selecting a `network` using its ID.
+      - hcloud_server_network - Allow selecting a `network` or `server` using its
+        ID.
+      - hcloud_subnetwork - Allow selecting to a `network` using its ID.
+    fragments:
+    - add-deprecation-field-to-iso-info.yaml
+    - allow-selecting-a-resource-using-its-id.yaml
+    release_date: '2023-10-23'
+  2.3.0:
+    changes:
+      minor_changes:
+      - hcloud_datacenter_info - Add `server_types` field
+      - hcloud_server - Add `created` field
+      - hcloud_server_info - Add `created` field
+    fragments:
+    - add-server_types-to-datacenter-info.yaml
+    - add_created_to_server_info.yaml
+    release_date: '2023-11-07'
+  2.4.0:
+    changes:
+      minor_changes:
+      - Add the `hetzner.hcloud.all` group to configure all the modules using `module_defaults`.
+      - Allow to set the `api_endpoint` module argument using the `HCLOUD_ENDPOINT`
+        environment variable.
+      - Removed the `hcloud_` prefix from all modules names, e.g. `hetzner.hcloud.hcloud_firewall`
+        was renamed to `hetzner.hcloud.firewall`. Old module names will continue working.
+      - Renamed the `endpoint` module argument to `api_endpoint`, backward compatibility
+        is maintained using an alias.
+      - hcloud inventory - Add the `api_endpoint` option.
+      - hcloud inventory - Deprecate the `api_token_env` option, suggest using a lookup
+        plugin (`{{ lookup('ansible.builtin.env', 'YOUR_ENV_VAR') }}`) or use the
+        well-known `HCLOUD_TOKEN` environment variable name.
+      - hcloud inventory - Rename the `token_env` option to `api_token_env`, use aliases
+        for backward compatibility.
+      - hcloud inventory - Rename the `token` option to `api_token`, use aliases for
+        backward compatibility.
+    fragments:
+    - add-module-defaults-group-for-all-modules.yml
+    - improve-inventory-api-options.yml
+    - improve-modules-api-arguments.yml
+    - remove-hcloud-prefix-from-modules-names.yml
+    release_date: '2023-11-24'
+  2.4.1:
+    changes:
+      bugfixes:
+      - hcloud inventory - Ensure the API client use a new cache for every *cached
+        session*.
+    fragments:
+    - fix-inventory-fresh-cache.yaml
+    release_date: '2023-11-27'
+  2.5.0:
+    changes:
+      minor_changes:
+      - 'Replace deprecated `ansible.netcommon` ip utils with python `ipaddress` module.
+        The `ansible.netcommon` collection is no longer required by the collections.
+
+        '
+      - firewall - Allow forcing the deletion of firewalls that are still in use.
+      - firewall - Do not silence 'firewall still in use' delete failures.
+      - firewall - Return resources the firewall is `applied_to`.
+      - firewall_info - Add new `firewall_info` module to gather firewalls info.
+      - firewall_resource - Add new `firewall_resource` module to manage firewalls
+        resources.
+      - 'inventory - Add `hostvars_prefix` and hostvars_suffix` options to customize
+        the inventory host variables keys.
+
+        '
+    fragments:
+    - add-inventory-hostvars-prefix-and-suffix-option.yml
+    - fix-firewall-deletion.yml
+    - improve-firewall-resources-management.yml
+    - replace-deprecated-ansible.netcommon-with-python-ipaddress.yml
+    modules:
+    - description: Manage Resources a Hetzner Cloud Firewall is applied to.
+      name: firewall_resource
+      namespace: ''
+    release_date: '2024-02-02'
+  3.0.0:
+    changes:
+      breaking_changes:
+      - Drop support for ansible-core 2.13.
+      - certificate - The `not_valid_before` and `not_valid_after` values are now
+        returned as ISO-8601 formatted strings.
+      - certificate_info - The `not_valid_before` and `not_valid_after` values are
+        now returned as ISO-8601 formatted strings.
+      - inventory - Remove the deprecated `api_token_env` option, you may use the
+        `ansible.builtin.env` lookup as alternative.
+      - iso_info - The `deprecated` value is now returned as ISO-8601 formatted strings.
+      bugfixes:
+      - load_balancer_info - Correctly return the `cookie_lifetime` value.
+      - load_balancer_service - Correctly return the `cookie_lifetime` value.
+      minor_changes:
+      - inventory - Add `hostname` option used to template the hostname of the instances.
+      - network - Allow renaming networks.
+    fragments:
+    - add-inventory-hostname-option.yml
+    - allow-renaming-networks.yml
+    - drop-support-for-ansible-core-2.13.yml
+    - fix-always-return-iso-8601-formatted-datetime.yml
+    - fix-load-balancer-cookie-lifetime.yml
+    - remove-inventory-api_token_env-option.yml
+    release_date: '2024-02-05'
+  3.1.0:
+    changes:
+      bugfixes:
+      - primary_ip - Added the missing `auto_delete` field to the return values.
+      - primary_ip - The `auto_delete` option is now used when creating or updating
+        a Primary IP.
+      - primary_ip_info - Added the missing `auto_delete` field to the return values.
+      - server - Do not remove the server from its placement group when the `placement_group`
+        argument is not specified.
+      - server - Pass an empty string to the `placement_group` argument to remove
+        a server from its placement group.
+      - server_network - The returned `alias_ips` list is now sorted.
+      minor_changes:
+      - primary_ip - Use the `server` option to assign a Primary IP being created
+        to a server.
+      - server - Allow passing Datacenter name or ID to the `datacenter` argument.
+      - server - Allow passing Image name or ID to the `image` argument.
+      - server - Allow passing Location name or ID to the `location` argument.
+      - server - Allow passing SSH Keys names or IDs to the `ssh_keys` argument.
+      - server - Allow passing Volume names or IDs to the `volumes` argument.
+      - server - Renamed the `allow_deprecated_image` option to `image_allow_deprecated`.
+    fragments:
+    - primary-ip-assigned-to-server.yml
+    - primary-ip-auto-delete.yml
+    - server-empty-string-arguments.yml
+    - server-rename-image_allow_deprecated-argument.yml
+    - server-use-id-or-name.yml
+    - sort-alias-ips-in-server-network.yml
+    release_date: '2024-04-15'
+  3.1.1:
+    changes:
+      bugfixes:
+      - inventory - Ensure inventory host variables are serializable and can be cached.
+    fragments:
+    - inventory-fix-serialization.yml
+    release_date: '2024-04-16'
+  4.0.0:
+    changes:
+      breaking_changes:
+      - Drop support for ansible-core 2.14.
+    fragments:
+    - drop-support-for-ansible-core-2.14.yml
+    release_date: '2024-06-11'
+  4.0.1:
+    changes:
+      bugfixes:
+      - server - Keep `force_upgrade` deprecated alias for another major version.
+    fragments:
+    - keep-deprecated-alias.yml
+    release_date: '2024-06-11'
+  4.1.0:
+    changes:
+      minor_changes:
+      - Use a truncated exponential backoff algorithm when polling actions from the
+        API.
+      - server_type_info - The 'included_traffic' return value is deprecated and will
+        be set to 'None' on 5 August 2024. See https://docs.hetzner.cloud/changelog#2024-07-25-cloud-api-returns-traffic-information-in-different-format.
+      release_summary: '**API Changes for Traffic Prices and Server Type Included
+        Traffic**
+
+
+        There will be a breaking change in the API regarding Traffic Prices and Server
+        Type
+
+        Included Traffic on 2024-08-05. This release marks the affected fields as
+
+        `Deprecated`. Please check if this affects any of your code.
+
+
+        You can learn more about this change in `our changelog <https://docs.hetzner.cloud/changelog#2024-07-25-cloud-api-returns-traffic-information-in-different-format>`_.
+
+        '
+    fragments:
+    - deprecate-server-type-pricing.yml
+    - exponential-actions-polling-interval.yml
+    - release-summary.yml
+    release_date: '2024-07-25'
+  4.2.0:
+    changes:
+      minor_changes:
+      - load_balancer_status - Add new filter to compute the status of a Load Balancer
+        based on its targets.
+    fragments:
+    - load-balancer-status-filter.yml
+    release_date: '2024-08-30'
+  4.2.1:
+    changes:
+      bugfixes:
+      - server - Wait up to 30 minutes for every action returned from server create
+    fragments:
+    - server-create-next-actions.yml
+    release_date: '2024-09-23'
+  4.2.2:
+    changes:
+      bugfixes:
+      - hcloud_load_balancer_service - Improve unknown certificate id or name error.
+      - hcloud_server - Only rebuild existing servers, skip rebuild if the server
+        was just created.
+    fragments:
+    - improve-unkown-certificate-error.yml
+    - only-rebuild-existing-servers.yml
+    release_date: '2024-11-22'
+  4.3.0:
+    changes:
+      minor_changes:
+      - server - Add `created` state that creates a server but do not start it.
+    fragments:
+    - server-add-created-state.yml
+    release_date: '2025-03-21'
+  5.0.0:
+    changes:
+      breaking_changes:
+      - Drop support for ansible-core 2.15.
+      - Drop support for ansible-core 2.16.
+      - Drop support for python 3.8.
+      - inventory - The default value for the `hostvars_prefix` option is now set
+        to `hcloud_`. Make sure to update all references to host variables provided
+        by the inventory. You may revert this change by setting the `hostvars_prefix`
+        option to `""`.
+      - volume - Volumes are no longer detached when the server argument is not provided.
+        Please use the ``volume_attachment`` module to manage volume attachments.
+      minor_changes:
+      - server - Allow renaming a server.
+      - volume_attachment - Add new `volume_attachment` module to manage Volumes attachment.
+    fragments:
+    - add-volume-attachment-module.yml
+    - change-default-inventory-hostvars-prefix.yml
+    - drop-support-for-ansible-2.15.yml
+    - drop-support-for-ansible-2.16.yml
+    - drop-support-for-python-3.8.yml
+    - remove-auto-detach-volume.yml
+    - renaming-a-server.yml
+    release_date: '2025-05-21'
+  5.0.1:
+    changes:
+      breaking_changes:
+      - server - The deprecated ``force_upgrade`` argument is removed from the server
+        module. Please use the ``force`` argument instead.
+    fragments:
+    - remove-deprecated-argument-force_upgrade.yml
+    release_date: '2025-05-21'
+  5.1.0:
+    changes:
+      bugfixes:
+      - All returned resource IDs are now integers instead of strings.
+      - server - The ``placement_group`` argument now correctly handles placement
+        group IDs during updates.
+      minor_changes:
+      - ssh_key - Log a warning when the provided public key does not match one in
+        the API.
+      - ssh_key - When the public key does not match the one in the API, allow recreating
+        the SSH Key in the API using the ``force=true`` argument.
+    fragments:
+    - returned-resource-ids.yml
+    - server-placement-group-id-idempotency.yml
+    - ssh-key-force-argument.yml
+    release_date: '2025-06-11'
+  5.2.0:
+    changes:
+      bugfixes:
+      - volume_attachment - Add ``hcloud_volume_attachment`` alias to ``volume_attachment``
+        module.
+      - volume_attachment - Add ``volume_attachment`` module to action group ``all``.
+      minor_changes:
+      - volume - Allow renaming a volume.
+    fragments:
+    - missing-volume-attachment-meta.yml
+    - rename-volume.yml
+    release_date: '2025-08-14'
+  5.3.0:
+    changes:
+      bugfixes:
+      - floating_ip - Wait for the Floating IP assign action to complete to reduce
+        chances of running into ``locked`` errors.
+      deprecated_features:
+      - server_type_info - Deprecate Server Type ``deprecation`` property.
+      minor_changes:
+      - server_type_info - Return new Server Type ``category`` property.
+      - server_type_info - Return new Server Type ``locations`` property.
+      release_summary: "`Server Types`_ now depend on `Locations`_.\n\n- We added
+        a new ``locations`` property to the `Server Types`_ resource. The new\n  property
+        defines a list of supported `Locations`_ and additional per `Locations`_\n
+        \ details such as deprecations information.\n\n- We deprecated the ``deprecation``
+        property from the `Server Types`_ resource. The\n  property will gradually
+        be phased out as per `Locations`_ deprecations are being\n  announced. Please
+        use the new per `Locations`_ deprecation information instead.\n\nSee our `changelog`_
+        for more details.\n\n**Upgrading**\n\n.. code:: yaml\n\n    # Before\n    ---\n
+        \   - name: Validate server type\n      hosts: localhost\n      connection:
+        local\n      tasks:\n        - name: Fetch server type info\n          hetzner.hcloud.server_type_info:\n
+        \           name: cx22\n          register: server_type\n\n        - name:
+        Ensure server type exists\n          ansible.builtin.assert:\n            fail_msg:
+        server type does not exists\n            that:\n              - server_type.hcloud_server_type_info
+        | count == 1\n\n        - name: Ensure server type is not deprecated\n          ansible.builtin.assert:\n
+        \           fail_msg: server type is deprecated\n            that:\n              -
+        server_type.hcloud_server_type_info[0].deprecation is none\n\n.. code:: yaml\n\n
+        \   # After\n    ---\n    - name: Validate server type\n      hosts: localhost\n
+        \     connection: local\n      tasks:\n        - name: Fetch location info\n
+        \         hetzner.hcloud.location_info:\n            name: fsn1\n          register:
+        location\n\n        - name: Fetch server type info\n          hetzner.hcloud.server_type_info:\n
+        \           name: cx22\n          register: server_type\n\n        - name:
+        Ensure server type exists\n          ansible.builtin.assert:\n            fail_msg:
+        server type does not exists\n            that:\n              - server_type.hcloud_server_type_info
+        | count == 1\n\n        - name: Extract server type location info\n          ansible.builtin.set_fact:\n
+        \           server_type_location: >\n              {{\n                server_type.hcloud_server_type_info[0].locations\n
+        \               | selectattr(\"name\", \"eq\", location.hcloud_location_info[0].name)\n
+        \               | first\n              }}\n\n        - name: Ensure server
+        type is not deprecated\n          ansible.builtin.assert:\n            fail_msg:
+        server type is deprecated in location\n            that:\n              -
+        server_type_location.deprecation is none\n\n.. _Server Types: https://docs.hetzner.cloud/reference/cloud#server-types\n..
+        _Locations: https://docs.hetzner.cloud/reference/cloud#locations\n.. _changelog:
+        https://docs.hetzner.cloud/changelog#2025-09-24-per-location-server-types\n"
+    fragments:
+    - add-server-type-category.yml
+    - per-location-server-types.yml
+    - wait-floating-ip-assign-action.yml
+    release_date: '2025-09-26'
+  5.3.1:
+    changes:
+      bugfixes:
+      - server - Also check server type deprecation after server creation.
+    fragments:
+    - server-type-deprecation.yml
+    release_date: '2025-09-29'
+  5.4.0:
+    changes:
+      minor_changes:
+      - zone - New module to manage DNS Zones in Hetzner Cloud.
+      - zone_info - New module to fetch DNS Zones details.
+      - zone_rrset - New module to manage DNS Zone RRSets in the Hetzner Cloud.
+      - zone_rrset_info - New module to fetch DNS RRSets details.
+      release_summary: "This release adds support for the new `DNS API`_.\n\nThe DNS
+        API is currently in **beta**, which will likely end on 10\nNovember 2025.
+        After the beta ended, it will no longer be possible to\ncreate new zones in
+        the old DNS system. See the `DNS Beta FAQ`_ for more\ndetails.\n\nFuture minor
+        releases of this project may include breaking changes for\nfeatures that are
+        related to the DNS API.\n\nSee the `DNS API Beta changelog`_ for more details.\n\n**Examples**\n\n..
+        code:: yaml\n\n    - name: Create a primary Zone\n      hetzner.hcloud.zone:\n
+        \       name: example.com\n        mode: primary\n        labels:\n          key:
+        value\n        state: present\n\n    - name: Create a Zone RRSet\n      hetzner.hcloud.zone_rrset:\n
+        \       zone: example.com\n        name: \"@\"\n        type: A\n        records:\n
+        \         - comment: server1\n            value: 201.118.10.2\n        state:
+        present\n\n.. _DNS Beta FAQ: https://docs.hetzner.com/networking/dns/faq/beta\n..
+        _DNS API: https://docs.hetzner.cloud/reference/cloud#dns\n.. _DNS API Beta
+        changelog: https://docs.hetzner.cloud/changelog#2025-10-07-dns-beta\n"
+    fragments:
+    - new-dns-api.yml
+    release_date: '2025-10-07'

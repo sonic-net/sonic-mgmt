@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_user_role - fixed Invalid JSON input. Expecting "privileges" to be an array.

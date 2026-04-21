@@ -1,0 +1,12 @@
+# For ansible-tox-linters
+black==23.3.0
+flake8
+yamllint
+
+# Unit test runner
+pytest-ansible
+pytest-xdist
+pytest-cov
+
+# For ansible.builtin.expect module in ios_user tests
+pexpect>=3.3

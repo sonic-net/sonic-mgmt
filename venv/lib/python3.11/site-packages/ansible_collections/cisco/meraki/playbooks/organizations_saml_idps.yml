@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.organizations_saml_idps:
+        meraki_suppress_logging: true
+        state: present
+        organizationId: "828099381482762270"
+        sloLogoutUrl: https://somewhere.com
+        x509certSha1Fingerprint: 00:11:22:33:44:55:66:77:88:99:00:11:22:33:44:55:66:77:88:99

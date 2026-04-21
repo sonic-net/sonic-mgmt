@@ -1,0 +1,275 @@
+---
+- name: Create Deployment
+  community.okd.k8s:
+    wait: yes
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: hello-kubernetes
+        namespace: default
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: hello-kubernetes
+        template:
+          metadata:
+            labels:
+              app: hello-kubernetes
+          spec:
+            containers:
+              - name: hello-kubernetes
+                image: docker.io/openshift/hello-openshift
+                ports:
+                  - containerPort: 8080
+
+- name: Create Service
+  community.okd.k8s:
+    wait: yes
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: hello-kubernetes
+        namespace: default
+      spec:
+        ports:
+          - port: 80
+            targetPort: 8080
+        selector:
+          app: hello-kubernetes
+
+- name: Create Route with fewest possible arguments
+  community.okd.openshift_route:
+    service: hello-kubernetes
+    namespace: default
+  register: route
+
+- name: Attempt to hit http URL
+  uri:
+    url: 'http://{{ route.result.spec.host }}'
+    return_content: yes
+  until: result is successful
+  retries: 20
+  register: result
+
+- name: Assert the page content is as expected
+  assert:
+    that:
+      - not result.redirected
+      - result.status == 200
+      - result.content == 'Hello OpenShift!\n'
+
+- name: Delete route
+  community.okd.openshift_route:
+    name: '{{ route.result.metadata.name }}'
+    namespace: default
+    state: absent
+    wait: yes
+
+- name: Create Route with custom name and wait
+  community.okd.openshift_route:
+    service: hello-kubernetes
+    namespace: default
+    name: test1
+    wait: yes
+  register: route
+
+- name: Assert that the condition is properly set
+  assert:
+    that:
+      - route.duration is defined
+      - route.result.status.ingress.0.conditions.0.type == 'Admitted'
+      - route.result.status.ingress.0.conditions.0.status == 'True'
+
+- name: Attempt to hit http URL
+  uri:
+    url: 'http://{{ route.result.spec.host }}'
+    return_content: yes
+  until: result is successful
+  retries: 20
+  register: result
+
+- name: Assert the page content is as expected
+  assert:
+    that:
+      - not result.redirected
+      - result.status == 200
+      - result.content == 'Hello OpenShift!\n'
+
+- name: Delete route
+  community.okd.openshift_route:
+    name: '{{ route.result.metadata.name }}'
+    namespace: default
+    state: absent
+    wait: yes
+
+- name: Create edge-terminated route that allows insecure traffic
+  community.okd.openshift_route:
+    service: hello-kubernetes
+    namespace: default
+    name: hello-kubernetes-https
+    tls:
+      insecure_policy: allow
+    termination: edge
+  register: route
+
+- name: Attempt to hit http URL
+  uri:
+    url: 'http://{{ route.result.spec.host }}'
+    return_content: yes
+  until: result is successful
+  retries: 20
+  register: result
+
+- name: Assert the page content is as expected
+  assert:
+    that:
+      - not result.redirected
+      - result.status == 200
+      - result.content == 'Hello OpenShift!\n'
+
+- name: Attempt to hit https URL
+  uri:
+    url: 'https://{{ route.result.spec.host }}'
+    validate_certs: no
+    return_content: yes
+  until: result is successful
+  retries: 10
+  register: result
+
+- name: Assert the page content is as expected
+  assert:
+    that:
+      - not result.redirected
+      - result.status == 200
+      - result.content == 'Hello OpenShift!\n'
+
+- name: Alter edge-terminated route to redirect insecure traffic
+  community.okd.openshift_route:
+    service: hello-kubernetes
+    namespace: default
+    name: hello-kubernetes-https
+    tls:
+      insecure_policy: redirect
+    termination: edge
+  register: route
+
+- name: Attempt to hit http URL
+  uri:
+    url: 'http://{{ route.result.spec.host }}'
+    return_content: yes
+    validate_certs: no
+  until:
+    - result is successful
+    - result.redirected
+  retries: 10
+  register: result
+
+- name: Assert the page content is as expected
+  assert:
+    that:
+      - result.redirected
+      - result.status == 200
+      - result.content == 'Hello OpenShift!\n'
+
+- name: Attempt to hit https URL
+  uri:
+    url: 'https://{{ route.result.spec.host }}'
+    validate_certs: no
+    return_content: yes
+  until: result is successful
+  retries: 20
+  register: result
+
+- name: Assert the page content is as expected
+  assert:
+    that:
+      - not result.redirected
+      - result.status == 200
+      - result.content == 'Hello OpenShift!\n'
+
+- name: Alter edge-terminated route with insecure traffic disabled
+  community.okd.openshift_route:
+    service: hello-kubernetes
+    namespace: default
+    name: hello-kubernetes-https
+    tls:
+      insecure_policy: disallow
+    termination: edge
+  register: route
+
+- debug: var=route
+
+- name: Attempt to hit https URL
+  uri:
+    url: 'https://{{ route.result.spec.host }}'
+    validate_certs: no
+    return_content: yes
+  until: result is successful
+  retries: 20
+  register: result
+
+- name: Assert the page content is as expected
+  assert:
+    that:
+      - not result.redirected
+      - result.status == 200
+      - result.content == 'Hello OpenShift!\n'
+
+- name: Attempt to hit http URL
+  uri:
+    url: 'http://{{ route.result.spec.host }}'
+    status_code: 503
+  until: result is successful
+  retries: 20
+  register: result
+
+- debug: var=result
+
+- name: Assert the page content is as expected
+  assert:
+    that:
+      - not result.redirected
+      - result.status == 503
+
+- name: Delete route
+  community.okd.openshift_route:
+    name: '{{ route.result.metadata.name }}'
+    namespace: default
+    state: absent
+    wait: yes
+
+# Route with labels and annotations
+- name: Create route with labels and annotations
+  community.okd.openshift_route:
+    service: hello-kubernetes
+    namespace: default
+    name: route-label-annotation
+    labels:
+      ansible: test
+    annotations:
+      haproxy.router.openshift.io/balance: roundrobin
+
+- name: Get route information
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: route-label-annotation
+    namespace: default
+  register: route
+
+- assert:
+    that:
+      - route.resources[0].metadata.annotations is defined
+      - '"haproxy.router.openshift.io/balance" in route.resources[0].metadata.annotations'
+      - route.resources[0].metadata.labels is defined
+      - '"ansible" in route.resources[0].metadata.labels'
+
+- name: Delete route
+  community.okd.openshift_route:
+    name: route-label-annotation
+    namespace: default
+    state: absent
+    wait: yes

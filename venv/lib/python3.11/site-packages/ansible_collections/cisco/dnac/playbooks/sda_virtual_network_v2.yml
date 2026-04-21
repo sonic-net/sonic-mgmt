@@ -1,0 +1,34 @@
+---
+- name: Sda virtual network v2
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.dnac.sda_virtual_network_v2:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        isGuestVirtualNetwork: false
+        scalableGroupNames:
+          - Auditors
+        virtualNetworkName: GUEST_VN
+        virtualNetworkType: GUEST
+
+#  - name: Delete all
+#    cisco.dnac.sda_virtual_network_v2:
+#      dnac_host: "{{ dnac_host }}"
+#      dnac_username: "{{ dnac_username }}"
+#      dnac_password: "{{ dnac_password }}"
+#      dnac_verify: "{{ dnac_verify }}"
+#      dnac_port: "{{ dnac_port }}"
+#      dnac_version: "{{ dnac_version }}"
+#      dnac_debug: "{{ dnac_debug }}"
+#      state: absent
+#      virtualNetworkName: GUEST_VN

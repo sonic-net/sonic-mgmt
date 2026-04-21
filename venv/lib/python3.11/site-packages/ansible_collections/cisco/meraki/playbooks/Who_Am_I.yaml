@@ -1,0 +1,20 @@
+- name: Play Name
+  hosts: meraki_servers
+  gather_facts: false
+  tasks:
+    - name: Get my administered identities
+      cisco.meraki.administered_identities_me_info:
+        meraki_suppress_logging: true
+      register: whoamiresult
+    - name: Show current Meraki administrator
+      ansible.builtin.debug:
+        msg:
+          "{{ whoamiresult.meraki_response.name }} - {{ whoamiresult.meraki_response.email
+          }}"
+    - name: Get all Organizations
+      cisco.meraki.organizations_info:
+        meraki_suppress_logging: true
+      register: orgresults
+    - name: Show current Meraki administrator2
+      ansible.builtin.debug:
+        msg: "{{ orgresults | json_query('meraki_response[*].name') }}"

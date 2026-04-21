@@ -1,0 +1,58 @@
+---
+- name: "Get the '{{ current_vm.name }}' VM info"
+  ovirt.ovirt.ovirt_vm_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "name={{ current_vm.name }}"
+    fetch_nested: true
+    nested_attributes:
+      - "bootable"
+    all_content: true
+  register: current_vm_info
+
+- name: "Get the '{{ current_vm.name }}' VM boot disk ID"
+  ansible.builtin.set_fact:
+    current_vm_boot_disk_id: "{{ item.id }}"
+  loop: "{{ current_vm_info.ovirt_vms[0].disk_attachments }} "
+  when: item.bootable is defined and item.bootable
+
+- name: "Get the '{{ current_vm.name }}' VM boot disk info"
+  ovirt.ovirt.ovirt_disk_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "id={{ current_vm_boot_disk_id }}"
+    fetch_nested: true
+  register: current_vm_boot_disk_info
+  when: current_vm_boot_disk_id is defined
+
+- name: "Get the Storage Domain info from the '{{ current_vm.name }}' VM boot disk"
+  ovirt.ovirt.ovirt_storage_domain:
+    auth: "{{ ovirt_auth }}"
+    id: "{{ current_vm_boot_disk_info.ovirt_disks[0].storage_domains[0].id }}"
+  register: current_vm_boot_disk_sd_info
+  when: current_vm_boot_disk_id is defined
+
+- name: "Get the '{{ current_vm.name }}' VM boot disk name"
+  ansible.builtin.set_fact:
+    current_vm_boot_disk_name: "{{ current_vm.boot_disk_name | default(current_vm.profile.boot_disk_name) }}"
+  when: current_vm.boot_disk_name is defined or current_vm.profile.boot_disk_name is defined
+
+- name: "Use '{{ current_vm.name }}' as prefix for the VM boot disk name"
+  ansible.builtin.set_fact:
+    current_vm_boot_disk_use_vm_name_prefix: >
+      "{{ current_vm.boot_disk_use_vm_name_prefix | default(current_vm.profile.boot_disk_use_vm_name_prefix) | default(true) }}"
+
+- name: "Rename the '{{ current_vm.name }}' VM boot disk"
+  ovirt.ovirt.ovirt_disk:
+    auth: "{{ ovirt_auth }}"
+    id: "{{ current_vm_boot_disk_id }}"
+    name: "{% if current_vm_boot_disk_use_vm_name_prefix %}{{ current_vm.name }}_{% endif %}{{ current_vm_boot_disk_name }}"
+    vm_name: "{{ current_vm.name }}"
+    storage_domain: "{{ current_vm_boot_disk_sd_info.storagedomain.name }}"
+  when: current_vm_boot_disk_id is defined and current_vm_boot_disk_name is defined
+
+- name: "Resize the '{{ current_vm.name }}' VM boot disk"
+  ovirt.ovirt.ovirt_disk:
+    auth: "{{ ovirt_auth }}"
+    id: "{{ current_vm_boot_disk_id }}"
+    size: "{{ current_vm.boot_disk_size | default(current_vm.profile.boot_disk_size) }}"
+    vm_name: "{{ current_vm.name }}"
+  when: ( current_vm.boot_disk_size is defined or current_vm.profile.boot_disk_size is defined ) and current_vm_boot_disk_id is defined

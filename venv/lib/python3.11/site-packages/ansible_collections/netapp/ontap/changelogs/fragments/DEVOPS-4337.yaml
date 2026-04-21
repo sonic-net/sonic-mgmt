@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_aggregate - Added REST support.
+bugfixes:
+  - na_ontap_aggregate - Fixed KeyError on unmount_volumes when offlining a volume if option is not set.
+  - na_ontap_aggregate - Report an error when attempting to change snaplock_type.
+  - module_utils - fixed KeyError on Allow when using OPTIONS method and the API failed.

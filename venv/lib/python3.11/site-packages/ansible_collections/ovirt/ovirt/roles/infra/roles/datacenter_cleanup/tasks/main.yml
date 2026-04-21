@@ -1,0 +1,39 @@
+---
+- name: Remove VMPools
+  ansible.builtin.include_tasks: vm_pools.yml
+
+- name: Remove VMs
+  ansible.builtin.include_tasks: vms.yml
+
+- name: Remove Templates
+  ansible.builtin.include_tasks: templates.yml
+
+- name: Remove Disks
+  ansible.builtin.include_tasks: disks.yml
+
+- name: Find existing Storage Domains in Datacenter
+  ovirt.ovirt.ovirt_storage_domain_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "datacenter={{ data_center_name }}"
+  register: sd_info
+
+- name: Remove all Storage Domains except master
+  ansible.builtin.include_tasks: storages_pre.yml
+
+- name: Find existing clusters in Datacenter
+  ovirt.ovirt.ovirt_cluster_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "datacenter={{ data_center_name }}"
+  register: cluster_info
+
+- name: Remove Datacenter
+  ansible.builtin.include_tasks: datacenter.yml
+
+- name: Remove master Storage Domain
+  ansible.builtin.include_tasks: storages_last.yml
+
+- name: Remove Clusters and Hosts
+  ansible.builtin.include_tasks: cluster_and_hosts.yml
+  with_items: "{{ cluster_info.ovirt_clusters }}"
+  loop_control:
+    loop_var: cluster_item

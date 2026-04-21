@@ -1,0 +1,2 @@
+minor_changes:
+  - purefa_vlan - Extend VLAN support to cover NVMe-RoCE and file interfaces

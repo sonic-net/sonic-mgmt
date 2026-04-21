@@ -1,0 +1,3 @@
+---
+trivial:
+  - grafana_datasource - (docs) add influxdb v2 flux example

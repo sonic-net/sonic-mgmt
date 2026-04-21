@@ -1,0 +1,40 @@
+---
+- name: "Ensure datasources exist (via API)"
+  community.grafana.grafana_datasource:
+    grafana_url: "{{ grafana_api_url }}"
+    grafana_user: "{{ grafana_ini.security.admin_user }}"
+    grafana_password: "{{ grafana_ini.security.admin_password }}"
+    name: "{{ item.name }}"
+    ds_url: "{{ item.url }}"
+    ds_type: "{{ item.type }}"
+    access: "{{ item.access | default(omit) }}"
+    is_default: "{{ item.isDefault | default(omit) }}"
+    basic_auth_user: "{{ item.basicAuthUser | default(omit) }}"
+    basic_auth_password: "{{ item.basicAuthPassword | default(omit) }}"
+    database: "{{ item.database | default(omit) }}"
+    user: "{{ item.user | default(omit) }}"
+    password: "{{ item.password | default(omit) }}"
+    aws_auth_type: "{{ item.aws_auth_type | default(omit) }}"
+    aws_default_region: "{{ item.aws_default_region | default(omit) }}"
+    aws_access_key: "{{ item.aws_access_key | default(omit) }}"
+    aws_secret_key: "{{ item.aws_secret_key | default(omit) }}"
+    aws_credentials_profile: "{{ item.aws_credentials_profile | default(omit) }}"
+    aws_custom_metrics_namespaces: "{{ item.aws_custom_metrics_namespaces | default(omit) }}"
+  loop: "{{ grafana_datasources }}"
+  when: "not grafana_use_provisioning"
+
+- name: "Create/Update datasources file (provisioning)"
+  ansible.builtin.copy:
+    dest: "/etc/grafana/provisioning/datasources/ansible.yml"
+    content: |
+      apiVersion: 1
+      deleteDatasources: []
+      datasources:
+      {{ grafana_datasources | to_nice_yaml }}
+    backup: false
+    owner: root
+    group: grafana
+    mode: 0640
+  notify: restart_grafana
+  become: true
+  when: "grafana_use_provisioning"

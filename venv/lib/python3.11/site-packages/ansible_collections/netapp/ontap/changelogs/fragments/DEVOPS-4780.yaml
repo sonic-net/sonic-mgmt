@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_nvme_namespace - Added REST support.

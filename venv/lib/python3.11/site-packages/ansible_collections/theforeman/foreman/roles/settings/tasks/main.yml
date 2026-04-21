@@ -1,0 +1,10 @@
+---
+- name: 'Create Settings'
+  theforeman.foreman.setting:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    name: "{{ item.name }}"
+    value: "{{ item.value | default(omit) }}"
+  loop: "{{ foreman_settings }}"

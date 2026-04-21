@@ -1,0 +1,21 @@
+---
+- name: Network device custom prompt info
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Get all Network Device Custom Prompt
+      cisco.dnac.network_device_custom_prompt_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+      register: network_device_custom_prompt_result
+
+    - name: Show all network_device_custom_prompt
+      ansible.builtin.debug:
+        msg: "{{ network_device_custom_prompt_result }}"

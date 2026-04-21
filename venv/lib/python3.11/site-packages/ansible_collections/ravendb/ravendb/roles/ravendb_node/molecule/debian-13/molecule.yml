@@ -1,0 +1,32 @@
+dependency:
+  name: galaxy
+driver:
+  name: docker
+  port_bindings:
+    '8080': 80
+    '38888': 38888
+    '44443': 443
+platforms:
+  - name: debian-13
+    image: docker.io/geerlingguy/docker-debian13-ansible:latest
+    privileged: true
+    command: /usr/sbin/init
+    volumes:
+      - '/sys/fs/cgroup:/sys/fs/cgroup:rw'
+    tmpfs:
+      - /run
+      - /tmp
+    cgroupns_mode: host
+provisioner:
+  name: ansible
+  log: true
+scenario:
+  name: debian-13
+  test_sequence:
+    - destroy
+    - create
+    - prepare
+    - converge
+    - verify
+verifier:
+  name: ansible

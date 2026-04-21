@@ -1,0 +1,64 @@
+---
+requires_ansible: ">=2.17"
+plugin_routing:
+    modules:
+        dellemc_unity_info:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use info instead.
+        dellemc_unity_gatherfacts:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use info instead.
+        dellemc_unity_consistencygroup:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use consistencygroup instead.
+        dellemc_unity_filesystem_snapshot:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use filesystem_snapshot instead.
+        dellemc_unity_filesystem:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use filesystem instead.
+        dellemc_unity_host:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use host instead.
+        dellemc_unity_nasserver:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use nasserver instead.
+        dellemc_unity_nfs:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use nfs instead.
+        dellemc_unity_smbshare:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use smbshare instead.
+        dellemc_unity_snapshot:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use snapshot instead.
+        dellemc_unity_snapshotschedule:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use snapshotschedule instead.
+        dellemc_unity_storagepool:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use storagepool instead.
+        dellemc_unity_tree_quota:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use tree_quota instead.
+        dellemc_unity_user_quota:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use user_quota instead.
+        dellemc_unity_volume:
+            tombstone:
+                  removal_date: "2024-03-22"
+                  warning_text: Use volume instead.

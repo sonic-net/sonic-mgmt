@@ -1,0 +1,903 @@
+ancestor: null
+releases:
+  1.0.0:
+    modules:
+      - description: Run a cli command on cli-based network devices
+        name: cli_command
+        namespace: ""
+      - description: Push text based configuration to network devices over network_cli
+        name: cli_config
+        namespace: ""
+      - description: Copy a file from a network device to Ansible Controller
+        name: net_get
+        namespace: ""
+      - description: Tests reachability using ping from a network device
+        name: net_ping
+        namespace: ""
+      - description: Copy a file from Ansible Controller to a network device
+        name: net_put
+        namespace: ""
+      - description: netconf device configuration
+        name: netconf_config
+        namespace: ""
+      - description: Fetch configuration/state data from NETCONF enabled network devices.
+        name: netconf_get
+        namespace: ""
+      - description: Execute operations on NETCONF enabled network devices.
+        name: netconf_rpc
+        namespace: ""
+      - description:
+          Handles create, update, read and delete of configuration data on
+          RESTCONF enabled devices.
+        name: restconf_config
+        namespace: ""
+      - description: Fetch configuration/state data from RESTCONF enabled devices.
+        name: restconf_get
+        namespace: ""
+      - description: Executes a low-down and dirty telnet command
+        name: telnet
+        namespace: ""
+    plugins:
+      become:
+        - description: Switch to elevated permissions on a network device
+          name: enable
+          namespace: null
+      connection:
+        - description: Use httpapi to run command on network appliances
+          name: httpapi
+          namespace: null
+        - description: Provides a persistent connection using the netconf protocol
+          name: netconf
+          namespace: null
+        - description: Use network_cli to run command on network appliances
+          name: network_cli
+          namespace: null
+        - description: Use a persistent unix socket for connection
+          name: persistent
+          namespace: null
+      httpapi:
+        - description: HttpApi Plugin for devices supporting Restconf API
+          name: restconf
+          namespace: null
+      netconf:
+        - description:
+            Use default netconf plugin to run standard netconf commands as
+            per RFC
+          name: default
+          namespace: null
+    release_date: "2020-06-23"
+  1.1.0:
+    changes:
+      bugfixes:
+        - Replace deprecated `getiterator` call with `iter`
+        - ipaddr - "host" query supports /31 subnets properly
+        - ipaddr filter - Fixed issue where the first IPv6 address in a subnet was not
+          being considered a valid address.
+        - ipaddr filter now returns empty list instead of False on empty list input
+        - net_put - Restore missing function removed when action plugin stopped inheriting
+          NetworkActionBase
+        - nthhost filter now returns str instead of IPAddress object
+        - slaac filter now returns str instead of IPAddress object
+      major_changes:
+        - Add libssh connection plugin and refactor network_cli (https://github.com/ansible-collections/ansible.netcommon/pull/30)
+      minor_changes:
+        - Add content option validation for netconf_config module (https://github.com/ansible-collections/ansible.netcommon/pull/66)
+        - Documentation of module arguments updated to match expected types where missing.
+        - "Resource Modules: changed flag is set to true in check_mode for all ACTION_STATES
+          (https://github.com/ansible-collections/ansible.netcommon/pull/82)"
+      removed_features:
+        - module_utils.network.common.utils.ComplexDict has been removed
+    fragments:
+      - 103-net-put-handle-src.yaml
+      - 30-add-libssh-connection-support.yaml
+      - 34-ipaddr-empty-list.yaml
+      - 66-netconf-config-vaildation.yml
+      - 72-ipv6-first-address-fix.yaml
+      - 74-remove-getiterator.yaml
+      - 75-unit-tests.yaml
+      - 78-sanity-cleanup.yaml
+      - 82-changed_true_action_states_check_mode_yes.yml
+      - 95-ipaddr.yaml
+    release_date: "2020-07-30"
+  1.1.1:
+    changes:
+      release_summary: Rereleased 1.1.0 with regenerated documentation.
+    fragments:
+      - 1.1.1.yaml
+    release_date: "2020-07-31"
+  1.1.2:
+    changes:
+      release_summary: Rereleased 1.1.1 with updated changelog.
+    fragments:
+      - 1.1.2.yaml
+    release_date: "2020-08-06"
+  1.2.0:
+    changes:
+      bugfixes:
+        - cli_config fixes issue when rollback_id = 0 evalutes to False
+        - sort_list will sort a list of dicts using the sorted method with key as an
+          argument.
+      minor_changes:
+        - Added description to collection galaxy.yml file.
+        - NetworkConfig objects now have an optional `comment_tokens` parameter which
+          takes a list of strings which will override the DEFAULT_COMMENT_TOKENS list.
+        - New cli_parse module for parsing structured text using a variety of parsers.
+          The initial implemetation of cli_parse can be used with json, native, ntc_templates,
+          pyats, textfsm, ttp, and xml.
+        - The httpapi connection plugin now works with `wait_for_connection`. This will
+          periodically request the root page of the server described by the plugin's
+          options until the request succeeds. This can only test that the server is
+          reachable, the correctness or usability of the API is not guaranteed.
+    fragments:
+      - 105-wait_for_conn-httpapi.yaml
+      - 109-cli_parse_module_addition.yaml
+      - 110-NetworkConfig-comments.yaml
+      - 114-sort_list_listofdicts.yaml
+      - 118-cli_config.yaml
+      - 127-galaxy-fragment.yaml
+    release_date: "2020-08-25"
+  1.2.1:
+    changes:
+      bugfixes:
+        - Fixed "Object of type Capabilities is not JSON serializable" when using default
+          netconf plugin.
+    fragments:
+      - netconf-capabilites-fix.yaml
+    release_date: "2020-09-04"
+  1.3.0:
+    changes:
+      bugfixes:
+        - cli_parse - Ensure only native types are returned to the control node from
+          the parser.
+        - netconf - Changed log level for message of using default netconf plugin to
+          match the level used when a platform-specific netconf plugin is found
+      minor_changes:
+        - Confirmed commit fails with TypeError in IOS XR netconf plugin (https://github.com/ansible-collections/cisco.iosxr/issues/74)
+        - The netconf_config module now allows root tag with namespace prefix.
+        - "cli_config: Add new return value diff which is returned when the cliconf
+          plugin supports onbox diff"
+        - "cli_config: Clarify when commands is returned when the module is run"
+    fragments:
+      - 134-cli-config-diff.yaml
+      - allow_root_tag_with_prefix.yaml
+      - cli_parse_fix.yaml
+      - iosxr_netconf_config_commit_testcase.yaml
+      - netconf-default.yaml
+    release_date: "2020-09-29"
+  1.4.0:
+    changes:
+      bugfixes:
+        - Added support for private key based authentication with libssh transport (https://github.com/ansible-collections/ansible.netcommon/issues/168)
+        - Fixed ipaddr filter plugins in ansible.netcommon collections is not working
+          with latest Ansible (https://github.com/ansible-collections/ansible.netcommon/issues/157)
+        - Fixed netconf_rpc task fails due to encoding issue in the response (https://github.com/ansible-collections/ansible.netcommon/issues/151)
+        - Fixed ssh_type none issue while using net_put and net_get module (https://github.com/ansible-collections/ansible.netcommon/issues/153)
+        - Fixed unit tests under python3.5
+        - 'ipaddr filter - query "address/prefix" (also: "gateway", "gw", "host/prefix",
+          "hostnet", and "router") now handles addresses with /32 prefix or /255.255.255.255
+          netmask'
+        - network_cli - Update underlying ssh connection's play_context in update_play_context,
+          so that the username or password can be updated
+      minor_changes:
+        - "'prefix' added to NetworkTemplate class, inorder to handle the negate operation
+          for vyos config commands."
+        - Add support for json format input format for netconf modules using ``xmltodict``
+        - Update docs for netconf_get and netconf_config examples using display=native
+    fragments:
+      - 135-network-cli-change-password.yaml
+      - 144-test-fixes.yaml
+      - 151-netconf_rpc_fix.yaml
+      - 153-part1-fix_ssh_type_none_issue.yaml
+      - 157-ipaddr-fix.yaml
+      - 168-libssh-privatekey-support.yaml
+      - ipaddr-host-prefix-32.yaml
+      - negate-command-vyos.yaml
+      - netconf_get_config_doc_updates.yaml
+      - netconf_xmltodict_support.yaml
+    release_date: "2020-10-29"
+  1.4.1:
+    changes:
+      release_summary:
+        Change how black config is specified to avoid issues with Automation
+        Hub release process
+    fragments:
+      - revert_pyproject.yaml
+    release_date: "2020-10-29"
+  1.5.0:
+    changes:
+      bugfixes:
+        - Add netconf_config integration tests for nxos (https://github.com/ansible-collections/ansible.netcommon/pull/185)
+        - Fix GetReply object has no attribute strip() (https://github.com/ansible-collections/cisco.iosxr/issues/97)
+        - Fix config diff logic if parent configuration is present more than once in
+          the candidate config and update docs (https://github.com/ansible-collections/ansible.netcommon/pull/189)
+        - Fix missing changed from net_get (https://github.com/ansible-collections/ansible.netcommon/issues/198)
+        - Fix netconf_config module integration test issuea (https://github.com/ansible-collections/ansible.netcommon/pull/177)
+        - Fix restconf_config incorrectly spoofs HTTP 409 codes (https://github.com/ansible-collections/ansible.netcommon/issues/191)
+        - Split checks for prompt and errors in network_cli so that detected errors
+          are not lost if the prompt is in a later chunk.
+      minor_changes:
+        - Add 'purged' to ACTION_STATES.
+    fragments:
+      - 177_netconf_config_test_issue.yaml
+      - 189_config_diff_fix.yaml
+      - 191_restconf_config_fix.yaml
+      - 198_net_get_missing_changed.yaml
+      - 97_getReplyobject_has_no_attribute_strip_issue.yaml
+      - add_purged_action_state.yaml
+      - error-independently.yaml
+      - netconf_nxos_tests.yaml
+    release_date: "2021-01-27"
+  2.0.0:
+    changes:
+      breaking_changes:
+        - Removed vendored ipaddress package from collection. If you use ansible_collections.ansible.netcommon.plugins.module_utils.compat.ipaddress
+          in your collection, you will need to change this to import ipaddress instead.
+          If your content using ipaddress supports Python 2.7, you will additionally
+          need to make sure that the user has the ipaddress package installed. Please
+          refer to https://docs.ansible.com/ansible/latest/dev_guide/developing_modules_best_practices.html#importing-and-using-shared-code
+          to see how to safely import external packages that may be missing from the
+          user's system A backport of ipaddress for Python 2.7 is available at https://pypi.org/project/ipaddress/
+      bugfixes:
+        - Expose connection class object to rm_template (https://github.com/ansible-collections/ansible.netcommon/pull/180)
+        - network_cli - When using ssh_type libssh, handle closed connection gracefully
+          instead of throwing an exception
+      deprecated_features:
+        - Deprecate cli_parse module and textfsm, ttp, xml, json parser plugins as they
+          are moved to ansible.utils collection (https://github.com/ansible-collections/ansible.netcommon/pull/182
+          https://github.com/ansible-collections/ansible.utils/pull/28)
+      major_changes:
+        - Remove deprecated connection arguments from netconf_config
+      minor_changes:
+        - Add SCP support when using ssh_type libssh
+        - Add `single_user_mode` option for command output caching.
+        - Move cli_config idempotent warning message with the task response under `warnings`
+          key if `changed` is `True`
+        - Reduce CPU usage and network module run time when using `ansible_network_import_modules`
+        - Support any() and all() filters in Jinja2.
+    fragments:
+      - 180_RMbase_engine.yaml
+      - 182-cli_parse_deprecate.yaml
+      - 212-update-documentation.yaml
+      - 213-docs-updates.yaml
+      - 217-pylibssh-conn-closed.yaml
+      - 226-libssh-scp.yaml
+      - 93-remove-ipaddress.yaml
+      - ansible_network_direct_execution.yaml
+      - config_module_warning_msg.yaml
+      - remove-netconf_config-args.yaml
+      - support_caching.yaml
+      - support_custom_filters.yaml
+      - update_requires_ansible.yaml
+      - yamllint.yaml
+    plugins:
+      cache:
+        - description: RAM backed, non persistent cache.
+          name: memory
+          namespace: null
+    release_date: "2021-03-01"
+  2.0.1:
+    changes:
+      bugfixes:
+        - Allow setting `host_key_checking` through a play/task var for `network_cli`.
+        - Ensure passed-in terminal_initial_prompt and terminal_initial_answer values
+          are cast to bytes before using
+        - Update valid documentation for net_ping module.
+        - ncclient - catch and handle exception to prevent stack trace when running
+          in FIPS mode
+        - net_put - Remove temp file created when file already exist on destination
+          when mode is 'text'.
+      minor_changes:
+        - Several module_utils files were intended to be licensed BSD, but missing a
+          license preamble in the files. The preamble has been added, and all authors
+          for the files have given their assent to the intended license https://github.com/ansible-collections/ansible.netcommon/pull/122
+    fragments:
+      - 100-bugfix-net-ping-docs.yaml
+      - 122-add-license.yaml
+      - 220-initial-prompt-bytes.yaml
+      - 227-remove_tests_sanity_requirements.yml
+      - 231-unit-tests.yaml
+      - 235-fix-net-put-issue.yaml
+      - 240-document-libssh-requirement.yaml
+      - fips-ncclient-import-error.yaml
+      - new_action_state.yaml
+      - no_log_fix.yaml
+      - set_host_key_checking.yaml
+    release_date: "2021-03-30"
+  2.0.2:
+    changes:
+      bugfixes:
+        - Fix cli_parse issue with parsers in utils collection (https://github.com/ansible-collections/ansible.netcommon/pull/270)
+        - Support single_user_mode with Ansible 2.9.
+    fragments:
+      - 254-add_ignore_txt.yml
+      - cli_parse_fix.yaml
+      - single_user_mode.yaml
+    release_date: "2021-04-28"
+  2.1.0:
+    changes:
+      bugfixes:
+        - Variables in play_context will now be updated for netconf connections on each
+          task run.
+        - fix SCP/SFTP when using network_cli with libssh
+      minor_changes:
+        - Add support for ProxyCommand with netconf connection.
+    fragments:
+      - 259-netconf-play-context.yaml
+      - drop-base-cache.yaml
+      - libssh-get-put.yaml
+      - support_proxycommand_netconf.yaml
+    release_date: "2021-05-17"
+  2.2.0:
+    changes:
+      bugfixes:
+        - libssh - Fix fromatting of authenticity error message when not prompting for
+          input (https://github.com/ansible-collections/ansible.netcommon/issues/283)
+        - netconf - Fix connection with ncclient versions < 0.6.10
+        - network_cli - Fix for execution failing when ansible_ssh_password is used
+          to specify password (https://github.com/ansible-collections/ansible.netcommon/issues/288)
+      minor_changes:
+        - Add variable to control ProxyCommand with libssh connection.
+        - "NetworkTemplate and ResouceModule base classes have been moved under module_utils.network.common.rm_base.
+          Stubs have been kept for backwards compatibility. These will be removed after
+          2023-01-01. Please update imports for existing modules that subclass them.
+          The `cli_rm_builder <https://github.com/ansible-network/cli_rm_builder>`_
+          has been updated to use the new imports.
+
+          "
+    fragments:
+      - 257-libssh-proxy-var.yaml
+      - 288-netcli-password.yaml
+      - libssh-auth-msg.yaml
+      - ncclient-sock-arg.yaml
+      - update_rmbase.yaml
+    release_date: "2021-06-23"
+  2.3.0:
+    changes:
+      minor_changes:
+        - Add vlan_expander filter
+        - Persistent connection options (persistent_command_timeout, persistent_log_messages,
+          etc.) have been unified across all persistent connections. New persistent
+          connections may also now get these options by extending the connection_persistent
+          documentation fragment.
+    fragments:
+      - 280-vlan_expander.yaml
+      - 295-connection-tests.yaml
+      - 308-unify-persistent.yaml
+      - fix_integration_test_iosxr_7.0.2.yaml
+    release_date: "2021-07-27"
+  2.4.0:
+    changes:
+      bugfixes:
+        - network_cli - Add ability to set options inherited from paramiko/libssh in
+          ansible >= 2.11 (https://github.com/ansible-collections/ansible.netcommon/pull/271).
+      deprecated_features:
+        - network_cli - The paramiko_ssh setting ``look_for_keys`` was set automatically
+          based on the values of the ``password`` and ``private_key_file`` options passed
+          to network_cli. This option can now be set explicitly, and the automatic setting
+          of ``look_for_keys`` will be removed after 2024-01-01  (https://github.com/ansible-collections/ansible.netcommon/pull/271).
+      minor_changes:
+        - Add network_resource plugin to manage and provide single entry point for all
+          resource modules for higher oder roles.
+    fragments:
+      - 271-net-cli-options.yaml
+      - 318-netcli-tests.yaml
+      - backup-without-copy.yaml
+      - disable-look_for_keys-warning.yaml
+      - network_resource-version_added.yaml
+      - network_resource_plugin.yaml
+    modules:
+      - description: Manage resource modules
+        name: network_resource
+        namespace: ""
+    release_date: "2021-08-27"
+  2.5.0:
+    changes:
+      bugfixes:
+        - network_cli - Provide clearer error message when a prompt regex fails to compile
+        - network_cli - fix issue when multiple terminal_initial_(prompt|answer) values
+          are given (https://github.com/ansible-collections/ansible.netcommon/issues/331).
+      minor_changes:
+        - Copied the cliconf, httpapi, netconf, and terminal base plugins and NetworkConnectionBase
+          into netcommon. These base plugins may now be imported from netcommmon instead
+          of ansible if a collection depends on netcommon versions newer than this version,
+          allowing features and bugfixes to flow to those collections without upgrading
+          ansible.
+        - Make ansible_network_os as optional param for httpapi connection plugin.
+        - Support removal of non-config lines from running config while taking backup.
+        - "`network_cli` - added new option 'become_errors' to determine how privilege
+          escalation failures are handled."
+    fragments:
+      - 0-copy_ignore_txt.yml
+      - 334-base-plugins.yaml
+      - httpapi_make_ansible_network_os_optional_param.yaml
+      - initial_prompt-bytes-fix.yaml
+      - non_config.yaml
+      - on_become_errors.yaml
+      - prompt-regex.yaml
+    release_date: "2021-12-07"
+  2.5.1:
+    changes:
+      bugfixes:
+        - Fixed plugins inheriting from netcommon's base plugins (for example httpapi/restconf
+          or netconf/default) so that they can be properly loaded (https://github.com/ansible-collections/ansible.netcommon/issues/356).
+    fragments:
+      - 358-pluginloader.yaml
+      - pre-commit.yaml
+    release_date: "2022-02-09"
+  2.6.0:
+    changes:
+      bugfixes:
+        - Fix issue with cli_parse native_parser plugin when input is empty (https://github.com/ansible-collections/ansible.netcommon/issues/347).
+        - No activity on the transport's channel was triggering a socket.timeout() after
+          30 secs, even if persistent_command_timeout is set to a higher value. This
+          patch fixes it.
+      minor_changes:
+        - Redirected ipaddr filters to ansible.utils (https://github.com/ansible-collections/ansible.netcommon/pull/359).
+        - httpapi - new parameter retries in send() method limits the number of times
+          a request is retried when a HTTP error that can be worked around is encountered.
+          The default is to retry indefinitely to maintain old behavior, but this default
+          may change in a later breaking release.
+    fragments:
+      - 364-pre-commit-ci.yaml
+      - add_remove_prompt.yaml
+      - bugfix_cli_parse_native_parser.yaml
+      - deprecate_ipaddr_filters.yaml
+      - httpapi-retries.yaml
+      - shell_timeout.yaml
+    release_date: "2022-03-01"
+  2.6.1:
+    changes:
+      bugfixes:
+        - Fix validate-module sanity test.
+      release_summary: Rereleased 2.6.0 with updated utils dependancy.
+    fragments:
+      - 2.6.0.yaml
+      - fix_sanity.yaml
+    release_date: "2022-03-10"
+  3.0.0:
+    changes:
+      breaking_changes:
+        - httpapi - Change default value of ``import_modules`` option from ``no`` to
+          ``yes``
+        - netconf - Change default value of ``import_modules`` option from ``no`` to
+          ``yes``
+        - network_cli - Change default value of ``import_modules`` option from ``no``
+          to ``yes``
+      known_issues:
+        - "eos - When using eos modules on Ansible 2.9, tasks will occasionally fail
+          with ``import_modules`` enabled. This can be avoided by setting ``import_modules:
+          no``"
+      major_changes:
+        - cli_parse - this module has been moved to the ansible.utils collection. ``ansible.netcommon.cli_parse``
+          will continue to work to reference the module in its new location, but this
+          redirect will be removed in a future release
+        - "network_cli - Change default value of `ssh_type` option from `paramiko` to
+          `auto`. This value will use libssh if the ansible-pylibssh module is installed,
+          otherwise will fallback to paramiko.
+
+          "
+    fragments:
+      - 364-pre-commit-ci.yaml
+      - 384-cli_parse-move.yaml
+      - 387-change-defaults.yaml
+      - 390-sanity.yaml
+      - 394-change-defaults.yaml
+      - pre-commit-add-docs.yaml
+      - update-linter-config.yaml
+    release_date: "2022-04-26"
+  3.0.1:
+    changes:
+      bugfixes:
+        - httpapi - Fix for improperly set hostname in url
+        - libssh - Fix for improperly set hostname in connect
+        - restconf - When non-JSON data is encountered, return the bytes found instead
+          of nothing.
+    fragments:
+      - 412-unit-updates.yaml
+      - 419-prettier.yaml
+      - 428.yaml
+      - 432.yaml
+      - fix-changelog-location.yaml
+      - import_modules-logging.yaml
+      - libssh-tests.yaml
+      - remote_addr.yaml
+      - restconf-not-json.yaml
+      - update-pre-commit.yaml
+    release_date: "2022-05-31"
+  3.1.0:
+    changes:
+      minor_changes:
+        - Add grpc connection plugin support.
+        - Adds a new option `terminal_errors` in network_cli, that determines how terminal
+          setting failures are handled.
+        - libssh - Added `password_prompt` option to override default "password:" prompt
+          used by pylibssh
+    fragments:
+      - add-grpc-connection-plugin.yaml
+      - libssh-password-prompt.yaml
+      - terminal_errors.yaml
+    modules:
+      - description: Fetch configuration/state data from gRPC enabled target hosts.
+        name: grpc_config
+        namespace: ""
+      - description: Fetch configuration/state data from gRPC enabled target hosts.
+        name: grpc_get
+        namespace: ""
+    plugins:
+      connection:
+        - description: Provides a persistent connection using the gRPC protocol
+          name: grpc
+          namespace: null
+    release_date: "2022-08-02"
+  3.1.1:
+    changes:
+      bugfixes:
+        - Fix a small number of potential use-before-assignment issues.
+        - Fix to set connection plugin options correctly.
+        - libssh - Removed the wording "Tech preview". From version 3.0.0 the default
+          if installed.
+        - libssh - add ssh_args, ssh_common_args, and ssh_extra_args options. These
+          options are exclusively for collecting proxy information from as an alternative
+          to the proxy_command option.
+    fragments:
+      - 441-pre-commit.yaml
+      - 448-set_options.yaml
+      - 451-libssh-remove-tech-preview.yaml
+      - 454-legacy_cleanup.yaml
+      - pylint.yaml
+    release_date: "2022-09-06"
+  3.1.2:
+    changes:
+      bugfixes:
+        - libssh - check for minimum ansible-pylibssh version before using password_prompt
+          option. (https://github.com/ansible-collections/ansible.netcommon/pull/467)
+    fragments:
+      - 2.15-ignores.yaml
+      - libssh_check.yaml
+    release_date: "2022-09-30"
+  3.1.3:
+    changes:
+      release_summary:
+        The v3.1.2 is unavailable on Ansible Automation Hub because
+        a technical issue. Please download and use v3.1.3 from Automation Hub.
+    fragments:
+      - prepare_312.yaml
+    release_date: "2022-10-04"
+  4.0.0:
+    changes:
+      removed_features:
+        - napalm - Removed unused connection plugin.
+        - net_banner - Use <network_os>_banner instead.
+        - net_interface - Use <network_os>_interfaces instead.
+        - net_l2_interface - Use <network_os>_l2_interfaces instead.
+        - net_l3_interface - Use <network_os>_l3_interfaces instead.
+        - net_linkagg - Use <network_os>_lag_interfaces instead.
+        - net_lldp - Use <network_os>_lldp_global instead.
+        - net_lldp_interface - Use <network_os>_lldp_interfaces instead.
+        - net_logging - Use <network_os>_logging_global instead.
+        - net_static_route - Use <network_os>_static_routes instead.
+        - net_system - Use <network_os>_system instead.
+        - net_user - Use <network_os>_user instead.
+        - net_vlan - Use <network_os>_vlans instead.
+        - net_vrf - Use <network_os>_vrf instead.
+    fragments:
+      - 2H22_removal.yaml
+      - license.yaml
+    release_date: "2022-10-13"
+  4.1.0:
+    changes:
+      bugfixes:
+        - restconf_get - fix direction of XML deserialization when ``output == 'xml'``
+      minor_changes:
+        - Add implementation for content_templates_parser.
+    fragments:
+      - add_content_template_parser.yaml
+      - fix_wrong_xml_direction.yaml
+    release_date: "2022-11-02"
+  5.0.0:
+    changes:
+      breaking_changes:
+        - NetworkConnectionBase now inherits from PersistentConnectionBase in ansible.utils.
+          As a result, the minimum ansible.utils version has increased to 2.7.0.
+        - NetworkTemplate is no longer importable from ansible_collections.ansible.netcommon.plugins.module_utils.network.common
+          and should now be found at its proper location ansible_collections.ansible.netcommon.plugins.module_utils.network.common.rm_base.network_template
+        - ResourceModule is no longer importable from ansible_collections.ansible.netcommon.plugins.module_utils.network.common
+          and should now be found at its proper location ansible_collections.ansible.netcommon.plugins.module_utils.network.common.rm_base.resource_module
+        - VALID_MASKS, is_masklen, is_netmask, to_bits, to_ipv6_network, to_masklen,
+          to_netmask, and to_subnet are no longer importable from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils
+          and should now be found at their proper location ansible.module_utils.common.network
+      bugfixes:
+        - Cast AnsibleUnsafeText to str in convert_doc_to_ansible_module_kwargs() to
+          keep CSafeLoader happy. This fixes issues with content scaffolding tools.
+      minor_changes:
+        - httpapi - Add option netcommon_httpapi_ciphers to allow overriding default
+          SSL/TLS ciphers. (https://github.com/ansible-collections/ansible.netcommon/pull/494)
+      removed_features:
+        - cli_parse - This plugin was moved to ansible.utils in version 1.0.0, and the
+          redirect to that collection has now been removed.
+    fragments:
+      - 23H1_breaking.yaml
+      - flake8.yaml
+      - netcommon_httpapi_ciphers.yaml
+      - persistentbase.yaml
+      - telnet.yaml
+    release_date: "2023-02-27"
+  5.1.0:
+    changes:
+      bugfixes:
+        - httpapi - ``send()`` method no longer applied leftover kwargs to ``open_url()``.
+          Fix applies those arguments as intended (https://github.com/ansible-collections/ansible.netcommon/pull/524).
+        - network_cli - network cli connection avoids traceback when using invalid user
+        - network_cli - when receiving longer responses with libssh, parts of the response
+          were sometimes repeated. The response is now returned as it is received (https://github.com/ansible-collections/community.routeros/issues/132).
+        - network_resource - fix a potential UnboundLocalError if the module fails to
+          import a Resource Module. (https://github.com/ansible-collections/ansible.netcommon/pull/513)
+        - restconf - creation of new resources is no longer erroneously forced to use
+          POST. (https://github.com/ansible-collections/ansible.netcommon/issues/502)
+      minor_changes:
+        - libssh - add ``config_file`` option to specify an alternate SSH config file
+          to use.
+        - parse_cli - add support for multiple matches inside a block by adding new
+          dictionary key to result
+        - telnet - add ``stdout`` and ``stdout_lines`` to module output.
+        - telnet - add support for regexes to ``login_prompt`` and ``password_prompt``.
+        - telnet - apply ``timeout`` to command prompts.
+    fragments:
+      - 530-parse_cli.yaml
+      - httpapi-kwargs.yaml
+      - libssh-repeated-text.yaml
+      - libssh_config_file.yaml
+      - lint.yaml
+      - network_cli_bad_user.yaml
+      - restconf_put.yaml
+      - telnet-refactoring.yml
+      - ule-docs.yaml
+    release_date: "2023-04-03"
+  5.1.1:
+    changes:
+      bugfixes:
+        - network_resource - do not append network_os to module names when building
+          supported resources list. This fix is only valid for cases where FACTS_RESOURCE_SUBSETS
+          is undefined.
+    fragments:
+      - resource_manager.yaml
+    release_date: "2023-05-09"
+  5.1.2:
+    changes:
+      bugfixes:
+        - Ensure that all connection plugin options that should be strings are actually
+          strings (https://github.com/ansible-collections/ansible.netcommon/pull/549).
+    fragments:
+      - 549-connection-strings.yml
+      - 550-ansible-lint.yml
+      - gha_release.yaml
+      - line-length.yaml
+    release_date: "2023-07-05"
+  5.1.3:
+    changes:
+      bugfixes:
+        - Vendor telnetlib from cpython (https://github.com/ansible-collections/ansible.netcommon/pull/546)
+    fragments:
+      - telnet.yaml
+    release_date: "2023-07-24"
+  5.2.0:
+    changes:
+      bugfixes:
+        - Ensure that all connection plugin options that should be strings are actually
+          strings (https://github.com/ansible-collections/ansible.netcommon/pull/549).
+      deprecated_features:
+        - libssh - the ssh_*_args options are now marked that they will be removed after
+          2026-01-01.
+      minor_changes:
+        - Add a new cliconf plugin ``default`` that can be used when no cliconf plugin
+          is found for a given network_os. This plugin only supports ``get()``. (https://github.com/ansible-collections/ansible.netcommon/pull/569)
+        - httpapi - Add additional option ``ca_path``, ``client_cert``, ``client_key``,
+          and ``http_agent`` that are available in open_url but not to httpapi. (https://github.com/ansible-collections/ansible.netcommon/issues/528)
+        - telnet - add crlf option to send CRLF instead of just LF (https://github.com/ansible-collections/ansible.netcommon/pull/440).
+    fragments:
+      - 440-telnet-add-crlf-option.yml
+      - 558-load_provider.yml
+      - default-cliconf.yaml
+      - httpapi_options.yaml
+      - ssh_args.yaml
+      - vlan_extender.yaml
+    plugins:
+      cliconf:
+        - description: General purpose cliconf plugin for new platforms
+          name: default
+          namespace: null
+    release_date: "2023-09-07"
+  5.3.0:
+    changes:
+      bugfixes:
+        - Fix attribute types from string to str in filter plugins.
+      minor_changes:
+        - Add new module cli_backup that exclusively handles configuration backup.
+    fragments:
+      - cli_backup.yaml
+      - fix_attribute_type.yaml
+      - sanity_ignores.yaml
+      - trivial_lint.yaml
+    release_date: "2023-10-17"
+  6.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.14.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        this collection requires is `2.14.0`. That last known version compatible with
+        ansible-core<2.14 is `v5.3.0`.
+    fragments:
+      - major_600.yml
+    release_date: "2023-11-30"
+  6.1.0:
+    changes:
+      bugfixes:
+        - libssh connection plugin - stop using deprecated ``PlayContext.verbosity``
+          property that is no longer present in ansible-core 2.18 (https://github.com/ansible-collections/ansible.netcommon/pull/626).
+        - network_cli - removed deprecated play_context.verbosity property.
+      minor_changes:
+        - Add new module cli_restore that exclusively handles restoring of backup configuration
+          to target applaince.
+    fragments:
+      - 626-verbosity.yml
+      - add_cli_restore.yaml
+      - verbosity.yml
+    modules:
+      - description: Restore device configuration to network devices over network_cli
+        name: cli_restore
+        namespace: ""
+    release_date: "2024-04-11"
+  6.1.1:
+    changes:
+      bugfixes:
+        - Added guidance for users to open an issue for the respective platform if plugin
+          support is needed.
+        - Improved module execution to gracefully handle cases where plugin support
+          is required, providing a clear error message to the user.
+    fragments:
+      - update_not_supported_exception.yaml
+    release_date: "2024-04-19"
+  6.1.2:
+    changes:
+      doc_changes:
+        - Fixed module name and log consistency in parse_cli_textfsm filter doc.
+    fragments:
+      - 614-fix-parse_cli_textfsm-doc.yaml
+    release_date: "2024-05-22"
+  6.1.3:
+    changes:
+      bugfixes:
+        - The v6.1.2 release introduced a change in cliconfbase's edit_config() signature
+          which broke many platform cliconfs. This patch release reverts that change.
+    fragments:
+      - bug_653.yaml
+    release_date: "2024-05-29"
+  7.0.0:
+    changes:
+      bugfixes:
+        - Fix get api call during scp with libssh.
+        - Handle sftp error messages for file not present for routerOS.
+      known_issues:
+        - libssh - net_put and net_get fail when the destination file intended to be
+          fetched is not present.
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.15.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        Starting from this release, the minimum `ansible-core` version
+        this collection requires is `2.15.0`. The last known version compatible with
+        ansible-core<2.15 is v6.1.3.
+    fragments:
+      - fix-routeros-net_put.yaml
+      - libssh_get.yaml
+      - min_215.yaml
+    release_date: "2024-06-10"
+  7.1.0:
+    changes:
+      bugfixes:
+        - Updated the error message for the content_templates parser to include the
+          correct parser name and detailed error information.
+      doc_changes:
+        - Add a simple regexp match example for multiple prompt with multiple answers.
+          This example could be used to for restarting a network device with a delay.
+      minor_changes:
+        - ansible.netcommon.persistent - Connection local is marked deprecated and all
+          dependent collections are advised to move to a proper connection plugin, complete
+          support of connection local will be removed in a release after 01-01-2027.
+    fragments:
+      - bye_connection_local.yaml
+      - cli-command-module.yaml
+      - readme_communication.yml
+      - update_error_msg.yaml
+    release_date: "2024-08-29"
+  7.2.0:
+    changes:
+      bugfixes:
+        - libssh connection plugin - stop using long-deprecated and now removed internal
+          field from ansible-core's base connection plugin class (https://github.com/ansible-collections/ansible.netcommon/issues/522,
+          https://github.com/ansible-collections/ansible.netcommon/issues/690, https://github.com/ansible-collections/ansible.netcommon/pull/691).
+      deprecated_features:
+        - Added deprecation warnings for the above plugins, displayed when running respective
+          filter plugins.
+        - "`parse_cli_textfsm` filter plugin is deprecated and will be removed in a
+          future release after 2027-02-01. Use `ansible.utils.cli_parse` with the `ansible.utils.textfsm_parser`
+          parser as a replacement."
+        - "`parse_cli` filter plugin is deprecated and will be removed in a future release
+          after 2027-02-01. Use `ansible.utils.cli_parse` as a replacement."
+        - "`parse_xml` filter plugin is deprecated and will be removed in a future release
+          after 2027-02-01. Use `ansible.utils.cli_parse` with the `ansible.utils.xml_parser`
+          parser as a replacement."
+      doc_changes:
+        - Includes a new support related section in the README.
+      minor_changes:
+        - Exposes new libssh options to configure publickey_accepted_algorithms and
+          hostkeys. This requires ansible-pylibssh v1.1.0 or higher.
+    fragments:
+      - 691-libssh-connection.yml
+      - add_support_section.yaml
+      - deprecate_parsing_filter_plugins.yaml
+      - ignore_219.yaml
+      - libssh_pubkey_algo.yml
+      - update_bindep.yml
+    release_date: "2025-03-27"
+  8.0.0:
+    changes:
+      major_changes:
+        - Bumping `requires_ansible` to `>=2.16.0`, since previous ansible-core versions
+          are EoL now.
+      release_summary:
+        With this release, the minimum required version of `ansible-core`
+        for this collection is `2.16.0`. The last version known to be compatible with
+        `ansible-core` versions below `2.16` is v7.2.0.
+    fragments:
+      - bump216.yml
+    release_date: "2025-04-11"
+  8.0.1:
+    changes:
+      bugfixes:
+        - (#633) Fixed typo in ansible.netcommon.telnet parameter crlf (was clrf by
+          mistake)
+        - netconf - Adds check for netconf session_close RPC happens only if connection
+          is alive.
+    fragments:
+      - data_tag.yml
+      - fix_ci.yaml
+      - netconf_reset_connection.yaml
+      - telnet_crlf_parameter.yml
+    release_date: "2025-07-01"
+  8.1.0:
+    changes:
+      bugfixes:
+        - Improved error handling in DirectExecutionModule._record_module_result method
+          for better compatibility with core<=2.18
+      minor_changes:
+        - Changes to supplement direct execution of Ansible module in validate_config(utils.py)
+          and _patch_update_module(network.py) added.
+        - Override new 2.19.1+ AnsibleModule._record_module_result hook in network action
+          plugin to bypass module result serialization when direct execution is enabled
+    fragments:
+      - data_tagging_2_19.yaml
+    release_date: "2025-08-14"
+  8.2.0:
+    changes:
+      bugfixes:
+        - Added support for private key passphrase in libssh connection plugin, when
+          using encrypted private keys specified by the C(ansible_private_key_file)
+          attribute.
+        - Avoid legacy imports deprecated in ansible-core 2.20 (https://github.com/ansible-collections/ansible.netcommon/pull/720).
+        - Avoid merging module_defaults for all ansible.netcommon.grpc_* modules.
+        - Set libssh logging level to DEBUG when Ansible verbosity is greater than 3,
+          to aid in troubleshooting connection issues.
+      minor_changes:
+        - Exposes new libssh option to configure key_exchange_algorithms. This requires
+          ansible-pylibssh v1.3.0 or higher.
+    fragments:
+      - 720-ansible-core-2.20.yml
+      - fix_721_private_key.yml
+      - fix_grpc_module_defaults.yaml
+      - fix_sanity_220_devel.yaml
+      - fix_typo_error.yaml
+      - key_exchange_algo.yml
+    release_date: "2025-11-06"

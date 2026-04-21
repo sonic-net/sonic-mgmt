@@ -1,0 +1,10 @@
+---
+- name: Prepare
+  hosts: all
+
+  tasks:
+    - name: "Configure SUDO."
+      ansible.builtin.lineinfile:
+        dest: /etc/sudoers
+        line: "Defaults    !requiretty"
+        state: present

@@ -1,0 +1,57 @@
+- name: Play Name
+  hosts: localhost
+  vars:
+    network_id: L_828099381482770866
+    serial_number: QBSB-D5ZD-9CXT
+  gather_facts: false
+  tasks:
+    - name: Update STP settings
+      cisco.meraki.networks_switch_stp:
+        networkId: "{{ network_id }}"
+        rstpEnabled: true
+        stpBridgePriority:
+          - stpPriority: 4096
+            switches:
+              - "{{ serial_number }}"
+    - name: Update switch settings
+      cisco.meraki.networks_switch_settings:
+        networkId: "{{ network_id }}"
+        useCombinedPower: true
+        vlan: 1
+    - name: Update storm-control settings
+      cisco.meraki.networks_switch_storm_control:
+        networkId: "{{ network_id }}"
+        broadcastThreshold: 30
+        multicastThreshold: 30
+        unknownUnicastThreshold: 30
+    - name: Update MTU settings
+      cisco.meraki.networks_switch_mtu:
+        networkId: "{{ network_id }}"
+        defaultMtuSize: 9578
+    - name: Createa a routing interface
+      cisco.meraki.devices_switch_routing_interfaces:
+        defaultGateway: 192.168.1.1
+        interfaceIp: 192.168.1.2
+        name: L3 interface
+        serial: "{{ serial_number }}"
+        subnet: 192.168.1.0/24
+        vlanId: 123
+    - name: Create a static route
+      cisco.meraki.devices_switch_routing_static_routes:
+        serial: "{{ serial_number }}"
+        name: My route
+        nextHopIp: 192.168.1.100
+        subnet: 1.2.3.0/24
+    - name: Create a static route2
+      cisco.meraki.devices_switch_routing_static_routes:
+        serial: "{{ serial_number }}"
+        name: My route
+        nextHopIp: 192.168.1.100
+        subnet: 1.2.3.0/24
+    - name: Port cycle
+      cisco.meraki.devices_switch_ports_cycle:
+        serial: "{{ serial_number }}"
+        ports:
+          - 1
+          - 4-5
+          - 25-48

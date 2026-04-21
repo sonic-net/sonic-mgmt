@@ -1,0 +1,7 @@
+---
+bugfixes:
+  - na_ontap_login_messages - fix typo in examples for username.
+  - na_ontap_volume - use ``time_out`` value when creating/modifying/deleting volumes with REST rathar than hardcoded value.
+  - na_ontap_volume - QOS policy was not set when using NAS application.
+  - na_ontap_volume - correctly warn when attempting to modify NAS application.
+  - na_ontap_volume - do not set encrypt on modify, as it is already handled with specialized ZAPI calls.

@@ -1,0 +1,31 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_object` introduces new modules for VSP One Object management."
+minor_changes:
+  - Added new module `hv_certificates`.
+  - Added new module `hv_csrf`.
+  - Added new module `hv_job`.
+  - Added new module `hv_jobs_facts`.
+  - Added new module `hv_kmip`.
+  - Added new module `hv_license`.
+  - Added new module `hv_s3_encryption`.
+  - Added new module `hv_s3_user_credentials`.
+  - Added new module `hv_serial_number`.
+  - Added new module `hv_storage_class`.
+  - Added new module `hv_storage_component`.
+  - Added new module `hv_storage_component_state_update`.
+  - Added new module `hv_storage_fault_domain`.
+  - Added new facts module `hv_certificates_facts`.
+  - Added new facts module `hv_events_facts`.
+  - Added new facts module `hv_galaxy_facts`.
+  - Added new facts module `hv_kmip_server_facts`.
+  - Added new facts module `hv_licenses_facts`.
+  - Added new facts module `hv_region_facts`.
+  - Added new facts module `hv_s3_encryption_facts`.
+  - Added new facts module `hv_serial_number_facts`.
+  - Added new facts module `hv_storage_class_facts`.
+  - Added new facts module `hv_storage_components_facts`.
+  - Added new facts module `hv_storage_fault_domain_facts`.
+  - Added new facts module `hv_troubleshooting_facts`.
+  - Added new facts module `hv_user_buckets_facts`.
+  - Added new facts module `hv_user_id_facts`.
+  - Added new facts module `hv_users_facts`.

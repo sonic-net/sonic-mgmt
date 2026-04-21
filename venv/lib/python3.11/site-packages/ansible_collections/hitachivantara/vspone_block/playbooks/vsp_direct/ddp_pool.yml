@@ -1,0 +1,109 @@
+---
+####################################################################
+# Example :  VSP DDP Pool Playbook
+####################################################################
+- name: Create and manage DDP Pool on VSP One storage
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################################
+    # Task Name : Create a DDP Pool
+    ######################################################################################
+    - name: Create a DDP Pool
+      hitachivantara.vspone_block.vsp.hv_ddp_pool:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          pool_name: "GK-21268"
+          is_encryption_enabled: true
+          threshold_warning: 70
+          threshold_depletion: 80
+          drives:
+            - drive_type_code: "NM5C-R1R9NC"
+              data_drive_count: 9
+
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Update the DDP Pool Settings
+    ######################################################################################
+    - name: Update the DDP Pool Settings
+      hitachivantara.vspone_block.vsp.hv_ddp_pool:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          pool_id: 12
+          threshold_warning: 70
+          threshold_depletion: 80
+          pool_name: "GK-21268"
+
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Expand the DDP Pool size
+    ######################################################################################
+    - name: Expand the DDP Pool size
+      hitachivantara.vspone_block.vsp.hv_ddp_pool:
+        connection_info: "{{ connection_info }}"
+        state: expand
+        spec:
+          pool_id: 12
+          drives:
+            - drive_type_code: "NM5B-R1R9NC"
+              data_drive_count: 9
+
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete the DDP Pool
+    ######################################################################################
+    - name: Delete the DDP Pool
+      hitachivantara.vspone_block.vsp.hv_ddp_pool:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          pool_id: 12
+
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Create a DDP Pool with auto assigned drives
+    ######################################################################################
+    - name: Create a DDP Pool with auto assigned drives
+      hitachivantara.vspone_block.vsp.hv_ddp_pool:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          pool_name: "GK-212682"
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result

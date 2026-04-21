@@ -1,0 +1,30 @@
+otel_collector_version: "0.90.1"
+
+otel_collector_binary_url: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ otel_collector_version }}/{% if otel_collector_type == 'contrib' %}otelcol-contrib_{{ otel_collector_version }}_linux_{{ otel_collector_arch }}{% else %}otelcol_{{ otel_collector_version }}_linux_{{ otel_collector_arch }}{% endif %}.tar.gz"
+
+otel_collector_latest_url: 'https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/latest'
+
+arch_mapping:
+  x86_64: amd64
+  aarch64: arm64
+  armv7l: armhf
+  i386: i386
+  ppc64le: ppc64le
+
+otel_collector_arch: "{{ arch_mapping[ansible_facts['architecture']] | default('amd64') }}"
+otel_collector_service_name: "otel-collector"
+otel_collector_type: contrib
+otel_collector_executable: "{% if otel_collector_type == 'contrib' %}otelcol-contrib{% else %}otelcol{% endif %}"
+otel_collector_installation_dir: "/etc/otel-collector"
+otel_collector_config_dir: "/etc/otel-collector"
+otel_collector_config_file: "config.yaml"
+otel_collector_service_user: "otel"
+otel_collector_service_group: "otel"
+otel_collector_service_statedirectory: "otel-collector"
+
+otel_collector_receivers: ""
+otel_collector_exporters: ""
+otel_collector_processors: ""
+otel_collector_extensions: ""
+otel_collector_service: ""
+otel_collector_connectors: ""

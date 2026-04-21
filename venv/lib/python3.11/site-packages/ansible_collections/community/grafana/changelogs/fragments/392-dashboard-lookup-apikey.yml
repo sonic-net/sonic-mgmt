@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - Fixed check if grafana_api_key is defined for `grafana_dashboard` lookup

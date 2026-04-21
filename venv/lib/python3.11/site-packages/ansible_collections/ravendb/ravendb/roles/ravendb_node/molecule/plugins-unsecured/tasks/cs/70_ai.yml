@@ -1,0 +1,299 @@
+---
+- name: OpenAI AI CS (check mode)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_openai"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-openai"
+      model_type: "CHAT"
+      openai_settings:
+        api_key: "sk-XXXX"
+        endpoint: "https://api.openai.com/v1/"
+        model: "gpt-4"
+    state: present
+  check_mode: yes
+  register: ai_openai_check_create
+
+- name: Assert would created CS msg (check mode)
+  ansible.builtin.assert:
+    that:
+      - ai_openai_check_create.changed
+      - "'would create' in ((ai_openai_check_create.msg | default('')) | lower)"
+
+- name: Verify OpenAI AI CS not created on check mode
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: ai_after_check_create
+
+- name: Assert OpenAI AI CS not created
+  ansible.builtin.assert:
+    that:
+      - "'ai_openai' not in (ai_after_check_create.json.AiConnectionStrings | default({}))"
+
+- name: OpenAI AI CS (create)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_openai"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-openai"
+      model_type: "CHAT"
+      openai_settings:
+        api_key: "sk-XXXX"
+        endpoint: "https://api.openai.com/v1/"
+        model: "gpt-4"
+    state: present
+  register: ai_openai_created
+
+- name: Assert OpenAI AI CS created
+  ansible.builtin.assert:
+    that:
+      - ai_openai_created.changed
+      - "'created connection string' in ((ai_openai_created.msg | default('')) | lower)"
+
+- name: Verify OpenAI AI CS created
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: ai_after_create
+
+- name: Assert OpenAI AI CS present
+  ansible.builtin.assert:
+    that:
+      - "'ai_openai' in (ai_after_create.json.AiConnectionStrings | default({}))"
+
+- name: OpenAI AI CS (idempotency check)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_openai"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-openai"
+      model_type: "CHAT"
+      openai_settings:
+        api_key: "sk-XXXX"
+        endpoint: "https://api.openai.com/v1/"
+        model: "gpt-4"
+    state: present
+  register: ai_openai_again
+
+- name: Assert OpenAI AI CS creation idempotent
+  ansible.builtin.assert:
+    that:
+      - ai_openai_again.changed == false
+      - "'already exists' in ((ai_openai_again.msg | default('')) | lower)"
+      - "'no changes' in ((ai_openai_again.msg | default('')) | lower)"
+
+- name: Attempt to modify existing OpenAI AI CS - should no-op
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_openai"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-openai"
+      model_type: "CHAT"
+      openai_settings:
+        api_key: "sk-XXXX"
+        endpoint: "https://api.openai.com/v1/"
+        model: "gpt-4o"
+    state: present
+  register: ai_openai_modify_attempt
+
+- name: Assert modify attempt was a no-op (OpenAI)
+  ansible.builtin.assert:
+    that:
+      - ai_openai_modify_attempt is succeeded
+      - ai_openai_modify_attempt.changed == false
+      - "'already exists' in ((ai_openai_modify_attempt.msg | default('')) | lower)"
+      - "'no changes' in ((ai_openai_modify_attempt.msg | default('')) | lower)"
+
+- name: Azure OpenAI AI CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_azure_openai"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-azure-openai"
+      model_type: "CHAT"
+      azure_openai_settings:
+        api_key: "az-XXXX"
+        endpoint: "https://my-azure-openai.openai.azure.com"
+        model: "gpt-4o"
+        deployment_name: "gpt4o-deploy"
+        dimensions: 1536
+        temperature: 0.4
+    state: present
+  register: ai_azure_openai_created
+
+- name: Ollama AI CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_ollama"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-ollama"
+      model_type: "CHAT"
+      ollama_settings:
+        uri: "http://localhost:11434"
+        model: "llama3"
+        think: true
+        temperature: 0.7
+    state: present
+  register: ai_ollama_created
+
+- name: Embedded AI CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_embedded"
+    cs_type: "AI"
+    properties:
+      identifier: "embedded"
+      model_type: "TEXT_EMBEDDINGS"
+      embedded_settings: {}
+    state: present
+  register: ai_embedded_created
+
+- name: Google AI CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_google"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-google"
+      model_type: "TEXT_EMBEDDINGS"
+      google_settings:
+        model: "gemini-1.5-pro"
+        api_key: "google-key-XXXX"
+        ai_version: "V1"
+        dimensions: 768
+    state: present
+  register: ai_google_created
+
+- name: Hugging Face AI CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_hf"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-hf"
+      model_type: "TEXT_EMBEDDINGS"
+      huggingface_settings:
+        api_key: "hf-XXXX"
+        model: "mistralai/Mistral-7B-v0.1"
+        endpoint: "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-v0.1"
+    state: present
+  register: ai_hf_created
+
+- name: Mistral AI CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_mistral"
+    cs_type: "AI"
+    properties:
+      identifier: "prod-mistral"
+      model_type: "TEXT_EMBEDDINGS"
+      mistral_ai_settings:
+        api_key: "mistral-XXXX"
+        model: "mistral-medium"
+        endpoint: "https://api.mistral.ai"
+    state: present
+  register: ai_mistral_created
+
+- name: Assert secondary AI CS creates returned success
+  ansible.builtin.assert:
+    that:
+      - ai_azure_openai_created is succeeded
+      - ai_ollama_created is succeeded
+      - ai_embedded_created is succeeded
+      - ai_google_created is succeeded
+      - ai_hf_created is succeeded
+      - ai_mistral_created is succeeded
+
+- name: Fetch AI CSs json
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: ai_json
+
+- name: Assert each AI CS exists on server
+  ansible.builtin.assert:
+    that:
+      - "item in (ai_json.json.AiConnectionStrings | default({}))"
+  loop:
+    - "ai_openai"
+    - "ai_azure_openai"
+    - "ai_ollama"
+    - "ai_embedded"
+    - "ai_google"
+    - "ai_hf"
+    - "ai_mistral"
+
+- name: OpenAI AI CS (check-mode delete)
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_openai"
+    cs_type: "AI"
+    state: absent
+  check_mode: yes
+  register: ai_openai_check_delete
+
+- name: Assert would delete message (check mode)
+  ansible.builtin.assert:
+    that:
+      - ai_openai_check_delete.changed
+      - "'would delete' in ((ai_openai_check_delete.msg | default('')) | lower)"
+
+- name: Verify OpenAI AI CS still exists after check-mode delete
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: ai_after_check_delete
+
+- name: Assert OpenAI AI CS still present after check-mode delete
+  ansible.builtin.assert:
+    that:
+      - "'ai_openai' in (ai_after_check_delete.json.AiConnectionStrings | default({}))"
+
+- name: Delete OpenAI AI CS
+  ravendb.ravendb.connection_string:
+    url: "{{ base_url }}"
+    database_name: "{{ db_cs }}"
+    name: "ai_openai"
+    cs_type: "AI"
+    state: absent
+  register: ai_openai_deleted
+
+- name: Assert OpenAI AI CS deleted
+  ansible.builtin.assert:
+    that:
+      - ai_openai_deleted.changed
+      - "'deleted connection string' in ((ai_openai_deleted.msg | default('')) | lower)"
+
+- name: Verify OpenAI AI CS is gone
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_cs }}/admin/connection-strings"
+    method: GET
+    validate_certs: no
+  register: ai_after_delete
+
+- name: Assert OpenAI AI CS not present after delete
+  ansible.builtin.assert:
+    that:
+      - "'ai_openai' not in (ai_after_delete.json.AiConnectionStrings | default({}))"

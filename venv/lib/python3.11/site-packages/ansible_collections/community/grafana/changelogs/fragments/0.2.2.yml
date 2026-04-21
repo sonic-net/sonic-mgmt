@@ -1,0 +1,3 @@
+bugfixes:
+- Fix an issue in `grafana_dashboard` that made dashboard import no more detecting changes and fail.
+- Refactor module `grafana_datasource` to ease its support.

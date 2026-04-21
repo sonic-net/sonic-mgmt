@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_info - New options ``cifs_options_info``, ``cluster_log_forwarding_info``, ``event_notification_destination_info``,
+    ``event_notification_info``, ``security_login_role_config_info``, ``security_login_role_info`` have been added.

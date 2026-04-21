@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_volume_autosize - updated docs for `increment_size` & `reset`.

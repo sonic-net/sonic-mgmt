@@ -1,0 +1,14 @@
+---
+- name: Restart mongod
+  listen: Restart mongod service
+  service:
+    name: "{{ mongod_service }}"
+    state: restarted
+  when: not skip_restart
+
+- name: Wait for port to become active
+  listen: Restart mongod service
+  wait_for:
+    host: "{{ bind_ip | split(',') | first }}"
+    port: "{{ config_port }}"
+  when: not skip_restart

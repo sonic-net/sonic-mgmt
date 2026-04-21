@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_info - Fixed error when ``default`` subset fails if SMD has been disabled on the FLashBlade

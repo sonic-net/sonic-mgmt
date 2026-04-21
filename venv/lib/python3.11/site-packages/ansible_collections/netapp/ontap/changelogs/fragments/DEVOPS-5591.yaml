@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_rest_cli - returns changed only for verbs POST, PATCH and DELETE.

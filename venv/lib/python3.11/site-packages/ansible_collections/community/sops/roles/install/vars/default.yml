@@ -1,0 +1,21 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+_community_sops_install_system_has_system: false
+_community_sops_install_system_has_system_latest_only: true
+_community_sops_install_system_has_github: false
+
+_community_sops_install_allow_downgrade: false
+
+_community_sops_install_system_packages: []
+_community_sops_install_system_packages_unsigned: []
+
+_community_sops_install_system_package_deb_github: false
+_community_sops_install_system_packages_github: []
+_community_sops_install_system_packages_unsigned_github: []
+
+_community_sops_install_system_package_deb_system: false
+_community_sops_install_system_packages_system: []
+_community_sops_install_system_packages_unsigned_system: []

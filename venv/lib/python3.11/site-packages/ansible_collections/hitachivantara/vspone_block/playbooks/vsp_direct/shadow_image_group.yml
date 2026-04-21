@@ -1,0 +1,117 @@
+---
+####################################################################
+# Example : Shadow Image Group Playbook
+####################################################################
+- name: Shadow Image Group Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Split Shadow Image Group
+    ####################################################################
+    - name: Split Shadow Image Group
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group:
+        connection_info: "{{ connection_info }}"
+        state: "split"
+        spec:
+          copy_group_name: "copy_group_name1"
+          quick_mode: true
+          copy_pace: 10
+          force_suspend: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Resync Shadow Image Group
+    ####################################################################
+    - name: Resync Shadow Image Group
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group:
+        connection_info: "{{ connection_info }}"
+        state: "sync"
+        spec:
+          copy_group_name: "copy_group_name1"
+          quick_mode: true
+          copy_pace: 10
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Restore Shadow Image Group
+    ####################################################################
+    - name: Restore Shadow Image Group
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group:
+        connection_info: "{{ connection_info }}"
+        state: "restore"
+        spec:
+          copy_group_name: "copy_group_name1"
+          quick_mode: true
+          copy_pace: 10
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete Shadow Image Group
+    ####################################################################
+    - name: Delete Shadow Image Group
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          copy_group_name: "copy_group_name1"
+          force_delete: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Migrate Shadow Image Group
+    ####################################################################
+    - name: Migrate Shadow Image Group
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group:
+        connection_info: "{{ connection_info }}"
+        state: "migrate"
+        spec:
+          copy_group_name: "copy_group_name1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Cancel Migration of Shadow Image Group
+    ####################################################################
+    - name: Cancel migration of Shadow Image Group
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group:
+        connection_info: "{{ connection_info }}"
+        state: "split"
+        spec:
+          copy_group_name: "copy_group_name1"
+          should_force_split: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

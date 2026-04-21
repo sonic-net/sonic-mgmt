@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_interfaces - Add support for configuring speed and advertised speed for 800 GB interfaces (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/590).

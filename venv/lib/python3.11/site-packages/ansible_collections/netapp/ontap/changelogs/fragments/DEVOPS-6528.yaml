@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_ems_destination - fix field error with `certificate.name` for ONTAP 9.11.1 or later in REST.

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_snapshot - ``snapmirror_label`` is supported with REST on ONTAP 9.7 or higher, report error if used on ONTAP 9.6.

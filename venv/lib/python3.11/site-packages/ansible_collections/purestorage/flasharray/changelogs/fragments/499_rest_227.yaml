@@ -1,0 +1,3 @@
+minor_changes:
+ - purefa_info - Add NSID value for NVMe namespace in `hosts` response
+ - purefa_offload - Remove `nfs` as an option when Purity//FA 6.6.0 or higher is detected

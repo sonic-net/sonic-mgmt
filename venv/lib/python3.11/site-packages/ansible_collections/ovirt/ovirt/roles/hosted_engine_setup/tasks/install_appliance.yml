@@ -1,0 +1,33 @@
+---
+- name: Install ovirt-engine-appliance rpm
+  ansible.builtin.dnf:
+    name: ovirt-engine-appliance
+    state: present
+  when: not he_offline_deployment|bool
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+- name: Parse appliance configuration for path
+  ansible.builtin.shell: set -euo pipefail && grep path /etc/ovirt-hosted-engine/10-appliance.conf | cut -f2 -d'='
+  environment: "{{ he_cmd_lang }}"
+  register: he_appliance_ova_out
+  changed_when: true
+- name: Parse appliance configuration for sha1sum
+  ansible.builtin.shell: set -euo pipefail && grep sha1sum /etc/ovirt-hosted-engine/10-appliance.conf | cut -f2 -d'='
+  environment: "{{ he_cmd_lang }}"
+  register: he_appliance_ova_sha1
+  changed_when: true
+- name: Get OVA path
+  ansible.builtin.set_fact:
+    he_appliance_ova_path: "{{ he_appliance_ova_out.stdout_lines|first }}"
+    cacheable: true
+- name: Compute sha1sum
+  ansible.builtin.stat:
+    path: "{{ he_appliance_ova_path }}"
+    checksum_algorithm: sha1
+  register: ova_stats
+- name: Compare sha1sum
+  ansible.builtin.fail:
+    msg: "{{ he_appliance_ova_path }} is corrupted (sha1sum)"
+  when: he_appliance_ova_sha1.stdout_lines|first != ova_stats.stat.checksum

@@ -1,0 +1,744 @@
+---
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      bugfixes:
+        - Fix sanity issues to support 2.10.0
+        - Fix some doc issues for a few modules
+        - Fix some formatting issues (flake8) in unit tests.
+        - Fixing integration tests and sanity. Tested on ACI 4.2(3l).
+      minor_changes:
+        - Add Fex capability to aci_interface_policy_leaf_profile, aci_access_port_to_interface_policy_leaf_profile
+          and aci_access_port_block_to_access_port
+        - Add LICENSE file
+        - Add aci_epg_to_contract_master module
+        - Add annotation attribute to aci.py and to doc fragment.
+        - Add annotation to every payload and add test case for annotation.
+        - Add changelog
+        - Add collection prefix to all integration tests
+        - Add galaxy.yml file for collection listing
+        - Add github action CI pipeline
+        - Add module and test file for aci_bd_dhcp_label
+        - Add modules and test files for aci_cloud_ctx_profile, aci_cloud_cidr, aci_cloud_subnet
+          and aci_cloud_zone
+        - Add modules and test files for aci_l2out, aci_l2out_extepg and aci_l3out_extepg_to_contract
+        - Add names to documentation examples for modules from community.network
+        - Add preferred group support to aci_vrf
+        - Add support for Azure on all cloud modules
+        - Add support for output_path to allow dump of REST API objects
+        - Add support for owner_key and owner_tag for all modules and add test case
+          for it.
+        - Add vpn gateway dedicated module and remove vpn_gateway from cloud_ctx_profile
+          module
+        - Fix M() and module to use FQCN
+        - Initial commit based on the collection migration available at "ansible-collection-migration/cisco.aci"
+          which contains the ACI module from Ansible Core
+        - Move aci.py to base of module_utils and fix references
+        - Move test file to root of tests/unit/module_utils
+        - Update Ansible version in CI and add 2.10.0 to sanity in CI.
+        - Update Readme with supported versions
+        - Update to test files to make the tests work on both 3.2 and 4.2.
+      release_summary: 'This is the first official release of the ``cisco.aci`` collection
+        on 2020-08-18.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since Ansible 2.9.0.
+
+        '
+    release_date: '2020-08-18'
+  1.0.1:
+    changes:
+      bugfixes:
+        - Fix convertion of json/yaml payload to xml in aci_rest
+        - Fix dump of config for aci_rest
+        - Fix issue of "current" in firmware_source module
+        - Fix sanity issue in aci_rest and bump version to v1.0.1
+      minor_changes:
+        - Enable/Disable infra vlan in aci_aep and its test module
+        - Set scope default value in aci_l3out_extsubnet
+      release_summary: 'Release v1.0.1 of the ``cisco.aci`` collection on 2020-10-13.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v1.0.0. '
+    release_date: '2020-10-13'
+  1.1.0:
+    changes:
+      bugfixes:
+        - Existing_config variable is not reset during loop
+        - Fix galaxy import warnings
+        - Fix how validity of private key/private key file is checked to support new
+          types
+        - Fix incorrect domain types in aci_domain_to_encap_pool module
+      minor_changes:
+        - Ability to add monitoring policy to epgs and anps
+        - Add Ansible Network ENV to fallback
+        - Add aci_l3out_external_path_to_member.py & aci_l3out_static_routes modules
+        - Add env_fallback for common connection params
+        - Add env_fallback for the rest of the argument spec
+        - Add new Subclass path support
+        - Add new module and test file for leaf breakout port group
+        - Added failure message to aci_interface_policy_leaf_policy_group
+        - Update README.md
+        - Update inventory
+        - aci_epg_to_domain addition of promiscuous mode (#79)
+        - aci_interface_policy_port_security addition of attribute:timeout (#80)
+      release_summary: 'Release v1.1.0 of the ``cisco.aci`` collection on 2020-10-30.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v1.0.1. '
+    release_date: '2020-10-30'
+  1.1.1:
+    changes:
+      bugfixes:
+        - Fix galaxy import warnings
+        - Fix sanity issue in aci_epg_to_domain
+      minor_changes:
+        - Add test file for aci_domain_to_encap_pool
+        - aci_epg_to_domain moving child configs & classes to each domain type
+      release_summary: 'Release v1.1.1 of the ``cisco.aci`` collection on 2020-11-23.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v1.1.0. '
+    release_date: '2020-11-23'
+  2.0.0:
+    changes:
+      major_changes:
+        - Change certificate_name to name in aci_aaa_user_certificate module for query
+          operation
+      minor_changes:
+        - Add aci_node_mgmt_epg module to manage in band or out of band management
+          EPGs
+        - Add aci_static_node_mgmt_address module & test file
+        - Add test file for aci_node_mgmt_epg
+      release_summary: 'Release v2.0.0 of the ``cisco.aci`` collection on 2020-12-15.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v1.1.1. '
+    release_date: '2020-12-15'
+  2.1.0:
+    changes:
+      bugfixes:
+        - Fix blacklist bug
+        - Fix cleanup of MGMT EPGs
+        - Fix module reference for l3out_node_profile cleanup task
+        - Fix required variables for absent and present states for l3out_node_profile
+        - Fix sanity & importer check errors
+        - Fix test and assertion variables and module references for l3out_node_profile
+          tests
+        - pylint fix for .format()
+      minor_changes:
+        - Add APIC 5.x to inventory for Integration tests
+        - Add a requirements file
+        - Add ability to change custom epg name
+        - Add aci_cloud_ap module and test file
+        - Add aci_cloud_aws_provider module and its test file (#181)
+        - Add aci_cloud_bgp_asn module and test file (#180)
+        - Add aci_cloud_epg_selector module and test file (#182)
+        - Add aci_fabric_spine_profile, aci_fabric_spine_switch_assoc and aci_fabric_switch_block
+          modules and integration tests (#187)
+        - Add aci_info
+        - Add aci_interface_description module and test file (#167)
+        - Add aci_l3out_bgp_peer and aci_l3out_interface modules and test files (#177)
+        - Add aci_snmp_client, aci_snmp_client_group, aci_snmp_community_policy, aci_snmp_policy
+          and aci_snmp_user modules and test files (#176)
+        - Add aci_syslog_group module and test file (#170)
+        - Add aci_syslog_source and aci_syslog_remote_dest modules and test files
+          (#174)
+        - Add aci_vmm_controller module and test file
+        - Add aci_vmm_vswitch module and test file (#142)
+        - Add check for enhanced lag policy
+        - Add cloud_external_epg and cloud_external_epg_selector modules and test
+          files (#185)
+        - Add directory and aliases file for l3out node profile tests
+        - Add ethertype for IPv6
+        - Add ethertype ipv4
+        - Add functionality to support cryptography for signing
+        - Add galaxy-importer check (#115)
+        - Add ipv6_l3_unknown_multicast parameter support for aci_bd
+        - Add issue templates
+        - Add module aci_cloud_epg & test file (#175)
+        - Add module aci_l3out_logical_node_profile to manage l3out node profiles
+        - Add module and test for aci_contract_subject_to_service_graph
+        - Add new module aci_l2out_extepg_to_contract and test file based on aci_l3out_extepg_to_contract
+        - Add new modules for L2out - aci_l2out_logical_*
+        - Add primary_encap in module tests
+        - Add route_profile, route_profile_l3_out to aci_bd
+        - Add support and tests for custom_qos_policy parameter in aci_epg
+        - Add support for ANSIBLE_NET_SSH_KEYFILE
+        - Add support for vmm domain infra port group and tag collection in aci_domain
+          module (#141)
+        - Add task to create requirement for enhanced lag policy
+        - Add test case for custom epg name
+        - Add test file for aci_bd
+        - Add tests for ipv6_l3_unknown_multicast parameter support in aci_bd
+        - Add tests for l3out node profile module
+        - Add tests to create multiple node profiles and query all node profiles in
+          an L3out
+        - Add variable references and fix naming in l3out_node_profile tests
+        - Add version check for changing custom epg name
+        - Added Enhanced Lag Policy for VMware VMM Domain Profile in module aci_epg_to_domain
+        - Change CI to latest version of ansible and python 3.8
+        - Change child_configs & child_classes
+        - Change dscp to target_dscp in aci_l3out_logical_node_profile module to avoid
+          future var conflicts
+        - Change naming of lagpolicy
+        - Change primary_encap --> primaryEncap
+        - Change test case for enhanced_lag_policy
+        - Changes made to execute aci_epg_to_domain and aci_cloud_cidr modules, also
+          generalised the cloud variables
+        - Check WARNINGs and ERRORs in galaxy-importer check (#118)
+        - Correcting sanity in aci_static_binding_to_epg.py module
+        - Fix broken test parameters for aci_l3out_logical_interface_profile
+        - Fix documentation and add example to query all node profiles for L3out
+        - Fix feedback
+        - Fix indentation causing linting error
+        - Fix lag_plicy tDn
+        - Fix missed separators '/' in path attribute of ACIModule class
+        - Fix module reference and remove unused aliases in aci_l3out_logical_node_profile
+          tests
+        - Fixed default values in docs and specs
+        - Fixed the behavior when output is specified in aci_rest. (#169)
+        - Initial changes to aci_cloud_ctx_profile module to execute only cloud sites
+          from inventory
+        - Interface types added for Po's and vPC's using fex-ports and test files
+        - L3Out Enhancements
+        - L3Out Interface Profile (#134)
+        - Made changes in collection version segment
+        - Made changes in mso.py to generalize construct_url
+        - Made changes to support aci non cloud host >=3.2
+        - Made changes with respect to galaxy importer similar to MSO
+        - Modified 12 files affected from inventory file changes, by differentiating
+          tasks into cloud and non-cloud specific hosts
+        - Move custom_qos_policy to conditional and remove unnecessary custom_qos_policy
+          from monitoring policy in test
+        - Move ipv6_l3_unknown_multicast to condition and check version in test
+        - Remove uneccessary delegate_to variable for l3out_node_profile cleanup task
+        - Separated assert statements for cloud and non-cloud sites and added additional
+          condition statement required for execution of version<=4.1
+        - Supports primaryEncap value as unknown (#157)
+        - Update aci_l3out_extepg_to_contract.py
+        - W291 + boolean correction
+        - contract_enhancements (#135)
+        - doc-required-mismatch fix
+        - interface blacklist test fix
+        - interface disable/enable fabricRsOosPath
+        - interface disable/enable fex support
+      release_summary: 'Release v2.1.0 of the ``ansible-aci`` collection on 2021-10-06.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.0.0. '
+    release_date: '2021-10-06'
+  2.10.0:
+    changes:
+      minor_changes:
+        - Add aci_esg_to_contract module for esg contract relationship objects fvRsCons
+          (consumer), fvRsConsIf (consumer interface), fvRsProv (provider) and fvRsIntraEpg
+          (intra_esg)
+        - Add aci_system_connectivity_preference module (#601)
+        - Added suppress-previous flag option to reduce the number of API calls. (#636)
+        - Enable relative path and/or filename of private key for the aci httpapi
+          plugin.
+      release_summary: 'Release v2.10.0 of the ``ansible-aci`` collection on 2024-06-13.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.9.0.
+
+        '
+    release_date: '2024-06-13'
+  2.10.1:
+    changes:
+      bugfixes:
+        - Remove duplicate alias name for attribute epg in aci_epg_subnet module
+      release_summary: 'Release v2.10.1 of the ``ansible-aci`` collection on 2024-07-12.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.10.0.
+
+        '
+    release_date: '2024-07-12'
+  2.11.0:
+    changes:
+      bugfixes:
+        - Fix aci_rest module to only add annotation when the value is a dictionary
+        - Fix payload to define the correct vPC member side in aci_l3out_logical_interface_vpc_member
+          (#663)
+        - Fix subclass issue in aci_domain_to_vlan_pool to fix deletion of binding
+          (#695)
+        - Modify interface_configs requirement using required_if dependency for aci_bulk_static_binding_to_epg
+      minor_changes:
+        - Add aci_endpoint_tag_ip and aci_endpoint_tag_mac modules to manage Endpoint
+          IP and MAC Tags.
+        - Add aci_ip_sla_monitoring_policy module.
+        - Add management_epg and management_epg_type attributes in aci_dns_profile
+          module.
+        - Add stratum attribute to aci_ntp_policy module.
+        - Add support for Ansible 2.18 and dropped support for Ansible 2.15 as required
+          by Ansible Galaxy.
+      release_summary: 'Release v2.11.0 of the ``ansible-aci`` collection on 2025-04-18.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.10.1.
+
+        '
+    release_date: '2025-04-18'
+  2.12.0:
+    changes:
+      bugfixes:
+        - Fix API call and index error for non-existing configExportP in aci_config_snapshot.
+        - Fix the aci_access_port_block_to_access_port module to query a specific
+          object with the object name.
+        - Fix to read the last_as from the module params in aci_action_rule_set_as_path.
+        - Fix type of subnet_control in aci_bd_subnet from string to list of strings.
+      minor_changes:
+        - Add description, console_log_severity, local_file_log_format, and console_log_format
+          to aci_syslog_group module.
+        - Add enhanced_log and rfc5424-ts options to attribute format of aci_syslog_group
+          module.
+        - Add epg_cos, epg_cos_preference, ipam_dhcp_override, ipam_enabled, ipam_gateway,
+          lag_policy_name, netflow_direction, primary_encap_inner, and secondary_encap_inner
+          atributes to aci_epg_to_domain module.
+        - Add missing options to priority attribute and vrf to scope attribute in
+          aci_contract module.
+        - Add nutanix support for aci_aep_to_domain, aci_domain, aci_domain_to_encap_pool,
+          aci_domain_to_vlan_pool, aci_vmm_controller, aci_vmm_credential modules.
+        - Add pod_id attribute to aci_switch_policy_vpc_protection_group module.
+      release_summary: 'Release v2.12.0 of the ``ansible-aci`` collection on 2025-07-17.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.11.0.
+
+        '
+    modules:
+      - description: Manage Port Channel Member interface policies (lacp:IfPol)
+        name: aci_interface_policy_port_channel_member
+        namespace: ''
+      - description: Manage L4-L7 Concrete Devices (vns:CDev)
+        name: aci_l4l7_concrete_device
+        namespace: ''
+      - description: Manage L4-L7 Concrete Interfaces (vns:CIf)
+        name: aci_l4l7_concrete_interface
+        namespace: ''
+      - description: Manage L4-L7 Concrete Interface Attachment (vns:RsCIfAttN)
+        name: aci_l4l7_concrete_interface_attachment
+        namespace: ''
+      - description: Manage L4-L7 Devices (vns:LDevVip)
+        name: aci_l4l7_device
+        namespace: ''
+      - description: Manage L4-L7 Device Selection Policy Logical Interface Contexts
+          (vns:LIfCtx)
+        name: aci_l4l7_device_selection_interface_context
+        namespace: ''
+      - description: Manage L4-L7 Device Selection Policies (vns:LDevCtx)
+        name: aci_l4l7_device_selection_policy
+        namespace: ''
+      - description: Manage L4-L7 Logical Interface (vns:LIf)
+        name: aci_l4l7_logical_interface
+        namespace: ''
+      - description: Manage L4-L7 Policy Based Redirection Policies (vns:SvcRedirectPol)
+        name: aci_l4l7_policy_based_redirect
+        namespace: ''
+      - description: Manage L4-L7 Policy Based Redirect Destinations (vns:RedirectDest
+          and vns:L1L2RedirectDest)
+        name: aci_l4l7_policy_based_redirect_destination
+        namespace: ''
+      - description: Manage L4-L7 Redirect Health Groups (vns:RedirectHealthGroup)
+        name: aci_l4l7_redirect_health_group
+        namespace: ''
+      - description: Manage L4-L7 Service Graph Templates (vns:AbsGraph)
+        name: aci_l4l7_service_graph_template
+        namespace: ''
+      - description: Manage L4-L7 Service Graph Template Abs Connections (vns:AbsConnection)
+        name: aci_l4l7_service_graph_template_connection
+        namespace: ''
+      - description: Manage L4-L7 Service Graph Template Connections between function
+          nodes and terminal nodes (vns:RsAbsConnectionConns)
+        name: aci_l4l7_service_graph_template_connection_to_connector
+        namespace: ''
+      - description: Manage L4-L7 Service Graph Templates Functional Connections (vns:AbsFuncConn)
+        name: aci_l4l7_service_graph_template_functional_connection
+        namespace: ''
+      - description: Manage L4-L7 Service Graph Templates Nodes (vns:AbsNode)
+        name: aci_l4l7_service_graph_template_node
+        namespace: ''
+      - description: Manage L4-L7 SGT Term Nodes (vns:AbsTermNodeCon, vns:AbsTermNodeProv
+          and vns:AbsTermConn)
+        name: aci_l4l7_service_graph_template_term_node
+        namespace: ''
+      - description: Bind Node Management EPGs to Contracts (fv:RsCons, fv:RsProv,
+          fv:RsProtBy, fv:RsConsIf and mgmt:RsOoBProv)
+        name: aci_node_mgmt_epg_to_contract
+        namespace: ''
+      - description: Manage Out-of-Band (OOB) Contract resources (vz:OOBBrCP)
+        name: aci_oob_contract
+        namespace: ''
+      - description: Manage Enhanced LACP Policy for Virtual Machine Manager (VMM)
+          in Cisco ACI (lacp:EnhancedLagPol)
+        name: aci_vmm_enhanced_lag_policy
+        namespace: ''
+      - description: Manage VRF Fallback Route Groups (fv:FBRGroup, fv:FBRoute, and
+          fv:FBRMember)
+        name: aci_vrf_fallback_route_group
+        namespace: ''
+    release_date: '2025-07-17'
+  2.13.0:
+    changes:
+      bugfixes:
+        - Fix allowed ranges of interface option in aci_interface_config module.
+        - Fix descriptions of options in aci_maintenance_policy.
+        - Fix querying description in aci_l4l7_service_graph_template.
+      minor_changes:
+        - Add contract_type option to aci_contract_subject_to_filter and aci_contract_subject.
+        - Add l3out, l3out_tenant, external_epg and redistribute options to aci_l4l7_device_selection_interface_context.
+        - Add normalize_payload_values option to aci_rest for Ansible Core 2.19 support.
+        - Add set_communities, set_as_path and set_policy_tag options to aci_tenant_action_rule_profile.
+      release_summary: 'Release v2.13.0 of the ``ansible-aci`` collection on 2025-12-01.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.12.0.
+
+        '
+    modules:
+      - description: Manage the Commissioning and Decommissioning of the Fabric Node
+          (fabric:RsDecommissionNode)
+        name: aci_fabric_node_decommission
+        namespace: ''
+      - description: Manage external management network instance profiles (mgmt:InstP).
+        name: aci_management_network_instance_profile
+        namespace: ''
+      - description: Bind Consumed Contract to External Management Network Instance
+          Profiles (mgmt:RsOoBCons)
+        name: aci_management_network_instance_profile_to_contract
+        namespace: ''
+      - description: Manage Switch Access Policy Configuration of Leaf and Spine nodes
+          (infra:NodeConfig).
+        name: aci_switch_access_config
+        namespace: ''
+      - description: Manage Switch Fabric Policy Configuration of Leaf and Spine nodes
+          (fabric:NodeConfig).
+        name: aci_switch_fabric_config
+        namespace: ''
+    release_date: '2025-12-06'
+  2.2.0:
+    changes:
+      bugfixes:
+        - Add pool_allocation_mode to the required parameter list in aci_vlan_pool_encap_block
+          module
+        - Fix bfd issues in aci_l3out_static_routes module on pre-4.2 APICs
+        - Fix output_path to support multiple APIC runs in parallel
+        - Fix small sanity issue in aci_epg_to_contract
+        - Remove owner_key, owner_tag and annotation from module that do not support
+          them
+        - Removed block_name from the required parameter list in aci_vlan_pool_encap_block
+          module
+      minor_changes:
+        - Add access_mode and enable_vm_folder attributes to aci_domain
+        - Add aci_bgp_rr_asn and aci_bgp_rr_node module and tests
+        - Add aci_dhcp_relay and aci_dhcp_relay_provider modules and test files (#211)
+        - Add aci_dns_profile, aci_dns_domain and aci_dns_provider modules and test
+          files (#221)
+        - Add aci_epg_to_contract_interface module and test file
+        - Add aci_esg, aci_esg_contract_master, aci_esg_epg_selector, aci_esg_ip_subnet_selector
+          and aci_esg_tag_selector modules (#212)
+        - Add aci_fabric_leaf_profile and aci_fabric_leaf_switch_assoc modules and
+          test files
+        - Add aci_fabric_switch_policy_group module and test file
+        - Add aci_l3out_interface_secondary_ip module and test file
+        - Add description to aci_fabric_spine_switch_assoc module
+        - Add destination_epg, source_ip, destination_ip, span_version, flow_id, ttl,
+          mtu, dscp, and version_enforced attributes to aci_tenant_span_dst_group
+          module
+        - Add mtu and ipv6_dad attributes to aci_l3out_interface
+        - Add new aci_vmm_uplink and aci_vmm_uplink_container modules and test files  (#189)
+        - Add new priorities in the aci_epg_to_contract priority module attribute
+        - Add support for contract_label and subject_label into aci_epg_to_contract
+          module
+        - Add support for tagging with new module aci_tag (#210)
+        - Add useg attribute to aci_epg module
+      release_summary: 'Release v2.2.0 of the ``ansible-aci`` collection on 2022-03-15.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.1.0.
+
+        '
+    release_date: '2022-03-15'
+  2.3.0:
+    changes:
+      bugfixes:
+        - Fix HTTP status returned by aci_rest (#279)
+        - Fix aci_aep_to_epg absent issue to only delete the correct binding (#263)
+        - Fix aci_interface_description query interface filtering (#238)
+        - Fix aci_interface_selector_to_switch_policy_leaf_profile error when querying
+          interface_selector without specifying a switch policy leaf profile (#318)
+        - Fix aci_rest output_path issues when content is not JSON
+      minor_changes:
+        - Add aci_bulk_static_binding_to_epg module to bind multiple interfaces to
+          an EPG in one API call
+        - Add aci_l3out_logical_interface_profile_ospf_policy module to apply ospfIfP
+          policy to L3out logical interface profile (#301)
+        - Add aci_ntp_policy and aci_ntp_server modules (#229)
+        - Add cisco.aci.interface_range lookup plugin for interface range handling
+          (#302)
+        - Add new aci_aaa_ssh_auth, aci_aaa_user_domain and aci_aaa_user_role modules
+          (#223)
+        - Add support for active/stanby vmm uplinks in aci_epg_to_domain
+        - Add support for aggregate attribute, scope default and "import-rtctrl" to
+          scope choices in aci_l3out_extsubnet module (#260)
+        - Added fex_port_channel and fex_vpc interface types to aci_access_port_to_interface_policy_leaf_profile
+          (#241)
+        - Adding missing options to aci_epg_to_domain
+      release_summary: 'Release v2.3.0 of the ``ansible-aci`` collection on 2022-10-14.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.2.0.
+
+        '
+    release_date: '2022-10-14'
+  2.4.0:
+    changes:
+      bugfixes:
+        - Add snapshot job details in result of aci_config_snapshot to support query
+          of snapshot results (#342)
+        - Fix aci_encap_pool_range by removing range_name from required parameters
+          (#368)
+        - Fix query of all blacklisted interfaces using aci_interface_blacklist (#367)
+      minor_changes:
+        - Add Node Profile BGP Peer and Route Control Profile functionalities to aci_l3out_bgp_peer
+          module (#340)
+        - Add SVI auto state support (auto_state attribute) to aci_l3out_interface
+          (#348)
+        - Add aci_aaa_domain, aci_aaa_role and aci_custom_privilege modules (#226)
+        - Add aci_fabric_pod_policy_group module (#230)
+        - Add aci_interface_policy_leaf_profile_fex_policy_group module and add FEX
+          support to aci_access_port_to_interface_policy_leaf_profile (#233)
+        - Add aci_tenant_span_src_group_src module (#344)
+        - Add action_groups for module_defaults (#316)
+        - Add support for filter direction in aci_contract_subject and aci_contract_subject_to_filter
+          (#306)
+        - Update modules to assign roles and permissions to a user (#225)
+      release_summary: 'Release v2.4.0 of the ``ansible-aci`` collection on 2023-02-04.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.3.0.
+
+        '
+    release_date: '2023-02-04'
+  2.5.0:
+    changes:
+      bugfixes:
+        - Fix missing annotation field in aci_ntp_policy and aci_ntp_server (#392)
+        - Forced unicode encoding for lxml XML fragment validation output  to fix
+          issue with Certificate authentication and aci_rest with XML payload (#341)
+      minor_changes:
+        - Add aci_interface_config module for new interface configuration available
+          in ACI v5.2(5)+ (#383)
+        - Add aci_interface_policy_spanning_tree  module (#387)
+      release_summary: 'Release v2.5.0 of the ``ansible-aci`` collection on 2023-03-31.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.4.0.
+
+        '
+    release_date: '2023-03-31'
+  2.6.0:
+    changes:
+      minor_changes:
+        - Add aci_access_span_dst_group module for fabric access policies span destination
+          group support (#405)
+        - Add aci_access_span_filter_group and aci_access_span_filter_group_entry
+          modules for access span filter group support (#407)
+        - Add aci_config_export_policy module (#380)
+        - Add aci_igmp_interface_policy module (#381)
+      release_summary: 'Release v2.6.0 of the ``ansible-aci`` collection on 2023-04-19.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.5.0.
+
+        '
+    release_date: '2023-04-19'
+  2.7.0:
+    changes:
+      bugfixes:
+        - Change input of prefix_suppression to type string to allow enable, disable
+          and inherit options for aci_interface_policy_ospf
+      minor_changes:
+        - Add ACI HTTPAPI plugin with multi host support (#114)
+        - Add OSPF parameters to aci_l3out module and create the associated test case.
+        - Add aci_access_span_src_group modules for access span source group support
+        - Add aci_access_span_src_group_src module for access span source support
+        - Add aci_access_span_src_group_src_path module for access span source path
+          support
+        - Add aci_epg_subnet module (#424)
+        - Add aci_fabric_span_dst_group module for fabric span destination group support
+        - Add aci_fabric_span_src_group module for fabric span source group support
+        - Add aci_fabric_span_src_group_src module for fabric span source support
+        - Add aci_fabric_span_src_group_src_node module for fabric span source node
+          support
+        - Add aci_fabric_span_src_group_src_path module for fabric span source path
+          support
+        - Add aci_file_remote_path module (#379)
+        - Add aci_vrf_leak_internal_subnet module (#449)
+        - Add description parameter for aci_l3out_logical_interface_profile
+        - Add ip_data_plane_learning attribute to aci_bd_subnet and aci_vrf modules
+          (#413)
+        - Add local_as_number_config and local_as_number attributes to support bgpLocalAsnP
+          child object in aci_l3out_bgp_peer module (#416)
+        - Add node_type and remote_leaf_pool_id attributes to aci_fabric_node
+        - Add source_port, source_port_start, source_port_end, tcp_flags and match_only_fragments
+          attributes to aci_filter_entry module (#426)
+      release_summary: 'Release v2.7.0 of the ``ansible-aci`` collection on 2023-08-04.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.6.0.
+
+        '
+    release_date: '2023-08-04'
+  2.8.0:
+    changes:
+      bugfixes:
+        - Fixed issue with default values for ssl, proxy, timeout in aci.py and the
+          display of host in the url when the plugin httpapi is used
+        - Modified  aci_rest  and  aci_config_snapshot  modules to display the correct
+          URL output string (#487)
+      minor_changes:
+        - Add 8.0 option for dvs_version attribute in aci_vmm_controller
+        - Add Match Rules for aci_route_control_profile modules
+        - Add aci_bgp_timers_policy and aci_bgp_best_path_policy modules
+        - Add aci_fabric_interface_policy_group module
+        - Add aci_interface_policy_leaf_fc_policy_group and aci_interface_policy_spine_policy_group
+          module
+        - Add aci_l3out_bgp_protocol_profile module
+        - Add aci_match_community_factor module.
+        - Add aci_route_control_context and aci_match_rule modules
+        - Add aci_route_control_profile module
+        - Add hmac-sha2-224, hmac-sha2-256, hmac-sha2-384, hmac-sha2-512 authentication
+          types and description to aci_snmp_user module
+        - Add loopback interface profile as a child class for aci_l3out_logical_node.
+        - Add missing attributes in aci_interface_policy_leaf_policy_group
+        - Add missing attributes to aci_l3out_extepg module
+        - Add missing test cases, fix found issues and add missing attributes for
+          aci_fabric_scheduler, aci_firmware_group, aci_firmware_group_node, aci_firmware_policy,
+          aci_interface_policy_fc, aci_interface_policy_lldp, aci_interface_policy_mcp,
+          aci_interface_policy_ospf, aci_interface_policy_port_channel, aci_maintenance_group,
+          aci_maintenance_group_node, aci_maintenance_policy and aci_tenant_ep_retention_policy
+          modules (#453)
+        - Add support for checkmode in aci_rest module
+        - Add support for configuration of fabric node control with aci_fabric_node_control
+          module
+        - Add support for configuration of fabric pod selectors with aci_fabric_pod_selector
+          module
+        - Add support for configuration of system banner and alias with aci_system_banner
+          module
+        - Add support for configuration of system endpoint controls, ip aging, ep
+          loop protection and roque endpoint control with aci_system_endpoint_controls
+          module
+        - Add support for configuration of system fabric wide settings with aci_fabric_wide_settings
+          module
+        - Add support for configuration of system global aes passphrase encryption
+          with aci_system_global_aes_passphrase_encryption module
+        - Add support for global infra dhcp relay policy configuration in aci_dhcp_relay
+        - Add support for global infra dhcp relay policy configuration in aci_dhcp_relay_provider
+      release_summary: 'Release v2.8.0 of the ``ansible-aci`` collection on 2023-11-04.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.7.0.
+
+        '
+    release_date: '2023-11-04'
+  2.9.0:
+    changes:
+      bugfixes:
+        - Fix auto logout issue in aci connection plugin to keep connection active
+          between tasks
+        - Fix idempotency for l3out configuration when l3protocol is used in aci_l3out
+        - Fix issues with new attributes in aci_interface_policy_leaf_policy_group
+          module by adding conditions to include attributes in the payload only when
+          they are specified by the user (#578)
+        - Fix query in aci_vmm_controller
+      minor_changes:
+        - Add Authentification option for EIGRP interface profile.
+        - Add L3out Floating SVI modules (aci_l3out_floating_svi, aci_l3out_floating_svi_path,
+          aci_l3out_floating_svi_path_secondary_ip and aci_l3out_floating_svi_secondary_ip)
+          (#478)
+        - Add No-verification flag option to reduce the number of API calls. If true,
+          a verifying GET will not be sent after a POST update to APIC
+        - Add access spine interface selector and port block binding in aci_access_port_block_to_access_port
+        - Add aci_access_spine_interface_selector module
+        - Add aci_action_rule_additional_communities module
+        - Add aci_action_rule_set_as_path and aci_action_rule_set_as_path_asn modules
+        - Add aci_bgp_peer_prefix_policy, aci_bgp_route_summarization_policy and aci_bgp_address_family_context_policy
+          modules
+        - Add aci_fabric_pod, aci_fabric_pod_external_tep, aci_fabric_pod_profile,
+          aci_fabric_pod_remote_pool modules (#558)
+        - Add aci_hsrp_interface_policy, aci_l3out_hsrp_group, aci_l3out_hsrp_interface_profile
+          and aci_l3out_hsrp_secondary_vip modules (#505)
+        - Add aci_interface_policy_eigrp (class:eigrpIfPol) module
+        - Add aci_interface_policy_pim module
+        - Add aci_interface_policy_storm_control module
+        - Add aci_keychain_policy and aci_key_policy modules
+        - Add aci_l3out_bfd_multihop_interface_profile, aci_l3out_bfd_interface_profile,
+          aci_interface_policy_bfd_multihop, aci_interface_policy_bfd and aci_bfd_multihop_node_policy
+          modules (#492)
+        - Add aci_l3out_dhcp_relay_label, aci_dhcp_option_policy and aci_dhcp_option
+          modules
+        - Add aci_l3out_eigrp_interface_profile module
+        - Add aci_listify filter plugin to flattens nested dictionaries
+        - Add aci_netflow_exporter_policy module
+        - Add aci_netflow_monitor_policy and aci_netflow_record_policy modules
+        - Add aci_netflow_monitor_to_exporter module
+        - Add aci_node_block module
+        - Add aci_pim_route_map_policy and aci_pim_route_map_entry modules
+        - Add aci_qos_custom_policy and aci_qos_dscp_class modules
+        - Add aci_qos_dot1p_class module
+        - Add action rules attributes to aci_tenant_action_rule_profile.
+        - Add auto to speed attribute options in aci_interface_policy_link_level module
+          (#577)
+        - Add missing options to aci_bd module
+        - Add modules aci_bd_to_netflow_monitor_policy and aci_bd_rogue_exception_mac
+          (#600)
+        - Add modules for Fabric External Connection Policies and its childs
+        - Add option to set delimiter to  _  in aci_epg_to_domain module
+        - Add qos_custom_policy, pim_interface_policy and igmp_interface_policy as
+          new child_classes for aci_l3out_logical_interface_profile.
+        - Add support for annotation in aci_rest module (#437)
+        - Add support for block statements in useg attributes with the aci_epg_useg_attribute_block_statement
+          module
+        - Add support for configuration of access switch policy groups with aci_access_switch_policy_group
+          module
+        - Add support for configuration of certificate authorities in aci_aaa_certificate_authority
+        - Add support for configuration of fabric management access policies in aci_fabric_management_access
+        - Add support for configuration of vrf multicast with aci_vrf_multicast module
+        - Add support for configuring Azure cloud subnets using the aci_cloud_subnet
+          module
+        - Add support for encap scope in aci_l3out_interface
+        - Add support for https ssl cipher configuration in aci_fabric_management_access_https_cipher
+        - Add support for infra l3out nodes bgp-evpn loopback, mpls transport loopback
+          and segment id in aci_l3out_logical_node
+        - Add support for infra sr mpls micro bfd in aci_l3out_interface
+        - Add support for intra epg, taboo, and contract interface in aci_epg_to_contract
+        - Add support for key ring configuration in aci_aaa_key_ring
+        - Add support for mac and description in aci_l3out_interface
+        - Add support for mpls custom qos policy for infra sr mpls l3outs node profiles
+          in aci_l3out_logical_node_profile
+        - Add support for security default settings configuration in aci_aaa_security_default_settings
+        - Add support for simple statements in useg attributes with the aci_epg_useg_attribute_simple_statement
+          module
+        - Add support for sr-mpls bgpInfraPeerP and bgp_password in aci_l3out_bgp_peer
+          module (#543)
+        - Add support for sr-mpls in aci_l3out module
+        - Add support for sr-mpls l3out to infra l3out in aci_l3out_to_sr_mpls_infra_l3out
+        - Add support for subject labels for EPG, EPG Contract, ESG, Contract Subject,
+          L2Out External EPG, L3out External EPG, and L3out External EPG Contract
+          with the aci_subject_label module
+        - Add support for taboo contract, contract interface and intra_epg contract
+          in aci_l3out_extepg_to_contract
+        - Add support for useg default block statement configuration for useg epg
+          in aci_epg
+        - Modify child class node block conditions to be optional in aci_switch_leaf_selector
+      release_summary: 'Release v2.9.0 of the ``ansible-aci`` collection on 2024-04-06.
+
+        This changelog describes all changes made to the modules and plugins included
+        in this collection since v2.8.0.
+
+        '
+    release_date: '2024-04-06'

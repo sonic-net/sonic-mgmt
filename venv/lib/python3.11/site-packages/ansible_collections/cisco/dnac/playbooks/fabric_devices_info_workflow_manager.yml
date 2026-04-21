@@ -1,0 +1,45 @@
+---
+- name: Get Fabric devices info from Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Get Fabric devices info from Cisco Catalyst Center
+      cisco.dnac.fabric_devices_info_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: gathered
+        config:
+          - fabric_devices:
+              - fabric_site_hierarchy: "Global/rishipat_area/Fabric-area-1"  # Mandatory parameter
+                fabric_device_role: "EDGE_NODE"
+                device_identifier:
+                  - ip_address: ["192.168.200.69"]
+                  - serial_number: ["FOC2443L1VQ"]
+                  - hostname: ["Fabric-9300-2-2.rcdnlabcead.com"]
+                timeout: 30
+                retries: 3
+                interval: 10
+                requested_info:
+                  - fabric_info
+                  - handoff_info
+                  - onboarding_info
+                  - connected_devices_info
+                  - device_health_info
+                  - device_issues_info
+                output_file_info:
+                  file_path: /Users/priyadharshini/Downloads/fabric_device_info
+                  file_format: yaml
+                  file_mode: w
+                  timestamp: false

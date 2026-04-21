@@ -1,0 +1,18 @@
+---
+# defaults file for zabbix_javagateway
+
+zabbix_javagateway_version_check: true
+
+# zabbix_javagateway_version:
+zabbix_javagateway_package_state: present
+zabbix_java_gateway_conf_mode: "0644"
+
+# zabbix_javagateway_disable_repo: (list)
+# zabbix_javagateway_install_recommends: (boolean)
+
+zabbix_javagateway_openjdk_version: 17
+
+zabbix_javagateway_pidfile: /run/zabbix/zabbix_java_gateway.pid
+zabbix_javagateway_listenip: 0.0.0.0
+zabbix_javagateway_listenport: 10052
+zabbix_javagateway_startpollers: 5

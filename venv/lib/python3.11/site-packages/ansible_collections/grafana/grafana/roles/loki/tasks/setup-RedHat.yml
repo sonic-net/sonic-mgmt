@@ -1,0 +1,8 @@
+---
+- name: DNF - Install Loki from remote URL
+  ansible.builtin.dnf:
+    name: "{{ loki_download_url_rpm }}"
+    state: present
+    disable_gpg_check: true
+  notify: restart loki
+  when: __current_deployed_version.stdout is not defined or loki_version not in __current_deployed_version.stdout

@@ -1,0 +1,50 @@
+---
+ansible_user: admin
+ansible_password: admin
+ansible_network_os: dellemc.enterprise_sonic.sonic
+
+# Changing the interface name here will be reflected in all places
+# Spine to Leaf interface connections
+spine_leaf1_inf1: Eth1/1
+spine_leaf2_inf2: Eth1/2
+spine_leaf25_inf3: Eth1/25
+spine_leaf26_inf4: Eth1/26
+
+# Leaf to spine interface connections
+leaf_spine1_inf1: Eth1/14
+leaf_spine2_inf2: Eth1/15
+
+# Logical interface defintions
+loopback_inf0: Loopback0
+loopback_inf1: Loopback1
+
+host_data:
+  leaf1:
+    loopback0_ip: 10.0.2.1/32
+    loopback1_ip: 10.10.10.1/32
+    bgp_asn: 65001
+  leaf2:
+    loopback0_ip: 10.0.2.2/32
+    loopback1_ip: 10.10.10.2/32
+    bgp_asn: 65001
+  leaf25:
+    loopback0_ip: 10.0.2.25/32
+    loopback1_ip: 10.10.10.25/32
+    bgp_asn: 65025
+  leaf26:
+    loopback0_ip: 10.0.2.26/32
+    loopback1_ip: 10.10.10.26/32
+    bgp_asn: 65025
+  spine1:
+    loopback0_ip: 10.0.1.1/32
+    bgp_asn: 65000
+  spine2:
+    loopback0_ip: 10.0.1.2/32
+    bgp_asn: 65000
+
+ansible_httpapi_use_ssl: true
+ansible_httpapi_validate_certs: false
+
+loopback0_ip: "{{ host_data[inventory_hostname].loopback0_ip }}"
+loopback1_ip: "{{ host_data[inventory_hostname].loopback1_ip }}"
+bgp_asn: "{{ host_data[inventory_hostname].bgp_asn }}"

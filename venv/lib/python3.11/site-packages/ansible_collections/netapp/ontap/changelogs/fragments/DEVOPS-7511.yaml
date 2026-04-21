@@ -1,0 +1,2 @@
+major_changes:
+  - na_ontap_nvme_subsystem - added compatibility for ASA r2 systems.

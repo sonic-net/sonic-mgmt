@@ -1,0 +1,4 @@
+bugfixes:
+ - purefa_dirsnap - Fixed issues with ``keep_for`` setting and issues related to recovery of deleted snapshots
+minor_changes:
+ - purefa_info - Add ``time_remaining`` field for non-deleted directory snapshots

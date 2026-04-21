@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_cluster_config Role - incorrect license was shown - updated to GNU General Public License v3.0

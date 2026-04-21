@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_snapmirror - new option `quiesced_time_out` added to wait for quiesce job to complete.

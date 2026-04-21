@@ -1,0 +1,211 @@
+---
+grafana_version: latest
+grafana_manage_repo: true
+
+grafana_yum_repo: "https://rpm.grafana.com"
+grafana_yum_key: "https://rpm.grafana.com/gpg.key"
+
+grafana_rhsm_subscription: ""
+grafana_rhsm_repo: ""
+
+grafana_apt_release_channel: stable
+grafana_apt_arch: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"
+grafana_apt_repo_uri: "https://apt.grafana.com/"
+grafana_apt_repo: "deb [arch={{ grafana_apt_arch }} signed-by=/usr/share/keyrings/grafana.asc] {{ grafana_apt_repo_uri }} {{ grafana_apt_release_channel }} main"
+grafana_apt_key: "https://apt.grafana.com/gpg.key"
+grafana_apt_name: "grafana"
+
+# Should we use the provisioning capability when possible (provisioning require grafana >= 5.0)
+grafana_use_provisioning: true
+
+# Should the provisioning be kept synced. If true, previous provisioned objects will be removed if not referenced anymore.
+grafana_provisioning_synced: false
+
+# Should we provision dashboards by following the files structure. This sets the foldersFromFilesStructure option
+grafana_provisioning_dashboards_from_file_structure: false
+
+# To enable the use of ports below 1024 for unprivileged processes linux needs to set CAP_NET_BIND_SERVICE.
+# This has some security implications, and should be a conscious choice.
+# Get informed by reading: http://man7.org/linux/man-pages/man7/capabilities.7.html
+grafana_cap_net_bind_service: false
+
+grafana_ini_default:
+  instance_name: "{{ ansible_facts['fqdn'] | default(ansible_host) | default(inventory_hostname) }}"
+
+  paths:
+    logs: "/var/log/grafana"
+    data: "/var/lib/grafana"
+
+  server:
+    http_addr: "0.0.0.0"
+    http_port: 3000
+    # External Grafana address. Variable maps to "root_url" in grafana server section
+    #root_url: "http://{{ grafana_ini.server.http_addr }}:{{ grafana_ini.server.http_port }}"
+    domain: "{{ ansible_facts['fqdn'] | default(ansible_host) | default('localhost') }}"
+
+    # Additional options for grafana "server" section
+    # This section WILL omit options for: http_addr, http_port, domain, and root_url, as those settings are set by variables listed before
+    protocol: http
+    enforce_domain: false
+    socket: ""
+    cert_key: ""
+    cert_file: ""
+    enable_gzip: false
+    static_root_path: public
+    router_logging: false
+    serve_from_sub_path: false
+
+  # Variables correspond to ones in grafana.ini configuration file
+  # Security
+  security:
+    admin_user: admin
+    admin_password: ""
+    # secret_key: ""
+    # login_remember_days: 7
+    # cookie_username: grafana_user
+    # cookie_remember_name: grafana_remember
+    # disable_gravatar: true
+    # data_source_proxy_whitelist:
+
+  # Database setup
+  database:
+    type: sqlite3
+    # host: 127.0.0.1:3306
+    # name: grafana
+    # user: root
+    # password: ""
+    # url: ""
+    # ssl_mode: disable
+    # path: grafana.db
+    # max_idle_conn: 2
+    # max_open_conn: ""
+    # log_queries: ""
+
+  # User management and registration
+  users:
+    allow_sign_up: false
+    # allow_org_create: true
+    # auto_assign_org: true
+    auto_assign_org_role: Viewer
+    # login_hint: "email or username"
+    default_theme: dark
+    # external_manage_link_url: ""
+    # external_manage_link_name: ""
+    # external_manage_info: ""
+
+  # grafana authentication mechanisms
+  auth: {}
+  #  disable_login_form: false
+  #  oauth_auto_login: false
+  #  disable_signout_menu: false
+  #  signout_redirect_url: ""
+  #  anonymous:
+  #    org_name: "Main Organization"
+  #    org_role: Viewer
+  #  ldap:
+  #    config_file: "/etc/grafana/ldap.toml"
+  #    allow_sign_up: false
+  #  basic:
+  #    enabled: true
+
+
+grafana_api_url: "{{ grafana_ini.server.root_url }}"
+
+grafana_ldap: {}
+#  verbose_logging: false
+#  servers:
+#    host: 127.0.0.1
+#    port: 389 # 636 for SSL
+#    use_ssl: false
+#    start_tls: false
+#    ssl_skip_verify: false
+#    root_ca_cert: /path/to/certificate.crt
+#    bind_dn: "cn=admin,dc=grafana,dc=org"
+#    bind_password: grafana
+#    search_filter: "(cn=%s)" # "(sAMAccountName=%s)" on AD
+#    search_base_dns:
+#      - "dc=grafana,dc=org"
+#    group_search_filter: "(&(objectClass=posixGroup)(memberUid=%s))"
+#    group_search_base_dns:
+#      - "ou=groups,dc=grafana,dc=org"
+#    attributes:
+#      name: givenName
+#      surname: sn
+#      username: sAMAccountName
+#      member_of: memberOf
+#      email: mail
+#  group_mappings:
+#    - name: Main Org.
+#      id: 1
+#      groups:
+#        - group_dn: "cn=admins,ou=groups,dc=grafana,dc=org"
+#          org_role: Admin
+#        - group_dn: "cn=editors,ou=groups,dc=grafana,dc=org"
+#          org_role: Editor
+#        - group_dn: "*"
+#          org_role: Viewer
+#    - name: Alternative Org
+#      id: 2
+#      groups:
+#        - group_dn: "cn=alternative_admins,ou=groups,dc=grafana,dc=org"
+#          org_role: Admin
+
+#######
+# Plugins to install from https://grafana.com/plugins
+grafana_plugins: []
+#  - raintank-worldping-app
+
+# Dashboards from https://grafana.com/dashboards
+grafana_dashboards: []
+#  - dashboard_id: '4271'
+#    revision_id: '3'
+#    datasource: 'Prometheus'
+#  - dashboard_id: '1860'
+#    revision_id: '4'
+#    datasource: 'Prometheus'
+#  - dashboard_id: '358'
+#    revision_id: '1'
+#    datasource: 'Prometheus'
+
+grafana_dashboards_dir: "dashboards"
+
+# Alert notification channels to configure
+grafana_alert_notifications: []
+#  - name: "Email Alert"
+#    type: "email"
+#    uid: channel1
+#    is_default: true
+#    settings:
+#      addresses: "example@example.com"
+
+# Alert resources channels to configure
+grafana_alert_resources: {}
+
+# Datasources to configure
+grafana_datasources: []
+#  - name: "Prometheus"
+#    type: "prometheus"
+#    access: "proxy"
+#    url: "http://prometheus.mydomain"
+#    basicAuth: true
+#    basicAuthUser: "admin"
+#    basicAuthPassword: "password"
+#    isDefault: true
+#    jsonData:
+#      tlsAuth: false
+#      tlsAuthWithCACert: false
+#      tlsSkipVerify: true
+
+# API keys to configure
+grafana_api_keys: []
+#  - name: "admin"
+#    role: "Admin"
+#  - name: "viewer"
+#    role: "Viewer"
+#  - name: "editor"
+#    role: "Editor"
+
+# The location where the keys should be stored.
+grafana_api_keys_dir: "{{ lookup('env', 'HOME') }}/grafana/keys"
+
+grafana_environment: {}

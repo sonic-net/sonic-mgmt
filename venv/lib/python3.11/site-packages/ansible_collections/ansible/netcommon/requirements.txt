@@ -1,0 +1,7 @@
+ansible-pylibssh >= 0.2.0
+jxmlease
+ncclient
+paramiko
+xmltodict
+grpcio
+protobuf

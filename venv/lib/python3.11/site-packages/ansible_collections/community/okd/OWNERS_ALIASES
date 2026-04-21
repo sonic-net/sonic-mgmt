@@ -1,0 +1,11 @@
+aliases:
+  community.okd-approvers:
+    - gravesm
+    - jillr
+    - alinabuzachis
+    - abikouo
+  community.okd-reviewers:
+    - gravesm
+    - jillr
+    - alinabuzachis
+    - abikouo

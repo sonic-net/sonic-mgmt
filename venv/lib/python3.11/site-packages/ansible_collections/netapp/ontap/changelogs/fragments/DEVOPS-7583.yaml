@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_user - added `totp` option for `application_dicts.second_authentication_method` in REST.

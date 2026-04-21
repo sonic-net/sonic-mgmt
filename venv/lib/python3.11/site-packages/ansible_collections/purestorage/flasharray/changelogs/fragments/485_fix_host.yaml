@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_host - Fix incorrect calling of "module.params".

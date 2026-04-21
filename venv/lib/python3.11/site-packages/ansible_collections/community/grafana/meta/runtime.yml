@@ -1,0 +1,21 @@
+---
+requires_ansible: ">=2.15.0"
+action_groups:
+  grafana:
+    - grafana_dashboard
+    - grafana_datasource
+    - grafana_folder
+    - grafana_notification_channel
+    - grafana_contact_point
+    - grafana_organization
+    - grafana_organization_user
+    - grafana_plugin
+    - grafana_team
+    - grafana_user
+    - grafana_silence
+plugin_routing:
+  modules:
+    grafana_notification_channel:
+      deprecation:
+        removal_version: 3.0.0
+        warning_text: Legacy alerting is removed in Grafana version 11, use community.grafana.grafana_contact_point instead.

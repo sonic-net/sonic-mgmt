@@ -1,0 +1,6 @@
+[ucs]
+ucs1 ucs_hostname=sandbox-ucsm1.cisco.com
+
+[ucs:vars]
+ucs_username=admin
+ucs_password=C1sco12345

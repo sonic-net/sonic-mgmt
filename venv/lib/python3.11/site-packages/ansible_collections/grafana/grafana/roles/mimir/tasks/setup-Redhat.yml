@@ -1,0 +1,8 @@
+---
+- name: DNF - Install Mimir from remote URL
+  ansible.builtin.dnf:
+    name: "{{ mimir_download_url_rpm }}"
+    state: present
+    disable_gpg_check: true
+  notify: Restart mimir
+  when: __current_deployed_version.stdout is not defined or mimir_version not in __current_deployed_version.stdout

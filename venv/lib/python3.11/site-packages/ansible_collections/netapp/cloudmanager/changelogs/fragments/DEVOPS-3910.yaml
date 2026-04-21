@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_cifs_server - Fix incorrect API call when is_workgroup is true

@@ -1,0 +1,141 @@
+---
+# Copyright: (c) 2025, Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: website_info
+  short_description: Get information on IIS websites
+  description:
+    - Returns information about IIS websites.
+  requirements:
+    - IISAdministration PowerShell module
+  options:
+    name:
+      description:
+        - Name of the website.
+        - When not specified, information of all existing websites will be fetched.
+      type: str
+      required: false
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+  seealso:
+    - module: microsoft.iis.website
+  author:
+    - Shahar Golshani (@sgolshan)
+
+EXAMPLES: |
+  - name: Return information about an existing website
+    microsoft.iis.website_info:
+      name: 'Default Web Site'
+    register: stored_info
+
+  - name: Returns information about all websites that exist on the system
+    microsoft.iis.website_info:
+    register: stored_info_all
+
+RETURN:
+  exists:
+    description:
+      - Whether any website were found.
+    returned: always
+    type: bool
+    sample: true
+  site:
+    description:
+      - Contains list of dictionaries.
+      - Every dictionary in the list contains name and information of a website.
+    returned: success
+    type: list
+    elements: dict
+    sample: |
+      [
+        {
+          "name": "Default Web Site",
+          "state": "Started"
+          "site_id": 1,
+          "physical_path": "C:\\inetpub\\wwwroot",
+          "application_pool": "DefaultAppPool",
+          "bindings": [
+            {
+              "ip": "127.0.0.1",
+              "port": 80,
+              "hostname": "iis_website.com",
+              "protocol": "http",
+              "use_ccs": false,
+              "use_sni": false
+            }
+          ]
+        }
+      ]
+    contains:
+      name:
+        description:
+          - Name of the website.
+        type: str
+        sample: Default Web Site
+      site_id:
+        description:
+          - Specifies the website ID.
+        type: int
+        sample: 1
+      state:
+        description:
+          - Specifies the website state Started/Stopped.
+        type: str
+        sample: "Started"
+      application_pool:
+        description:
+          - Specifies the application pool in which the website runs.
+        type: str
+        sample: "DefaultAppPool"
+      physical_path:
+        description:
+          - Specifies the physical folder path of the website.
+        type: str
+        sample: "C:\\inetpub\\wwwroot"
+      bindings:
+        description:
+          - List of dictionaries that hold the information of all the website bindings.
+        type: list
+        elements: dict
+        contains:
+          hostname:
+            description: The website binding hostname (DNS).
+            type: str
+            sample: "iis_website.com"
+          ip:
+            description: The website binding listen IP.
+            type: str
+            sample: "127.0.0.1"
+          port:
+            description: The website binding listen port.
+            type: int
+            sample: 80
+          protocol:
+            description: The website used protocol.
+            type: str
+            sample: "http"
+          use_sni:
+            description: Require Server Name Indication (SNI) for SSL certificates.
+            type: bool
+            sample: true
+          use_ccs:
+            description: Use Centralized Certificate Store (CCS) for SSL certificates.
+            type: str
+            sample: "true"
+          certificate_hash:
+            description: The SSL certificate hash used by the server.
+            type: str
+            sample: "005930BD42F4869B81150A81B3B922F839412CC7"
+          certificate_store_name:
+            description: The SSL certificate local store name.
+            type: str
+            sample: "MY"

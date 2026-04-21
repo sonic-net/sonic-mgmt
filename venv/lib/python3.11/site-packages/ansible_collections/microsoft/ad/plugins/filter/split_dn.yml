@@ -1,0 +1,73 @@
+# Copyright (c) 2024 Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  name: split_dn
+  author:
+    - Jordan Borean (@jborean93)
+  short_description: Splits an LDAP DistinguishedName.
+  version_added: 1.8.0
+  seealso:
+    - ref: microsoft.ad.dn_escape <ansible_collections.microsoft.ad.dn_escape_filter>
+      description: microsoft.ad.dn_escape filter
+    - ref: microsoft.ad.parse_dn <ansible_collections.microsoft.ad.parse_dn_filter>
+      description: microsoft.ad.parse_dn filter
+  description:
+    - Splits the provided LDAP DistinguishedName (C(DN)) string value giving
+      you the first/leaf RDN component or the remaining/parent RDN components.
+    - The rules for parsing as defined in
+      L(RFC 4514,https://www.ietf.org/rfc/rfc4514.txt).
+    - Each DN contains Relative DistinguishedNames (C(RDN)) separated by C(,).
+    - The returned string for each DN will be either the first/leaf RDN
+      component representing the name of the object, or the remaining/parent
+      components representing the parent DN path. Use the I(section) kwarg to
+      control what should be returned.
+    - A DN that is invalid will raise a filter error.
+    - As the values are canonicalized, the returned values may not match the
+      original DN string provided but do represent the same LDAP DN value.
+    - Leading and trailing whitespace from each component is removed from the
+      returned value.
+  positional: _input
+  options:
+    _input:
+      description:
+        - The LDAP DistinguishedName string to split.
+      type: str
+      required: true
+    section:
+      description:
+        - The DN section to return.
+        - Defaults to C(leaf) which will return the first RDN component.
+        - Set to C(parent) to return the remaining RDN components.
+        - Do not specify C(section) as a keyword, this value is passed as a
+          positional argument.
+      type: str
+      choices:
+        - leaf
+        - parent
+      default: leaf
+
+
+EXAMPLES: |
+  - name: Gets the leaf RDN of a DN
+    set_fact:
+      my_dn: '{{ "CN=Foo,DC=domain,DC=com" | microsoft.ad.split_dn }}'
+
+  # CN=Foo
+
+  - name: Gets the parent RDNs of a DN
+    set_fact:
+      my_dn: >-
+        {{
+          "CN=Acme\, Inc.,O=OrgName,C=AU+ST=Queensland" |
+            microsoft.ad.split_dn("parent")
+        }}
+
+  # O=OrgName,C=AU+ST=Queensland,
+
+RETURN:
+  _value:
+    description:
+      - The split RDN components based on the section requested.
+    type: str
+    sample: CN=Foo

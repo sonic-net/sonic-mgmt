@@ -1,0 +1,48 @@
+{
+ "collection_info": {
+  "namespace": "community",
+  "name": "crypto",
+  "version": "3.0.5",
+  "authors": [
+   "Ansible (github.com/ansible)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "acme",
+   "certificate",
+   "community",
+   "crl",
+   "cryptography",
+   "csr",
+   "dhparam",
+   "entrust",
+   "letsencrypt",
+   "luks",
+   "openssl",
+   "openssh",
+   "pkcs12"
+  ],
+  "description": "Provides modules and plugins for many cryptographic operations.",
+  "license": [
+   "GPL-3.0-or-later",
+   "Apache-2.0",
+   "BSD-2-Clause",
+   "BSD-3-Clause",
+   "PSF-2.0"
+  ],
+  "license_file": null,
+  "dependencies": {},
+  "repository": "https://github.com/ansible-collections/community.crypto",
+  "documentation": "https://docs.ansible.com/ansible/latest/collections/community/crypto/",
+  "homepage": "https://github.com/ansible-collections/community.crypto",
+  "issues": "https://github.com/ansible-collections/community.crypto/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "c66292efcaf6b996c1225622a50c3d6b57eb6d9cb35fb485c00a1d518d6d748c",
+  "format": 1
+ },
+ "format": 1
+}

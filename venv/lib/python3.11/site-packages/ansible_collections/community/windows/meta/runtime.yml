@@ -1,0 +1,175 @@
+requires_ansible: '>=2.16.0'
+plugin_routing:
+  lookup:
+    laps_password:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: Use the microsoft.ad.ldap inventory plugin instead.
+  modules:
+    # Remove tombstone when 4.0.0 is released
+    win_domain_computer:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: Use microsoft.ad.computer instead.
+    win_domain_group_membership:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: Use microsoft.ad.group instead.
+    win_domain_group:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: Use microsoft.ad.group instead.
+    win_domain_object_info:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: Use microsoft.ad.object_info instead.
+    win_domain_ou:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: Use microsoft.ad.ou instead.
+    win_domain_user:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: Use microsoft.ad.user instead.
+    # Tombstone these modules when 4.0.0 is released
+    win_iis_virtualdirectory:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: Use microsoft.iis.virtual_directory instead.
+    win_iis_webapplication:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: Use microsoft.iis.web_application instead.
+    win_iis_webapppool:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: Use microsoft.iis.web_app_pool instead.
+    win_iis_webbinding:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: Use microsoft.iis.website instead.
+    win_iis_website:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: Use microsoft.iis.website instead.
+    # Tombstone these redirections when 4.0.0 is released
+    win_audit_policy_system:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_audit_policy_system will be removed in a future release of this collection. Use ansible.windows.win_audit_policy_system instead.
+      redirect: ansible.windows.win_audit_policy_system
+    win_audit_rule:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_audit_rule will be removed in a future release of this collection. Use ansible.windows.win_audit_rule instead.
+      redirect: ansible.windows.win_audit_rule
+    win_auto_logon:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_auto_logon will be removed in a future release of this collection. Use ansible.windows.win_auto_logon instead.
+      redirect: ansible.windows.win_auto_logon
+    win_certificate_info:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_certificate_info will be removed in a future release of this collection. Use ansible.windows.win_certificate_info instead.
+      redirect: ansible.windows.win_certificate_info
+    win_computer_description:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_computer_description will be removed in a future release of this collection. Use ansible.windows.win_computer_description instead.
+      redirect: ansible.windows.win_computer_description
+    win_credential:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_credential will be removed in a future release of this collection. Use ansible.windows.win_credential instead.
+      redirect: ansible.windows.win_credential
+    win_dhcp_lease:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_dhcp_lease will be removed in a future release of this collection. Use ansible.windows.win_dhcp_lease instead.
+      redirect: ansible.windows.win_dhcp_lease
+    win_dns_record:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_dns_record will be removed in a future release of this collection. Use ansible.windows.win_dns_record instead.
+      redirect: ansible.windows.win_dns_record
+    win_dns_zone:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_dns_zone will be removed in a future release of this collection. Use ansible.windows.win_dns_zone instead.
+      redirect: ansible.windows.win_dns_zone
+    win_eventlog:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_eventlog will be removed in a future release of this collection. Use ansible.windows.win_eventlog instead.
+      redirect: ansible.windows.win_eventlog
+    win_feature_info:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_feature_info will be removed in a future release of this collection. Use ansible.windows.win_feature_info instead.
+      redirect: ansible.windows.win_feature_info
+    win_file_compression:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_file_compression will be removed in a future release of this collection. Use ansible.windows.win_file_compression instead.
+      redirect: ansible.windows.win_file_compression
+    win_firewall:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_firewall will be removed in a future release of this collection. Use ansible.windows.win_firewall instead.
+      redirect: ansible.windows.win_firewall
+    win_hosts:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_hosts will be removed in a future release of this collection. Use ansible.windows.win_hosts instead.
+      redirect: ansible.windows.win_hosts
+    win_hotfix:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_hotfix will be removed in a future release of this collection. Use ansible.windows.win_hotfix instead.
+      redirect: ansible.windows.win_hotfix
+    win_http_proxy:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_http_proxy will be removed in a future release of this collection. Use ansible.windows.win_http_proxy instead.
+      redirect: ansible.windows.win_http_proxy
+    win_inet_proxy:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_inet_proxy will be removed in a future release of this collection. Use ansible.windows.win_inet_proxy instead.
+      redirect: ansible.windows.win_inet_proxy
+    win_listen_ports_facts:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_listen_ports_facts will be removed in a future release of this collection. Use ansible.windows.win_listen_ports_facts instead.
+      redirect: ansible.windows.win_listen_ports_facts
+    win_mapped_drive:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_mapped_drive will be removed in a future release of this collection. Use ansible.windows.win_mapped_drive instead.
+      redirect: ansible.windows.win_mapped_drive
+    win_product_facts:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_product_facts will be removed in a future release of this collection. Use ansible.windows.win_product_facts instead.
+      redirect: ansible.windows.win_product_facts
+    win_region:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_region will be removed in a future release of this collection. Use ansible.windows.win_region instead.
+      redirect: ansible.windows.win_region
+    win_route:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_route will be removed in a future release of this collection. Use ansible.windows.win_route instead.
+      redirect: ansible.windows.win_route
+    win_timezone:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_timezone will be removed in a future release of this collection. Use ansible.windows.win_timezone instead.
+      redirect: ansible.windows.win_timezone
+    win_user_profile:
+      deprecation:
+        removal_version: 4.0.0
+        warning_text: win_user_profile will be removed in a future release of this collection. Use ansible.windows.win_user_profile instead.
+      redirect: ansible.windows.win_user_profile

@@ -1,0 +1,4 @@
+bugfixes:
+- Ensure user email/login is url encoded when searching for the user (#264)
+trivial:
+- Add integration tests with encoded characters in name/login (#264)

@@ -1,0 +1,6 @@
+---
+
+- name: Restart mimir
+  ansible.builtin.systemd:
+    name: mimir.service
+    state: restarted

@@ -1,0 +1,35 @@
+---
+requires_ansible: '>=2.16'
+action_groups:
+  zabbix:
+    - zabbix_action
+    - zabbix_api_info
+    - zabbix_authentication
+    - zabbix_autoregister
+    - zabbix_discovery_rule
+    - zabbix_globalmacro
+    - zabbix_group_info
+    - zabbix_group
+    - zabbix_host_events_info
+    - zabbix_host_info
+    - zabbix_hostmacro
+    - zabbix_host
+    - zabbix_housekeeping
+    - zabbix_maintenance
+    - zabbix_map
+    - zabbix_mediatype
+    - zabbix_proxy_info
+    - zabbix_proxy
+    - zabbix_regexp
+    - zabbix_script
+    - zabbix_service
+    - zabbix_settings
+    - zabbix_template_info
+    - zabbix_template
+    - zabbix_token
+    - zabbix_user_directory
+    - zabbix_usergroup
+    - zabbix_user_info
+    - zabbix_user
+    - zabbix_user_role
+    - zabbix_valuemap

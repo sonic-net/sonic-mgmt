@@ -1,0 +1,38 @@
+---
+# Indicate whether to ignore errors on clean engine setup.
+dr_ignore_error_clean: "False"
+
+# Indicate whether to ignore errors on recover.
+dr_ignore_error_recover: "True"
+
+# Indicate whether to use the partial import flag when registering VMs and Templates.
+dr_partial_import: "True"
+
+# Indicate the default target host to be used in the play.
+dr_target_host: "secondary"
+
+# Indicate the default source map to be used in the play.
+dr_source_map: "primary"
+
+# Indicate whether to reset a mac pool of a VM on register.
+dr_reset_mac_pool: "True"
+
+# Indicate the number of retries of moving a storage domain to maintenance (In case of a failure because of running tasks).
+dr_cleanup_retries_maintenance: 3
+
+# Indicate the number of seconds between each maintenance retry (In case of a failure because of running tasks).
+dr_cleanup_delay_maintenance: 120
+
+# Indicate whether to remove any VMs which have no disks from the setup as part of cleanup.
+dr_clean_orphaned_vms: "True"
+
+# Indicate whether to remove lun disks from the setup as part of engine setup.
+dr_clean_orphaned_disks: "True"
+
+# Indicate the default entities status report file name
+dr_report_file: "report.log"
+
+# Indicate the file name which is used to contain the data of the running VMs in the secondary setup before the failback
+# run again on the primary setup after the failback will be finished.
+# Note that the /tmp folder is being used as default so the file will not be available after system reboot.
+dr_running_vms: "/tmp/ovirt_dr_running_vm_list"

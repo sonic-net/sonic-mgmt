@@ -1,0 +1,54 @@
+---
+- name: Demonstrate assigning a server to a specific subnetwork
+  hosts: localhost
+  connection: local
+
+  vars:
+    servers:
+      - name: my-server1
+        subnetwork: 10.0.2.0/24
+      - name: my-server2
+        subnetwork: 10.0.1.0/24
+      - name: my-server3
+        subnetwork: 10.0.2.0/24
+
+  tasks:
+    - name: Create a network
+      hetzner.hcloud.network:
+        name: my-network
+        ip_range: 10.0.0.0/8
+        state: present
+
+    - name: Create first subnetwork
+      hetzner.hcloud.subnetwork:
+        network: my-network
+        ip_range: 10.0.1.0/24
+        network_zone: eu-central
+        type: cloud
+        state: present
+
+    - name: Create second subnetwork
+      hetzner.hcloud.subnetwork:
+        network: my-network
+        ip_range: 10.0.2.0/24
+        network_zone: eu-central
+        type: cloud
+        state: present
+
+    - name: Create servers
+      hetzner.hcloud.server:
+        name: "{{ item.name }}"
+        server_type: cx22
+        image: debian-12
+        state: present
+      loop: "{{ servers }}"
+
+    - name: Attach servers to subnetworks
+      hetzner.hcloud.server_network:
+        network: my-network
+        server: "{{ item.name }}"
+        ip: "{{ item.subnetwork | ansible.utils.nthhost(index+1) }}"
+        state: present
+      loop: "{{ servers }}"
+      loop_control:
+        index_var: index

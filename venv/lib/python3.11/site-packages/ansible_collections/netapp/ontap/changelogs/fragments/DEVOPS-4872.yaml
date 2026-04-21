@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_lun - Fixed KeyError on options ``force_resize``, ``force_remove`` and ``force_remove_fenced`` in Zapi.
+  - na_ontap_lun - Fixed ``force_remove`` option silently ignored in REST.

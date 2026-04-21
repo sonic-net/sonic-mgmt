@@ -1,0 +1,46 @@
+---
+- name: Set facts for MDM counts
+  ansible.builtin.set_fact:
+    mdm_count: "{{ groups['mdm'] | length }}"
+
+- name: Set facts for powerflex_lia_tertiary_ip
+  ansible.builtin.set_fact:
+    powerflex_lia_tertiary_ip: "{{ hostvars[groups['mdm'][2]]['ansible_host'] }}"
+  when: mdm_count | int > 2
+
+- name: Set facts for powerflex_lia_mdm_ips if mdm_count is 2
+  ansible.builtin.set_fact:
+    powerflex_lia_mdm_ips: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }},{{ hostvars[groups['mdm'][1]]['ansible_host'] }}"
+  when: mdm_count | int == 2
+
+- name: Set facts for powerflex_lia_mdm_ips if mdm_count is more than 2
+  ansible.builtin.set_fact:
+    powerflex_lia_mdm_ips: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }},{{ hostvars[groups['mdm'][1]]['ansible_host'] }},{{ powerflex_lia_tertiary_ip }}"
+  when: mdm_count | int > 2
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml
+
+- name: Check if /opt/emc/scaleio/lia/cfg/conf.txt exists
+  ansible.builtin.stat:
+    path: /opt/emc/scaleio/lia/cfg/conf.txt
+  register: powerflex_lia_conf_file_stat
+
+- name: Update lia_mtls_only
+  ansible.builtin.lineinfile:
+    path: /opt/emc/scaleio/lia/cfg/conf.txt
+    regexp: '^lia_mtls_only=1$'
+    state: absent
+  when: powerflex_lia_conf_file_stat.stat.exists
+
+- name: Replace lia_token value
+  ansible.builtin.replace:
+    path: /opt/emc/scaleio/lia/cfg/conf.txt
+    regexp: '^lia_token=.*$'
+    replace: 'lia_token={{ powerflex_lia_token }}'
+  when: powerflex_lia_conf_file_stat.stat.exists
+
+- name: PKill LIA for config changes effect
+  ansible.builtin.command: pkill lia
+  register: powerflex_lia_pkill_ouput
+  changed_when: powerflex_lia_pkill_ouput.rc == 0

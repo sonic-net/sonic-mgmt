@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_inventory - Fixed quiet failures due to attribute errors

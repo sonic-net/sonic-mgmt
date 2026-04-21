@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_net_ifgrp - Added REST support to the net ifgrp module.
+  - na_ontap_net_ifgrp - new REST only options ``from_lag_ports``, ``broadcast_domain`` and ``ipspace`` added.

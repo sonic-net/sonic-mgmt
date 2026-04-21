@@ -1,0 +1,24 @@
+# noqa all
+---
+- name: Sda fabric
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Create an sda_fabric
+      cisco.dnac.sda_fabric:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        fabricName: MyFabricName3
+      register: sda_fabric_result
+
+    - name: Show new sda_fabric
+      ansible.builtin.debug:
+        msg: "{{ sda_fabric_result }}"
+      when:
+        - sda_fabric_result is defined

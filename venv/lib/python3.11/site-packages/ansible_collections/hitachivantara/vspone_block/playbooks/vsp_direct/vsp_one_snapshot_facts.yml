@@ -1,0 +1,68 @@
+---
+####################################################################
+# Example : VSP One Snapshot Facts Playbook
+####################################################################
+- name: VSP One Snapshot Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    #######################################################################################
+    # Task Name : Get all snapshot pairs
+    # Note: With this task, you can obtain information for a maximum of 1000 snapshots.
+    #       To obtain information for more than 1000 snapshots, execute the task several
+    #       times by using a combination of the count and start_id parameters.
+    #       By specifying the count parameter, you can also filter the snapshot information.
+    # ######################################################################################
+    - name: Get all snapshot pairs
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Get snapshot pair with master_volume_id and snapshot_id
+    # #####################################################################################
+    - name: Get snapshot pair with master_volume_id and snapshot_id
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          master_volume_id: "05:7F" # 1413
+          snapshot_id: 3
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Get snapshot pairs with other properties
+    # #####################################################################################
+    - name: Get snapshot pair with other properties
+      hitachivantara.vspone_block.vsp.hv_vsp_one_snapshot_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          master_volume_id: 104
+          snapshot_date_from: "2024-08-28T18:12:39Z"
+          snapshot_date_to: "2025-10-28T18:12:39Z"
+          snapshot_group_name: "test_sp_group"
+          start_id: "104,3"
+          count: 4
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

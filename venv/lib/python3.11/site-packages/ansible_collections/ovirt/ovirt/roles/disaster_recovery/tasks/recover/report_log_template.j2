@@ -1,0 +1,24 @@
+{% if succeed_vm_names | length > 0 %}
+  The following VMs registered successfully: {{ succeed_vm_names | unique | join (", ") }}
+{% endif %}
+{% if failed_vm_names | length > 0 %}
+  The following VMs failed to be registered: {{ failed_vm_names | unique | join (", ") }}
+{% endif %}
+{% if succeed_template_names | length > 0 %}
+  The following Templates registered successfully: {{ succeed_template_names | unique | join (", ") }}
+{% endif %}
+{% if failed_template_names | length > 0 %}
+  The following Templates failed to be registered: {{ failed_template_names | unique | join (", ") }}
+{% endif %}
+{% if succeed_to_run_vms | length > 0 %}
+  The following VMs started successfully: {{ succeed_to_run_vms | unique | join (", ") }}
+{% endif %}
+{% if failed_to_run_vms | length > 0 %}
+  The following VMs failed to run: {{ failed_to_run_vms | unique | join (", ") }}
+{% endif %}
+{% if succeed_storage_domains | length > 0 %}
+  The following storage domains were successfully added: {{ succeed_storage_domains | unique | join (", ") }}
+{% endif %}
+{% if failed_storage_domains | length > 0 %}
+  The following storage domains were not added: {{ failed_storage_domains | unique | join (", ") }}
+{% endif %}

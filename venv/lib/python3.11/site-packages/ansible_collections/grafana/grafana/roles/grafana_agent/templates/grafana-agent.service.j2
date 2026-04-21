@@ -1,0 +1,65 @@
+{{ ansible_managed | comment }}
+
+[Unit]
+Description=Grafana Agent
+Documentation=https://grafana.com/docs/agent/latest/
+After=network-online.target
+
+[Service]
+Type=simple
+User={{ grafana_agent_user }}
+Group={{ grafana_agent_user_group }}
+WorkingDirectory={{ grafana_agent_data_dir }}
+{% for key, value in grafana_agent_env_vars.items() %}
+Environment={{key}}={{value}}
+{% endfor %}
+EnvironmentFile={{ grafana_agent_config_dir }}/{{ grafana_agent_env_file}}
+{% for key, value in grafana_agent_service_extra.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+
+{% if grafana_agent_mode == 'flow' %}
+ExecStart={{ grafana_agent_install_dir }}/{{ grafana_agent_binary }} run \
+{% for flag, flag_value in grafana_agent_flags_extra.items() %}
+{% if not flag_value %}
+  --{{ flag }} \
+{% elif flag_value is string %}
+  --{{ flag }}={{ flag_value }} \
+{% elif flag_value is sequence %}
+{% for flag_value_item in flag_value %}
+  --{{ flag }}={{ flag_value_item }} \
+{% endfor %}
+{% endif %}
+{% endfor %}
+  {{ grafana_agent_config_dir }}/{{ grafana_agent_config_filename }}
+{% else %}
+ExecStart={{ grafana_agent_install_dir }}/{{ grafana_agent_binary }} \
+{% for flag, flag_value in grafana_agent_flags_extra.items() %}
+{% if not flag_value %}
+  --{{ flag }} \
+{% elif flag_value is string %}
+  --{{ flag }}={{ flag_value }} \
+{% elif flag_value is sequence %}
+{% for flag_value_item in flag_value %}
+  --{{ flag }}={{ flag_value_item }} \
+{% endfor %}
+{% endif %}
+{% endfor %}
+  --config.file={{ grafana_agent_config_dir }}/{{ grafana_agent_config_filename }}
+{% endif %}
+
+SyslogIdentifier=grafana-agent
+Restart=always
+
+{% if grafana_agent_systemd_version | int >= 232 %}
+ProtectSystem=strict
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=yes
+{% else %}
+ProtectSystem=full
+{% endif %}
+ReadWritePaths=/tmp {{ grafana_agent_data_dir }} {{ grafana_agent_positions_dir }} {{ grafana_agent_wal_dir }}
+
+[Install]
+WantedBy=multi-user.target

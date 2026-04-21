@@ -1,0 +1,27 @@
+---
+- name: Collect log bundle module
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    ####################################################################
+    # Task 1 : Collect log bundle
+    ####################################################################
+    - name: Collect log bundle
+      hitachivantara.vspone_object.oneobject_node.hv_troubleshooting_facts:
+      register: output_variable
+
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+
+    ####################################################################
+    # Task 2 : Collect log bundle and keep the last 10 bundles
+    ####################################################################
+    - name: Collect log bundle
+      hitachivantara.vspone_object.oneobject_node.hv_troubleshooting_facts:
+        log_bundle_retention_count: 10
+      register: output_variable
+
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable

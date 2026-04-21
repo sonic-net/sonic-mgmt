@@ -1,0 +1,119 @@
+- name: Get consistency group detailed information
+  register: cg_info
+  ibm.storage_virtualize.ibm_svc_info:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    gather_subset: rcconsistgrp
+    objectname: "{{ consistency_group }}"
+    log_path: "{{ logpath }}"
+- name: Migrate each CG
+  when: cg_info is defined and (cg_info.RCConsistgrp is defined) and (cg_info.RCConsistgrp | length > 0)
+  block:
+    - name: Create volume group
+      ibm.storage_virtualize.ibm_svc_manage_volumegroup:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ volume_group_name_prefix }}{{ consistency_group }}"
+        replicationpolicy: "{{ replication_policy_name }}"
+        state: present
+        log_path: "{{ logpath }}"
+    - name: Set fact consistency group type to GMCV if it is GMCV
+      ansible.builtin.set_fact:
+        cg_type: "gmcv"
+      when: cg_info.RCConsistgrp[0].copy_type == "global" and cg_info.RCConsistgrp[0].cycling_mode == "multi"
+    - name: Set fact consistency group type to GM otherwise
+      ansible.builtin.set_fact:
+        cg_type: "gm"
+      when: cg_info.RCConsistgrp[0].copy_type == "global" and cg_info.RCConsistgrp[0].cycling_mode != "multi"
+    - name: Start consistency group
+      ibm.storage_virtualize.ibm_svc_start_stop_replication:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ consistency_group }}"
+        state: started
+        isgroup: true
+        log_path: "{{ logpath }}"
+    - name: Convert GMCV consistency group to GM
+      when: cg_type == "gmcv"
+      block: # when cg_type == gmcv
+        - name: Stop consistency group
+          ibm.storage_virtualize.ibm_svc_start_stop_replication:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            name: "{{ consistency_group }}"
+            state: stopped
+            isgroup: true
+            log_path: "{{ logpath }}"
+        - name: Delete change volumes from every relationship
+          ansible.builtin.include_tasks: _gm_gmcv_cg_pbr_delete_cvs.yaml
+          loop: "{{ cg_info.RCConsistgrp[1:] }}"
+          loop_control:
+            loop_var:
+              cg_ir_relationship
+        - name: Change GMCV consistency group to GM
+          ibm.storage_virtualize.ibm_svc_manage_replicationgroup:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            name: "{{ consistency_group }}"
+            copytype: global
+            cyclingmode: none
+            state: present
+            log_path: "{{ logpath }}"
+        - name: Turn on GM consistency group forcefully
+          ibm.storage_virtualize.ibm_svc_start_stop_replication:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            name: "{{ consistency_group }}"
+            state: started
+            isgroup: true
+            force: true
+            log_path: "{{ logpath }}"
+    - name: Check state of new GM consistency group is consistent synchronized
+      register: gm_cg_state_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        gather_subset: rcconsistgrp
+        objectname: "{{ consistency_group }}"
+        log_path: "{{ logpath }}"
+      until: gm_cg_state_info.RCConsistgrp[0].state == "consistent_synchronized"
+      retries: 10
+      delay: 5 # in seconds
+    - name: Fail if consistency group is not in consistent copying or consistent synchronized state even after retries
+      when: >
+            (cg_type == "gmcv" and cg_info.RCConsistgrp[0].state != "consistent_copying") or
+            (cg_type == "gm" and cg_info.RCConsistgrp[0].state != "consistent_synchronized")
+      ansible.builtin.fail:
+        msg: "The relationship {{ item }} cannot be brought into consistent copying state"
+    - name: Add source volumes
+      ansible.builtin.include_tasks: _gm_gmcv_cg_pbr_migrate_ir.yaml
+      loop: "{{ gm_cg_state_info.RCConsistgrp[1:] }}"
+      loop_control:
+        loop_var: cg_gm_ir
+    - name: Stop consistency group
+      ibm.storage_virtualize.ibm_svc_start_stop_replication:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ consistency_group }}"
+        state: stopped
+        isgroup: true
+        log_path: "{{ logpath }}"
+    - name: Cleanup consistency groups
+      when: cleanup
+      block:
+        - name: Delete consistency group
+          ibm.storage_virtualize.ibm_svc_manage_replicationgroup:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            name: "{{ consistency_group }}"
+            force: true
+            state: absent
+            log_path: "{{ logpath }}"
+        - name: Delete all relationships and cleanup
+          ansible.builtin.include_tasks: _gm_gmcv_cg_pbr_cleanup_ir.yaml
+          loop: "{{ cg_info.RCConsistgrp[1:] }}"
+    - name: Add consistency group name in inventory_cleanup for delayed cleanup
+      ansible.builtin.lineinfile:
+        path: ./inventory_cleanup_cg_{{ master_system.System.name }}_{{ aux_system.System.name }}.ini
+        line: "- {{ consistency_group }}"
+      when: not cleanup

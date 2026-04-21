@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_rest_info - added file_directory_security to return the effective permissions of the directory.
+    When using file_directory_security it must be called with gather_subsets and path and vserver must be specified in parameters.

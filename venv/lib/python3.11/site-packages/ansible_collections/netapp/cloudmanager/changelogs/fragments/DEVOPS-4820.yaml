@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_connector_azure - Fix string formatting error when deleting the connector.

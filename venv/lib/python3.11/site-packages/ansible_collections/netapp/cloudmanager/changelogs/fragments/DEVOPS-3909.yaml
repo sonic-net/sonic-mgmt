@@ -1,0 +1,4 @@
+bugfixes:
+  - na_cloudmanager_aggregate - Improve error message
+  - na_cloudmanager_nss_account - Improve error message
+  - na_cloudmanager_volume - Improve error message

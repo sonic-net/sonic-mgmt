@@ -1,0 +1,255 @@
+---
+- name: User Quota Operations
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'admin'
+    password: 'Password123!'
+    filesystem_name: "SP_Filesystem_test"
+    filesystem_id: "fs_2279"
+    nas_server_name: "lglad068"
+    user_name: "test2"
+    uid: "2"
+    tree_quota_id: "treequota_171798701972_1"
+    path: "/sample"
+    state_present: "present"
+    state_absent: "absent"
+
+  tasks:
+    - name: Create user quota for a filesystem
+      register: result_user_quota
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        soft_limit: "1"
+        cap_unit: "TB"
+        hard_limit: "2"
+        state: "{{ state_present }}"
+
+    - name: Set user_quota_id
+      ansible.builtin.set_fact:
+        user_quota_id: "{{ result_user_quota.get_user_quota_details.id }}"
+
+    - name: Create user quota for a filesystem -- Idempotency
+      register: result_user_quota
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        soft_limit: "1"
+        cap_unit: "TB"
+        hard_limit: "2"
+        state: "{{ state_present }}"
+
+
+    - name: Get user quota details from user_name
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        user_name: "{{ user_name }}"
+        state: "{{ state_present }}"
+
+    - name: Modify user quota through user_quota_id
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        soft_limit: "900"
+        hard_limit: "1000"
+        user_quota_id: "{{ user_quota_id }}"
+        state: "{{ state_present }}"
+
+
+    - name: Modify user quota through user_quota_id -- Idempotency
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        soft_limit: "900"
+        hard_limit: "1000"
+        user_quota_id: "{{ user_quota_id }}"
+        state: "{{ state_present }}"
+
+    - name: Modify user quota details from uid
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        uid: "{{ uid }}"
+        soft_limit: "1"
+        cap_unit: "TB"
+        state: "{{ state_present }}"
+
+    - name: Modify user quota details from uid -- Idempotency
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        uid: "{{ uid }}"
+        soft_limit: "1"
+        cap_unit: "TB"
+        state: "{{ state_present }}"
+
+    - name: Delete user quota
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        user_name: "{{ user_name }}"
+        state: "{{ state_absent }}"
+
+    - name: Delete user quota -- Idempotency
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_id: "{{ filesystem_id }}"
+        user_name: "{{ user_name }}"
+        state: "{{ state_absent }}"
+
+    - name: Create user quota for a quota tree
+      register: result_user_quota
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        path: "{{ path }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        soft_limit: "1"
+        cap_unit: "TB"
+        hard_limit: "2"
+        state: "{{ state_present }}"
+
+    - name: Set user_quota_id for tree
+      ansible.builtin.set_fact:
+        user_quota_id: "{{ result_user_quota.get_user_quota_details.id }}"
+
+    - name: Create user quota for a quota tree -- Idempotency
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        path: "{{ path }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        soft_limit: "1"
+        cap_unit: "TB"
+        hard_limit: "2"
+        state: "{{ state_present }}"
+
+    - name: Modify user quota for a quota tree by path
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        path: "{{ path }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        soft_limit: "2"
+        cap_unit: "TB"
+        hard_limit: "2"
+        state: "{{ state_present }}"
+
+    - name: Modify user quota for a quota tree by quota tree id
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        tree_quota_id: "{{ tree_quota_id }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        soft_limit: "800"
+        hard_limit: "900"
+        state: "{{ state_present }}"
+
+    - name: Modify user quota for a quota tree by quota tree id -- Idempotency
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        tree_quota_id: "{{ tree_quota_id }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        soft_limit: "800"
+        hard_limit: "900"
+        state: "{{ state_present }}"
+
+    - name: Delete user quota for a quota tree by quota tree id
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        tree_quota_id: "{{ tree_quota_id }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        state: "{{ state_absent }}"
+
+    - name: Delete user quota for a quota tree by path
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        path: "{{ path }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        state: "{{ state_absent }}"
+
+    - name: Delete user quota for a quota tree by path -- Idempotency
+      user_quota:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        filesystem_name: "{{ filesystem_name }}"
+        nas_server_name: "{{ nas_server_name }}"
+        path: "{{ path }}"
+        user_type: "Unix"
+        user_name: "{{ user_name }}"
+        state: "{{ state_absent }}"

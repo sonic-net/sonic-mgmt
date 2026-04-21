@@ -1,0 +1,67 @@
+---
+####################################################################
+# Example :  Remote Copy Group Facts Playbook
+####################################################################
+- name: Remote Copy Group Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+    secondary_connection_info:
+      address: "{{ secondary_storage_address }}"
+      username: "{{ vault_secondary_storage_username }}"
+      password: "{{ vault_secondary_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all remote copy groups
+    ####################################################################
+    - name: Get all remote copy groups
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group_facts:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one remote copy group using copy group name
+    ####################################################################
+    - name: Get one remote copy group using copy group name
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group_facts:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          name: "RD_TEST_111424_TEST"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one remote copy group details using copy group name
+    ####################################################################
+    - name: Get one remote copy group details using copy group name
+      hitachivantara.vspone_block.vsp.hv_remote_copy_group_facts:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          name: "RD_TEST_111424_TEST"
+          should_include_remote_replication_pairs: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

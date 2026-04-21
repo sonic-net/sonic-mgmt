@@ -1,0 +1,19 @@
+---
+- name: Infoblox Member Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.36.118.2
+      username: cloudadmin
+      password: admin
+
+  connection: local
+  tasks:
+    - name: Create Nios TXT record
+      infoblox.nios_modules.nios_txt_record:
+        name: one.txt.ansibletestzone.com
+        text: example_text45
+        view: ansibleDnsView
+        comment: Created with Ansible
+        state: present
+        provider: "{{ nios_provider }}"

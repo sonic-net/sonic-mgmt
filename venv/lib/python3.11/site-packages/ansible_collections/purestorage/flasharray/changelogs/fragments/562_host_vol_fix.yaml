@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_volume - Fix idempotency issue with delete volume
+ - purefa_host - Fix idempotency issue with connected volume

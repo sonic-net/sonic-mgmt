@@ -1,0 +1,47 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+requires_ansible: '>=2.17.0'
+
+action_groups:
+  acme:
+    - acme_inspect
+    - acme_certificate
+    - acme_certificate_deactivate_authz
+    - acme_certificate_order_create
+    - acme_certificate_order_finalize
+    - acme_certificate_order_info
+    - acme_certificate_order_validate
+    - acme_certificate_revoke
+    - acme_account
+    - acme_account_info
+
+plugin_routing:
+  modules:
+    ecs_certificate:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: The 'community.crypto.ecs_certificate' module has been removed due to the upcoming sunsetting of the ECS service. Please use community.crypto 2.x.y to continue using this module
+    ecs_domain:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: The 'community.crypto.ecs_domain' module has been removed due to the upcoming sunsetting of the ECS service. Please use community.crypto 2.x.y to continue using this module.
+    acme_account_facts:
+      tombstone:
+        removal_version: 2.0.0
+        warning_text: The 'community.crypto.acme_account_facts' module has been renamed to 'community.crypto.acme_account_info'.
+    openssl_certificate:
+      tombstone:
+        removal_version: 2.0.0
+        warning_text: The 'community.crypto.openssl_certificate' module has been renamed to 'community.crypto.x509_certificate'
+    openssl_certificate_info:
+      tombstone:
+        removal_version: 2.0.0
+        warning_text: The 'community.crypto.openssl_certificate_info' module has been renamed to 'community.crypto.x509_certificate_info'
+  module_utils:
+    crypto.identify:
+      tombstone:
+        removal_version: 2.0.0
+        warning_text: The 'crypto/identify.py' module_utils has been renamed 'crypto/pem.py'. Please update your imports

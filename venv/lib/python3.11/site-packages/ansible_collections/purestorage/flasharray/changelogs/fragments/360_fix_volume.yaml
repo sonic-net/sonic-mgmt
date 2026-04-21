@@ -1,0 +1,3 @@
+bugfixes:
+  - purefa_volume - Ensure promotion_stateus is returned correctly on creation
+  - purefa_volume - Fixed idempotency bug when creating volumes with QoS

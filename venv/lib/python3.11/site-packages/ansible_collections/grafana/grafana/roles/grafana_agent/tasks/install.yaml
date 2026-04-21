@@ -1,0 +1,19 @@
+---
+# user and group creation
+- name: Configure user groups
+  ansible.builtin.import_tasks: install/user-group.yaml
+
+# directory creation
+- name: Configure directories
+  ansible.builtin.import_tasks: install/directories.yaml
+
+# download and install agent
+- name: Download and install Grafana Agent
+  ansible.builtin.import_tasks: install/download-install.yaml
+  when: (grafana_agent_local_binary_file is not defined) or (grafana_agent_local_binary_file | length == 0)
+
+# local install of agent
+- name: Local install of Grafana Agent
+  ansible.builtin.import_tasks:
+    file: install/local-install.yaml
+  when: __grafana_agent_local_install

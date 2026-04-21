@@ -1,0 +1,163 @@
+---
+##########################################################################
+# This playbook demonstrates how to lock resource groups, and do
+# operations on replication pairs.
+# TrueCopy operations are demonstrated in this playbook.
+# The playbook demonstrates the following operations:
+
+# 1. Lock Resource Groups on both primary and secondary storage systems
+# 2. Create TrueCopy Pair
+# 3. Split TrueCopy Pair
+# 4. Resync TrueCopy Pair
+# 5. Delete TrueCopy Pair
+# 6. Unlock Resource Groups on both primary and secondary storage systems
+
+# Operation # 3 and # 4 are not affected by the locks, so these operations
+# can be done with or without the lock tokens. Here we used the lock tokens.
+#############################################################################
+- name: Resource Group Lock Playbook
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+    secondary_connection_info:
+      address: "{{ secondary_storage_address }}"
+      username: "{{ vault_secondary_storage_username }}"
+      password: "{{ vault_secondary_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task 1 : Lock Resource Groups
+    ####################################################################
+    - name: Lock Resource Groups
+      hitachivantara.vspone_block.vsp.hv_resource_group_lock:
+        connection_info: "{{ connection_info }}"
+        secondary_connection_info: "{{ secondary_connection_info }}"
+        spec:
+          lock_timeout_sec: 300
+      register: lock_resource_group_result
+
+    - name: Debug lock resource group result
+      ansible.builtin.debug:
+        var: lock_resource_group_result
+
+    ##########################################################################
+    # Task 2 : Create TrueCopy Pair using the lock tokens generated in Task 1
+    ##########################################################################
+    - name: Create TrueCopy Pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        secondary_connection_info:
+          address: "{{ secondary_connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.remote_lock_token }}"
+        spec:
+          copy_group_name: CGName-Master-S14-S15-Perf
+          copy_pair_name: CPName-Perf-16025-NewTC25
+          primary_volume_id: 16025
+          fence_level: NEVER
+          secondary_pool_id: 0
+          is_new_group_creation: true
+          is_data_reduction_force_copy: true
+          secondary_hostgroup:
+            name: HG25-Perf-NewTC25
+            port: CL1-A
+
+      register: result
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task 3 : Split TrueCopy Pair using the lock tokens generated in Task 1
+    ##########################################################################
+    - name: Split TrueCopy Pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        secondary_connection_info:
+          address: "{{ secondary_connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.remote_lock_token }}"
+        state: split
+        spec:
+          copy_group_name: CGName-Master-S14-S15-Perf
+          copy_pair_name: CPName-Perf-16025-NewTC25
+
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task 4 : Resync TrueCopy Pair using the lock tokens generated in Task 1
+    ##########################################################################
+    - name: Resync TrueCopy Pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        secondary_connection_info:
+          address: "{{ secondary_connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.remote_lock_token }}"
+        state: resync
+        spec:
+          copy_group_name: CGName-Master-S14-S15-Perf
+          copy_pair_name: CPName-Perf-16025-NewTC25
+
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task 5 : Delete TrueCopy Pair using the lock tokens generated in Task 1
+    ##########################################################################
+    - name: Delete TrueCopy Pair
+      hitachivantara.vspone_block.vsp.hv_truecopy:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        secondary_connection_info:
+          address: "{{ secondary_connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.remote_lock_token }}"
+        state: absent
+        spec:
+          copy_group_name: CGName-Master-S14-S15-Perf
+          copy_pair_name: CPName-Perf-16025-NewTC25
+
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task 6 : Unlock the Resource Groups that were locked in Task 1
+    ##########################################################################
+    - name: Unlock Resource Group
+      hitachivantara.vspone_block.vsp.hv_resource_group_lock:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        secondary_connection_info:
+          address: "{{ secondary_connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.remote_lock_token }}"
+        state: absent
+      register: unlock_resource_group_result
+
+    - name: Debug unlock resource group result
+      ansible.builtin.debug:
+        var: unlock_resource_group_result

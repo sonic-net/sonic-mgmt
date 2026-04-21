@@ -1,0 +1,19 @@
+---
+- name: Prepare
+  hosts: all
+
+  pre_tasks:
+    - name: "Installing packages"
+      ansible.builtin.package:
+        name:
+          - sudo
+        state: present
+      register: installation_dependencies
+      until: installation_dependencies is succeeded
+
+    # https://github.com/geerlingguy/ansible-role-java/issues/64
+    - name: "Workaround Java issue for Debian"
+      ansible.builtin.file:
+        path: /usr/share/man/man1
+        state: directory
+      when: ansible_facts['os_family'] == 'Debian'

@@ -1,0 +1,148 @@
+---
+- name: MDM cluster Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    host_port: 443
+
+  tasks:
+    - name: Get MDM cluster
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        state: "present"
+
+    - name: Rename MDM cluster with check_mode
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        mdm_id: "1c13c3847c971201"
+        mdm_new_name: "node_renamed"
+        state: "present"
+      check_mode: true
+
+    - name: Rename MDM cluster
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        mdm_id: "1c13c3847c971201"
+        mdm_new_name: "node_renamed"
+        state: "present"
+
+    - name: Remove standby MDM
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        mdm_name: "mdm_node1"
+        state: "absent"
+
+    - name: Add standby MDM
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        mdm_name: "mdm_standby_node"
+        standby_mdm:
+          mdm_ips:
+            - "10.x.x.x"
+          role: "TieBreaker"
+          management_ips:
+            - "10.x.x.x"
+          port: 9011
+        state: "present"
+
+    - name: Change MDM cluster owner
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        mdm_name: "node_renamed"
+        is_primary: true
+        state: "present"
+
+    - name: Change virtual IP interface
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        mdm_name: "mdm_manager_node"
+        virtual_ip_interfaces:
+          - "ens224"
+          - "ens256"
+        state: "present"
+
+    - name: Clear virtual IP interface
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        mdm_name: "mdm_manager_node"
+        clear_interfaces: true
+        state: "present"
+
+    - name: Change Performance profile
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        performance_profile: "Compact"
+        state: "present"
+
+    - name: Switch cluster mode to FiveNodes
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        cluster_mode: "FiveNodes"
+        mdm:
+          - mdm_name: "mdm_manger_node"
+            mdm_type: "Secondary"
+          - mdm_name: "mdm_tiebreaker_node"
+            mdm_type: "TieBreaker"
+        mdm_state: "present-in-cluster"
+        state: "present"
+
+    - name: Switch cluster mode to ThreeNodes
+      dellemc.powerflex.mdm_cluster:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        cluster_mode: "ThreeNodes"
+        mdm:
+          - mdm_name: "mdm_manger_node"
+            mdm_type: "Secondary"
+          - mdm_name: "mdm_tiebreaker_node"
+            mdm_type: "TieBreaker"
+        mdm_state: "absent-in-cluster"
+        state: "present"

@@ -1,0 +1,5 @@
+---
+deprecated_features:
+  - Deprecate `grafana_notification_channel`. It will be removed in version 3.0.0
+trivial:
+  - Check Grafana version for `grafana_notification_channel` integration tests

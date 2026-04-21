@@ -1,0 +1,19 @@
+---
+# tasks file for alloy
+- name: Include OS specific variables
+  ansible.builtin.include_vars:
+    file: "{{ ansible_facts['os_family'] }}.yml"
+
+- name: Preflight
+  ansible.builtin.include_tasks:
+    file: "preflight.yml"
+
+- name: Deploy Alloy service
+  ansible.builtin.include_tasks:
+    file: "deploy.yml"
+  when: not alloy_uninstall
+
+- name: Uninstall Alloy service
+  ansible.builtin.include_tasks:
+    file: "uninstall.yml"
+  when: alloy_uninstall

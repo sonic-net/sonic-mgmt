@@ -1,0 +1,20 @@
+---
+- name: "Publish content views"
+  theforeman.foreman.content_view_version:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ content_view.organization | default(foreman_organization) }}"
+    content_view: "{{ content_view.name | default(content_view.content_view) | default(content_view) }}"
+    description: "{{ content_view.description | default(omit) }}"
+    version: "{{ content_view.version | default(omit) }}"
+    lifecycle_environments: "{{ content_view.lifecycle_environments | default(omit) }}"
+    force_promote: "{{ content_view.force_promote | default(omit) }}"
+    force_yum_metadata_regeneration: "{{ content_view.force_yum_metadata_regeneration | default(omit) }}"
+    current_lifecycle_environment: "{{ content_view.current_lifecycle_environment | default(omit) }}"
+  async: "{{ foreman_content_view_publish_async | default(omit) }}"
+  poll: "{{ foreman_content_view_publish_poll | default(omit) }}"
+  loop: "{{ foreman_content_views }}"
+  loop_control:
+    loop_var: "content_view"

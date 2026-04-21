@@ -1,0 +1,2 @@
+minor_changes:
+  - purefb.py - Add check to ensure FlashBlade uses the latest REST version possible for Purity version installed

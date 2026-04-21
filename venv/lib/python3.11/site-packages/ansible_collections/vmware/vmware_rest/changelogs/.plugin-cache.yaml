@@ -1,0 +1,748 @@
+objects:
+  role: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  filter: {}
+  httpapi: {}
+  inventory: {}
+  lookup:
+    cluster_moid:
+      description: Look up MoID for vSphere cluster objects using vCenter REST API
+      name: cluster_moid
+      version_added: 2.1.0
+    datacenter_moid:
+      description: Look up MoID for vSphere datacenter objects using vCenter REST
+        API
+      name: datacenter_moid
+      version_added: 2.1.0
+    datastore_moid:
+      description: Look up MoID for vSphere datastore objects using vCenter REST API
+      name: datastore_moid
+      version_added: 2.1.0
+    folder_moid:
+      description: Look up MoID for vSphere folder objects using vCenter REST API
+      name: folder_moid
+      version_added: 2.1.0
+    host_moid:
+      description: Look up MoID for vSphere host objects using vCenter REST API
+      name: host_moid
+      version_added: 2.1.0
+    network_moid:
+      description: Look up MoID for vSphere network objects using vCenter REST API
+      name: network_moid
+      version_added: 2.1.0
+    resource_pool_moid:
+      description: Look up MoID for vSphere resource pool objects using vCenter REST
+        API
+      name: resource_pool_moid
+      version_added: 2.1.0
+    vm_moid:
+      description: Look up MoID for vSphere vm objects using vCenter REST API
+      name: vm_moid
+      version_added: 2.1.0
+  module:
+    appliance_access_consolecli:
+      description: Set enabled state of the console-based controlled CLI (TTY1).
+      name: appliance_access_consolecli
+      namespace: ''
+      version_added: 2.0.0
+    appliance_access_consolecli_info:
+      description: Get enabled state of the console-based controlled CLI (TTY1).
+      name: appliance_access_consolecli_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_access_dcui:
+      description: Set enabled state of Direct Console User Interface (DCUI TTY2).
+      name: appliance_access_dcui
+      namespace: ''
+      version_added: 2.0.0
+    appliance_access_dcui_info:
+      description: Get enabled state of Direct Console User Interface (DCUI TTY2).
+      name: appliance_access_dcui_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_access_shell:
+      description: Set enabled state of BASH, that is, access to BASH from within
+        the controlled CLI.
+      name: appliance_access_shell
+      namespace: ''
+      version_added: 2.0.0
+    appliance_access_shell_info:
+      description: Get enabled state of BASH, that is, access to BASH from within
+        the controlled CLI.
+      name: appliance_access_shell_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_access_ssh:
+      description: Set enabled state of the SSH-based controlled CLI.
+      name: appliance_access_ssh
+      namespace: ''
+      version_added: 2.0.0
+    appliance_access_ssh_info:
+      description: Get enabled state of the SSH-based controlled CLI.
+      name: appliance_access_ssh_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_applmgmt_info:
+      description: Get health status of applmgmt services.
+      name: appliance_health_applmgmt_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_database_info:
+      description: Returns the health status of the database.
+      name: appliance_health_database_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_databasestorage_info:
+      description: Get database storage health.
+      name: appliance_health_databasestorage_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_load_info:
+      description: Get load health.
+      name: appliance_health_load_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_mem_info:
+      description: Get memory health.
+      name: appliance_health_mem_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_softwarepackages_info:
+      description: Get information on available software updates available in the
+        remote vSphere Update Manager repository
+      name: appliance_health_softwarepackages_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_storage_info:
+      description: Get storage health.
+      name: appliance_health_storage_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_swap_info:
+      description: Get swap health.
+      name: appliance_health_swap_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_health_system_info:
+      description: Get overall health of system.
+      name: appliance_health_system_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_infraprofile_configs:
+      description: Exports the desired profile specification.
+      name: appliance_infraprofile_configs
+      namespace: ''
+      version_added: 2.0.0
+    appliance_infraprofile_configs_info:
+      description: List all the profiles which are registered.
+      name: appliance_infraprofile_configs_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_localaccounts_globalpolicy:
+      description: Set the global password policy.
+      name: appliance_localaccounts_globalpolicy
+      namespace: ''
+      version_added: 2.0.0
+    appliance_localaccounts_globalpolicy_info:
+      description: Get the global password policy.
+      name: appliance_localaccounts_globalpolicy_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_localaccounts_info:
+      description: Get the local user account information.
+      name: appliance_localaccounts_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_monitoring_info:
+      description: Get monitored item info
+      name: appliance_monitoring_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_monitoring_query:
+      description: Get monitoring data.
+      name: appliance_monitoring_query
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking:
+      description: Reset and restarts network configuration on all interfaces, also
+        this will renew the DHCP lease for DHCP IP address.
+      name: appliance_networking
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_dns_domains:
+      description: Set DNS search domains.
+      name: appliance_networking_dns_domains
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_dns_domains_info:
+      description: Get list of DNS search domains.
+      name: appliance_networking_dns_domains_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_dns_hostname:
+      description: Set the Fully Qualified Domain Name.
+      name: appliance_networking_dns_hostname
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_dns_hostname_info:
+      description: Get the Fully Qualified Doman Name.
+      name: appliance_networking_dns_hostname_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_dns_servers:
+      description: Set the DNS server configuration
+      name: appliance_networking_dns_servers
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_dns_servers_info:
+      description: Get DNS server configuration.
+      name: appliance_networking_dns_servers_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_firewall_inbound:
+      description: Set the ordered list of firewall rules to allow or deny traffic
+        from one or more incoming IP addresses
+      name: appliance_networking_firewall_inbound
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_firewall_inbound_info:
+      description: Get the ordered list of firewall rules
+      name: appliance_networking_firewall_inbound_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_info:
+      description: Get Networking information for all configured interfaces.
+      name: appliance_networking_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_interfaces_info:
+      description: Get information about a particular network interface.
+      name: appliance_networking_interfaces_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_interfaces_ipv4:
+      description: Set IPv4 network configuration for specific network interface.
+      name: appliance_networking_interfaces_ipv4
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_interfaces_ipv4_info:
+      description: Get IPv4 network configuration for specific NIC.
+      name: appliance_networking_interfaces_ipv4_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_interfaces_ipv6:
+      description: Set IPv6 network configuration for specific interface.
+      name: appliance_networking_interfaces_ipv6
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_interfaces_ipv6_info:
+      description: Get IPv6 network configuration for specific interface.
+      name: appliance_networking_interfaces_ipv6_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_noproxy:
+      description: Sets servers for which no proxy configuration should be applied
+      name: appliance_networking_noproxy
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_noproxy_info:
+      description: Returns servers for which no proxy configuration will be applied.
+      name: appliance_networking_noproxy_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_proxy:
+      description: Configures which proxy server to use for the specified protocol
+      name: appliance_networking_proxy
+      namespace: ''
+      version_added: 2.0.0
+    appliance_networking_proxy_info:
+      description: Gets the proxy configuration for a specific protocol.
+      name: appliance_networking_proxy_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_ntp:
+      description: Set NTP servers
+      name: appliance_ntp
+      namespace: ''
+      version_added: 2.0.0
+    appliance_ntp_info:
+      description: Get the NTP configuration status
+      name: appliance_ntp_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_services:
+      description: Restarts a service
+      name: appliance_services
+      namespace: ''
+      version_added: 2.0.0
+    appliance_services_info:
+      description: Returns the state of a service.
+      name: appliance_services_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_shutdown:
+      description: Cancel pending shutdown action.
+      name: appliance_shutdown
+      namespace: ''
+      version_added: 2.0.0
+    appliance_shutdown_info:
+      description: Get details about the pending shutdown action.
+      name: appliance_shutdown_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_system_globalfips:
+      description: Enable/Disable Global FIPS mode for the appliance
+      name: appliance_system_globalfips
+      namespace: ''
+      version_added: 2.0.0
+    appliance_system_globalfips_info:
+      description: Get current appliance FIPS settings.
+      name: appliance_system_globalfips_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_system_storage:
+      description: Resize all partitions to 100 percent of disk size.
+      name: appliance_system_storage
+      namespace: ''
+      version_added: 2.0.0
+    appliance_system_storage_info:
+      description: Get disk to partition mapping.
+      name: appliance_system_storage_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_system_time_info:
+      description: Get system time.
+      name: appliance_system_time_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_system_time_timezone:
+      description: Set time zone.
+      name: appliance_system_time_timezone
+      namespace: ''
+      version_added: 2.0.0
+    appliance_system_time_timezone_info:
+      description: Get time zone.
+      name: appliance_system_time_timezone_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_system_version_info:
+      description: Get the version.
+      name: appliance_system_version_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_timesync:
+      description: Set time synchronization mode.
+      name: appliance_timesync
+      namespace: ''
+      version_added: 2.0.0
+    appliance_timesync_info:
+      description: Get time synchronization mode.
+      name: appliance_timesync_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_update_info:
+      description: Gets the current status of the appliance update.
+      name: appliance_update_info
+      namespace: ''
+      version_added: 2.0.0
+    appliance_vmon_service:
+      description: Lists details of services managed by vMon.
+      name: appliance_vmon_service
+      namespace: ''
+      version_added: 2.0.0
+    appliance_vmon_service_info:
+      description: Returns the state of a service.
+      name: appliance_vmon_service_info
+      namespace: ''
+      version_added: 2.0.0
+    content_configuration:
+      description: Updates the configuration
+      name: content_configuration
+      namespace: ''
+      version_added: 2.0.0
+    content_configuration_info:
+      description: Retrieves the current configuration values.
+      name: content_configuration_info
+      namespace: ''
+      version_added: 2.0.0
+    content_library_info:
+      description: Returns a given LibraryModel.
+      name: content_library_info
+      namespace: ''
+      version_added: 4.0.0
+    content_library_item_info:
+      description: Returns the ItemModel with the given identifier.
+      name: content_library_item_info
+      namespace: ''
+      version_added: 2.0.0
+    content_library_subscriptions_info:
+      description: Returns information about the specified subscription of the published
+        library.
+      name: content_library_subscriptions_info
+      namespace: ''
+      version_added: 4.0.0
+    content_locallibrary:
+      description: Creates a new local library.
+      name: content_locallibrary
+      namespace: ''
+      version_added: 2.0.0
+    content_locallibrary_info:
+      description: Returns a given local library.
+      name: content_locallibrary_info
+      namespace: ''
+      version_added: 2.0.0
+    content_subscribedlibrary:
+      description: Creates a new subscribed library
+      name: content_subscribedlibrary
+      namespace: ''
+      version_added: 2.0.0
+    content_subscribedlibrary_info:
+      description: Returns a given subscribed library.
+      name: content_subscribedlibrary_info
+      namespace: ''
+      version_added: 2.0.0
+    vcenter_cluster_info:
+      description: Retrieves information about the cluster corresponding to cluster.
+      name: vcenter_cluster_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_datacenter:
+      description: Create a new datacenter in the vCenter inventory
+      name: vcenter_datacenter
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_datacenter_info:
+      description: Retrieves information about the datacenter corresponding to datacenter.
+      name: vcenter_datacenter_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_datastore_info:
+      description: Retrieves information about the datastore indicated by datastore.
+      name: vcenter_datastore_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_folder_info:
+      description: Returns information about at most 1000 visible (subject to permission
+        checks) folders in vCenter matching the Folder.FilterSpec.
+      name: vcenter_folder_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_host:
+      description: Add a new standalone host in the vCenter inventory
+      name: vcenter_host
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_host_info:
+      description: Returns information about at most 2500 visible (subject to permission
+        checks) hosts in vCenter matching the Host.FilterSpec.
+      name: vcenter_host_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_network_info:
+      description: Returns information about at most 1000 visible (subject to permission
+        checks) networks in vCenter matching the Network.FilterSpec.
+      name: vcenter_network_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_ovf_libraryitem:
+      description: Creates a library item in content library from a virtual machine
+        or virtual appliance
+      name: vcenter_ovf_libraryitem
+      namespace: ''
+      version_added: 2.0.0
+    vcenter_resourcepool:
+      description: Creates a resource pool.
+      name: vcenter_resourcepool
+      namespace: ''
+      version_added: 0.3.0
+    vcenter_resourcepool_info:
+      description: Retrieves information about the resource pool indicated by resourcePool.
+      name: vcenter_resourcepool_info
+      namespace: ''
+      version_added: 0.3.0
+    vcenter_storage_policies_info:
+      description: Returns information about at most 1024 visible (subject to permission
+        checks) storage solicies availabe in vCenter
+      name: vcenter_storage_policies_info
+      namespace: ''
+      version_added: 0.3.0
+    vcenter_vm:
+      description: Creates a virtual machine.
+      name: vcenter_vm
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_guest_customization:
+      description: Applies a customization specification on the virtual machine
+      name: vcenter_vm_guest_customization
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_guest_filesystem_directories:
+      description: Creates a directory in the guest operating system
+      name: vcenter_vm_guest_filesystem_directories
+      namespace: ''
+      version_added: 2.0.0
+    vcenter_vm_guest_identity_info:
+      description: Return information about the guest.
+      name: vcenter_vm_guest_identity_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_guest_localfilesystem_info:
+      description: Returns details of the local file systems in the guest operating
+        system.
+      name: vcenter_vm_guest_localfilesystem_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_guest_networking_info:
+      description: Returns information about the network configuration in the guest
+        operating system.
+      name: vcenter_vm_guest_networking_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_guest_networking_interfaces_info:
+      description: Returns information about the networking interfaces in the guest
+        operating system.
+      name: vcenter_vm_guest_networking_interfaces_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_guest_networking_routes_info:
+      description: Returns information about network routing in the guest operating
+        system.
+      name: vcenter_vm_guest_networking_routes_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_guest_operations_info:
+      description: Get information about the guest operation status.
+      name: vcenter_vm_guest_operations_info
+      namespace: ''
+      version_added: 2.0.0
+    vcenter_vm_guest_power:
+      description: Issues a request to the guest operating system asking it to perform
+        a soft shutdown, standby (suspend) or soft reboot
+      name: vcenter_vm_guest_power
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_guest_power_info:
+      description: Returns information about the guest operating system power state.
+      name: vcenter_vm_guest_power_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware:
+      description: Updates the virtual hardware settings of a virtual machine.
+      name: vcenter_vm_hardware
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_adapter_sata:
+      description: Adds a virtual SATA adapter to the virtual machine.
+      name: vcenter_vm_hardware_adapter_sata
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_adapter_sata_info:
+      description: Returns information about a virtual SATA adapter.
+      name: vcenter_vm_hardware_adapter_sata_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_adapter_scsi:
+      description: Adds a virtual SCSI adapter to the virtual machine.
+      name: vcenter_vm_hardware_adapter_scsi
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_adapter_scsi_info:
+      description: Returns information about a virtual SCSI adapter.
+      name: vcenter_vm_hardware_adapter_scsi_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_boot:
+      description: Updates the boot-related settings of a virtual machine.
+      name: vcenter_vm_hardware_boot
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_boot_device:
+      description: Sets the virtual devices that will be used to boot the virtual
+        machine
+      name: vcenter_vm_hardware_boot_device
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_boot_device_info:
+      description: Returns an ordered list of boot devices for the virtual machine
+      name: vcenter_vm_hardware_boot_device_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_boot_info:
+      description: Returns the boot-related settings of a virtual machine.
+      name: vcenter_vm_hardware_boot_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_cdrom:
+      description: Adds a virtual CD-ROM device to the virtual machine.
+      name: vcenter_vm_hardware_cdrom
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_cdrom_info:
+      description: Returns information about a virtual CD-ROM device.
+      name: vcenter_vm_hardware_cdrom_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_cpu:
+      description: Updates the CPU-related settings of a virtual machine.
+      name: vcenter_vm_hardware_cpu
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_cpu_info:
+      description: Returns the CPU-related settings of a virtual machine.
+      name: vcenter_vm_hardware_cpu_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_disk:
+      description: Adds a thin provisioned virtual disk to the virtual machine
+      name: vcenter_vm_hardware_disk
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_disk_info:
+      description: Returns information about a virtual disk.
+      name: vcenter_vm_hardware_disk_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_ethernet:
+      description: Adds a virtual Ethernet adapter to the virtual machine.
+      name: vcenter_vm_hardware_ethernet
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_ethernet_info:
+      description: Returns information about a virtual Ethernet adapter.
+      name: vcenter_vm_hardware_ethernet_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_floppy:
+      description: Adds a virtual floppy drive to the virtual machine.
+      name: vcenter_vm_hardware_floppy
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_floppy_info:
+      description: Returns information about a virtual floppy drive.
+      name: vcenter_vm_hardware_floppy_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_info:
+      description: Returns the virtual hardware settings of a virtual machine.
+      name: vcenter_vm_hardware_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_memory:
+      description: Updates the memory-related settings of a virtual machine.
+      name: vcenter_vm_hardware_memory
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_memory_info:
+      description: Returns the memory-related settings of a virtual machine.
+      name: vcenter_vm_hardware_memory_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_parallel:
+      description: Adds a virtual parallel port to the virtual machine.
+      name: vcenter_vm_hardware_parallel
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_parallel_info:
+      description: Returns information about a virtual parallel port.
+      name: vcenter_vm_hardware_parallel_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_serial:
+      description: Adds a virtual serial port to the virtual machine.
+      name: vcenter_vm_hardware_serial
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_hardware_serial_info:
+      description: Returns information about a virtual serial port.
+      name: vcenter_vm_hardware_serial_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_info:
+      description: Returns information about a virtual machine.
+      name: vcenter_vm_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_libraryitem_info:
+      description: Returns the information about the library item associated with
+        the virtual machine.
+      name: vcenter_vm_libraryitem_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_power:
+      description: Operate a boot, hard shutdown, hard reset or hard suspend on a
+        guest.
+      name: vcenter_vm_power
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_power_info:
+      description: Returns the power state information of a virtual machine.
+      name: vcenter_vm_power_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_storage_policy:
+      description: Updates the storage policy configuration of a virtual machine and/or
+        its associated virtual hard disks.
+      name: vcenter_vm_storage_policy
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_storage_policy_compliance:
+      description: Returns the storage policy Compliance Compliance.Info of a virtual
+        machine after explicitly re-computing compliance check.
+      name: vcenter_vm_storage_policy_compliance
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_storage_policy_compliance_info:
+      description: Returns the cached storage policy compliance information of a virtual
+        machine.
+      name: vcenter_vm_storage_policy_compliance_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_storage_policy_info:
+      description: Returns Information about Storage Policy associated with a virtual
+        machine's home directory and/or its virtual hard disks.
+      name: vcenter_vm_storage_policy_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_tools:
+      description: Update the properties of VMware Tools.
+      name: vcenter_vm_tools
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_tools_info:
+      description: Get the properties of VMware Tools.
+      name: vcenter_vm_tools_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_tools_installer:
+      description: Connects the VMware Tools CD installer as a CD-ROM for the guest
+        operating system
+      name: vcenter_vm_tools_installer
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vm_tools_installer_info:
+      description: Get information about the VMware Tools installer.
+      name: vcenter_vm_tools_installer_info
+      namespace: ''
+      version_added: 0.1.0
+    vcenter_vmtemplate_libraryitems:
+      description: Creates a library item in content library from a virtual machine
+      name: vcenter_vmtemplate_libraryitems
+      namespace: ''
+      version_added: 2.2.0
+    vcenter_vmtemplate_libraryitems_info:
+      description: Returns information about a virtual machine template contained
+        in the library item specified by templateLibraryItem
+      name: vcenter_vmtemplate_libraryitems_info
+      namespace: ''
+      version_added: 2.2.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  test: {}
+  vars: {}
+version: 4.9.0

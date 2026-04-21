@@ -1,0 +1,151 @@
+---
+####################################################################
+# Example :  Storage Port  Playbook
+####################################################################
+- name: Storage Port Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ############################################################################
+    # Task Name : Change port security setting of the storage port by port id
+    ############################################################################
+    - name: Change port security setting of the storage port by port id
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port: "CL8-B"
+          enable_port_security: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #########################################################################
+    # Task Name : Change port mode setting of the storage port by port id
+    #########################################################################
+    - name: Change port mode setting of the storage port by port id
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port: "CL8-B"
+          port_mode: "FC-NVMe" # Options: "FC-NVMe", "FCP-SCSI"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task Name : Change attribute setting of the storage port by port id
+    #########################################################################
+    - name: Change attribute setting of the storage port by port id
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port: "CL8-B"
+          port_attribute: "TAR" # Options: "TAR", "ALL"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################################
+    # Task Name : Change fabric mode and port connection settings of the storage port by port id
+    ################################################################################################
+    - name: Change fabric mode and port connection settings of the storage port by port id
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port: "CL8-B"
+          fabric_mode: true
+          port_connection: "P2P" # Options: "FCAL", "P2P", "PtoP"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ###############################################################################################
+    # Task Name : Perform a login test on an iSCSI targets of an external storage system that is
+    #             registered to a port on the local storage system
+    ###############################################################################################
+    - name: Perform a login test
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        state: "login_test"
+        spec:
+          port: "CL1-C"
+          external_iscsi_targets:
+            - ip_address: "172.25.59.213"
+              name: "iqn.1994-04.jp.co.hitachi:rsd.has.t.10045.1c019"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #############################################################################################################
+    # Task Name : Register iSCSI names of an external storage system to a port on the local storage system
+    ############################################################################################################
+    - name: Register iSCSI names of an external storage system to a port on the local storage system
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        state: "register_external_iscsi_target"
+        spec:
+          port: "CL1-C"
+          external_iscsi_targets:
+            - ip_address: "172.25.59.213"
+              name: "iqn.1994-04.jp.co.hitachi:rsd.has.t.10045.1c019"
+            - ip_address: "172.25.59.214"
+              name: "iqn.1994-04.jp.co.hitachi:rsd.has.t.10045.1c020"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #############################################################################################################
+    # Task Name : Unregister iSCSI names of an external storage system from a port on the local storage system
+    ############################################################################################################
+    - name: Unregister iSCSI names of an external storage system from a port on the local storage system
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        state: "unregister_external_iscsi_target"
+        spec:
+          port: "CL1-C"
+          external_iscsi_targets:
+            - ip_address: "172.25.59.214"
+              name: "iqn.1994-04.jp.co.hitachi:rsd.has.t.10045.1c020"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #############################################################################################################
+    # Task Name : Sending the ping command to a specified host
+    ############################################################################################################
+    - name: Sending the ping command to a specified host
+      hitachivantara.vspone_block.vsp.hv_storage_port:
+        connection_info: "{{ connection_info }}"
+        spec:
+          port: "CL1-C"
+          host_ip_address: "172.25.59.213"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

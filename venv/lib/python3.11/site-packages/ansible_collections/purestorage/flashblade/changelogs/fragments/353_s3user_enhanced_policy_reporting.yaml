@@ -1,0 +1,3 @@
+minor_changes:
+ - purefb_s3user - Updated failure messages for applying policies to an object user account.
+ - purefb_s3user - Changed ``key_state`` state to be ``keystate`` as ``key_state`` is reserved.

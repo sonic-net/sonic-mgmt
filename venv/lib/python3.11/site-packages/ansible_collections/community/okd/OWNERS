@@ -1,0 +1,6 @@
+# This file just uses aliases defined in OWNERS_ALIASES.
+
+approvers:
+  - community.okd-approvers
+reviewers:
+  - community.okd-reviewers

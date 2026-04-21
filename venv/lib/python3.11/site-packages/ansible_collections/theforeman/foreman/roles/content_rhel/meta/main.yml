@@ -1,0 +1,4 @@
+---
+galaxy_info:
+  description: Configuration for everything needed to register and patch existing RHEL clients
+  standalone: false

@@ -1,0 +1,25 @@
+---
+na_ontap_cluster_config_netapp_hostname:
+na_ontap_cluster_config_netapp_password:
+na_ontap_cluster_config_netapp_username:
+na_ontap_cluster_config_validate_certs: false
+na_ontap_cluster_config_license_codes:
+na_ontap_cluster_config_disks:
+na_ontap_cluster_config_motd:
+na_ontap_cluster_config_dns:
+na_ontap_cluster_config_ntp:
+na_ontap_cluster_config_snmp:
+na_ontap_cluster_config_aggrs:
+na_ontap_cluster_config_ports:
+na_ontap_cluster_config_ifgrps:
+na_ontap_cluster_config_vlans:
+na_ontap_cluster_config_bcasts:
+na_ontap_cluster_config_inters:
+na_ontap_cluster_config_cluster:
+na_ontap_cluster_config_cluster_name: temp
+na_ontap_cluster_config_autonegotiate: true
+na_ontap_cluster_config_flowcontrol: none
+na_ontap_cluster_config_distribution_function: ip
+na_ontap_cluster_config_ifgrp_mode: multimode_lacp
+na_ontap_cluster_config_bcast_ipspace: Default
+na_ontap_cluster_config_mtu: 9000

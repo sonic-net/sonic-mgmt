@@ -1,0 +1,53 @@
+---
+# Example Playbook: cisco.ucs.ucs_uuid_pool
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        description: level1 org
+        state: present
+      delegate_to: localhost
+
+    - name: Configure UUID address pool
+      cisco.ucs.ucs_uuid_pool:
+        <<: *login_info
+        name: UUID-Pool
+        org_dn: org-root/org-level1
+        order: sequential
+        first_uuid: 0000-000000000001
+        last_uuid: 0000-000000000078
+      delegate_to: localhost
+    
+    - name: Remove UUID address pool
+      cisco.ucs.ucs_uuid_pool:
+        <<: *login_info
+        name: UUID-Pool
+        org_dn: org-root/org-level1
+        state: absent
+      delegate_to: localhost
+
+    - name: Remove UCS Organization
+      cisco.ucs.ucs_org:
+        <<: *login_info
+        org_name: level1
+        parent_org_path: root
+        state: absent
+      delegate_to: localhost

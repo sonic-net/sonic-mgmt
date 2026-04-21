@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: meraki_servers
+  gather_facts: false
+  tasks:
+    - name: Get all Organizations
+      cisco.meraki.organizations_info:
+        meraki_suppress_logging: true
+      register: result
+    - name: Show current Meraki administrator
+      ansible.builtin.debug:
+        msg: "{{ result | json_query('meraki_response[*].name') }}"

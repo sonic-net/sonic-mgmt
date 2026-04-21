@@ -1,0 +1,106 @@
+---
+- name: "Configure default IP Pool"
+  vars:
+    # Create an anchor for login_info that can be used throughout the file
+    login_info: &login_info
+      hostname: "{{ hostname }}"
+      username: "{{ username | default(omit) }}"
+      password: "{{ password | default('password') }}"
+      state: "{{ state | default(omit) }}"
+  cisco.ucs.ucs_ip_pool:
+    <<: *login_info
+    name: ext-mgmt
+    ipv4_blocks:
+      - first_addr: 198.18.0.20
+        last_addr: 198.18.0.40
+        subnet_mask: 255.255.255.0
+        default_gw: 198.18.0.1
+  tags: ip_pool
+- name: "Configure default MAC Pool"
+  cisco.ucs.ucs_mac_pool:
+    <<: *login_info
+    name: default
+    first_addr: 00:25:B5:DE:30:00
+    last_addr: 00:25:B5:DE:32:FF
+  tags: mac_pool
+- name: "Configure default UUID Pool"
+  cisco.ucs.ucs_uuid_pool:
+    <<: *login_info
+    name: default
+    first_uuid: 0000-000000000001
+    last_uuid: 0000-000000000078
+  tags: uuid_pool
+- name: "Configure default Virtual Media Policy"
+  cisco.ucs.ucs_managed_objects:
+    <<: *login_info
+    objects:
+      - module: ucsmsdk.mometa.cimcvmedia.CimcvmediaMountConfigPolicy
+        class: CimcvmediaMountConfigPolicy
+        properties:
+          parent_mo_or_dn: org-root
+          name: "{{ vmedia_policy }}"
+        children:
+          - module: ucsmsdk.mometa.cimcvmedia.CimcvmediaConfigMountEntry
+            class: CimcvmediaConfigMountEntry
+            properties:
+              device_type: cdd
+              image_file_name: "{{ image_file_name | default('centos7.2-boot-ks.iso') }}"
+              image_path: "{{ image_path | default('/home/public') }}"
+              mapping_name: cdd-nfs
+              mount_protocol: nfs
+              remote_ip_address: "{{ remote_ip_address | default('198.18.134.242') }}"
+  tags: virtual_media
+- name: "Configure default Boot Order Policy"
+  cisco.ucs.ucs_managed_objects:
+    <<: *login_info
+    objects:
+      - module: ucsmsdk.mometa.lsboot.LsbootPolicy
+        class: LsbootPolicy
+        properties:
+          parent_mo_or_dn: org-root
+          boot_mode: legacy
+          enforce_vnic_name: 'yes'
+          name: vmedia-local
+          reboot_on_update: 'no'
+        children:
+          - module: ucsmsdk.mometa.lsboot.LsbootVirtualMedia
+            class: LsbootVirtualMedia
+            properties:
+              access: read-only-remote-cimc
+              lun_id: '0'
+              order: '1'
+          - module: ucsmsdk.mometa.lsboot.LsbootStorage
+            class: LsbootStorage
+            properties:
+              order: '2'
+            children:
+              - module: ucsmsdk.mometa.lsboot.LsbootLocalStorage
+                class: LsbootLocalStorage
+                properties: {}
+                children:
+                  - module: ucsmsdk.mometa.lsboot.LsbootDefaultLocalImage
+                    class: LsbootDefaultLocalImage
+                    properties:
+                      order: '2'
+  tags: boot_order
+- name: "Configure default Server Pool"
+  cisco.ucs.ucs_managed_objects:
+    <<: *login_info
+    objects:
+      - module: ucsmsdk.mometa.compute.ComputePool
+        class: ComputePool
+        properties:
+          parent_mo_or_dn: org-root
+          name: default
+        children:
+          - module: ucsmsdk.mometa.compute.ComputePooledSlot
+            class: ComputePooledSlot
+            properties:
+              chassis_id: '4'
+              slot_id: '1'
+          - module: ucsmsdk.mometa.compute.ComputePooledSlot
+            class: ComputePooledSlot
+            properties:
+              chassis_id: '4'
+              slot_id: '2'
+  tags: server_pool

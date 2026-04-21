@@ -1,0 +1,101 @@
+---
+####################################################################
+# Example :  Journal  Playbook
+####################################################################
+- name: Journal  Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+  tasks:
+    ####################################################################
+    # Task 1 : Create a Journal  using required details
+    ####################################################################
+    - name: Create a Journal  using required details
+      hitachivantara.vspone_block.vsp.hv_journal:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          journal_id: 37
+          ldev_ids: [1993, 1994]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task 2 : Update a Journal  using more details
+    ####################################################################
+    - name: Update a Journal  using other details
+      hitachivantara.vspone_block.vsp.hv_journal:
+        connection_info: "{{ connection_info }}"
+        state: "update"
+        spec:
+          journal_id: 37
+          data_overflow_watch_in_seconds: 60
+          is_cache_mode_enabled: true
+          mp_blade_id: 0
+          mirror_unit_number: 0
+          copy_pace: "MEDIUM"
+          path_blockade_watch_in_minutes: 10
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task 3 : Expand Journal
+    ####################################################################
+    - name: Expand Journal
+      hitachivantara.vspone_block.vsp.hv_journal:
+        connection_info: "{{ connection_info }}"
+        state: "expand_journal"
+        spec:
+          journal_id: 37
+          ldev_ids: [1994]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task 4 : Shrink Journal
+    ####################################################################
+    - name: Shrink Journal
+      hitachivantara.vspone_block.vsp.hv_journal:
+        connection_info: "{{ connection_info }}"
+        state: "shrink_journal"
+        spec:
+          journal_id: 37
+          ldev_ids: [1994]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task 5 : Delete Journal  by ID
+    ####################################################################
+    - name: Delete Journal  by ID
+      hitachivantara.vspone_block.vsp.hv_journal:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          journal_id: 37
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_info - Update directory_services dictionary to cater for FA-Files data DS. Change DS dict forward. Add deprecation warning.

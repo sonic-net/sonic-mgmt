@@ -1,0 +1,21 @@
+---
+- name: Get tag members by id
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Get application sets local-services
+      cisco.dnac.tag_member_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        memberType: interface
+        id: 4f53e256-7219-4e88-a648-69d0e37a3df6
+        offset: 3
+      register: result
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

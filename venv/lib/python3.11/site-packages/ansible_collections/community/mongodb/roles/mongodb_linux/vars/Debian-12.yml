@@ -1,0 +1,5 @@
+---
+# Packages for Debian distros
+ntp_package: systemd-timesyncd
+ntp_service: systemd-timesyncd
+gnu_c_lib: libc6

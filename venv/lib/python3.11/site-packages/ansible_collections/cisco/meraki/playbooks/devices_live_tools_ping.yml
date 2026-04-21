@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.devices_live_tools_ping:
+        meraki_suppress_logging: true
+        state: present
+        count: 2
+        serial: QBSD-36C3-473D
+        target: 75.75.75.75

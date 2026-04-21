@@ -1,0 +1,14 @@
+---
+- name: "Configure {{ profile_name }} Service Profiles from template {{ template_name }}"
+  vars:
+    # Create an anchor for login_info that can be used throughout the file
+    login_info: &login_info
+      hostname: "{{ hostname }}"
+      username: "{{ username | default(omit) }}"
+      password: "{{ password | default('password') }}"
+      state: "{{ state | default(omit) }}"
+  cisco.ucs.ucs_service_profile_from_template:
+    <<: *login_info
+    name: "{{ profile_name }}-{{ '%d' | format(item) }}"
+    source_template: "{{ template_name }}"
+  loop: "{{ range(1, num_profiles|int + 1) | list }}"

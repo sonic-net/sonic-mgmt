@@ -1,0 +1,4 @@
+---
+trivial:
+  - common_defaults_main - Update interface variables defined in the common defaults main.yml to use lower Ethernet ports
+                           (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/565).

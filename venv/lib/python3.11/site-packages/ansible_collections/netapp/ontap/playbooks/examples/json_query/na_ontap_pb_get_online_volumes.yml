@@ -1,0 +1,85 @@
+---
+- name: Get list of online ONTAP volumes
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    # This will fail silently if the vars_file is not found.  Remove '/dev/null' to force an error
+    # if --extra_vars is used to provide values for these variables, the values from vars_file are ignored
+    - ['/path/to/ontap_vars_file.yml', '/dev/null']
+
+  vars:
+    # TODO: change these value until DONE, unless a vars file or --extra_vars is used.
+    # If --extra_vars is used to provide values for these variables, the values below are ignored.
+    # If vars_files is used, the values below are ignored.
+    ontap_admin_ip: TBD
+    # username/password authentication
+    ontap_admin_username: admin
+    ontap_admin_password: TBD
+    # SSL certificate authentication
+    ontap_cert_filepath: "/path/to/test.pem"
+    ontap_key_filepath: "/path/to//test.key"
+    # optional, SVM login
+    ontap_svm_admin_ip: TBD
+    ontap_svm_admin_username: vsadmin
+    ontap_svm_admin_password: TBD
+    # we recommend to use https, with a valid certificate
+    ontap_use_https: true
+    ontap_validate_certs: false
+    # DONE
+    login: &login
+      hostname: "{{ ontap_admin_ip }}"
+      username: "{{ ontap_admin_username }}"
+      password: "{{ ontap_admin_password }}"
+      https: "{{ ontap_use_https }}"
+      validate_certs: "{{ ontap_validate_certs }}"
+    cert_login: &cert_login
+      hostname: "{{ ontap_admin_ip }}"
+      cert_filepath: "{{ ontap_cert_filepath }}"
+      key_filepath: "{{ ontap_key_filepath }}"
+      https: true   # ignored, as https is required for SSL
+      validate_certs: "{{ ontap_validate_certs }}"
+    svm_login: &svm_login
+      hostname: "{{ ontap_svm_admin_ip }}"
+      username: "{{ ontap_svm_admin_username }}"
+      password: "{{ ontap_svm_admin_password }}"
+      https: "{{ ontap_use_https }}"
+      validate_certs: "{{ ontap_validate_certs }}"
+  tasks:
+    - name: Collect list of volumes, and state information
+      netapp.ontap.na_ontap_info:
+        <<: *cert_login
+        gather_subset: volume_info
+        desired_attributes:
+          volume-attributes:
+            volume-state-attributes:
+              state:
+        use_native_zapi_tags: false
+      register: ontap
+    - name: Print result
+      ansible.builtin.debug:
+        var: ontap
+      tags: never
+    - name: Retrieve attributes
+      ansible.builtin.set_fact:
+        volumes: "{{ ontap.ontap_info | json_query(get_attrs) }}"
+      vars:
+        get_attrs: "volume_info.*.{id: volume_id_attributes.name, svm: volume_id_attributes.owning_vserver_name, state: volume_state_attributes.state}"
+    - name: Print result
+      ansible.builtin.debug:
+        var: volumes
+    - name: Retrieve volume info
+      ansible.builtin.set_fact:
+        online_volumes: "{{ volumes | json_query(get_online) }}"
+      vars:
+        get_online: "[? state=='online']"
+    - name: Print result
+      ansible.builtin.debug:
+        var: online_volumes
+    - name: Retrieve volume info
+      ansible.builtin.set_fact:
+        offline_volumes: "{{ volumes | json_query(get_offline) }}"
+      vars:
+        get_offline: "[? state=='offline']"
+    - name: Print result
+      ansible.builtin.debug:
+        var: offline_volumes

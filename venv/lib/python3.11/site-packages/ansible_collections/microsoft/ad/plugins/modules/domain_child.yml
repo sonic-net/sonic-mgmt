@@ -1,0 +1,183 @@
+# Copyright (c) 2024 Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: domain_child
+  short_description: Manage domain children in an existing Active Directory forest.
+  description:
+    - Ensure that a Windows Server host is configured as a domain controller as
+      a new domain in an existing forest.
+    - This module may require subsequent use of the
+      M(ansible.windows.win_reboot) action if changes are made.
+    - This module will only check if the domain specified by I(dns_domain_name)
+      exists or not. If the domain already exists under the same name, no other
+      options, other than the domain name will be checked during the run.
+  version_added: 1.6.0
+  options:
+    create_dns_delegation:
+      description:
+        - Whether to create a DNS delegation that references the new DNS
+          server that was installed.
+        - Valid for Active Directory-integrated DNS only.
+        - The default is computed automatically based on the environment.
+      type: bool
+    database_path:
+      description:
+        - The path to a directory on a fixed disk of the Windows host where the
+          domain database will be created..
+        - If not set then the default path is C(%SYSTEMROOT%\NTDS).
+      type: path
+    dns_domain_name:
+      description:
+        - The full DNS name of the domain to create.
+        - When I(domain_type=child), the parent DNS domain name is derived
+          from this value.
+      type: str
+    domain_admin_password:
+      description:
+        - Password for the specified I(domain_admin_user).
+      type: str
+      required: true
+    domain_admin_user:
+      description:
+        - Username of a domain admin for the parent domain.
+      type: str
+      required: true
+    domain_mode:
+      description:
+        - Specifies the domain functional level of child/tree.
+        - The domain functional level cannot be lower than the forest
+          functional level, but it can be higher.
+        - The default is automatically computed and set.
+        - Current known modes are C(Win2003), C(Win2008), C(Win2008R2),
+          C(Win2012), C(Win2012R2), C(WinThreshold), or C(Win2025).
+      type: str
+    domain_type:
+      description:
+        - Specifies the type of domain to create.
+        - Set to C(child) to create a child of an existing domain as specified
+          by I(dns_domain_name).
+        - Set to C(tree) to create a new domain tree in an existing forest as
+          specified by I(parent_domain_name). The I(dns_domain_name) must be
+          the full domain name of the new domain tree to create.
+      choices:
+        - child
+        - tree
+      default: child
+      type: str
+    install_dns:
+      description:
+        - Whether to install the DNS service when creating the domain
+          controller.
+        - If not specified then the C(-InstallDns) option is not supplied to
+          the C(Install-ADDSDomain) command, see
+          L(Install-ADDSDomain,https://learn.microsoft.com/en-us/powershell/module/addsdeployment/install-addsdomain#-installdns)
+          for more information.
+      type: bool
+    log_path:
+      description:
+        - Specified the fully qualified, non-UNC path to a directory on a fixed
+          disk of the local computer that will contain the domain log files.
+      type: path
+    parent_domain_name:
+      description:
+        - The fully qualified domain name of an existing parent domain to
+          create a new domain tree in.
+        - This can only be set when I(domain_type=tree).
+      type: str
+    replication_source_dc:
+      description:
+        - Specifies the name of an existing domain controller in the forest that
+          will be used as the replication source for the new domain.
+      type: str
+      version_added: 1.8.0
+    safe_mode_password:
+      description:
+        - Safe mode password for the domain controller.
+      required: true
+      type: str
+    site_name:
+      description:
+        - Specifies the name of an existing site where you can place the new
+          domain controller.
+      type: str
+    sysvol_path:
+      description:
+        - The path to a directory on a fixed disk of the Windows host where the
+          Sysvol folder will be created.
+        - If not set then the default path is C(%SYSTEMROOT%\SYSVOL).
+      type: path
+  notes:
+    - It is highly recommended to set I(reboot=true) to have Ansible manage the
+      host reboot phase as the actions done by this module puts the host in a
+      state where it may not be possible for Ansible to reconnect in a
+      subsequent task without a reboot.
+    - This module must be run on a Windows target host.
+    - If using I(reboot=true), multiple reboots may occur if the host required
+      a reboot before the domain promotion.
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+    - ansible.builtin.action_common_attributes.flow
+    - microsoft.ad.action_reboot
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+    action:
+      support: full
+    async:
+      support: partial
+      details: Supported for all scenarios except with I(reboot=True).
+    bypass_host_loop:
+      support: none
+  seealso:
+    - module: microsoft.ad.domain
+    - module: microsoft.ad.domain_controller
+  author:
+    - Jordan Borean (@jborean93)
+
+EXAMPLES: |
+  - name: Create a child domain foo.example.com with parent example.com
+    microsoft.ad.domain_child:
+      dns_domain_name: foo.example.com
+      domain_admin_user: testguy@example.com
+      domain_admin_password: password123!
+      safe_mode_password: password123!
+      reboot: true
+
+  - name: Create a domain tree foo.example.com with parent bar.example.com
+    microsoft.ad.domain_child:
+      dns_domain_name: foo.example.com
+      parent_domain_name: bar.example.com
+      domain_type: tree
+      domain_admin_user: testguy@bar.example.com
+      domain_admin_password: password123!
+      local_admin_password: password123!
+      reboot: true
+
+  # This scenario is not recommended, use reboot: true when possible
+  - name: Promote server with custom paths with manual reboot task
+    microsoft.ad.domain_child:
+      dns_domain_name: foo.ansible.vagrant
+      domain_admin_user: testguy@ansible.vagrant
+      domain_admin_password: password123!
+      safe_mode_password: password123!
+      sysvol_path: D:\SYSVOL
+      database_path: D:\NTDS
+      log_path: D:\NTDS
+    register: dc_promotion
+
+  - name: Reboot after promotion
+    microsoft.ad.win_reboot:
+    when: dc_promotion.reboot_required
+
+RETURN:
+  reboot_required:
+    description: True if changes were made that require a reboot.
+    returned: always
+    type: bool
+    sample: true

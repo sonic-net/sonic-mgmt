@@ -1,0 +1,7 @@
+---
+# vars file for ravendb-node
+
+ravendb_http_port: 8080
+ravendb_https_port: 443
+ravendb_tcp_port: 38888
+ravendb_secured_self_signed_enabled: false

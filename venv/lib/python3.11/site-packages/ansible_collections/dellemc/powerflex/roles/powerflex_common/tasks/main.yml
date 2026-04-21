@@ -1,0 +1,14 @@
+---
+- name: Set fact # noqa var-naming[no-role-prefix]
+  ansible.builtin.set_fact:
+    ansible_distribution: "WindowsOS"
+  when: " 'Windows' in ansible_distribution"
+
+- name: Include vars
+  ansible.builtin.include_vars: "../vars/{{ ansible_distribution }}.yml"
+
+- name: Install required packages # noqa package-latest
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: latest
+  with_items: "{{ powerflex_common_packages }}"

@@ -1,0 +1,9 @@
+[tool.black]
+line-length = 100
+target-version = ["py36"]
+force-exclude = "compat"
+
+[tool.pytest.ini_options]
+addopts = ["-vvv", "-n", "2", "--log-level", "WARNING", "--color", "yes"]
+testpaths = ["tests"]
+filterwarnings = ['ignore:AnsibleCollectionFinder has already been configured']

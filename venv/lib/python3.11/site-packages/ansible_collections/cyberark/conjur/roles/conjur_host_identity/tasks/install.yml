@@ -1,0 +1,12 @@
+---
+- name: Import identity_check tasks
+  ansible.builtin.import_tasks: identity_check.yml
+
+- name: Import identity tasks
+  ansible.builtin.import_tasks: identity.yml
+
+- name: Import summon tasks
+  ansible.builtin.import_tasks: summon.yml
+
+- name: Import summon-conjur tasks
+  ansible.builtin.import_tasks: summon-conjur.yml

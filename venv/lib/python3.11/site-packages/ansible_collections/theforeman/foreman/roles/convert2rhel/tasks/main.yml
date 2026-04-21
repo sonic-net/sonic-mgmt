@@ -1,0 +1,15 @@
+---
+- name: "Upload Subscription Manifest and sync RHEL repository"
+  ansible.builtin.include_role:
+    name: theforeman.foreman.content_rhel
+  when: foreman_convert2rhel_manage_subscription
+- name: "Create Producs and Repositories"
+  ansible.builtin.import_tasks: products_and_repos.yml
+- name: "Sync convert2rhel repositories"
+  ansible.builtin.import_tasks: sync.yml
+- name: "Create Content Views"
+  ansible.builtin.import_tasks: content_views.yml
+- name: "Create Activation Keys"
+  ansible.builtin.import_tasks: activation_keys.yml
+- name: "Create Hostgroups"
+  ansible.builtin.import_tasks: host_groups.yml

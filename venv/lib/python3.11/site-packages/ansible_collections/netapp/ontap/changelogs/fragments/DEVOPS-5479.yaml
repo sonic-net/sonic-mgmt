@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_command - do not run command in check_mode (thanks to darksoul42).
+  - na_ontap_rest_cli - do not run command in check_mode (thanks to darksoul42).

@@ -1,0 +1,30 @@
+---
+- name: Set facts for MDM counts
+  ansible.builtin.set_fact:
+    mdm_count: "{{ groups['mdm'] | length }}"
+
+- name: Set facts for powerflex_activemq_primary_ip
+  ansible.builtin.set_fact:
+    powerflex_activemq_primary_ip: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }}"
+
+- name: Set facts for powerflex_activemq_secondary_ip
+  ansible.builtin.set_fact:
+    powerflex_activemq_secondary_ip: "{{ hostvars[groups['mdm'][1]]['ansible_host'] }}"
+
+- name: Set facts for powerflex_activemq_tertiary_ip
+  ansible.builtin.set_fact:
+    powerflex_activemq_tertiary_ip: "{{ hostvars[groups['mdm'][2]]['ansible_host'] }}"
+  when: mdm_count | int > 2
+
+- name: Set facts for powerflex_activemq_mdm_ips if mdm_count is 2
+  ansible.builtin.set_fact:
+    powerflex_activemq_mdm_ips: "{{ powerflex_activemq_primary_ip }},{{ powerflex_activemq_secondary_ip }}"
+  when: mdm_count | int == 2
+
+- name: Set facts for powerflex_activemq_mdm_ips if mdm_count is more than 2
+  ansible.builtin.set_fact:
+    powerflex_activemq_mdm_ips: "{{ powerflex_activemq_primary_ip }},{{ powerflex_activemq_secondary_ip }},{{ powerflex_activemq_tertiary_ip }}"
+  when: mdm_count | int > 2
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml

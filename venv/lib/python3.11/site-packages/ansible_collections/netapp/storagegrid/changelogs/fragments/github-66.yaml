@@ -1,0 +1,2 @@
+minor_changes:
+  - na_sg_grid_account - New option ``root_access_account`` for granting initial root access permissions for the tenant to an existing federated group

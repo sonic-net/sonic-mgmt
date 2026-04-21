@@ -1,0 +1,75 @@
+---
+- name: Get configured MDM IP addresses
+  dellemc.powerflex.mdm_cluster:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    port: "{{ port }}"
+    validate_certs: "{{ validate_certs }}"
+    state: "present"
+  register: powerflex_sdc_mdm_ip_result
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Set fact - powerflex_sdc_mdm_ips
+  ansible.builtin.set_fact:
+    powerflex_sdc_mdm_ips: "{{ powerflex_sdc_mdm_ip_result.mdm_cluster_details.mdmAddresses | join(',') }}"
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml
+
+- name: Register SDC and Set MDM IP addresses by register_esxi_sdc.yml
+  ansible.builtin.include_tasks: register_esxi_sdc.yml
+  when: ansible_distribution == "VMkernel"
+
+- name: Include configure_sdc.yml
+  ansible.builtin.include_tasks: configure_sdc.yml
+
+- name: Copy powerflex_sdc_driver_sync_user_private_rsa_key_src for driver_sync.conf
+  ansible.builtin.copy:
+    src: "{{ powerflex_sdc_driver_sync_user_private_rsa_key_src }}"
+    dest: "{{ powerflex_sdc_driver_sync_user_private_rsa_key_dest }}"
+    mode: "0600"
+    owner: "root"
+    group: "root"
+  when:
+    - powerflex_sdc_driver_sync_user_private_rsa_key_src is defined
+    - powerflex_sdc_driver_sync_user_private_rsa_key_src | length > 0
+    - " 'WindowsOS' not in ansible_distribution"
+
+- name: Copy powerflex_sdc_driver_sync_repo_public_rsa_key_src for driver_sync.conf
+  ansible.builtin.copy:
+    src: "{{ powerflex_sdc_driver_sync_repo_public_rsa_key_src }}"
+    dest: "{{ powerflex_sdc_driver_sync_repo_public_rsa_key_dest }}"
+    mode: "0600"
+    owner: "root"
+    group: "root"
+  when:
+    - powerflex_sdc_driver_sync_repo_public_rsa_key_src is defined
+    - powerflex_sdc_driver_sync_repo_public_rsa_key_src | length > 0
+    - " 'WindowsOS' not in ansible_distribution"
+
+- name: Copy powerflex_sdc_driver_sync_emc_public_gpg_key_src for driver_sync.conf
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ powerflex_sdc_driver_sync_emc_public_gpg_key_dest }}"
+    mode: "0600"
+    owner: "root"
+    group: "root"
+  with_fileglob:
+    - "{{ powerflex_sdc_driver_sync_emc_public_gpg_key_src }}"
+  when:
+    - powerflex_sdc_driver_sync_emc_public_gpg_key_src is defined
+    - powerflex_sdc_driver_sync_emc_public_gpg_key_src | length > 0
+    - " 'WindowsOS' not in ansible_distribution"
+
+- name: Copy driver_sync.conf template in place
+  register: powerflex_sdc_driver_sync_output
+  ansible.builtin.template:
+    src: "driver_sync.conf.j2"
+    dest: "/bin/emc/scaleio/scini_sync/driver_sync.conf"
+    mode: "0600"
+    owner: "root"
+    group: "root"
+  notify: Restart scini
+  when:
+    - ansible_distribution not in ['WindowsOS', 'SLES', 'VMkernel']

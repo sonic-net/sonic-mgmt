@@ -1,0 +1,34 @@
+dependency:
+  name: galaxy
+driver:
+  name: docker
+  port_bindings:
+    '8080': 80
+    '38888': 38888
+    '44443': 443
+platforms:
+  - name: ubuntu-bionic
+    image: 'jrei/systemd-ubuntu:22.04'
+    privileged: true
+    volumes:
+      - '/sys/fs/cgroup:/sys/fs/cgroup:rw'
+    tmpfs:
+      - /run
+      - /tmp
+    command: /lib/systemd/systemd
+lint: |
+  set -e
+  yamllint .
+  ansible-lint
+provisioner:
+  name: ansible
+  log: true
+scenario:
+  name: secured_self_signed
+  test_sequence:
+    - destroy
+    - create
+    - converge
+    - verify
+verifier:
+  name: ansible

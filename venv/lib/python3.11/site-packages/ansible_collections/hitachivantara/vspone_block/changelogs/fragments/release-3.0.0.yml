@@ -1,0 +1,29 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_block` introduces new modules for storage and volume management."
+minor_changes:
+  - Added new module `hv_sds_block_chap_user`.
+  - Added new module `hv_sds_block_compute_node`.
+  - Added new module `hv_sds_block_compute_port_authentication`.
+  - Added new module `hv_sds_block_volume`.
+  - Added new module `hv_gateway_admin_password`.
+  - Added new module `hv_hg`.
+  - Added new module `hv_iscsi_target`.
+  - Added new module `hv_lun`.
+  - Added new module `hv_shadow_image_pair`.
+  - Added new module `hv_snapshot`.
+  - Added new module `hv_storagesystem`.
+  - Added new facts module `hv_sds_block_chap_user_facts`.
+  - Added new facts module `hv_sds_block_compute_node_facts`.
+  - Added new facts module `hv_sds_block_storage_system_fact`.
+  - Added new facts module `hv_sds_block_volume_facts`.
+  - Added new facts module `hv_gateway_subscriber_fact`.
+  - Added new facts module `hv_snapshot_facts`.
+  - Added new facts module `hv_iscsi_target_facts`.
+  - Added new facts module `hv_lun_facts`.
+  - Added new facts module `hv_paritygroup_facts`.
+  - Added new facts module `hv_shadow_image_pair_facts`.
+  - Added new facts module `hv_storagepool_facts`.
+  - Added new facts module `hv_storagesystem_facts`.
+  - Added new facts module `hv_system_facts`.
+  - Added new facts module `hv_troubleshooting_facts`.
+  - Added new facts module `hv_uaig_token_facts`.

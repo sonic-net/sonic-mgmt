@@ -1,0 +1,21 @@
+---
+# noqa: command-instead-of-module
+- name: Run engine cleanup command
+  ansible.builtin.command: "engine-cleanup"
+  when: ovirt_engine_setup_restore_engine_cleanup
+
+- name: Add scopes to restore engine command
+  ansible.builtin.set_fact:
+    restore_cmd: "{{ restore_cmd }} --scope={{ item }}"
+  with_items: "{{ ovirt_engine_setup_restore_scopes | default([]) }}"
+
+- name: Add restore file and restore options
+  ansible.builtin.set_fact:
+    restore_cmd: "{{ restore_cmd }} --{{ item.key }}{% if item.value %}={{ item.value }}{% endif %}"
+  with_dict:
+    - file: "{{ ovirt_engine_setup_restore_file }}"
+    - "{{ ovirt_engine_setup_restore_options | default({}) }}"
+
+- name: Run restore engine from backup file
+  ansible.builtin.command: "{{ restore_cmd }}"
+  changed_when: true

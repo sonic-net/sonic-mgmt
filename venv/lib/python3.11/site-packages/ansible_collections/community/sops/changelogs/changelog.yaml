@@ -1,0 +1,606 @@
+---
+ancestor: null
+releases:
+  0.1.0:
+    changes:
+      release_summary: 'First release of the ``community.sops`` collection!
+
+        This release includes multiple plugins: an ``action`` plugin, a ``lookup``
+        plugin and a ``vars`` plugin.'
+    fragments:
+      - 0.1.0.yml
+    modules:
+      - description: Load sops-encrypted variables from files, dynamically within
+          a task
+        name: load_vars
+        namespace: ''
+      - description: Encrypt data with sops
+        name: sops_encrypt
+        namespace: ''
+    plugins:
+      lookup:
+        - description: Read sops encrypted file contents
+          name: sops
+          namespace: null
+      vars:
+        - description: Loading sops-encrypted vars files
+          name: sops
+          namespace: null
+    release_date: '2020-10-23'
+  0.2.0:
+    changes:
+      minor_changes:
+        - community.sops.sops lookup plugin - add ``empty_on_not_exist`` option which
+          allows to return an empty string instead of an error when the file does
+          not exist (https://github.com/ansible-collections/community.sops/pull/33).
+        - community.sops.sops vars plugin - add option to control caching (https://github.com/ansible-collections/community.sops/pull/32).
+        - community.sops.sops vars plugin - add option to determine when vars are
+          loaded (https://github.com/ansible-collections/community.sops/pull/32).
+      release_summary: This release adds features for the lookup and vars plugins.
+    fragments:
+      - 0.2.0.yml
+      - 32-vars-stage.yml
+      - 33-lookup-empty_on_not_exist.yml
+    release_date: '2020-12-16'
+  1.0.0:
+    changes:
+      minor_changes:
+        - 'All plugins and modules: allow to pass generic sops options with new options
+          ``config_path``, ``enable_local_keyservice``, ``keyservice``. Also allow
+          to pass AWS parameters with options ``aws_profile``, ``aws_access_key_id``,
+          ``aws_secret_access_key``, and ``aws_session_token`` (https://github.com/ansible-collections/community.sops/pull/47).'
+        - community.sops.sops_encrypt - allow to pass encryption-specific options
+          ``kms``, ``gcp_kms``, ``azure_kv``, ``hc_vault_transit``, ``pgp``, ``unencrypted_suffix``,
+          ``encrypted_suffix``, ``unencrypted_regex``, ``encrypted_regex``, ``encryption_context``,
+          and ``shamir_secret_sharing_threshold`` to sops (https://github.com/ansible-collections/community.sops/pull/47).
+      release_summary: First stable release. This release is expected to be included
+        in Ansible 3.0.0.
+    fragments:
+      - 1.0.0.yml
+      - 47-sops-options.yml
+    release_date: '2021-01-14'
+  1.0.1:
+    changes:
+      release_summary: Re-release of 1.0.0 to counteract error during release.
+    release_date: '2021-01-14'
+  1.0.2:
+    changes:
+      release_summary: Fix of 1.0.1 release which had no changelog entry.
+    fragments:
+      - 1.0.2.yml
+    release_date: '2021-01-14'
+  1.0.3:
+    changes:
+      bugfixes:
+        - community.sops.sops lookup plugins - fix wrong format of Ansible variables
+          so that these are actually used (https://github.com/ansible-collections/community.sops/pull/51).
+        - community.sops.sops vars plugins - remove non-working Ansible variables
+          (https://github.com/ansible-collections/community.sops/pull/51).
+      release_summary: This release include some fixes to Ansible docs and required
+        changes for inclusion in Ansible.
+    fragments:
+      - 1.0.3.yml
+      - 51-fix-vars-arguments.yml
+    release_date: '2021-01-22'
+  1.0.4:
+    changes:
+      release_summary: This is a security release, fixing a potential information
+        leak in the ``community.sops.sops_encrypt`` module.
+      security_fixes:
+        - community.sops.sops_encrypt - mark the ``aws_secret_access_key`` and ``aws_session_token``
+          parameters as ``no_log`` to avoid leakage of secrets (https://github.com/ansible-collections/community.sops/pull/54).
+    fragments:
+      - 1.0.4.yml
+      - 54-no_log-fixes.yml
+    release_date: '2021-02-06'
+  1.0.5:
+    changes:
+      bugfixes:
+        - community.sops.sops_encrypt - use output type ``yaml`` when path ends with
+          ``.yaml`` (https://github.com/ansible-collections/community.sops/pull/56).
+      release_summary: This release fixes a bug that prevented correct YAML file to
+        be created when the output was ending in ``.yaml``.
+    fragments:
+      - 1.0.5.yml
+      - 56-sops_encrypt-yaml-output.yaml
+    release_date: '2021-03-05'
+  1.0.6:
+    changes:
+      bugfixes:
+        - action_module plugin helper - make compatible with latest changes in ansible-core
+          2.11.0b3 (https://github.com/ansible-collections/community.sops/pull/58).
+        - community.sops.load_vars - make compatible with latest changes in ansible-core
+          2.11.0b3 (https://github.com/ansible-collections/community.sops/pull/58).
+      release_summary: This release makes the collection compatible to the latest
+        beta release of ansible-core 2.11.
+    fragments:
+      - 1.0.6.yml
+      - 58-actionmodule-plugin-utils-ansible-core-2.11.yml
+    release_date: '2021-03-21'
+  1.1.0:
+    changes:
+      minor_changes:
+        - Avoid internal ansible-core module_utils in favor of equivalent public API
+          available since at least Ansible 2.9 (https://github.com/ansible-collections/community.sops/pull/73).
+      release_summary: A minor release for inclusion in Ansible 4.2.0.
+    fragments:
+      - 1.1.0.yml
+      - 71-decrypt-filter.yml
+      - ansible-core-_text.yml
+    plugins:
+      filter:
+        - description: Decrypt sops-encrypted data
+          name: decrypt
+          namespace: null
+    release_date: '2021-06-29'
+  1.2.0:
+    changes:
+      bugfixes:
+        - Fix error handling in calls of the ``sops`` binary when negative errors
+          are returned (https://github.com/ansible-collections/community.sops/issues/82,
+          https://github.com/ansible-collections/community.sops/pull/83).
+      minor_changes:
+        - sops lookup and vars plugin - allow to configure almost all generic options
+          by ansible.cfg entries and environment variables (https://github.com/ansible-collections/community.sops/pull/81).
+      release_summary: 'Collection release for inclusion in Ansible 4.9.0 and 5.1.0.
+
+
+        This release contains a change allowing to configure generic plugin options
+        with ansible.cfg keys and env variables.'
+    fragments:
+      - 1.2.0.yml
+      - 81-plugin-options.yml
+      - 83-fix-error-handling.yml
+    release_date: '2021-11-16'
+  1.2.1:
+    changes:
+      release_summary: Maintenance release with updated documentation.
+    fragments:
+      - 1.2.1.yml
+    release_date: '2022-03-22'
+  1.2.2:
+    changes:
+      bugfixes:
+        - Include ``simplified_bsd.txt`` license file for the ``sops`` module utils.
+      release_summary: Maintenance release.
+    fragments:
+      - 1.2.2.yml
+      - simplified-bsd-license.yml
+    release_date: '2022-06-02'
+  1.2.3:
+    changes:
+      release_summary: Fix formatting bug in documentation. No code changes.
+    fragments:
+      - 1.2.3.yml
+    release_date: '2022-06-29'
+  1.3.0:
+    changes:
+      minor_changes:
+        - All software licenses are now in the ``LICENSES/`` directory of the collection
+          root, and the collection repository conforms to the `REUSE specification
+          <https://reuse.software/spec/>`__ except for the changelog fragments (https://github.com/ansible-collections/community.crypto/sops/108,
+          https://github.com/ansible-collections/community.sops/pull/113).
+        - sops vars plugin - added a configuration option to temporarily disable the
+          vars plugin (https://github.com/ansible-collections/community.sops/pull/114).
+      release_summary: Feature release.
+    fragments:
+      - 1.3.0.yml
+      - 108-licenses.yml
+      - 114-disable-vars-plugin.yml
+    release_date: '2022-08-23'
+  1.4.0:
+    changes:
+      minor_changes:
+        - Allow to specify age keys as ``age_key``, or age keyfiles as ``age_keyfile``
+          (https://github.com/ansible-collections/community.sops/issues/116, https://github.com/ansible-collections/community.sops/pull/117).
+        - sops_encrypt - allow to specify age recipients (https://github.com/ansible-collections/community.sops/issues/116,
+          https://github.com/ansible-collections/community.sops/pull/117).
+      release_summary: Feature release.
+    fragments:
+      - 1.4.0.yml
+      - 117-age.yml
+    release_date: '2022-09-11'
+  1.4.1:
+    changes:
+      bugfixes:
+        - load_vars - ensure compatibility with newer versions of ansible-core (https://github.com/ansible-collections/community.sops/pull/121).
+      release_summary: Maintenance release to improve compatibility with future ansible-core
+        releases.
+    fragments:
+      - 1.4.1.yml
+      - 121-action-module-compat.yml
+    release_date: '2022-09-23'
+  1.5.0:
+    changes:
+      minor_changes:
+        - Automatically install GNU Privacy Guard (GPG) in execution environments.
+          To install Mozilla sops a manual step needs to be added to the EE definition,
+          see the collection's documentation for details (https://github.com/ansible-collections/community.sops/pull/98).
+      release_summary: Feature release.
+    fragments:
+      - 1.5.0.yml
+      - 98-playbooks.yml
+    objects:
+      playbook:
+        - description: Installs sops and GNU Privacy Guard on all remote hosts
+          name: install
+          namespace: null
+        - description: Installs sops and GNU Privacy Guard on localhost
+          name: install_localhost
+          namespace: null
+      role:
+        - description: Install Mozilla sops
+          name: install
+          namespace: null
+    release_date: '2022-12-02'
+  1.6.0:
+    changes:
+      minor_changes:
+        - install role - add ``sops_github_latest_detection`` option that allows to
+          configure which method to use for detecting the latest release on GitHub.
+          By default (``auto``) first tries to retrieve a list of recent releases
+          using the API, and if that fails due to rate limiting, tries to obtain the
+          latest GitHub release from a semi-documented URL (https://github.com/ansible-collections/community.sops/pull/133).
+        - install role - add ``sops_github_token`` option to allow passing a GitHub
+          token. This can for example be used to avoid rate limits when using the
+          role in GitHub Actions (https://github.com/ansible-collections/community.sops/pull/132).
+        - install role - implement another method to determine the latest release
+          on GitHub than using the GitHub API, which can make installation fail due
+          to rate-limiting (https://github.com/ansible-collections/community.sops/pull/131).
+      release_summary: Feature release improving the installation role.
+    fragments:
+      - 1.6.0.yml
+      - 131.yml
+      - 132.yml
+      - 133.yml
+    release_date: '2023-01-01'
+  1.6.1:
+    changes:
+      bugfixes:
+        - action plugin helper - fix handling of deprecations for ansible-core 2.14.2
+          (https://github.com/ansible-collections/community.sops/pull/136).
+        - various plugins - remove unnecessary imports (https://github.com/ansible-collections/community.sops/pull/133).
+      release_summary: Maintenance release.
+    fragments:
+      - 1.6.1.yml
+      - 136-action-module.yml
+      - remove-unneeded-imports.yml
+    release_date: '2023-02-20'
+  1.6.2:
+    changes:
+      bugfixes:
+        - install role - make sure that the ``pkg_mgr`` fact is definitely available
+          when installing on ``localhost``. This can improve error messages in some
+          cases (https://github.com/ansible-collections/community.sops/issues/145,
+          https://github.com/ansible-collections/community.sops/pull/146).
+      release_summary: Maintenance release.
+    fragments:
+      - 1.6.2.yml
+      - 146-install-facts.yml
+    release_date: '2023-06-15'
+  1.6.3:
+    changes:
+      known_issues:
+        - Ansible markup will show up in raw form on ansible-doc text output for ansible-core
+          before 2.15. If you have trouble deciphering the documentation markup, please
+          upgrade to ansible-core 2.15 (or newer), or read the HTML documentation
+          on https://docs.ansible.com/ansible/devel/collections/community/sops/.
+      release_summary: 'Maintenance release with updated documentation.
+
+
+        From this version on, community.sops is using the new `Ansible semantic markup
+
+        <https://docs.ansible.com/ansible/devel/dev_guide/developing_modules_documenting.html#semantic-markup-within-module-documentation>`__
+
+        in its documentation. If you look at documentation with the ansible-doc CLI
+        tool
+
+        from ansible-core before 2.15, please note that it does not render the markup
+
+        correctly. You should be still able to read it in most cases, but you need
+
+        ansible-core 2.15 or later to see it as it is intended. Alternatively you
+        can
+
+        look at `the devel docsite <https://docs.ansible.com/ansible/devel/collections/community/sops/>`__
+
+        for the rendered HTML version of the documentation of the latest release.
+
+        '
+    fragments:
+      - 1.6.3.yml
+      - semantic-markup.yml
+    release_date: '2023-06-27'
+  1.6.4:
+    changes:
+      bugfixes:
+        - install role - fix ``sops_github_latest_detection=latest-release``, which
+          broke due to sops moving to another GitHub organization (https://github.com/ansible-collections/community.sops/pull/151).
+      release_summary: Maintenance/bugfix release for the move of sops to the new
+        `getsops GitHub organization <https://github.com/getsops>`__.
+    fragments:
+      - 1.6.4.yml
+      - 151-github.yml
+    release_date: '2023-06-30'
+  1.6.5:
+    changes:
+      bugfixes:
+        - Avoid pre-releases when picking the latest version when using the GitHub
+          API method (https://github.com/ansible-collections/community.sops/pull/159).
+        - Fix changed DEB and RPM URLs for 3.8.0 and its prerelease(s) (https://github.com/ansible-collections/community.sops/pull/159).
+      release_summary: Make compatible with and test against sops 3.8.0-rc.1.
+    fragments:
+      - 1.6.5.yml
+      - 159-new-releases.yml
+    release_date: '2023-08-25'
+  1.6.6:
+    changes:
+      bugfixes:
+        - Fix RPM URL for the 3.8.0 release (https://github.com/ansible-collections/community.sops/pull/161).
+      release_summary: Make fully compatible with and test against sops 3.8.0.
+    fragments:
+      - 1.6.6.yml
+      - 161-rhel-3.8.0.yml
+    release_date: '2023-09-15'
+  1.6.7:
+    changes:
+      bugfixes:
+        - sops_encrypt - ensure that output-type is set to ``yaml`` when the file
+          extension ``.yml`` is used. Now both ``.yaml`` and ``.yml`` files use the
+          SOPS ``--output-type=yaml`` formatting (https://github.com/ansible-collections/community.sops/issues/164).
+      release_summary: Bugfix release.
+    fragments:
+      - 1.6.7.yml
+      - 165-yaml-output-for-yml-extension.yaml
+    release_date: '2023-10-29'
+  1.7.0:
+    changes:
+      bugfixes:
+        - Fix RPM URL for the 3.9.0 release (https://github.com/ansible-collections/community.sops/pull/188).
+      minor_changes:
+        - sops vars plugin - allow to configure the valid extensions with an ``ansible.cfg``
+          entry or with an environment variable (https://github.com/ansible-collections/community.sops/pull/185).
+      release_summary: Bugfix and feature release to fix installation issues with
+        SOPS 3.9.0.
+    fragments:
+      - 1.7.0.yml
+      - 185-vars-valid-extensions.yml
+      - 188-sops-3.9.0.yml
+    release_date: '2024-06-28'
+  1.8.0:
+    changes:
+      bugfixes:
+        - sops_encrypt - properly support ``path_regex`` in ``.sops.yaml`` when SOPS
+          3.9.0 or later is used (https://github.com/ansible-collections/community.sops/issues/153,
+          https://github.com/ansible-collections/community.sops/pull/190).
+      minor_changes:
+        - Detect SOPS 3.9.0 and use new ``decrypt`` and ``encrypt`` subcommands (https://github.com/ansible-collections/community.sops/pull/190).
+        - sops vars plugin - new option ``handle_unencrypted_files`` allows to control
+          behavior when encountering unencrypted files with SOPS 3.9.0+ (https://github.com/ansible-collections/community.sops/pull/190).
+      release_summary: Feature release for supporting improvements coming with SOPS
+        3.9.0.
+    fragments:
+      - 1.8.0.yml
+      - 190-sops-3.9.0.yml
+    release_date: '2024-07-09'
+  1.8.1:
+    changes:
+      bugfixes:
+        - Pass ``config_path`` on SOPS 3.9.0 before the subcommand instead of after
+          it (https://github.com/ansible-collections/community.sops/issues/195, https://github.com/ansible-collections/community.sops/pull/197).
+      release_summary: Bugfix release.
+    fragments:
+      - 1.8.1.yml
+      - 197-sops-3.9.0-order.yml
+    release_date: '2024-07-18'
+  1.8.2:
+    changes:
+      deprecated_features:
+        - The collection deprecates support for all Ansible/ansible-base/ansible-core
+          versions that are currently End of Life, `according to the ansible-core
+          support matrix <https://docs.ansible.com/ansible-core/devel/reference_appendices/release_and_maintenance.html#ansible-core-support-matrix>`__.
+          This means that the next major release of the collection will no longer
+          support Ansible 2.9, ansible-base 2.10, ansible-core 2.11, ansible-core
+          2.12, ansible-core 2.13, and ansible-core 2.14.
+      release_summary: Maintenance release with updated documentation and changelog.
+    fragments:
+      - 1.8.2.yml
+      - deprecate-eol-ansible-core.yml
+    release_date: '2024-08-13'
+  1.9.0:
+    changes:
+      minor_changes:
+        - decrypt filter plugin - now supports the input and output type ``ini`` (https://github.com/ansible-collections/community.sops/pull/204).
+        - sops lookup plugin - new option ``extract`` allows extracting a single key
+          out of a JSON or YAML file, equivalent to sops' ``decrypt --extract`` (https://github.com/ansible-collections/community.sops/pull/200).
+        - sops lookup plugin - now supports the input and output type ``ini`` (https://github.com/ansible-collections/community.sops/pull/204).
+      release_summary: Feature release.
+    fragments:
+      - 1.9.0.yml
+      - 200-lookup-extract.yaml
+      - 204-input-output-type-ini.yml
+    release_date: '2024-09-09'
+  1.9.1:
+    changes:
+      bugfixes:
+        - sops_encrypt - pass absolute paths to ``module.atomic_move()`` (https://github.com/ansible/ansible/issues/83950,
+          https://github.com/ansible-collections/community.sops/pull/208).
+      release_summary: Bugfix release.
+    fragments:
+      - 1.9.1.yml
+      - 208-atomic.yml
+    release_date: '2024-10-04'
+  2.0.0:
+    changes:
+      release_summary: Major verison that drops support for End of Life Ansible/ansible-base/ansible-core
+        versions.
+      removed_features:
+        - The collection no longer supports Ansible 2.9, ansible-base 2.10, ansible-core
+          2.11, ansible-core 2.12, ansible-core 2.13, and ansible-core 2.14. If you
+          need to continue using End of Life versions of Ansible/ansible-base/ansible-core,
+          please use community.sops 1.x.y (https://github.com/ansible-collections/community.sops/pull/206).
+    fragments:
+      - 2.0.0.yml
+    release_date: '2024-10-20'
+  2.0.1:
+    changes:
+      release_summary: Maintenance release with updated documentation.
+    fragments:
+      - 2.0.1.yml
+    release_date: '2024-12-31'
+  2.0.2:
+    changes:
+      bugfixes:
+        - install role - when used with Debian on ARM architecture, the architecture
+          name is now correctly translated from ``aarch64`` to ``arm64`` (https://github.com/ansible-collections/community.sops/issues/220,
+          https://github.com/ansible-collections/community.sops/pull/221).
+      release_summary: Bugfix release.
+    fragments:
+      - 2.0.2.yml
+      - 221-install-architecture.yml
+    release_date: '2025-02-09'
+  2.0.3:
+    changes:
+      bugfixes:
+        - install role - ``sops_install_on_localhost=false`` was not working properly
+          if the role was running on more than one host due to a bug in ansible-core
+          (https://github.com/ansible-collections/community.sops/issues/223, https://github.com/ansible-collections/community.sops/pull/224).
+      release_summary: Bugfix release.
+    fragments:
+      - 2.0.3.yml
+      - 224-install.yml
+    release_date: '2025-03-03'
+  2.0.4:
+    changes:
+      bugfixes:
+        - load_vars - make evaluation compatible with Data Tagging in upcoming ansible-core
+          release (https://github.com/ansible-collections/community.sops/pull/225).
+      release_summary: Maintenance release with Data Tagging support.
+    fragments:
+      - 2.0.4.yml
+      - 225-data-tagging.yml
+    release_date: '2025-04-14'
+  2.0.5:
+    changes:
+      release_summary: Maintenance release with updated SOPS version test coverage.
+    fragments:
+      - 2.0.5.yml
+    release_date: '2025-04-21'
+  2.1.0:
+    changes:
+      minor_changes:
+        - Now supports specifying SSH private keys for age with the new ``age_ssh_private_keyfile``
+          option (https://github.com/ansible-collections/community.sops/pull/241).
+      release_summary: Feature release.
+    fragments:
+      - 2.1.0.yml
+      - 241-support-ssh-keys-for-age.yaml
+    release_date: '2025-06-14'
+  2.2.0:
+    changes:
+      minor_changes:
+        - load_vars - expressions can now be lazily evaluated when using ansible-core
+          2.19 or newer (https://github.com/ansible-collections/community.sops/pull/229).
+      release_summary: Feature release.
+    fragments:
+      - 2.2.0.yml
+      - 229-lazy-evaluation.yml
+    release_date: '2025-07-21'
+  2.2.1:
+    changes:
+      bugfixes:
+        - install role - avoid deprecated parameter value for the ``ansible.builtin.uri``
+          module (https://github.com/ansible-collections/community.sops/pull/255).
+      release_summary: Bugfix release.
+    fragments:
+      - 2.2.1.yml
+      - 255-install-redirects.yml
+    release_date: '2025-08-03'
+  2.2.2:
+    changes:
+      bugfixes:
+        - Avoid deprecated functionality in ansible-core 2.20 (https://github.com/ansible-collections/community.sops/pull/260).
+        - all modules and plugins - the default of ``enable_local_keyservice`` changed
+          from ``false`` to ``true``, and explicitly setting it to ``false`` now passes
+          ``--enable-local-keyservice=false``. SOPS' default has always been ``true``,
+          and when setting this option to ``true`` so far it resulted in passing ``--enable-local-keyservice``,
+          which is equivalent to ``--enable-local-keyservice=true`` and had no effect.
+          This means that from now on, setting ``enable_local_keyservice`` explicitly
+          to ``false`` has an effect. If ``enable_local_keyservice`` was not set before,
+          or was set to ``true``, nothing will change (https://github.com/ansible-collections/community.sops/issues/261,
+          https://github.com/ansible-collections/community.sops/pull/262).
+      release_summary: Bugfix release.
+    fragments:
+      - 2.2.2.yml
+      - 260-deprecations.yml
+      - 262-local-keyservice.yml
+    release_date: '2025-08-31'
+  2.2.3:
+    changes:
+      bugfixes:
+        - Avoid using ``ansible.module_utils.six`` to avoid deprecation warnings with
+          ansible-core 2.20 (https://github.com/ansible-collections/community.sops/pull/268).
+      minor_changes:
+        - Note that some new code in ``plugins/module_utils/_six.py`` is MIT licensed
+          (https://github.com/ansible-collections/community.sops/pull/268).
+      release_summary: Maintenance release.
+    fragments:
+      - 2.2.3.yml
+      - 268-six.yml
+    release_date: '2025-10-03'
+  2.2.4:
+    changes:
+      bugfixes:
+        - Fix accidental type extensions (https://github.com/ansible-collections/community.sops/pull/269).
+      release_summary: Maintenance release.
+    fragments:
+      - 2.2.4.yml
+      - 269-fix.yml
+    release_date: '2025-10-05'
+  2.2.5:
+    changes:
+      bugfixes:
+        - load_vars action - avoid another deprecated module utils from ansible-core
+          (https://github.com/ansible-collections/community.sops/pull/270).
+        - load_vars action - avoid deprecated import from ansible-core that will be
+          removed in ansible-core 2.21 (https://github.com/ansible-collections/community.sops/pull/272).
+      release_summary: Maintenance release.
+    fragments:
+      - 2.2.5.yml
+      - 270-deprecate.yml
+      - 272-ansible-core-2.21.yml
+    release_date: '2025-10-25'
+  2.2.6:
+    changes:
+      bugfixes:
+        - Clean up plugin code that does not run on the target (https://github.com/ansible-collections/community.sops/pull/275).
+        - Note that the MIT licenced code in ``plugins/module_utils/_six.py`` has
+          been removed (https://github.com/ansible-collections/community.sops/pull/275).
+        - sops vars plugin - ensure that loaded vars are evaluated also with ansible-core
+          2.19+ (https://github.com/ansible-collections/community.sops/pull/273).
+      release_summary: Bugfix and maintenance release.
+    fragments:
+      - 2.2.6.yml
+      - 273-vars-eval.yml
+      - 275-py3.yml
+    release_date: '2025-10-25'
+  2.2.7:
+    changes:
+      known_issues:
+        - When using the ``community.sops.load_vars`` with ansible-core 2.20, note
+          that the deprecation of ``INJECT_FACTS_AS_VARS`` causes deprecation warnings
+          to be shown every time a variable loaded with ``community.sops.load_vars``
+          is used. This is due to ansible-core deprecating ``INJECT_FACTS_AS_VARS``
+          without providing an alternative for modules like ``community.sops.load_vars``
+          to use. If you do not like these deprecation warnings, you have to explicitly
+          set ``INJECT_FACTS_AS_VARS`` to ``true``. **DO NOT** change the use of SOPS
+          encrypted variables to ``ansible_facts``. The situation will hopefully improve
+          in ansible-core 2.21 through the promised API that allows action plugins
+          to set variables; community.sops will adapt to use it, which will make the
+          warning go away. (The API was originally promised for ansible-core 2.20,
+          but then delayed.)
+      release_summary: Maintenance release.
+    fragments:
+      - 2.2.7.yml
+      - ansible-core-2.20-warning.yml
+    release_date: '2025-11-02'

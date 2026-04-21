@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_cluster - ignore ZAPI EMS log error when in pre-cluster mode.

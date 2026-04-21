@@ -1,0 +1,18 @@
+---
+- name: Use oVirt GPG key
+  ansible.builtin.rpm_key:
+    state: present
+    key: "{{ ovirt_repositories_ovirt_release_rpm_gpg }}"
+  when: not ovirt_repositories_disable_gpg_check
+
+- name: Install oVirt release package
+  ansible.builtin.package:
+    name: "{{ ovirt_repositories_ovirt_release_rpm | mandatory }}"
+    state: present
+    disable_gpg_check: "{{ ovirt_repositories_disable_gpg_check }}"
+
+- name: Enable dnf modules
+  ansible.builtin.command: "dnf module enable -y {{ ovirt_repositories_ovirt_dnf_modules | join(' ') }}"
+  when:
+    - ovirt_repositories_ovirt_version|string >= '4.4'
+    - ovirt_repositories_target_host == 'engine'

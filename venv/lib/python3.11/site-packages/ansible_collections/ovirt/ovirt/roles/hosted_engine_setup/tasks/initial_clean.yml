@@ -1,0 +1,131 @@
+---
+- name: initial clean
+  tags: he_initial_clean
+  block:
+    - name: Stop libvirt service
+      ansible.builtin.service:
+        name: libvirtd
+        state: stopped
+        enabled: true
+    - name: Drop vdsm config statements
+      ansible.builtin.shell: >-
+        [ -r {{ item }} ] && sed -i
+        '/## beginning of configuration section by
+        vdsm-4.[0-9]\+.[0-9]\+/,/## end of configuration section by vdsm-4.[0-9]\+.[0-9]\+/d' {{ item }} || :
+      environment: "{{ he_cmd_lang }}"
+      with_items:
+        - /etc/libvirt/libvirtd.conf
+        - /etc/libvirt/qemu.conf
+        - /etc/libvirt/qemu-sanlock.conf
+        - /etc/sysconfig/libvirtd
+      tags: ["skip_ansible_lint"]
+    - name: Drop VNC encryption config statements
+      ansible.builtin.command: >-
+        sed -i
+        '/## beginning of configuration section for VNC encryption/,/##
+        end of configuration section for VNC encryption\+/d' /etc/libvirt/qemu.conf
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+    - name: Check if vdsm's abrt-action-save-package-data config exists
+      ansible.builtin.stat:
+        path: /etc/abrt/abrt-action-save-package-data.conf
+      register: abrt_vdsm_config
+    - name: Check if abrt is installed
+      ansible.builtin.stat:
+        path: /usr/share/abrt/conf.d/abrt-action-save-package-data.conf
+      register: abrt_installed_config
+    - name: Restore initial abrt config files
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: preserve
+      with_items:
+        - {src: /usr/share/abrt/conf.d/abrt-action-save-package-data.conf, dest: /etc/abrt/abrt-action-save-package-data.conf}
+        - {src: /usr/share/abrt/conf.d/abrt.conf, dest: /etc/abrt/abrt.conf}
+        - {src: /usr/share/abrt/conf.d/plugins/CCpp.conf, dest: /etc/abrt/plugins/CCpp.conf}
+        - {src: /usr/share/abrt/conf.d/plugins/vmcore.conf, dest: /etc/abrt/plugins/vmcore.conf}
+      when:
+        - abrt_vdsm_config.stat.exists
+        - abrt_installed_config.stat.exists
+    - name: Restart abrtd service
+      ansible.builtin.service:
+        name: abrtd
+        state: restarted
+      when:
+        - abrt_vdsm_config.stat.exists
+        - abrt_installed_config.stat.exists
+    - name: Remove vdsm's abrt config files
+      ansible.builtin.file:
+        state: absent
+        path: "{{ item }}"
+      with_items:
+        - /etc/abrt/abrt-action-save-package-data.conf
+        - /etc/abrt/abrt.conf
+        - /etc/abrt/plugins/CCpp.conf
+        - /etc/abrt/plugins/vmcore.conf
+      when:
+        - abrt_vdsm_config.stat.exists
+        - not abrt_installed_config.stat.exists
+    - name: Drop libvirt sasl2 configuration by vdsm
+      ansible.builtin.command: >-
+        sed -i '/## start vdsm-4.[0-9]\+.[0-9]\+ configuration/,/## end vdsm configuration/d' /etc/sasl2/libvirt.conf
+      environment: "{{ he_cmd_lang }}"
+      tags: ["skip_ansible_lint"]
+    - name: Stop and disable services
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      with_items:
+        - ovirt-ha-agent
+        - ovirt-ha-broker
+        - vdsmd
+        - libvirtd-tls.socket
+    - name: Restore initial libvirt default network configuration
+      ansible.builtin.copy:
+        remote_src: true
+        src: /usr/share/libvirt/networks/default.xml
+        dest: /etc/libvirt/qemu/networks/default.xml
+        mode: preserve
+    - name: Start libvirt
+      ansible.builtin.service:
+        name: libvirtd
+        state: started
+        enabled: true
+    - name: Check for leftover local Hosted Engine VM
+      ansible.builtin.shell: virsh list | grep {{ he_vm_name }}Local | cat
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      register: local_vm_list
+    - name: Destroy leftover local Hosted Engine VM
+      ansible.builtin.command: virsh destroy {{ he_vm_name }}Local
+      environment: "{{ he_cmd_lang }}"
+      ignore_errors: true
+      when: local_vm_list.stdout_lines|length >= 1
+    - name: Check for leftover defined local Hosted Engine VM
+      ansible.builtin.shell: virsh list --all | grep {{ he_vm_name }}Local | cat
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      register: local_vm_list_all
+    - name: Undefine leftover local engine VM
+      ansible.builtin.command: virsh undefine --managed-save {{ he_vm_name }}Local
+      environment: "{{ he_cmd_lang }}"
+      when: local_vm_list_all.stdout_lines|length >= 1
+      changed_when: true
+    - name: Check for leftover defined Hosted Engine VM
+      ansible.builtin.shell: virsh list --all | grep {{ he_vm_name }} | cat
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+      register: target_vm_list_all
+    - name: Undefine leftover engine VM
+      ansible.builtin.command: virsh undefine --managed-save {{ he_vm_name }}
+      environment: "{{ he_cmd_lang }}"
+      when: target_vm_list_all.stdout_lines|length >= 1
+      changed_when: true
+    - name: Remove eventually entries for the local VM from known_hosts file
+      ansible.builtin.known_hosts:
+        name: "{{ he_fqdn }}"
+        state: absent
+      delegate_to: localhost
+      become: false

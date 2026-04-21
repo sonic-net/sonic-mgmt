@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_cifs_local_group_member - Added REST API support to retrieve, add and remove CIFS group member.
+  - na_ontap_cifs_local_group_member - REST support is from ONTAP 9.10.1 or later.

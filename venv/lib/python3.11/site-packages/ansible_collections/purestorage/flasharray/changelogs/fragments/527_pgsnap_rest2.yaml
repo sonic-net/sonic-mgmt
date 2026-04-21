@@ -1,0 +1,4 @@
+bugfixes:
+ - purefa_pgsnap - Add support for restoring volumes connected to hosts in a host-based protection group and hosts in a hostgroup-based protection group.
+minor_changes:
+ - purefa_pgsnap - Module now requires minimum FlashArray Purity//FA 6.1.0

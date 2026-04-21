@@ -1,0 +1,62 @@
+---
+- name: Glance image
+  block:
+    - name: Check if template is correct
+      ansible.builtin.fail:
+        msg: "one of mandatory parameters glance_image_provider or glance_image is not defined"
+      when: "glance_image_provider is undefined or glance_image is undefined"
+
+    - name: Login to oVirt
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ engine_url | default(lookup('env','OVIRT_URL')) | default(omit) }}"
+        hostname: "{{ engine_fqdn | default(lookup('env','OVIRT_HOSTNAME')) | default(omit) }}"
+        username: "{{ engine_user | default(lookup('env','OVIRT_USERNAME')) | default(omit) }}"
+        password: "{{ engine_password | default(lookup('env','OVIRT_PASSWORD')) | default(omit) }}"
+        ca_file: "{{ engine_cafile | default(lookup('env','OVIRT_CAFILE')) | default(omit) }}"
+        insecure: "{{ engine_insecure | default(true) }}"
+      when: ovirt_auth is undefined or not ovirt_auth
+      register: loggedin
+      tags:
+        - always
+
+    - name: Fetch storages
+      ovirt.ovirt.ovirt_storage_domain_info:
+        auth: "{{ ovirt_auth }}"
+      register: sd_info
+      tags:
+        - ovirt-template-image
+
+    - name: Find data domain
+      ansible.builtin.set_fact:
+        disk_storage_domain: "{{ sd_info.ovirt_storage_domains | ovirt.ovirt.json_query(the_query) | list | first }}"  # noqa: jinja
+      vars:
+        the_query: "[?type=='data']"
+      tags:
+        - ovirt-template-image
+
+    - name: Import templates from glance
+      ovirt.ovirt.ovirt_template:
+        auth: "{{ ovirt_auth }}"
+        state: imported
+        name: "{{ template_name }}"
+        template_image_disk_name: "{{ template_disk_name | default(omit) }}"
+        image_provider: "{{ glance_image_provider }}"
+        image_disk: "{{ glance_image }}"
+        io_threads: "{{ template_io_threads | default(omit) }}"
+        storage_domain: "{{ template_disk_storage | default(disk_storage_domain.name) }}"
+        cluster: "{{ template_cluster }}"
+        operating_system: "{{ template_operating_system | default(omit) }}"
+        memory: "{{ template_memory | default(omit) }}"
+        memory_guaranteed: "{{ template_memory_guaranteed | default(omit) }}"
+        memory_max: "{{ template_memory_max | default(omit) }}"
+        timeout: "{{ template_timeout }}"
+        bios_type: "{{ template_bios_type | default(omit) }}"
+
+  always:
+    - name: Logout from oVirt
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"
+      when: not loggedin.skipped | default(false)
+      tags:
+        - always

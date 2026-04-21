@@ -1,0 +1,83 @@
+---
+- name: Filter and return ansible distribution
+  ansible.builtin.setup:
+    filter:
+      - "ansible_distribution"
+
+- name: Get configured MDM IP addresses
+  dellemc.powerflex.mdm_cluster:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    port: "{{ port }}"
+    validate_certs: "{{ validate_certs }}"
+    state: "present"
+  register: powerflex_sdt_mdm_ip_result
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Set fact - PowerFlex version
+  ansible.builtin.set_fact:
+    powerflex_sdt_array_version: "{{ powerflex_sdt_mdm_ip_result.mdm_cluster_details.master.versionInfo[1] }}"
+
+- name: Set fact - powerflex_sdt_mdm_ips
+  ansible.builtin.set_fact:
+    powerflex_sdt_mdm_ips: "{{ powerflex_sdt_mdm_ip_result.mdm_cluster_details.mdmAddresses | join(',') }}"
+    powerflex_sdt_primary_mdm_hostname:
+      "{{ hostvars[groups['mdm'][0]]['inventory_hostname'] }}"
+    powerflex_sdt_primary_mdm_ip:
+      "{{ hostvars[groups['mdm'][0]]['ansible_host'] }}"
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml
+
+- name: Add certificate file for PowerFlex version 4.x
+  ansible.builtin.command: scli --add_certificate --certificate_file /opt/emc/scaleio/mdm/cfg/mgmt_ca.pem
+  run_once: true
+  register: powerflex_sdt_add_certificate
+  changed_when: false
+  delegate_to: "{{ powerflex_sdt_primary_mdm_hostname }}"
+  when: powerflex_sdt_array_version != '3'
+
+- name: Generate login certificate for PowerFlex version 4.x
+  block:
+    - name: Generate login certificate using management_system_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ hostname }} --username {{ username }} --password {{ password }}
+        --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_sdt_generate_login_certificate
+      changed_when: false
+      delegate_to: "{{ powerflex_sdt_primary_mdm_hostname }}"
+      when: powerflex_sdt_array_version != "3"
+  rescue:
+    - name: Generate login certificate using primary_mdm_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ powerflex_sdt_primary_mdm_ip }} --username {{ username }}
+        --password {{ password }} --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_sdt_generate_login_certificate_mdm_ip
+      changed_when: false
+      delegate_to: "{{ powerflex_sdt_primary_mdm_hostname }}"
+      when: powerflex_sdt_array_version != "3"
+
+- name: Login to MDM for PowerFlex version 4.x
+  ansible.builtin.command: scli --login --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }}
+  run_once: true
+  register: powerflex_sdt_login_output
+  changed_when: false
+  delegate_to: "{{ powerflex_sdt_primary_mdm_hostname }}"
+  when: powerflex_sdt_array_version != "3"
+
+- name: Add SDT for PowerFlex version 4.x
+  ansible.builtin.command: scli --add_sdt --management_system_ip {{ hostname }}
+    --sdt_ip {{ hostvars[inventory_hostname].powerflex_sdt_ip_list }}
+    --sdt_ip_role {{ hostvars[inventory_hostname].powerflex_sdt_role_list }}
+    --storage_port {{ powerflex_sdt_storage_port }}
+    --nvme_port {{ powerflex_sdt_nvme_port }} --discovery_port {{ powerflex_sdt_discovery_port }}
+    --sdt_name {{ inventory_hostname }} --protection_domain_name {{ powerflex_sdt_protection_domain }}
+  register: powerflex_add_sdt_result
+  changed_when: powerflex_add_sdt_result.rc == 0
+  failed_when: ('already in use' not in powerflex_add_sdt_result.stderr) and
+    (powerflex_add_sdt_result.rc != 0)
+  delegate_to: "{{ powerflex_sdt_primary_mdm_hostname }}"
+  when: powerflex_sdt_array_version != "3"

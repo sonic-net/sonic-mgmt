@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_volume - ``tiering_minimum_cooling_days`` to specify how many days must pass before inactive data in a volume
+    using the Auto or Snapshot-Only policy is considered cold and eligible for tiering.

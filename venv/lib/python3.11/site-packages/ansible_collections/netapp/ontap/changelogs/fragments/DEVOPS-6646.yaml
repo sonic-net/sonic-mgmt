@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_export_policy_rule - added `actions` and `modify` in module output.
+  - na_ontap_file_security_permissions_acl - added `actions` and `modify` in module output.
+  - na_ontap_igroup_initiator - added `actions` in module output.
+  - na_ontap_name_mappings - added `actions` and `modify` in module output.
+  - na_ontap_node - added `modify` in module output.

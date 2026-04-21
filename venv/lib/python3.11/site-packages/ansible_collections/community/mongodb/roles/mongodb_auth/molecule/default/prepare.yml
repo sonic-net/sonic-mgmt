@@ -1,0 +1,37 @@
+---
+- name: Prepare
+  hosts: all
+  vars:
+    redhat_packages:
+      - net-tools
+      - python3-pip
+      - python3-packaging
+    debian_packages:
+      - net-tools
+  tasks:
+
+  - name: Ensure epel is available
+    ansible.builtin.package:
+      name: epel-release
+      state: present
+    when:
+      - ansible_os_family == "RedHat"
+      - ansible_distribution != "Amazon"
+      - ansible_distribution != "Fedora"
+
+  - name: Install redhat packages
+    ansible.builtin.package:
+      name: "{{ redhat_packages }}"
+      state: present
+    when: ansible_os_family == "RedHat"
+
+  - name: Update the APT cache on Debian-based systems
+    ansible.builtin.apt:
+      update_cache: yes
+    when: ansible_os_family == "Debian"
+
+  - name: Install Debian packages
+    ansible.builtin.package:
+      name: "{{ debian_packages }}"
+      state: present
+    when: ansible_os_family == "Debian"

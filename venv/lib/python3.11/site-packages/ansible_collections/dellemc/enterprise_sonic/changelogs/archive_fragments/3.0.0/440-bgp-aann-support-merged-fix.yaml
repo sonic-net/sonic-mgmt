@@ -1,0 +1,5 @@
+---
+breaking_changes:
+  - sonic_bgp_communities - Change 'aann' option as a suboption of 'members' and update its type from string to list of strings (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/440).
+bugfixes:
+  - sonic_bgp_communities - Fix issues in merged state for standard community-lists (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/440).

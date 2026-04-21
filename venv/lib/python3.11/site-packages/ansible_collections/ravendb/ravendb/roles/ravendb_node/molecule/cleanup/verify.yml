@@ -1,0 +1,53 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Verify RavenDB service is removed
+      command: systemctl status ravendb
+      register: ravendb_service_status
+      failed_when: ravendb_service_status.rc == 0
+      ignore_errors: true
+      changed_when: false
+
+    - name: Verify RavenDB binaries are removed
+      stat:
+        path: "/usr/lib/ravendb"
+      register: ravendb_binaries
+    - assert:
+        that:
+          - ravendb_binaries.stat.exists == false
+        fail_msg: "RavenDB binaries were not removed properly."
+
+    - name: List RavenDB directories to be removed
+      vars:
+        directories:
+          - "/var/lib/ravendb"
+          - "/etc/ravendb"
+          - "/var/log/ravendb"
+          - "/tmp/ravendb.tar.bz2"
+      loop: "{{ directories }}"
+      stat:
+        path: "{{ item }}"
+      register: ravendb_directories
+
+    - name: Assert that RavenDB directories are removed
+      loop: "{{ ravendb_directories.results }}"
+      assert:
+        that:
+          - "item.stat.exists == false"
+        fail_msg: "Directory {{ item.stat }} was not removed properly."
+
+    - name: Verify RavenDB user is removed
+      command: id ravendb
+      register: ravendb_user
+      failed_when: ravendb_user.rc == 0
+      ignore_errors: true
+      changed_when: false
+
+    - name: Verify RavenDB group is removed
+      command: getent group ravendb
+      register: ravendb_group
+      failed_when: ravendb_group.rc == 0
+      ignore_errors: true
+      changed_when: false

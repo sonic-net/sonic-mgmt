@@ -1,0 +1,3 @@
+---
+known_issues:
+  - na_ontap_snapshot - added documentation to use UTC format for ``expiry_time``.

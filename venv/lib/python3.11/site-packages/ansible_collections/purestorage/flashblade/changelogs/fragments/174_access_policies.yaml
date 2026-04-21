@@ -1,0 +1,3 @@
+minor_changes:
+ - purefb_policy - Add support for Object Store Access Policies, associated rules and user grants
+ - purefb_policy - New parameter `policy_type` added. For backwards compatability, default to `snapshot` if not provided.

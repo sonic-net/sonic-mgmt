@@ -1,0 +1,134 @@
+---
+####################################################################
+# Example :  Storage Port Facts Playbook
+####################################################################
+- name: Storage Port Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all storage ports
+    ####################################################################
+    - name: Get all storage ports
+      hitachivantara.vspone_block.vsp.hv_storage_port_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get storage port details using port ids
+    ####################################################################
+    - name: Get storage port details using port ids
+      hitachivantara.vspone_block.vsp.hv_storage_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-B"]
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ############################################################################
+    # Task Name : Get an iSCSI target of a port on an external storage system
+    ############################################################################
+    - name: Get an iSCSI target of a port on an external storage system
+      hitachivantara.vspone_block.vsp.hv_storage_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-C"]
+          external_iscsi_ip_address: "172.25.59.213"
+          external_tcp_port: 3260
+          query:
+            - "external_iscsi_targets"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ########################################################################################################################
+    # Task Name : Get the iSCSI name of an external storage system that is registered to a port on the local storage system
+    #######################################################################################################################
+    - name: Get the iSCSI name of an external storage system that is registered to a port on the local storage system
+      hitachivantara.vspone_block.vsp.hv_storage_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-C"]
+          query:
+            - "registered_external_iscsi_targets"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #################################################################
+    # Task Name : Get a list of ports on an external storage system
+    #################################################################
+    - name: Get a list of ports on an external storage system
+      hitachivantara.vspone_block.vsp.hv_storage_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-C"]
+          query:
+            - "external_storage_ports"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ########################################################################################
+    # Task Name : Get a list of LUs defined for an iSCSI port on an external storage system
+    ########################################################################################
+    - name: Get a list of LUs defined for an iSCSI port on an external storage system
+      hitachivantara.vspone_block.vsp.hv_storage_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-C"]
+          external_iscsi_ip_address: "172.25.59.213"
+          external_iscsi_name: "iqn.1994-04.jp.co.hitachi:rsd.has.t.10045.1c019"
+          query:
+            - "external_luns"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##############################################################################################
+    # Task Name : Get a list of LUs defined for a Fibre Channel port on an external storage system
+    ##############################################################################################
+    - name: Get a list of LUs defined for a Fibre Channel port on an external storage system
+      hitachivantara.vspone_block.vsp.hv_storage_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ports: ["CL1-B"]
+          external_wwn: "50060e80222fd141"
+          query:
+            - "external_luns"
+
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

@@ -1,0 +1,62 @@
+---
+- name: Demonstrate creating servers with a firewall
+  hosts: localhost
+  connection: local
+
+  vars:
+    servers:
+      - name: my-server1
+      - name: my-server2
+
+  tasks:
+    - name: Create firewall
+      hetzner.hcloud.firewall:
+        name: my-firewall
+        rules:
+          - description: allow icmp from everywhere
+            direction: in
+            protocol: icmp
+            source_ips:
+              - 0.0.0.0/0
+              - ::/0
+          - description: allow ssh from everywhere
+            direction: in
+            protocol: tcp
+            port: 22
+            source_ips:
+              - 0.0.0.0/0
+              - ::/0
+        state: present
+
+    - name: Create servers
+      hetzner.hcloud.server:
+        name: "{{ item.name }}"
+        server_type: cx22
+        image: debian-12
+        labels:
+          kind: runners
+        state: started
+      loop: "{{ servers }}"
+
+    - name: Apply firewall to resources using label selectors
+      hetzner.hcloud.firewall_resource:
+        firewall: my-firewall
+        label_selectors: [kind=runners]
+        state: present
+
+    - name: Apply firewall to individual servers
+      hetzner.hcloud.firewall_resource:
+        firewall: my-firewall
+        servers: "{{ servers | map(attribute='name') }}"
+        state: present
+
+    - name: Delete firewall
+      hetzner.hcloud.firewall:
+        name: my-firewall
+        state: absent
+
+    - name: Delete servers
+      hetzner.hcloud.server:
+        name: "{{ item.name }}"
+        state: absent
+      loop: "{{ servers }}"

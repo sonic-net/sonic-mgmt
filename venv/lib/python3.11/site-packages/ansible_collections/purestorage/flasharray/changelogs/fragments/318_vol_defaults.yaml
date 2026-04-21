@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_volume - Default Protection Group support added for volume creation and copying from Purity//FA 6.3.4

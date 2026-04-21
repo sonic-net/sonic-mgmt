@@ -1,0 +1,21 @@
+---
+# User will use Ansible Vault to encrypt this file.
+# Ansible will decrypt this file when it executes the playbook.
+
+# storage_serial and secondary_storage_serial are optional fields, they are kept for backward compatibility.
+# You can remove these fields if you don't need them.
+
+# Hitachi Vantara VSP One Block Storage Modules use REST API to communicate with the storage.
+# For the storage_address and secondary_storage_address fields use the IP address or FQDN of the REST API server of the corresponding storage.
+# For system configuration of the REST API for different Hitachi Storage Models, please refer to the following link:
+# https://docs.hitachivantara.com/r/en-us/virtual-storage-platform-g130-g/f350-g/f370-g/f700-g/f900/93-07-2x/mk-23vsp1b003/overview-of-the-rest-api
+
+storage_serial: <your_storage_serial_number> # Example: 810018 Not required for VSP One SDS Block
+storage_address: <your_storage_ip_address_or_fqdn> # Example: storage1.company.com or sds1.company.com or 10.10.10.10. For VSP One SDS Block, this can be cluster address or master node address
+vault_storage_username: <your_storage_user_name>
+vault_storage_secret: <your_storage_password>
+
+secondary_storage_serial: <your_secondary_storage_serial_number>
+secondary_storage_address: <your_storage_ip_address_or_fqdn> # Example: storage1.company.com or sds1.company.com or 10.10.10.10
+vault_secondary_storage_username: <your_storage_user_name>
+vault_secondary_storage_secret: <your_storage_password>

@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_cifs_local_user_modify - unexpected argument ``name`` error with REST.
+  - na_ontap_cifs_local_user_modify - KeyError on ``description`` or ``full_name`` with REST.

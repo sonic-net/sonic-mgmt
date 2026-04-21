@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_broadcast_domain_ports - warn about deprecation, fall back to ZAPI or fail when REST is desired.

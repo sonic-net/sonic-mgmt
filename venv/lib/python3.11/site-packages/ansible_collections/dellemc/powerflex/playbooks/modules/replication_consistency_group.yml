@@ -1,0 +1,234 @@
+---
+- name: Replication consistency group operations on PowerFlex array.
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    remote_hostname: '**.**.**.**'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    rcg_name: "rcg_test"
+    rcg_id: "aadc17d900000002"
+
+  tasks:
+    - name: Get RCG details by name
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+
+    - name: Get RCG details by id
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_id: "{{ rcg_id }}"
+        state: "present"
+
+    - name: Create an RCG snapshot - check mode
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        create_snapshot: true
+      check_mode: true
+
+    - name: Create an RCG snapshot
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        create_snapshot: true
+
+    - name: Create an RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rpo: 120
+        protection_domain_name: "domain1"
+        activity_mode: "Active"
+        remote_peer:
+          hostname: "{{ remote_hostname }}"
+          username: "{{ username }}"
+          password: "{{ password }}"
+          validate_certs: "{{ validate_certs }}"
+          protection_domain_name: "domain1"
+
+    - name: Modify RCG rpo
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rpo: 50
+
+    - name: Modify RCG target volume access mode
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        target_volume_access_mode: "ReadOnly"
+
+    - name: Pause RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: 'pause'
+        pause_mode: "StopDataTransfer"
+
+    - name: Resume RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: 'resume'
+
+    - name: Freeze RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: 'freeze'
+
+    - name: UnFreeze RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: 'unfreeze'
+
+    - name: Set RCG as consistent
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        is_consistent: true
+
+    - name: Inactivate RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        activity_mode: "InActive"
+
+    - name: Rename RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        new_rcg_rename: "rename_rcg"
+
+    - name: Delete RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        state: "absent"
+
+    - name: Failover RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: "failover"
+
+    - name: Restore RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: "restore"
+
+    - name: Switchover RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: "switchover"
+
+    - name: Reverse RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: "reverse"
+
+    - name: Force switchover RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: "switchover"
+        force: true
+
+    - name: Synchronize RCG
+      register: result
+      dellemc.powerflex.replication_consistency_group:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        rcg_name: "{{ rcg_name }}"
+        rcg_state: "sync"

@@ -1,0 +1,3 @@
+---
+trivial:
+  - workflow - Add ansible-lint workflow (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/516).

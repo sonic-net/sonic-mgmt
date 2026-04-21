@@ -1,0 +1,138 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      release_summary: This is the minor release of the ``community.sap`` collection.
+        It is the initial relase for the ``community.sap`` collection
+    fragments:
+    - 1.0.0.yml
+    modules:
+    - description: Ansible Module to execute SQL on SAP HANA
+      name: hana_query
+      namespace: database.saphana
+    - description: This module will manage a company entities in a SAP S4HANA environment
+      name: sap_company
+      namespace: identity
+    - description: This module will upload and (de)implements C(SNOTES) in a SAP S4HANA
+        environment.
+      name: sap_snote
+      namespace: system
+    - description: Gathers SAP facts in a host
+      name: sap_system_facts
+      namespace: system
+    - description: Perform SAP Task list execution
+      name: sap_task_list_execute
+      namespace: system
+    - description: This module will manage a user entities in a SAP S4/HANA environment
+      name: sap_user
+      namespace: identity
+    - description: Manages SAP SAPCAR archives
+      name: sapcar_extract
+      namespace: files
+  1.1.0:
+    changes:
+      release_summary: 'This is the minor release of the ``community.sap_libs`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.1.0.yml
+    modules:
+    - description: Ansible Module to execute SAPCONTROL
+      name: sapcontrol
+      namespace: system
+    release_date: '2022-05-17'
+  1.2.0:
+    changes:
+      bugfixes:
+      - syp_system_facts - fix a typo in the usage example which lead to an error
+        if it used as supposed.
+      release_summary: 'This is the minor release of the ``community.sap_libs`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.2.0.yml
+    - 11-sap_system_facts_fix_typo.yml
+    modules:
+    - description: Ansible Module for use of SAP PyRFC to execute SAP RFCs (Remote
+        Function Calls) to SAP remote-enabled function modules
+      name: sap_pyrfc
+      namespace: ''
+    release_date: '2022-07-18'
+  1.3.0:
+    changes:
+      minor_changes:
+      - License requirements are updated.
+      - The modules purposes are described clearer.
+      - The namespaces of the modules are removed to provide a flatter design.
+      - hana_query - module is moved to sap_hdbsql.
+      - sapcontrol - module is moved to sap_control_exec to have a clearer separation
+        to other roles and references.
+      release_summary: This is the 1.3.0 minor release of the ``community.sap_libs``
+        collection. This changelog contains all changes to the modules and plugins
+        in this collection that have been made after the previous release.
+    fragments:
+    - 1.3.0.yml
+    release_date: '2022-09-09'
+  1.4.0:
+    changes:
+      bugfixes:
+      - fix a bug where some commands produces no output which cause to crash the
+        module.
+      - modules - fix a "variable used before assignment" that cannot be reached but
+        causes sanity test failures.
+      release_summary: 'This is the 1.3.0 minor release of the ``community.sap_libs``
+        collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 0020-fix_sap_control_exec.yml
+    - 1.4.0.yml
+    - 22-use-before-assignment.yml
+    release_date: '2022-12-05'
+  1.4.1:
+    changes:
+      bugfixes:
+      - fixes failures in sanity test for plugins/modules/sap_pyrfc.py
+      - fixes failures in sanity test for tests/unit/compat/builtins.py
+      - fixes failures in sanity test for tests/unit/plugins/modules/test_sap_system_facts.py
+      - fixes failures in sanity test for tests/unit/plugins/modules/test_sap_system_facts.py
+      - fixes pipeline warnings
+      - sapcontrol_exec - This pr fixes problems on c(StartSystem), c(StopSystem),
+        c(RestartSystem) which needs parameters they ca not provided by the parameters
+        argument because of special format like c(waittimeout=1) without string quotes.
+        This is caused by the suds module itself.
+      release_summary: This is the 1.4.1 patch release of the ``community.sap_libs``
+        collection. This changelog contains all changes to the modules and plugins
+        in this collection that have been made after the previous release. 
+    fragments:
+    - 28-fix-sapcontrol-issue.yml
+    - 29-fix-lint-issues.yml
+    release_date: '2023-03-09'
+  1.4.2:
+    changes:
+      bugfixes:
+      - fixes failures in sanity test for all modules
+      release_summary: This is the 1.4.2 patch release of the ``community.sap_libs``
+        collection. This changelog contains all changes to the modules and plugins
+        in this collection that have been made after the previous release. 
+    fragments:
+    - 30-fix-lint-issues.yml
+    release_date: '2024-01-23'
+  1.5.0:
+    changes:
+      minor_changes:
+        - collection - Update workflow `ansible-test` to include latest versions (https://github.com/sap-linuxlab/community.sap_libs/pull/54)
+        - collection - Enhance `ansible-test`` CI action, remove Python 2 and fix detected issues (https://github.com/sap-linuxlab/community.sap_libs/pull/60)
+        - collection - Update documentation and changelog for `1.5.0` release (https://github.com/sap-linuxlab/community.sap_libs/pull/61)
+        - sap_hdbsql - add -E option to filepath command (https://github.com/sap-linuxlab/community.sap_libs/pull/42)
+        - sap_control_exec - Remove unsupported functions (https://github.com/sap-linuxlab/community.sap_libs/pull/45)
+        - collection - Pipeline fixes and drop test support for ansible below 2.13 (https://github.com/sap-linuxlab/community.sap_libs/pull/43)
+      release_summary: This release removes `Python 2` support and updates `ansible-test` workflow to validate latest versions.
+        Documentation was updated to reflect supported and tested versions. 
+    release_date: '2025-09-25'

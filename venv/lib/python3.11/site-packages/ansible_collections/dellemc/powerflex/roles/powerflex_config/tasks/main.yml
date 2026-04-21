@@ -1,0 +1,112 @@
+---
+- name: Get configured MDM IP addresses
+  dellemc.powerflex.mdm_cluster:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    port: "{{ port }}"
+    validate_certs: "{{ validate_certs }}"
+    state: "present"
+  register: powerflex_config_mdm_ip_result
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Set fact - PowerFlex version and MDM primary hostname
+  ansible.builtin.set_fact:
+    powerflex_config_array_version: "{{ powerflex_config_mdm_ip_result.mdm_cluster_details.master.versionInfo[1] }}"
+    powerflex_config_mdm_primary_hostname: "{{ hostvars[groups['mdm'][0]]['inventory_hostname'] }}"
+    powerflex_config_mdm_primary_ip: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }}"
+
+- name: Login to primary MDM of PowerFlex 3.6
+  ansible.builtin.command: scli --login --username {{ username }} --password "{{ password }}"
+  run_once: true
+  register: powerflex_config_login_output
+  changed_when: powerflex_config_login_output.rc == 0
+  delegate_to: "{{ powerflex_config_mdm_primary_hostname }}"
+  when: powerflex_config_array_version == '3'
+
+- name: Generate login certificate for PowerFlex version 4.x
+  block:
+    - name: Generate login certificate using management_system_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ hostname }} --username {{ username }} --password {{ password }}
+        --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_config_generate_login_certificate
+      changed_when: powerflex_config_generate_login_certificate.rc == 0
+      delegate_to: "{{ powerflex_config_mdm_primary_hostname }}"
+      when: powerflex_config_array_version == '4'
+  rescue:
+    - name: Generate login certificate using primary_mdm_ip
+      ansible.builtin.command: >
+        scli --generate_login_certificate --management_system_ip {{ powerflex_config_mdm_primary_ip }} --username {{ username }}
+        --password {{ password }} --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }} --insecure
+      run_once: true
+      register: powerflex_config_generate_login_certificate_mdm_ip
+      changed_when: powerflex_config_generate_login_certificate_mdm_ip.rc == 0
+      delegate_to: "{{ powerflex_config_mdm_primary_hostname }}"
+      when: powerflex_config_array_version == '4'
+
+- name: Add certificate file for PowerFlex version 4.x
+  ansible.builtin.command: scli --add_certificate --certificate_file /opt/emc/scaleio/mdm/cfg/mgmt_ca.pem
+  run_once: true
+  register: powerflex_config_add_certificate
+  changed_when: powerflex_config_add_certificate.rc == 0
+  delegate_to: "{{ powerflex_config_mdm_primary_hostname }}"
+  when: powerflex_config_array_version == '4'
+
+- name: Login to MDM for PowerFlex version 4.x
+  ansible.builtin.command: scli --login --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ password }}
+  run_once: true
+  register: powerflex_config_login_output
+  changed_when: powerflex_config_login_output.rc == 0
+  delegate_to: "{{ powerflex_config_mdm_primary_hostname }}"
+  when: powerflex_config_array_version == '4'
+
+- name: Create the protection domain
+  dellemc.powerflex.protection_domain:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    validate_certs: "{{ validate_certs }}"
+    port: "{{ port }}"
+    protection_domain_name: "{{ powerflex_protection_domain_name }}"
+    is_active: "{{ is_active | default(omit) }}"
+    network_limits: "{{ network_limits | default(omit) }}"
+    rf_cache_limits: "{{ rf_cache_limits | default(omit) }}"
+    state: "present"
+  register: powerflex_config_add_pd_output
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Add fault set
+  ansible.builtin.command: scli --add_fault_set --protection_domain_name "{{ powerflex_protection_domain_name }}" --fault_set_name "{{ item }}"
+  with_items: "{{ powerflex_fault_sets }}"
+  run_once: true
+  delegate_to: "{{ powerflex_config_mdm_primary_hostname }}"
+  register: powerflex_config_add_fs_output
+  ignore_errors: true
+  changed_when: powerflex_config_add_fs_output.rc == 0
+  when:
+    - powerflex_fault_sets is defined
+
+- name: Create a new storage pool.
+  dellemc.powerflex.storagepool:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    port: "{{ port }}"
+    validate_certs: "{{ validate_certs }}"
+    storage_pool_name: "{{ powerflex_storage_pool_name }}"
+    protection_domain_name: "{{ powerflex_protection_domain_name }}"
+    media_type: "{{ powerflex_media_type | default(omit) }}"
+    state: "present"
+  register: powerflex_config_storage_pool_output
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+
+- name: Enable zero-padding
+  ansible.builtin.command: |
+    scli --modify_zero_padding_policy --protection_domain_name
+    {{ powerflex_protection_domain_name }} --storage_pool_name {{ powerflex_storage_pool_name }} --enable_zero_padding
+  run_once: true
+  register: powerflex_config_enable_zero_padding_output
+  changed_when: powerflex_config_enable_zero_padding_output.rc == 0
+  delegate_to: "{{ powerflex_config_mdm_primary_hostname }}"

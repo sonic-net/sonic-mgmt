@@ -1,0 +1,958 @@
+ancestor: null
+releases:
+  2.1.6:
+    changes:
+      major_changes:
+        - Many fixes for Ansible sanity test warnings & errors.
+        - Support FortiManager Schema 7.2.0 , 98 new modules
+      minor_changes:
+        - Best Practice Notes
+      release_summary: release fortinet.fortimanager to support FMG 7.2.x
+    fragments:
+      - release_2.1.6.yaml
+    release_date: "2022-10-31"
+  2.1.7:
+    changes:
+      major_changes:
+        - Fix compatibility issue for ansible 2.9.x and ansible-base 2.10.x.
+        - support Ansible changelogs.
+      release_summary: hotpath for backward-compatibility fix
+    fragments:
+      - release.2.1.7.yaml
+    release_date: "2022-11-12"
+  2.2.0:
+    changes:
+      bugfixes:
+        - Corrected description of parameters in documentation.
+        - Fixed Many sanity test warnings and errors.
+        - Fixed a bug where users might not be able to login.
+        - Fixed version_added in the document. The value of this parameter is the version
+          each module first supported in the FortiManager Ansible Collection.
+      major_changes:
+        - Support all FortiManager versions in 6.2, 6.4, 7.0, 7.2 and 7.4. 139 new modules.
+        - Support token based authentication.
+      minor_changes:
+        - Corrected the behavior of module fmgr_pkg_firewall_consolidated_policy_sectionvalue
+          and fmgr_pkg_firewall_securitypolicy_sectionvalue.
+        - Improve documentation.
+      release_summary: release fortinet.fortimanager to support FMG v6.0 - v7.4.
+    fragments:
+      - release.2.2.0.yaml
+    modules:
+      - description: Cloud Access Security Inspection.
+        name: fmgr_application_casi_profile
+        namespace: ""
+      - description: Application entries.
+        name: fmgr_application_casi_profile_entries
+        namespace: ""
+      - description: Show Internet service application.
+        name: fmgr_application_internetservice
+        namespace: ""
+      - description: Entries in the Internet service database.
+        name: fmgr_application_internetservice_entry
+        namespace: ""
+      - description: Configure custom Internet service applications.
+        name: fmgr_application_internetservicecustom
+        namespace: ""
+      - description: Disable entries in the Internet service database.
+        name: fmgr_application_internetservicecustom_disableentry
+        namespace: ""
+      - description: IP ranges in the disable entry.
+        name: fmgr_application_internetservicecustom_disableentry_iprange
+        namespace: ""
+      - description: Entries added to the Internet service database and custom database.
+        name: fmgr_application_internetservicecustom_entry
+        namespace: ""
+      - description: Port ranges in the custom entry.
+        name: fmgr_application_internetservicecustom_entry_portrange
+        namespace: ""
+      - description: no description
+        name: fmgr_cloud_orchestaws
+        namespace: ""
+      - description: no description
+        name: fmgr_cloud_orchestawsconnector
+        namespace: ""
+      - description: no description
+        name: fmgr_cloud_orchestawstemplate_autoscaleexistingvpc
+        namespace: ""
+      - description: no description
+        name: fmgr_cloud_orchestawstemplate_autoscalenewvpc
+        namespace: ""
+      - description: no description
+        name: fmgr_cloud_orchestawstemplate_autoscaletgwnewvpc
+        namespace: ""
+      - description: no description
+        name: fmgr_cloud_orchestration
+        namespace: ""
+      - description: no description
+        name: fmgr_devprof_log_syslogd_filter_excludelist
+        namespace: ""
+      - description: no description
+        name: fmgr_devprof_log_syslogd_filter_excludelist_fields
+        namespace: ""
+      - description: Free style filters.
+        name: fmgr_devprof_log_syslogd_filter_freestyle
+        namespace: ""
+      - description: Custom field name for CEF format logging.
+        name: fmgr_devprof_log_syslogd_setting_customfieldname
+        namespace: ""
+      - description: URL filter settings.
+        name: fmgr_dnsfilter_profile_urlfilter
+        namespace: ""
+      - description: Configure URL filter list.
+        name: fmgr_dnsfilter_urlfilter
+        namespace: ""
+      - description: DNS URL filter.
+        name: fmgr_dnsfilter_urlfilter_entries
+        namespace: ""
+      - description: Yahoo! Mail.
+        name: fmgr_emailfilter_profile_yahoomail
+        namespace: ""
+      - description: FortiExtender dataplan configuration.
+        name: fmgr_extensioncontroller_dataplan
+        namespace: ""
+      - description: FortiExtender extender profile configuration.
+        name: fmgr_extensioncontroller_extenderprofile
+        namespace: ""
+      - description: FortiExtender cellular configuration.
+        name: fmgr_extensioncontroller_extenderprofile_cellular
+        namespace: ""
+      - description: FortiExtender controller report configuration.
+        name: fmgr_extensioncontroller_extenderprofile_cellular_controllerreport
+        namespace: ""
+      - description: Configuration options for modem 1.
+        name: fmgr_extensioncontroller_extenderprofile_cellular_modem1
+        namespace: ""
+      - description: FortiExtender auto switch configuration.
+        name: fmgr_extensioncontroller_extenderprofile_cellular_modem1_autoswitch
+        namespace: ""
+      - description: Configuration options for modem 2.
+        name: fmgr_extensioncontroller_extenderprofile_cellular_modem2
+        namespace: ""
+      - description: FortiExtender auto switch configuration.
+        name: fmgr_extensioncontroller_extenderprofile_cellular_modem2_autoswitch
+        namespace: ""
+      - description: FortiExtender cellular SMS notification configuration.
+        name: fmgr_extensioncontroller_extenderprofile_cellular_smsnotification
+        namespace: ""
+      - description: SMS alert list.
+        name: fmgr_extensioncontroller_extenderprofile_cellular_smsnotification_alert
+        namespace: ""
+      - description: SMS notification receiver list.
+        name: fmgr_extensioncontroller_extenderprofile_cellular_smsnotification_receiver
+        namespace: ""
+      - description: FortiExtender lan extension configuration.
+        name: fmgr_extensioncontroller_extenderprofile_lanextension
+        namespace: ""
+      - description: LAN extension backhaul tunnel configuration.
+        name: fmgr_extensioncontroller_extenderprofile_lanextension_backhaul
+        namespace: ""
+      - description: Configure IPv6 access proxy.
+        name: fmgr_firewall_accessproxy6
+        namespace: ""
+      - description: Set IPv4 API Gateway.
+        name: fmgr_firewall_accessproxy6_apigateway
+        namespace: ""
+      - description: Set IPv6 API Gateway.
+        name: fmgr_firewall_accessproxy6_apigateway6
+        namespace: ""
+      - description:
+          Select the real servers that this Access Proxy will distribute
+          traffic to.
+        name: fmgr_firewall_accessproxy6_apigateway6_realservers
+        namespace: ""
+      - description: SSL/TLS cipher suites to offer to a server, ordered by priority.
+        name: fmgr_firewall_accessproxy6_apigateway6_sslciphersuites
+        namespace: ""
+      - description:
+          Select the real servers that this Access Proxy will distribute
+          traffic to.
+        name: fmgr_firewall_accessproxy6_apigateway_realservers
+        namespace: ""
+      - description: SSL/TLS cipher suites to offer to a server, ordered by priority.
+        name: fmgr_firewall_accessproxy6_apigateway_sslciphersuites
+        namespace: ""
+      - description: List of NSX service profiles that use this address.
+        name: fmgr_firewall_address6_profilelist
+        namespace: ""
+      - description: List of NSX service profiles that use this address.
+        name: fmgr_firewall_address_profilelist
+        namespace: ""
+      - description: Explicit web proxy address configuration.
+        name: fmgr_firewall_explicitproxyaddress
+        namespace: ""
+      - description: HTTP header group.
+        name: fmgr_firewall_explicitproxyaddress_headergroup
+        namespace: ""
+      - description: Explicit web proxy address group configuration.
+        name: fmgr_firewall_explicitproxyaddrgrp
+        namespace: ""
+      - description: Message filter.
+        name: fmgr_firewall_gtp_messagefilter
+        namespace: ""
+      - description: Configure IPv4 pool groups.
+        name: fmgr_firewall_ippoolgrp
+        namespace: ""
+      - description: Configure Dynamic Network Services.
+        name: fmgr_firewall_networkservicedynamic
+        namespace: ""
+      - description: no description
+        name: fmgr_fmg_fabric_authorization_template
+        namespace: ""
+      - description: no description
+        name: fmgr_fmg_fabric_authorization_template_platforms
+        namespace: ""
+      - description: Configure the timeout value of image upgrade process.
+        name: fmgr_fmupdate_fwmsetting_upgradetimeout
+        namespace: ""
+      - description: VRRP configuration.
+        name: fmgr_fsp_vlan_dynamicmapping_interface_vrrp
+        namespace: ""
+      - description: VRRP Proxy ARP configuration.
+        name: fmgr_fsp_vlan_dynamicmapping_interface_vrrp_proxyarp
+        namespace: ""
+      - description: VRRP Proxy ARP configuration.
+        name: fmgr_fsp_vlan_interface_vrrp_proxyarp
+        namespace: ""
+      - description: Configure IPS sensor.
+        name: fmgr_ips_baseline_sensor
+        namespace: ""
+      - description: IPS sensor filter.
+        name: fmgr_ips_baseline_sensor_entries
+        namespace: ""
+      - description:
+          Traffic from selected source or destination IP addresses is exempt
+          from this signature.
+        name: fmgr_ips_baseline_sensor_entries_exemptip
+        namespace: ""
+      - description: no description
+        name: fmgr_ips_baseline_sensor_filter
+        namespace: ""
+      - description: no description
+        name: fmgr_ips_baseline_sensor_override
+        namespace: ""
+      - description: no description
+        name: fmgr_ips_baseline_sensor_override_exemptip
+        namespace: ""
+      - description: Configure all the log servers and create the server groups.
+        name: fmgr_log_npuserver
+        namespace: ""
+      - description: create server group.
+        name: fmgr_log_npuserver_servergroup
+        namespace: ""
+      - description: configure server info.
+        name: fmgr_log_npuserver_serverinfo
+        namespace: ""
+      - description: Configure Explicit proxy policies.
+        name: fmgr_pkg_firewall_explicitproxypolicy
+        namespace: ""
+      - description: Identity-based policy.
+        name: fmgr_pkg_firewall_explicitproxypolicy_identitybasedpolicy
+        namespace: ""
+      - description: Configure Explicit proxy policies.
+        name: fmgr_pkg_firewall_explicitproxypolicy_sectionvalue
+        namespace: ""
+      - description: Configure IPv4/IPv6 policies.
+        name: fmgr_pkg_firewall_hyperscalepolicy
+        namespace: ""
+      - description: Configure IPv4 to IPv6 policies.
+        name: fmgr_pkg_firewall_hyperscalepolicy46
+        namespace: ""
+      - description: Configure IPv6 policies.
+        name: fmgr_pkg_firewall_hyperscalepolicy6
+        namespace: ""
+      - description: Configure IPv6 to IPv4 policies.
+        name: fmgr_pkg_firewall_hyperscalepolicy64
+        namespace: ""
+      - description:
+          Configure NAC policy matching pattern to identify matching NAC
+          devices.
+        name: fmgr_pkg_user_nacpolicy
+        namespace: ""
+      - description: Configure consolidated IPv4/IPv6 policies.
+        name: fmgr_pm_config_pblock_firewall_consolidated_policy
+        namespace: ""
+      - description: Configure consolidated IPv4/IPv6 policies.
+        name: fmgr_pm_config_pblock_firewall_consolidated_policy_sectionvalue
+        namespace: ""
+      - description: Configure IPv6 policies.
+        name: fmgr_pm_config_pblock_firewall_policy6
+        namespace: ""
+      - description: Configure IPv6 policies.
+        name: fmgr_pm_config_pblock_firewall_policy6_sectionvalue
+        namespace: ""
+      - description: no description
+        name: fmgr_pm_devprof_scopemember
+        namespace: ""
+      - description: Policy package or folder.
+        name: fmgr_pm_pkg_scopemember
+        namespace: ""
+      - description: no description
+        name: fmgr_pm_wanprof_scopemember
+        namespace: ""
+      - description: no description
+        name: fmgr_securityconsole_template_cli_preview
+        namespace: ""
+      - description: Configure ACL groups to be applied on managed FortiSwitch ports.
+        name: fmgr_switchcontroller_acl_group
+        namespace: ""
+      - description:
+          Configure ingress ACL policies to be applied on managed FortiSwitch
+          ports.
+        name: fmgr_switchcontroller_acl_ingress
+        namespace: ""
+      - description: ACL actions.
+        name: fmgr_switchcontroller_acl_ingress_action
+        namespace: ""
+      - description: ACL classifiers.
+        name: fmgr_switchcontroller_acl_ingress_classifier
+        namespace: ""
+      - description:
+          Configure Dynamic port policy to be applied on the managed FortiSwitch
+          ports through DPP device.
+        name: fmgr_switchcontroller_dynamicportpolicy
+        namespace: ""
+      - description: Port policies with matching criteria and actions.
+        name: fmgr_switchcontroller_dynamicportpolicy_policy
+        namespace: ""
+      - description: Configure integrated FortiLink settings for FortiSwitch.
+        name: fmgr_switchcontroller_fortilinksettings
+        namespace: ""
+      - description: NAC specific configuration.
+        name: fmgr_switchcontroller_fortilinksettings_nacports
+        namespace: ""
+      - description:
+          Configure MAC policy to be applied on the managed FortiSwitch devices
+          through NAC device.
+        name: fmgr_switchcontroller_macpolicy
+        namespace: ""
+      - description: Configure FortiSwitch DHCP snooping static clients.
+        name: fmgr_switchcontroller_managedswitch_dhcpsnoopingstaticclient
+        namespace: ""
+      - description: Configure DHCP snooping option 82 override.
+        name: fmgr_switchcontroller_managedswitch_ports_dhcpsnoopoption82override
+        namespace: ""
+      - description: Configuration method to edit FortiSwitch Static and Sticky MAC.
+        name: fmgr_switchcontroller_managedswitch_staticmac
+        namespace: ""
+      - description: Configuration method to edit Spanning Tree Protocol
+        name: fmgr_switchcontroller_managedswitch_stpinstance
+        namespace: ""
+      - description: Configure switch object tags.
+        name: fmgr_switchcontroller_switchinterfacetag
+        namespace: ""
+      - description: Configure FortiSwitch traffic policy.
+        name: fmgr_switchcontroller_trafficpolicy
+        namespace: ""
+      - description:
+          Configure VLAN policy to be applied on the managed FortiSwitch
+          ports through dynamic-port-policy.
+        name: fmgr_switchcontroller_vlanpolicy
+        namespace: ""
+      - description: no description
+        name: fmgr_sys_cloud_orchest
+        namespace: ""
+      - description: Configure driver background scan for SSE.
+        name: fmgr_system_npu_backgroundssescan
+        namespace: ""
+      - description: NPU DoS configurations.
+        name: fmgr_system_npu_dosoptions
+        namespace: ""
+      - description: Configure NPU DSW DTS profile.
+        name: fmgr_system_npu_dswdtsprofile
+        namespace: ""
+      - description: Configure NPU DSW Queue DTS profile.
+        name: fmgr_system_npu_dswqueuedtsprofile
+        namespace: ""
+      - description: Host protection engine configuration.
+        name: fmgr_system_npu_hpe
+        namespace: ""
+      - description: IP reassebmly engine configuration.
+        name: fmgr_system_npu_ipreassembly
+        namespace: ""
+      - description: Configure queue assignment on NP7.
+        name: fmgr_system_npu_npqueues
+        namespace: ""
+      - description: Configure a NP7 QoS Ethernet Type.
+        name: fmgr_system_npu_npqueues_ethernettype
+        namespace: ""
+      - description: Configure a NP7 QoS IP Protocol.
+        name: fmgr_system_npu_npqueues_ipprotocol
+        namespace: ""
+      - description: Configure a NP7 QoS IP Service.
+        name: fmgr_system_npu_npqueues_ipservice
+        namespace: ""
+      - description: Configure a NP7 class profile.
+        name: fmgr_system_npu_npqueues_profile
+        namespace: ""
+      - description: Configure a NP7 QoS Scheduler.
+        name: fmgr_system_npu_npqueues_scheduler
+        namespace: ""
+      - description: Configure port using NPU or Intel-NIC.
+        name: fmgr_system_npu_portpathoption
+        namespace: ""
+      - description: Configure driver HA scan for SSE.
+        name: fmgr_system_npu_ssehascan
+        namespace: ""
+      - description: Configure switch traditional hashing.
+        name: fmgr_system_npu_swtrhash
+        namespace: ""
+      - description: Configure TCP timeout profile.
+        name: fmgr_system_npu_tcptimeoutprofile
+        namespace: ""
+      - description: Configure UDP timeout profile.
+        name: fmgr_system_npu_udptimeoutprofile
+        namespace: ""
+      - description: Configure object tags.
+        name: fmgr_system_objecttag
+        namespace: ""
+      - description: Configure OCI compartment list.
+        name: fmgr_system_sdnconnector_compartmentlist
+        namespace: ""
+      - description: Configure OCI region list.
+        name: fmgr_system_sdnconnector_ociregionlist
+        namespace: ""
+      - description: Pre-authorized security fabric nodes
+        name: fmgr_system_socfabric_trustedlist
+        namespace: ""
+      - description: The older API for updating the firmware of specific device.
+        name: fmgr_um_image_upgrade
+        namespace: ""
+      - description: Update the firmware of specific device.
+        name: fmgr_um_image_upgrade_ext
+        namespace: ""
+      - description: Configure certificate users.
+        name: fmgr_user_certificate
+        namespace: ""
+      - description: Configure device access control lists.
+        name: fmgr_user_deviceaccesslist
+        namespace: ""
+      - description: Device list.
+        name: fmgr_user_deviceaccesslist_devicelist
+        namespace: ""
+      - description: no description
+        name: fmgr_user_flexvm
+        namespace: ""
+      - description: no description
+        name: fmgr_user_json
+        namespace: ""
+      - description: SAML server entry configuration.
+        name: fmgr_user_saml_dynamicmapping
+        namespace: ""
+      - description: Landing page options.
+        name: fmgr_vpnsslweb_portal_landingpage
+        namespace: ""
+      - description: Form data.
+        name: fmgr_vpnsslweb_portal_landingpage_formdata
+        namespace: ""
+      - description: SSL-VPN virtual desktop application list.
+        name: fmgr_vpnsslweb_virtualdesktopapplist
+        namespace: ""
+      - description: Applications.
+        name: fmgr_vpnsslweb_virtualdesktopapplist_apps
+        namespace: ""
+      - description: Configure WiFi bridge access control list.
+        name: fmgr_wireless_accesscontrollist
+        namespace: ""
+      - description: AP ACL layer3 ipv4 rule list.
+        name: fmgr_wireless_accesscontrollist_layer3ipv4rules
+        namespace: ""
+      - description: AP ACL layer3 ipv6 rule list.
+        name: fmgr_wireless_accesscontrollist_layer3ipv6rules
+        namespace: ""
+      - description: Configure the client with its MAC address.
+        name: fmgr_wireless_address
+        namespace: ""
+      - description: Configure the MAC address group.
+        name: fmgr_wireless_addrgrp
+        namespace: ""
+      - description: Configure WiFi SSID policies.
+        name: fmgr_wireless_ssidpolicy
+        namespace: ""
+      - description: Configure Wireless Termination Points
+        name: fmgr_wireless_syslogprofile
+        namespace: ""
+    release_date: "2023-06-21"
+  2.2.1:
+    changes:
+      bugfixes:
+        - Fix a bug where the user may not be able to use workspace_locking_adom if
+          the workspace mode is per-adom.
+        - Improve login logic in httpapi plugin.
+      release_summary: release fortinet.fortimanager 2.2.1
+    fragments:
+      - 2.2.1.yml
+    release_date: "2023-08-02"
+  2.3.0:
+    changes:
+      bugfixes:
+        - Add 'access_token' in 'fmgr_generic'.
+        - Add param 'platform' in 'fmgr_wtpprofile' and param 'interface' in 'fmgr_fsp_vlan'.
+        - Fix a bug that collection may update the resource when it does not need to.
+        - Fix some modules missing revision (used for version warning).
+        - Fixed the bug that would report an error when providing access_token and username/password
+          at the same time.
+        - Improve document.
+        - Improve fmgr_fact. 'changed' will not be true anymore if you get the result.
+        - Improve sanity tests.
+        - When the JSON data sent by FortiManager is not in the right format, the collection
+          can still execute correctly.
+      minor_changes:
+        - Some arguments can support both list or string format input now.
+        - Support newest versions for FortiManager v6.2 ~ v7.4
+      release_summary: release fortinet.fortimanager 2.3.0
+    fragments:
+      - 2.3.0.yml
+    modules:
+      - description: Configure CASB profile.
+        name: fmgr_casb_profile
+        namespace: ""
+      - description: CASB profile SaaS application.
+        name: fmgr_casb_profile_saasapplication
+        namespace: ""
+      - description: CASB profile access rule.
+        name: fmgr_casb_profile_saasapplication_accessrule
+        namespace: ""
+      - description: CASB profile custom control.
+        name: fmgr_casb_profile_saasapplication_customcontrol
+        namespace: ""
+      - description: CASB custom control option.
+        name: fmgr_casb_profile_saasapplication_customcontrol_option
+        namespace: ""
+      - description: Configure CASB SaaS application.
+        name: fmgr_casb_saasapplication
+        namespace: ""
+      - description: Configure CASB user activity.
+        name: fmgr_casb_useractivity
+        namespace: ""
+      - description: CASB control options.
+        name: fmgr_casb_useractivity_controloptions
+        namespace: ""
+      - description: CASB control option operations.
+        name: fmgr_casb_useractivity_controloptions_operations
+        namespace: ""
+      - description: CASB user activity match rules.
+        name: fmgr_casb_useractivity_match
+        namespace: ""
+      - description: CASB user activity rules.
+        name: fmgr_casb_useractivity_match_rules
+        namespace: ""
+      - description: no description
+        name: fmgr_dvmdb_upgrade
+        namespace: ""
+      - description: QUIC setting.
+        name: fmgr_firewall_accessproxy6_apigateway6_quic
+        namespace: ""
+      - description: QUIC setting.
+        name: fmgr_firewall_accessproxy6_apigateway_quic
+        namespace: ""
+      - description: QUIC setting.
+        name: fmgr_firewall_accessproxy_apigateway6_quic
+        namespace: ""
+      - description: QUIC setting.
+        name: fmgr_firewall_accessproxy_apigateway_quic
+        namespace: ""
+      - description: no description
+        name: fmgr_firewall_casbprofile
+        namespace: ""
+      - description: no description
+        name: fmgr_firewall_casbprofile_saasapplication
+        namespace: ""
+      - description: no description
+        name: fmgr_firewall_casbprofile_saasapplication_accessrule
+        namespace: ""
+      - description: no description
+        name: fmgr_firewall_casbprofile_saasapplication_customcontrol
+        namespace: ""
+      - description: no description
+        name: fmgr_firewall_casbprofile_saasapplication_customcontrol_option
+        namespace: ""
+      - description: Show vendor and the MAC address they have.
+        name: fmgr_firewall_vendormac
+        namespace: ""
+      - description: QUIC setting.
+        name: fmgr_firewall_vip_quic
+        namespace: ""
+      - description: no description
+        name: fmgr_pm_config_meta_reference
+        namespace: ""
+      - description: no description
+        name: fmgr_securityconsole_install_objects_v2
+        namespace: ""
+      - description: Configure route offload MCLAG IP address.
+        name: fmgr_switchcontroller_managedswitch_routeoffloadrouter
+        namespace: ""
+      - description: Global PTP profile.
+        name: fmgr_switchcontroller_ptp_profile
+        namespace: ""
+      - description:
+          Add this device to a Security Fabric or set up a new Security Fabric
+          on this device.
+        name: fmgr_system_csf
+        namespace: ""
+      - description: Fabric connector configuration.
+        name: fmgr_system_csf_fabricconnector
+        namespace: ""
+      - description: Pre-authorized and blocked security fabric nodes.
+        name: fmgr_system_csf_trustedlist
+        namespace: ""
+      - description: Configure SDN proxy.
+        name: fmgr_system_sdnproxy
+        namespace: ""
+      - description: Configure virtual-patch profile.
+        name: fmgr_virtualpatch_profile
+        namespace: ""
+      - description: Exempt devices or rules.
+        name: fmgr_virtualpatch_profile_exemption
+        namespace: ""
+    release_date: "2023-10-13"
+  2.3.1:
+    changes:
+      bugfixes:
+        - Added missing enum values for some arguments.
+        - Change minimum required ansible-core version to 2.14.0
+        - Fixed a bug where ansible may skip update incorrectly.
+        - Support FortiManager 7.0.10
+      release_summary: release fortinet.fortimanager 2.3.1
+    fragments:
+      - 2.3.1.yml
+    release_date: "2023-12-20"
+  2.4.0:
+    changes:
+      bugfixes:
+        - Changed revision to v_range to reduce the size of the code.
+        - Fixed the behavior of module fmgr_firewall_internetservicecustom.
+        - Fixed the behavior of some modules that contain the argument policyid.
+        - Improved example ansible playbooks.
+        - Improved the logic of fmgr_fact, fmgr_clone, fmgr_rename, fmgr_move. Usage
+          remains unchanged.
+        - Reduced the size of module_arg_spec in each module.
+        - Removed most of the sanity test ignores.
+      minor_changes:
+        - Added deprecated warning to invalid argument name, please change the invalid
+          argument name such as "var-name", "var name" to "var_name".
+        - Supported fortimanager 7.4.2, 21 new modules.
+      release_summary: release fortinet.fortimanager 2.4.0
+    fragments:
+      - 2.4.0.yml
+    modules:
+      - description: Configure Diameter filter profiles.
+        name: fmgr_diameterfilter_profile
+        namespace: ""
+      - description: Configure Access Proxy SSH client certificate.
+        name: fmgr_firewall_accessproxysshclientcert
+        namespace: ""
+      - description: Configure certificate extension for user certificate.
+        name: fmgr_firewall_accessproxysshclientcert_certextension
+        namespace: ""
+      - description: QUIC setting.
+        name: fmgr_firewall_vip6_quic
+        namespace: ""
+      - description: Publicly accessible IP addresses for the FortiGSLB service.
+        name: fmgr_firewall_vip_gslbpublicips
+        namespace: ""
+      - description: Configure SCTP filter profiles.
+        name: fmgr_sctpfilter_profile
+        namespace: ""
+      - description: PPID filters list.
+        name: fmgr_sctpfilter_profile_ppidfilters
+        namespace: ""
+      - description: Configure VLAN assignment priority.
+        name: fmgr_switchcontroller_managedswitch_vlan
+        namespace: ""
+      - description: Profile list.
+        name: fmgr_system_admin_profile_writepasswdprofiles
+        namespace: ""
+      - description: User list.
+        name: fmgr_system_admin_profile_writepasswduserlist
+        namespace: ""
+      - description: Configure NPU TCAM policies.
+        name: fmgr_system_npu_nputcam
+        namespace: ""
+      - description: Data fields of TCAM.
+        name: fmgr_system_npu_nputcam_data
+        namespace: ""
+      - description: Mask fields of TCAM.
+        name: fmgr_system_npu_nputcam_mask
+        namespace: ""
+      - description: Mirror action of TCAM.
+        name: fmgr_system_npu_nputcam_miract
+        namespace: ""
+      - description: Priority action of TCAM.
+        name: fmgr_system_npu_nputcam_priact
+        namespace: ""
+      - description: Source action of TCAM.
+        name: fmgr_system_npu_nputcam_sact
+        namespace: ""
+      - description: Target action of TCAM.
+        name: fmgr_system_npu_nputcam_tact
+        namespace: ""
+      - description: Configure video filter keywords.
+        name: fmgr_videofilter_keyword
+        namespace: ""
+      - description: List of keywords.
+        name: fmgr_videofilter_keyword_word
+        namespace: ""
+      - description: YouTube filter entries.
+        name: fmgr_videofilter_profile_filters
+        namespace: ""
+      - description: Configure YouTube API keys.
+        name: fmgr_videofilter_youtubekey
+        namespace: ""
+    release_date: "2024-02-06"
+  2.5.0:
+    changes:
+      bugfixes:
+        - Improved bypass_validation. If you now set bypass_validation to true, it will
+          allow you to send parameters that are not defined in the schema.
+        - Improved documentation, added description for all "no description" modules.
+        - Improved documentation.
+        - Supported "state:absent" for all modules end with "_objectmember", "_scopemember",
+          and "_scetionvalue".
+        - Supported FortiManager 6.4.14, 7.0.11, 7.0.12, 7.2.5.
+      minor_changes:
+        - Renamed the input argument "message" to "fmgr_message" to comply with Ansible
+          requirements.
+      release_summary: release fortinet.fortimanager 2.5.0
+    fragments:
+      - 2.5.0.yml
+    release_date: "2024-04-30"
+  2.6.0:
+    changes:
+      bugfixes:
+        - Added more description in the documentation.
+        - Deleted 9 fmgr_switchcontroller_managedswitch_* modules. Will support them
+          in FortiManager Device Ansible.
+        - Improved fmgr_fact, fmgr_clone, fmgr_move.
+      minor_changes:
+        - Supported FortiManager 7.4.3. 7 new modules.
+        - Supported ansible-core 2.17.
+      release_summary: release fortinet.fortimanager 2.6.0
+    fragments:
+      - 2.6.0.yml
+    modules:
+      - description: FortiExtender wifi configuration.
+        name: fmgr_extensioncontroller_extenderprofile_wifi
+        namespace: ""
+      - description: Radio-1 config for Wi-Fi 2.
+        name: fmgr_extensioncontroller_extenderprofile_wifi_radio1
+        namespace: ""
+      - description: Radio-2 config for Wi-Fi 5GHz
+        name: fmgr_extensioncontroller_extenderprofile_wifi_radio2
+        namespace: ""
+      - description: ClientHelloOuter SNIs to be blocked.
+        name: fmgr_firewall_sslsshprofile_echoutersni
+        namespace: ""
+      - description: UEBAsettings.
+        name: fmgr_system_log_ueba
+        namespace: ""
+      - description: Configure the rate of ICMP messages generated by this FortiGate.
+        name: fmgr_system_npu_icmpratectrl
+        namespace: ""
+      - description: Configure external identity provider.
+        name: fmgr_user_externalidentityprovider
+        namespace: ""
+    release_date: "2024-08-05"
+  2.7.0:
+    changes:
+      bugfixes:
+        - Fixed Bug in "fmgr_fact"
+        - Improved documentation.
+      minor_changes:
+        - Supported FortiManager 7.6.0. Added 7 new modules.
+        - Supported check mode for all modules except "fmgr_generic". You can use "ansible-playbook
+          -i <your-host-file> <your-playbook> --check" to validate whether your playbook
+          will make any changes to the FortiManager.
+      release_summary: Release fortinet.fortimanager 2.7.0
+    fragments:
+      - 2.7.0.yml
+    modules:
+      - description: Fmg sase manager settings
+        name: fmgr_fmg_sasemanager_settings
+        namespace: ""
+      - description: Fmg sase manager status
+        name: fmgr_fmg_sasemanager_status
+        namespace: ""
+      - description: Configure proxy policies.
+        name: fmgr_pm_config_pblock_firewall_proxypolicy
+        namespace: ""
+      - description: Configure proxy policies.
+        name: fmgr_pm_config_pblock_firewall_proxypolicy_sectionvalue
+        namespace: ""
+      - description: Policy block write access.
+        name: fmgr_system_admin_user_policyblock
+        namespace: ""
+      - description: fmg clsuter.
+        name: fmgr_system_fmgcluster
+        namespace: ""
+      - description: Peer.
+        name: fmgr_system_fmgcluster_peer
+        namespace: ""
+    release_date: "2024-08-30"
+  2.8.0:
+    changes:
+      bugfixes:
+        - Changed all input argument name in ansible built-in documentation to the underscore
+          format. E.g., changed "var-name" to "var_name".
+        - Improved code logic, reduced redundant requests for system information.
+      minor_changes:
+        - Supported FortiManager 6.2.13, 6.4.15, 7.0.13, 7.2.8, 7.4.5, 7.6.1. Added
+          1 new module.
+        - Supported check diff for some modules except "fmgr_generic". You can use "ansible-playbook
+          -i <your-host-file> <your-playbook> --check --diff" to check what changes
+          your playbook will make to the FortiManager.
+      release_summary: Release fortinet.fortimanager 2.8.0
+    fragments:
+      - 2.8.0.yml
+    modules:
+      - description: Configure YouTube API keys.
+        name: fmgr_pkg_videofilter_youtubekey
+        namespace: ""
+    release_date: "2024-11-14"
+  2.8.1:
+    changes:
+      bugfixes:
+        - Fixed a bug where rc_failed and rc_succeeded did not work.
+      release_summary: Release fortinet.fortimanager 2.8.1
+    fragments:
+      - 2.8.1.yml
+    release_date: "2024-11-22"
+  2.8.2:
+    changes:
+      bugfixes:
+        - Modified built-in document to support sanity tests in ansible-core 2.18.0.
+          No functionality changed.
+      release_summary: Release fortinet.fortimanager 2.8.2
+    fragments:
+      - 2.8.2.yml
+    release_date: "2024-11-26"
+  2.9.0:
+    changes:
+      bugfixes:
+        - Changed parameter type of some parameters.
+      minor_changes:
+        - Supported FortiManager 7.2.9, 7.4.6, 7.6.2. Added 3 new modules.
+      release_summary: Release fortinet.fortimanager 2.9.0
+    fragments:
+      - 2.9.0.yml
+    modules:
+      - description: IE allow list.
+        name: fmgr_gtp_ieallowlist
+        namespace: ""
+      - description: Entries of allow list for unknown or out-of-state IEs.
+        name: fmgr_gtp_ieallowlist_entries
+        namespace: ""
+      - description: Ums setting
+        name: fmgr_ums_setting
+        namespace: ""
+    release_date: "2025-02-21"
+  2.9.1:
+    changes:
+      bugfixes:
+        - Changed the default playbook examples for each module to pass ansible-lint.
+        - Corrected mainkey of some modules.
+      release_summary: Release fortinet.fortimanager 2.9.1
+    fragments:
+      - 2.9.1.yml
+    release_date: "2025-03-14"
+  2.10.0:
+    changes:
+      bugfixes:
+        - Added "gather_facts" to all example playbooks.
+        - Fixed a BUG that occurred when username/password and access token were used
+          at the same time.
+      minor_changes:
+        - Supported new modules in FortiManager 7.4.6, 7.4.7, 7.6.3.
+      release_summary: Release fortinet.fortimanager 2.10.0
+    fragments:
+      - 2.10.0.yml
+    modules:
+      - description: Configure exact-data-match template used by DLP scan.
+        name: fmgr_dlp_exactdatamatch
+        namespace: ""
+      - description: DLP exact-data-match column types.
+        name: fmgr_dlp_exactdatamatch_columns
+        namespace: ""
+      - description: Configure labels used by DLP blocking.
+        name: fmgr_dlp_label
+        namespace: ""
+      - description: DLP label entries.
+        name: fmgr_dlp_label_entries
+        namespace: ""
+      - description: FortiExtender wifi vap configuration.
+        name: fmgr_extensioncontroller_extendervap
+        namespace: ""
+      - description: Configure Internet Services Extension.
+        name: fmgr_firewall_internetserviceextension
+        namespace: ""
+      - description: Disable entries in the Internet Service database.
+        name: fmgr_firewall_internetserviceextension_disableentry
+        namespace: ""
+      - description: IPv6 ranges in the disable entry.
+        name: fmgr_firewall_internetserviceextension_disableentry_ip6range
+        namespace: ""
+      - description: IPv4 ranges in the disable entry.
+        name: fmgr_firewall_internetserviceextension_disableentry_iprange
+        namespace: ""
+      - description: Port ranges in the disable entry.
+        name: fmgr_firewall_internetserviceextension_disableentry_portrange
+        namespace: ""
+      - description: Entries added to the Internet Service extension database.
+        name: fmgr_firewall_internetserviceextension_entry
+        namespace: ""
+      - description: Port ranges in the custom entry.
+        name: fmgr_firewall_internetserviceextension_entry_portrange
+        namespace: ""
+      - description: Cli fmupdate fgd setting
+        name: fmgr_fmupdate_fgdsetting
+        namespace: ""
+      - description: Cli fmupdate fgd setting server override
+        name: fmgr_fmupdate_fgdsetting_serveroverride
+        namespace: ""
+      - description: RAT timeout profile
+        name: fmgr_gtp_rattimeoutprofile
+        namespace: ""
+      - description: Configure an ICAP server group consisting of multiple forward servers.
+        name: fmgr_icap_servergroup
+        namespace: ""
+      - description: Add ICAP servers to a list to form a server group.
+        name: fmgr_icap_servergroup_serverlist
+        namespace: ""
+      - description: Accept/reject devices matching specified filter types.
+        name: fmgr_system_log_deviceselector
+        namespace: ""
+      - description: Configure FortiTelemetry agent profiles.
+        name: fmgr_telemetrycontroller_agentprofile
+        namespace: ""
+      - description: Configure FortiTelemetry predefined applications.
+        name: fmgr_telemetrycontroller_application_predefine
+        namespace: ""
+      - description: Configure FortiTelemetry profiles.
+        name: fmgr_telemetrycontroller_profile
+        namespace: ""
+      - description: Configure applications.
+        name: fmgr_telemetrycontroller_profile_application
+        namespace: ""
+      - description: Service level agreement
+        name: fmgr_telemetrycontroller_profile_application_sla
+        namespace: ""
+      - description: Configure SCIM client entries.
+        name: fmgr_user_scim
+        namespace: ""
+      - description: Wireless controller vap ip6 prefix list
+        name: fmgr_wireless_vap_ip6prefixlist
+        namespace: ""
+    release_date: "2025-06-18"
+  2.11.0:
+    changes:
+      bugfixes:
+        - Changed the logic of getting FortiManager system information to prevent permission
+          denied error.
+        - Supported module_defaults. General variables can be specified in one place
+          by using module_defaults.
+      minor_changes:
+        - Supported new schemas in FortiManager 7.0.14, 7.2.10, 7.2.11.
+      release_summary: Release fortinet.fortimanager 2.11.0
+    fragments:
+      - 2.11.0.yml
+    release_date: "2025-10-03"

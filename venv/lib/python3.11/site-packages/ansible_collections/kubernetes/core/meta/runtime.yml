@@ -1,0 +1,51 @@
+---
+requires_ansible: '>=2.16.0'
+
+action_groups:
+  helm:
+    - helm
+    - helm_info
+    - helm_repository
+  k8s:
+    - k8s
+    - k8s_exec
+    - k8s_info
+    - k8s_log
+    - k8s_scale
+    - k8s_service
+    - k8s_cp
+    - k8s_drain
+
+plugin_routing:
+  inventory:
+    openshift:
+      redirect: community.okd.openshift
+    k8s:
+      tombstone:
+        removal_version: 6.0.0
+        warning_text: >-
+          The k8s inventory plugin was slated for deprecation in 3.3.0 and has been removed in release 6.0.0. Use kubernetes.core.k8s_info and ansible.builtin.add_host instead.
+  modules:
+    k8s_auth:
+      redirect: community.okd.k8s_auth
+    k8s_facts:
+      tombstone:
+        removal_version: 2.0.0
+        warning_text: Use kubernetes.core.k8s_info instead.
+    k8s_raw:
+      tombstone:
+        removal_version: 0.1.0
+        warning_text: The k8s_raw module was slated for deprecation in Ansible 2.10 and has been removed. Use kubernetes.core.k8s instead.
+    openshift_raw:
+      tombstone:
+        removal_version: 0.1.0
+        warning_text: The openshift_raw module was slated for deprecation in Ansible 2.10 and has been removed. Use kubernetes.core.k8s instead.
+    openshift_scale:
+      tombstone:
+        removal_version: 0.1.0
+        warning_text: The openshift_scale module was slated for deprecation in Ansible 2.10 and has been removed. Use kubernetes.core.k8s_scale instead.
+  lookup:
+    openshift:
+      tombstone:
+        removal_version: 0.1.0
+        warning_text: The openshift lookup plugin was slated for deprecation in Ansible 2.10 and has been removed. Use kubernetes.core.k8s instead.

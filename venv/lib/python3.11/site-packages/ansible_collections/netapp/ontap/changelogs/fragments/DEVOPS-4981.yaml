@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_rest_info - new option ``owning_resource`` for REST info that requires an owning resource. For instance volume for a snapshot
+  - na_ontap_rest_info - support added for protocols/nfs/export-policies/rules (Requires owning_resource to be set)
+  - na_ontap_rest_info - support added for storage/volumes/snapshots (Requires owning_resource to be set)

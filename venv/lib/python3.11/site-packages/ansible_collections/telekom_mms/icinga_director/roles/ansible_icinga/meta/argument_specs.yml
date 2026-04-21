@@ -1,0 +1,1355 @@
+---
+argument_specs:
+  main:
+    short_description: Configure an Icinga instance with Icinga Director
+    description:
+      - >-
+        The main entry point includes all tasks for objects that can be created
+        with the role.
+    options:
+      icinga_timeperiods:
+        description:
+          - A list of Icinga timeperiods to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Name of the time period.
+            type: str
+          display_name:
+            description:
+              - Alternative name for this timeperiod.
+            type: str
+          imports:
+            description:
+              - Importable templates, add as many as you want.
+              - >-
+                Please note that order matters when importing properties from
+                multiple templates - last one wins.
+            type: list
+            elements: str
+          ranges:
+            description: A dict of days and timeperiods.
+            type: dict
+      icinga_user_templates:
+        description:
+          - A list of Icinga user_templates to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Name of the user template.
+            required: true
+            type: str
+          imports:
+            description:
+              - Importable templates, add as many as you want.
+              - >-
+                Please note that order matters when importing properties from
+                multiple templates - last one wins.
+            type: list
+            elements: str
+          period:
+            description:
+              - >-
+                The name of a time period which determines when notifications to
+                this User should be triggered. Not set by default.
+            type: str
+          enable_notifications:
+            description:
+              - Whether to send notifications for this user.
+            type: bool
+          vars:
+            description:
+              - Custom properties of the user.
+            type: "dict"
+            default: {}
+      icinga_users:
+        description:
+          - A list of Icinga users to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Name of the user.
+            required: true
+            type: str
+          display_name:
+            description:
+              - Alternative name for this user.
+              - >-
+                In case your object name is a username, this could be the full
+                name of the corresponding person.
+            type: str
+          imports:
+            description:
+              - Importable templates, add as many as you want.
+              - >-
+                Please note that order matters when importing properties from
+                multiple templates - last one wins.
+            type: list
+            elements: str
+          pager:
+            description:
+              - The pager address of the user.
+            type: str
+          period:
+            description:
+              - >-
+                The name of a time period which determines when notifications to
+                this User should be triggered. Not set by default.
+            type: str
+          disabled:
+            description:
+              - Disabled objects will not be deployed.
+            type: bool
+            default: false
+            choices:
+              - true
+              - false
+          email:
+            description:
+              - The Email address of the user.
+            type: str
+          groups:
+            description:
+              - User groups that should be directly assigned to this user.
+              - >-
+                Groups can be useful for various reasons. You might prefer to
+                send notifications to groups instead of single users.
+            type: list
+            elements: str
+          vars:
+            description:
+              - Custom properties of the user.
+            type: "dict"
+            default: {}
+      icinga_endpoints:
+        description:
+          - A list of Icinga endpoints to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Icinga object name for this endpoint.
+              - >-
+                This is usually a fully qualified host name but it could
+                basically be any kind of string.
+              - >-
+                To make things easier for your users we strongly suggest to use
+                meaningful names for templates.
+              - >-
+                For example "generic-endpoint" is ugly, "Standard Linux Server"
+                is easier to understand.
+            required: true
+            type: str
+          host:
+            description:
+              - The hostname/IP address of the remote Icinga 2 instance.
+            type: str
+          port:
+            description:
+              - >-
+                The service name/port of the remote Icinga 2 instance. Defaults
+                to 5665.
+            type: int
+          log_duration:
+            description:
+              - >-
+                Duration for keeping replay logs on connection loss. Defaults to
+                1d (86400 seconds). Attribute is specified in seconds. If
+                log_duration is set to 0, replaying logs is disabled. You could
+                also specify the value in human readable format like 10m for 10
+                minutes or 1h for one hour.
+            type: str
+          zone:
+            description:
+              - The name of the zone this endpoint is part of.
+            type: str
+      icinga_zones:
+        description:
+          - A list of Icinga zones to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Icinga object name for this zone.
+              - >-
+                This is usually a fully qualified host name but it could
+                basically be any kind of string.
+              - >-
+                To make things easier for your users we strongly suggest to use
+                meaningful names for templates.
+              - >-
+                For example "generic-zone" is ugly, "Standard Linux Server" is
+                easier to understand.
+            required: true
+            type: str
+          is_global:
+            description:
+              - >-
+                Whether configuration files for this zone should be synced to
+                all endpoints.
+            default: false
+            type: bool
+          parent:
+            description:
+              - The name of the parent zone.
+            type: str
+      icinga_hostgroups:
+        description:
+          - A list of Icinga hostgroups to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Icinga object name for this hostgroup.
+            required: true
+            type: str
+          display_name:
+            description:
+              - An alternative display name for this group.
+              - If you wonder how this could be helpful just leave it blank.
+            type: str
+          assign_filter:
+            description:
+              - This allows you to configure an assignment filter.
+              - >-
+                Please feel free to combine as many nested operators as you
+                want.
+            type: str
+      icinga_host_templates:
+        description:
+          - A list of Icinga host_templates to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Icinga object name for this host template.
+              - >-
+                This is usually a fully qualified host name but it could
+                basically be any kind of string.
+              - >-
+                To make things easier for your users we strongly suggest to use
+                meaningful names for templates.
+              - >-
+                For example "generic-host" is ugly, "Standard Linux Server" is
+                easier to understand.
+            required: true
+            type: str
+          display_name:
+            description:
+              - Alternative name for this host.
+              - >-
+                Might be a host alias or and kind of string helping your users
+                to identify this host.
+            type: str
+          address:
+            description:
+              - >-
+                Host address. Usually an IPv4 address, but may be any kind of
+                address your check plugin is able to deal with.
+            type: str
+          address6:
+            description:
+              - >-
+                Host IPv6 address. Usually an IPv64 address, but may be any kind
+                of address your check plugin is able to deal with.
+            type: str
+          groups:
+            description:
+              - >-
+                Hostgroups that should be directly assigned to this node.
+                Hostgroups can be useful for various reasons.
+              - >-
+                You might assign service checks based on assigned hostgroup.
+                They are also often used as an instrument to enforce restricted
+                views in Icinga Web 2.
+              - >-
+                Hostgroups can be directly assigned to single hosts or to host
+                templates.
+              - >-
+                You might also want to consider assigning hostgroups using apply
+                rules.
+            type: list
+            elements: str
+            default: []
+          check_command:
+            description:
+              - The name of the check command.
+              - >-
+                Though this is not required to be defined in the director, you
+                still have to supply a check_command in a host or host-template.
+            type: str
+          event_command:
+            description:
+              - >-
+                Event command for host which gets called on every check
+                execution if one of these conditions matches
+              - The host is in a soft state
+              - The host state changes into a hard state
+              - The host state recovers from a soft or hard state to OK/Up
+            type: str
+          check_interval:
+            description:
+              - Your regular check interval.
+            type: str
+          disabled:
+            description:
+              - Disabled objects will not be deployed.
+            default: false
+            type: bool
+            choices:
+              - true
+              - false
+          imports:
+            description:
+              - Choose a host-template.
+            type: list
+            elements: str
+          zone:
+            description:
+              - Set the zone.
+            type: str
+          vars:
+            description:
+              - Custom properties of the host.
+            type: dict
+          notes:
+            description:
+              - Additional notes for this object.
+            type: str
+            version_added: 1.8.0
+          notes_url:
+            description:
+              - An URL pointing to additional notes for this object.
+              - Separate multiple urls like this "http://url1 http://url2"
+              - Maximum length is 255 characters.
+            type: str
+            version_added: 1.8.0
+          has_agent:
+            description:
+              - Whether this host has the Icinga 2 Agent installed.
+            type: bool
+            choices:
+              - true
+              - false
+            version_added: 1.9.0
+          master_should_connect:
+            description:
+              - >-
+                Whether the parent (master) node should actively try to connect
+                to this agent.
+            type: bool
+            choices:
+              - true
+              - false
+            version_added: 1.9.0
+          accept_config:
+            description:
+              - Whether the agent is configured to accept config.
+            type: bool
+            choices:
+              - true
+              - false
+            version_added: 1.9.0
+      icinga_hosts:
+        description:
+          - A list of Icinga hosts to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Icinga object name for this host.
+              - >-
+                This is usually a fully qualified host name but it could
+                basically be any kind of string.
+              - >-
+                To make things easier for your users we strongly suggest to use
+                meaningful names for templates.
+              - >-
+                For example "generic-host" is ugly, "Standard Linux Server" is
+                easier to understand.
+            required: true
+            type: str
+          display_name:
+            description:
+              - >-
+                Alternative name for this host. Might be a host alias or and
+                kind of string helping your users to identify this host.
+            type: str
+          address:
+            description:
+              - >-
+                Host address. Usually an IPv4 address, but may be any kind of
+                address your check plugin is able to deal with.
+            type: str
+          address6:
+            description:
+              - >-
+                Host IPv6 address. Usually an IPv6 address, but may be any kind
+                of address your check plugin is able to deal with.
+            type: str
+            version_added: 1.4.0
+          groups:
+            description:
+              - >-
+                Hostgroups that should be directly assigned to this node.
+                Hostgroups can be useful for various reasons.
+              - >-
+                You might assign service checks based on assigned hostgroup.
+                They are also often used as an instrument to enforce restricted
+                views in Icinga Web 2.
+              - >-
+                Hostgroups can be directly assigned to single hosts or to host
+                templates.
+              - >-
+                You might also want to consider assigning hostgroups using apply
+                rules.
+            type: list
+            elements: str
+            default: []
+          disabled:
+            description:
+              - Disabled objects will not be deployed.
+            default: false
+            type: bool
+            choices:
+              - true
+              - false
+          imports:
+            description:
+              - Choose a Host Template. Required when state is C(present).
+            type: list
+            elements: str
+            required: true
+          zone:
+            description:
+              - Set the zone.
+            type: str
+          vars:
+            description:
+              - Custom properties of the host.
+            type: dict
+          check_command:
+            description:
+              - The name of the check command.
+              - >-
+                Though this is not required to be defined in the director, you
+                still have to supply a check_command in a host or host-template.
+            type: str
+          notes:
+            description:
+              - Additional notes for this object.
+            type: str
+            version_added: 1.8.0
+          notes_url:
+            description:
+              - An URL pointing to additional notes for this object.
+              - Separate multiple urls like this "http://url1 http://url2"
+              - The maximum length is 255 characters.
+            type: str
+            version_added: 1.8.0
+          has_agent:
+            description:
+              - Whether this host has the Icinga 2 Agent installed.
+            type: bool
+            choices:
+              - true
+              - false
+            version_added: 1.9.0
+          master_should_connect:
+            description:
+              - >-
+                Whether the parent (master) node should actively try to connect
+                to this agent.
+            type: bool
+            choices:
+              - true
+              - false
+            version_added: 1.9.0
+          accept_config:
+            description:
+              - Whether the agent is configured to accept config.
+            type: bool
+            choices:
+              - true
+              - false
+            version_added: 1.9.0
+      icinga_command_templates:
+        description:
+          - A list of Icinga command_templates to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          command:
+            description:
+              - The command Icinga should run.
+              - >-
+                Absolute paths are accepted as provided, relative paths are
+                prefixed with "PluginDir + ", similar Constant prefixes are
+                allowed.
+              - >-
+                Spaces will lead to separation of command path and standalone
+                arguments.
+              - >-
+                Please note that this means that we do not support spaces in
+                plugin names and paths right now.
+            type: str
+          command_type:
+            description:
+              - >-
+                Plugin Check commands are what you need when running checks
+                against your infrastructure.
+              - >-
+                Notification commands will be used when it comes to notify your
+                users.
+              - >-
+                Event commands allow you to trigger specific actions when
+                problems occur.
+              - >-
+                Some people use them for auto-healing mechanisms, like
+                restarting services or rebooting systems at specific thresholds.
+            choices:
+              - PluginCheck
+              - PluginNotification
+              - PluginEvent
+            default: PluginCheck
+            type: str
+          disabled:
+            description:
+              - Disabled objects will not be deployed.
+            type: bool
+            default: false
+            choices:
+              - true
+              - false
+          name:
+            description:
+              - Name of the command template.
+            required: true
+            type: str
+          imports:
+            description:
+              - >-
+                Importable templates, add as many as you want. Please note that
+                order matters when importing properties from multiple templates
+                - last one wins.
+            type: list
+            elements: str
+          timeout:
+            description:
+              - >-
+                Optional command timeout. Allowed values are seconds or
+                durations postfixed with a specific unit (for example 1m or also
+                3m 30s).
+            type: str
+          zone:
+            description:
+              - >-
+                Icinga cluster zone. Allows to manually override Directors
+                decisions of where to deploy your config to.
+              - >-
+                You should consider not doing so unless you gained deep
+                understanding of how an Icinga Cluster stack works.
+            type: str
+          vars:
+            description:
+              - Custom properties of the command template.
+            type: dict
+          arguments:
+            description:
+              - Arguments of the command template.
+            type: dict
+      icinga_commands:
+        description:
+          - A list of Icinga commands to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          command:
+            description:
+              - >-
+                The command Icinga should run. Required when state is
+                C(present).
+              - >-
+                Absolute paths are accepted as provided, relative paths are
+                prefixed with "PluginDir + ", similar Constant prefixes are
+                allowed.
+              - >-
+                Spaces will lead to separation of command path and standalone
+                arguments.
+              - >-
+                Please note that this means that we do not support spaces in
+                plugin names and paths right now.
+            type: str
+          command_type:
+            description:
+              - >-
+                Plugin Check commands are what you need when running checks
+                against your infrastructure.
+              - >-
+                Notification commands will be used when it comes to notify your
+                users.
+              - >-
+                Event commands allow you to trigger specific actions when
+                problems occur.
+              - >-
+                Some people use them for auto-healing mechanisms, like
+                restarting services or rebooting systems at specific thresholds.
+            choices:
+              - PluginCheck
+              - PluginNotification
+              - PluginEvent
+            default: PluginCheck
+            type: str
+          disabled:
+            description:
+              - Disabled objects will not be deployed.
+            type: bool
+            default: false
+            choices:
+              - true
+              - false
+          name:
+            description:
+              - Name of the command.
+            required: true
+            type: str
+          imports:
+            description:
+              - >-
+                Importable templates, add as many as you want. Please note that
+                order matters when importing properties from multiple templates
+                - last one wins.
+            type: list
+            elements: str
+          timeout:
+            description:
+              - >-
+                Optional command timeout. Allowed values are seconds or
+                durations postfixed with a specific unit (for example 1m or also
+                3m 30s).
+            type: str
+          zone:
+            description:
+              - >-
+                Icinga cluster zone. Allows to manually override Directors
+                decisions of where to deploy your config to.
+              - >-
+                You should consider not doing so unless you gained deep
+                understanding of how an Icinga Cluster stack works.
+            type: str
+          vars:
+            description:
+              - Custom properties of the command.
+            type: dict
+          arguments:
+            description:
+              - Arguments of the command.
+            type: dict
+      icinga_services:
+        description:
+          - A list of Icinga services to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Name of the service.
+            required: true
+            type: str
+          check_command:
+            description:
+              - Check command definition.
+            type: str
+          check_interval:
+            description:
+              - Your regular check interval.
+            type: str
+          check_period:
+            description:
+              - >-
+                The name of a time period which determines when this object
+                should be monitored. Not limited by default.
+            type: str
+          check_timeout:
+            description:
+              - >-
+                Check command timeout in seconds. Overrides the CheckCommand's
+                timeout attribute.
+            type: str
+          enable_active_checks:
+            description:
+              - Whether to actively check this object.
+            type: bool
+          enable_event_handler:
+            description:
+              - Whether to enable event handlers this object.
+            type: bool
+          enable_notifications:
+            description:
+              - Whether to send notifications for this object.
+            type: bool
+          enable_passive_checks:
+            description:
+              - Whether to accept passive check results for this object.
+            type: bool
+          enable_perfdata:
+            description:
+              - Whether to process performance data provided by this object.
+            type: bool
+          groups:
+            description:
+              - Service groups that should be directly assigned to this service.
+              - Servicegroups can be useful for various reasons.
+              - >-
+                They are helpful to provided service-type specific view in
+                Icinga Web 2, either for custom dashboards or as an instrument
+                to enforce restrictions.
+              - >-
+                Service groups can be directly assigned to single services or to
+                service templates.
+            type: list
+            elements: str
+            default: []
+          host:
+            description:
+              - Choose the host this single service should be assigned to.
+            required: true
+            type: str
+          imports:
+            description:
+              - Importable templates, add as many as you want.
+              - >-
+                Please note that order matters when importing properties from
+                multiple templates - last one wins.
+            type: list
+            elements: str
+            default: []
+          max_check_attempts:
+            description:
+              - >-
+                Defines after how many check attempts a new hard state is
+                reached.
+            type: str
+          notes:
+            description:
+              - Additional notes for this object.
+            type: str
+            version_added: 1.8.0
+          notes_url:
+            description:
+              - An URL pointing to additional notes for this object.
+              - Separate multiple urls like this "http://url1 http://url2"
+              - Maximum length is 255 characters.
+            type: str
+            version_added: 1.8.0
+          retry_interval:
+            description:
+              - >-
+                Retry interval, will be applied after a state change unless the
+                next hard state is reached.
+            type: str
+          use_agent:
+            description:
+              - >-
+                Whether the check command for this service should be executed on
+                the Icinga agent.
+            type: bool
+          vars:
+            description:
+              - Custom properties of the service.
+            type: dict
+            default: {}
+          volatile:
+            description:
+              - Whether this check is volatile.
+            type: bool
+          disabled:
+            description:
+              - Disabled objects will not be deployed.
+            type: bool
+            default: false
+            choices:
+              - true
+              - false
+      icinga_service_templates:
+        description:
+          - A list of Icinga service_templates to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Name of the service template.
+            required: true
+            type: str
+          check_command:
+            description:
+              - Check command definition.
+            type: str
+          check_interval:
+            description:
+              - Your regular check interval.
+            type: str
+          check_period:
+            description:
+              - >-
+                The name of a time period which determines when this object
+                should be monitored. Not limited by default.
+            type: str
+          check_timeout:
+            description:
+              - >-
+                Check command timeout in seconds. Overrides the CheckCommand's
+                timeout attribute.
+            type: str
+          enable_active_checks:
+            description:
+              - Whether to actively check this object.
+            type: bool
+          enable_event_handler:
+            description:
+              - Whether to enable event handlers this object.
+            type: bool
+          enable_notifications:
+            description:
+              - Whether to send notifications for this object.
+            type: bool
+          enable_passive_checks:
+            description:
+              - Whether to accept passive check results for this object.
+            type: bool
+          enable_perfdata:
+            description:
+              - Whether to process performance data provided by this object.
+            type: bool
+          event_command:
+            description:
+              - >-
+                Event command for service which gets called on every check
+                execution if one of these conditions matches
+              - The service is in a soft state
+              - The service state changes into a hard state
+              - The service state recovers from a soft or hard state to OK/Up
+            type: str
+          groups:
+            description:
+              - Service groups that should be directly assigned to this service.
+              - Servicegroups can be useful for various reasons.
+              - >-
+                They are helpful to provided service-type specific view in
+                Icinga Web 2, either for custom dashboards or as an instrument
+                to enforce restrictions.
+              - >-
+                Service groups can be directly assigned to single services or to
+                service templates.
+            type: list
+            elements: str
+            default: []
+          imports:
+            description:
+              - Importable templates, add as many as you want.
+              - >-
+                Please note that order matters when importing properties from
+                multiple templates - last one wins.
+            type: list
+            elements: str
+            default: []
+          max_check_attempts:
+            description:
+              - >-
+                Defines after how many check attempts a new hard state is
+                reached.
+            type: str
+          notes:
+            description:
+              - Additional notes for this object.
+            type: str
+            version_added: 1.8.0
+          notes_url:
+            description:
+              - An URL pointing to additional notes for this object.
+              - Separate multiple urls like this "http://url1 http://url2"
+              - Maximum length is 255 characters.
+            type: str
+            version_added: 1.8.0
+          retry_interval:
+            description:
+              - >-
+                Retry interval, will be applied after a state change unless the
+                next hard state is reached.
+            type: str
+          use_agent:
+            description:
+              - >-
+                Whether the check command for this service should be executed
+                on the Icinga agent.
+            type: bool
+          vars:
+            description:
+              - Custom properties of the service template.
+            type: dict
+            default: {}
+          volatile:
+            description:
+              - Whether this check is volatile.
+            type: bool
+          disabled:
+            description:
+              - Disabled objects will not be deployed.
+            type: bool
+            default: false
+            choices:
+              - true
+              - false
+      icinga_service_applies:
+        description:
+          - A list of Icinga service_applies to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Name for the Icinga service apply rule.
+            required: true
+            type: str
+          display_name:
+            description:
+              - Alternative displayed name of the service apply rule.
+            type: str
+          check_command:
+            description:
+              - Check command definition.
+            type: str
+            version_added: 1.7.0
+          check_interval:
+            description:
+              - Your regular check interval.
+            required: false
+            type: str
+          check_period:
+            description:
+              - >-
+                The name of a time period which determines when this object
+                should be monitored. Not limited by default.
+            required: false
+            type: str
+          check_timeout:
+            description:
+              - >-
+                Check command timeout in seconds. Overrides the CheckCommand's
+                timeout attribute.
+            required: false
+            type: str
+          enable_active_checks:
+            description:
+              - Whether to actively check this object.
+            required: false
+            type: bool
+          enable_event_handler:
+            description:
+              - Whether to enable event handlers this object.
+            required: false
+            type: bool
+          enable_notifications:
+            description:
+              - Whether to send notifications for this object.
+            required: false
+            type: bool
+          enable_passive_checks:
+            description:
+              - Whether to accept passive check results for this object.
+            required: false
+            type: bool
+          enable_perfdata:
+            description:
+              - Whether to process performance data provided by this object.
+            required: false
+            type: bool
+          max_check_attempts:
+            description:
+              - >-
+                Defines after how many check attempts a new hard state is
+                reached.
+            required: false
+            type: str
+          retry_interval:
+            description:
+              - >-
+                Retry interval, will be applied after a state change unless the
+                next hard state is reached.
+            required: false
+            type: str
+          groups:
+            description:
+              - Service groups that should be directly assigned to this service.
+              - Servicegroups can be useful for various reasons.
+              - >-
+                They are helpful to provided service-type specific view in
+                Icinga Web 2, either for custom dashboards or as an instrument
+                to enforce restrictions.
+              - >-
+                Service groups can be directly assigned to single services or to
+                service templates.
+            type: list
+            elements: str
+          apply_for:
+            description:
+              - >-
+                Evaluates the apply for rule for all objects with the custom
+                attribute specified.
+              - >-
+                For example selecting "host.vars.custom_attr" will generate "for
+                (config in host.vars.array_var)" where "config" will be
+                accessible through "$config$".
+              - Note - only custom variables of type "Array" are eligible.
+            type: str
+          assign_filter:
+            description:
+              - The filter where the service apply rule will take effect.
+            type: str
+          command_endpoint:
+            description:
+              - The host where the service should be executed on.
+            type: str
+          imports:
+            description:
+              - Importable templates, add as many as you want.
+              - >-
+                Please note that order matters when importing properties from
+                multiple templates - last one wins.
+            type: list
+            elements: str
+          vars:
+            description:
+              - Custom properties of the service apply rule.
+            type: dict
+          notes:
+            description:
+              - Additional notes for this object.
+            type: str
+          notes_url:
+            description:
+              - An URL pointing to additional notes for this object.
+              - Separate multiple urls like this "http://url1 http://url2"
+              - Maximum length is 255 characters.
+            type: str
+      icinga_servicegroups:
+        description:
+          - A list of Icinga sservicegroups to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Name for the Icinga servicegroup.
+            required: true
+            type: str
+          display_name:
+            description:
+              - An alternative display name for this group.
+              - If you wonder how this could be helpful just leave it blank.
+            type: str
+          assign_filter:
+            description:
+              - This allows you to configure an assignment filter.
+              - >-
+                Please feel free to combine as many nested operators as you
+                want.
+            type: str
+      icinga_notifications:
+        description:
+          - A list of Icinga notifications to configure
+        type: list
+        elements: str
+        options:
+          state:
+            description:
+              - Apply feature state.
+            choices:
+              - present
+              - absent
+            default: present
+            type: str
+          name:
+            description:
+              - Name of the notification.
+            required: true
+            type: str
+          notification_interval:
+            description:
+              - >-
+                The notification interval (in seconds). This interval is used
+                for active notifications.
+              - >-
+                Defaults to 30 minutes. If set to 0, re-notifications are
+                disabled.
+            type: str
+          types:
+            description:
+              - The state transition types you want to get notifications for.
+            type: list
+            elements: str
+          users:
+            description:
+              - Users that should be notified by this notification.
+            type: list
+            elements: str
+          states:
+            description:
+              - The host or service states you want to get notifications for.
+            type: list
+            elements: str
+            version_added: 1.9.0
+          apply_to:
+            description:
+              - Whether this notification should affect hosts or services.
+            required: true
+            type: str
+            choices:
+              - host
+              - service
+          assign_filter:
+            description:
+              - The filter where the notification will take effect.
+            type: str
+          imports:
+            description:
+              - >-
+                Importable templates, add as many as you want. Required when
+                state is C(present).
+              - >-
+                Please note that order matters when importing properties from
+                multiple templates - last one wins.
+            type: list
+            elements: str
+          disabled:
+            description:
+              - Disabled objects will not be deployed.
+            type: bool
+            default: false
+            choices:
+              - true
+              - false
+            version_added: 1.9.0
+          vars:
+            description:
+              - Custom properties of the notification.
+            type: dict
+            version_added: 1.9.0
+          time_period:
+            description:
+              - >-
+                The name of a time period which determines when this
+                notification should be triggered.
+            type: str
+            version_added: 1.15.0
+          times_begin:
+            description:
+              - First notification delay.
+              - Delay unless the first notification should be sent.
+            type: int
+            version_added: 1.15.0
+          times_end:
+            description:
+              - Last notification.
+              - When the last notification should be sent.
+            type: int
+            version_added: 1.15.0
+          user_groups:
+            description:
+              - User Groups that should be notified by this notification.
+            type: list
+            elements: str
+            version_added: 1.16.0
+  icinga_service_apply:
+    short_description: Configure an Icinga instance with Icinga Director
+    description:
+      - >-
+        The main entry point includes all tasks for objects that can be created
+        with the role.
+    options:
+      icinga_url:
+        description:
+          - >-
+            HTTP, HTTPS, or FTP URL in the form
+            (http|https|ftp)://[user[:pass]]@host.domain[:port]/path
+        type: str
+      icinga_url_password:
+        description:
+          - >-
+            The password for use in HTTP basic authentication. If the
+            `url_username' parameter is not specified, the `url_password'
+            parameter will not be used.
+        type: str
+      icinga_url_username:
+        description:
+          - >-
+            The username for use in HTTP basic authentication. This parameter
+            can be used without `url_password' for sites that allow empty
+            passwords
+        type: str
+      icinga_use_gssapi:
+        description:
+          - >-
+            Use GSSAPI to perform the authentication, typically this is for
+            Kerberos or Kerberos through Negotiate authentication. Requires the
+            Python library gssapi <https://github.com/pythongssapi/python-
+            gssapi> to be installed. Credentials for GSSAPI can be specified
+            with `url_username'/`url_password' or with the GSSAPI env var
+            `KRB5CCNAME' that specified a custom Kerberos credential cache. NTLM
+            authentication is `not' supported even if the GSSAPI mech for NTLM
+            has been installed.
+        default: false
+        type: bool
+      icinga_use_proxy:
+        description:
+          - >-
+            If `no', it will not use a proxy, even if one is defined in an
+            environment variable on the target hosts.
+        default: true
+        type: bool
+      icinga_validate_certs:
+        description:
+          - >-
+            If `no', SSL certificates will not be validated. icinga_This should
+            only be used on personally controlled sites using selfigned
+            certificates.
+        default: true
+        type: bool
+      icinga_client_cert:
+        description:
+          - >-
+            PEM formatted certificate chain file to be used for SSL client
+            authentication. This file can also include the key as well, and if
+            the key is included, `client_key' is not required.
+        type: path
+      icinga_client_key:
+        description:
+          - >-
+            PEM formatted file that contains your private key to be used for SSL
+            client authentication. If `client_cert' contains both the
+            certificate and key, this option is not required.
+        type: path

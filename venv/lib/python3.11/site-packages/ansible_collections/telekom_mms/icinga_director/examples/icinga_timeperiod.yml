@@ -1,0 +1,27 @@
+---
+- name: Create timeperiod
+  telekom_mms.icinga_director.icinga_timeperiod:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: '24/7'
+    imports:
+      - "timeperiod_template"
+    ranges:
+      monday: "00:00-23:59"
+      tuesday: "00:00-23:59"
+      wednesday: "00:00-23:59"
+      thursday: "00:00-23:59"
+      friday: "00:00-23:59"
+      saturday: "00:00-23:59"
+      sunday: "00:00-23:59"
+- name: Update timeperiod
+  telekom_mms.icinga_director.icinga_timeperiod:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: '24/7'
+    display_name: '24/7'
+    append: true

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_lun_map - TypeError - '>' not supported between instances of 'int' and 'str '.

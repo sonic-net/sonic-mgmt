@@ -1,0 +1,175 @@
+---
+- name: Validating Role Parameters
+  ansible.builtin.assert:
+    that:
+      - aimprovider_zip_file_name != ''
+      - aimprovider_vault_address != ''
+      - aimprovider_api_base_url != ''
+      - aimprovider_folder_name != ''
+      - aimprovider_app_provider_user_location != ''
+      - aimprovider_state == "present"
+      - (not aimprovider_use_shared_logon_authentication|default(false) and password_object is defined) or
+        (aimprovider_use_shared_logon_authentication|default(false) and password_object is not defined)
+
+
+- name: Debug Message
+  ansible.builtin.debug:
+    msg: "Installation params => aimprovider_zip_file_name = {{ aimprovider_zip_file_name }}  aimprovider_aimprovider_folder_name={{ aimprovider_folder_name }}"
+
+- name: Execution block
+  block:
+
+    - name: Copy provider zip to target and unzip
+      ansible.builtin.unarchive:
+        src: "{{ aimprovider_zip_file_name }}"
+        dest: /tmp
+
+    - name: Rename aimparms and copy to var/tmp
+      ansible.builtin.command: cp "/tmp/{{ aimprovider_folder_name }}/aimparms.sample" /var/tmp/aimparms
+      args:
+        creates: /var/tmp/aimparms
+
+    - name: Replace parameters" in /var/tmp/aimparms
+      ansible.builtin.replace:
+        dest: /var/tmp/aimparms
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      with_items:
+        - {regexp: '^AcceptCyberArkEULA=.*$', replace: 'AcceptCyberArkEULA=Yes'}
+        - {regexp: '^LicensedProducts=.*$', replace: 'LicensedProducts=AIM'}
+        - {regexp: '^.?CreateVaultEnvironment=.*$', replace: 'CreateVaultEnvironment=no'}
+        - {regexp: '^VaultFilePath=.*$', replace: 'VaultFilePath=/tmp/{{ aimprovider_folder_name }}/Vault.ini'}
+
+
+    - name: Change Vault.ini to the right address
+      ansible.builtin.replace:
+        dest: "/tmp/{{ aimprovider_folder_name }}/Vault.ini"
+        regexp: '^ADDRESS=.*$'
+        replace: 'ADDRESS={{ aimprovider_vault_address }}'
+
+    - name: Change permission on createcredfile
+      ansible.builtin.file:
+        path: "/tmp/{{ aimprovider_folder_name }}/CreateCredFile"
+        mode: "0755"
+
+    - name: Find rpm
+      ansible.builtin.find:
+        paths: "/tmp/{{ aimprovider_folder_name }}"
+        patterns: "CARKaim-*.rpm"
+      register: aimrpm
+
+    - name: Debug RPM file path
+      ansible.builtin.debug:
+        msg: "RPM file path: {{ aimrpm.files[0].path }}"
+
+    - name: Install Provider
+      ansible.builtin.package:
+        name: "{{ aimrpm.files[0].path }}"
+        state: present
+
+    - name: Verify status of service after installing Provider
+      ansible.builtin.service:
+        name: aimprv
+        state: started
+      register: service_status
+      failed_when: service_status.status != 0
+      ignore_errors: true
+
+    # debug: msg="status of service RC={{command_result.rc}}"
+
+    - name: Logon to CyberArk Vault using PAS Web Services SDK - use_shared_logon_authentication
+      cyberark.pas.cyberark_authentication:
+        api_base_url: "{{ aimprovider_api_base_url }}"
+        use_shared_logon_authentication: true
+        validate_certs: "{{ aimprovider_validate_certs }}"
+      changed_when: false
+      when: (command_result.rc != 0 and aimprovider_use_shared_logon_authentication|default(false))
+
+    - name: Logon to CyberArk Vault using PAS Web Services SDK - Not use_shared_logon_authentication
+      cyberark.pas.cyberark_authentication:
+        api_base_url: "{{ aimprovider_api_base_url }}"
+        username: "{{ password_object.password }}"
+        password: "{{ password_object.passprops.username }}"
+        validate_certs: "{{ aimprovider_validate_certs }}"
+      changed_when: false
+
+    - name: Debug CyberArk session token
+      ansible.builtin.debug:
+        msg: "{{ cyberark_session.token }}"
+      when: (command_result.rc != 0)
+    #    msg: "{{ cyberark_session.token }}"
+    #  when: (command_result.rc != 0)
+
+    - name: Create provider user
+      cyberark.pas.cyberark_user:
+        username: "Prov_{{ ansible_hostname }}"
+        initial_password: "Cyberark1"
+        user_type_name: "AppProvider"
+        location: "{{ aimprovider_app_provider_user_location }}"
+        group_name: "{{ app_provider_user_group }}"
+        change_password_on_the_next_logon: false
+        state: present
+        cyberark_session: "{{ cyberark_session }}"
+      register: cyberarkaction
+
+    - name: Debug user creation status
+      ansible.builtin.debug:
+        msg: "USERCREATED => {{ cyberarkaction }}"
+      when: (command_result.rc != 0 and cyberarkaction.status_code == 201)
+    #    msg: "USERCREATED => {{cyberarkaction}}"
+    #  when: (command_result.rc != 0 and cyberarkaction.status_code == 201)
+
+    - name: Reset provider user credential
+      cyberark.pas.cyberark_user:
+        username: "Prov_{{ ansible_hostname }}"
+        new_password: "Cyberark1"
+        disabled: false
+        state: present
+        cyberark_session: "{{ cyberark_session }}"
+      register: cyberarkaction
+      when: (command_result.rc != 0 and cyberarkaction.status_code == 200)
+
+    - name: Logoff from CyberArk Vault
+      cyberark.pas.cyberark_authentication:
+        state: absent
+        cyberark_session: "{{ cyberark_session }}"
+      changed_when: false
+      when: (command_result.rc != 0)
+
+    - name: Create Provider Initial Cred File
+      ansible.builtin.command:
+        cmd: /opt/CARKaim/bin/createcredfile /etc/opt/CARKaim/vault/appprovideruser.cred Password -Username Prov_{{ ansible_hostname }} -Password Cyberark1
+        creates: /etc/opt/CARKaim/vault/appprovideruser.cred
+      when: (command_result.rc != 0)
+
+    - name: Set vault.ini Into Place
+      ansible.builtin.command:
+        cmd: cp "/tmp/{{ aimprovider_folder_name }}/Vault.ini" /etc/opt/CARKaim/vault/vault.ini
+        creates: /etc/opt/CARKaim/vault/vault.ini
+
+    - name: Start Provider Service
+      ansible.builtin.service:
+        name: aimprv
+        state: started
+      when: (command_result.rc != 0)
+
+    - name: Remove /tmp/{{ aimprovider_folder_name }}
+      ansible.builtin.file:
+        path: '/tmp/{{ aimprovider_folder_name }}'
+        state: absent
+
+    - name: Remove /var/tmp/aimparms
+      ansible.builtin.file:
+        path: '/var/tmp/aimparms'
+        state: absent
+
+  rescue:
+
+    - name: Remove /tmp/{{ aimprovider_folder_name }}
+      ansible.builtin.file:
+        path: '/tmp/{{ aimprovider_folder_name }}'
+        state: absent
+
+    - name: Failure to install
+      ansible.builtin.fail:
+        msg: "AIM Credential Provider Installation failed!"

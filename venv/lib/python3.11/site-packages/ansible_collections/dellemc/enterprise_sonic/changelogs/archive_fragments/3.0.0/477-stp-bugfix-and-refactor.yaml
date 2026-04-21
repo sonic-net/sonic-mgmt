@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_stp - Fix functionality to allow a value of 0 to be configured for the appropriate integer attributes and refactor module code(https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/477).

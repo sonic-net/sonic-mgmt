@@ -1,0 +1,13 @@
+galaxy_info:
+  author: Nathan Swartz (@ndswartz)
+  description: Discover NetApp E-Series storage systems and configures SANtricity Web Services Proxy.
+  company: NetApp, Inc
+  license: BSD-3-Clause
+  platforms: []
+  min_ansible_version: 2.10
+  galaxy_tags:
+    - netapp
+    - eseries
+    - storage
+
+dependencies: []

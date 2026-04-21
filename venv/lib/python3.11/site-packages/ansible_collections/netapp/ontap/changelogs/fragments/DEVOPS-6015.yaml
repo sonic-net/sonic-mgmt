@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_qos_adaptive_policy_group - rename group when from_name is present and state is present.

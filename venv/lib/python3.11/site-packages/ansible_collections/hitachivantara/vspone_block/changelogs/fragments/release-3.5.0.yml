@@ -1,0 +1,45 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_block` introduces several new modules, improves existing functionality and bug fixes."
+bugfixes:
+  - Fixed output details of `host_group_number` and `host_group_id` in `hv_hg` and 'hv_hg_facts' modules to be consistent.
+
+minor_changes:
+  - "Added new module `hv_mp_facts` to retrieve MP Blades information from VSP storage models."
+  - "Added new module `hv_external_paritygroup_facts` to retrieve information about External Parity Group."
+  - "Added new module `hv_external_path_group` to manage External Path Groups."
+  - "Added new module `hv_external_path_group_facts` to retrieve information about External Path Group."
+  - Added the following new parameters to the output of hv_ldev_facts is_compression_acceleration_enabled, data_reduction_process_mode, is_relocation_enabled, is_full_allocation_enabled
+  - Added the ability to format a volume to the hv_ldev module.
+  - Added the ability to change the settings of the following parameters of an LDEV using the hv_ldev module - data_reduction_process_mode, is_compression_acceleration_enabled,
+    is_relocation_enabled,is_full_allocation_enabled, is_alua_enabled
+  - Added the following parameters to creating an LDEV using the hv_ldev module is_parallel_execution_enabled, start_ldev_id, end_ldev_id, external_parity_group,
+    is_compression_acceleration_enabled
+  - Added the ability to set the nick_name of an iSCSI using the hv_iscsi_target module.
+  - Enabled the iSCSI target name together with the port ID as identifiers for the iSCSI target.if both ID and name are specified, the ID is used together with the
+    port ID as the iSCSI target identifier.
+  - Enabled host group name together with port ID as identifiers for a host group.
+  - Added support for releasing the host reservation status by specifying an iSCSI target to the hv_iscsi_target module.
+  - Added support for releasing the host reservation status by specifying a host group to the hv_hostgroup module.
+  - Added support for releasing the host reservation status by specifying the LU path to the hv_iscsi_target module.
+  - Added support for releasing the host reservation status by specifying the LU path to the hv_hostgroup module.
+  - Added support for getting information about a specific LU path to the hv_iscsi_target_facts module.
+  - Added support for setting the nickname of an IQN initiator to the hv_iscsi_target module.
+  - Added support for deleting an iSCSI name of an external storage system that is registered to a port on the local storage system to the hv_storage_port module.
+  - Added support for cloning a Thin Image pair to the hv_snapshot module.
+  - Added support for deleting garbage data for all Thin Image pairs in a snapshot tree to the hv_snapshot module.
+  - Added support for disconnecting from a volume on the external storage system to the hv_external_volume module.
+  - Added support for getting a list of LUs defined for a port on an external storage system to the hv_storage_port_facts module.
+  - Added support for getting a list of ports on an external storage system to the hv_storage_port_facts module.
+  - Added support for getting the iSCSI name of an external storage system that is registered to a port on the local storage system to the hv_storage_port_facts module.
+  - Added support for getting information about an iSCSI target of a port on an external storage system to the hv_storage_port_facts module.
+  - Added support for performing a login test on an iSCSI target of an external storage system that is registered to a port on the local storage system to the hv_storage_port
+    module.
+  - Added support for registering an iSCSI name of an external storage system to a port on the local storage system to the hv_storage_port module.
+  - Added support for cloning pairs in a specified snapshot group to the hv_snapshot_group module.
+  - Added support for getting information about a specific LU path to the hv_hostgroup_facts module.
+  - Added support for setting the nickname for an iSCSI name to the hv_iscsi_target module.
+  - Added support for setting the nickname for a WWN to the hv_hostgroup module.
+  - Added support for reclaiming the zero pages of a DP volume to the hv_ldev module.
+  - Added support for begin_secondary_volume_id and end_secondary_volume_id to the remote replication modules - hv_gad, hv_hur, hv_truecopy.
+  - Added support for lun_id for the secondary host group for TC and HUR. For GAD, lun_id and enable_preferred_path are supported.
+  - Added additional parameters primary_volume_device_group_name and secondary_volume_device_group_name to retrieve ShadowImage group details more quickly.

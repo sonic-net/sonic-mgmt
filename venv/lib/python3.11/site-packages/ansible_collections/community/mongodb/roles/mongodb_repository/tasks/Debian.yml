@@ -1,0 +1,40 @@
+---
+# tasks file for mongodb_repository (Debian os_family)
+- name: Install debian packages
+  apt:
+    name: "{{ debian_packages }}"
+    state: present
+  register: _apt
+  until: _apt is succeeded
+  retries: 5
+  tags:
+    - "pkg"
+    - "setup"
+    - "debian"
+
+- name: Add apt key for MongoDB repository
+  apt_key:
+    url: "{{ debian.apt_key_url }}"
+    state: present
+  register: _apt
+  until: _apt is succeeded
+  retries: 5
+  tags:
+    - "pkg"
+    - "setup"
+    - "mongodb"
+    - "debian"
+
+- name: Ensure MongoDB apt repository exists
+  apt_repository:
+    repo: "{{ debian.apt_repository_repo }}"
+    state: present
+    filename: "mongodb-{{ mongodb_version }}"
+  register: _apt
+  until: _apt is succeeded
+  retries: 5
+  tags:
+    - "pkg"
+    - "setup"
+    - "mongodb"
+    - "debian"

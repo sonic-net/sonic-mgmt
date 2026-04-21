@@ -1,0 +1,67 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    
+    - name: Wait for port 8080 to become open
+      tags: node_wait_for
+      wait_for:
+        port: 8080
+        sleep: 1
+        delay: 2
+        timeout: 60
+
+    - name: Get RavenDB version
+      become: yes
+      command: >
+        /usr/lib/ravendb/server/Raven.Server --version
+      register: ravendb_version_result
+      changed_when: false
+
+    - name: Make sure it's updated
+      assert:
+        that:
+          - ravendb_version_result.stdout.startswith('6.2')
+        fail_msg: "Server version output: {{ ravendb_version_result.stdout }}"
+
+    - name: Load settings.json
+      become: yes
+      slurp:
+        src: "/etc/ravendb/settings.json"
+      register: settings_file
+    
+    - name: Decode and parse settings.json
+      set_fact:
+        settings: "{{ settings_file['content'] | b64decode | from_json }}"
+
+    - name: Assert it's unsecured
+      ansible.builtin.assert:
+        that:
+          - settings['ServerUrl'] is not regex('^https:')
+
+    - name: Get service status
+      become: true
+      systemd:
+        name: ravendb.service
+        state: started
+      register: service_status
+
+    - name: Assert service state
+      ansible.builtin.assert:
+        that:
+          - service_status.status['ActiveState'] == 'active'
+
+    - name: Ensure alive
+      retries: 10
+      delay: 2
+      tags: node_ensure_alive
+      ansible.builtin.uri:
+        url: "http://localhost:8080/setup/alive"
+        method: GET
+        status_code: 204
+
+    - name: Get databases
+      ansible.builtin.uri:
+        url: http://localhost:8080/databases
+      register: databases

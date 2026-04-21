@@ -1,0 +1,62 @@
+{
+ "collection_info": {
+  "namespace": "cisco",
+  "name": "dnac",
+  "version": "6.43.0",
+  "authors": [
+   "Rafael Campos <rcampos@altus.cr>",
+   "William Astorga <wastorga@altus.cr>",
+   "Jose Bogarin <jbogarin@altus.cr>",
+   "Bryan Vargas <bvargas@altus.cr>",
+   "Francisco Mu\u00f1oz <fmunoz@altus.cr>",
+   "Madhan Sankaranarayanan <madsanka@cisco.com>",
+   "Pawan Singh <pawansi@cisco.com>",
+   "Rishita Chowdhary (@rishitachowdhary)",
+   "Muthu Rakesh Babu <mutbabu@cisco.com>",
+   "Akash Bhaskaran <akabhask@cisco.com>",
+   "Abinash Mishra <abimishr@cisco.com>",
+   "Abhishek Maheshwari <abmahesh@cisco.com>",
+   "Phan Nguyen <phannguy@cisco.com>",
+   "Rugvedi Kapse <rukapse@cisco.com>",
+   "Rangaprabhu Deenadayalu <radeenad@cisco.com>",
+   "Ajith Andrew J <jajandre@cisco.com>",
+   "Syed Khadeer Ahmed <syedkahm@cisco.com>",
+   "A Mohamed Rafeek <mabdulk2@cisco.com>",
+   "Trupti A Shetty <trashett@cisco.com>",
+   "Sonali Deepthi Kesali <skesali@cisco.com>",
+   "Megha Kandari <mekandar@cisco.com>",
+   "Archit Soni <arcsoni@cisco.com>",
+   "Luna Aliaj <majlona@cisco.com>",
+   "Priyadharshini Balakumar <pbalaku2@cisco.com>",
+   "Karthick S N <kasn@cisco.com>",
+   "Sunil Shatagopa <sshatago@cisco.com>"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "cisco",
+   "dnac",
+   "cloud",
+   "collection",
+   "networking",
+   "sdn"
+  ],
+  "description": "Ansible Modules for Cisco DNA Center",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {
+   "ansible.utils": ">=2.0.0,<7.0"
+  },
+  "repository": "https://github.com/cisco-en-programmability/dnacenter-ansible",
+  "documentation": "https://cisco-en-programmability.github.io/dnacenter-ansible/",
+  "homepage": "https://github.com/cisco-en-programmability/dnacenter-ansible",
+  "issues": "https://github.com/cisco-en-programmability/dnacenter-ansible/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "2a8f55fb67213c3f34e8c464cca9f8737ff30853ce7ab53eb8068a6130eaeb97",
+  "format": 1
+ },
+ "format": 1
+}

@@ -1,0 +1,3 @@
+bugfixes:
+- Fix a bug that causes an update error when using the `grafana_datasource` module on Grafana >=9.0.0
+  (https://github.com/ansible-collections/community.grafana/issues/248).

@@ -1,0 +1,99 @@
+objects:
+  role: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  filter: {}
+  httpapi: {}
+  inventory: {}
+  lookup: {}
+  module:
+    device:
+      description: Manage device on Dell PowerFlex
+      name: device
+      namespace: ''
+      version_added: 1.1.0
+    fault_set:
+      description: Manage Fault Sets on Dell PowerFlex
+      name: fault_set
+      namespace: ''
+      version_added: 2.2.0
+    info:
+      description: Gathering information about Dell PowerFlex
+      name: info
+      namespace: ''
+      version_added: 1.0.0
+    mdm_cluster:
+      description: Manage MDM cluster on Dell PowerFlex
+      name: mdm_cluster
+      namespace: ''
+      version_added: 1.3.0
+    nvme_host:
+      description: Manage NVMe Hosts on Dell PowerFlex
+      name: nvme_host
+      namespace: ''
+      version_added: 2.6.0
+    protection_domain:
+      description: Manage Protection Domain on Dell PowerFlex
+      name: protection_domain
+      namespace: ''
+      version_added: 1.2.0
+    replication_consistency_group:
+      description: Manage replication consistency groups on Dell PowerFlex
+      name: replication_consistency_group
+      namespace: ''
+      version_added: 1.5.0
+    replication_pair:
+      description: Manage replication pairs on Dell PowerFlex
+      name: replication_pair
+      namespace: ''
+      version_added: 1.6.0
+    resource_group:
+      description: Manage resource group deployments on Dell PowerFlex.
+      name: resource_group
+      namespace: ''
+      version_added: 2.3.0
+    sdc:
+      description: Manage SDCs on Dell PowerFlex
+      name: sdc
+      namespace: ''
+      version_added: 1.0.0
+    sds:
+      description: Manage SDS on Dell PowerFlex
+      name: sds
+      namespace: ''
+      version_added: 1.1.0
+    sdt:
+      description: Manage SDT on Dell PowerFlex
+      name: sds
+      namespace: ''
+      version_added: 2.6.0
+    snapshot:
+      description: Manage Snapshots on Dell PowerFlex
+      name: snapshot
+      namespace: ''
+      version_added: 1.0.0
+    snapshot_policy:
+      description: Manage snapshot policies on Dell PowerFlex
+      name: snapshot_policy
+      namespace: ''
+      version_added: 1.7.0
+    storagepool:
+      description: Managing Dell PowerFlex storage pool
+      name: storagepool
+      namespace: ''
+      version_added: 1.0.0
+    volume:
+      description: Manage volumes on Dell PowerFlex
+      name: volume
+      namespace: ''
+      version_added: 1.0.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  test: {}
+  vars: {}
+version: 2.6.1

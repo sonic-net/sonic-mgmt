@@ -1,0 +1,40 @@
+---
+################################
+## User & groups system magement
+################################
+- name: Manage users
+  ovirt.ovirt.ovirt_user:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ item.state | default(omit) }}"
+    name: "{{ item.name }}"
+    authz_name: "{{ item.authz_name | default(omit) }}"
+  with_items:
+    - "{{ users | default([]) }}"
+  tags:
+    - permissions
+
+- name: Manage groups
+  ovirt.ovirt.ovirt_group:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ item.state | default(omit) }}"
+    name: "{{ item.name }}"
+    authz_name: "{{ item.authz_name | default(omit) }}"
+  with_items:
+    - "{{ user_groups | default([]) }}"
+  tags:
+    - permissions
+
+- name: Manage permissions
+  ovirt.ovirt.ovirt_permission:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ item.state | default(omit) }}"
+    group_name: "{{ item.group_name | default(omit) }}"
+    user_name: "{{ item.user_name | default(omit) }}"
+    authz_name: "{{ item.authz_name }}"
+    object_type: "{{ item.object_type }}"
+    object_name: "{{ item.object_name }}"
+    role: "{{ item.role }}"
+  with_items:
+    - "{{ permissions | default([]) }}"
+  tags:
+    - permissions

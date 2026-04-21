@@ -1,0 +1,93 @@
+---
+# See PSDEV-1000: Fix infini_vols handling of write_protected parameter
+# Create three volumes: vol_nonwriteable, vol_explicitly_writable and vol_writable.
+- name: Test infini_vol module
+  hosts: localhost
+  gather_facts: true  # Required for ansible_date_time
+  tasks:
+
+    - name: POSITIVE test -> Create pool
+      infinidat.infinibox.infini_pool:
+        name: "{{ auto_prefix }}pool"
+        size: "{{ pool_size }}"
+        vsize: "{{ pool_size }}"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create write protected volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_nonwriteable"
+        size: 1GB
+        write_protected: true
+        pool: "{{ auto_prefix }}pool"
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create explicitly writable volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_explicitly_writable"
+        size: 1GB
+        write_protected: false
+        pool: "{{ auto_prefix }}pool"
+        thin_provision: false
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Create implicitly writable volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_writable"
+        size: 1GB
+        pool: "{{ auto_prefix }}pool"
+        thin_provision: false
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Stat nonwritable volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_nonwriteable"
+        pool: "{{ auto_prefix }}pool"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: stat_nonwritable
+
+    - name: DEBUG test -> Stat non writable volume
+      ansible.builtin.debug:
+        msg: stat - {{ stat_nonwritable }}
+
+    - name: POSITIVE test -> Stat explicitely writable volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_explicitly_writable"
+        pool: "{{ auto_prefix }}pool"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: stat_explicitely_writable
+
+    - name: DEBUG test -> Stat explicitly writable volume
+      ansible.builtin.debug:
+        msg: stat - {{ stat_explicitely_writable }}
+
+    - name: POSITIVE test -> Stat implicitely writable volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_writable"
+        pool: "{{ auto_prefix }}pool"
+        state: stat
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+      register: stat_writable
+
+    - name: DEBUG test -> Stat implicitely writable volume
+      ansible.builtin.debug:
+        msg: stat - {{ stat_writable }}

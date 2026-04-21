@@ -1,0 +1,12 @@
+---
+version: 1
+
+build_arg_defaults:
+  ANSIBLE_GALAXY_CLI_COLLECTION_OPTS: "-v"
+
+ # ansible_config: '/etc/ansible/ansible.cfg'
+
+dependencies:
+  galaxy: requirements.yml
+  python: requirements.txt
+#  system: bindep.txt

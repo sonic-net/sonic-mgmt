@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_evpn_esi_multihome - Fix EVPN ESI multihome delete all bug (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/578).

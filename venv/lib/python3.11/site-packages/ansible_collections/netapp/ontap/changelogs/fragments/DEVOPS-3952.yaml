@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_disks - new option min_spares.
+  - na_ontap_disks - added REST support for the module.
+  - na_ontap_disks - added functionality to reassign spare disks from a partner node to the desired node.

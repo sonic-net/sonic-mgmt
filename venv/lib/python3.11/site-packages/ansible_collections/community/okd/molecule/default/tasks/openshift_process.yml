@@ -1,0 +1,187 @@
+---
+
+- name: Process a template in the cluster
+  community.okd.openshift_process:
+    name: nginx-example
+    namespace: openshift # only needed if using a template already on the server
+    parameters:
+      NAMESPACE: openshift
+      NAME: test123
+      NGINX_VERSION: "{{ nginx_version }}"
+  register: result
+
+- name: Create the rendered resources
+  community.okd.k8s:
+    namespace: process-test
+    definition: '{{ item }}'
+    wait: yes
+    apply: yes
+  loop: '{{ result.resources }}'
+
+- name: Delete the rendered resources
+  community.okd.k8s:
+    namespace: process-test
+    definition: '{{ item }}'
+    wait: yes
+    state: absent
+  loop: '{{ result.resources }}'
+
+- name: Process a template and create the resources in the cluster
+  community.okd.openshift_process:
+    name: nginx-example
+    namespace: openshift # only needed if using a template already on the server
+    parameters:
+      NAMESPACE: openshift
+      NAME: test123
+      NGINX_VERSION: "{{ nginx_version }}"
+    state: present
+    namespace_target: process-test
+  register: result
+
+- name: Process a template and update the resources in the cluster
+  community.okd.openshift_process:
+    name: nginx-example
+    namespace: openshift # only needed if using a template already on the server
+    parameters:
+      NAMESPACE: openshift
+      NAME: test123
+      MEMORY_LIMIT: 1Gi
+      NGINX_VERSION: "{{ nginx_version }}"
+    state: present
+    namespace_target: process-test
+  register: result
+
+- name: Process a template and delete the resources in the cluster
+  community.okd.openshift_process:
+    name: nginx-example
+    namespace: openshift # only needed if using a template already on the server
+    parameters:
+      NAMESPACE: openshift
+      NAME: test123
+      NGINX_VERSION: "{{ nginx_version }}"
+    state: absent
+    namespace_target: process-test
+  register: result
+
+- name: Process a template with parameters from an env file and create the resources
+  community.okd.openshift_process:
+    name: nginx-example
+    namespace: openshift
+    namespace_target: process-test
+    parameter_file: '{{ files_dir }}/nginx.env'
+    state: present
+    wait: yes
+
+- name: Process a template with parameters from an env file and delete the resources
+  community.okd.openshift_process:
+    name: nginx-example
+    namespace: openshift
+    namespace_target: process-test
+    parameter_file: '{{ files_dir }}/nginx.env'
+    state: absent
+    wait: yes
+
+
+- name: Process a template with duplicate values
+  community.okd.openshift_process:
+    name: nginx-example
+    namespace: openshift # only needed if using a template already on the server
+    parameters:
+      NAME: test123
+    parameter_file: '{{ files_dir }}/nginx.env'
+  ignore_errors: yes
+  register: result
+
+- name: Assert the expected failure occurred
+  assert:
+    that:
+      - result.msg is defined
+      - result.msg == "Duplicate value for 'NAME' detected in parameter file"
+
+- name: Process a local template
+  community.okd.openshift_process:
+    src: '{{ files_dir }}/simple-template.yaml'
+    parameter_file: '{{ files_dir }}/example.env'
+  register: rendered
+
+- name: Process a local template and create the resources
+  community.okd.openshift_process:
+    src: '{{ files_dir }}/simple-template.yaml'
+    parameter_file: '{{ files_dir }}/example.env'
+    namespace_target: process-test
+    state: present
+  register: result
+
+- assert:
+    that: result is changed
+
+- name: Create the processed resources
+  community.okd.k8s:
+    namespace: process-test
+    definition: '{{ item }}'
+  loop: '{{ rendered.resources }}'
+  register: result
+
+- assert:
+    that: result is not changed
+
+- name: Process a local template and create the resources
+  community.okd.openshift_process:
+    definition: "{{ lookup('template', files_dir +  '/simple-template.yaml') | from_yaml }}"
+    parameter_file: '{{ files_dir }}/example.env'
+    namespace_target: process-test
+    state: present
+  register: result
+
+- assert:
+    that: result is not changed
+
+- name: Get the created configmap
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: example
+    namespace: process-test
+  register: templated_cm
+
+- assert:
+    that:
+      - (templated_cm.resources | length) == 1
+      - templated_cm.resources.0.data.content is defined
+      - templated_cm.resources.0.data.content == "This is a long message that may take one or more lines to parse but should still work without issue"
+
+- name: Create the Template resource
+  community.okd.k8s:
+    src: '{{ files_dir }}/simple-template.yaml'
+    namespace: process-test
+
+- name: Process the template and create the resources
+  community.okd.openshift_process:
+    name: simple-example
+    namespace: process-test # only needed if using a template already on the server
+    namespace_target: process-test
+    parameter_file: '{{ files_dir }}/example.env'
+    state: present
+  register: result
+
+- assert:
+    that: result is not changed
+
+# Processing template without message
+- name: create template with file {{ files_dir }}/pod-template.yaml
+  kubernetes.core.k8s:
+    namespace: process-test
+    src:  "{{ files_dir }}/pod-template.yaml"
+    state: present
+
+- name: Process pod template
+  community.okd.openshift_process:
+    name: pod-template
+    namespace: process-test
+    state: rendered
+    parameters:
+      NAME: ansible
+  register: rendered_template
+
+- assert:
+    that: rendered_template.message == ""

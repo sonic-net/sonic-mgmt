@@ -1,0 +1,43 @@
+---
+# Example Playbook: cisco.ucs.ucs_server_maintenance
+- hosts: ucs
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Test that we have a UCS hostname, UCS username, and UCS password
+      fail:
+        msg: 'Please define the following variables: ucs_hostname, ucs_username and ucs_password.'
+      when: ucs_hostname is not defined or ucs_username is not defined or ucs_password is not defined
+      vars:
+        # use "<<: *login_info" to substite the information below in each task
+        # this is not required, however it makes the playbook shorter.
+        login_info: &login_info
+          hostname: "{{ ucs_hostname }}"
+          username: "{{ ucs_username }}"
+          password: "{{ ucs_password }}"
+
+    - name: Add Server Maintenance Policy (check_mode)
+      cisco.ucs.ucs_server_maintenance:
+        <<: *login_info
+        name: user-ack
+        uptime_disr: user-ack
+        trigger_config: on-next-boot
+      delegate_to: localhost
+      check_mode: true
+
+    - name: Add Server Maintenance Policy
+      cisco.ucs.ucs_server_maintenance:
+        <<: *login_info
+        name: user-ack
+        uptime_disr: user-ack
+        trigger_config: on-next-boot
+      delegate_to: localhost
+
+    - name: Idempotent Add Server Maintenance Policy
+      cisco.ucs.ucs_server_maintenance:
+        <<: *login_info
+        name: user-ack
+        uptime_disr: user-ack
+        trigger_config: on-next-boot
+      delegate_to: localhost

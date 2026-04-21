@@ -1,0 +1,175 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      release_summary: This is the first proper release of the ``community.proxysql``
+        collection. This changelog contains all changes to the modules in this collection
+        that were added after the release of Ansible 2.9.0.
+  1.1.0:
+    changes:
+      minor_changes:
+      - Refactoring of connector presence checking (https://github.com/ansible-collections/community.proxysql/pull/50).
+      - Replace MySQL-Python with mysqlclient in the import error message (https://github.com/ansible-collections/community.proxysql/pull/50).
+      - proxysql_query_rules - added new parameters ``cache_empty_result``, ``multiplex``,
+        ``OK_msg`` (https://github.com/ansible-collections/community.proxysql/issues/24).
+      release_summary: 'This is the minor release of the ``community.proxysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.1.0.yml
+    - 25-updated-query-rules.yaml
+    - 50-refactor-connectors.yaml
+    modules:
+    - description: Modifies query rules for fast routing policies using the proxysql
+        admin interface
+      name: proxysql_query_rules_fast_routing
+      namespace: ''
+    release_date: '2021-07-23'
+  1.2.0:
+    changes:
+      minor_changes:
+      - refactor ``perform_checks`` function and move ``login_port`` check to ``module_utils/mysql.py``
+        (https://github.com/ansible-collections/community.proxysql/pull/63).
+      release_summary: 'This is the minor release of the ``community.proxysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.2.0.yml
+    - 63-refactor-login-port-check.yml
+    modules:
+    - description: Gathers information about proxysql server
+      name: proxysql_info
+      namespace: ''
+    release_date: '2021-08-18'
+  1.3.0:
+    changes:
+      bugfixes:
+      - proxysql_query_rules - fix backwards compatibility. Proxysql > 2 does not
+        support parameter ``cache_empty_result`` (https://github.com/ansible-collections/community.proxysql/pull/77).
+      - proxysql_replication_hostgroups - ability to change ``reader_hostgroup`` (https://github.com/ansible-collections/community.proxysql/pull/69).
+      minor_changes:
+      - proxysql_query_rules - add ``next_query_flagIN`` argument (https://github.com/ansible-collections/community.proxysql/pull/74).
+      - proxysql_replication_hostgroups - implement ``check_type`` parameter (https://github.com/ansible-collections/community.proxysql/pull/69).
+      release_summary: 'This is the minor release of the ``community.proxysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.3.0.yml
+    - 69-check_type.yml
+    - 74-add-support-for-next_query_flagIN.yml
+    - 77-fix-query-rules.yml
+    release_date: '2021-09-30'
+  1.3.1:
+    changes:
+      minor_changes:
+      - module_utils - Refactor save_config_to_disk and load_config_to_runtime (https://github.com/ansible-collections/community.proxysql/pull/78).
+      - proxysql_mysql_users - Add missing ``no_log`` option to ``encrypt_password``
+        parameter (https://github.com/ansible-collections/community.proxysql/pull/86).
+      release_summary: 'This is the minor release of the ``community.proxysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.3.1.yml
+    - 68-refactor-save-load-config.yml
+    - 86-missing-no-log.yml
+    release_date: '2022-01-05'
+  1.3.2:
+    changes:
+      bugfixes:
+      - module_utils/mysql.py - Proxysql version suffix may not be an integer (https://github.com/ansible-collections/community.proxysql/pull/96).
+      release_summary: This is a bugfix release of the ``community.proxysql`` collection.
+    fragments:
+    - 1.3.2.yml
+    - 96-version-suffix-may-not-be-an-integer.yml
+    release_date: '2022-04-21'
+  1.4.0:
+    changes:
+      bugfixes:
+      - roles/proxysql - As of ProxySQL 2.4.0, `client_found_rows` mysql variable
+        has been removed (https://github.com/ansible-collections/community.proxysql/pull/101).
+      release_summary: 'This is the minor release of the ``community.proxysql`` collection.
+
+        Because ansible <= 2.10 is EOL, ``community.proxysql`` will only be tested
+        against ansible > 2.10.'
+    fragments:
+    - 1.4.0.yml
+    - 101-removed-mysql-variable.yml
+    release_date: '2022-05-23'
+  1.5.0:
+    changes:
+      bugfixes:
+      - proxysql_query_rules_fast_routing - fix query parameter order, that prevents
+        updating ``destination_hostgroup`` parameter (https://github.com/ansible-collections/community.proxysql/pull/108).
+      - proxysql_query_rules_fast_routing - remove unnecessary ``flagIN`` check, that
+        makes it impossible to update the ``destination_hostgroup`` parameter (https://github.com/ansible-collections/community.proxysql/pull/108).
+      - roles/proxysql - Fix wait_for task when `proxysql_admin_bind_address` is overridden
+        (https://github.com/ansible-collections/community.proxysql/pull/115).
+      - roles/proxysql - Missing proxysql_global_variables module parameters (https://github.com/ansible-collections/community.proxysql/pull/116).
+      minor_changes:
+      - roles/proxysql - add support for configuring REST API (https://github.com/ansible-collections/community.proxysql/pull/110).
+      release_summary: This is the minor release of the ``community.proxysql`` collection.
+    fragments:
+    - 1.5.0.yml
+    - 107-update_destination_hostgroup.yml
+    - 110-restapi.yml
+    - 115-wait-for-fix.yml
+    - 116-proxysql-global-variables-parameters.yml
+    release_date: '2023-01-04'
+  1.5.1:
+    changes:
+      bugfixes:
+      - proxysql_manage_config - Fix ``check_mode`` (https://github.com/ansible-collections/community.proxysql/pull/138).
+      release_summary: This is the bugfix release of the ``community.proxysql`` collection.
+    fragments:
+    - 1.5.1.yml
+    - 137-missing_check_mode.yml
+  1.6.0:
+    changes:
+      bugfixes:
+      - module_utils - fix ProxySQL version parsing that fails when a suffix wasn't
+        present in the version (https://github.com/ansible-collections/community.proxysql/issues/154).
+      - role_proxysql - Correct package name (python3-mysqldb instead of python-mysqldb)
+        (https://github.com/ansible-collections/community.proxysql/pull/89).
+      - role_proxysql - Dynamic user/password in .my.cnf (https://github.com/ansible-collections/community.proxysql/pull/89).
+      minor_changes:
+      - proxysql role - add the pidfile location management (https://github.com/ansible-collections/community.proxysql/pull/145).
+      - role_proxysql - Update default proxysql version and fix small bugs (https://github.com/ansible-collections/community.proxysql/pull/92).
+      release_summary: 'This is the minor release of the ``community.proxysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 0-proxysql.yml
+    - 1-proxysql.yml
+    - 1.6.0.yml
+    - 2134ewfr.yml
+    - 89-dynamic-user-password-in-client-my-cnf-and-correct-package-name.yml
+    - 92-update-default-proxysql-version-and-fix-small-bugs.yml
+    release_date: '2024-06-25'
+  1.7.0:
+    changes:
+      minor_changes:
+      - proxysql_mysql_users - Creating users with the ``caching_sha2_password`` plugin
+        (https://github.com/ansible-collections/community.proxysql/pull/173).
+      release_summary: 'This is a minor release of the ``community.proxysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'
+    fragments:
+    - 1.7.0.yml
+    - 169.yml
+    modules:
+    - description: Manages hostgroup attributes using the ProxySQL admin interface
+      name: proxysql_mysql_hostgroup_attributes
+      namespace: ''
+    release_date: '2025-10-13'

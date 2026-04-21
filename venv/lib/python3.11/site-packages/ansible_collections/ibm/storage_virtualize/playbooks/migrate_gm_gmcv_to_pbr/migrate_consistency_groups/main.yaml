@@ -1,0 +1,203 @@
+---
+- name: Using IBM Storage Virtualize collection to migrate Global Mirror and GMCV consistency groups to PBR
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - inventory.ini
+  vars:
+    location_1_iogrp: "{{ location_1_iogrp_id | default(0) }}"
+    location_2_iogrp: "{{ location_2_iogrp_id | default(0) }}"
+    existing_certificate: "{{ use_existing_certificate | default(true) }}"
+    cleanup: "{{ remove_aux_volumes | default(false) }}"
+    logpath: "{{ log_path | default('./gmcv_pbr_migration.log') }}"
+  connection: local
+  tasks:
+   # ------------
+   # Fetch auth tokens on both master and aux systems
+    - name: Fetch auth token for master
+      register: master_auth
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ master_clustername }}"
+        username: "{{ master_username }}"
+        password: "{{ master_password }}"
+        log_path: "{{ logpath }}"
+    - name: Fetch auth token for aux
+      register: aux_auth
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ aux_clustername }}"
+        username: "{{ aux_username }}"
+        password: "{{ aux_password }}"
+        log_path: "{{ logpath }}"
+    # ------------
+    # Get system details on both master and aux systems
+    - name: Get system details for master
+      register: master_system
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        gather_subset: system
+        log_path: "{{ logpath }}"
+    - name: Get system details for aux
+      register: aux_system
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ aux_clustername }}"
+        token: "{{ aux_auth.token }}"
+        gather_subset: system
+        log_path: "{{ logpath }}"
+    # ------------
+    # Verify partnership exists by fetching info
+    - name: Fetch Partnership details
+      register: partnership_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        gather_subset: partnership
+        objectname: "{{ aux_system.System.name }}"
+        log_path: "{{ logpath }}"
+    # ------------
+    # Get master and aux pool info
+    - name: Get master_pool details
+      register: master_pool_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        gather_subset: pool
+        objectname: "{{ master_pool_name }}"
+        log_path: "{{ logpath }}"
+    - name: Get aux_pool details
+      register: aux_pool_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ aux_clustername }}"
+        token: "{{ aux_auth.token }}"
+        gather_subset: pool
+        objectname: "{{ aux_pool_name }}"
+        log_path: "{{ logpath }}"
+    - name: Link master and auxiliary pools
+      ibm.storage_virtualize.ibm_svc_mdiskgrp:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ master_pool_name }}"
+        state: present
+        replicationpoollinkuid: "{{ aux_pool_info.Pool.replication_pool_link_uid }}"
+        replication_partner_clusterid: "{{ partnership_info.Partnership.id }}"
+        log_path: "{{ logpath }}"
+    - name: Create self signed certificates
+      when: not existing_certificate
+      block:
+        - name: Generate certificate on master
+          ibm.storage_virtualize.ibm_svctask_command:
+            clustername: "{{ master_clustername }}"
+            username: "{{ master_username }}"
+            password: "{{ master_password }}"
+            command: "svctask chsystemcert -mksystemsigned"
+            log_path: "{{ logpath }}"
+        - name: Generate certificate on aux
+          ibm.storage_virtualize.ibm_svctask_command:
+            clustername: "{{ aux_clustername }}"
+            username: "{{ aux_username }}"
+            password: "{{ aux_password }}"
+            command: "svctask chsystemcert -mksystemsigned"
+            log_path: "{{ logpath }}"
+    - name: Export system certificate on master
+      ibm.storage_virtualize.ibm_sv_manage_ssl_certificate:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        certificate_type: "system"
+        log_path: "{{ logpath }}"
+    - name: Export system certificate on aux
+      ibm.storage_virtualize.ibm_sv_manage_ssl_certificate:
+        clustername: "{{ aux_clustername }}"
+        token: "{{ aux_auth.token }}"
+        certificate_type: "system"
+        log_path: "{{ logpath }}"
+    - name: Create Truststore on master and get aux certificate on master
+      ibm.storage_virtualize.ibm_sv_manage_truststore_for_replication:
+        clustername: "{{ master_clustername }}"
+        username: "{{ master_username }}"
+        password: "{{ master_password }}"
+        remote_clustername: "{{ aux_clustername }}"
+        remote_username: "{{ aux_username }}"
+        remote_password: "{{ aux_password }}"
+        name: "{{ truststore_name }}"
+        state: present
+        restapi: "on"
+        log_path: "{{ logpath }}"
+    - name: Create Truststore on aux and get master certificate on aux
+      ibm.storage_virtualize.ibm_sv_manage_truststore_for_replication:
+        clustername: "{{ aux_clustername }}"
+        username: "{{ aux_username }}"
+        password: "{{ aux_password }}"
+        remote_clustername: "{{ master_clustername }}"
+        remote_username: "{{ master_username }}"
+        remote_password: "{{ master_password }}"
+        name: "{{ truststore_name }}"
+        state: present
+        restapi: "on"
+        log_path: "{{ logpath }}"
+    - name: Create replication policy between 2 systems
+      ibm.storage_virtualize.ibm_sv_manage_replication_policy:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ replication_policy_name }}"
+        topology: 2-site-async-dr
+        location1system: "{{ master_system.System.name }}"
+        location1iogrp: "{{ location_1_iogrp }}"
+        location2system: "{{ aux_system.System.name }}"
+        location2iogrp: "{{ location_2_iogrp }}"
+        rpoalert: "{{ rpo_alert }}"
+        state: present
+        log_path: "{{ logpath }}"
+    - name: Enable PBR on both master and aux systems
+      when: partnership_info.Partnership.pbr_in_use == "no"
+      block:
+        - name: Enable PBR on partnership on master
+          ibm.storage_virtualize.ibm_sv_manage_fc_partnership:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            remote_clustername: "{{ aux_clustername }}"
+            remote_token: "{{ aux_auth.token }}"
+            remote_system: "{{ aux_system.System.name }}"
+            state: present
+            start: true
+            pbrinuse: "yes"
+            log_path: "{{ logpath }}"
+        - name: Enable PBR on partnership on aux
+          ibm.storage_virtualize.ibm_sv_manage_fc_partnership:
+            clustername: "{{ aux_clustername }}"
+            token: "{{ aux_auth.token }}"
+            remote_clustername: "{{ master_clustername }}"
+            remote_token: "{{ master_auth.token }}"
+            remote_system: "{{ master_system.System.name }}"
+            state: present
+            start: true
+            pbrinuse: "yes"
+            log_path: "{{ logpath }}"
+    - name: Get common variables in inventory_cleanup.ini file
+      ansible.builtin.copy:
+        content: |
+         master_clustername: "{{ master_clustername }}"
+         master_system_name: "{{ master_system.System.name }}"
+         master_username: "ADD MASTER USERNAME HERE"
+         master_password: "ADD MASTER PASSWORD HERE"
+         aux_clustername: "{{ aux_clustername }}"
+         aux_system_name: "{{ aux_system.System.name }}"
+         aux_username: "ADD AUX USERNAME HERE"
+         aux_password: "ADD AUX PASSWORD HERE"
+         consistency_groups_to_cleanup:
+        dest: ./inventory_cleanup_cg_{{ master_system.System.name }}_{{ aux_system.System.name }}.ini
+        mode: "0644"
+      when: not cleanup
+    # ------------
+    # 5. Verify required consistency groups exist and fetch details
+    - name: Loop over each consistency group, migrating each one
+      ansible.builtin.include_tasks: _gm_gmcv_cg_pbr_migrate_cg.yaml
+      loop: "{{ consistency_groups_to_migrate }}"
+      loop_control:
+        loop_var: consistency_group
+    - name: Display message to add credentials to inventory file, and add inventory file name to cleanup playbook
+      ansible.builtin.debug:
+        msg: "A file named inventory_cleanup_cg_{{ master_system.System.name }}_{{ aux_system.System.name }}.ini has been created.
+             Due to security concerns, system credentials have not been added to the file.
+             Before running the cleanup playbook, add these credentials to the file,
+             and add the name of the file to vars_files section of the delayed cleanup playbook"
+      when: not cleanup

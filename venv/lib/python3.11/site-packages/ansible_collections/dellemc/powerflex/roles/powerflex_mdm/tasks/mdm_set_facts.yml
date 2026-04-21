@@ -1,0 +1,40 @@
+---
+- name: Set facts for MDM counts
+  ansible.builtin.set_fact:
+    mdm_count: "{{ groups['mdm'] | length }}"
+
+- name: Set facts for powerflex_mdm_primary_ip
+  ansible.builtin.set_fact:
+    powerflex_mdm_primary_ip: "{{ hostvars[groups['mdm'][0]]['ansible_host'] }}"
+
+- name: Set facts for powerflex_mdm_primary_hostname
+  ansible.builtin.set_fact:
+    powerflex_mdm_primary_hostname: "{{ hostvars[groups['mdm'][0]]['inventory_hostname'] }}"
+
+- name: Set facts for powerflex_mdm_secondary_ip
+  ansible.builtin.set_fact:
+    powerflex_mdm_secondary_ip: "{{ hostvars[groups['mdm'][1]]['ansible_host'] }}"
+
+- name: Set facts for powerflex_mdm_secondary_hostname
+  ansible.builtin.set_fact:
+    powerflex_mdm_secondary_hostname: "{{ hostvars[groups['mdm'][1]]['inventory_hostname'] }}"
+
+- name: Set facts for powerflex_mdm_tertiary_ip
+  ansible.builtin.set_fact:
+    powerflex_mdm_tertiary_ip: "{{ hostvars[groups['mdm'][2]]['ansible_host'] }}"
+  when: mdm_count | int > 2
+
+- name: Set facts for powerflex_mdm_tertiary_hostname
+  ansible.builtin.set_fact:
+    powerflex_mdm_tertiary_hostname: "{{ hostvars[groups['mdm'][2]]['inventory_hostname'] }}"
+  when: mdm_count | int > 2
+
+- name: Set facts for powerflex_mdm_ips if mdm_count is 2
+  ansible.builtin.set_fact:
+    powerflex_mdm_ips: "{{ powerflex_mdm_secondary_ip }},{{ powerflex_mdm_primary_ip }}"
+  when: mdm_count | int == 2
+
+- name: Set facts for powerflex_mdm_ips if mdm_count is more than 2
+  ansible.builtin.set_fact:
+    powerflex_mdm_ips: "{{ powerflex_mdm_secondary_ip }},{{ powerflex_mdm_primary_ip }},{{ powerflex_mdm_tertiary_ip }}"
+  when: mdm_count | int > 2

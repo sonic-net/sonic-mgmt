@@ -1,0 +1,1573 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/aggregate-coverage.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "820353ffde6fd3ad655118772547549d84ccf0a7ba951e8fb1325f912ef640a0",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/combine-coverage.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e34d4e863a65b9f53c4ca8ae37655858969898a949e050e9cb3cb0d5f02342d0",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/process-results.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c03d7273fe58882a439b6723e92ab89f1e127772b5ce35aa67c546dd62659741",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/publish-codecov.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "70c795c8dbca2534b7909b17911630b7afaa693bbd7154e63a51340bc8b28dad",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/report-coverage.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f6a373322759ccc2736fb25d25d8c402dfe16b5d9a57cfccb1ca8cb136e09663",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/run-tests.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cb08a3ec5715b00d476ae6d63ca22e11a9ad8887239439937d2a7ea342e5a623",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/scripts/time-command.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0232f415efeb583ddff907c058986963b775441eaf129d7162aee0acb0d36834",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/templates/coverage.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "daf1930264760d47b54588f05c6339fd69ca2d239c77c44bc4cee3c4e9f76447",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/templates/matrix.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4fb0d3ffb2125d5806c7597e4f9d4b2af69cf8c337e9d57803081eddd4a6b081",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/templates/test.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2cfa1271f94c71f05ffa0b1f763d8946394b5636e14579cda8ee14bb38bbcf1c",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61f20decd3c8fb34ac2cc6ff79f598fc5136e642130a7ba065ccc5aa37960cd2",
+   "format": 1
+  },
+  {
+   "name": ".azure-pipelines/azure-pipelines.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fffb7843bc53364f611d22cfddb1f327180807126ecd91634c61ebdd3f7aae4d",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d3fb6888bd64fb44312bea4d6ae25003b7b8143d1a2e9407706824479fda386e",
+   "format": 1
+  },
+  {
+   "name": "changelogs/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c6e8ebc7f2f2664502fc5df6d12761510a0ec8194e1127ca5dc088397aabc80",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0fd639ccf96891aafea5b0d6e651e47dca47de45dab52c250efcc7a11bd53e3d",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/rabbitmq.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "822d0d3404f7e110538441d3b6ad9b8146a5d0c508873fcb5273805513a1de88",
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup/rabbitmq.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cfe3e5e5754f50515b05ab3d4e4079aa4bc6c64c449f75e5c8e791d83b68377c",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/_version.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fc99ad0772eb55f555acad68a9f9dd55c2eea2d230cf5673bec8383e444a11a7",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/rabbitmq.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "48ecea3e44aa64f82d1cf7516c3eb40f285da9d3d755ed6567f441f6a79399b6",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/version.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83a80fdb81b2bb048db40d1db1dc364d84e209c17ef87a161bf69e39855040a6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_binding.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "418cfa88cc295529d27b9201c18a6c8cf0f59a955c05bc10aae4e3c37bca075e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_exchange.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a0e541ac182935ef295d86ae827f660f1a83985d9ab7ee5cd8f936e86b2a41db",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_feature_flag.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "36c470e97c58cd89fe6e544abab4a08257fa8b85d2076bf461bbf13bff4ff44a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_global_parameter.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "284e17b8dae90c112d1e1146ff79d6863fdfaf389fcde2a4734773db53242bb1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_parameter.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d2d85dec30694641f91cccbddb5c827462cebd51655273462ba0280a35e4e4a9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_plugin.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e34fffbbf9f8f50d61205c7c34a64a952d8a52e85a619e10dacb25b9115f46e6",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_policy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ad1d8b2ef57c8f2d312ee7a8db14474edb1118d094f05fe6382f51d29d6397d9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_publish.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c0c9680fe5d3d6fe7d77df6bc63fe44d3269af82e3238d44e8d28efb958fff9",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_queue.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6774bc3a208a8c293b1cc897a2b30d586f56d1ed02ecf91c65c3990ce6143863",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_upgrade.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0e6c6f8f2b9a395d93acf2b9e5ed63792b686874ca9e9fa4a82f7c0d81f855c0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_user.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c30eeaf604b3c088d54743e9e6a09a0ba0a53af5d6e021f4823c7ef251e7075b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_user_limits.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a4950c5bb880bdc14bda10ea6bbc3c54ef15e91dafb8da6cfd746ec64667c0d1",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_vhost.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7a468a1cefab5aca29b2e47273d3aac36d865bcdd298083ca56d38a9cd08f4fd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/rabbitmq_vhost_limits.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "854b495270b50f80735fa001285893af9a10b1c6cb8ea02ef0d75f4f0e8d048a",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/lookup_rabbitmq",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/lookup_rabbitmq/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/lookup_rabbitmq/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/lookup_rabbitmq/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/lookup_rabbitmq/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1de7cad29c82819b7983e39a90358a55ff81eb7dc54d27d05ae665073379939c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/lookup_rabbitmq/tasks/ubuntu.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4074e6429e25b89b6c1c11de78f4e28f99c0401f8a20181d3e5ef020dbf7e4fb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/lookup_rabbitmq/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6d2d1b24a167fc8fa4bcc147c7a73b991761c18232c99fd21208a32e1ee26f1d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_binding",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_binding/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_binding/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_binding/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_binding/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c7c75c47bbd83a71d800e78edfd01d5e8d00dd71dc3490178e679e1e2f9226ff",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_binding/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d7295e08db14db22fc54b0a0beb748f2f55b89cdab72c99f8bdc014b5248fd9b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_binding/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_exchange",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_exchange/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_exchange/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5175b4209935100fc9ff5cc8370cab247318cd974df9bed2653198844b5d918d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_exchange/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_exchange/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "68b36cb955e374e65c2597c4389c6f7203652b146169e60d215ec354a3fd42bc",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_feature_flag",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_feature_flag/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_feature_flag/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_feature_flag/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_feature_flag/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "989a41fcbcfa0ebf3d94089cedabdae0a78272436964bfa3d5408db7b13b4104",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_feature_flag/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a4907111ff8dadeb4182e1ad75fd2f2eb05033b412cd713be14623dd9fff3181",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_feature_flag/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_global_parameter",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_global_parameter/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_global_parameter/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_global_parameter/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_global_parameter/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "989a41fcbcfa0ebf3d94089cedabdae0a78272436964bfa3d5408db7b13b4104",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_global_parameter/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5a2fb48b2cc0259808f4988d65c853b2950ab5aed1cc3927f0c02df1c54ad2fd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_global_parameter/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_plugin",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_plugin/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_plugin/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_plugin/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_plugin/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "989a41fcbcfa0ebf3d94089cedabdae0a78272436964bfa3d5408db7b13b4104",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_plugin/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "875aa7430bc2f242ede00e56ef4aad6c1e424d5e8dcc71f8b4c9a6c290ef6ee3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_plugin/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_policy",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_policy/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_policy/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_policy/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_policy/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a8a232ba6fcf5a0142d53f216e65730585b14192401c45fef55b9b443b3bd5cd",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_policy/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cd0f204d4a5ee587756412c508f49ed7066ca12056780012a6f85ae13d7d78f6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_policy/tasks/tests_api.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f62c89fc280a0da9382b47dedfc68968b35e1bb6f40310f0e77881b0d1080200",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_policy/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish/files/image.gif",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d1132eda6d50ba2a89d60279ef2f891eca341bfbbca8df136c2c56d5e73c8a4c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5175b4209935100fc9ff5cc8370cab247318cd974df9bed2653198844b5d918d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1de7cad29c82819b7983e39a90358a55ff81eb7dc54d27d05ae665073379939c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish/tasks/ubuntu.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a47e3093d1ccee73598b73d998436b49e4483ec19b3e24048c4e6d5c735062c8",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_publish/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_queue",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_queue/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_queue/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5175b4209935100fc9ff5cc8370cab247318cd974df9bed2653198844b5d918d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_queue/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_queue/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1de7cad29c82819b7983e39a90358a55ff81eb7dc54d27d05ae665073379939c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_queue/tasks/ubuntu.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3384d94d03e4ceed81df64e4a09f61aadc1d241148623f2f4730ca718945a096",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_queue/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_upgrade",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_upgrade/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_upgrade/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_upgrade/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_upgrade/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "989a41fcbcfa0ebf3d94089cedabdae0a78272436964bfa3d5408db7b13b4104",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_upgrade/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0e14fcb0fbe65b99ddf99d82121e20d597a3d6b0b3749fc4f6da9295a6da6142",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_upgrade/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7b47e3c3e8b4970ef2b1d8a97410a8224c72b0c949e423e385d238ded830f3b9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c2935720ae97e374793d5097ccfe44c2a47eb4be73561ad4f08ef16b64a4b7bb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user/tasks/tests_api.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f3e2a0d9c6207e827994abdd0efd37d0c8fe21d4ba68e63d8b9fc6e21923025d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user_limits",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user_limits/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user_limits/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user_limits/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user_limits/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1de7cad29c82819b7983e39a90358a55ff81eb7dc54d27d05ae665073379939c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user_limits/tasks/ubuntu.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3fdb204a8eec80b41c13577166c74b89a5329c3b9425860c65ed8819960ee044",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_user_limits/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7ed68f0bea60f6fbdcb4c86a47cd573d573f2af9e6ed76c4077f6ebe76f4e410",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost/tasks/tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6cee71b73c0e8b53de9ed8efb744d83ac99016294e3c5c569ba9024be3476da2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost/tasks/tests_api.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7613879ca78f0a2ee8bdf8bb65ea7026bfb0d6e0b7d8b5b46a4eca5383dfb75e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost_limits",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost_limits/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost_limits/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6b11845fec8855951fdbf1ad471fa8174a6ba299ea4ee3d62a47a1605eaea95e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost_limits/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost_limits/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1de7cad29c82819b7983e39a90358a55ff81eb7dc54d27d05ae665073379939c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost_limits/tasks/ubuntu.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "99954f1917f3d6122c326ad3aa641f23a9961e60f537375b7beeefb501b393d0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/rabbitmq_vhost_limits/aliases",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4aae3a6bb79d44474ef4771afbd51d52222428d5cde402c6156d85e7f7c9f067",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_rabbitmq",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_rabbitmq/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_rabbitmq/files/rabbitmq.conf",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0d57e67b9c0b7631b7a16b7461848272eaff9855c7b9e2dd5fdf3af2fb02bc1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_rabbitmq/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_rabbitmq/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "018110439f4fa79f060ac894fe54567fd9c3eb410aedbdf0b4aaeee1ad5fd705",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_rabbitmq/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_rabbitmq/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ab25ad3c62f9a27542e013194b8560faf072fdb8556cb0e958183f65079c31f4",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_rabbitmq/tasks/ubuntu.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a6b8e9ee2280ad77a93fbe5531f580e31aceee733a39c894630d824e4773c627",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/handlers",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/handlers/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "050157a29c48915cf220b3cdcf5a032e53e359bdc4a210cd457c4836e8e32a4d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/tasks/default-cleanup.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e273324ab90d72180a971d99b9ab69f08689c8be2e6adb991154fc294cf1056e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/tasks/default.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2441ac1753320d2cd3bea299c160540e6ae31739ed235923ca478284d1fcfe09",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_remote_tmp_dir/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "766ab141899717320ba54e2bb1a6ba8cbc3cc7642d0023670154b49981ed1a91",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/files",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/files/ca_certificate.pem",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "47ddc514d030d2dd28b98eb257b690b8aa94abc7b657b43caf6e32e2e5a6bf9d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/files/ca_key.pem",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0157029faae2207eaec99b67360db8ca46fe6964eb98165a0ca4ac56cbed7ebb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/files/client_certificate.pem",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1c88ee01e59fe19f497b74f0fb15a6d705bbac6df554d16f2f80fc25d2723bad",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/files/client_key.pem",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1ffc8420355a69fecd60242feb89bfef5517292aa9129ea79e99bb36ffd80dc6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/files/server_certificate.pem",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a93a860161059bf8b6d065d2b01a5218a7beefdb075fa704e0139d4f96bdb61c",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/files/server_key.pem",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0bb0b33983d37d5b6404c0feb969e80d0787331f774d2b8024570133d65851f6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/setup_tls/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "093e768c82c92883583078a39f31a82ae4ad264242d1f9f61bf66abbc0a27db3",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.15.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f9e62f04368d06e3fee2abe014f49bc1696a1478a4d0a8e32fb5c1dae693c43e",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.16.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7919c2c8970b1cac1d23835cdb9a3a250190bd789e4f24b3331dfca7ddbfd1ad",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.17.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7919c2c8970b1cac1d23835cdb9a3a250190bd789e4f24b3331dfca7ddbfd1ad",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.18.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7919c2c8970b1cac1d23835cdb9a3a250190bd789e4f24b3331dfca7ddbfd1ad",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.19.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7919c2c8970b1cac1d23835cdb9a3a250190bd789e4f24b3331dfca7ddbfd1ad",
+   "format": 1
+  },
+  {
+   "name": "tests/sanity/ignore-2.20.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7919c2c8970b1cac1d23835cdb9a3a250190bd789e4f24b3331dfca7ddbfd1ad",
+   "format": 1
+  },
+  {
+   "name": "tests/unit",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/compat",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/compat/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/compat/builtins.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0ca4cac919e166b25e601e11acb01f6957dddd574ff0a62569cb994a5ecb63e1",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/compat/mock.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "77edbe32e554aef3000b7d3c0bf7ae96c307cb0f0943fe91a4dfa4d840ba7fc9",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/compat/unittest.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5401a046e5ce71fa19b6d905abd0f9bdf816c0c635f7bdda6730b3ef06e67096",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/mock",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/mock/__init__.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/mock/loader.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7307b7f5d85fc5a4de7fe47f0b5f008e57fb24a0fe2702f09d9d7e80afbc44d8",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/mock/path.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3ab46a5b17bf8fd082ea5bce19af80497a3f306893acb77cb97b022abfe175a3",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/mock/procenv.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "abce72c74680f152cea9fc38f2ea0b24676eeeb446d64907a5a8336345013e33",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/mock/vault_helper.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4535613601c419f7d20f0c21e638dabccf69b4a7fac99d5f6f9b81d1519dafd6",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/mock/yaml_helper.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fada9f3506c951e21c60c2a0e68d3cdf3cadd71c8858b2d14a55c4b778f10983",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/rabbitmq_user_fixtures.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0293b05d8c9f9be64e8ef404ff42687741e152b1deedad5ffedd617d376e54b2",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_rabbitmq_feature_flag.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "02c3590575ca64651f678dd365a8958c8a9d0d30a6afe61dbea3c89858f43d05",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_rabbitmq_global_parameter.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "35f7db4d267e69725e2f04da3903df35d32fdfda7e9148ca41af00e6da6ebfcf",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_rabbitmq_upgrade.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0990e29daa7705d6f07433722c5bcb61fcd319c29ff58ed95b9f1dc4f116bf6d",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_rabbitmq_user.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "731a8c18a66b3d4376f2dcfaaefd8737b0a9e016c42f6aa7089bd023612e2506",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/utils.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e6995c89fb08b1777e80f7fdcd38076eca35b328a7adf6d698967d3dfdcc652c",
+   "format": 1
+  },
+  {
+   "name": "tests/utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/freebsd.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2a140a1cea2fbf3b291009694bcfcf0f2877e92ec01c7e929e787f5b4cdd6d92",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/osx.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2a140a1cea2fbf3b291009694bcfcf0f2877e92ec01c7e929e787f5b4cdd6d92",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/rhel.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2a140a1cea2fbf3b291009694bcfcf0f2877e92ec01c7e929e787f5b4cdd6d92",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/check_matrix.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8043bab6fe1eac483793c2cf3dcf55df8d2f4842c98c834282af667249b16dfd",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/cloud.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dd953f7e779b9962e76492c389142e03174e84a8115f53e56628e2af9e66b818",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/linux.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "07aa5e07a0b732a671bf9fdadfe073dd310b81857b897328ce2fa829e2c76315",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/remote.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2a140a1cea2fbf3b291009694bcfcf0f2877e92ec01c7e929e787f5b4cdd6d92",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/sanity.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d978d5d0ac8b6e266d493fc37b2ac6c153bdbbef64de0de049a43d680778a81a",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/shippable.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "60fa0850685439febcef31fe85586a7f346e9155fa563be2549365a988c3fabe",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/timing.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ebb7d3553349747ad41d80899ed353e13cf32fcbecbb6566cf36e9d2bc33703e",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/timing.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f3f3cc03a997cdba719b0542fe668fc612451841cbe840ab36865f30aa54a1bd",
+   "format": 1
+  },
+  {
+   "name": "tests/utils/shippable/units.sh",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "00169bf628f2336b63e274821cd691569feeaaecd6d29afe7b0a3fa483a44157",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e2a78d88f86332d4e84527f98a0ccbf19c34e40b8378b89bc58d03f8b879922d",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f6bdf93026dbb1490a8283044f0c8ecc08b0afdc914b29150396fb6f065d50ca",
+   "format": 1
+  },
+  {
+   "name": "CONTRIBUTING.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b0c50cf3715d59964a341dc651a6f626322209ef9fa8c0d03047d3a2b2e420a4",
+   "format": 1
+  },
+  {
+   "name": "COPYING",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+   "format": 1
+  },
+  {
+   "name": "MAINTAINERS",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "337aee6694b1c51c01a2783897425d562d80c341ae2afbd3d3e4d537d8b8a6c8",
+   "format": 1
+  },
+  {
+   "name": "MAINTAINING.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2435665a6562d5f3841fff1631970f95f0466c498e949d2b8579ccc2a0b810ad",
+   "format": 1
+  },
+  {
+   "name": "PSF-license.txt",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "83b042fc7d6aca0f10d68e45efa56b9bc0a1496608e7e7728fe09d1a534a054a",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c0396ff3391a2a8aa66d2238aa3a6a516e73468122cd52c0db887e5e06363b4c",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

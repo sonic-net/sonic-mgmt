@@ -1,0 +1,29 @@
+- name: Fetch individual relationship details
+  register: ir_details
+  ibm.storage_virtualize.ibm_svc_info:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    gather_subset: rcrelationship
+    objectname: "{{ item.RC_rel_name }}"
+    log_path: "{{ logpath }}"
+- name: Stop GM relationship
+  ibm.storage_virtualize.ibm_svc_start_stop_replication:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    name: "{{ item.RC_rel_name }}"
+    state: stopped
+    log_path: "{{ logpath }}"
+- name: Delete relationship
+  ibm.storage_virtualize.ibm_svc_manage_replication:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    name: "{{ item.RC_rel_name }}"
+    state: absent
+    log_path: "{{ logpath }}"
+- name: Delete aux volume
+  ibm.storage_virtualize.ibm_svc_manage_volume:
+    clustername: "{{ aux_clustername }}"
+    token: "{{ aux_auth.token }}"
+    name: "{{ ir_details.RemoteCopy.aux_vdisk_name }}"
+    state: absent
+    log_path: "{{ logpath }}"

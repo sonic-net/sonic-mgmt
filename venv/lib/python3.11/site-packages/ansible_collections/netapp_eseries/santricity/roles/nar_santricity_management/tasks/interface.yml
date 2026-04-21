@@ -1,0 +1,171 @@
+- name: Determine individual management interface information.
+  ansible.builtin.set_fact:
+    do_not_remove: 0 # Placeholder to prevent task from failing when no interfaces are defined.
+    interface_a1: "{{ eseries_management_interfaces['controller_a'][0] | default(omit) }}"
+    interface_a2: "{{ eseries_management_interfaces['controller_a'][1] | default(omit) }}"
+    interface_b1: "{{ eseries_management_interfaces['controller_b'][0] | default(omit) }}"
+    interface_b2: "{{ eseries_management_interfaces['controller_b'][1] | default(omit) }}"
+
+# This task is only executed when no controller A interfaces are defined so global interface options can still be set.
+- name: Ensure controller A DNS, NTP and SSH configuration is set.
+  netapp_eseries.santricity.na_santricity_mgmt_interface:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    controller: A
+    dns_config_method: "{{ eseries_management_interfaces['dns_config_method'] |
+                           default(eseries_management_dns_config_method | default(omit)) }}"
+    dns_address: "{{ eseries_management_interfaces['dns_address'] |
+                     default(eseries_management_dns_address | default(omit)) }}"
+    dns_address_backup: "{{ eseries_management_interfaces['dns_address_backup'] |
+                            default(eseries_management_dns_address_backup | default(omit)) }}"
+    ntp_config_method: "{{ eseries_management_interfaces['ntp_config_method'] |
+                           default(eseries_management_ntp_config_method | default(omit)) }}"
+    ntp_address: "{{ eseries_management_interfaces['ntp_address'] |
+                     default(eseries_management_ntp_address | default(omit)) }}"
+    ntp_address_backup: "{{ eseries_management_interfaces['ntp_address_backup'] |
+                            default(eseries_management_ntp_address_backup | default(omit)) }}"
+    ssh: "{{ eseries_management_interfaces['ssh'] | default(eseries_management_ssh | default(omit)) }}"
+  when: interface_a1 is not defined and interface_a2 is not defined
+
+# This task is only executed when no controller B interfaces are defined so global interface options can still be set.
+- name: Ensure controller B DNS, NTP and SSH configuration is set.
+  netapp_eseries.santricity.na_santricity_mgmt_interface:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    controller: B
+    dns_config_method: "{{ eseries_management_interfaces['dns_config_method'] |
+                           default(eseries_management_dns_config_method | default(omit)) }}"
+    dns_address: "{{ eseries_management_interfaces['dns_address'] |
+                     default(eseries_management_dns_address | default(omit)) }}"
+    dns_address_backup: "{{ eseries_management_interfaces['dns_address_backup'] |
+                            default(eseries_management_dns_address_backup | default(omit)) }}"
+    ntp_config_method: "{{ eseries_management_interfaces['ntp_config_method'] |
+                           default(eseries_management_ntp_config_method | default(omit)) }}"
+    ntp_address: "{{ eseries_management_interfaces['ntp_address'] |
+                     default(eseries_management_ntp_address | default(omit)) }}"
+    ntp_address_backup: "{{ eseries_management_interfaces['ntp_address_backup'] |
+                            default(eseries_management_ntp_address_backup | default(omit)) }}"
+    ssh: "{{ eseries_management_interfaces['ssh'] | default(eseries_management_ssh | default(omit)) }}"
+  when: interface_b1 is not defined and interface_b2 is not defined
+
+- name: Ensure the management interface (controller A, port 1) has been configured.
+  block:
+    - name: Ensure the management interface (controller A, port 1) has been configured.
+      netapp_eseries.santricity.na_santricity_mgmt_interface:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        controller: A
+        port: 1
+        address: "{{ interface_a1['address'] | default(omit) }}"
+        config_method: "{{ interface_a1['config_method'] | default(eseries_management_interfaces['config_method'] | default(eseries_management_config_method | default(omit))) }}"
+        subnet_mask: "{{ interface_a1['subnet_mask'] | default(eseries_management_interfaces['subnet_mask'] | default(eseries_management_subnet_mask | default(omit))) }}"
+        gateway: "{{ interface_a1['gateway'] | default(eseries_management_interfaces['gateway'] | default(eseries_management_gateway | default(omit))) }}"
+        dns_config_method: "{{ interface_a1['dns_config_method'] | default(eseries_management_interfaces['dns_config_method'] | default(eseries_management_dns_config_method | default(omit))) }}"
+        dns_address: "{{ interface_a1['dns_address'] | default(eseries_management_interfaces['dns_address'] | default(eseries_management_dns_address | default(omit))) }}"
+        dns_address_backup: "{{ interface_a1['dns_address_backup'] | default(eseries_management_interfaces['dns_address_backup'] | default(eseries_management_dns_address_backup | default(omit))) }}"
+        ntp_config_method: "{{ interface_a1['ntp_config_method'] | default(eseries_management_interfaces['ntp_config_method'] | default(eseries_management_ntp_config_method | default(omit))) }}"
+        ntp_address: "{{ interface_a1['ntp_address'] | default(eseries_management_interfaces['ntp_address'] | default(eseries_management_ntp_address | default(omit))) }}"
+        ntp_address_backup: "{{ interface_a1['ntp_address_backup'] | default(eseries_management_interfaces['ntp_address_backup'] | default(eseries_management_ntp_address_backup | default(omit))) }}"
+        ssh: "{{ interface_a1['ssh'] | default(eseries_management_interfaces['ssh'] | default(eseries_management_ssh | default(omit))) }}"
+      connection: local
+      register: current_management_urls_a1
+    - name: Update Web Services URL
+      ansible.builtin.set_fact:
+        current_eseries_api_url: "{{ current_management_urls_a1['available_embedded_api_urls'][0] | default(current_eseries_api_url) }}"
+  when: interface_a1 is defined and interface_a1
+
+- name: Ensure the management interface (controller A, port 2) has been configured.
+  block:
+    - name: Ensure the management interface (controller A, port 2) has been configured.
+      netapp_eseries.santricity.na_santricity_mgmt_interface:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        controller: A
+        port: 2
+        address: "{{ interface_a2['address'] | default(omit) }}"
+        config_method: "{{ interface_a2['config_method'] | default(eseries_management_interfaces['config_method'] | default(eseries_management_config_method | default(omit))) }}"
+        subnet_mask: "{{ interface_a2['subnet_mask'] | default(eseries_management_interfaces['subnet_mask'] | default(eseries_management_subnet_mask | default(omit))) }}"
+        gateway: "{{ interface_a2['gateway'] | default(eseries_management_interfaces['gateway'] | default(eseries_management_gateway | default(omit))) }}"
+        dns_config_method: "{{ interface_a2['dns_config_method'] | default(eseries_management_interfaces['dns_config_method'] | default(eseries_management_dns_config_method | default(omit))) }}"
+        dns_address: "{{ interface_a2['dns_address'] | default(eseries_management_interfaces['dns_address'] | default(eseries_management_dns_address | default(omit))) }}"
+        dns_address_backup: "{{ interface_a2['dns_address_backup'] | default(eseries_management_interfaces['dns_address_backup'] | default(eseries_management_dns_address_backup | default(omit))) }}"
+        ntp_config_method: "{{ interface_a2['ntp_config_method'] | default(eseries_management_interfaces['ntp_config_method'] | default(eseries_management_ntp_config_method | default(omit))) }}"
+        ntp_address: "{{ interface_a2['ntp_address'] | default(eseries_management_interfaces['ntp_address'] | default(eseries_management_ntp_address | default(omit))) }}"
+        ntp_address_backup: "{{ interface_a2['ntp_address_backup'] | default(eseries_management_interfaces['ntp_address_backup'] | default(eseries_management_ntp_address_backup | default(omit))) }}"
+        ssh: "{{ interface_a2['ssh'] | default(eseries_management_interfaces['ssh'] | default(eseries_management_ssh | default(omit))) }}"
+      connection: local
+      register: current_management_urls_a2
+    - name: Try backup Web Services REST API url.
+      ansible.builtin.set_fact:
+        current_eseries_api_url: "{{ current_management_urls_a2['available_embedded_api_urls'][0] | default(current_eseries_api_url) }}"
+  when: interface_a2 is defined and interface_a2
+
+- name: Ensure the management interface (controller B, port 1) has been configured.
+  block:
+    - name: Ensure the management interface (controller B, port 1) has been configured.
+      netapp_eseries.santricity.na_santricity_mgmt_interface:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        controller: B
+        port: 1
+        address: "{{ interface_b1['address'] | default(omit) }}"
+        config_method: "{{ interface_b1['config_method'] | default(eseries_management_interfaces['config_method'] | default(eseries_management_config_method | default(omit))) }}"
+        subnet_mask: "{{ interface_b1['subnet_mask'] | default(eseries_management_interfaces['subnet_mask'] | default(eseries_management_subnet_mask | default(omit))) }}"
+        gateway: "{{ interface_b1['gateway'] | default(eseries_management_interfaces['gateway'] | default(eseries_management_gateway | default(omit))) }}"
+        dns_config_method: "{{ interface_b1['dns_config_method'] | default(eseries_management_interfaces['dns_config_method'] | default(eseries_management_dns_config_method | default(omit))) }}"
+        dns_address: "{{ interface_b1['dns_address'] | default(eseries_management_interfaces['dns_address'] | default(eseries_management_dns_address | default(omit))) }}"
+        dns_address_backup: "{{ interface_b1['dns_address_backup'] | default(eseries_management_interfaces['dns_address_backup'] | default(eseries_management_dns_address_backup | default(omit))) }}"
+        ntp_config_method: "{{ interface_b1['ntp_config_method'] | default(eseries_management_interfaces['ntp_config_method'] | default(eseries_management_ntp_config_method | default(omit))) }}"
+        ntp_address: "{{ interface_b1['ntp_address'] | default(eseries_management_interfaces['ntp_address'] | default(eseries_management_ntp_address | default(omit))) }}"
+        ntp_address_backup: "{{ interface_b1['ntp_address_backup'] | default(eseries_management_interfaces['ntp_address_backup'] | default(eseries_management_ntp_address_backup | default(omit))) }}"
+        ssh: "{{ interface_b1['ssh'] | default(eseries_management_interfaces['ssh'] | default(eseries_management_ssh | default(omit))) }}"
+      connection: local
+      register: current_management_urls_b1
+    - name: Try backup Web Services REST API url.
+      ansible.builtin.set_fact:
+        current_eseries_api_url: "{{ current_management_urls_b1['available_embedded_api_urls'][0] | default(current_eseries_api_url) }}"
+  when: interface_b1 is defined and interface_b1
+
+- name: Ensure the management interface (controller B, port 2) has been configured.
+  block:
+    - name: Ensure the management interface (controller B, port 2) has been configured.
+      netapp_eseries.santricity.na_santricity_mgmt_interface:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        controller: B
+        port: 2
+        address: "{{ interface_b2['address'] | default(omit) }}"
+        config_method: "{{ interface_b2['config_method'] | default(eseries_management_interfaces['config_method'] | default(eseries_management_config_method | default(omit))) }}"
+        subnet_mask: "{{ interface_b2['subnet_mask'] | default(eseries_management_interfaces['subnet_mask'] | default(eseries_management_subnet_mask | default(omit))) }}"
+        gateway: "{{ interface_b2['gateway'] | default(eseries_management_interfaces['gateway'] | default(eseries_management_gateway | default(omit))) }}"
+        dns_config_method: "{{ interface_b2['dns_config_method'] | default(eseries_management_interfaces['dns_config_method'] | default(eseries_management_dns_config_method | default(omit))) }}"
+        dns_address: "{{ interface_b2['dns_address'] | default(eseries_management_interfaces['dns_address'] | default(eseries_management_dns_address | default(omit))) }}"
+        dns_address_backup: "{{ interface_b2['dns_address_backup'] | default(eseries_management_interfaces['dns_address_backup'] | default(eseries_management_dns_address_backup | default(omit))) }}"
+        ntp_config_method: "{{ interface_b2['ntp_config_method'] | default(eseries_management_interfaces['ntp_config_method'] | default(eseries_management_ntp_config_method | default(omit))) }}"
+        ntp_address: "{{ interface_b2['ntp_address'] | default(eseries_management_interfaces['ntp_address'] | default(eseries_management_ntp_address | default(omit))) }}"
+        ntp_address_backup: "{{ interface_b2['ntp_address_backup'] | default(eseries_management_interfaces['ntp_address_backup'] | default(eseries_management_ntp_address_backup | default(omit))) }}"
+        ssh: "{{ interface_b2['ssh'] | default(eseries_management_interfaces['ssh'] | default(eseries_management_ssh | default(omit))) }}"
+      connection: local
+      register: current_management_urls_b2
+    - name: Try backup Web Services REST API url.
+      ansible.builtin.set_fact:
+        current_eseries_api_url: "{{ current_management_urls_b2['available_embedded_api_urls'][0] | default(current_eseries_api_url) }}"
+  when: interface_b2 is defined and interface_b2

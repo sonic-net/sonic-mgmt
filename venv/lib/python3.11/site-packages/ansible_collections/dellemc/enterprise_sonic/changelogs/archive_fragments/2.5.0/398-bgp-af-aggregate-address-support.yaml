@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_bgp_af - Add support for aggregate address configuration(https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/398).

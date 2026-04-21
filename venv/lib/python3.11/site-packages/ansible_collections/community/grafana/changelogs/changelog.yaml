@@ -1,0 +1,390 @@
+ancestor: null
+releases:
+  0.1.0:
+    changes:
+      release_summary: 'Initial migration of Grafana content from Ansible core (2.9/devel)
+
+        '
+    fragments:
+    - 0.1.0.yml
+    release_date: '2019-12-27'
+  0.2.0:
+    changes:
+      bugfixes:
+      - Fix issue `#45` in `grafana_plugin`
+      minor_changes:
+      - Add Thruk as Grafana Datasource
+      - Add `grafana_folder` module
+      - Add `grafana_user` module
+      - Use `module_utils` to allow code factorization
+    fragments:
+    - 0.2.0.yml
+    release_date: '2020-02-26'
+  0.2.1:
+    changes:
+      bugfixes:
+      - Fix an issue with `grafana_datasource` idempotency
+    fragments:
+    - 0.2.1.yml
+    release_date: '2020-03-18'
+  0.2.2:
+    changes:
+      bugfixes:
+      - Fix an issue in `grafana_dashboard` that made dashboard import no more detecting
+        changes and fail.
+      - Refactor module `grafana_datasource` to ease its support.
+    fragments:
+    - 0.2.2.yml
+    release_date: '2020-03-30'
+  1.0.0:
+    changes:
+      known_issues:
+      - grafana_datasource doesn't set password correctly (#113)
+      major_changes:
+      - Add changelog management for ansible 2.10 (#112)
+      - grafana_datasource ; adding additional_json_data param
+      release_summary: Stable release for Ansible 2.10 and beyond
+    fragments:
+    - 1.0.0.yml
+    release_date: '2020-08-16'
+  1.1.0:
+    changes:
+      minor_changes:
+      - Update the version where `message` alias will disappear from `grafana_dashboard`.
+        (Now 2.0.0)
+    fragments:
+    - update_deprecation.yml
+    modules:
+    - description: Manage Grafana Notification Channels
+      name: grafana_notification_channel
+      namespace: ''
+    release_date: '2020-11-16'
+  1.2.0:
+    changes:
+      bugfixes:
+      - Fix issue with url when grafana_url has a trailing slash (#135)
+      - grafana_dashboard, Fix reference before assignment issue (#146)
+      major_changes:
+      - introduce "skip_version_check" parameter in grafana_teams and grafana_folder
+        modules (#147)
+    fragments:
+    - 1.2.0.yml
+    release_date: '2021-02-15'
+  1.2.1:
+    changes:
+      bugfixes:
+      - Fix issue with grafana_user that failed to create admin user (#142)
+    fragments:
+    - 1.2.1.yml
+    release_date: '2021-04-11'
+  1.2.2:
+    changes:
+      bugfixes:
+      - Fix an issue with datasource uid now returned by the Grafana API (#176)
+      - grafana_dashboard lookup - All valid API keys can be used, not just keys ending
+        in '=='.
+      - grafana_dashboard now explicitely fails if the folder doesn't exist upon creation.
+        It would previously silently pass but not create the dashboard. (https://github.com/ansible-collections/community.grafana/issues/153)
+      - grafana_team now able to handle spaces and other utf-8 chars in the name parameter.
+        (https://github.com/ansible-collections/community.grafana/issues/164)
+      deprecated_features:
+      - grafana_dashboard lookup - Providing a mangled version of the API key is no
+        longer preferred.
+    fragments:
+    - 1.2.2.yml
+    - 158-grafana_dashboard-lookup-api-key.yml
+    release_date: '2021-09-08'
+  1.2.3:
+    changes:
+      bugfixes:
+      - Fix issue with trailing '/' in provided grafana_url. The modules now support
+        values with trailing slashes.
+    fragments:
+    - 1.2.3.yml
+    release_date: '2021-09-14'
+  1.3.0:
+    changes:
+      bugfixes:
+      - Fix issue with datasource names that could not contain slashes (#125)
+    fragments:
+    - 0-copy_ignore_txt.yml
+    - fix_slashes_in_datasources.yml
+    modules:
+    - description: Manage Grafana Organization
+      name: grafana_organization
+      namespace: ''
+    release_date: '2021-11-26'
+  1.3.1:
+    changes:
+      minor_changes:
+      - community.grafana.grafana_datasource supports aws_auth_type of default.
+    fragments:
+    - 1.3.1.yml
+    release_date: '2022-02-20'
+  1.3.2:
+    changes:
+      bugfixes:
+      - Fix an issue with threema notification channel that was not creating gateway,
+        recipient and api_secret in Grafana. (#208)
+    fragments:
+    - threema.yml
+    release_date: '2022-02-20'
+  1.3.3:
+    changes:
+      bugfixes:
+      - Fix an issue with grafana_datasource for Prometheus with basic auth credential
+        management. (#204)
+    fragments:
+    - datasource-issue-204.yml
+    release_date: '2022-02-27'
+  1.4.0:
+    changes:
+      minor_changes:
+      - Remove requirement for `ds_type` and `ds_url` parameters when deleting a datasource
+      - add `grafana` action group in `meta/runtime.yml` to support for module group
+        defaults
+      - refactor grafana_notification_channel module
+    fragments:
+    - 136_add_grafana_action_groups.yml
+    - 170_remove_requirement_ds_type_ds_url.yml
+    - grafana_users_note.yaml
+    - notifi_channel_refacto.yml
+    release_date: '2022-04-18'
+  1.5.0:
+    changes:
+      bugfixes:
+      - Fix a bug that causes a fatal error when using `url` parameter in `grafana_dashboard`
+        and `grafana_notification_channel` modules.
+      - Fix a bug that causes an update error when using the `grafana_datasource`
+        module on Grafana >=9.0.0 (https://github.com/ansible-collections/community.grafana/issues/248).
+      minor_changes:
+      - community.grafana.grafana_datasource supports grafana-azure-monitor-datasource.
+    fragments:
+    - 172_support_azure_datasource.yml
+    - 186_check_fragments.yml
+    - 239_keyerror_grafana_url.yml
+    - 248_ds_update_error_grafana_9.yml
+    release_date: '2022-06-25'
+  1.5.1:
+    changes:
+      minor_changes:
+      - Export dashboard with pretty printed JSON so that it becomes easier to compare
+        changes with the previous version (#257)
+    fragments:
+    - 00_drop_eol_ansible.yml
+    - 01_grafana_bump.yml
+    - 257_pretty_printed_dashboard_export.yml
+    release_date: '2022-07-17'
+  1.5.2:
+    changes:
+      bugfixes:
+      - Ensure user email/login is url encoded when searching for the user (#264)
+    fragments:
+    - 265-url-encode-user.yml
+    release_date: '2022-08-19'
+  1.5.3:
+    changes:
+      bugfixes:
+      - Add support for more elasticsearch version as datasource (#263)
+    fragments:
+    - add-units-datasource.yml
+    - ci.yml
+    - fix-263.yaml
+    release_date: '2022-10-06'
+  1.5.4:
+    changes:
+      bugfixes:
+      - Fixed validate_certs missing parameter for --insecure option in grafana plugins
+      - URL encode issue in grafana_organization.py (method get_actual_org ) fixed.
+      - grafana_dashboard, now opens json files with utf-8 encoding (#191)
+      minor_changes:
+      - able to set `uid` for datasources in grafana via module grafana_datasource
+    fragments:
+    - 1.5.3.yml
+    - 191.yml
+    - 230-uid-datasource.yml
+    - 270-gha--ansible-test--integration.yml
+    - 277-gha-ansible-test-versions.yml
+    - 288_get_actual_org_encode.yml
+    release_date: '2023-02-07'
+  1.6.0:
+    changes:
+      minor_changes:
+      - Add `grafana_organization_user` module
+    fragments:
+    - 242_add_grafana_organization_user_module.yml
+    modules:
+    - description: Manage Grafana Organization Users.
+      name: grafana_organization_user
+      namespace: ''
+    release_date: '2023-02-19'
+  1.6.1:
+    changes:
+      bugfixes:
+      - Fix error with datasources configured without basicAuth
+      - grafana_folder, fix an issue during delete (starting Grafana 9.3)
+      minor_changes:
+      - Bump version of Python used in tests to 3.10
+      - Enable datasource option `time_interval` for prometheus
+      - Fix documentation url for Ansible doc website
+      - Now testing against Grafana 9.5.13, 8.5.27, 10.2.0
+    fragments:
+    - 285_fix_doc.yml
+    - 294-bump-grafana-version.yml
+    - 300_datasource_prometheus_time_interval.yml
+    - fix-316.yml
+    release_date: '2023-11-05'
+  1.7.0:
+    changes:
+      bugfixes:
+      - Add `grafana_organiazion_user` to `action_groups.grafana`
+      - Fixed orgId handling in diff comparison for `grafana_datasource` if using
+        org_name
+      minor_changes:
+      - Add Quickwit search engine datasource (https://quickwit.io).
+      - Add parameter `org_name` to `grafana_dashboard`
+      - Add parameter `org_name` to `grafana_datasource`
+      - Add parameter `org_name` to `grafana_organization_user`
+      - Add support for Grafana Tempo datasource type (https://grafana.com/docs/grafana/latest/datasources/tempo/)
+      - default to true/false in docs and code
+    fragments:
+    - 238_checkmode.yml
+    - 308_datasource_quickwit.yml
+    - 318-org_users_by_org_name.yml
+    - 321-action-groups-org-users.yml
+    - 324_formatting.yml
+    - 325_linting.yml
+    - 325_true_false.yml
+    - 331-dashboard-by-org-name.yml
+    - 332-datasource-by-org-name.yml
+    - 335-add-datasource-type-tempo.yml
+    - 339-lint-black.yml
+    - 341-lint-ruff.yml
+    - 342-ruff-findings.yml
+    - 345-datasource-compare-diff-orgid.yml
+    release_date: '2024-01-17'
+  1.8.0:
+    changes:
+      bugfixes:
+      - 'test: replace deprecated `TestCase.assertEquals` to support Python 3.12'
+      minor_changes:
+      - Manage `grafana_folder` for organizations
+      - Merged ansible role telekom-mms/ansible-role-grafana into ansible-collections/community.grafana
+      - added `community.grafana.notification_channel` to role
+      - grafana_dashboard - add check_mode support
+    fragments:
+    - 311_dashboard_check_mode.yml
+    - 343-telekom-mms-role.yml
+    - 347-folder-for-orgs.yml
+    - 349-role-notification-channel.yml
+    - 350-python3.12.yml
+    release_date: '2024-02-21'
+  1.9.0:
+    changes:
+      bugfixes:
+      - Handling of desired default state for first `grafana_datasource`
+      - Ignore `type` argument for diff comparison if `grafana-postgresq-datasource`
+        alias `postgres` is used
+      - Set umask for `grafana_plugin` command
+      minor_changes:
+      - Add new module `grafana_silence` to create and delete silences through the
+        API
+      - Add role components for `grafana_silence` module
+      - lookup - grafana_dashboards - add `validate_certs` and `ca_path` options to
+        plugin for custom certs validation
+      removed_features:
+      - removed deprecated `message` argument in `grafana_dashboard`
+    fragments:
+    - 353-docs-add-influxdb-flux-example.yml
+    - 354-fix-find-grafana-versions.yml
+    - 355-rm-dashboard-message-argument.yml
+    - 356-lookup-dashboards-add-custom-certs-verification-logic.yml
+    - 357-module-grafana-silence.yml
+    - 358-role-grafana-silence.yml
+    - 362-plugin-umask.yml
+    - 364-first-datasource-default.yml
+    release_date: '2024-04-30'
+  1.9.1:
+    changes:
+      bugfixes:
+      - undo removed deprecated `message` argument in `grafana_dashboard`
+    fragments:
+    - 367-dashboard-undo-breaing-change-message.yml
+    - 368-molecule-pin-requests.yml
+    release_date: '2024-05-21'
+  2.0.0:
+    changes:
+      minor_changes:
+      - Add `grafana_contact_point` module
+      - Add support of `grafana_contact_point` in grafana role
+      - add org switch by `org_id` and `org_name` in `grafana_silence`
+      removed_features:
+      - removed check and handling of mangled api key in `grafana_dashboard` lookup
+      - removed deprecated `message` argument in `grafana_dashboard`
+    fragments:
+    - 352-module-contact-point.yml
+    - 371-silence-org-switch.yml
+    - 372-rm-dashboard-message-argument.yml
+    - 373-cleanup-and-update-sanity.yml
+    - 374-ansible-required-version.yml
+    - 376-dashboard-lookup-api-key-deprecation.yml
+    modules:
+    - description: Manage Grafana Contact Points
+      name: grafana_contact_point
+      namespace: ''
+    release_date: '2024-05-31'
+  2.1.0:
+    changes:
+      bugfixes:
+      - Add missing function argument in `grafana_contact_point` for org handling
+      - Fix var prefixes in silence-task in role
+      - Fixed check if grafana_api_key is defined for `grafana_dashboard` lookup
+      deprecated_features:
+      - Deprecate `grafana_notification_channel`. It will be removed in version 3.0.0
+      minor_changes:
+      - Manage subfolders for `grafana_folder` and specify uid
+    fragments:
+    - 378-grafana-version-sorting.yml
+    - 379-contact-points-org-name-func-args.yml
+    - 381-sub-folders.yml
+    - 382-notification-channel-deprecation.yml
+    - 392-dashboard-lookup-apikey.yml
+    - patch-1.yaml
+    release_date: '2024-08-08'
+  2.2.0:
+    changes:
+      bugfixes:
+      - Remove field `apiVersion` from return of current `grafana_datasource` for
+        working diff
+      - grafana_dashboard - add uid to payload
+      - 'test: replace more deprecated `TestCase.assertEquals` to support Python 3.12'
+      minor_changes:
+      - Add argument `tls_servername` for `grafana_datasource`
+      - Support `alertmanager` as type for `grafana_datasource`
+      - grafana_dashboard - allow creating dashboards in subfolders
+    fragments:
+    - 0-readme.yml
+    - 287-alertmanager-datasource.yml
+    - 395-datasource-tls-servername.yml
+    - 396-datasource-diff-apiversion.yml
+    - 397-improve-datasource-tests.yml
+    - 406-python3.12.yml
+    - 411-dashboard-subfolders.yml
+    - 416-dashboard-uid.yml
+    - 419-fix-ansible-tests.yml
+    - 421-grafana-workflow.yml
+    - 425-check-releases-add-ansible.yml
+    release_date: '2025-04-23'
+  2.3.0:
+    changes:
+      bugfixes:
+      - Fix parsing of grafana version for pre-releases and security releases
+      - grafana_dashboard - fix change detection for dashboards in folders
+      minor_changes:
+      - grafana_team - integrate parameter ``org_id``
+      - grafana_team - integrate parameter ``org_name``
+    fragments:
+    - 428-dashboard-change-detection.yml
+    - 433-version-parsing.yml
+    - 436-team-for-orgs.yml
+    release_date: '2025-07-21'

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_mclag - Fix domain ID creation bug (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/591).

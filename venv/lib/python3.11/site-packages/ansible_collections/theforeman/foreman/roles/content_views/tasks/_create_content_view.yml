@@ -1,0 +1,61 @@
+---
+- name: Create or delete content view  # noqa: args[module]
+  theforeman.foreman.content_view:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ content_view.organization | default(foreman_organization) }}"
+    name: "{{ content_view.name }}"
+    auto_publish: "{{ content_view.auto_publish | default(omit) }}"
+    components: "{{ content_view.components | default(omit) }}"
+    composite: "{{ content_view.components | default(content_view.composite) | default(false) | ternary(true, false) }}"
+    description: "{{ content_view.description | default(omit) }}"
+    label: "{{ content_view.label | default(omit) }}"
+    repositories: "{{ content_view.repositories | default(omit) }}"
+    solve_dependencies: "{{ content_view.solve_dependencies | default(omit) }}"
+    state: "{{ content_view.state | default('present') }}"
+
+- name: Add content view filters
+  theforeman.foreman.content_view_filter:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ content_view.organization | default(foreman_organization) }}"
+    name: "{{ item.name }}"
+    content_view: "{{ content_view.name }}"
+    repositories: "{{ item.repositories | default(omit) }}"
+    filter_type: "{{ item.filter_type }}"
+    inclusion: "{{ item.inclusion | default(omit) }}"
+    description: "{{ item.description | default(omit) }}"
+    filter_state: "{{ item.filter_state | default(omit) }}"
+    original_packages: "{{ item.original_packages | default(omit) }}"
+    original_module_streams: "{{ item.original_module_streams | default(omit) }}"
+  when:
+    - content_view.state is not defined or content_view.state != 'absent'
+  loop: "{{ content_view.filters | default([]) }}"
+
+- name: Add content view filters rules
+  theforeman.foreman.content_view_filter_rule:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ content_view.organization | default(foreman_organization) }}"
+    content_view_filter: "{{ item.name }}"
+    content_view: "{{ content_view.name }}"
+    start_date: "{{ item.start_date | default(omit) }}"
+    end_date: "{{ item.end_date | default(omit) }}"
+    types: "{{ item.types | default(omit) }}"
+    date_type: "{{ item.date_type | default(omit) }}"
+    errata_id: "{{ item.errata_id | default(omit) }}"
+    max_version: "{{ item.max_version | default(omit) }}"
+    min_version: "{{ item.min_version | default(omit) }}"
+    rule_name: "{{ item.rule_name | default(omit) }}"
+    version: "{{ item.version | default(omit) }}"
+    architecture: "{{ item.architecture | default(omit) }}"
+    rule_state: "{{ item.rule_state | default(omit) }}"
+  when:
+    - content_view.state is not defined or content_view.state != 'absent'
+  loop: "{{ content_view.filters | default([]) }}"

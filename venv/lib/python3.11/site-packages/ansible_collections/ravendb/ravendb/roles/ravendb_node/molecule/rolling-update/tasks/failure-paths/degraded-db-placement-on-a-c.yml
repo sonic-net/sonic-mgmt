@@ -1,0 +1,154 @@
+# ======================================
+# scenario: degraded-db-placement-on-a-c
+# gates used: node_alive, cluster_connectivity, db_groups_available_excluding_target
+#
+# flow:
+# 1. setup 3 independent nodes with ravendb 5.4
+# 2. form a cluster out of them
+# 3. Create RF=3 database replicated on A/B/C
+# 4. corrupt DB on A,C
+# 5. try to rolling upgrade to 6.2 serially:
+#    - roll A -> B -> C
+#    - pre-gate node_alive + cluster_connectivity + db_groups_available_excluding_target
+#    - upgrade node to 6.2
+#    - post-gate node_alive + cluster_connectivity + db_groups_available_excluding_target
+#
+# checkpoints:
+# - A pre-gate 'node_alive','cluster_connectivity','db_groups_available_excluding_target' passes
+# - B pre-gate 'node_alive','cluster_connectivity' passes;
+# - B pre-gate 'db_groups_available_excluding_target' fails (only B can serve the DB)
+#
+# outcome:
+# - FAIL before upgrading B. A=6.2, B=5.4, C=5.4
+# - we catch the failure of pre-gate on B and stop the run
+# ======================================
+
+---
+- name: Form cluster (A,B,C) - pre-upgrade
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Add B as Member
+      ravendb.ravendb.node:
+        tag: "B"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-b:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Add C as Member
+      ravendb.ravendb.node:
+        tag: "C"
+        type: "Member"
+        url: "http://ubuntu-bionic-node-c:8080"
+        leader_url: "http://ubuntu-bionic-node-a:8080"
+
+    - name: Let cluster stabilize
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Fetch topology
+      ansible.builtin.uri:
+        url: "http://ubuntu-bionic-node-a:8080/cluster/topology"
+        method: GET
+        status_code: 200
+        return_content: yes
+        validate_certs: no
+      register: topo
+
+    - name: Extract member tags
+      ansible.builtin.set_fact:
+        member_tags: "{{ topo.json.Topology.Members.keys() | list | unique }}"
+
+    - name: Assert B,C present in Members
+      ansible.builtin.assert:
+        that:
+          - "'B' in member_tags"
+          - "'C' in member_tags"
+
+
+- name: Create DB replicated on all nodes RF=3 - pre-upgrade
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Ensure RF=3 database
+      ravendb.ravendb.database:
+        url: "http://ubuntu-bionic-node-a:8080"
+        database_name: "my_db"
+        state: present
+        replication_factor: 3
+
+- name: Sabotage my_db only on A and C
+  hosts: "ubuntu-bionic-node-a,ubuntu-bionic-node-c"
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Stop RavenDB
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: stopped
+
+    - name: Remove my_db directory
+      ansible.builtin.file:
+        path: /var/lib/ravendb/data/Databases/my_db
+        state: absent
+
+    - name: Create placeholder file so dir cannot be recreated
+      ansible.builtin.shell: |
+        touch /var/lib/ravendb/data/Databases/my_db
+        chmod 000 /var/lib/ravendb/data/Databases/my_db
+      args:
+        executable: /bin/bash
+
+    - name: Start RavenDB
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: started
+    
+    - name: Let DB's NodesTopology status to update
+      ansible.builtin.pause:
+        seconds: 5
+
+
+- name: rolling Update to 6.2
+  hosts: all
+  gather_facts: true
+  serial: 1       
+  tasks:
+    - name: Per-node gates pre upgrade
+      delegate_to: localhost
+      become: false
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive', 'cluster_connectivity', 'db_groups_available_excluding_target']
+        max_time_to_wait: 60
+        retry_interval_seconds: 3
+        on_db_timeout: fail
+      register: gate_result
+      failed_when: false
+      changed_when: false
+
+    - debug:
+        msg: "Gate result: {{ gate_result }}"
+
+    - name: Assert db_groups_available_excluding_target failed on B
+      when: inventory_hostname == 'ubuntu-bionic-node-b'
+      delegate_to: localhost
+      ansible.builtin.assert:
+        that:
+          - "'db_groups_available_excluding_target failed:' in (gate_result.msg | default(''))"
+        fail_msg: "Expected 'db_groups_available_excluding_target failed:' in gate_result.msg. Full: {{ gate_result | to_nice_json }}"
+
+    - name: End play after expected failure
+      when: inventory_hostname == 'ubuntu-bionic-node-b'
+      delegate_to: localhost
+      meta: end_play
+
+    - name: Upgrade node to 6.2
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version_minor: 6.2
+        ravendb_settings_preset: default

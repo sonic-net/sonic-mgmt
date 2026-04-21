@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_qos_buffer - Add 'buffer_init' attribute (https://github.com/ansible-collection/dellemc.enterprise_sonic/pull/444).

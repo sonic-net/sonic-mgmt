@@ -1,0 +1,177 @@
+---
+requires_ansible: '>=2.15.0'
+
+plugin_routing:
+    modules:
+        meraki_ms_switchport:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.devices_switch_ports instead.
+        meraki_action_batch:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.organizations_action_batches instead.
+        meraki_admin:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.organizations_admins instead.
+        meraki_alert:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_alerts_settings instead.
+        meraki_config_template:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.organizations_config_templates instead.
+        meraki_device:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_devices_claim, cisco.meraki.networks_devices_remove and cisco.meraki.networks instead.
+        meraki_firewalled_services:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_firewall_firewalled_services instead.
+        meraki_management_interface:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.devices_management_interface instead.
+        meraki_mr_l3_firewall:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_firewall_l3_firewall_rules instead.
+        meraki_mr_l7_firewall:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_firewall_l7_firewall_rules instead.
+        meraki_mr_radio:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.devices_wireless_radio_settings instead.
+        meraki_mr_rf_profile:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_wireless_rf_profiles instead.
+        meraki_mr_settings:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_wireless_settings instead.
+        meraki_mr_ssid:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_wireless_ssids instead.
+        meraki_ms_access_list:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_switch_access_control_lists instead.
+        meraki_ms_access_policies:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_switch_access_policies instead.
+        meraki_ms_l3_interface:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.devices_switch_routing_interfaces instead.
+        meraki_ms_link_aggregation:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_switch_link_aggregations instead.
+        meraki_ms_ospf:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_switch_routing_ospf instead.
+        meraki_ms_stack_l3_interface:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_switch_stacks_routing_interfaces instead.
+        meraki_ms_stack:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_switch_stacks instead.
+        meraki_ms_storm_control:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_switch_storm_control instead.
+        meraki_mx_content_filtering:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_content_filtering instead.
+        meraki_mx_intrusion_prevention:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.organizations_appliance_security_intrusion and cisco.meraki.networks_appliance_security_intrusion instead.
+        meraki_mx_l2_interface:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_ports instead.
+        meraki_mx_l3_firewall:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_firewall_l3_firewall_rules instead.
+        meraki_mx_l7_firewall:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_firewall_l7_firewall_rules instead.
+        meraki_mx_malware:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_security_malware instead.
+        meraki_mx_nat:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_firewall_one_to_many_nat_rules instead.
+        meraki_mx_network_vlan_settings:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_vlans_settings instead.
+        meraki_mx_site_to_site_firewall:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.organizations_appliance_vpn_vpn_firewall_rules instead.
+        meraki_mx_site_to_site_vpn:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_vpn_site_to_site_vpn instead.
+        meraki_mx_static_route:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_static_routes instead.
+        meraki_mx_third_party_vpn_peers:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.organizations_appliance_vpn_third_party_vpnpeers instead.
+        meraki_mx_uplink_bandwidth:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_traffic_shaping_uplink_bandwidth instead.
+        meraki_mx_vlan:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_appliance_vlans instead.
+        meraki_network_settings:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_settings instead.
+        meraki_network:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks instead.
+        meraki_organization:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.organizations instead.
+        meraki_snmp:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_snmp instead.
+        meraki_syslog:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_syslog_servers instead.
+        meraki_webhook_payload_template:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_webhooks_payload_templates instead.
+        meraki_webhook:
+            deprecation:
+                removal_version: 3.0.0
+                warning_text: Use cisco.meraki.networks_webhooks_http_servers instead.

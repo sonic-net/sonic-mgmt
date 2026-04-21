@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_prefix_lists - Added support for replaced and overridden states (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/255)

@@ -1,0 +1,2 @@
+# Python dependencies of this collection
+cryptography >= 36.0.0

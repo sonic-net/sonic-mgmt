@@ -1,0 +1,24 @@
+---
+- name: Icinga_hostgroup
+  icinga_hostgroup:
+    url: "{{ icinga_url }}"
+    use_proxy: "{{ icinga_use_proxy | default(omit) }}"
+    validate_certs: "{{ icinga_validate_certs | default(omit) }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    force_basic_auth: "{{ icinga_force_basic_auth | default(omit) }}"
+    client_cert: "{{ icinga_client_cert | default(omit) }}"
+    client_key: "{{ icinga_client_key | default(omit) }}"
+    state: "{{ hostgroup.state | default(omit) }}"
+    object_name: "{{ hostgroup.name }}"
+    display_name: "{{ hostgroup.display_name | default(omit) }}"
+    assign_filter: "{{ hostgroup.assign_filter | default('host.name=\"' + hostgroup.name + '-*\"') }}"
+  retries: 3
+  delay: 3
+  register: result
+  until: result is succeeded
+  loop: "{{ icinga_hostgroups }}"
+  loop_control:
+    loop_var: hostgroup
+  tags: hostgroup
+  notify: config_deploy

@@ -1,0 +1,40 @@
+- name: Prepare release
+  hosts: localhost
+  tasks:
+    - name: Generate version
+      when: version is not defined
+      block:
+        - name: Get the next release version
+          ansible.builtin.shell: git tag --sort=-creatordate --merged|head -n1|perl -pe 's/(\d+\.)(\d+)\.\d+/"$1" . ($2+1) . ".0"/e'
+          register: result
+
+        - name: Set the release version
+          ansible.builtin.set_fact:
+            version: "{{ result.stdout }}"
+
+    - name: Create release branch
+      ansible.builtin.shell: git checkout -b "prepare_{{ version }}_release"
+
+    - name: Update galaxy.yml
+      ansible.builtin.lineinfile:
+        path: "{{ playbook_dir }}/../galaxy.yml"
+        regexp: "^version: "
+        line: "version: {{ version }}"
+
+    - name: Update changelog
+      block:
+        - name: Install tox
+          ansible.builtin.pip:
+            name: tox
+
+        - name: Refresh the changelog
+          ansible.builtin.shell: 'tox -e antsibull-changelog -- release --verbose --version {{ version }}'
+
+    - name: Add everything
+      ansible.builtin.shell: git add --all
+
+    # git diff-index --quiet HEAD
+    #   0 -> repository is clean, nothing to commit
+    #   1 -> the opposite
+    - name: Commit everything
+      ansible.builtin.shell: 'git diff-index --quiet HEAD || git commit -m "prepare {{ version }} release"'

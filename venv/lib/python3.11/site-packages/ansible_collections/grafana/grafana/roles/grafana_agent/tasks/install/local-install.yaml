@@ -1,0 +1,10 @@
+---
+- name: Install from local
+  block:
+    - name: "Propagate local binary {{ grafana_agent_local_binary_file }}"
+      ansible.builtin.copy:
+        src: "{{ grafana_agent_local_binary_file }}"
+        dest: "{{ grafana_agent_install_dir }}/{{ grafana_agent_binary }}"
+        mode: 0755
+        owner: root
+        group: root

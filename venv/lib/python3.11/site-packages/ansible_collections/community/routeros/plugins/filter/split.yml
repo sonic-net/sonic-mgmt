@@ -1,0 +1,33 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+DOCUMENTATION:
+  name: split
+  short_description: Split a command into arguments
+  version_added: 2.0.0
+  description:
+    - Split a command into arguments.
+  options:
+    _input:
+      description:
+        - A command.
+      type: string
+      required: true
+  author:
+    - Felix Fontein (@felixfontein)
+
+EXAMPLES: |
+  ---
+  - name: Split command into list of arguments
+    ansible.builtin.set_fact:
+      argument_list: >-
+        {{ 'foo=bar comment="foo is bar" baz' | community.routeros.split }}
+      # Should result in ['foo=bar', 'comment=foo is bar', 'baz']
+
+RETURN:
+  _value:
+    description: The list of arguments.
+    type: list
+    elements: string

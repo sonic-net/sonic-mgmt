@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_system - Add switching-mode functionality to the sonic_system module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/504).

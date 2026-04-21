@@ -1,0 +1,90 @@
+---
+########################################################################
+# Legacy modification of cloud_init:
+########################################################################
+- name: Set cloud_init
+  no_log: true
+
+  ########################################################################
+  # Legacy modification of sysprep:
+  ########################################################################
+
+  block:
+    - name: Set cloud_init fact
+      ansible.builtin.set_fact:
+        cloud_init: "{{ current_vm.cloud_init | default(current_vm.profile.cloud_init) | default({}) }}"
+
+    - name: Define cloud_init block
+      when: current_vm.cloud_init is defined or current_vm.profile.cloud_init is defined
+      block:
+        - name: Define cloud_init user_name
+          ansible.builtin.set_fact:
+            cloud_init: "{{ cloud_init | combine({'user_name': cloud_init.user_name | default('root') }) }}"
+
+        - name: Define cloud_init authorized_ssh_keys
+          ansible.builtin.set_fact:
+            cloud_init: "{{ cloud_init | combine({'authorized_ssh_keys': current_vm.ssh_key | default(current_vm.profile.ssh_key)}) }}"
+          when: current_vm.profile.ssh_key is defined or current_vm.ssh_key is defined
+
+        - name: Define cloud_init root_password
+          ansible.builtin.set_fact:
+            cloud_init: "{{ cloud_init | combine({'root_password': current_vm.root_password | default(current_vm.profile.root_password)}) }}"
+          when: current_vm.profile.root_password is defined or current_vm.root_password is defined
+
+        - name: Define cloud_init host_name
+          ansible.builtin.set_fact:
+            cloud_init: "{{ cloud_init | combine({'host_name': current_vm.name~'.'~current_vm.domain | default(current_vm.profile.domain)}) }}"
+          when: current_vm.profile.domain is defined or current_vm.domain is defined
+
+        - name: Define vm/password dictionary
+          ansible.builtin.set_fact:
+            vms_passwords: "{{ vms_passwords + [{'name': current_vm.name, 'root_password': cloud_init.root_password}] }}"
+          when: "'root_password' in cloud_init"
+- name: Set sysprep
+  no_log: true
+  block:
+    - name: Set sysprep fact
+      ansible.builtin.set_fact:
+        sysprep: "{{ current_vm.sysprep | default(current_vm.profile.sysprep) | default({}) }}"
+
+    - name: Define cloud_init block
+      when: current_vm.sysprep is defined or current_vm.profile.sysprep is defined
+      block:
+        - name: Define cloud_init user_name
+          ansible.builtin.set_fact:
+            sysprep: "{{ sysprep | combine({'user_name': sysprep.user_name | default('Administrator') }) }}"
+
+        - name: Define cloud_init root_password
+          ansible.builtin.set_fact:
+            sysprep: "{{ sysprep | combine({'root_password': current_vm.root_password | default(current_vm.profile.root_password)}) }}"
+          when: current_vm.profile.root_password is defined or current_vm.root_password is defined
+
+        - name: Define cloud_init host_name
+          ansible.builtin.set_fact:
+            sysprep: "{{ sysprep | combine({'host_name': current_vm.name~'.'~current_vm.domain | default(current_vm.profile.domain)}) }}"
+          when: current_vm.profile.domain is defined or current_vm.domain is defined
+
+        - name: Define vm/password dictionary
+          ansible.builtin.set_fact:
+            vms_passwords: "{{ vms_passwords + [{'name': current_vm.name, 'root_password': sysprep.root_password}] }}"
+          when: "'root_password' in sysprep"
+########################################################################
+########################################################################
+- name: "Manage VM '{{ current_vm.name }}' state"
+  ovirt.ovirt.ovirt_vm:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ current_vm.state | default(current_vm.profile.state) | default('present') }}"
+    name: "{{ current_vm.name }}"
+    sysprep: "{{ (sysprep | length > 0) | ternary(sysprep, omit) }}"
+    cloud_init: "{{ (cloud_init | length > 0) | ternary(cloud_init, omit) }}"
+    cloud_init_persist: "{{ current_vm.cloud_init_persist | default(current_vm.profile.cloud_init_persist) | default(omit) }}"
+    cloud_init_nics: "{{ current_vm.cloud_init_nics | default(current_vm.profile.cloud_init_nics)  | default(omit) }}"
+    timeout: "{{ vm_infra_create_single_timeout }}"
+  changed_when: false
+  async: "{{ vm_infra_create_single_timeout }}"
+  poll: 0
+  register: started_vm
+
+- name: Set started_vms list
+  ansible.builtin.set_fact:
+    started_vms: "{{ started_vms | default([]) + [started_vm] }}"

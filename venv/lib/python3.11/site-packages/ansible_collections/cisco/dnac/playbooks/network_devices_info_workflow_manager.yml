@@ -1,0 +1,58 @@
+---
+- name: Get network devices info on Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Get Network Devices Info on Cisco Catalyst Center
+      cisco.dnac.network_devices_info_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: false
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: gathered
+        config:
+          - network_devices:
+              - site_hierarchy: Global/USA/SAN JOSE
+                device_type: "Cisco Catalyst 9300 Switch"
+                device_role: "ACCESS"
+                device_family: "Switches and Hubs"
+                software_version: "17.12.1"
+                os_type: "IOS-XE"
+                device_identifier:
+                  - ip_address: ["204.1.2.1"]
+                  - serial_number: ["FCW2137L0SB"]
+                  - hostname: ["SJ-BN-9300.cisco.local"]
+                  - mac_address: ["90:88:55:90:26:00"]
+                timeout: 60
+                retries: 3
+                interval: 10
+                requested_info:
+                  - device_info
+                  - interface_info
+                  - interface_vlan_info
+                  - line_card_info
+                  - supervisor_card_info
+                  - poe_info
+                  - module_count_info
+                  - connected_device_info
+                  - device_interfaces_by_range_info
+                  - device_config_info
+                  - device_summary_info
+                  - device_polling_interval_info
+                  - device_stack_info
+                  - device_link_mismatch_info
+                output_file_info:
+                  file_path: /Users/priyadharshini/Downloads/info
+                  file_format: json
+                  file_mode: w
+                  timestamp: true

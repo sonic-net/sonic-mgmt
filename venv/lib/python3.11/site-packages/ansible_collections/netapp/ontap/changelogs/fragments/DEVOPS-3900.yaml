@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_rest_info - Added "autosupport_check_info"/"support/autosupport/check" to the attributes
+    that will be collected when gathering info using the module.

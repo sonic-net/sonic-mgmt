@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_vserver_peer - Added REST support to the vserver_peer module

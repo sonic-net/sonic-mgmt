@@ -1,0 +1,6 @@
+---
+file_glob_name: lia
+file_gpg_name: RPM-GPG-KEY-ScaleIO
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_lia_mdm_ips }}"
+  TOKEN: "{{ powerflex_lia_token }}"

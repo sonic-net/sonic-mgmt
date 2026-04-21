@@ -1,0 +1,9 @@
+---
+- name: Get appliance distribution
+  ansible.builtin.setup:
+    filter: ansible_distribution*
+  register: ansible_appliance_dist
+- name: Set appliance distribution variables
+  ansible.builtin.set_fact:
+    appliance_dist: "{{ ansible_appliance_dist.ansible_facts.ansible_distribution }}"
+    appliance_ver: "{{ ansible_appliance_dist.ansible_facts.ansible_distribution_major_version }}"

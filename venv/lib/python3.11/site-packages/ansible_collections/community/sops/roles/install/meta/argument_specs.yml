@@ -1,0 +1,103 @@
+---
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2022, Felix Fontein
+
+argument_specs:
+  main:
+    short_description: Install SOPS
+    version_added: 1.5.0
+    description:
+      - This role installs L(SOPS,https://github.com/getsops/sops) and GNU Privacy Guard (GPG).
+      - >-
+        This role supports the following operating systems:
+        Alpine (new enough),
+        Arch Linux,
+        CentOS 7, Stream 8, or newer,
+        Debian 10 (Buster) or newer,
+        Fedora (new enough),
+        RHEL 7 or newer,
+        Ubuntu 16.04 or newer LTS versions
+      - The Ansible facts C(ansible_facts.architecture), C(ansible_facts.distribution), C(ansible_facts.distribution_major_version),
+        C(ansible_facts.distribution_version), and C(ansible_facts.os_family) are expected to be present if O(sops_install_on_localhost) is V(false).
+    author:
+      - Felix Fontein (@felixfontein)
+    options:
+      sops_version:
+        default: latest
+        description:
+          - The version of SOPS to install.
+          - Should be a version like V(3.7.2). The special value V(latest) will select the latest version available form the given source.
+        type: str
+      sops_source:
+        default: auto
+        description:
+          - Determines the source from where SOPS is installed.
+          - The value V(github) will install SOPS from the SOPS releases on GitHub (U(https://github.com/getsops/sops/releases/)).
+          - The value V(system) will install SOPS from the system packages. Note that not all system package repositories support SOPS.
+          - The value V(auto) will determine the best source to install SOPS from. Here, system package repositories are preferred over GitHub.
+        type: str
+        choices:
+          - auto
+          - github
+          - system
+      sops_install_on_localhost:
+        default: false
+        description:
+          - Installs SOPS on the Ansible controller (C(localhost)) instead of the remote host.
+        type: bool
+      sops_become_on_install:
+        default: true
+        description:
+          - 'Whether the role should use C(become: true) when installing packages.'
+        type: bool
+      sops_github_latest_detection:
+        description:
+          - When installing the latest SOPS version from GitHub, configures how the latest release is detected.
+          - V(auto) tries V(api) first and then uses V(latest-release).
+          - V(api) asks the GitHub API for a list of recent releases and picks the highest version. Pre-releases are avoided.
+          - V(latest-release) uses a not fully documented URL to retrieve the release marked as "latest" by the repository maintainers.
+        type: str
+        choices:
+          - auto
+          - api
+          - latest-release
+        version_added: 1.6.0
+      sops_github_token:
+        description:
+          - Token to provide when querying the GitHub API for the latest release. Without the token
+            there are rather strict rate limits.
+          - Should mainly be used in GitHub Actions.
+        type: str
+        version_added: 1.6.0
+    attributes:
+      check_mode:
+        description: Can run in C(check_mode) and return changed status prediction without modifying target.
+        support: none
+        details:
+          - The role currently does not work in check mode.
+          # TODO: add 'check_mode: false' to tasks that prepare something
+      diff_mode:
+        description: Will return details on what has changed (or possibly needs changing in C(check_mode)), when in diff mode.
+        support: partial
+        details:
+          - The role supports diff mode if the M(ansible.builtin.package) action for the system supports it.
+      idempotent:
+        description:
+          - When run twice in a row outside check mode, with the same arguments, the second invocation indicates no change.
+          - This assumes that the system controlled/queried by the module has not changed in a relevant way.
+        support: partial
+        details:
+          - The role is idempotent if the M(ansible.builtin.package) action for the system is idempotent.
+          - This is usually the case, but if packages need to be installed from GitHub (that is, through an URL), idempotence might not hold.
+      platform:
+        description: Target OS/families that can be operated against.
+        support: full
+        platforms:
+          - Alpine (new enough)
+          - Arch Linux
+          - CentOS 7, Stream 8, or newer
+          - Debian 10 (Buster) or newer
+          - Fedora (new enough)
+          - RHEL 7 or newer
+          - Ubuntu 16.04 or newer LTS versions

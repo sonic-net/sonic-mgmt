@@ -1,0 +1,33 @@
+---
+requires_ansible: ">=2.11"
+action_groups:
+  vultr:
+    - account_info
+    - bare_metal
+    - block_storage
+    - block_storage_info
+    - dns_domain
+    - dns_domain_info
+    - dns_record
+    - firewall_group
+    - firewall_group_info
+    - firewall_rule
+    - firewall_rule_info
+    - instance
+    - instance_info
+    - object_storage
+    - os_info
+    - plan_info
+    - plan_metal_info
+    - region_info
+    - reserved_ip
+    - ssh_key
+    - ssh_key_info
+    - startup_script
+    - startup_script_info
+    - user
+    - user_info
+    - vpc
+    - vpc_info
+    - vpc2
+    - vpc2_info

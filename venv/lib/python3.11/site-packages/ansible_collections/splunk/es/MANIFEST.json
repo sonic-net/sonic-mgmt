@@ -1,0 +1,33 @@
+{
+ "collection_info": {
+  "namespace": "splunk",
+  "name": "es",
+  "version": "4.0.0",
+  "authors": [
+   "Ansible Seurity Team (https://github.com/ansible-security)"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "security",
+   "splunk"
+  ],
+  "description": "Ansible Security Collection for Splunk Enterprise Security SIEM",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {
+   "ansible.netcommon": ">=6.0.0"
+  },
+  "repository": "https://github.com/ansible-collections/splunk.es",
+  "documentation": "https://github.com/ansible-collections/splunk.es",
+  "homepage": "https://github.com/ansible-collections/splunk.es",
+  "issues": "https://github.com/ansible-collections/splunk.es/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "676b33109eb3f5a3f83794a67e059776cf042e1667607c4889255b012afd2d5c",
+  "format": 1
+ },
+ "format": 1
+}

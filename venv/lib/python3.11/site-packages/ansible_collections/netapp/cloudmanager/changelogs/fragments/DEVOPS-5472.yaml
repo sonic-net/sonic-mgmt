@@ -1,0 +1,2 @@
+minor_changes:
+  - Add ``availability_zone`` option in CVO Azure on the location configuration.

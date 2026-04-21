@@ -1,0 +1,115 @@
+---
+####################################################################
+# Example : Encryption Key Facts Playbook
+####################################################################
+- name: Encryption Key Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all encryption keys
+    ####################################################################
+    - name: Get all encryption keys
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get limited number of encryption keys
+    ####################################################################
+    - name: Get limited encryption keys (count=5)
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          count: 5
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get encryption keys by type
+    ####################################################################
+    - name: Get Free encryption keys
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          key_type: "Free"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get a specific encryption key by id
+    ####################################################################
+    - name: Get a specific encryption key by id
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "fde47d37-bb64-49d5-a837-c51377602033"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get encryption keys by target resource ID
+    ####################################################################
+    - name: Get encryption keys by target resource ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          target_resource_id: "00000000-0000-0000-0000-000000000000"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get encryption keys by creation time range
+    ####################################################################
+    - name: Get encryption keys by creation time
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          start_creation_time: "2023-07-01T00:00:00Z"
+          end_creation_time: "2023-07-31T23:59:59Z"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get encryption keys by target resource name
+    ####################################################################
+    - name: Get encryption keys by target resource name
+      hitachivantara.vspone_block.sds_block.hv_sds_block_encryption_key_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          target_resource_name: "example-resource"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

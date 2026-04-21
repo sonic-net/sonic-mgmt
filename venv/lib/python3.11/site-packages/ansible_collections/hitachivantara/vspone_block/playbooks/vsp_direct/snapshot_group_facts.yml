@@ -1,0 +1,45 @@
+---
+####################################################################
+# Example : Snapshot group Pair Facts playbook
+####################################################################
+
+- name: Snapshot group Pair Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all snapshot groups
+    ####################################################################
+    - name: Get all snapshot groups
+      hitachivantara.vspone_block.vsp.hv_snapshot_group_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get all snapshot pairs for a snapshot group
+    ####################################################################
+    - name: Get all snapshot pairs for a snapshot group
+      hitachivantara.vspone_block.vsp.hv_snapshot_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          snapshot_group_name: "snapshot-group-name-1"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

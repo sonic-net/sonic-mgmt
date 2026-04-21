@@ -1,0 +1,27 @@
+---
+- name: Demonstrate the usage of the 'hetzner.hcloud.all' module_defaults group
+  hosts: localhost
+  connection: local
+
+  module_defaults:
+    group/hetzner.hcloud.all:
+      api_token: LRK9DAWQ1ZAEFSrCNEEzLCUwhYX1U3g7wMg4dTlkkDC96fyDuyJ39nVbVjCKSDfj
+
+  tasks:
+    - name: Create a volume
+      hetzner.hcloud.volume:
+        name: my-volume
+        location: fsn1
+        size: 100
+        state: present
+      register: volume
+
+    - name: Create a server
+      hetzner.hcloud.server:
+        name: my-server
+        server_type: cx22
+        image: debian-12
+        location: fsn1
+        volumes:
+          - "{{ volume.hcloud_volume.id }}"
+        state: present

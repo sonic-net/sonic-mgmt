@@ -1,0 +1,31 @@
+dependency:
+  name: galaxy
+driver:
+  name: docker
+  port_bindings:
+    '8080': 80
+    '38888': 38888
+    '44443': 443
+platforms:
+  - name: ubuntu-bionic
+    image: docker.io/geerlingguy/docker-ubuntu2204-ansible:latest
+    privileged: true
+    command: /usr/sbin/init
+    volumes:
+      - '/sys/fs/cgroup:/sys/fs/cgroup:rw'
+    tmpfs:
+      - /run
+      - /tmp
+    cgroupns_mode: host
+provisioner:
+  name: ansible
+  log: true
+scenario:
+  name: unsecured
+  test_sequence:
+    - destroy
+    - create
+    - converge
+    - verify
+verifier:
+  name: ansible

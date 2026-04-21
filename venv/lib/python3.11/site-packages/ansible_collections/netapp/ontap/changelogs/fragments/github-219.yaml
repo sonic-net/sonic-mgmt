@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_active_directory - return error message when attempting to modify `account_name`.

@@ -1,0 +1,43 @@
+---
+- name: Run unregistered entities main block
+  ignore_errors: "{{ dr_ignore_error_clean }}"
+  tags:
+    - fail_back
+  block:
+    - name: Obtain SSO token
+      ovirt.ovirt.ovirt_auth:
+        url: "{{ vars['dr_sites_' + dr_target_host + '_url'] }}"
+        username: "{{ vars['dr_sites_' + dr_target_host + '_username'] }}"
+        password: "{{ vars['dr_sites_' + dr_target_host + '_password'] }}"
+        ca_file: "{{ vars['dr_sites_' + dr_target_host + '_ca_file'] }}"
+
+    - name: Read file that contains running VMs from the previous setup
+      ansible.builtin.set_fact:
+
+        running_vms_fail_back: "{{ lookup('file', dr_running_vms) }}"
+    - name: Remove dr_running_vms file after being used
+      ansible.builtin.file:
+        path: "{{ dr_running_vms }}"
+        state: absent
+
+    - name: Run all the (previously running) high availability VMs
+      ansible.builtin.include_tasks: recover/run_vms.yml
+      vars:
+        vms: "{{ item }}"
+      with_items: "{{ running_vms_fail_back }}"
+      when: item.high_availability.enabled | bool
+
+    - name: Run all the (previously running) non high availability VMs
+      ansible.builtin.include_tasks: recover/run_vms.yml
+      vars:
+        vms: "{{ item }}"
+      with_items: "{{ running_vms_fail_back }}"
+      when: not item.high_availability.enabled | bool
+
+      # TODO: Remove dr_report_file
+
+  always:
+    - name: Revoke the SSO token
+      ovirt.ovirt.ovirt_auth:
+        state: absent
+        ovirt_auth: "{{ ovirt_auth }}"

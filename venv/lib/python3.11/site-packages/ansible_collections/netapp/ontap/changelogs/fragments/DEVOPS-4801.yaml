@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_vscan_on_access_policy - Added REST support.
+  - na_ontap_vscan_on_access_policy - new REST options ``scan_readonly_volumes`` and ``only_execute_access`` added.
+bugfixes:
+  - na_ontap_vscan_on_access_policy - fixed options ``filters``, ``file_ext_to_exclude`` and ``paths_to_exclude`` cannot be reset to empty values in ZAPI.

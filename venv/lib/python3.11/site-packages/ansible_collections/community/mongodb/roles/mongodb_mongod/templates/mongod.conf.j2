@@ -1,0 +1,75 @@
+# mongod.conf
+
+# for documentation of all options, see:
+#   http://docs.mongodb.org/manual/reference/configuration-options/
+
+# where to write logging data.
+systemLog:
+  destination: file
+  logAppend: true
+  path: {{ log_path }}
+{% if mongodb_logrotate_enabled %}
+  logRotate: reopen
+{% endif %}
+
+# Where and how to store data.
+storage:
+  dbPath: {{ db_path }}
+{% if mongodb_version | float < 6.1 %}
+  journal:
+    enabled: true
+{% endif %}
+  engine: "wiredTiger"
+
+# how the process runs
+processManagement:
+{% if ansible_facts.os_family == "RedHat" and ansible_facts.distribution != "Amazon" and ansible_facts.distribution != "AlmaLinux" and ansible_facts.distribution != "Fedora" %}  # Breaks Ubuntu / Debian
+  fork: true
+  pidFilePath: /var/run/mongodb/mongod.pid
+{% endif %}
+  timeZoneInfo: /usr/share/zoneinfo
+
+# network interfaces
+net:
+  port: {{ mongod_port }}
+{% if bind_ip_all %}
+  bindIpAll: true
+{% else %}
+  bindIp: {{ bind_ip }}
+{% endif %}
+{% if net_compressors %}
+  compression:
+    compressors: {{ net_compressors }}
+{% endif %}
+{% if mongodb_use_tls %}
+  tls:
+    mode: requireTLS
+    certificateKeyFile: {{ mongodb_certificate_key_file }}
+    CAFile: {{ mongodb_certificate_ca_file }}
+{% if mongodb_disabled_tls_protocols != "" %}
+    disabledProtocols: {{ mongodb_disabled_tls_protocols }}
+{% endif %}
+{% if mongodb_allow_connections_without_certificates %}
+    allowConnectionsWithoutCertificates: true
+{% endif %}
+{% endif %}
+
+{% if authorization == "enabled" %}
+security:
+  authorization: {{ authorization }}
+{% if replicaset or sharding %}
+  keyFile: {{ openssl_keyfile_path }}
+{% endif %}
+{% endif %}
+
+#operationProfiling:
+
+{% if replicaset %}
+replication:
+  replSetName: {{ repl_set_name }}
+{% endif %}
+
+{% if sharding %}
+sharding:
+  clusterRole: shardsvr
+{% endif %}

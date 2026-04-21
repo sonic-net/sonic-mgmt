@@ -1,0 +1,39 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+DOCUMENTATION:
+  name: remove_registrable_domain
+  short_description: Removes the registrable domain name from a DNS name
+  version_added: 0.1.0
+  description:
+    - Removes the registrable domain name from a DNS name.
+  options:
+    _input:
+      description:
+        - A DNS name.
+      type: string
+      required: true
+    keep_trailing_period:
+      description:
+        - This controls whether the trailing period of the prefix (that is, the part before the
+          registrable domain) is preserved or not.
+      type: boolean
+      default: false
+  extends_documentation_fragment:
+    - community.dns.filters
+    - community.dns.filters.registerable_domain
+  author:
+    - Felix Fontein (@felixfontein)
+
+EXAMPLES: |
+  - name: Remove the registrable domain from a DNS name
+    ansible.builtin.set_fact:
+      public_suffix: "{{ 'www.ansible.co.uk' | community.dns.remove_registrable_domain }}"
+      # Should result in 'www'
+
+RETURN:
+  _value:
+    description: The part of the DNS name before the registrable domain.
+    type: string

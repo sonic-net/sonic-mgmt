@@ -1,0 +1,3 @@
+---
+groups:
+  {{ loki_ruler_alerts | to_nice_yaml(indent=2,sort_keys=False) | indent(2,False) }}

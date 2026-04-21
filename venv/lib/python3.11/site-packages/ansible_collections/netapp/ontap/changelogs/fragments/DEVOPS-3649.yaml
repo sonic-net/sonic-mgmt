@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_autosupport - warn when password is present in ``proxy_url`` as it makes the operation not idempotent.

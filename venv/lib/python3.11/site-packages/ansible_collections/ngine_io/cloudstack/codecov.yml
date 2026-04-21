@@ -1,0 +1,14 @@
+---
+# See https://docs.codecov.com/docs/commit-status
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  status:
+    project:
+      default:
+        informational: true
+        threshold: 10%
+    patch: off
+fixes:
+  - "/ansible_collections/ngine_io/cloudstack/::"

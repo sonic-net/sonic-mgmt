@@ -1,0 +1,34 @@
+---
+plugin_routing:
+  action:
+    rule:
+      redirect: ibm.qradar.qradar
+    rule_info:
+      redirect: ibm.qradar.qradar
+    log_source_management:
+      redirect: ibm.qradar.qradar
+    qradar_analytics_rules:
+      redirect: ibm.qradar.qradar
+    qradar_log_sources_management:
+      redirect: ibm.qradar.qradar
+  modules:
+    rule:
+      deprecation:
+        removal_date: "2024-09-01"
+        warning_text: See the plugin documentation for more details
+      redirect: ibm.qradar.qradar_rule
+    rule_info:
+      deprecation:
+        removal_date: "2024-09-01"
+        warning_text: See the plugin documentation for more details
+      redirect: ibm.qradar.qradar_rule_info
+    analytics_rules:
+      redirect: ibm.qradar.qradar_analytics_rules
+    log_source_management:
+      deprecation:
+        removal_date: "2024-09-01"
+        warning_text: See the plugin documentation for more details
+      redirect: ibm.qradar.qradar_log_source_management
+    log_sources_management:
+      redirect: ibm.qradar.qradar_log_sources_management
+requires_ansible: ">=2.15.0"

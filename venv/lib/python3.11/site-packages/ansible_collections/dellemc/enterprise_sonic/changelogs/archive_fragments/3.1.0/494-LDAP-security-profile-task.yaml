@@ -1,0 +1,3 @@
+---
+trivial:
+  - sonic_ldap - Add prerequisite task for LDAP security profile tests (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/494).

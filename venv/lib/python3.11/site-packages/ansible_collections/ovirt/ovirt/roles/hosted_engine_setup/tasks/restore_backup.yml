@@ -1,0 +1,87 @@
+---
+- name: Copy the backup file to the engine VM for restore
+  ansible.builtin.copy:
+    src: "{{ he_restore_from_file }}"
+    dest: /root/engine_backup
+    owner: root
+    group: root
+    mode: "0600"
+- name: Run engine-backup
+  ansible.builtin.shell: >-
+    engine-backup --mode=restore
+    --log=/var/log/ovirt-engine/setup/restore-backup-$(date -u +%Y%m%d%H%M%S).log
+    --file=/root/engine_backup --provision-all-databases --restore-permissions
+  environment: "{{ he_cmd_lang }}"
+  register: engine_restore_out
+  ignore_errors: true
+  changed_when: true
+- name: Pause the execution to let the user interactively handle restore failures
+  when: engine_restore_out.rc != 0
+  block:
+    - name: Let the user connect to the bootstrap engine VM to manually handle restore failures
+      ansible.builtin.debug:
+        msg: >-
+          engine-backup --mode=restore failed:
+
+          {{ engine_restore_out.stderr }}
+
+          You can now connect from this host to the bootstrap engine VM using ssh as root
+          and the temporary IP address -
+          {{ hostvars[he_ansible_host_name]['local_vm_ip']['stdout_lines'][0] }} -
+          and fix this issue. Please continue only after the backup is restored.
+
+          To retry the command that failed, you can run, on the bootstrap engine VM:
+
+          engine-backup --mode=restore --file=/root/engine_backup --provision-all-databases
+          --restore-permissions
+    - ansible.builtin.include_tasks: pause_execution.yml
+- name: Remove backup file
+  ansible.builtin.file:
+    state: absent
+    path: /root/engine_backup
+- name: Remove previous hosted-engine VM
+  ansible.builtin.command: >-
+    "{{ engine_psql }}" -c "SELECT deletevm(vm_guid) FROM (SELECT vm_guid FROM vms WHERE origin=6) t"
+  environment: "{{ he_cmd_lang }}"
+  changed_when: true
+  register: db_remove_old_enginevm
+- name: Update host used to redeploy
+  ansible.builtin.include_tasks: restore_host_redeploy.yml
+  loop:
+    - {vds_type: "vds_name", input: "{{ he_host_name }}"}
+    - {vds_type: "vds_unique_id", input: "{{ hostvars[he_ansible_host_name]['unique_id_out']['stdout_lines']|first }}"}
+- name: Rename previous HE storage domain to avoid name conflicts
+  ansible.builtin.command: >-
+    "{{ engine_psql }}" -c
+    "UPDATE storage_domain_static SET
+    storage_name='{{ he_storage_domain_name }}_old_{{ ansible_date_time.iso8601_basic_short }}' WHERE
+    storage_name='{{ he_storage_domain_name }}'"
+  environment: "{{ he_cmd_lang }}"
+  changed_when: true
+  register: db_rename_he_sd
+- name: Save original DisableFenceAtStartupInSec
+  ansible.builtin.shell: >-
+    set -euo pipefail && engine-config -g DisableFenceAtStartupInSec |
+    cut -d' ' -f2 > /root/DisableFenceAtStartupInSec.txt
+  environment: "{{ he_cmd_lang }}"
+  changed_when: true
+- name: Update DisableFenceAtStartupInSec to prevent host fencing during the recovery
+  ansible.builtin.command: "engine-config -s DisableFenceAtStartupInSec=86400"
+  environment: "{{ he_cmd_lang }}"
+  changed_when: true
+- name: Add lines to engine-setup answerfile for PKI renewal
+  ansible.builtin.lineinfile:
+    path: /root/ovirt-engine-answers
+    line: "{{ item }}"
+  with_items:
+    - "OVESETUP_PKI/renew=bool:{{ he_pki_renew_on_restore }}"
+    - "QUESTION/1/OVESETUP_SKIP_RENEW_PKI_CONFIRM=str:yes"
+- name: remove version lock from the engine
+  ansible.builtin.file:
+    state: absent
+    path: /etc/yum/pluginconf.d/versionlock.list
+- name: recreate versionlock empty file
+  ansible.builtin.file:
+    state: touch
+    path: /etc/yum/pluginconf.d/versionlock.list
+    mode: "0644"

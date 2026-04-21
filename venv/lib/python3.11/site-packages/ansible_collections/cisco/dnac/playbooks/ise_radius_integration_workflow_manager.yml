@@ -1,0 +1,111 @@
+---
+- name: Ise radius integration workflow manager
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false  # This space must be "no". It was set to false due to formatting errors.but the correct value is "no".
+  connection: local
+  tasks:
+    - name: Create an  Authentication and Policy Server.
+      cisco.dnac.ise_radius_integration_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: "{{ dnac_log_level }}"
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - authentication_policy_server:
+              - server_type: AAA  # [ISE, AAA]
+                server_ip_address: 10.0.0.20
+                shared_secret: cisco
+                protocol: RADIUS_TACACS  # [TACACS, RADIUS, RADIUS_TACACS]
+                encryption_scheme: KEYWRAP  # KEYWRAP or RADSEC
+                encryption_key: dnacsolutions123  # For KEYWRAP, must be 16 char long
+                message_authenticator_code_key: dnacisesolutions1234  # For KEYWRAP, must be 20 char long
+                authentication_port: 1800
+                accounting_port: 1700
+                retries: 3  # Range from 1 to 3
+                timeout: 4  # Range from 2 to 20
+                role: secondary
+
+    - name: Delete Authentication and Policy Server.
+      cisco.dnac.ise_radius_integration_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: "{{ dnac_log_level }}"
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: deleted
+        config_verify: true
+        config:
+          - authentication_policy_server:
+              - server_ip_address: 10.0.0.20
+
+    - name: Create ISE Server.
+      cisco.dnac.ise_radius_integration_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: "{{ dnac_log_level }}"
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: merged
+        config_verify: true
+        config:
+          - authentication_policy_server:
+              - server_type: ISE  # [ISE, AAA]
+                server_ip_address: 10.195.243.59
+                shared_secret: cisco
+                protocol: RADIUS_TACACS  # [TACACS, RADIUS, RADIUS_TACACS]
+                encryption_scheme: KEYWRAP  # KEYWRAP or RADSEC
+                encryption_key: dnacsolutions123  # For KEYWRAP, must be 16 char long
+                message_authenticator_code_key: dnacisesolutions1234  # For KEYWRAP, must be 20 char long
+                authentication_port: 1800
+                accounting_port: 1700
+                retries: 3  # Range from 1 to 3
+                timeout: 4  # Range from 2 to 20
+                role: primary
+                pxgrid_enabled: false  # Avaliable for Cisco ISE only
+                use_dnac_cert_for_pxgrid: false
+                cisco_ise_dtos:  # use this for creating the Cisco ISE Server
+                  - user_name: admin
+                    password: abcd
+                    fqdn: abc.cisco.com
+                    ip_address: 10.195.243.59
+                    description: CISCO ISE
+                trusted_server: true
+                ise_integration_wait_time: 20
+
+    - name: Delete an ISE Server.
+      cisco.dnac.ise_radius_integration_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: "{{ dnac_log_level }}"
+        dnac_log_append: true
+        dnac_log_file_path: "{{ dnac_log_file_path }}"
+        state: deleted
+        config_verify: true
+        config:
+          - authentication_policy_server:
+              - server_ip_address: 10.195.243.59

@@ -1,0 +1,98 @@
+---
+####################################################################
+# Example :  Remote connection management Playbook
+####################################################################
+- name: Remote Connection add/remove/update
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ######################################################################################
+    # Task Name : Create a new remote connection
+    ######################################################################################
+    - name: Create a new remote connection
+      hitachivantara.vspone_block.vsp.hv_remote_connection:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          path_group_id: 101
+          remote_storage_serial_number: "40014"
+          remote_paths:
+            - local_port: "CL7-C"
+              remote_port: "CL7-C"
+            - local_port: "CL7-D"
+              remote_port: "CL7-D"
+          min_remote_paths: 1
+          remote_io_timeout_in_sec: 15
+          round_trip_in_msec: 1
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Update remote path of a existing remote connection
+    ######################################################################################
+    - name: Update remote path of a existing remote connection
+      hitachivantara.vspone_block.vsp.hv_remote_connection:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          path_group_id: 101
+          remote_storage_serial_number: "40014"
+          remote_paths:
+            - local_port: "CL7-C"
+              remote_port: "CL7-C"
+            - local_port: "CL7-D"
+              remote_port: "CL7-D"
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Update remote connection settings
+    ######################################################################################
+    - name: Update remote connection settings
+      hitachivantara.vspone_block.vsp.hv_remote_connection:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          path_group_id: 101
+          remote_storage_serial_number: "40014"
+          remote_io_timeout_in_sec: 60
+          round_trip_in_msec: 10
+          min_remote_paths: 2
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################
+    # Task Name : Delete a remote connection
+    ######################################################################################
+    - name: Delete a remote connection
+      hitachivantara.vspone_block.vsp.hv_remote_connection:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          path_group_id: 101
+          remote_storage_serial_number: "40014"
+      register: result
+
+    - name: Debug result
+      ansible.builtin.debug:
+        var: result

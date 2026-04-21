@@ -1,0 +1,191 @@
+---
+- name: Create hosted engine local vm
+  block:
+    - name: Wait for the storage interface to be up
+      ansible.builtin.command: ip -j link show '{{ he_storage_if }}'
+      register: storage_if_result_up_check
+      until: >-
+        storage_if_result_up_check.stdout|from_json|map(attribute='operstate')|join('') == 'UP'
+      retries: 120
+      delay: 5
+      delegate_to: "{{ he_ansible_host_name }}"
+      when: (he_domain_type == "glusterfs" or he_domain_type == "nfs") and he_storage_if is not none
+    - name: Check local VM dir stat
+      ansible.builtin.stat:
+        path: "{{ he_local_vm_dir }}"
+      register: local_vm_dir_stat
+    - name: Enforce local VM dir existence
+      ansible.builtin.fail:
+        msg: "Local VM dir '{{ he_local_vm_dir }}' doesn't exist"
+      when: not local_vm_dir_stat.stat.exists
+    - ansible.builtin.include_tasks: auth_sso.yml
+    - name: Fetch host facts
+      ovirt.ovirt.ovirt_host_info:
+        pattern: name={{ he_host_name }}
+        auth: "{{ ovirt_auth }}"
+      register: host_result
+      until: >-
+        host_result and 'ovirt_hosts' in host_result
+        and host_result.ovirt_hosts|length >= 1 and
+        'up' in host_result.ovirt_hosts[0].status
+      retries: 50
+      delay: 10
+    - name: Fetch cluster ID
+      ansible.builtin.set_fact:
+        cluster_id: "{{ host_result.ovirt_hosts[0].cluster.id }}"
+    - name: Fetch cluster facts
+      ovirt.ovirt.ovirt_cluster_info:
+        auth: "{{ ovirt_auth }}"
+      register: cluster_facts
+    - name: Fetch Datacenter facts
+      ovirt.ovirt.ovirt_datacenter_info:
+        auth: "{{ ovirt_auth }}"
+      register: datacenter_facts
+    - name: Fetch Datacenter ID
+      ansible.builtin.set_fact:
+        datacenter_id: "{{ cluster_facts.ovirt_clusters|ovirt.ovirt.json_query(\"[?id=='\" + cluster_id + \"'].data_center.id\")|first }}"
+    - name: Fetch Datacenter name
+      ansible.builtin.set_fact:
+        datacenter_name: "{{ datacenter_facts.ovirt_datacenters|ovirt.ovirt.json_query(\"[?id=='\" + datacenter_id + \"'].name\")|first }}"
+    - name: Fetch cluster name
+      ansible.builtin.set_fact:
+        cluster_name: "{{ cluster_facts.ovirt_clusters|ovirt.ovirt.json_query(\"[?id=='\" + cluster_id + \"'].name\")|first }}"
+    - name: Fetch cluster version
+      ansible.builtin.set_fact:
+        cluster_version: "{{ cluster_facts.ovirt_clusters|ovirt.ovirt.json_query(\"[?id=='\" + cluster_id + \"'].version\")|first }}"
+    - name: Enforce cluster major version
+      ansible.builtin.fail:
+        msg: "Cluster {{ cluster_name }} major version is {{ cluster_version.major }}, needs to be at least 4"
+      when: cluster_version.major < 4
+    - name: Enforce cluster minor version
+      ansible.builtin.fail:
+        msg: "Cluster {{ cluster_name }} minor version is {{ cluster_version.minor }}, needs to be at least 2"
+      when: cluster_version.minor < 2
+    - name: Set storage_format
+      ansible.builtin.set_fact:
+        storage_format: "{{ 'v4' if cluster_version.minor == 2 else 'v5' }}"
+    - name: Add NFS storage domain
+      ovirt.ovirt.ovirt_storage_domain:
+        state: unattached
+        name: "{{ he_storage_domain_name }}"
+        host: "{{ he_host_name }}"
+        data_center: "{{ datacenter_name }}"
+        storage_format: "{{ storage_format }}"
+        wait: true
+        nfs:
+          address: "{{ he_storage_domain_addr }}"
+          path: "{{ he_storage_domain_path }}"
+          mount_options: "{{ he_mount_options }}"
+          version: "{{ he_nfs_version }}"
+        auth: "{{ ovirt_auth }}"
+      when: he_domain_type == "nfs"
+      register: otopi_storage_domain_details_nfs
+    - name: Add glusterfs storage domain
+      ovirt.ovirt.ovirt_storage_domain:
+        state: unattached
+        name: "{{ he_storage_domain_name }}"
+        host: "{{ he_host_name }}"
+        data_center: "{{ datacenter_name }}"
+        storage_format: "{{ storage_format }}"
+        wait: true
+        glusterfs:
+          address: "{{ he_storage_domain_addr }}"
+          path: "{{ he_storage_domain_path }}"
+          mount_options: "{{ he_mount_options }}"
+        auth: "{{ ovirt_auth }}"
+      when: he_domain_type == "glusterfs"
+      register: otopi_storage_domain_details_gluster
+    - name: Add iSCSI storage domain
+      ovirt.ovirt.ovirt_storage_domain:
+        state: unattached
+        name: "{{ he_storage_domain_name }}"
+        host: "{{ he_host_name }}"
+        data_center: "{{ datacenter_name }}"
+        storage_format: "{{ storage_format }}"
+        wait: true
+        discard_after_delete: "{{ he_discard }}"
+        # we are sending a single iSCSI path but, not sure if intended or if
+        # it's bug, the engine is implicitly creating the storage domain
+        # consuming all the path that are already connected on the host (we
+        # cannot logout since there is not logout command in the rest API, see
+        # https://bugzilla.redhat.com/show_bug.cgi?id=1535951 ).
+        iscsi:
+          address: "{{ he_storage_domain_addr.split(',')|first }}"
+          port: "{{ he_iscsi_portal_port.split(',')|first if he_iscsi_portal_port is string else he_iscsi_portal_port }}"
+          target: "{{ he_iscsi_target }}"
+          lun_id: "{{ he_lun_id }}"
+          username: "{{ he_iscsi_username }}"
+          password: "{{ he_iscsi_password }}"
+        auth: "{{ ovirt_auth }}"
+      when: he_domain_type == "iscsi"
+      register: otopi_storage_domain_details_iscsi
+    - name: Add Fibre Channel storage domain
+      ovirt.ovirt.ovirt_storage_domain:
+        state: unattached
+        name: "{{ he_storage_domain_name }}"
+        host: "{{ he_host_name }}"
+        data_center: "{{ datacenter_name }}"
+        storage_format: "{{ storage_format }}"
+        wait: true
+        discard_after_delete: "{{ he_discard }}"
+        fcp:
+          lun_id: "{{ he_lun_id }}"
+        auth: "{{ ovirt_auth }}"
+      register: otopi_storage_domain_details_fc
+      when: he_domain_type == "fc"
+    - name: Get storage domain details
+      ovirt.ovirt.ovirt_storage_domain_info:
+        pattern: name={{ he_storage_domain_name }}
+        auth: "{{ ovirt_auth }}"
+      register: storage_domain_details
+    - name: Find the appliance OVF
+      ansible.builtin.find:
+        paths: "{{ he_local_vm_dir }}/master"
+        recurse: true
+        patterns: ^.*.(?<!meta).ovf$
+        use_regex: true
+      register: app_ovf
+    - name: Get ovf data
+      ansible.builtin.command: cat "{{ app_ovf.files[0].path }}"
+      register: ovf_data
+      changed_when: false
+    - name: Get disk size from ovf data
+      ansible.builtin.set_fact:
+        disk_size: "{{ ovf_data['stdout'] | ovirt.ovirt.get_ovf_disk_size }}"
+    - name: Get required size
+      ansible.builtin.set_fact:
+        required_size: >-
+          {{ disk_size|int * 1024 * 1024 * 1024 +
+          storage_domain_details.ovirt_storage_domains[0].critical_space_action_blocker|int *
+          1024 * 1024 * 1024 + 5 * 1024 * 1024 * 1024 }}
+    # +5G: 2xOVF_STORE, lockspace, metadata, configuration
+    - name: Remove unsuitable storage domain
+      ovirt.ovirt.ovirt_storage_domain:
+        host: "{{ he_host_name }}"
+        data_center: "{{ datacenter_name }}"
+        name: "{{ he_storage_domain_name }}"
+        wait: true
+        state: absent
+        destroy: true
+        auth: "{{ ovirt_auth }}"
+      when: storage_domain_details.ovirt_storage_domains[0].available|int < required_size|int
+      register: remove_storage_domain_details
+    - name: Check storage domain free space
+      ansible.builtin.fail:
+        msg: >-
+          Error: the target storage domain contains only
+          {{ storage_domain_details.ovirt_storage_domains[0].available|int / 1024 / 1024 / 1024 }}GiB of
+          available space while a minimum of {{ required_size|int / 1024 / 1024 / 1024 }}GiB is required
+          If you wish to use the current target storage domain by extending it, make sure it contains nothing
+          before adding it.
+      when: storage_domain_details.ovirt_storage_domains[0].available|int < required_size|int
+    - name: Activate storage domain
+      ovirt.ovirt.ovirt_storage_domain:
+        host: "{{ he_host_name }}"
+        data_center: "{{ datacenter_name }}"
+        name: "{{ he_storage_domain_name }}"
+        wait: true
+        state: present
+        auth: "{{ ovirt_auth }}"
+      when: storage_domain_details.ovirt_storage_domains[0].available|int >= required_size|int
+      register: otopi_storage_domain_details

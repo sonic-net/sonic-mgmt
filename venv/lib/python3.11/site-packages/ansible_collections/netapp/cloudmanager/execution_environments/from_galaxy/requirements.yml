@@ -1,0 +1,13 @@
+---
+collections:
+  # Install collections from Galaxy
+  # - name: ansible.posix
+  # - name: netapp.aws
+  # # name: - netapp.azure
+  - name: netapp.cloudmanager
+    version: 21.20.1
+  # - name: netapp.elementsw
+  # - name: netapp.ontap
+  #   version: 21.24.1
+  # - name: netapp.storagegrid
+  # - name: netapp.um_info

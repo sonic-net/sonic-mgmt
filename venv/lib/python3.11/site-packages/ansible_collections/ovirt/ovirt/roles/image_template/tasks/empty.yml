@@ -1,0 +1,8 @@
+---
+# Placeholder Ansible tasks file, to avoid WARNINGS in play,
+# when user don't specify template_prerequisites_tasks.
+# When in future Anibsle will support delegate_to with ansible.builtin.include_tasks,
+# this file won't be needed.
+- name: Placeholder
+  ansible.builtin.debug:
+    msg: ""

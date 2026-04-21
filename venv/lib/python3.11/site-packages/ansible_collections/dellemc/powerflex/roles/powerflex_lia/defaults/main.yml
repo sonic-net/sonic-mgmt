@@ -1,0 +1,5 @@
+---
+file_glob_name: lia
+powerflex_role_environment:
+  MDM_IP: "{{ powerflex_lia_mdm_ips }}"
+  TOKEN: "{{ powerflex_lia_token }}"

@@ -1,0 +1,40 @@
+---
+ovirt_engine_setup_version: "4.5"
+
+ovirt_engine_setup_provider_ovn_configure: true
+ovirt_engine_setup_provider_ovn_username: "admin@internal"
+
+ovirt_engine_setup_db_host: "localhost"
+ovirt_engine_setup_db_port: 5432
+ovirt_engine_setup_db_name: "engine"
+ovirt_engine_setup_db_user: "engine"
+ovirt_engine_setup_engine_vacuum_full: false
+
+ovirt_engine_setup_dwh_db_configure: true
+ovirt_engine_setup_dwh_db_host: "localhost"
+ovirt_engine_setup_dwh_db_port: 5432
+ovirt_engine_setup_dwh_db_name: "ovirt_engine_history"
+ovirt_engine_setup_dwh_db_user: "ovirt_engine_history"
+ovirt_engine_setup_dwh_vacuum_full: false
+
+ovirt_engine_grafana_enable: true
+
+ovirt_engine_setup_firewall_manager: "firewalld"
+
+# This option is suggested from oVirt Documentation
+# https://www.ovirt.org/documentation/install-guide/chap-Installing_oVirt/
+ovirt_engine_setup_update_setup_packages: false
+ovirt_engine_setup_offline: false
+
+ovirt_engine_setup_product_type: oVirt
+ovirt_engine_setup_package_list: []
+ovirt_engine_setup_use_remote_answer_file: false
+
+ovirt_engine_setup_perform_upgrade: false
+
+ovirt_engine_apache_config_ssl: true
+ovirt_engine_apache_config_root_redirection: true
+
+ovirt_engine_setup_restore_engine_cleanup: false
+ovirt_engine_setup_restore_options: {}
+ovirt_engine_setup_skip_renew_pki_confirm: true

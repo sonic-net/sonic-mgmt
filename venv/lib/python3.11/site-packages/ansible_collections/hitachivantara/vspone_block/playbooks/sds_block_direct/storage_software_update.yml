@@ -1,0 +1,73 @@
+---
+####################################################################
+# Example : SDSB Software Update Playbook
+####################################################################
+- name: SDSB Software Update Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ####################################################################
+  # Task Name : Update the storage software
+  ####################################################################
+    - name: Update the storage software
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_software_update:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Stop updating the storage software
+    ####################################################################
+    - name: Stop updating the storage software
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_software_update:
+        connection_info: "{{ connection_info }}"
+        spec:
+          should_stop_software_update: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Downgrade the storage software
+    ####################################################################
+    - name: Downgrade the storage software
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_software_update:
+        connection_info: "{{ connection_info }}"
+        spec:
+          is_software_downgrade: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Upload the storage software update file
+    ####################################################################
+    - name: Upload the storage software update file
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_software_update:
+        connection_info: "{{ connection_info }}"
+        state: "software_update_file_present"
+        spec:
+          software_update_file: "/root/sdsb_sw_update/hsds-update-01170140-0007.tar"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

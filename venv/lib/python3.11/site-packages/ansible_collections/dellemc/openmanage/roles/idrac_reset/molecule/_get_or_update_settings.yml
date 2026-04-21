@@ -1,0 +1,43 @@
+---
+- name: Update current settings to non-default
+  when: operation is defined and operation == 'update_settings'
+  ansible.builtin.uri: &uri_input
+    url: "{{ event_url }}"
+    user: "{{ idrac_user }}"
+    password: "{{ idrac_password }}"
+    force_basic_auth: true
+    body: '{"DeliveryRetryIntervalSeconds": 10}'
+    validate_certs: false
+    method: PATCH
+    status_code: 200
+    headers: "Accept=application/json"
+    body_format: json
+    return_content: true
+
+- name: Fetch current settings
+  block:
+    - name: Checking current settings
+      ansible.builtin.uri:
+        <<: *uri_input
+        method: GET
+        body: "{{ body | default(omit) }}"
+      register: current_settings
+
+    - name: Fetch the service tag details from the device
+      ansible.builtin.uri:
+        <<: *uri_input
+        url: "{{ systems_url }}"
+        method: GET
+        body: "{{ body | default(omit) }}"
+        status_code: 200
+      register: service_tag
+      no_log: true
+
+    - name: Set fact for redfish event settings retry interval
+      ansible.builtin.set_fact:
+        redfish_event_settings_retry_interval:
+          "{{ current_settings.json.DeliveryRetryIntervalSeconds }}"
+        idrac_has_default_settings: "{{ true if
+          current_settings.json.DeliveryRetryIntervalSeconds == 5 else false }}"
+        service_tag: "{{ service_tag.json.SKU }}"
+        model: "{{ service_tag.json.Model }}"

@@ -1,0 +1,2 @@
+---
+pyyaml_package: "python{% if ansible_facts.python.version.major == 3 %}3{% endif %}-yaml"

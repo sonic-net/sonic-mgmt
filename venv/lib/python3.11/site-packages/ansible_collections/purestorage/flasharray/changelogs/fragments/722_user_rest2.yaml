@@ -1,0 +1,4 @@
+minor_changes:
+ - purefa_user - Converted to use REST v2
+ - purefa_user - Added parameter for SSH public keys and API token timeout
+ - purefa_user - When changing API token or timout for an existing user, the user role must be provided or it will revert to ``readonly``

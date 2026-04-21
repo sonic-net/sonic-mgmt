@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_lifecycle - Fix error when creating new bucket lifecycle rule.

@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_info - New fields to display free space (remaining quota) for Accounts and Buckets. Space used by destroyed buckets is split out from virtual field to new destroyed_virtual field

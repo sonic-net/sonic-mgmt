@@ -1,0 +1,39 @@
+---
+- name: proxysql | handler | manage admin config
+  proxysql_global_variables:
+    login_host: "{{ proxysql_admin_bind_address }}"
+    login_port: "{{ proxysql_admin_port }}"
+    config_file: "~/.my.cnf"
+    variable: "admin-{{ item.value.variable }}"
+    value: "{{ item.value.variable_value }}"
+  loop: "{{ proxysql_admin_variables|dict2items }}"
+  listen: update proxysql config
+
+- name: proxysql | handler | manage mysql config
+  proxysql_global_variables:
+    login_host: "{{ proxysql_admin_bind_address }}"
+    login_port: "{{ proxysql_admin_port }}"
+    config_file: "~/.my.cnf"
+    variable: "mysql-{{ item.value.variable }}"
+    value: "{{ item.value.variable_value }}"
+  loop: "{{ proxysql_mysql_variables|dict2items }}"
+  listen: update proxysql config
+
+- name: proxysql | handler | manage mysql options
+  proxysql_global_variables:
+    login_host: "{{ proxysql_admin_bind_address }}"
+    login_port: "{{ proxysql_admin_port }}"
+    config_file: "~/.my.cnf"
+    variable: "mysql-{{ item.value.variable }}"
+    value: "{{ item.value.variable_value }}"
+    load_to_runtime: false
+    save_to_disk: true
+  loop: "{{ proxysql_mysql_options|dict2items }}"
+  listen: update proxysql config
+
+- name: proxysql | handler | restart proxysql
+  service:
+    name: proxysql
+    state: restarted
+  when: proxysql_force_restart
+  listen: restart proxysql

@@ -1,0 +1,210 @@
+---
+# tasks file for na_ontap_cluster_config
+- name: Setup licenses
+  netapp.ontap.na_ontap_license:
+    state: present
+    license_codes: "{{ license_codes }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  when: license_codes != None
+- name: Assign Disks
+  netapp.ontap.na_ontap_disks:
+    node: "{{ item }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ disks }}"
+  when: disks != None
+- name: Set Login Message
+  netapp.ontap.na_ontap_login_messages:
+    vserver: "{{ cluster }}"
+    motd_message: "{{ motd }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+    # TODO: support cluster scope in na_ontap_login_messages when using REST
+    use_rest: never
+  when: motd != None
+- name: Setup DNS
+  netapp.ontap.na_ontap_dns:
+    state: present
+    vserver: "{{ cluster }}"
+    domains: "{{ item.dns_domains }}"
+    nameservers: "{{ item.dns_nameservers }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ dns }}"
+  when: dns != None
+- name: Set NTP Server
+  netapp.ontap.na_ontap_ntp:
+    state: present
+    server_name: "{{ item.server_name }}"
+    version: "{{ item.version }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ ntp }}"
+  when: ntp != None
+- name: Create SNMP community
+  netapp.ontap.na_ontap_snmp:
+    community_name: "{{ item.community_name }}"
+    access_control: "{{ item.access_control }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ snmp }}"
+  when: snmp != None
+- name: Create Aggregates
+  netapp.ontap.na_ontap_aggregate:
+    state: present
+    service_state: online
+    name: "{{ item.name }}"
+    nodes: "{{ item.node }}"
+    disk_count: "{{ item.disk_count }}"
+    raid_size: "{{ item.max_raid }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ aggrs }}"
+  when: aggrs != None
+- name: Remove ports from Default broadcast domain
+  netapp.ontap.na_ontap_broadcast_domain_ports:
+    state: absent
+    broadcast_domain: Default
+    ports: "{{ item.node }}:{{ item.port }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ ports }}"
+  when: ports != None
+
+# Configure flowcontrol and autonegotiate.
+# Skip MTU for now b/c we have to configure IFGroup first.
+- name: Modify Net Port
+  netapp.ontap.na_ontap_net_port:
+    state: present
+    node: "{{ item.node }}"
+    port: "{{ item.port }}"
+    # mtu: "{{ item.mtu }}"
+    autonegotiate_admin: "{{ item.autonegotiate | default(autonegotiate) }}"
+    flowcontrol_admin: "{{ item.flowcontrol | default(flowcontrol) }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ ports }}"
+  when: ports != None
+- name: Create Interface Group
+  netapp.ontap.na_ontap_net_ifgrp:
+    state: present
+    distribution_function: "{{ distribution_function }}"
+    name: "{{ item.name }}"
+    ports: "{{ item.ports }}"
+    mode: "{{ item.mode | default(ifgrp_mode) }}"
+    node: "{{ item.node }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ ifgrps }}"
+  when: ifgrps != None
+
+# Set MTU - Interface group must be configured first.
+- name: Modify Net Port
+  netapp.ontap.na_ontap_net_port:
+    state: present
+    node: "{{ item.node }}"
+    port: "{{ item.name }}"
+    mtu: "{{ item.mtu }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ ifgrps }}"
+  when: ifgrps != None
+
+- name: Create VLAN
+  netapp.ontap.na_ontap_net_vlan:
+    state: present
+    vlanid: "{{ item.id }}"
+    node: "{{ item.node }}"
+    parent_interface: "{{ item.parent }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ vlans }}"
+  when: vlans != None
+
+- name: Create broadcast domain
+  netapp.ontap.na_ontap_broadcast_domain:
+    state: present
+    broadcast_domain: "{{ item.name }}"
+    mtu: "{{ item.mtu }}"
+    ipspace: "{{ bcast_ipspace }}"
+    ports: "{{ item.ports }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ bcasts }}"
+  when: bcasts != None
+
+- name: Create Intercluster Lif
+  netapp.ontap.na_ontap_interface:
+    state: present
+    interface_name: "{{ item.name }}"
+    home_port: "{{ item.port }}"
+    home_node: "{{ item.node }}"
+    role: intercluster
+    admin_status: up
+    failover_policy: local-only
+    is_auto_revert: true
+    address: "{{ item.address }}"
+    netmask: "{{ item.netmask }}"
+    vserver: "{{ cluster }}"
+    ipspace: "{{ item.ipspace | default(omit) }}"
+    broadcast_domain: "{{ item.broadcast_domain | default(omit) }}"
+    service_policy: "{{ item.service_policy | default(omit) }}"
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: true
+    validate_certs: "{{ validate_certs }}"
+  with_items:
+    "{{ inters }}"
+  when: inters != None

@@ -1,0 +1,27 @@
+DOCUMENTATION:
+  name: delta_time
+  author: Infinidat
+  version_added: 'historical'
+  short_description: Add a time delta to a datetime.
+  description:
+    - Add a time delta to a datetime.
+    - Return the calculated datetime.
+  positional: _input
+  options:
+    _datetime:
+      description: A datetime.
+      type: datetime
+      required: true
+    _kw_args:
+      description: Keyword args for the timedelta.
+      type: kwargs
+      required: true
+
+EXAMPLES: |
+  # Use within a jinja2 template. See test_create_resources.yml
+  {{ ansible_date_time.iso8601_micro | to_datetime(fmt) | infinidat.infinibox.delta_time(minutes=2) }}
+
+RETURN:
+  _value:
+    description: The input datetime with the deltatime added.
+    type: datetime

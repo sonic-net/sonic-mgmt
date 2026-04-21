@@ -1,0 +1,38 @@
+---
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-FileCopyrightText: 2022, Felix Fontein
+
+- name: Fetch list of releases from GitHub
+  ansible.builtin.uri:
+    headers:
+      Accept: application/vnd.github+json
+      Authorization: "{{ ('Bearer ' ~ sops_github_token) if sops_github_token is defined and sops_github_token else '' }}"
+    status_code:
+      - 200
+      - 403  # "HTTP Error 403: rate limit exceeded"
+    url: https://api.github.com/repos/getsops/sops/releases
+  register: _community_sops_install_github_releases
+  delegate_to: localhost
+  run_once: true
+
+- name: In case rate limit was exceeded, inform user
+  ansible.builtin.debug:
+    msg: >-
+      Rate limit exceeded! Make sure to provide a GitHub token
+      as `sops_github_token` to reduce the chance of this error.
+  when: _community_sops_install_github_releases.status == 403
+
+- name: Determine the latest release
+  ansible.builtin.set_fact:
+    _community_sops_install_effective_sops_version: >-
+      {{
+        (
+          _community_sops_install_github_releases.json
+          | rejectattr("prerelease")
+          | rejectattr("draft")
+          | map(attribute="tag_name")
+          | map("ansible.builtin.regex_replace", "^v", "")
+          | community.sops._latest_version
+        ) if _community_sops_install_github_releases.status == 200 else ''
+      }}

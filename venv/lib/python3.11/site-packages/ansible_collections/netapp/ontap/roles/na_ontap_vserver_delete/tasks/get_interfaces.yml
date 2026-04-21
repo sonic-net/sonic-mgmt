@@ -1,0 +1,31 @@
+---
+# tasks file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
+
+- name: Collect interfaces for vserver
+  tags: gather
+  netapp.ontap.na_ontap_rest_info:
+    gather_subset:
+      - vserver_info
+    parameters:
+      name: "{{ vserver_name }}"
+      fields: ip_interfaces
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+  register: ontap
+- name: Debug
+  ansible.builtin.debug:
+    var: ontap
+  when: debug_level > 1
+- name: Extract interface names
+  ansible.builtin.set_fact:
+    interfaces: "{{ ontap.ontap_info | json_query(get_attrs) }}"
+  vars:
+    # double quotes around storage/volumes to escape the /
+    get_attrs: '"svm/svms".records[].ip_interfaces[].name'
+- name: Debug
+  ansible.builtin.debug:
+    var: interfaces
+  when: debug_level > 0

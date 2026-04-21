@@ -1,0 +1,8 @@
+---
+- name: Delete mgmt VRF configuration
+  vars:
+    ansible_connection: network_cli
+  sonic_config:
+    commands:
+      - "no ip vrf mgmt"
+  register: output

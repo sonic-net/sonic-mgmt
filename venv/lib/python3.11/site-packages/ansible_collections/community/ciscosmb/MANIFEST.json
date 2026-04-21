@@ -1,0 +1,43 @@
+{
+ "collection_info": {
+  "namespace": "community",
+  "name": "ciscosmb",
+  "version": "1.0.11",
+  "authors": [
+   "Petr Kl\u00edma <qaxi@seznam.cz>"
+  ],
+  "readme": "README.md",
+  "tags": [
+   "network",
+   "switch",
+   "ciscosmb",
+   "cisco",
+   "sg300",
+   "sg500",
+   "sg350",
+   "sg550",
+   "cbs350",
+   "c1300",
+   "smb",
+   "small_bussiness"
+  ],
+  "description": "Cisco SMB switches - SG300, SG500, SG350, SG550, CBS350, C1300",
+  "license": [],
+  "license_file": "LICENSE",
+  "dependencies": {
+   "ansible.netcommon": ">=1.5.0"
+  },
+  "repository": "https://github.com/ansible-collections/community.ciscosmb",
+  "documentation": null,
+  "homepage": null,
+  "issues": "https://github.com/ansible-collections/community.ciscosmb/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "35f1e51b6436c1a9d6d30279475091263b3b0cf24e08e1a5dadf5c0859986c67",
+  "format": 1
+ },
+ "format": 1
+}

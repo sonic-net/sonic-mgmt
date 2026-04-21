@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: grafana-ansible-collection
+  title: grafana-ansible-collection
+  description: |
+    This collection (grafana.grafana) contains modules and roles to assist in automating the management of resources in Grafana, Grafana Agent, OpenTelemetry Collector, Loki, Mimir, Alloy, and Promtail with Ansible.
+  tags:
+    - gitops
+  links:
+    - title: "Internal Slack Channel #ansible-collection"
+      url: https://grafanalabs.enterprise.slack.com/archives/C04T7GX8C69
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: grafana/grafana-ansible-collection
+spec:
+  type: tool
+  owner: group:default/devex
+  lifecycle: production

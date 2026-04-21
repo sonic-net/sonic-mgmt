@@ -1,0 +1,19 @@
+---
+
+- name: Install prerequisites for RHEL
+  include_tasks: redhat.yml
+  when: ansible_facts['os_family'] | lower == 'redhat' and ravendb_state | default("present") == "present"
+
+- name: Debian-family path (Ubuntu -> DEB, others -> tarball)
+  include_tasks: debian.yml
+  when:
+    - ansible_facts['os_family'] | lower == 'debian'
+    - ravendb_state | default("present") == "present"
+
+- name: Install RavenDB
+  include_tasks: install.yml
+  when: ravendb_state | default("present") == "present"
+
+- name: Uninstall RavenDB
+  include_tasks: uninstall.yml
+  when: ravendb_state == "absent"

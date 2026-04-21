@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_lun_copy - added REST support.
+bugfixes:
+  - na_ontap_lun_copy - fix key error on ``source_vserver`` option.

@@ -1,0 +1,23 @@
+---
+- name: Reports executions info
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Download report content
+      cisco.dnac.reports_executions_info:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        reportId: be9d6d76-0bff-4c49-84a1-16adf58431c6
+        executionId: 586da15e-5f50-4f65-8f3d-303f88dfdf18
+        dirPath: /Users/wilhelm32/Downloads/dna
+        saveFile: true
+      register: result
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result.dnac_response }}"

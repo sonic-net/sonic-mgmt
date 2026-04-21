@@ -1,0 +1,40 @@
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  httpapi: {}
+  inventory: {}
+  lookup: {}
+  module:
+    win_chocolatey:
+      description: Manage packages using chocolatey
+      name: win_chocolatey
+      namespace: ''
+      version_added: 0.1.9
+    win_chocolatey_config:
+      description: Manages Chocolatey config settings
+      name: win_chocolatey_config
+      namespace: ''
+      version_added: 0.2.7
+    win_chocolatey_facts:
+      description: Create a facts collection for Chocolatey
+      name: win_chocolatey_facts
+      namespace: ''
+      version_added: 0.2.8
+    win_chocolatey_feature:
+      description: Manages Chocolatey features
+      name: win_chocolatey_feature
+      namespace: ''
+      version_added: 0.2.7
+    win_chocolatey_source:
+      description: Manages Chocolatey sources
+      name: win_chocolatey_source
+      namespace: ''
+      version_added: 0.2.7
+  netconf: {}
+  shell: {}
+  strategy: {}
+  vars: {}
+version: 1.1.0

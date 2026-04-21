@@ -1,0 +1,57 @@
+---
+- name: Search for an available IPv4 subnet
+  when: not ipv6_deployment|bool
+  block:
+    - name: Define 3rd chunk
+      ansible.builtin.set_fact:
+        chunk: 0
+      when: chunk is not defined
+    - name: Set 3rd chunk
+      ansible.builtin.set_fact:
+        chunk: "{{ chunk|int + 1 }}"
+    - name: Get ip route
+      ansible.builtin.shell: ip route get 192.168.{{ chunk }}.1 | grep "via" | cat
+      register: result
+      changed_when: false
+    - name: Fail if can't find an available subnet
+      ansible.builtin.fail:
+        msg: >-
+          "Cannot find an available subnet for internal Libvirt network"
+          "Please set it to an unused subnet by adding the variable 'he_ipv4_subnet_prefix'"
+          "to the variable-file ( e.g. he_ipv4_subnet_prefix: '123.123.123' )."
+      when: result.stdout.find("via") == -1 and chunk|int > 253
+    - name: Set new IPv4 subnet prefix
+      ansible.builtin.set_fact:
+        he_ipv4_subnet_prefix: "192.168.{{ chunk }}"
+      when: result.stdout.find("via") != -1
+    - name: Search again with another prefix
+      ansible.builtin.include_tasks: search_available_network_subnet.yaml
+      when: result.stdout.find("via") == -1
+- name: Search for an available IPv6 subnet
+  when: ipv6_deployment|bool
+  block:
+    - name: Define 3rd chunk
+      ansible.builtin.set_fact:
+        chunk: 1000
+      when: chunk is not defined
+    - name: Set 3rd chunk
+      ansible.builtin.set_fact:
+        chunk: "{{ chunk|int + 45 }}"  # 200 tries
+    - name: Get ip route
+      ansible.builtin.shell: ip -6 route get fd00:1234:{{ chunk }}:900::1 | grep "via" | cat
+      register: result
+      changed_when: false
+    - name: Fail if can't find an available subnet
+      ansible.builtin.fail:
+        msg: >-
+          "Cannot find an available subnet for internal Libvirt network"
+          "Please set it to an unused subnet by adding the variable 'he_ipv6_subnet_prefix'"
+          "to the variable-file ( e.g. he_ipv6_subnet_prefix: 'fd00:9876:5432:900' )."
+      when: result.stdout.find("via") == -1 and chunk|int > 9900
+    - name: Set new IPv6 subnet prefix
+      ansible.builtin.set_fact:
+        he_ipv6_subnet_prefix: "fd00:1234:{{ chunk }}:900"
+      when: result.stdout.find("via") != -1
+    - name: Search again with another prefix
+      ansible.builtin.include_tasks: search_available_network_subnet.yaml
+      when: result.stdout.find("via") == -1

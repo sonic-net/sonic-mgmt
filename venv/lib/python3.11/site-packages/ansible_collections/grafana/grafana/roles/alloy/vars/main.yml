@@ -1,0 +1,9 @@
+---
+__alloy_server_http_listen_address: 127.0.0.1
+__alloy_server_http_listen_port: 12345
+__alloy_arch_map:
+  x86_64: 'amd64'
+  armv6l: 'arm'
+  armv7l: 'arm'
+  aarch64: 'arm64'
+__alloy_arch: "{{ __alloy_arch_map[ansible_facts['architecture']] | default(ansible_facts['architecture']) }}"

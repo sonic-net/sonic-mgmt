@@ -1,0 +1,185 @@
+# ------------
+# Get detailed info about current relationship and set relationship type as fact for ease
+- name: Get single relationship detailed info
+  register: rel_info
+  ibm.storage_virtualize.ibm_svc_info:
+    clustername: "{{ master_clustername }}"
+    token: "{{ master_auth.token }}"
+    gather_subset: rcrelationship
+    objectname: "{{ item }}"
+    log_path: "{{ logpath }}"
+- name: Migrate each relationship
+  when: rel_info.RemoteCopy != None and rel_info.RemoteCopy.copy_type == "global"
+  block:
+    - name: Set fact relationship type to GMCV if it is GMCV
+      ansible.builtin.set_fact:
+        relationship_type: "gmcv"
+      when: rel_info.RemoteCopy.copy_type == "global" and rel_info.RemoteCopy.cycling_mode == "multi"
+    - name: Set fact relationship type to GM otherwise
+      ansible.builtin.set_fact:
+        relationship_type: "gm"
+      when: rel_info.RemoteCopy.copy_type == "global" and rel_info.RemoteCopy.cycling_mode != "multi"
+    # ------------
+    # Start relationship
+    - name: Start relationship
+      ibm.storage_virtualize.ibm_svc_start_stop_replication:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ item }}"
+        state: started
+        force: true
+        log_path: "{{ logpath }}"
+    # ------------
+    # If relationship is GMCV consistent copying, bring to GM consistent synchronized and delete change volumes (when relationship_type == "gmcv")
+    - name: Convert GMCV to GM
+      when: relationship_type == "gmcv"
+      block: # when: relationship_type == "gmcv"
+        - name: Check if state is consistent copying
+          register: relationship_state_info
+          ibm.storage_virtualize.ibm_svc_info:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            gather_subset: rcrelationship
+            objectname: "{{ item }}"
+            log_path: "{{ logpath }}"
+          until: relationship_state_info.RemoteCopy.state == "consistent_copying"
+          retries: 10
+          delay: 5 # in seconds
+          when: rel_info.RemoteCopy.state == "consistent_stopped" or rel_info.RemoteCopy.state == "inconsistent_stopped"
+        - name: Fail if independent relationship is not in consistent copying or consistent synchronized state even after retries
+          when: >
+                (relationship_type == "gmcv" and rel_info.RemoteCopy.state != "consistent_copying") or
+                (relationship_type == "gm" and rel_info.RemoteCopy.state != "consistent_synchronized")
+          ansible.builtin.fail:
+            msg: "The relationship {{ item }} cannot be brought into consistent copying state"
+        - name: Stop relationship
+          ibm.storage_virtualize.ibm_svc_start_stop_replication:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            name: "{{ item }}"
+            state: stopped
+            log_path: "{{ logpath }}"
+        - name: Convert GMCV relationship to GM relationship
+          ibm.storage_virtualize.ibm_svc_manage_replication:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            name: "{{ item }}"
+            state: present
+            remotecluster: "{{ aux_system.System.name }}"
+            master: "{{ rel_info.RemoteCopy.master_vdisk_name }}"
+            aux: "{{ rel_info.RemoteCopy.aux_vdisk_name }}"
+            copytype: global
+            log_path: "{{ logpath }}"
+        - name: Delete Change Volumes and disassociate from master volumes
+          ibm.storage_virtualize.ibm_svc_manage_cv:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            state: absent
+            rname: "{{ item }}"
+            cvname: "{{ rel_info.RemoteCopy.master_change_vdisk_name }}"
+            log_path: "{{ logpath }}"
+        - name: Delete Change Volumes and disassociate from aux volumes
+          ibm.storage_virtualize.ibm_svc_manage_cv:
+            clustername: "{{ aux_clustername }}"
+            token: "{{ aux_auth.token }}"
+            state: absent
+            rname: "{{ item }}"
+            cvname: "{{ rel_info.RemoteCopy.aux_change_vdisk_name }}"
+            ismaster: false
+            log_path: "{{ logpath }}"
+        - name: Start GM relationship
+          ibm.storage_virtualize.ibm_svc_start_stop_replication:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            name: "{{ item }}"
+            state: started
+            force: true
+            log_path: "{{ logpath }}"
+    # Block end
+    # ------------
+    # Wait till GM relationship is consistent synchronized (at this step GMCV, GM paths are merged again)
+    - name: Wait till relationship state is consistent synchronized
+      register: gm_state_info
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        gather_subset: rcrelationship
+        objectname: "{{ item }}"
+        log_path: "{{ logpath }}"
+      until: gm_state_info.RemoteCopy.state == "consistent_synchronized"
+      retries: 20
+      delay: 5 # in seconds
+    # ------------
+    # Migrate volumes to specified pools
+    - name: Migrate source volumes to desired pool
+      ibm.storage_virtualize.ibm_svc_manage_migration:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        type_of_migration: across_pools
+        source_volume: "{{ rel_info.RemoteCopy.master_vdisk_name }}"
+        new_pool: "{{ master_pool_name }}"
+        log_path: "{{ logpath }}"
+    - name: Wait till volume is migrated
+      register: migr_vol
+      ibm.storage_virtualize.ibm_svc_info:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        gather_subset: vol
+        objectname: "{{ rel_info.RemoteCopy.master_vdisk_name }}"
+        log_path: "{{ logpath }}"
+      until: migr_vol.Volume[0].mdisk_grp_name == master_pool_name
+      retries: 60
+      delay: 10 # in seconds
+    # ------------
+    # Create single-member volumegroup with replication policy and add master volume
+    - name: Create volumegroup for individual relationship
+      ibm.storage_virtualize.ibm_svc_manage_volumegroup:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ volume_group_name_prefix }}{{ item }}"
+        replicationpolicy: "{{ replication_policy_name }}"
+        state: present
+        log_path: "{{ logpath }}"
+    - name: Add master volume to volume group
+      ibm.storage_virtualize.ibm_svc_manage_volume:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ rel_info.RemoteCopy.master_vdisk_name }}"
+        state: present
+        volumegroup: "{{ volume_group_name_prefix }}{{ item }}"
+        log_path: "{{ logpath }}"
+    # ------------
+    # Stop relationship
+    - name: Stop relationship
+      ibm.storage_virtualize.ibm_svc_start_stop_replication:
+        clustername: "{{ master_clustername }}"
+        token: "{{ master_auth.token }}"
+        name: "{{ item }}"
+        state: stopped
+        log_path: "{{ logpath }}"
+    # ------------
+    # If cleanup == false, add relationship name in inventory_cleanup file
+    - name: Add relationship name in inventory_cleanup for delayed cleanup
+      ansible.builtin.lineinfile:
+        path: ./inventory_cleanup_ir_{{ master_system.System.name }}_{{ aux_system.System.name }}.ini
+        line: "- {{ item }}"
+      when: not cleanup
+    # ------------
+    # If cleanup == true, delete relationship and aux volume
+    - name: Cleanup relationship and volumes
+      when: cleanup
+      block:
+        - name: Delete relationship
+          ibm.storage_virtualize.ibm_svc_manage_replication:
+            clustername: "{{ master_clustername }}"
+            token: "{{ master_auth.token }}"
+            name: "{{ item }}"
+            state: absent
+            log_path: "{{ logpath }}"
+        - name: Delete aux volume
+          ibm.storage_virtualize.ibm_svc_manage_volume:
+            clustername: "{{ aux_clustername }}"
+            token: "{{ aux_auth.token }}"
+            name: "{{ rel_info.RemoteCopy.aux_vdisk_name }}"
+            state: absent
+            log_path: "{{ logpath }}"

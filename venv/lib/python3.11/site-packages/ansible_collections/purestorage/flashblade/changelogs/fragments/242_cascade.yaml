@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_bucket_replica - Added support for cascading replica links

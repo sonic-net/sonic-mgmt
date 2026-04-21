@@ -1,0 +1,4 @@
+---
+collections:
+  - community.okd
+  - kubernetes.core

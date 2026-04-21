@@ -1,0 +1,38 @@
+---
+- name: Grafana Agent group creation
+  block:
+    - name: "Check if the group exists ({{ grafana_agent_user_group }})"
+      ansible.builtin.getent:
+        database: group
+        key: "{{ grafana_agent_user_group }}"
+        fail_key: false
+
+    - name: Set whether not the user group exists
+      ansible.builtin.set_fact:
+        __grafana_agent_user_group_exists: "{{ ansible_facts.getent_group[grafana_agent_user_group] is not none }}"
+
+    - name: Add user group "{{ grafana_agent_user_group }}"
+      ansible.builtin.group:
+        name: "{{ grafana_agent_user_group }}"
+        system: true
+        state: present
+      when: not __grafana_agent_user_group_exists and grafana_agent_user_group != 'root'
+
+    - name: Grafana Agent user group exists
+      ansible.builtin.debug:
+        msg: |-
+          The user group \"{{ grafana_agent_user_group }}\" already exists and will not be modified,
+          if modifying permissions please perform a separate task
+      when: __grafana_agent_user_group_exists
+
+- name: Grafana Agent user creation
+  block:
+    - name: Add user "{{ grafana_agent_user }}"
+      ansible.builtin.user:
+        name: "{{ grafana_agent_user }}"
+        comment: "Grafana Agent account"
+        groups: "{{ [ grafana_agent_user_group ] + grafana_agent_user_groups }}"
+        system: true
+        shell: "{{ grafana_agent_user_shell }}"
+        createhome: "{{ grafana_agent_user_createhome }}"
+      when: grafana_agent_user != 'root'

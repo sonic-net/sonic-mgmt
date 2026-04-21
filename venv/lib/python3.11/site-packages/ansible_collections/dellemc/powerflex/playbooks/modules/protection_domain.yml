@@ -1,0 +1,124 @@
+---
+- name: Protection domain Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+    host_port: 443
+
+  tasks:
+    - name: Create Protection Domain
+      register: result
+      dellemc.powerflex.protection_domain:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        protection_domain_name: "domain_1"
+        network_limits:
+          rebuild_limit: 10240
+          rebalance_limit: 10240
+          vtree_migration_limit: 10240
+          overall_limit: 20480
+          bandwidth_unit: "KBps"
+        rf_cache_limits:
+          page_size: 32
+          pass_through_mode: "Write"
+        state: "present"
+
+    - name: Get Protection Domain
+      dellemc.powerflex.protection_domain:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        protection_domain_name: "domain_1"
+        state: "present"
+
+    - name: Set Protection Domain id
+      ansible.builtin.set_fact:
+        pd_id: "{{ result.protection_domain_details.id }}"
+
+    - name: Get Protection Domain using ID
+      dellemc.powerflex.protection_domain:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        protection_domain_id: "{{ pd_id }}"
+        state: "present"
+
+    - name: Modify Protection Domain using ID
+      register: result
+      dellemc.powerflex.protection_domain:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        is_active: false
+        protection_domain_id: "{{ pd_id }}"
+        protection_domain_new_name: "domain_1_renamed"
+        network_limits:
+          rebuild_limit: 12
+          rebalance_limit: 12
+          overall_limit: 22
+          bandwidth_unit: "GBps"
+        rf_cache_limits:
+          is_enabled: false
+          page_size: 16
+          max_io_limit: 128
+          pass_through_mode: "Write"
+        state: "present"
+
+    - name: Modify Protection Domain using ID - Idempotecny
+      register: result
+      dellemc.powerflex.protection_domain:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        is_active: false
+        protection_domain_id: "{{ pd_id }}"
+        protection_domain_new_name: "domain_1_renamed"
+        network_limits:
+          rebuild_limit: 12
+          rebalance_limit: 12
+          overall_limit: 22
+          bandwidth_unit: "GBps"
+        rf_cache_limits:
+          is_enabled: false
+          page_size: 16
+          max_io_limit: 128
+          pass_through_mode: "Write"
+        state: "present"
+
+    - name: Delete Protection Domain using ID
+      register: result
+      dellemc.powerflex.protection_domain:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        protection_domain_id: "{{ pd_id }}"
+        state: "absent"
+
+    - name: Delete Protection Domain - Idempotecny
+      register: result
+      dellemc.powerflex.protection_domain:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        port: "{{ host_port }}"
+        protection_domain_name: "domain_1_renamed"
+        state: "absent"

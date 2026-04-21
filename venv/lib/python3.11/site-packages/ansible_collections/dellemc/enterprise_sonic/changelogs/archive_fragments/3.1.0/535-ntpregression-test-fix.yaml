@@ -1,0 +1,3 @@
+---
+trivial:
+  - sonic-ntp - Fixed the NTP regression test failures (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/535).

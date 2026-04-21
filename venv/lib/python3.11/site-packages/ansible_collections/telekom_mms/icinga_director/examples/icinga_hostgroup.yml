@@ -1,0 +1,29 @@
+---
+- name: Create hostgroup
+  telekom_mms.icinga_director.icinga_hostgroup:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foohostgroup
+    display_name: foohostgroup
+- name: Update hostgroup
+  telekom_mms.icinga_director.icinga_hostgroup:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foohostgroup
+    assign_filter: 'host.name="foohost"'
+    append: true
+- name: Update hostgroup using multiple contiditions in assign_filter
+  telekom_mms.icinga_director.icinga_hostgroup:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: foohostgroup
+    assign_filter: 'host.vars.something="{{ your_var_here }}"|host.vars.something_else="anything"'
+    append: true
+  vars:
+    your_var_here: foo

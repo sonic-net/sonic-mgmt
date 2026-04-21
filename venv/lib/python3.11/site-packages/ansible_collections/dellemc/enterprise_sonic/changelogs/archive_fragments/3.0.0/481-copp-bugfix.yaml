@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - sonic_copp - Update reserved CoPP names list (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/481).

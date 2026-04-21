@@ -1,0 +1,119 @@
+---
+####################################################################
+# Example :  Server Priority Manager Playbook
+####################################################################
+- name: Server Priority Manager Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ###################################################################################################
+    # Task Name : Set Server Priority Manager information by specifying a volume and the WWN of the HBA
+    ####################################################################################################
+    - name: Set Server Priority Manager information by specifying a volume and the WWN of the HBA
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          ldev_id: 0
+          host_wwn: "210003e08b0256f9"
+          upper_limit_for_iops: 999
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################################################
+    # Task Name : Set Server Priority Manager information by specifying a volume and the iSCSI name of the HBA
+    ##########################################################################################################
+    - name: Set Server Priority Manager information by specifying a volume and the iSCSI name of the HBA
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          ldev_id: 80
+          iscsi_name: "iqn.1993-08.org.esxi.iscsi:01:107dc7e4254a"
+          upper_limit_for_transfer_rate_in_MBps: 25
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################################################
+    # Task Name : Change the upper limit on IOPS for hosts for which the LDEV number of a volume and the WWN
+    # of the HBA are already specified in Server Priority Manager.
+    ##########################################################################################################
+    - name: Change the upper limit on IOPS for an SPM by specifying LDEV number and the WWN of the HBA
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          ldev_id: 0
+          host_wwn: "210003e08b0256f9"
+          upper_limit_for_iops: 8888
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################################################
+    # Task Name : Change the upper limit on the transfer rate for hosts for which the LDEV number of a volume
+    # and iSCSI name of the HBA are already specified in Server Priority Manager.
+    ##########################################################################################################
+    - name: Change the upper limit on the transfer rate for an SPM by specifying a volume and the iSCSI name  of the HBA
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          ldev_id: 80
+          iscsi_name: "iqn.1993-08.org.esxi.iscsi:01:107dc7e4254a"
+          upper_limit_for_transfer_rate_in_MBps: 30
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ######################################################################################################
+    # Task Name : Delete Server Priority Manager information by specifying a volume and the WWN of the HBA
+    #######################################################################################################
+    - name: Delete Server Priority Manager information by specifying a volume and the WWN of the HBA
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          ldev_id: 0
+          host_wwn: "210003e08b0256f9"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #############################################################################################################
+    # Task Name : Delete Server Priority Manager information by specifying a volume and the iSCSI name of the HBA
+    #############################################################################################################
+    - name: Delete Server Priority Manager information by specifying a volume and the iSCSI name of the HBA
+      hitachivantara.vspone_block.vsp.hv_server_priority_manager:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          ldev_id: 80
+          iscsi_name: "iqn.1993-08.org.esxi.iscsi:01:107dc7e4254a"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

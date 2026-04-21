@@ -1,0 +1,3 @@
+minor_changes:
+  - na_ontap_flexcache - new options `relative_size`, `override_encryption`, `atime_scrub`,
+    `cifs_change_notify_enabled`, `global_file_locking_enabled`, `guarantee_type`, `dr_cache` added in REST.

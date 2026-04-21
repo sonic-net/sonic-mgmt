@@ -1,0 +1,59 @@
+objects:
+  role: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  filter: {}
+  httpapi: {}
+  inventory: {}
+  lookup: {}
+  module:
+    alert_contact_point:
+      description: Manage Alerting Contact points in Grafana
+      name: alert_contact_point
+      namespace: ''
+      version_added: 0.0.1
+    alert_notification_policy:
+      description: Manage Alerting Policies points in Grafana
+      name: alert_notification_policy
+      namespace: ''
+      version_added: 0.0.1
+    cloud_api_key:
+      description: Manage Grafana Cloud API keys
+      name: cloud_api_key
+      namespace: ''
+      version_added: 0.0.1
+    cloud_plugin:
+      description: Manage Grafana Cloud Plugins
+      name: cloud_plugin
+      namespace: ''
+      version_added: 0.0.1
+    cloud_stack:
+      description: Manage Grafana Cloud stack
+      name: cloud_stack
+      namespace: ''
+      version_added: 0.0.1
+    dashboard:
+      description: Manage Dashboards in Grafana
+      name: dashboard
+      namespace: ''
+      version_added: 0.0.1
+    datasource:
+      description: Manage Data sources in Grafana
+      name: datasource
+      namespace: ''
+      version_added: 0.0.1
+    folder:
+      description: Manage Folders in Grafana
+      name: folder
+      namespace: ''
+      version_added: 0.0.1
+  netconf: {}
+  shell: {}
+  strategy: {}
+  test: {}
+  vars: {}
+version: 6.2.0

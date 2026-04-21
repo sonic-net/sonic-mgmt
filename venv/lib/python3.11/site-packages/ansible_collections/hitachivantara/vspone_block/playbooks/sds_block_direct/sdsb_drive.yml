@@ -1,0 +1,62 @@
+---
+####################################################################
+# Example : SDSB Drive Playbook
+####################################################################
+- name: Manage SDSB Drive
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Turn on the locator LED of a drive
+    ####################################################################
+    - name: Turn on the locator LED of a drive
+      hitachivantara.vspone_block.sds_block.hv_sds_block_drive:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "ff27bc05-a181-4de2-b496-675fdc1ce869"
+          should_drive_locator_led_on: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Turn off the locator LED of a drive
+    ####################################################################
+    - name: Turn off the locator LED of a drive
+      hitachivantara.vspone_block.sds_block.hv_sds_block_drive:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "ff27bc05-a181-4de2-b496-675fdc1ce869"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Remove a drive
+    ####################################################################
+    - name: Remove a drive
+      hitachivantara.vspone_block.sds_block.hv_sds_block_drive:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+        spec:
+          id: "ff27bc05-a181-4de2-b496-675fdc1ce869"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

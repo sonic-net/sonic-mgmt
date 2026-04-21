@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_ldap_client - Added REST support.
+  - na_ontap_ldap_client - Added ``ldaps_enabled`` option in ZAPI.

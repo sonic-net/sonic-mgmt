@@ -1,0 +1,190 @@
+ancestor: null
+releases:
+  1.0.0:
+    changes:
+      major_changes:
+      - Added CRUD operations support for Consistency group.
+      - Added CRUD operations support for Volume.
+      - Added CRUD operations support for a snapshot schedule.
+      - Added support for CRUD operations on a host with FC/iSCSI initiators.
+      - Added support for CRUD operations on a snapshot of a volume.
+      - Added support for adding/removing volumes to/from a consistency group.
+      - Added support to add/remove FC/iSCSI initiators to/from a host.
+      - Added support to create a snapshot for a consistency group.
+      - Added support to get/modify operations on storage pool.
+      - Added support to map/unmap a host to/from a snapshot.
+      - Gather facts module is enhanced to list volumes, consistency groups, FC initiators,
+        iSCSI initiators, hosts, snapshot schedules.
+    modules:
+    - description: Manage consistency groups on Unity storage system
+      name: consistencygroup
+      namespace: ''
+    - description: Manage Host operations on Unity
+      name: host
+      namespace: ''
+    - description: Gathering information about Unity
+      name: info
+      namespace: ''
+    - description: Manage snapshots on the Unity storage system
+      name: snapshot
+      namespace: ''
+    - description: Manage snapshot schedules on Unity storage system
+      name: snapshotschedule
+      namespace: ''
+    - description: Manage storage pool on Unity
+      name: storagepool
+      namespace: ''
+    - description: Manage volume on Unity storage system
+      name: volume
+      namespace: ''
+    release_date: '2020-06-20'
+  1.1.0:
+    changes:
+      minor_changes:
+      - Added CRUD operations support for Filesystem snapshot.
+      - Added CRUD operations support for Filesystem.
+      - Added CRUD operations support for NFS export.
+      - Added CRUD operations support for SMB share.
+      - Added support to get/modify operations on NAS server.
+      - Gather facts module is enhanced to list Filesystem snapshots, NAS servers,
+        File systems, NFS exports, SMB shares.
+    modules:
+    - description: Manage filesystem on Unity storage system
+      name: filesystem
+      namespace: ''
+    - description: Manage filesystem snapshot on the Unity storage system
+      name: filesystem_snapshot
+      namespace: ''
+    - description: Manage NAS servers on Unity storage system
+      name: nasserver
+      namespace: ''
+    - description: Manage NFS export on Unity storage system
+      name: nfs
+      namespace: ''
+    - description: Manage SMB shares on Unity storage system
+      name: smbshare
+      namespace: ''
+    release_date: '2020-12-02'
+  1.2.0:
+    changes:
+      minor_changes:
+      - Added CRUD operations support for Quota tree.
+      - Added CRUD operations support for User Quota on Filesystem/Quota tree.
+      - Added support for Application tagging.
+      - Consistency group module is enhanced to map/unmap hosts to/from a new or existing
+        consistency group.
+      - Filesystem module is enhanced to associate/dissociate snapshot schedule to/from
+        a Filesystem.
+      - Filesystem module is enhanced to update default quota configuration during
+        create operation.
+      - Gather facts module is enhanced to list User Quota and Quota tree components.
+      - Volume module is enhanced to support map/unmap multiple hosts from a volume.
+    modules:
+    - description: Manage quota tree on the Unity storage system
+      name: tree_quota
+      namespace: ''
+    - description: Manage user quota on the Unity storage system
+      name: user_quota
+      namespace: ''
+    release_date: '2021-06-25'
+  1.2.1:
+    changes:
+      minor_changes:
+      - Added dual licensing
+      - Documentation updates
+      - Fixed typo in galaxy.yml
+      - Updated few samples in modules
+    release_date: '2021-09-28'
+  1.3.0:
+    changes:
+      minor_changes:
+      - Added rotating file handler for logging.
+      - Bugfix in volume module to retrieve details of non-thin volumes.
+      - Enhance host module to support add/remove network address to/from a host.
+      - Enhanced Info module to list disk groups.
+      - Enhanced Storage Pool module to support listing of drive details of a pool
+      - Enhanced Storage pool module to support creation of storage pool
+      - Enhanced consistency group module to support enable/disable replication in
+        consistency group
+      - Enhanced host module to support both mapping and un-mapping of non-logged-in
+        initiators to host.
+      - Enhanced host module to support listing of network addresses, FC initiators,
+        ISCSI initiators and allocated volumes of a host
+      - Removed dellemc.unity prefix from module names.
+      - Renamed gatherfacts module to info module
+    release_date: '2022-03-25'
+  1.4.0:
+    changes:
+      minor_changes:
+      - Added cifsserver module to support create, list and delete CIFS server.
+      - Added execution environment manifest file to support building an execution
+        environment with ansible-builder.
+      - Added interface module to support create, list and delete interface.
+      - Added nfsserver module to support create, list and delete NFS server.
+      - Check mode is supported for Info.
+      - Enhance nfs module to support advanced host management option.
+      - Enhanced filesystem module to support create, modify and delete of filesystem
+        replication.
+      - Enhanced info module to list cifs server, nfs servers, ethernet port and file
+        interface.
+      - Enhanced nas server module to support create, modify and delete of nas server
+        replication.
+    modules:
+    - description: Manage CIFS server on Unity storage system
+      name: cifsserver
+      namespace: ''
+    - description: Manage Interfaces on Unity storage system
+      name: interface
+      namespace: ''
+    - description: Manage NFS server on Unity storage system
+      name: nfsserver
+      namespace: ''
+    release_date: '2022-06-28'
+  1.4.1:
+    changes:
+      minor_changes:
+      - Updated the execution environment related files.
+    release_date: '2022-09-27'
+  1.5.0:
+    changes:
+      minor_changes:
+      - Updated modules to adhere with ansible community guidelines.
+    release_date: '2022-12-20'
+  1.6.0:
+    changes:
+      minor_changes:
+      - Add synchronous replication support for filesystem.
+      - Support addition of host from the Host List to NFS Export in nfs module.
+      - Support enable/disable advanced dedup in volume module.
+    release_date: '2023-03-31'
+  1.7.0:
+    changes:
+      minor_changes:
+      - Added replication session module to get details, pause, resume, sync, failover,
+        failback and delete replication sessions.
+      - Added support for Unity XT SeaHawk 5.3
+      - Documentation updates for boolean values based on ansible community guidelines.
+    modules:
+    - description: Manage replication session on the Unity storage system
+      name: replication_session
+      namespace: ''
+    release_date: '2023-06-30'
+  1.7.1:
+    changes:
+      minor_changes:
+      - Patch update to fix import errors in utils file.
+    release_date: '2023-07-31'
+  2.0.0:
+    changes:
+      major_changes:
+      - Adding support for Unity Puffin v5.4.
+    release_date: '2024-03-29'
+  2.1.0:
+    changes:
+      major_changes:
+      - Adding support for Unity v5.5.
+      bugfixs:
+      - Storage Pool - clear error message for non-existant Pool.
+      - Filesystem - Set proper RPO when using an async replication_mode.
+      release_summary: This release fixes a few bugs and security issues while qualifing with ansible 2.19 and Unity 5.5.
+    release_date: '2025-08-06'

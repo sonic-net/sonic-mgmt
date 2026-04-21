@@ -1,0 +1,89 @@
+---
+- name: Get hosts
+  ovirt.ovirt.ovirt_host_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "{{ ovirt_infra_hosts | map(attribute='name') | map('regex_replace', '(.*)', 'name=\\1') | list | join(' or ') }} status=installfailed"
+  register: host_info
+  when: ovirt_infra_hosts | length > 0
+  tags:
+    - hosts
+    - reinstall
+
+- name: Reinstall hosts
+  ovirt.ovirt.ovirt_host:
+    auth: "{{ ovirt_auth }}"
+    state: reinstalled
+    name: "{{ item.name }}"
+    public_key: "{{ item.password is undefined }}"
+    password: "{{ item.password | default(omit) }}"
+  with_items:
+    - "{{ host_info.ovirt_hosts | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - hosts
+    - reinstall
+
+- name: Add hosts
+  ovirt.ovirt.ovirt_host:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ item.state | default(omit) }}"
+    name: "{{ item.name }}"
+    address: "{{ item.address | default(omit) }}"
+    cluster: "{{ item.cluster }}"
+    password: "{{ item.password | default(omit) }}"
+    public_key: "{{ item.public_key | default(omit) }}"
+    override_iptables: true
+    timeout: "{{ item.timeout | default(ovirt_hosts_add_timeout) }}"
+    poll_interval: "{{ item.poll_interval | default(20) }}"
+    hosted_engine: "{{ item.hosted_engine | default(omit) }}"
+    reboot_after_installation: "{{ item.reboot_after_installation | default(omit) }}"
+    reboot_after_upgrade: "{{ item.reboot_after_upgrade | default(omit) }}"
+  with_items: "{{ ovirt_infra_hosts }}"
+  loop_control:
+    label: "{{ item.name }}"
+  async: "{{ ovirt_hosts_max_timeout }}"
+  poll: 0
+  register: add_hosts
+  tags:
+    - hosts
+
+- name: Wait for hosts to be added
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  with_items:
+    - "{{ add_hosts.results | ovirt.ovirt.removesensitivevmdata }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  tags:
+    - hosts
+  ignore_errors: true
+  until: job_result.finished
+  retries: "{{ ovirt_hosts_max_timeout // 20 }}"
+  delay: 20
+
+- name: Fail the play with unexpected error
+  ansible.builtin.fail:
+    msg: The host deploy failed with message '{{ item["exception"] }}'.
+  when: item.failed and "the following networks are missing" not in item["exception"]
+  with_items:
+    - "{{ job_result.results }}"
+
+- name: Set Power Management
+  ovirt.ovirt.ovirt_host_pm:
+    auth: "{{ ovirt_auth }}"
+    address: "{{ item.power_management.address | default(omit) }}"
+    state: "{{ item.power_management.state | default(omit) }}"
+    username: "{{ item.power_management.username | default(omit) }}"
+    password: "{{ item.power_management.password | default(omit) }}"
+    type: "{{ item.power_management.type | default(omit) }}"
+    options: "{{ item.power_management.options | default(omit) }}"
+    port: "{{ item.power_management.port | default(omit) }}"
+    name: "{{ item.name }}"
+  when: item.power_management is defined and not (item.state is defined and item.state == 'absent')
+  with_items: "{{ ovirt_infra_hosts }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags:
+    - hosts

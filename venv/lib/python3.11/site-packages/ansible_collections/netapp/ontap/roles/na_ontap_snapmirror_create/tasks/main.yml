@@ -1,0 +1,55 @@
+---
+# tasks file for na_ontap_snapmirror_create
+- name: Create cluster peer
+  netapp.ontap.na_ontap_cluster_peer:
+    state: present
+    source_intercluster_lifs: "{{ src_lif }}"
+    dest_intercluster_lifs: "{{ dst_lif }}"
+    passphrase: "{{ passphrase }}"
+    hostname: "{{ src_ontap }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    dest_hostname: "{{ dst_ontap }}"
+    https: true
+    validate_certs: false
+- name: Source vserver peer create
+  netapp.ontap.na_ontap_vserver_peer:
+    state: present
+    peer_vserver: "{{ dst_vserver }}"
+    peer_cluster: "{{ dst_name }}"
+    vserver: "{{ src_vserver }}"
+    applications: snapmirror
+    hostname: "{{ src_ontap }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    dest_hostname: "{{ dst_ontap }}"
+    https: true
+    validate_certs: false
+- name: Validate destination FlexVol
+  netapp.ontap.na_ontap_volume:
+    state: present
+    name: "{{ dst_volume }}"
+    is_infinite: false
+    aggregate_name: "{{ dst_aggr }}"
+    size: 20
+    size_unit: mb
+    type: DP
+    # junction_path: "/{{ dst_volume }}"
+    vserver: "{{ dst_vserver }}"
+    hostname: "{{ dst_ontap }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    https: true
+    validate_certs: false
+- name: Create SnapMirror
+  netapp.ontap.na_ontap_snapmirror:
+    state: present
+    source_volume: "{{ src_volume }}"
+    destination_volume: "{{ dst_volume }}"
+    source_vserver: "{{ src_vserver }}"
+    destination_vserver: "{{ dst_vserver }}"
+    hostname: "{{ dst_ontap }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    https: true
+    validate_certs: false

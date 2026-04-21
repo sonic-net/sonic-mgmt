@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_rest_info - support added for protocols/active-directory.
+  - na_ontap_rest_info - support added for protocols/cifs/group-policies.
+  - na_ontap_rest_info - support added for protocols/nfs/connected-client-settings.
+  - na_ontap_rest_info - support added for security/aws-kms.

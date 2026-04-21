@@ -1,0 +1,8 @@
+minor_changes:
+  - na_cloudmanager_connector_gcp - make the module idempotent for create and delete.
+  - na_cloudmanager_connector_gcp - automatically fetch client_id for delete.
+  - na_cloudmanager_connector_gcp - report client_id if connector already exists.
+  - all modules - better error reporting if refresh_token is not valid.
+
+bugfixes:
+  - na_cloudmanager_connector_gcp - typeError when using proxy certificates.

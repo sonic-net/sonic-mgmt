@@ -1,0 +1,83 @@
+- name: Upload required drive, nvsram, and firmware files to Web Services Proxy.
+  block:
+    - name: Collect expected firmware file lists
+      ansible.builtin.set_fact:
+        eseries_proxy_drive_firmware: |-
+          {%- set drive_firmware = [] %}
+          {%- for host in ansible_play_hosts_all %}
+            {%- if hostvars[host]["current_eseries_api_is_proxy"] and "eseries_drive_firmware_firmware_list" in hostvars[host] %}
+              {%- if drive_firmware.extend(hostvars[host]["eseries_drive_firmware_firmware_list"]) %}{%- endif %}
+            {%- endif %}
+          {%- endfor %}
+          {{ drive_firmware | list }}
+        eseries_proxy_nvsram: |-
+          {%- set nvsram = [] %}
+          {%- for host in ansible_play_hosts_all %}
+            {%- if hostvars[host]["current_eseries_api_is_proxy"] and "eseries_firmware_nvsram" in hostvars[host] %}
+              {%- if nvsram.append(hostvars[host]["eseries_firmware_nvsram"]) %}{%- endif %}
+            {%- endif %}
+          {%- endfor %}
+          {{ nvsram | list }}
+        eseries_proxy_firmware: |-
+          {%- set firmware = [] %}
+          {%- for host in ansible_play_hosts_all %}
+            {%- if hostvars[host]["current_eseries_api_is_proxy"] and "eseries_firmware_firmware" in hostvars[host] %}
+              {%- if firmware.append(hostvars[host]["eseries_firmware_firmware"]) %}{%- endif %}
+            {%- endif %}
+          {%- endfor %}
+          {{ firmware | list }}
+
+    - name: Ensure SANtricity Web Services Proxy has the expected drive firmware
+      netapp_eseries.santricity.na_santricity_proxy_drive_firmware_upload:
+        api_url: "{{ eseries_proxy_api_url }}"
+        api_username: "{{ eseries_proxy_api_username }}"
+        api_password: "{{ eseries_proxy_api_password }}"
+        validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+        firmware: "{{ eseries_proxy_drive_firmware | default(omit) }}"
+      connection: local
+      when: eseries_proxy_drive_firmware != []
+
+    - name: Ensure SANtricity Web Services Proxy has the expected controller firmware and NVSRAM
+      netapp_eseries.santricity.na_santricity_proxy_firmware_upload:
+        api_url: "{{ eseries_proxy_api_url }}"
+        api_username: "{{ eseries_proxy_api_username }}"
+        api_password: "{{ eseries_proxy_api_password }}"
+        validate_certs: "{{ eseries_validate_certs | default(omit) }}"
+        firmware: "{{ eseries_proxy_firmware | default(omit) + eseries_proxy_nvsram | default(omit) }}"
+      connection: local
+      when: eseries_proxy_nvsram != [] or eseries_proxy_firmware != []
+  run_once: true
+
+- name: Ensure drive firmware is properly configured
+  netapp_eseries.santricity.na_santricity_drive_firmware:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    firmware: "{{ eseries_drive_firmware_firmware_list }}"
+    wait_for_completion: "{{ eseries_drive_firmware_wait_for_completion | default(true) }}"
+    ignore_inaccessible_drives: "{{ eseries_drive_firmware_ignore_inaccessible_drives | default(omit) }}"
+    upgrade_drives_online: "{{ eseries_drive_firmware_upgrade_drives_online | default(omit) }}"
+  connection: local
+  when: eseries_drive_firmware_firmware_list is defined
+  tags:
+    - firmware
+    - drive_firmware
+
+- name: Ensure controller firmware is properly configured
+  netapp_eseries.santricity.na_santricity_firmware:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    nvsram: "{{ eseries_firmware_nvsram | default('') }}"
+    firmware: "{{ eseries_firmware_firmware | default('') }}"
+    wait_for_completion: "{{ eseries_firmware_wait_for_completion | default(true) }}"
+    clear_mel_events: "{{ eseries_firmware_ignore_mel_events | default(omit) }}"
+  connection: local
+  when: eseries_firmware_nvsram is defined or eseries_firmware_firmware is defined
+  tags:
+    - firmware
+    - controller_firmware

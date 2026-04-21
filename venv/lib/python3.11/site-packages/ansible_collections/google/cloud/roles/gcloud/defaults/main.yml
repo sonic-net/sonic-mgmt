@@ -1,0 +1,28 @@
+---
+# defaults file for gcloud
+gcloud_install_type: package
+
+# default values for gcloud apt installation
+gcloud_apt_key: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+gcloud_apt_url: http://packages.cloud.google.com/apt
+gcloud_apt_repo: cloud-sdk
+
+# default values for gcloud yum installation
+gcloud_yum_baseurl: https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
+gcloud_yum_key: https://packages.cloud.google.com/yum/doc/yum-key.gpg
+
+# default values for gcloud archive installation
+gcloud_version: 505.0.0
+gcloud_archive_name: google-cloud-sdk-{{ gcloud_version }}-linux-{{ ansible_architecture }}.tar.gz
+gcloud_archive_url: https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/{{ gcloud_archive_name }}
+gcloud_archive_path: /usr/lib
+gcloud_library_path: "{{ gcloud_archive_path }}/google-cloud-sdk"
+
+# values if you want to use the gcloud install script
+gcloud_install_script: false
+gcloud_usage_reporting: false
+gcloud_profile_path: false
+gcloud_command_completion: false
+gcloud_update_path: false
+gcloud_override_components: []
+gcloud_additional_components: []

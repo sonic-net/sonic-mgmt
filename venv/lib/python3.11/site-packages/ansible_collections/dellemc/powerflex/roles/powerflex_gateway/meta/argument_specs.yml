@@ -1,0 +1,47 @@
+---
+argument_specs:
+  main:
+    short_description: Role to manage the installation and uninstallation of
+                       PowerFlex gateway
+    description:
+      - Role to manage the installation and uninstallation of PowerFlex gateway.
+    options:
+      powerflex_common_file_install_location:
+        type: path
+        description:
+          - Location of installation, compatible installation software package
+            based on the operating system of the node.
+          - The files can be downloaded from the Dell Product support page for
+            the PowerFlex software.
+        default: '/var/tmp'
+      powerflex_gateway_is_redundant:
+        type: bool
+        description: Is the gateway redundant (will install keepalived)
+        default: false
+      powerflex_gateway_admin_password:
+        required: true
+        type: str
+        description: Admin password for the PowerFlex gateway.
+      powerflex_gateway_http_port:
+        type: int
+        description: PowerFlex gateway HTTP port.
+        default: 80
+      powerflex_gateway_https_port:
+        type: int
+        description: PowerFlex gateway HTTPS port.
+        default: 443
+      powerflex_gateway_virtual_ip:
+        type: str
+        description: Virtual IP address of PowerFlex gateway.
+      powerflex_gateway_virtual_interface:
+        type: str
+        description: Virtual interface of PowerFlex gateway.
+      powerflex_gateway_state:
+        type: str
+        description: State of the PowerFlex gateway.
+        choices: ['present', 'absent']
+        default: 'present'
+      powerflex_gateway_skip_java:
+        type: bool
+        description: Specifies whether to install java or not.
+        default: false

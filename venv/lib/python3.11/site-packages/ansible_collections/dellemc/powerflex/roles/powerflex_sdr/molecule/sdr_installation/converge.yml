@@ -1,0 +1,30 @@
+---
+- name: Molecule Test for installation of SDR
+  hosts: sdr
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+
+  tasks:
+    - name: Install and configure Powerflex SDR
+      ansible.builtin.import_role:
+        name: powerflex_sdr
+      vars:
+        powerflex_sdr_state: present
+
+    - name: Verifying install package in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_common_install_package_output.msg == "Check mode: No changes made"
+      when: ansible_check_mode
+
+    - name: Verifying installation package in normal mode
+      ansible.builtin.assert:
+        that:
+          - " 'Installed' in powerflex_common_install_package_output.results[0]"
+      when: not ansible_check_mode and powerflex_common_install_package_output.changed
+
+    - name: Verifying installation package in Idempotency mode
+      ansible.builtin.assert:
+        that:
+          - "'Nothing to do' in powerflex_common_install_package_output.msg"
+      when: not ansible_check_mode and not powerflex_common_install_package_output.changed

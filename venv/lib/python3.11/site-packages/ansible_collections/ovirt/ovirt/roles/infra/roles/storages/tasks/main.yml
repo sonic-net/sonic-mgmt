@@ -1,0 +1,108 @@
+---
+#################################################
+# Storages
+#################################################
+# First add master storage
+- name: Add master storage
+  ovirt.ovirt.ovirt_storage_domain:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ item.value.state | default(omit) }}"
+    name: "{{ item.key }}"
+    domain_function: "{{ item.value.domain_function | default(omit) }}"
+    host: "{{ ovirt_infra_hosts[0].name }}"
+    data_center: "{{ data_center_name }}"
+    localfs: "{{ item.value.localfs | default(omit) }}"
+    nfs: "{{ item.value.nfs | default(omit) }}"
+    iscsi: "{{ item.value.iscsi | default(omit) }}"
+    posixfs: "{{ item.value.posixfs | default(omit) }}"
+    glusterfs: "{{ item.value.glusterfs | default(omit) }}"
+    fcp: "{{ item.value.fcp | default(omit) }}"
+    discard_after_delete: "{{ item.value.discard_after_delete | default(omit) }}"
+  with_dict: "{{ storages | default({}) }}"
+  when: item.value.master is defined and item.value.master
+  tags:
+    - storages
+
+# Next add rest of data storages
+- name: Add storages
+  ovirt.ovirt.ovirt_storage_domain:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ item.value.state | default(omit) }}"
+    name: "{{ item.key }}"
+    domain_function: "{{ item.value.domain_function | default(omit) }}"
+    host: "{{ ovirt_infra_hosts[0].name }}"
+    data_center: "{{ data_center_name }}"
+    localfs: "{{ item.value.localfs | default(omit) }}"
+    nfs: "{{ item.value.nfs | default(omit) }}"
+    iscsi: "{{ item.value.iscsi | default(omit) }}"
+    posixfs: "{{ item.value.posixfs | default(omit) }}"
+    glusterfs: "{{ item.value.glusterfs | default(omit) }}"
+    fcp: "{{ item.value.fcp | default(omit) }}"
+    discard_after_delete: "{{ item.value.discard_after_delete | default(omit) }}"
+  with_dict: "{{ storages | default({}) }}"
+  when: item.value.domain_function is not defined
+  tags:
+    - storages
+
+# Next add export/iso storages
+- name: Add export/iso storages
+  ovirt.ovirt.ovirt_storage_domain:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ item.value.state | default(omit) }}"
+    name: "{{ item.key }}"
+    domain_function: "{{ item.value.domain_function | default(omit) }}"
+    host: "{{ ovirt_infra_hosts[0].name }}"
+    data_center: "{{ data_center_name }}"
+    localfs: "{{ item.value.localfs | default(omit) }}"
+    nfs: "{{ item.value.nfs | default(omit) }}"
+    iscsi: "{{ item.value.iscsi | default(omit) }}"
+    posixfs: "{{ item.value.posixfs | default(omit) }}"
+    glusterfs: "{{ item.value.glusterfs | default(omit) }}"
+    fcp: "{{ item.value.fcp | default(omit) }}"
+    discard_after_delete: "{{ item.value.discard_after_delete | default(omit) }}"
+  with_dict: "{{ storages | default({}) }}"
+  when: item.value.domain_function is defined
+  tags:
+    - storages
+
+- name: Fetch storages
+  ovirt.ovirt.ovirt_storage_domain_info:
+    auth: "{{ ovirt_auth }}"
+    pattern: "type=nfs or type=iscsi or type=posixfs or type=glusterfs or type=fcp"
+    # pattern: "type=nfs or type=posixfs or type=glusterfs"
+    # pattern: "type=iscsi or type=fcp"
+    fetch_nested: true
+  register: sd_info
+  tags:
+    - storages
+    - storage_connections
+
+- name: Storage connection warning
+  ansible.builtin.debug:
+    msg: "[WARNING]: The storage domain '{{ item.name }}' has multiple connections. This is not supported by the role. The storage connection update of this domain
+      will be skipped."  # noqa yaml[line-length]
+  when: item.storage_connections | length > 1
+  with_items:
+    - "{{ sd_info.ovirt_storage_domains | default([]) }}"
+
+- name: Update storage parameters
+  ovirt.ovirt.ovirt_storage_connection:
+    auth: "{{ ovirt_auth }}"
+    id: "{{ ansible_version.full is version('2.6.0', '>=') | ternary(item.storage_connections[0].id, item.storage_connections[0].id[0]) }}"
+    storage: "{{ item.name }}"
+    address: "{{ storages[item.name][item.storage.type].address | default(omit) }}"
+    path: "{{ storages[item.name][item.storage.type].path | default(omit) }}"
+    nfs_timeout: "{{ storages[item.name][item.storage.type].timeout | default(omit) }}"
+    nfs_version: "{{ storages[item.name][item.storage.type].version | default(omit) }}"
+    nfs_retrans: "{{ storages[item.name][item.storage.type].retrans | default(omit) }}"
+    mount_options: "{{ storages[item.name][item.storage.type].mount_options | default(omit) }}"
+    username: "{{ storages[item.name][item.storage.type].username | default(omit) }}"
+    password: "{{ storages[item.name][item.storage.type].password | default(omit) }}"
+    port: "{{ storages[item.name][item.storage.type].port | default(omit) }}"
+    force: true
+  with_items:
+    - "{{ sd_info.ovirt_storage_domains | default([]) }}"
+  when: item.storage_connections | length == 1 and storages is defined and item.name in storages
+  tags:
+    - storages
+    - storage_connections

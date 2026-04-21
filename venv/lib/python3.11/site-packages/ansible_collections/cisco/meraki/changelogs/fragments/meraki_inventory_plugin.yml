@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - Adds a new dynamic inventory plugin for Cisco Meraki devices.

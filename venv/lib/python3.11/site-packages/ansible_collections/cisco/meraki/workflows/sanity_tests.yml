@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 6 * * *'
+env:
+  NAMESPACE: cisco
+  COLLECTION_NAME: meraki
+jobs:
+  sanity:
+    name: Sanity (Ⓐ${{ matrix.ansible }})
+    strategy:
+      matrix:
+        ansible:
+          - stable-2.15
+          - stable-2.16
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          path: meraki/meraki-ansible
+      - name: Create directory
+        run: mkdir -p ./ansible_collections/${{env.NAMESPACE}}
+      - name: Move repository
+        run: mv ./meraki/meraki-ansible ./ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install ansible-base (${{ matrix.ansible }})
+        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
+      - name: Run sanity tests
+        run: ansible-test sanity --docker -v --color
+        working-directory: ./ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}

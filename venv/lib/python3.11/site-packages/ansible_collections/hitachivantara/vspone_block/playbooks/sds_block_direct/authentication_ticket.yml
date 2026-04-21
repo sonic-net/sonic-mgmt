@@ -1,0 +1,45 @@
+---
+####################################################################
+# Example : Authentication Ticket Playbook
+####################################################################
+- name: Authentication Ticket
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Issue a new authentication ticket
+    ####################################################################
+    - name: Issue a new authentication ticket
+      hitachivantara.vspone_block.sds_block.hv_sds_block_authentication_ticket:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          max_age_days: 15
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Discard all authentication tickets
+    ####################################################################
+    - name: Discard all authentication tickets
+      hitachivantara.vspone_block.sds_block.hv_sds_block_authentication_ticket:
+        connection_info: "{{ connection_info }}"
+        state: "absent"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

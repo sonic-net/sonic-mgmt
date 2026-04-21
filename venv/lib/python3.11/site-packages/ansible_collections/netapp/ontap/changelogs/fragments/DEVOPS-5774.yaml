@@ -1,0 +1,6 @@
+---
+bugfixes:
+  - na_ontap_security_ipsec_policy - fix cannot get current security IPsec policy with ipspace.
+  - na_ontap_security_ipsec_policy - fix KeyError on ``authentication_method``.
+minor_changes:
+  - na_ontap_active_directory - add ``fqdn`` as aliases for ``domain``.

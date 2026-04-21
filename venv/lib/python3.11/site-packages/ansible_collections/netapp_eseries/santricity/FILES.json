@@ -1,0 +1,1853 @@
+{
+ "files": [
+  {
+   "name": ".",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "eseries-ansible-collections-diagram.png",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b816db08831f19fb8416ad366ad908f5865d3db1ed732c0385f342868e7a4c17",
+   "format": 1
+  },
+  {
+   "name": "CHANGELOG.rst",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "797785ada25b76a185f6760bc79e59c2f8d622baf40626fc3fb83c3e07aabb68",
+   "format": 1
+  },
+  {
+   "name": "changelogs",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "changelogs/.plugin-cache.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8a48969b94a8617308ef604108e73cc6163594e48302932774a68de43758e99f",
+   "format": 1
+  },
+  {
+   "name": "changelogs/changelog.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "13cc0d72f74739cac3d1bc11ea53722a4f29f8e8def1876e40e401da41f9c432",
+   "format": 1
+  },
+  {
+   "name": "changelogs/config.yaml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7182177f9666dbf6e7e8d2c595c772e683e5726978a307ae1c1e00f3601df70f",
+   "format": 1
+  },
+  {
+   "name": "CONTRIBUTING.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "077a75c259dc0eb7fc9a14411bfbc30953e63467d7febb6326c77a3690359910",
+   "format": 1
+  },
+  {
+   "name": "COPYING",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+   "format": 1
+  },
+  {
+   "name": "Jenkinsfile.blackduck",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b4dbc641fc7491c801d0c0e403ecc85c40e322568f13bb53cd3502a98c9f08d",
+   "format": 1
+  },
+  {
+   "name": "meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "meta/runtime.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4af3a62cc89d03b7820a95b9821961a48bed31f080d943c8b6c62a3173b58c40",
+   "format": 1
+  },
+  {
+   "name": "plugins",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/netapp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8aededbc8762691d17018ca25118603fad263db7a6dc0db05308e60c13720e11",
+   "format": 1
+  },
+  {
+   "name": "plugins/doc_fragments/santricity.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8f7a17a4a67c99ad1d5857dd310cc96ac39ba4dd9bb78242ace3276a828881ac",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/netapp.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "775ff60fe5dcc5a6f78319ecf36c0fbe5f5fc5771461b365f8c21cbeb704da76",
+   "format": 1
+  },
+  {
+   "name": "plugins/module_utils/santricity.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "33e505b67b35c466cead9f533a2cb0995f80fdcaecd8e86d991247f2cc4abb2a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_alerts_syslog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b5dcdf99b51b1a45b98d6e4031dc059d33f3ddf6b49c64bf0aebb1bd62c051dd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_alerts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c68151f646f5e03bd48706aa5e8a6c679c4ceaf986c14aad80e3881bafee5c77",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_asup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ff14782619a4d8f63368b115826b91e161b9814d03454507cae137cc50a02484",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_auditlog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ab6c86b0c9105cfcf5743c3bf9ae67cca08b2b7c0d882e19ea11268282da1c0d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_auth.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "65cc721832dd0bb2dc5fd31e6dd417247cee65aec7574d16c0b2233c0e8ffe60",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_client_certificate.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "26faa6a78b4d5b225ebce9d6a28437637e535c0bd24cd8c48103a1d9381496d4",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_discover.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e3268695a35aea297db3aa937a90d489409d66c5f2b25c4fc3bde5702f7515a2",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_drive_firmware.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3731acabad45260f46583b87aae9b9bef9f4d57ea8a38de272bb510854493120",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_facts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "513fbdf8fed5b453f55e42bb30a36b1138259316c39312ab01c62c0ce6ada6ee",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_firmware.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c9890ea62a60a587ef8063489593065b11879e3bb0f21a57a9632762f3bd7790",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_global.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8ca67bab5d6f0a43904f62d10452a7d5dbe66001f9eb2a61ad51d4effa17993c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_host.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "211954b464ba76b9fce25adcd7c7109e233c552e6edd98ec64072ba62ce55df0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_hostgroup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2747019702a367c7c985df5d52bf49c2e8b851b5c99cbb718b7fcd248d1ac12a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_ib_iser_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3a425db314be5f484a58b503060aa86611d40cd5f7537f53fd2c8b876d70a4b8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_iscsi_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "dc334a43e90bbfabc41db4bb0f09486b23cf9feaeae54ff73a0bf25152bd87df",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_iscsi_target.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8be58d56081f0b3673f4dd1e00e5cff1e7c9a0a63801347ba0888ed315037750",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_ldap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2800c0ad1d5109d5969097db29112a1907fcd9a5bada14c1425aab8e31c2112f",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_lun_mapping.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "fd0716ace016a9f6df416b312b2a0ea956c9e9d678ee439a1cc7f503a54ece4a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_mgmt_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e0dc301f08c7e3bcc79517f29b178299b826ac221ad3ee35a857ad93ab8b3203",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_nvme_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3af129de51b1e64989500a8b959cc7ce9580f9826c3fde95fc1dfcabdbc74995",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_proxy_firmware_upload.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1952ea9fbb65638dac458d4a34f98370f607e83b9f5b28b43a622aa64ed7a708",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_proxy_systems.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "26300a05c52bc9c6a2627550c033dd387363cf912f38f207b1c8739b3997be58",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_server_certificate.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7600763a9dcccf4faadeddacf30787b8b2ab62e0ece3cc0b5af9c463c35f40ab",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_snapshot.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0bd4006d2d02692ab93a63e953be68cc6b5b5d88ba41d38fafb7d161c0d1b80",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_storagepool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b249601dd6963a897418236f7504447542bd7310cfb71bb821d56dfb6a0676d3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_syslog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b2bf077d4bd8fda33bb1f151596cb25791b25ea06a49edc2af9d0827f8377a3b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_volume.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "81617c48d38b5d8a7447a29d986812b33559498b497cbce279a2f7312182a812",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_amg.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "06a3b3c0e707b5f1091d7211adf6959fcb631063352f13e959d16c07d59f0d84",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_alerts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ee774a549ebb71ff84d18af09bffa74021614cfab799a17761b64782270810d0",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_amg_role.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3d605c47a223c3f002534cee1bce5329a5089a84cff5d82544d3bdd3edefb8f8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_amg_sync.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1cbab6eb02f9027980d71c4858d5d43fafd2f136ff42c8428e19410dd1ba101b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/na_santricity_proxy_drive_firmware_upload.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f4c3addc30b3a319365467a4cce9ed01ace2a73a4266d2ab0f2f0bf06833da8c",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_auditlog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7fdb1c0f335fe77da5b8affe0e7f75f75f3dfeeecb00f2c2973ddaf25d3bdb69",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_auth.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d9aaecf840b6dd397a5c5d97d5353474873bd7995a09801b38c2daed00686104",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_drive_firmware.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "000b6190f188306b7afbeac2c044a3cf602c671973338437321db1fd2b1a172a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_firmware.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9323c5a1ab0cd729ad847a7f7d27305d353b97eb34f871c4e865cf1f0b4daf7b",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_flashcache.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ccb4ac054b73c5851755883ffe3ab6c5a1a07cd8c177d2c30a3a00d3e428aa55",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_hostgroup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9f8a699395355354888eb19cda1860c866c961820e3b339f7379071577e5cfdd",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_host.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8418274f2aa9bedb39f0a70d31014f84e3864cb46dde3285364d7d6e951637c3",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_facts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "91e782aabb3508c8d7d0f717bcfb9a61950666648845fc8d3c8bc09ee69f0eae",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_iscsi_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0f5346f0f3c3e8aaa3bda8535c08d40ee02d7fbfffbc4e406410d5beca3c16ff",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_asup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bff13315254cd09c183fbfe17b2725981d94d56ebbdccfb5ea0b3337a0d62c5d",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_global.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8371cef0125fbcf4a2cbdcabe8cfcac5ce0ff1e0d2ad0790706cf3ac5203e718",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_lun_mapping.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d03dc402ed32faca1851869a40f40c9c110df21f0a57b6c39bc409c610bdce91",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_iscsi_target.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ae718bd9dbd79c0fb180e115fb02cc4e3f2802c512ddabf79f2ba98349500457",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_ldap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d98968ba18a72cf9b3b215c342c8a341982a1ec7064304b98570e3d4ff7c7812",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_snapshot_group.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "331d845ed17f086a33a0c6d5787dbeecdd6e991cfba5dc6bbe5876b8aff45211",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_mgmt_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0215ff0e1f2643da23fae13c5df94c8b94173630cd23e5469a8eb8b601a70607",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_storage_system.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8eae0991975b0a902565ab4483a82daf1d7a5598a2c3262cb0aa26daa75dba38",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_snapshot_volume.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1284e3183a010834c9ed0ab10981a9085d1d2192945188a30d71f672672b46e8",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_snapshot_images.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9a8730240876a3291a7e019f5fd85a6c42691e9a48ce892c83e222e158d89a5e",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_storagepool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "aa4ca426dbc5459b99b2917e40b173e54cb9665eac1e752bc0792c5ebe0952ca",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_syslog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "eee012402371985c01ba5ab9cc7fe50e0949bd050938cd12dc3e2a08c5ded33a",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_volume_copy.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "41e31dd9950034190daa72a311f6e3a8e8fea9eccfb7fef299ffcd630ae56423",
+   "format": 1
+  },
+  {
+   "name": "plugins/modules/netapp_e_volume.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9370004cda1cc47ed3106a2aed8a0dae48fc1743d6a19eb4615e535c813c3161",
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup/santricity_host.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "90cc37ddef36d2c67a84db2ef754c615bab42dee4cc0dfcf39794e93d2de0290",
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup/santricity_host_detail.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "12f1cc890b047f48d295f3e3902814e35fdd3556cd61d91c9c90b9ec9a4ac0f5",
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup/santricity_lun_mapping.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b24a4a6c5f7118a2758ca3ff82f62635a0e95615b53c9855d339690c5a51ca8a",
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup/santricity_volume.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "097a7b9251099a6a8ab3788399f6a381ed74dd8cf278ebcbf89f8013534192dc",
+   "format": 1
+  },
+  {
+   "name": "plugins/lookup/santricity_storage_pool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6d155fa1b2f65dc8a828302edf3bb2ebccd8bac5901d2be2165cf30aa9f2bbc2",
+   "format": 1
+  },
+  {
+   "name": "README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "56bc54e5cfa188005c9757b6b307f65c0afb9a2ed2adf9a4361fdbf72bbcc867",
+   "format": 1
+  },
+  {
+   "name": "roles",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f294eef113d1d2a0ee6b43bfbfd968d59d987a116992fc938058faaa86c18cf3",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "799d6a2bac64c86b9ba7ff3a06021453a92411a452b81fb040771895e91b9037",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/collect_facts",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/collect_facts/prefer_embedded.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "07edc297d303fb5a77a3f0105c9a7017ecf70a4cf8a14aa34991c1485ea30af9",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/collect_facts/prefer_proxy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ff675445d271a61f0f1d2ebbba90503c729ba35cc67ad028153e002e81efee8d",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/collect_facts/discovery.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5541fa4fdeb93b4ca6c6aa2345eb3004021b26c9e6682899a3ba69fdd51403e7",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/collect_facts/validate_system_api_url.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cf4da03e9df313b537fd5d223c8f84d108fa5c3d4c33af6aea1f35e039b5eadb",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/build_info.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7f88f4ddfbbb10618b60685532e2d7f6cdae42404a2c19fc5615a2e999b99d26",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d2dd3e39d5c8ea70e739b4b9342cd7693f4241daf2cd08fc26c17e80318f7393",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/proxy.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "33760d17ff09f6af8cf80ad028687ca6db7f1082c13cf19b48a9cdff94eb606a",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/tasks/proxy_security.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7fe8bf482a01af5d5cd9ee6ff1a8fe6f0a28b6d1ef91241874d3c03b0185b040",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "931e84bef0c09299b87a808e5ab612c9933b1adc451a6a1ed2fcb0ffd2eb2e39",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_common/.travis.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43e63a93716f15cdb102c201e4631be604b45910b8c749c78d89e3fc076c7c7e",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "8b20abf6125e49f33f1bbe04bdd54e8be0aa203808f1e2404ce1dc6b083af2a3",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "15608a11f888b5ccf65e563ea793500667c2e305f03225fd195ff934e7976fa8",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/snapshot",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/snapshot/group.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b131aa20ee6e527810640f7795a28d116412d947428c225da07cf06f6cb9a698",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/snapshot/rollback.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d647b10ba795d5f9dbaec6edaddee3219bbec86dfae43ed8f5531059345381dc",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/snapshot/view.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cf7b03986245e71bca63ddb953ac6558ada6ea1fea41f298a6eac53507a12db4",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/interface/iscsi.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9c358dd35973cf218d5f7244774f522d4ef0066f548c57caac08512ae217b546",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/interface/ib_iser.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e84cfa03b99d3634f1da3eaef694d1b19bfde995fd76e803242f1117e8e43c71",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/interface/nvme_ib.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3c2dc845874503fdbbb976a9a14275f9ca72feceaae983d5be754bf8fc268f58",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/interface/nvme_roce.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "95c9683ffd5dcfd85d4061d4e7b782bfe446c837c4f7299a2ee0648203059f55",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/lun_mapping.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b2e5ebb38a812fe888935c84ebfc6013aa7f2c0e5aa30f3c68b1d8cb3be7a07a",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bfbb01ed126696022c17cec8c85860283f1fa52d14d099f78e6f9b4eac87502a",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/storage_pool_absent.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4a126daac268275ac020ef123ceee5d5713e2dfa311b3d7c23ec461c42b13407",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/snapshot.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "72e5de1f246435c98925d79c5b4d037139c8b4f560ac9d89c8542423875056e3",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/storage_pool_present.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e337fe0aad4c1e77786ee724d00723d2ece20596444f57dd1361872a29b37c55",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/volume.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a620ce2a74fe6b40f5c914584e7f54ae7afe9522e7068d013cf04392b0e242da",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/initiator.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ddaa5eabe27a77500e5e23beb42855e5f4c49e0cb357af335f8fc43ed6e9f13a",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/tasks/interface.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "db6956f6983d36ca3a94cf454de5c0e27ca9f8f65f9a9e46a1d12506ab6bf0a8",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/templates",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/templates/hostnqn.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "5957b6cb8ea9c4eccfcaa97b09169e456144e7d7f4d379266a60fda1e081f2f3",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/templates/initiatorname_iscsi.j2",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e5d0f276372ed34241309338f52e1c9c9b8ca2f6ae070804603f8ee42288c851",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_host/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c69ab063fce4f0491dea655b3ae37524c4ee7bc70349615c60fa858e74ac9e51",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/defaults",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/defaults/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f90b71b40d505ecfc8751dc9729b9b22b83a7777bc3eca4e6fb94b416857e78c",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/meta",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/meta/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6eb3965d6c9b9b3e5e65881f0c01079682601518745e58c2c5d400dc7b300551",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/tasks/firmware.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7bd99200517048e400ac97c16ef9aeadd35103df351d9237ad0dd8651ffd9029",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/tasks/interface.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0e26c94bb602eef5c9328228e369b24eebfc3b0cddda38632d87d55e88b0f05f",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/tasks/logging.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "62a7cc1504af3365f694b7bbe6963d432d2ca09d9dcf8dff051d7683f62b2171",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0ab1bd7043cfe87afb9ac0b0f2f71b74d8e9629094aabdf2685b6dca814b770",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/tasks/security.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d23019241dca6bb023a8c80b4a28ee35a5eefca1c7798a33b6f41263bbfbb136",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/tasks/system.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cbdcc666d2b7a58edc6106d40d68092c2db54876c92aec1703cc9ec5adf938f3",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/.travis.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "43e63a93716f15cdb102c201e4631be604b45910b8c749c78d89e3fc076c7c7e",
+   "format": 1
+  },
+  {
+   "name": "roles/nar_santricity_management/README.md",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "f7ea932d96049a7149fbb50c9405af159f7679d9f3949b62ca77246f2ce50d04",
+   "format": 1
+  },
+  {
+   "name": "tests",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_alerts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "25f6e83752d5afd877b98ce9824d819ada411984593b1c4eb37c073cd1975c8e",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_alerts_syslog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "271743c9301769c1f52bd890572e079626352e56439464e86c66da5051268195",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_asup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "411437dc5e4a647268634c88babca5efe1a723341d51a0d5c24677b1bd20cf6d",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_auditlog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "10deb0b093a8b7ad6326b1a33c3230c6b8d9246d2902a5db9e3e0c194e506088",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_auth.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a1f7cd8975badd85ec5a5bc85e95bd96978fd66208008487d93a6d3580aa1e4c",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_client_certificate.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "71663e89a09f7cfa4085da07376043b28ef6a250344ea910e9c6b62eb7024c94",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_discover.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "e74995787e43446e213c3469371273108439988c202058e32ed932d5f0039a30",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_drive_firmware.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "33a36d55a1804b9b6e9283a23bae182c2d8030de5fdbb169d263cc4624015fe8",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_facts.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c9ce368c9387fbc95cbff1d39a8f64a99f7091cf35f846408517ee1ac9ce4733",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_firmware.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "be169cfe958adbf01f96731af5034b60efb28c2028185522dacdf170176f11d1",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_global.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b740eff6bb06e32349d231a6836965f556a718f9cb0e7e890fa7953654eb3c77",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_host.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "35ed772c07abdc9ef881a26ac533b2b56588bc3643a17c6988a601520810e62b",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_hostgroup.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "028841e470dc2031ff67fe94dfdb98bb9206dabb5d3225270a72e0d0cfe22fac",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_ib_iser_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7a981718c824b95e7e8a434ce2d89959d6dd88aba30d5d12c8e704c79142afcd",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_iscsi_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "7fc42367a58f39b8152987b789171877dbea69ac43806e52ed208a95d14bb558",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_iscsi_target.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "183bfc8d6814628d8404bae806ef5bdb6578a04d7a367db6fe6334ff746a5d71",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_ldap.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "bef4f7162ba3fa694c7fe8abb060ec6b89a87124ec67eeb1913a49867356a201",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_lun_mapping.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d0438b97b192c497557b955e1bd4cc3c791d68188f22cea421cd4f61d06e8f63",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_mgmt_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "24f28fbf528efa65880eb55d86cc077b5892a6694d3d18779cf670fcf9adbd7a",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_nvme_interface.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "720d0337fbee2e54de4a6596c5ba3e0189eef48f774160d5889bddbc2795fb97",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_proxy_drive_firmware_upload.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "73a612ef26ae906ccf045d52b3ffcf45fd650c0328cb9caba9df6dad7df7dab6",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_proxy_firmware_upload.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "a7e0f27a7b2634d914a31d1c3f6670d9c1eb05ae40ce4fc105f941fef0887595",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_proxy_systems.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4f7f0f0c081381e02ae015435c33bc96826de0c5bb1ac81b18553ba350fccda4",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_storagepool.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0cc52cb1063418beff37de5790538a4a82c51e4a509de9567412bae4cc05d611",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_volume.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b0e5b6280c7684d120e2dc8acba0e57acba25be97a3f9bfd5245d5e337ec47bf",
+   "format": 1
+  },
+  {
+   "name": "tests/unit/modules/test_na_santricity_syslog.py",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "c3c66334aa714e9b191e8561bcdddae3aeafec1ff7d7cd0347debcfba7ebc8c2",
+   "format": 1
+  },
+  {
+   "name": "tests/integration",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_alerts",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_alerts/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_alerts/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4daa4382bae8129ae1b46aa2676864c81c1d30f7a9bf2b4bd9b97c0d560b4b1b",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_alerts_syslog",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_alerts_syslog/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_alerts_syslog/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d3e7f2f74372dd47e02890b6992b8d1f4b3ee141941c1118c45eac7ed04e6933",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_asup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_asup/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_asup/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1f99c211c88b05c103c7f066a3fcca5d1eeafe15d4c6217562e7a2bcc5649f77",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_auditlog",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_auditlog/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_auditlog/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "62d89c9146f8060a0b6028b88a2ad55ca3598f0757733964f6ef6f77e5761a47",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_auth",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_auth/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_auth/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "d8342ccf9edb764e3240de9ae484c3f751eb80cf8b5d5ec65e21b01912bc93eb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_client_certificate",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_client_certificate/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_client_certificate/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "57044ad5d4cb4a6abfb10f57fdc3fd67a9945e3487f4797ff2720e37522fa09a",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_discover",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_discover/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_discover/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b2f4f4e50f6a6e8b82faca06a24d3a84fae705951a62508053b21554c11f26d1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_facts",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_facts/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_facts/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3877ef532f0f4c143815989ff7420414949c31c0aeda6a55a19c8c4749da1505",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_drive_firmware",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_drive_firmware/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_drive_firmware/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b53979118cf728240e2712524191638bfda8e38f7da9e2d623d4e8c0fe6bbf47",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_global",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_global/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_global/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "faf59aa803396eecb56306e273a68db4f43acb45b6e363408ce55de53598d750",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_firmware",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_firmware/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_firmware/tasks/firmware_legacy_tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "386b07dcf7bcc6e8c5fb6c6cc507d601f64f026bd4c6f89ea5bc9e18d65cbe37",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_firmware/tasks/firmware_tests.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "6ee8117ea3a5edda386eed46132760603aebe728fb44ab587c314a15ba26c4f3",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_firmware/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "51412bc402190a1e357ddac089b000508d3c656c164eed77f1ba80e3a4076bda",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_hostgroup",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_hostgroup/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_hostgroup/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "3a067b4a6c973dd830116420ecade22b3b18a8d687dbcae3a29fe90778f6a188",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_host",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_host/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_host/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "9d9e7ab4a64da2dffafcccd8d5c01953e61ea4bc0dca91c9697dc3d5387f7d71",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_ib_iser_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_ib_iser_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_ib_iser_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "916951a38b85304c670cb622ee88450903aaf75406a2bb91799f2bbb81528fc0",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_iscsi_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_iscsi_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_iscsi_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "4099778174fac96f2a110faf9fc78c224f4c934de9c29641f1f9c90b7b9b1ed9",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_ldap",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_ldap/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_ldap/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2d0f299652f0253593b245ca409d72008d832c218f4a70fdb5a43709209acc32",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_lun_mapping",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_lun_mapping/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_lun_mapping/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "25fb026948ec8345d9ac774346d37b00aef88250b57a9d3d2248bc6952f843a7",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_iscsi_target",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_iscsi_target/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_iscsi_target/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cfe211b818a701aa7df286165e7509ee5ccddd3b6c160bd606492d4a990918fb",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_mgmt_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_mgmt_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_mgmt_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "b6d4879a8d0e422ab24b8963c98c68ad9b3b8d89d950bc11c4cf9aebfdd32b89",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_nvme_interface",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_nvme_interface/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_nvme_interface/tasks/ib.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "61a29d8d1156bc1eb6569eaef22560df51bfa01c963290a0d9590edc6937191e",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_nvme_interface/tasks/roce.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "741543b96775ed57e939f053d8651429a3d29fccb8bd05c1c7791a4338c58cc6",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_nvme_interface/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "32c65df83cec2f34228c0d2098df2f667f60ce14d438b3587de5f7f048abc10f",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_firmware_upload",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_firmware_upload/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_firmware_upload/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "82681851f1dad9d2cdc816a80ea2315785152ed6d46e54cfe5d5927160118279",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_systems",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_systems/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_systems/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "ae4770030714addb929c2facc94161dea7b4a74dd702b38a0a1373e42588da9d",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_drive_firmware_upload",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_drive_firmware_upload/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_proxy_drive_firmware_upload/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0f12de74d007683eb3f6b4f3309709d328b9b48eec45692c3d09a2d8ef497ac1",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_syslog",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_syslog/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_syslog/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "56973d5b71207809d2231bee3a57a5ba357b7fa87883a298fbc8cec20ceeaeab",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_volume",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_volume/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_volume/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "883075039717541225bdd12fc4d5244c2c33356f1673e1eb62bba8ad6e612539",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_storagepool",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_storagepool/tasks",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "tests/integration/targets/na_santricity_storagepool/tasks/main.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "cb6262188f4495ed0475276ba256d76fb59b23d3df8ff87be742207ac64f0478",
+   "format": 1
+  },
+  {
+   "name": "tests/integration/integration_config.yml",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "0b541ccd104dd15f35a8ca62befd4a44fc202c2b73b668367e85887315fce9d9",
+   "format": 1
+  },
+  {
+   "name": "vars",
+   "ftype": "dir",
+   "chksum_type": null,
+   "chksum_sha256": null,
+   "format": 1
+  },
+  {
+   "name": "vars/hubPreCheck.groovy",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1a0f2fd90b2cc895e4c16fc58066441d43ae0fb9156a9d86ebe19175092ac722",
+   "format": 1
+  },
+  {
+   "name": "vars/hubScan.groovy",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "17ff631dacfa7affc325cf3a8dee4d0251ea83e950dca43c34e30fbf0a0fba68",
+   "format": 1
+  },
+  {
+   "name": "vars/hubScanDocker.groovy",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "06344da5db89a6ee4abad8d4ab87e4649a4c4116739006124977e9f1c90453df",
+   "format": 1
+  },
+  {
+   "name": "vars/hubScanProject.groovy",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2e5d3dc4ad8fbe5202c7353e18940f28648c4af9727f5e9a245a0169691581be",
+   "format": 1
+  },
+  {
+   "name": "vars/setupBuildParameters.groovy",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "2e104536de237b7f1d36638b956a6dfb5c9e813cd0760856574416b4dd4b99b5",
+   "format": 1
+  },
+  {
+   "name": "vars/setupBlackduckBuildParameters.groovy",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "1b0a8bbf6c402e999f533b8317c536ab1a786055f88d12493dc1cb205c243f9c",
+   "format": 1
+  },
+  {
+   "name": "vars/setupSynopsysDetect.groovy",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "63170d1242b258731ab477dbdb172a6bf5c454c33398d81bc9f65a6d0d16cef5",
+   "format": 1
+  },
+  {
+   "name": ".gitignore",
+   "ftype": "file",
+   "chksum_type": "sha256",
+   "chksum_sha256": "80a6806935939c408e399d6c682160a70003f79ea54c7e1479c0dfd2e3edda47",
+   "format": 1
+  }
+ ],
+ "format": 1
+}

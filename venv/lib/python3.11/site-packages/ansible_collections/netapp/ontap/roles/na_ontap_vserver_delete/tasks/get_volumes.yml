@@ -1,0 +1,33 @@
+---
+# tasks file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
+
+- name: Collect volumes for vserver
+  tags: gather
+  netapp.ontap.na_ontap_rest_info:
+    gather_subset:
+      - volume_info
+    parameters:
+      svm.name: "{{ vserver_name }}"
+      is_svm_root: false    # we can't delete it, but it'll be removed with the vserver
+      clone.is_flexclone: "{{ is_flexclone | default(omit) }}"
+      fields: name
+    hostname: "{{ netapp_hostname }}"
+    username: "{{ netapp_username }}"
+    password: "{{ netapp_password }}"
+    https: "{{ https }}"
+    validate_certs: "{{ validate_certs }}"
+  register: ontap
+- name: Debug
+  ansible.builtin.debug:
+    var: ontap
+  when: debug_level > 1
+- name: Extract volume names
+  ansible.builtin.set_fact:
+    volumes: "{{ ontap.ontap_info | json_query(get_attrs) }}"
+  vars:
+    # double quotes around storage/volumes to escape the /
+    get_attrs: '"storage/volumes".records[].name'
+- name: Debug
+  ansible.builtin.debug:
+    var: volumes
+  when: debug_level > 0

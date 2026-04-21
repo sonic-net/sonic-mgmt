@@ -1,0 +1,15 @@
+- name: Demo rules with kafka as source
+  hosts: localhost
+  sources:
+    - cyberark.eda.kafka:
+        topic: ansible
+        host: localhost
+        port: 9092
+  rules:
+    - name: Check For User Suspension Event, Then Disable The User and Notify
+      condition: event.body.syslog.audit_record.Severity == "Error" and event.body.syslog.audit_record.MessageID == "5"
+      action:
+        run_playbook:
+          name: ../../../cyberark/pas/tests/disable_user.yml
+          extra_vars:
+            username: "{{ event.body.syslog.audit_record.Issuer }}"

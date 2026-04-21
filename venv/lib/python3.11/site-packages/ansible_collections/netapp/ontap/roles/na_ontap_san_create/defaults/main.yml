@@ -1,0 +1,8 @@
+---
+# defaults file for na_ontap_san_create
+na_ontap_san_create_netapp_hostname:
+na_ontap_san_create_netapp_password:
+na_ontap_san_create_netapp_username:
+na_ontap_san_create_validate_certs: false
+na_ontap_san_create_igroups:
+na_ontap_san_create_luns:

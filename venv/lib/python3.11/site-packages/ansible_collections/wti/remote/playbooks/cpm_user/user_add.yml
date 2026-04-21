@@ -1,0 +1,45 @@
+# ansible-playbook ./user_add.yml -e ansible_hosts=nameofhost
+- name: Add New User
+  hosts: "{{ansible_hosts}}"  # pass as -e ansible_hosts=wti_demo on the commandline
+  collections:
+     - wti.remote
+  connection: local
+  gather_facts: False
+
+  vars_prompt:
+  - name: "user_name"
+    prompt: "Enter Username"
+    private: no
+  - name: "user_pass"
+    prompt: "Enter Password"
+
+  tasks:
+    - set_fact: use_https=True
+      when: use_https is undefined
+    - set_fact: validate_certs=True
+      when: validate_certs is undefined
+
+    - name: run Add New User
+      cpm_user:
+        cpm_action: "adduser"
+        cpm_url: "{{ansible_host}}"
+        cpm_username: "{{ansible_user}}"
+        cpm_password: "{{ansible_pw}}"
+        user_name: "{{user_name}}"  # pass as -e user_name=sammy on the commandline
+        user_pass: "{{user_pass}}"
+        user_accesslevel: 1
+        user_accessserial: 0
+        user_accessapi: 1
+        user_accessweb: 0
+        user_accessoutbound: 1
+        user_accessssh: 1
+        user_portaccess: "10001110"
+        user_plugaccess: "11110000"
+        user_callbackphone: "9495551212"
+        use_https: "{{use_https}}"
+        validate_certs: "{{validate_certs}}"
+
+      register: output
+    - name: dump JSON output
+      debug:
+        msg: "{{ output.data }}"

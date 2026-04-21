@@ -1,0 +1,48 @@
+---
+# defaults file for mongodb_mongod
+mongod_port: 27017
+bind_ip: 0.0.0.0
+bind_ip_all: false
+log_path: "/var/log/mongodb/mongod.log"
+repl_set_name: rs0
+authorization: "enabled"
+openssl_keyfile_path: /etc/keyfile
+openssl_keyfile_content: |
+  Z2CeA9BMcoY5AUWoegjv/XWL2MA1SQcL4HvmRjYaTjSp/xosJy+LL2X3OQb1xVWC
+  rO2e6Tu6A3R4muunitI6Vr0IKeU5UbTpR0N4hSU6HDrV9z2PIEWlkQqKh01ZRLEY
+  V3hR73acj0jA8eWIWeiV039d18jvMb8X2h8409lfcD6PPJJGjyaC8S4LY/TrsK2z
+  tx+l/vqOOAMhGB5mEMjx1LXUMsRG9ot6vFu9I5LPd1A4q9xw9jddYK5C6YTLccun
+  ZyCDsv7ImkCprV0+0vhTyxIEnfaNtvOlWypuvmRr/DEyd2NPowd1n6C+rgk8gs1t
+  SGLCZP93gXza0rIoQzHtuf5pOJK9qyKjuNtuuLa/KFsida8a69JXn7fmS0IIja0m
+  Ir0OrQ2Ta3n4VbQwQo97BWODWmkgzz0mUd6VmMps5zLsCW1vVqYFQHuAAbLekW0q
+  8JRm8OQ6n2hp8j4zYd3/Qw7vqsVj8sHicNB0bCW29b64H4f2J/AcUA/cm0xSUQyb
+  +myeCB4vWvydh5AfFVnw7sXvzU6egaYRomdmrl59QrTDneJu13hwzIchsFparoWJ
+  XjpldopGeDaJLU18ga7MSL02ozB+EoJ14DJxQU7E5MQk7fDMPeitXKZ8ymxb7LeA
+  k0Rtc/JQM8aDLoRklhLZRRARBrv1RLo8DM8CB2q4s+FwVU4QJl7mFyiwk3eTN6sN
+  PTgFRo3/dHsEA2OwGG+hnGFGnoYf2mkECR5jqai83CXgva9v2rPNjDTJYHpmd3I0
+  fNijueXZZdzUA58y8mcoSGVYdRhr0g8jaWQ12PZEgX5Nnlekh5GHG0j8HT4qj/0Y
+  D3xVuE3WvrhldY5EOsaTt2ZXZx5REmJDIW1KcnvQKiVDJ2QzP5xdXYA0hh3TdTVE
+  sb4UreMw/WyBpANiICMlJRBgSd0f0VGMlYzLX2BL14YpNnLhmoQqKzfBN6v2XAEG
+  mJfrCUVuP1nBEklk23lYkNi/ohe+aodNjdN+2DHp42sGZHYP
+mongodb_admin_user: admin
+mongodb_admin_pwd: admin
+mongod_package: "mongodb-org-server"
+replicaset: true
+sharding: false
+net_compressors: null
+mongod_config_template: "mongod.conf.j2"
+skip_restart: true
+db_path: "{{ '/var/lib/mongodb' if ansible_os_family == 'Debian' else '/var/lib/mongo' if ansible_os_family == 'RedHat' else '/var/lib/mongo' }}"
+mongodb_use_tls: false
+mongodb_disabled_tls_protocols: ""
+mongodb_allow_connections_without_certificates: false
+mongodb_logrotate_enabled: false
+mongodb_logrotate_template: "mongodb.logrotate.j2"
+
+# Override systemd default configuration
+# Some properties are not overridden: https://askubuntu.com/questions/659267/how-do-i-override-or-configure-systemd-services
+# Examples:
+# mongodb_systemd_service_override: |
+#   [Service]
+#   Restart=on-failure # Mongod will restart on-failure (by default mongod don't restart)
+mongodb_systemd_service_override: ""

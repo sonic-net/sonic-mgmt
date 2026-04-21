@@ -1,0 +1,32 @@
+- name: Install mimir
+  hosts: [mimir-1, mimir-2, mimir-3]
+  become: true
+
+  tasks:
+    - name: Install mimir
+      ansible.builtin.include_role:
+        name: grafana.grafana.mimir
+      vars:
+        # Run against minio blob store backed, see readme for local setup or mimir docs for Azure,   AWS, etc.
+        mimir_storage:
+          storage:
+            backend: s3
+            s3:
+              endpoint: localhost:9000
+              access_key_id: testtest
+              secret_access_key: testtest
+              insecure: true
+              bucket_name: mimir
+
+        # Blocks storage requires a prefix when using a common object storage bucket.
+        mimir_blocks_storage:
+          storage_prefix: blocks
+          tsdb:
+            dir: "{{ mimir_working_path}}/ingester"
+
+        # Use memberlist, a gossip-based protocol, to enable the 3 Mimir replicas to communicate
+        mimir_memberlist:
+          join_members:
+            - mimir-1:7946
+            - mimir-2:7946
+            - mimir-3:7946

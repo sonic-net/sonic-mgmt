@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_file_security_permissions_acl - fix idempotent issue on ``propagation_mode`` option.

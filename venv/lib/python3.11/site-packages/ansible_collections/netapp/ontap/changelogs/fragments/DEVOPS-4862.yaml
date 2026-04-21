@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_security_ssh - Updates the SSH server configuration for the specified SVM - REST only.

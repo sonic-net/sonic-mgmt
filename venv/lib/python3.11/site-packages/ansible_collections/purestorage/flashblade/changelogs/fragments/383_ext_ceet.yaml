@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_certs - Fixed issues with importing external certificates

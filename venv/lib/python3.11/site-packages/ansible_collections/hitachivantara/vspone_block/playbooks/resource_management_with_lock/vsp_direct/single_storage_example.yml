@@ -1,0 +1,133 @@
+---
+###########################################################################
+# This playbook demonstrates how to lock resource groups, and do operations
+# on storage resources.
+# The playbook demonstrates the following operations:
+# 1. Lock Resource Groups
+# 2. Create LDEV
+# 3. Expand LDEV
+# 4. Get LDEV information
+# 5. Create Hostgroup and present LDEV to it
+# 6. Unlock Resource Groups
+# Operation # 4 is not affected by the lock, so for this operation can be done
+# with or without the lock token. Here we did it without the lock token.
+###########################################################################
+- name: Resource Group Lock Management
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task 1 : Lock Resource Groups
+    ####################################################################
+    - name: Lock Resource Group
+      hitachivantara.vspone_block.vsp.hv_resource_group_lock:
+        connection_info: "{{ connection_info }}"
+        spec:
+          lock_timeout_sec: 300
+      register: lock_resource_group_result
+
+    - name: Debug lock resource group result
+      ansible.builtin.debug:
+        var: lock_resource_group_result
+
+    ##########################################################################
+    # Task 2 : Create ldev using the lock token generated in Task 1
+    ##########################################################################
+    - name: Create ldev
+      hitachivantara.vspone_block.vsp.hv_ldev:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        state: present
+        spec:
+          pool_id: 0
+          size: 2GB
+          name: RD_LOCK_TEST_120424
+      register: create_ldev_result
+
+    - name: Debug create ldev result
+      ansible.builtin.debug:
+        var: create_ldev_result
+
+    ##########################################################################
+    # Task 3 : Expand ldev using the lock token generated in Task 1
+    ##########################################################################
+    - name: Expand ldev
+      hitachivantara.vspone_block.vsp.hv_ldev:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        state: present
+        spec:
+          ldev_id: "{{ create_ldev_result.volume.ldev_id }}"
+          size: 4GB
+      register: expand_ldev_result
+
+    - name: Debug expand ldev result
+      ansible.builtin.debug:
+        var: expand_ldev_result
+
+    ##########################################################################
+    # Task 4 : Get ldev information
+    ##########################################################################
+    - name: Get ldev information
+      hitachivantara.vspone_block.vsp.hv_ldev_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          ldev_id: "{{ create_ldev_result.volume.ldev_id }}"
+      register: result
+
+    - name: Display ldev information
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task 2 : Create host group with wwns and present the ldev to it
+    # using the lock token generated in Task 1
+    ##########################################################################
+    - name: Create hostgroup
+      hitachivantara.vspone_block.vsp.hv_hg:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        state: present
+        spec:
+          name: hostgroup-rd-lock-test-120424
+          port: CL8-F
+          host_mode: VMWARE_EXTENSION
+          host_mode_options: [54, 63]
+          ldevs: ["{{ create_ldev_result.volume.ldev_id }}"]
+          wwns:
+            - 9876543210ABCDE0
+            - 9876543210ABCDE1
+          state: add_wwn
+      register: create_hg_result
+    - name: Debug create host group result
+      ansible.builtin.debug:
+        var: create_hg_result
+
+    ##########################################################################
+    # Task 6 : Unlock the Resource Groups that were locked in Task 1
+    ##########################################################################
+    - name: Unlock Resource Group
+      hitachivantara.vspone_block.vsp.hv_resource_group_lock:
+        connection_info:
+          address: "{{ connection_info.address }}"
+          api_token: "{{ lock_resource_group_result.locked_resource_groups.lock_token }}"
+        state: absent
+      register: unlock_resource_group_result
+
+    - name: Debug unlock resource group result
+      ansible.builtin.debug:
+        var: unlock_resource_group_result

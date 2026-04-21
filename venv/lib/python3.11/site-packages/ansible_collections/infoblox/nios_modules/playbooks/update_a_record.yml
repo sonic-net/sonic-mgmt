@@ -1,0 +1,19 @@
+---
+- name: Infoblox Member Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.34.34.175
+      username: cloudadmin
+      password: admin
+
+  connection: local
+  tasks:
+    - name: Update Nios A record
+      infoblox.nios_modules.nios_a_record:
+        name: { new_name: v7.testzone.com, old_name: v7.testzone.com }
+        view: testDnsView
+        ipv4: 1.1.11.2
+        comment: Created with Ansible
+        state: present
+        provider: "{{ nios_provider }}"

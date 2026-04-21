@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_lag - Enable LAG port configuration with multi-chassis

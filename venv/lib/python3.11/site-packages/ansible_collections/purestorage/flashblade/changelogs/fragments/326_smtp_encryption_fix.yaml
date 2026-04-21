@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_smtp - Fix errors that occurred after adding support for smtp encrpytion and using the module on older FlashBlades.

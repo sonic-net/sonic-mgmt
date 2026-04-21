@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_cluster_ha - added REST support.

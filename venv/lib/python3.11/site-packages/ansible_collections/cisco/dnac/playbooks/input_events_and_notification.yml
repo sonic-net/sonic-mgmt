@@ -1,0 +1,41 @@
+# noqa all
+---
+events_notification:
+  - syslog_destination:
+      name: Syslog Demo test
+      description: "Adding syslog destination for testing"
+      server_address: "10.30.0.90"
+      protocol: "TCP"
+      port: 652
+    webhook_destination:
+      name: "webhook demo 19"
+      description: "webhhok description for testing"
+      url: "https://10.195.227.14/dna"
+      method: "POST"
+      trust_cert: False
+    email_destination:
+      from_email: "test@cisco.com"
+      to_email: "abmahesh@cisco.com"
+      subject: "Ansible testing"
+      primary_smtp_config:
+        server_address: "outbound.cisco.com"
+        port: '25'
+    snmp_destination:
+      name: Snmp test
+      description: "Adding snmp destination for testing for update"
+      server_address: "10.30.0.91"
+      port: '265'
+      snmp_version: "V3"
+      username: cisco123
+      mode: AUTH_PRIVACY
+      auth_type: SHA
+      auth_password: authpass123
+      privacy_type: AES128
+      privacy_password: privacy123
+    itsm_setting:
+      instance_name: "Playbook itsm demo"
+      description: "ITSM description for testing"
+      connection_settings:
+        url: "https://catalystcente1.com"
+        username: "catalyst"
+        password: "catalyst@123"

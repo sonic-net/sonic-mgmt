@@ -1,0 +1,13 @@
+---
+- name: oVirt infra
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars_files:
+    - vars/ovirt_infra_vars.yml
+    # Contains encrypted `engine_password` varibale using ansible-vault
+    - vars/passwords.yml
+
+  roles:
+    - ovirt.ovirt.infra

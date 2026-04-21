@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume - ignore read error because of insufficient privileges for efficiency options so that the module can be run as vsadmin.

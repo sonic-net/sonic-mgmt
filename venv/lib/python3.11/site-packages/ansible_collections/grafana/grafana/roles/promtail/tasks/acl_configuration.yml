@@ -1,0 +1,116 @@
+---
+# tasks file for promtail deploy - acl configuration
+
+- name: Extract log files from static_configs - labels - path
+  ansible.builtin.set_fact:
+    __promtail_acl_log_files: >-
+      {{
+        promtail_scrape_configs
+        | selectattr('static_configs', 'defined')
+        | map(attribute='static_configs')
+        | flatten
+        | map(attribute='labels')
+        | map(attribute='__path__')
+        | list
+      }}
+
+- name: Extract log dirs paths from static_configs - labels - path
+  ansible.builtin.set_fact:
+    __promtail_acl_log_dirs: >-
+      {{
+        promtail_scrape_configs
+        | selectattr('static_configs', 'defined')
+        | map(attribute='static_configs')
+        | flatten
+        | map(attribute='labels')
+        | map(attribute='__path__')
+        | map('dirname')
+        | unique
+        | list
+      }}
+
+- name: Stat log dirs
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ __promtail_acl_log_dirs }}"
+  register: __promtail_stat_acl_log_dirs
+
+- name: Set recursive default ACL permission for log dirs
+  ansible.posix.acl:
+    path: "{{ item.item }}"
+    recursive: true
+    entity: promtail
+    etype: user
+    permissions: rx
+    default: true
+    state: present
+  loop: "{{ __promtail_stat_acl_log_dirs.results }}"
+  when:
+    - __promtail_stat_acl_log_dirs | length > 0
+    - item.stat.exists
+  notify: restart promtail
+
+- name: Set ACL permission for log dirs
+  ansible.posix.acl:
+    path: "{{ item.item }}"
+    entity: promtail
+    etype: user
+    permissions: rx
+    state: present
+  loop: "{{ __promtail_stat_acl_log_dirs.results }}"
+  when:
+    - __promtail_stat_acl_log_dirs | length > 0
+    - item.stat.exists
+  notify: restart promtail
+
+- name: Find all existing ACL log files
+  ansible.builtin.find:
+    paths: "{{ item | dirname }}"
+    patterns: "{{ item | basename }}"
+  loop: "{{ __promtail_acl_log_files }}"
+  register: __promtail_find_files
+
+- name: Define existing ACL log files
+  ansible.builtin.set_fact:
+    __promtail_existing_acl_log_files: "{{ __promtail_find_files.results | map(attribute='files') | flatten | map(attribute='path') }}"
+
+- name: Set ACL permission for existing log files
+  ansible.posix.acl:
+    path: "{{ item }}"
+    entity: promtail
+    etype: user
+    permissions: r
+    state: present
+  loop: "{{ __promtail_existing_acl_log_files }}"
+  when:
+    - __promtail_existing_acl_log_files | length > 0
+  notify: restart promtail
+
+- name: Promtail ACL Logrotate
+  when:
+    - __promtail_acl_log_dirs | length > 0
+    - __promtail_acl_log_files | length > 0
+  block:
+    - name: Template promtail ACL config for Logrotate
+      ansible.builtin.template:
+        src: "promtail_acl.j2"
+        dest: "/etc/logrotate.d/promtail_acl"
+        owner: "root"
+        group: "root"
+        mode: "0644"
+
+    - name: Ensure that Promtail dummy dir for logrotate ACL configuration exist
+      ansible.builtin.file:
+        path: "/var/log/dummy_promtail_acl"
+        state: directory
+        owner: "promtail"
+        group: "root"
+        mode: "0750"
+
+    - name: Create dummy empty log file for logrotate ACL configuration to work
+      ansible.builtin.copy:
+        content: ""
+        dest: "/var/log/dummy_promtail_acl/dummy_promtail_acl.log"
+        owner: "promtail"
+        group: "root"
+        mode: 0600

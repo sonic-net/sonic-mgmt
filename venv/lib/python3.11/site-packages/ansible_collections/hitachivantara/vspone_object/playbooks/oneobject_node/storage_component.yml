@@ -1,0 +1,166 @@
+---
+- name: Storage Component
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../ansible_vault_vars/oneobject_node_connection_variables.yml
+  vars:
+    connection_info:
+      http_request_timeout: "{{ http_request_timeout }}"
+      http_request_retry_times: "{{ http_request_retry_times }}"
+      http_request_retry_interval_seconds: "{{ http_request_retry_interval_seconds }}"
+      ssl: "{{ ssl }}"
+      cluster_name: "{{ cluster_name }}"
+      region: "{{ region }}"
+      oneobject_node_username: "{{ oneobject_node_username }}"
+      oneobject_node_userpass: "{{ oneobject_node_userpass }}"
+      oneobject_node_client_id: "{{ oneobject_node_client_id }}"
+
+  tasks:
+    ####################################################################
+    # Task 1 : Activate storage component
+    ####################################################################
+    - name: Activate storage component
+      hitachivantara.vspone_object.oneobject_node.hv_storage_component:
+        connection_info: "{{ connection_info }}"
+        state: "activate"
+        spec:
+          id: -968354630
+      register: output_variable
+
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+    ####################################################################
+    # Task 2 : Create a storage component
+    ####################################################################
+    - name: Create storage component
+      hitachivantara.vspone_object.oneobject_node.hv_storage_component:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          storage_type: "HCPS_S3"
+          storage_component_config:
+            label: "component_test"
+            host: "ip_address_or_FQDN"
+            storage_class: "storage_class_test"
+            storage_fault_domain: "storage_fault_domain_test"
+            uri_scheme: "HTTP"
+            port: "80"
+            bucket: "samplebucketname"
+            region: "us-west-2b"
+            auth_type: "V2"
+            access_key: "youraccesskey"
+            secret_key: "yoursecretkey"
+            use_proxy: false
+            proxy_host: ~
+            proxy_port: ~
+            proxy_user_name: ~
+            proxy_password: ~
+            management_user: "username"
+            management_password: "password"
+            management_protocol: "HTTPS"
+            management_host: "ip_address_or_FQDN"
+            use_path_style_always: false
+            activate_now: false
+          storage_custom_metadata:
+            custom_key1: "custom_value1"
+            custom_key2: "custom_value2"
+      register: output_variable
+
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+    ####################################################################
+    # Task 3 : Update a storage component's config
+    ####################################################################
+    - name: Update storage component config
+      hitachivantara.vspone_object.oneobject_node.hv_storage_component:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          storage_type: "HCPS_S3"
+          id: 87899279
+          storage_component_config:
+            label: "component_test_updated"
+            host: "ip_address_or_FQDN"
+            storage_class: "storage_class_test"
+            storage_fault_domain: "storage_fault_domain_test"
+            uri_scheme: "HTTP"
+            port: "80"
+            bucket: "samplebucketname"
+            region: "us-west-2b"
+            auth_type: "V2"
+            access_key: "youraccesskey"
+            secret_key: "yoursecretkey"
+            use_proxy: false
+            proxy_host: ~
+            proxy_port: ~
+            proxy_user_name: ~
+            proxy_password: ~
+            management_user: "username"
+            management_password: "password"
+            management_protocol: "HTTPS"
+            management_host: "ip_address_or_FQDN"
+            use_path_style_always: false
+            activate_now: false
+          storage_custom_metadata:
+            custom_key1: "custom_value1"
+            custom_key2: "custom_value2"
+      register: output_variable
+
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+    ####################################################################
+    # Task 4 : Update a storage component's state
+    ####################################################################
+    - name: Update storage component state
+      hitachivantara.vspone_object.oneobject_node.hv_storage_component_state_update:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          storage_component_state: "PAUSED"  # PAUSED/ACTIVE/READ_ONLY
+          id: "193778799"
+      register: output_variable
+
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+    ####################################################################
+    # Task 5 : Test storage component access
+    ####################################################################
+    - name: Test storage component access
+      hitachivantara.vspone_object.oneobject_node.hv_storage_component:
+        connection_info: "{{ connection_info }}"
+        state: "test"
+        spec:
+          id: "759156789"
+      register: output_variable
+
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable
+    ####################################################################
+    # Task 6 : Create storage component of type array
+    ####################################################################
+    - name: Create storage component of type array
+      hitachivantara.vspone_object.oneobject_node.hv_storage_component:
+        connection_info: "{{ connection_info }}"
+        state: "present"
+        spec:
+          storage_type: "ARRAY"
+          storage_component_config:
+            label: "array_component_test"
+            storage_class: "test_storage_class"
+            storage_fault_domain: "storage_fault_domain_test"
+            activate_now: true
+            array_name: "array-name-test"
+            array_storage_tier: "NVMe-TLC"
+          storage_custom_metadata:
+            custom_key1: "custom_value1"
+            custom_key2: "custom_value2"
+      register: output_variable
+    - name: Display output_variable
+      ansible.builtin.debug:
+        var: output_variable

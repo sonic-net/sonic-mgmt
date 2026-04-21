@@ -1,0 +1,109 @@
+objects:
+  role: {}
+plugins:
+  become: {}
+  cache: {}
+  callback: {}
+  cliconf: {}
+  connection: {}
+  filter: {}
+  httpapi: {}
+  inventory: {}
+  lookup: {}
+  module:
+    cifsserver:
+      description: Manage CIFS server on Unity storage system
+      name: cifsserver
+      namespace: ''
+      version_added: 1.4.0
+    consistencygroup:
+      description: Manage consistency groups on Unity storage system
+      name: consistencygroup
+      namespace: ''
+      version_added: 1.1.0
+    filesystem:
+      description: Manage filesystem on Unity storage system
+      name: filesystem
+      namespace: ''
+      version_added: 1.1.0
+    filesystem_snapshot:
+      description: Manage filesystem snapshot on the Unity storage system
+      name: filesystem_snapshot
+      namespace: ''
+      version_added: 1.1.0
+    host:
+      description: Manage Host operations on Unity
+      name: host
+      namespace: ''
+      version_added: 1.1.0
+    info:
+      description: Gathering information about Unity
+      name: info
+      namespace: ''
+      version_added: 1.1.0
+    interface:
+      description: Manage Interfaces on Unity storage system
+      name: interface
+      namespace: ''
+      version_added: 1.4.0
+    nasserver:
+      description: Manage NAS servers on Unity storage system
+      name: nasserver
+      namespace: ''
+      version_added: 1.1.0
+    nfs:
+      description: Manage NFS export on Unity storage system
+      name: nfs
+      namespace: ''
+      version_added: 1.1.0
+    nfsserver:
+      description: Manage NFS server on Unity storage system
+      name: nfsserver
+      namespace: ''
+      version_added: 1.4.0
+    replication_session:
+      description: Manage replication session on Unity storage system
+      name: replication_session
+      namespace: ''
+      version_added: 1.7.0
+    smbshare:
+      description: Manage SMB shares on Unity storage system
+      name: smbshare
+      namespace: ''
+      version_added: 1.1.0
+    snapshot:
+      description: Manage snapshots on the Unity storage system
+      name: snapshot
+      namespace: ''
+      version_added: 1.1.0
+    snapshotschedule:
+      description: Manage snapshot schedules on Unity storage system
+      name: snapshotschedule
+      namespace: ''
+      version_added: 1.1.0
+    storagepool:
+      description: Manage storage pool on Unity
+      name: storagepool
+      namespace: ''
+      version_added: 1.1.0
+    tree_quota:
+      description: Manage quota tree on the Unity storage system
+      name: tree_quota
+      namespace: ''
+      version_added: 1.2.0
+    user_quota:
+      description: Manage user quota on the Unity storage system
+      name: user_quota
+      namespace: ''
+      version_added: 1.2.0
+    volume:
+      description: Manage volume on Unity storage system
+      name: volume
+      namespace: ''
+      version_added: 1.1.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  test: {}
+  vars: {}
+version: 2.1.0

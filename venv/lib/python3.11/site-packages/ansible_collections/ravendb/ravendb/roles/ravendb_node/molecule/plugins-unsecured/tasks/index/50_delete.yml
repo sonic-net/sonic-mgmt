@@ -1,0 +1,41 @@
+---
+- name: Delete index (real)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    state: absent
+  register: ix_deleted
+
+- name: Assert deleted
+  ansible.builtin.assert:
+    that:
+      - ix_deleted.changed
+      - "'deleted successfully' in ix_deleted.msg | lower"
+
+- name: Fetch ALL indexes (after delete)
+  ansible.builtin.uri:
+    url: "{{ base_url }}/databases/{{ db_ix }}/indexes?start=0"
+    method: GET
+    validate_certs: no
+  register: ix_all_after_delete
+  changed_when: false
+
+- name: Assert missing
+  ansible.builtin.assert:
+    that:
+      - "((ix_all_after_delete.json.Results | default(ix_all_after_delete.json) | default([])) | selectattr('Name','equalto', idx_name) | list | length) == 0"
+
+- name: Delete again (idempotent)
+  ravendb.ravendb.index:
+    url: "{{ base_url }}"
+    database_name: "{{ db_ix }}"
+    index_name: "{{ idx_name }}"
+    state: absent
+  register: ix_deleted_again
+
+- name: Assert already absent
+  ansible.builtin.assert:
+    that:
+      - "not ix_deleted_again.changed"
+      - "'already absent' in ix_deleted_again.msg | lower"

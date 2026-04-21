@@ -1,0 +1,40 @@
+---
+- name: Sda layer3 virtual networks
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  gather_facts: false
+  tasks:
+    - name: Update layer 3 virtual networks v1
+      cisco.dnac.sda_layer3_virtual_networks:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        payload:
+          - virtualNetworkName: "DEFAULT_VN"
+            id: "1cc6dab4-d4e8-4523-bbc5-7f7bb4eb4c7c"
+      register: result
+
+    - name: Create layer 3 virtual networks v1
+      cisco.dnac.sda_layer3_virtual_networks:
+        dnac_host: "{{ dnac_host }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_debug: "{{ dnac_debug }}"
+        state: present
+        payload:
+          - virtualNetworkName: "DEFAULT_VNee"
+            fabricIds:
+              - "e3327bd5-e30b-40be-92ac-d6235f35a29b"
+            anchoredSiteId: "7087c88f-ec73-4df1-8f6b-136d7e2ed9e2"
+      register: result
+
+    - name: Show result
+      ansible.builtin.debug:
+        var: result

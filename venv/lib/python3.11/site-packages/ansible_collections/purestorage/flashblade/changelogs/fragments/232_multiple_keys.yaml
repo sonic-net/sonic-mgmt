@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_s3user - Add new boolean parameter I(multiple_keys) to limit access keys for a user to a single key.

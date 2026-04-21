@@ -1,0 +1,87 @@
+---
+- name: Final engine tasks
+  block:
+    - name: Include after engine-setup custom tasks files for the engine VM
+      ansible.builtin.include_tasks: "{{ after_engine_setup_item }}"
+      with_fileglob: "hooks/enginevm_after_engine_setup/*.yml"
+      loop_control:
+        loop_var: after_engine_setup_item
+      register: include_after_engine_setup_results
+    # After a restart the engine has a 5 minute grace time,
+    # other actions like electing a new SPM host or reconstructing
+    # the master storage domain could require more time
+    - name: Wait for the engine to reach a stable condition
+      ansible.builtin.wait_for:
+        timeout: "600"
+      when: he_restore_from_file is defined and he_restore_from_file
+    - name: Configure LibgfApi support
+      ansible.builtin.command: engine-config -s LibgfApiSupported=true --cver=4.2
+      environment: "{{ he_cmd_lang }}"
+      register: libgfapi_support_out
+      changed_when: true
+      when: he_enable_libgfapi|bool
+    - name: Save original OvfUpdateIntervalInMinutes
+      ansible.builtin.shell: "engine-config -g OvfUpdateIntervalInMinutes | cut -d' ' -f2 > /root/OvfUpdateIntervalInMinutes.txt"
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+    - name: Set OVF update interval to 1 minute
+      ansible.builtin.command: engine-config -s OvfUpdateIntervalInMinutes=1
+      environment: "{{ he_cmd_lang }}"
+      changed_when: true
+    - name: Allow the webadmin UI to be accessed over the first host
+      block:
+        - name: Saving original value
+          ansible.builtin.replace:
+            path: /etc/ovirt-engine/engine.conf.d/11-setup-sso.conf
+            regexp: "^(SSO_ALTERNATE_ENGINE_FQDNS=.*)"
+            replace: "#\\1 # pre hosted-engine-setup"
+        - name: Adding new SSO_ALTERNATE_ENGINE_FQDNS line
+          ansible.builtin.lineinfile:
+            path: /etc/ovirt-engine/engine.conf.d/11-setup-sso.conf
+            line: 'SSO_ALTERNATE_ENGINE_FQDNS="{{ he_host_address }}" # hosted-engine-setup'
+    - name: Restart ovirt-engine service for changed OVF Update configuration and LibgfApi support
+      ansible.builtin.systemd:
+        state: restarted
+        name: ovirt-engine
+      register: restart_out
+    - name: Mask cloud-init services to speed up future boot
+      ansible.builtin.systemd:
+        masked: true
+        name: "{{ item }}"
+      with_items:
+        - cloud-init-local
+        - cloud-init
+    - name: Check if keycloak is configured
+      ansible.builtin.command: otopi-config-query query -k OVESETUP_CONFIG/keycloakEnable -f /etc/ovirt-engine-setup.conf
+      register: keycloak_configured_out
+      ignore_errors: true
+      changed_when: false
+    - name: Set admin username
+      ansible.builtin.set_fact:
+        he_admin_username: >-
+          {{ 'admin@ovirt@internalsso'
+              if keycloak_configured_out.rc == 0 and keycloak_configured_out.stdout_lines[0] == 'True'
+              else 'admin@internal'
+          }}
+      register: otopi_he_admin_username
+  rescue:
+    - name: Sync on engine machine
+      ansible.builtin.command: sync
+      changed_when: true
+    - name: Fetch logs from the engine VM
+      ansible.builtin.import_tasks: fetch_engine_logs.yml
+      ignore_errors: true
+      delegate_to: "{{ he_ansible_host_name }}"
+    - name: Get local VM dir path
+      ansible.builtin.set_fact:
+        he_local_vm_dir: "{{ hostvars[he_ansible_host_name]['he_local_vm_dir'] }}"
+    - name: Clean bootstrap engine VM
+      ansible.builtin.import_tasks: ../clean_localvm_dir.yml
+      delegate_to: "{{ he_ansible_host_name }}"
+    - name: Clean local storage pools
+      ansible.builtin.import_tasks: ../clean_local_storage_pools.yml
+      delegate_to: "{{ he_ansible_host_name }}"
+    - name: Notify the user about a failure
+      ansible.builtin.fail:
+        msg: There was a failure deploying the engine on the local engine VM. The system may not be provisioned according to the playbook results, please check the
+          logs for the issue, fix accordingly or re-deploy from scratch.

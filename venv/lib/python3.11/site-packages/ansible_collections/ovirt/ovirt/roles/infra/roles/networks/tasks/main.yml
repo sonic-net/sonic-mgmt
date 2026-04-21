@@ -1,0 +1,42 @@
+---
+#########################################
+# Logical networks
+#########################################
+- name: Add networks
+  ovirt.ovirt.ovirt_network:
+    auth: "{{ ovirt_auth }}"
+    state: "{{ item.state | default(omit) }}"
+    name: "{{ item.name }}"
+    data_center: "{{ data_center_name }}"
+    vlan_tag: "{{ item.vlan_tag | default(omit) }}"
+    vm_network: "{{ item.vm_network | default(omit) }}"
+    mtu: "{{ item.mtu | default(omit) }}"
+    description: "{{ item.description | default(omit) }}"
+    clusters: "{{ item.clusters | default(omit) }}"
+    label: "{{ item.label | default(omit) }}"
+    external_provider: "{{ item.external_provider | default(omit) }}"
+  with_items:
+    - "{{ logical_networks | default([]) }}"
+  tags:
+    - logical_networks
+    - networks
+
+#########################################
+# Host networks
+#########################################
+- name: Setup host networks
+  ovirt.ovirt.ovirt_host_network:
+    auth: "{{ ovirt_auth }}"
+    name: "{{ item.name }}"
+    state: "{{ item.state | default(omit) }}"
+    check: "{{ item.check | default(omit) }}"
+    save: "{{ item.save | default(omit) }}"
+    bond: "{{ item.bond | default(omit) }}"
+    networks: "{{ item.networks | default(omit) }}"
+    labels: "{{ item.labels | default(omit) }}"
+    interface: "{{ item.interface | default(omit) }}"
+  with_items:
+    - "{{ host_networks | default([]) }}"
+  tags:
+    - host_networks
+    - networks

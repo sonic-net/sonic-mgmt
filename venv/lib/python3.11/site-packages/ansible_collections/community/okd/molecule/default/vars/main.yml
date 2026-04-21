@@ -1,0 +1,96 @@
+---
+k8s_pod_annotations: {}
+
+k8s_pod_metadata:
+  labels:
+    app: '{{ k8s_pod_name }}'
+  annotations: '{{ k8s_pod_annotations }}'
+
+k8s_pod_spec:
+  serviceAccount: "{{ k8s_pod_service_account }}"
+  containers:
+    - image: "{{ k8s_pod_image }}"
+      imagePullPolicy: Always
+      name: "{{ k8s_pod_name }}"
+      command: "{{ k8s_pod_command }}"
+      readinessProbe:
+        initialDelaySeconds: 15
+        exec:
+          command:
+            - /bin/true
+      resources: "{{ k8s_pod_resources }}"
+      ports: "{{ k8s_pod_ports }}"
+      env: "{{ k8s_pod_env }}"
+
+k8s_pod_service_account: default
+
+k8s_pod_resources:
+  limits:
+    cpu: "100m"
+    memory: "100Mi"
+
+k8s_pod_command: []
+
+k8s_pod_ports: []
+
+k8s_pod_env: []
+
+k8s_pod_template:
+  metadata: "{{ k8s_pod_metadata }}"
+  spec: "{{ k8s_pod_spec }}"
+
+k8s_deployment_spec:
+  template: '{{ k8s_pod_template }}'
+  selector:
+    matchLabels:
+      app: '{{ k8s_pod_name }}'
+  replicas: 1
+
+k8s_deployment_template:
+  apiVersion: apps/v1
+  kind: Deployment
+  spec: '{{ k8s_deployment_spec }}'
+
+okd_dc_triggers:
+  - type: ConfigChange
+  - type: ImageChange
+    imageChangeParams:
+      automatic: true
+      containerNames:
+        - '{{ k8s_pod_name }}'
+      from:
+        kind: ImageStreamTag
+        name: '{{ image_name }}:{{ image_tag }}'
+
+okd_dc_spec:
+  template: '{{ k8s_pod_template }}'
+  selector:
+    matchLabels:
+      app: "{{ k8s_pod_name }}"
+  replicas: 1
+  strategy:
+    type: Recreate
+
+okd_dc_template:
+  apiVersion: apps/v1
+  kind: Deployment
+  spec: '{{ okd_dc_spec }}'
+
+okd_imagestream_template:
+  apiVersion: image.openshift.io/v1
+  kind: ImageStream
+  metadata:
+    name: '{{ image_name }}'
+  spec:
+    lookupPolicy:
+      local: true
+    tags:
+      - annotations: null
+        from:
+          kind: DockerImage
+          name: '{{ image }}'
+        name: '{{ image_tag }}'
+        referencePolicy:
+          type: Source
+
+image_tag: latest

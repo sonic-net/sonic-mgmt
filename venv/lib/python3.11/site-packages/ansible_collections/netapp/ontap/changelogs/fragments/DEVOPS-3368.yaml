@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_volume - ``nas_application_template`` to create a volume using nas application REST API.
+  - na_ontap_volume - ``size_change_threshold`` to ignore small changes in volume size.

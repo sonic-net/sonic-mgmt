@@ -1,0 +1,151 @@
+---
+- name: CIFS Server Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '***'
+    domain_username: 'domain_user'
+    domain_password: '**'
+
+  tasks:
+    - name: Create standalone CIFS server with check mode
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        netbios_name: "ansible_cifs"
+        workgroup: "ansible"
+        local_password: "**"
+        nas_server_name: "Ansible_server_1"
+        state: "present"
+      check_mode: true
+
+    - name: Create standalone CIFS server
+      register: result
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        netbios_name: "ansible_cifs"
+        workgroup: "ansible"
+        local_password: "**"
+        nas_server_name: "Ansible_server_1"
+        state: "present"
+
+    - name: Create standalone CIFS server - Idempotency
+      register: result
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        netbios_name: "ansible_cifs"
+        workgroup: "ansible"
+        local_password: "**"
+        nas_server_name: "Ansible_server_1"
+        state: "present"
+
+    - name: Get CIFS server details
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cifs_server_id: "{{ result.cifs_server_details.id }}"
+        state: "present"
+
+    - name: Get CIFS server details using NAS server name
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_name: "Ansible_server_1"
+        state: "present"
+
+    - name: Get CIFS server details using NAS server ID
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_id: "{{ result.cifs_server_details.nas_server.UnityNasServer.id }}"
+        state: "present"
+
+    - name: Delete CIFS server
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cifs_server_id: "{{ result.cifs_server_details.id }}"
+        state: "absent"
+
+    - name: Create CIFS server belonging to Active Directory
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_id: "nas_52"
+        cifs_server_name: "test_cifs_server"
+        domain: "test.lab.domain.com"
+        domain_username: "{{ domain_username }}"
+        domain_password: "{{ domain_password }}"
+        state: "present"
+
+    - name: Create CIFS server belonging to Active Directory - Idempotency
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        nas_server_id: "nas_52"
+        cifs_server_name: "test_cifs_server"
+        domain: "test.lab.domain.com"
+        domain_username: "{{ domain_username }}"
+        domain_password: "{{ domain_password }}"
+        state: "present"
+
+    - name: Delete CIFS server with check mode
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cifs_server_name: "test_cifs_server"
+        unjoin_cifs_server_account: true
+        domain_username: "{{ domain_username }}"
+        domain_password: "{{ domain_password }}"
+        state: "absent"
+      check_mode: true
+
+    - name: Delete CIFS server with domain
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cifs_server_name: "test_cifs_server"
+        unjoin_cifs_server_account: true
+        domain_username: "{{ domain_username }}"
+        domain_password: "{{ domain_password }}"
+        state: "absent"
+
+    - name: Delete CIFS server - Idempotency
+      cifsserver:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        cifs_server_name: "test_cifs_server"
+        unjoin_cifs_server_account: true
+        domain_username: "{{ domain_username }}"
+        domain_password: "{{ domain_password }}"
+        state: "absent"

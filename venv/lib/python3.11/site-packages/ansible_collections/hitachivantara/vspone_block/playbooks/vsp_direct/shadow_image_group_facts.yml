@@ -1,0 +1,93 @@
+---
+####################################################################
+# Example :  Shadow Image Group Facts Playbook
+####################################################################
+- name: Shadow Image Group Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all Shadow Image groups
+    ####################################################################
+    - name: Get all shadow image groups
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one shadow image group using copy group name
+    ####################################################################
+    - name: Get one shadow image group using copy group name
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "RD_TEST_111424_TEST"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ##########################################################################
+    # Task Name : Get shadow image group details by specifying name,
+    # primary_volume_device_group_name, and secondary_volume_device_group_name.
+    ###########################################################################
+    - name: Get shadow image pairs by copy_group_name and copy_pair_name
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "CG_1121_1123"
+          primary_volume_device_group_name: "CG_1121_1123P_"
+          secondary_volume_device_group_name: "CG_1121_1123S_"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get one shadow image group details using copy group name
+    ######################################################################
+    - name: Get one shadow image group details using copy group name
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "RD_TEST_111424_TEST"
+          should_include_copy_pairs: true
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    #####################################################################################################
+    # Task Name : Get shadow image group details by specifying name,
+    # primary_volume_device_group_name, and secondary_volume_device_group_name.
+    #######################################################################################################
+    - name: Get shadow image group details by specifying name, primary_volume_device_group_name, and secondary_volume_device_group_name
+      hitachivantara.vspone_block.vsp.hv_shadow_image_group_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "CG_1121_1123"
+          primary_volume_device_group_name: "CG_1121_1123P_"
+          secondary_volume_device_group_name: "CG_1121_1123S_"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

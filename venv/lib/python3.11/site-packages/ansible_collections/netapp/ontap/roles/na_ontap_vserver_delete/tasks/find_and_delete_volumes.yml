@@ -1,0 +1,31 @@
+---
+# tasks file for ansible_collections/netapp/ontap/roles/na_ontap_vserver_delete
+- name: Collect volumes for vserver
+  ansible.builtin.include_tasks: get_volumes.yml
+
+- name: Ask for confirmation before deleting volumes
+  when:
+    - volumes | length > 0
+    - confirm_before_removing_volumes
+  block:
+    - name: Indicate if we are deleting clones
+      ansible.builtin.set_fact:
+        vol_types: "{{ 'volume clones' if is_flex else 'volumes' }}"
+      vars:
+        is_flex: "{{ is_flexclone | default(false) }}"
+    - name: Ask for confirmation
+      ansible.builtin.pause:
+        prompt: "the following {{ vol_types }} will be deleted {{ volumes }}\nPress enter to continue, Ctrl+C to interrupt:"
+- name: Delete all volumes for vserver
+  ansible.builtin.include_tasks: delete_volumes.yml
+  when:
+    - volumes | length > 0
+
+- name: Collect and delete all volumes for vserver
+  ansible.builtin.include_tasks: find_and_delete_volumes_retries.yml
+  when:
+    - volumes | length > 0
+  # until: does not work with include_tasks :(   Using a loop instead.
+  loop: "{{ range(1, retry_count) | list }}"
+  loop_control:
+    loop_var: retry

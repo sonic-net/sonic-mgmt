@@ -1,0 +1,14 @@
+- name: Configure SANtricity Web Services Proxy's passwords, certificates, and LDAP.
+  import_tasks: proxy_security.yml
+  run_once: true
+
+- name: Build information for Web Services
+  import_tasks: build_info.yml
+  tags:
+    - always
+
+- name: Configure SANtricity WebServices Proxy
+  import_tasks: proxy.yml
+  run_once: true
+  tags:
+    - always

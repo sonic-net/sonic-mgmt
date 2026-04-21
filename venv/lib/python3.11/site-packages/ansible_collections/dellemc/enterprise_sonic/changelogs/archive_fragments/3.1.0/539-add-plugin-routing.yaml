@@ -1,0 +1,3 @@
+---
+trivial:
+  - plugin_routing - Add plugin routing for all modules (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/539).

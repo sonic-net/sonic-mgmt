@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_fs - Fixed issue with incorrect promotion state setting

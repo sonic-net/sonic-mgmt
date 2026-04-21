@@ -1,0 +1,7 @@
+---
+conjur_host_identity_summon:
+  version: 0.8.2
+  os: linux-amd64
+conjur_host_identity_summon_conjur:
+  version: 0.5.3
+  os: linux-amd64

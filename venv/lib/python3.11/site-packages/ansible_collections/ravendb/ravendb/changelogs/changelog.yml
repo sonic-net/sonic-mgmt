@@ -1,0 +1,68 @@
+releases:
+  - name: "Initial Release"
+    tag: "v1.0.0"
+    version: "1.0.0"
+    changes:
+      - major_changes:
+          - Initial release of the `ravendb.ravendb` collection.
+          - Added `ravendb_node` role for setting up RavenDB servers.
+          - Added `ravendb_python_client_prerequisites` role for Python dependency management.
+          - Added modules:
+              - "`ravendb.ravendb.database` to manage RavenDB databases."
+              - "`ravendb.ravendb.index` to manage RavenDB indexes and index modes."
+              - "`ravendb.ravendb.node` to add nodes to a RavenDB cluster."
+
+  - name: "Compliance & Cosmetic Updates"
+    tag: "v1.0.1"
+    version: "1.0.1"
+    changes:
+      - fixed:
+          - Updated `issues` field in `galaxy.yml` to point to the collection repo.
+          - Removed broken Keep a Changelog URL in `CHANGELOG.md`.
+          - Added `attributes` section with `check_mode` support to all modules.
+          - Fixed usage of FQCNs in roles and playbooks.
+          - Cleaned up unnecessary files - `ansible.cfg`, `inventories/`, etc.
+          - Expanded CI matrix: added `stable-2.18`, `stable-2.19`, and `Python 2.7` support.
+
+  - name: "Refactor Node Module & Shared Args"
+    tag: "v1.0.2"
+    version: "1.0.2"
+    changes:
+      - changed:
+          - Flattened argument structure in `ravendb.ravendb.node` module (removed nested `node:` dictionary).
+          - Centralized common arguments (`url`, `database_name`, `certification_path`, `ca_cert_path`) under `module_utils` and `doc_fragments` for reuse across modules.
+      - fixed:
+          - Ensured all modules properly import and expose shared options from centralized definitions.
+
+  - name: "Encrypted DB &  Cluster Enhancements"
+    tag: "v1.0.3"
+    version: "1.0.3"
+    changes:
+      - added:
+          - Support for encrypted databases in `ravendb.ravendb.database`:
+              - Generate or read encryption keys.
+              - Distribute keys across all cluster nodes.
+              - Create databases with encryption enabled.
+          - Ability to manage database settings via the `ravendb.ravendb.database` module.
+          - Joining Let's Encrypt–secured nodes into existing RavenDB clusters.
+
+  - name: "Placement & Index Configuration & Healthcheck Module & Connection string Module "
+    tag: "v1.0.4"
+    version: "1.0.4"
+    changes:
+      - added:
+          - Database placement controls in `ravendb.ravendb.database`:
+              - Fixed placement via `topology_members` to deploy on specific node tags.
+          - Index deployment mode in `ravendb.ravendb.index` (rolling/parallel).
+          - Per-index configuration reconciliation in `ravendb.ravendb.index` via `index_configuration`.
+          - New `ravendb.ravendb.healthcheck` module:
+              - Checks - `node_alive`, `cluster_connectivity`, `db_groups_available`, `db_groups_available_excluding_target`.
+              - TLS options - `validate_certificate`, `certificate_path`, `ca_cert_path`.
+              - Timing/behavior - `max_time_to_wait`, `retry_interval_seconds`, `db_retry_interval_seconds`, `on_db_timeout`.
+              - Read-only operation; auto-disables cert validation for IP hosts on node/cluster checks.
+          - New `ravendb.ravendb.connection_string` module:
+              - Manage RavenDB connection strings (create/delete).
+              - Providers supported -  `RAVEN`, `SQL`, `OLAP`, `ELASTIC_SEARCH`, `QUEUE` (Kafka, RabbitMQ, AzureQueueStorage, AmazonSQS), `SNOWFLAKE`, `AI`.
+              - Check mode support.
+      - changed:
+          - Modularized the project structure and internals for clearer responsibilities and easier maintenance.

@@ -1,0 +1,7 @@
+---
+- name: Query a service template in icinga
+  telekom_mms.icinga_director.icinga_service_template_info:
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    query: "fooservicetemplate"

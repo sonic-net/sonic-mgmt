@@ -1,0 +1,9 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Change name of device
+      cisco.meraki.devices:
+        name: new name 12
+        serial: QBSC-ALSL-3GXN
+        state: present

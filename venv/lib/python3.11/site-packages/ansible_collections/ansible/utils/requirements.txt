@@ -1,0 +1,5 @@
+jsonschema
+textfsm
+ttp
+xmltodict
+netaddr>=0.10.1

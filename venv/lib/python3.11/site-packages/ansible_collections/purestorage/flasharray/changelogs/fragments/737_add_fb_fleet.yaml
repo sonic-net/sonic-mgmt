@@ -1,0 +1,2 @@
+minor_changes:
+ - purefa_fleet - Allows FlashBlades to be added to Fusion fleets if FlashArray is Purity//FA 6.8.5 or higher

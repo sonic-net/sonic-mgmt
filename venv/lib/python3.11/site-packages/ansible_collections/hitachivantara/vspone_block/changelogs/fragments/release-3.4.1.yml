@@ -1,0 +1,5 @@
+---
+release_summary: "This minor release of `hitachivantara.vspone_block` introduces several new modules and improves existing functionality."
+minor_changes:
+  - "Resolved various documentation inconsistencies."
+  - "Added back 'mu_number' parameter to the `hv_gad` module."

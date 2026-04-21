@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  author: Ananthu S Kuttattu
+  description: Role to manage the installation and uninstallation of Powerflex TB.
+  company: Dell Technologies
+  license: GPL-3.0-only
+  role_name: powerflex_tb
+  namespace: dellemc
+
+  min_ansible_version: "2.14.0"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+        - "8"
+    - name: Ubuntu
+      versions:
+        - jammy
+
+    - name: SLES
+      versions:
+        - "15SP3"
+        - "15SP4"
+
+  galaxy_tags: []

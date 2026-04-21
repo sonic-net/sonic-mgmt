@@ -1,0 +1,27 @@
+---
+- name: "Run role"
+  hosts: all
+  any_errors_fatal: true
+  roles:
+    - grafana.grafana.opentelemetry_collector
+  vars:
+    otel_collector_receivers:
+      hostmetrics:
+        scrapers:
+          cpu:
+          memory:
+    otel_collector_processors:
+      memory_limiter:
+        check_interval: 2s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      batch:
+    otel_collector_exporters:
+      prometheus:
+        endpoint: '127.0.0.1:9999'
+    otel_collector_service:
+      pipelines:
+        metrics:
+          receivers: '{{ otel_collector_receivers.keys() }}'
+          processors: '{{ otel_collector_processors.keys() }}'
+          exporters: '{{ otel_collector_exporters.keys() }}'

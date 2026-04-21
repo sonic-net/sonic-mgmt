@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_export_policy_rule - new option ``ntfs_unix_security`` for NTFS export UNIX security options added.
+bugfixes:
+  - Fixed ONTAP minor version ignored in checking minimum ONTAP version.

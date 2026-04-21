@@ -1,0 +1,52 @@
+---
+- name: Set the share vars
+  ansible.builtin.set_fact:
+    https_share_ip: "{{ lookup('env', 'https_share_ip') }}"
+    https_certificate_path: "{{  lookup('env', 'https_certificate_path') }}"
+    https_share_username: "{{ lookup('env', 'https_share_username') }}"
+    https_share_password: "{{ lookup('env', 'https_share_password') }}"
+    path_for_import_cert: "{{ lookup('env', 'path_for_import_cert') }}"
+
+- name: Set fact
+  ansible.builtin.set_fact:
+    curl_cmd: "curl --insecure -u %s:%s -o %s %s"
+    curl_http_url: "{{ https_share_ip }}/{{ https_certificate_path }}"
+    per_mode: "0755"
+
+- name: Reset the iDRAC to default and wait till the iDRAC is accessible.
+  dellemc.openmanage.idrac_reset:
+    idrac_ip: "{{ lookup('env', 'IDRAC_IP') }}"
+    idrac_user: "{{ lookup('env', 'IDRAC_USER') }}"
+    idrac_password: "{{ lookup('env', 'IDRAC_PASSWORD') }}"
+    validate_certs: false
+    reset_to_default: "Default"
+    wait_for_idrac: true
+
+- name: Create Directory
+  ansible.builtin.file:
+    path: "{{ path_for_import_cert }}"
+    state: directory
+    mode: "{{ per_mode }}"
+  register: idrac_certificate_created_directory
+  check_mode: false
+
+- name: Setting up certificate path
+  ansible.builtin.stat:
+    path: "{{ path_for_import_cert }}"
+  register: idrac_certificate_check_file_created
+  check_mode: false
+
+- name: Downloading certificate file
+  ansible.builtin.get_url:
+    url: "https://{{ https_share_ip }}{{ https_certificate_path }}{{ item }}"
+    force_basic_auth: true
+    validate_certs: false
+    url_username: "{{ https_share_username }}"
+    url_password: "{{ https_share_password }}"
+    headers:
+      Authorization: "Basic {{ (https_share_username + ':' +
+        https_share_password) | b64encode }}"
+    mode: "{{ per_mode }}"
+    dest: "{{ path_for_import_cert }}"
+  check_mode: false
+  loop: "{{ idrac_cert_name }}"

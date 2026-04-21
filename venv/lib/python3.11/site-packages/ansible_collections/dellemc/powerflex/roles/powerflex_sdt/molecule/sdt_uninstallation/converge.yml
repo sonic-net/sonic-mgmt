@@ -1,0 +1,58 @@
+---
+- name: SDT uninstallation
+  hosts: sdt
+  vars_files:
+    - ../../../../playbooks/roles/vars_files/connection.yml
+  tasks:
+    - name: Uninstall powerflex SDT
+      register: powerflex_sdt_uninstall_output
+      ansible.builtin.import_role:
+        name: powerflex_sdt
+      vars:
+        powerflex_sdt_state: absent
+
+    - name: Verifying uninstall package in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdt_uninstall_output.msg == "Check mode: No changes made"
+      when: ansible_check_mode
+
+    - name: Verifying remove the sdt in check mode
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdt_remove_result.msg == "Check mode: No changes made"
+      when: ansible_check_mode
+
+    - name: Verifying uninstall package in converge mode
+      ansible.builtin.assert:
+        that:
+          - not powerflex_sdt_uninstall_output.results[0].failed
+          - powerflex_sdt_uninstall_output.results[0].state == "absent"
+      when:
+        - not ansible_check_mode
+        - powerflex_sdt_uninstall_output.changed
+
+    - name: Verifying remove the sdt in converge mode
+      ansible.builtin.assert:
+        that:
+          - not powerflex_sdt_remove_result.failed
+      when:
+        - not ansible_check_mode
+        - powerflex_sdt_remove_result.changed
+
+    - name: Verifying uninstall package in Idempotency
+      ansible.builtin.assert:
+        that:
+          - not powerflex_sdt_uninstall_output.results[0].failed
+          - powerflex_sdt_uninstall_output.results[0].state == "absent"
+      when:
+        - not ansible_check_mode
+        - not powerflex_sdt_uninstall_output.changed
+
+    - name: Verifying remove the sdt in Idempotency
+      ansible.builtin.assert:
+        that:
+          - powerflex_sdt_remove_result.rc == 7
+      when:
+        - not ansible_check_mode
+        - not powerflex_sdt_remove_result.changed

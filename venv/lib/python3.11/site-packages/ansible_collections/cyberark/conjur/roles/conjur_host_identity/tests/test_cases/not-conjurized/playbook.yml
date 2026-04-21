@@ -1,0 +1,28 @@
+---
+- name: Un-Conjurize remote hosts
+  hosts: testapp
+  tasks:
+    - name: Remove identity file
+      file:
+        path: /etc/conjur.identity
+        state: absent
+
+- name: Configuring Conjur identity on not-Conjurized hosts requires HF token
+  hosts: testapp
+  tasks:
+    - name: Attempt to configure Conjur identity
+      block:
+        - import_role:
+            name: "cyberark.conjur.conjur_host_identity"
+          vars:
+            conjur_account: "{{lookup('env', 'CONJUR_ACCOUNT')}}"
+            conjur_appliance_url: "{{lookup('env', 'CONJUR_APPLIANCE_URL')}}"
+            # conjur_host_factory_token: "{{lookup('env', 'HFTOKEN')}}"
+            conjur_host_name: "cnjr_{{ ansible_hostname }}"
+            conjur_ssl_certificate: "{{lookup('file', '/cyberark/dev/conjur.pem')}}"
+            conjur_validate_certs: true
+      rescue:
+        - name: Conjur Role setup fails with message
+          assert:
+            that: ansible_failed_result.failed == true
+            fail_msg: "Variable 'conjur_host_factory_token' is not set!"

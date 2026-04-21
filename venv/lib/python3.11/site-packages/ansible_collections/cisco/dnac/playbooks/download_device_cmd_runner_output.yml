@@ -1,0 +1,79 @@
+---
+- name: Download Device Cmd Runner Output
+  hosts: dnac_servers
+  vars_files:
+    - credentials.yml
+  vars:
+    dnac_login: &dnac_login
+      dnac_host: "{{ dnac_host }}"
+      dnac_username: "{{ dnac_username }}"
+      dnac_password: "{{ dnac_password }}"
+      dnac_verify: "{{ dnac_verify }}"
+      dnac_port: "{{ dnac_port }}"
+      dnac_version: "{{ dnac_version }}"
+      dnac_debug: "{{ dnac_debug }}"
+  gather_facts: false
+  tasks:
+    - name: Get Network Devices - Switches and Hubs
+      cisco.dnac.network_device_info:
+        <<: *dnac_login
+        family: Switches and Hubs
+      register: network_devices_result
+
+    - name: Get device list ids
+      ansible.builtin.set_fact:
+        device_id_list: "{{ device_id_list | default([]) }} + ['{{ item.id }}']"
+      with_items: "{{ network_devices_result.dnac_response.response }}"
+      when:
+        - network_devices_result.dnac_response is defined
+        - network_devices_result.dnac_response.response is defined
+
+    - name: Run show run command on device
+      cisco.dnac.command_runner_run_command:
+        <<: *dnac_login
+        commands:
+          - show run
+        deviceUuids: "{{ device_id_list }}"
+      when:
+        - device_id_list | length > 0
+      register: command_result
+
+    - name: Get task info
+      cisco.dnac.task_info:
+        <<: *dnac_login
+        taskId: "{{ command_result.dnac_response.response.taskId }}"
+      when:
+        - command_result is defined
+        - command_result.dnac_response is defined
+        - command_result.dnac_response.response is defined
+        - command_result.dnac_response.response.taskId is defined
+      register: task_result
+      until: task_result.dnac_response.response.progress != "CLI Runner request creation"
+      retries: 10
+      delay: 1
+
+    - name: Get file id
+      ansible.builtin.set_fact:
+        file_response: "{{ task_result.dnac_response.response.progress | from_json }}"
+      when: "'fileId' in task_result.dnac_response.response.progress"
+
+    - name: Download the file
+      cisco.dnac.file_info:
+        <<: *dnac_login
+        saveFile: true
+        fileId: "{{ file_response.fileId }}"
+        dirPath: /tmp/devices
+      when:
+        - file_response is defined
+        - file_response.fileId is defined
+      register: download_file
+
+    - name: Show extract of data
+      ansible.builtin.debug:
+        msg: >-
+          Filename: {{ download_file.dnac_response.filename }}
+          Filepath: {{ download_file.dnac_response.path }}
+          Data extract: {{ download_file.dnac_response.data[:50] }}"
+      when:
+        - download_file is defined
+        - download_file.dnac_response is defined

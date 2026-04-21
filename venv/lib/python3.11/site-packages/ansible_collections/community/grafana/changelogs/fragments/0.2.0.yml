@@ -1,0 +1,7 @@
+bugfixes:
+- Fix issue `#45` in `grafana_plugin`
+minor_changes:
+- Add Thruk as Grafana Datasource
+- Add `grafana_user` module
+- Add `grafana_folder` module
+- Use `module_utils` to allow code factorization

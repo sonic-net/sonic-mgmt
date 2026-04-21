@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - na_ontap_security_config - fix error on specifying protocol version ``TLSv1.1`` when fips is enabled.
+minor_changes:
+  - na_ontap_security_config - updated documentation for ``supported_cipher_suites``.

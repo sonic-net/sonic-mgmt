@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_security_key_manager - added warning message in REST when passphrase is not changed.

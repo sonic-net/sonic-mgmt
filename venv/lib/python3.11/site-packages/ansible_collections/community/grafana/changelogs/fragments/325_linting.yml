@@ -1,0 +1,2 @@
+trivial:
+  - fix linting with ansible-lint write.

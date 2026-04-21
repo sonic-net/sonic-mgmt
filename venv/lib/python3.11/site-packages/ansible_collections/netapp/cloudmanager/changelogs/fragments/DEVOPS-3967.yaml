@@ -1,0 +1,2 @@
+minor_changes:
+  - na_cloudmanager_cvo_aws - Add ebs_volume_type gp3 support.

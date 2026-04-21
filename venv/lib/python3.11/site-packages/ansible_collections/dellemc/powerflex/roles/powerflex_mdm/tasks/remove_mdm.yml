@@ -1,0 +1,58 @@
+---
+- name: Include the mdm_set_facts.yml
+  ansible.builtin.include_tasks: mdm_set_facts.yml
+
+- name: List the rpm file
+  register: powerflex_mdm_package_file_version
+  ansible.builtin.find:
+    paths: "/var/tmp/"
+    patterns: "*{{ file_glob_name }}*.rpm"
+
+- name: Extract file versions
+  ansible.builtin.set_fact:
+    version: "{{ powerflex_mdm_package_file_version.files[0].path | regex_search('mdm-(\\d+)', '\\1') }}"
+  when: powerflex_mdm_package_file_version.files | length > 0
+
+- name: MDM Cluster login below PowerFlex 4.x
+  ansible.builtin.command: >
+    scli --login --mdm_ip {{ powerflex_mdm_primary_ip }}
+    --username admin --password {{ powerflex_mdm_password }} --approve_certificate
+  run_once: true
+  ignore_errors: true
+  register: powerflex_mdm_cluster_login
+  changed_when: powerflex_mdm_cluster_login.rc == 0
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  when: version[0] < "4"
+
+- name: Login to primary MDM node for PowerFlex 4.x
+  register: powerflex_mdm_primary_login
+  ansible.builtin.command: >
+    scli --login --username {{ username }} --management_system_ip {{ hostname }} --password "{{ password }}"
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  run_once: true
+  ignore_errors: true
+  changed_when: powerflex_mdm_primary_login.rc == 0
+  when: version[0] >= "4"
+
+- name: Remove secondary MDM
+  ansible.builtin.command: >
+    scli --remove_standby_mdm --remove_mdm_ip {{ powerflex_mdm_secondary_ip }}
+  run_once: true
+  register: powerflex_mdm_remove_secondary
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  ignore_errors: true
+  when: powerflex_mdm_secondary_ip is defined
+  changed_when: powerflex_mdm_remove_secondary.rc == 0
+
+- name: Remove tertiary MDM
+  ansible.builtin.command: >
+    scli --remove_standby_mdm --remove_mdm_ip {{ powerflex_mdm_tertiary_ip }}
+  run_once: true
+  register: powerflex_mdm_remove_tertiary
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  ignore_errors: true
+  when: powerflex_mdm_tertiary_ip is defined
+  changed_when: powerflex_mdm_remove_tertiary.rc == 0
+
+- name: Include uninstall_mdm.yml
+  ansible.builtin.include_tasks: uninstall_mdm.yml

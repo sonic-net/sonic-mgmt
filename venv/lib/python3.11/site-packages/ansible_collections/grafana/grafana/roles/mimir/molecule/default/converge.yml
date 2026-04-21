@@ -1,0 +1,33 @@
+---
+- name: Converge mimir
+  hosts: all
+  collections:
+    - grafana.grafana
+  vars:
+    mimir_storage:
+      storage:
+        backend: s3
+        s3:
+          endpoint: minio-mimir.:9000
+          access_key_id: testtest
+          secret_access_key: testtest
+          insecure: true
+          bucket_name: mimir
+
+    # Blocks storage requires a prefix when using a common object storage bucket.
+    mimir_blocks_storage:
+      storage_prefix: blocks
+      tsdb:
+        dir: "{{ mimir_working_path}}/ingester"
+
+    # Use memberlist, a gossip-based protocol, to enable the 3 Mimir replicas to communicate
+    mimir_memberlist:
+      join_members:
+        - molecule-grafana-mimir01.:7946
+        - molecule-grafana-mimir02.:7946
+        - molecule-grafana-mimir03.:7946
+
+  tasks:
+    - name: "Run Grafana mimir collection"
+      include_role:
+        name: mimir

@@ -1,0 +1,106 @@
+---
+# Copyright: (c) 2024, Ansible Project
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+DOCUMENTATION:
+  module: web_application
+  short_description: Configures IIS web applications
+  description: >
+    Creates, removes, and configures IIS web applications.
+  requirements:
+    - IISAdministration PowerShell module
+  options:
+    application_pool:
+      description:
+        - The application pool in which the new site executes.
+        - If not specified, the application pool of the current website will be used.
+      type: str
+    connect_as:
+      description:
+        - The type of authentication to use for this application. Either V(pass_through) or V(specific_user).
+        - If V(pass_through), IIS will use the identity of the user or application pool identity to access the file system or network.
+        - If V(specific_user), IIS will use the credentials provided in O(username) and O(password) to access the file system or network.
+        - If not specified, the default is V(pass_through) and an existing application will not be modified.
+      type: str
+      choices:
+        - pass_through
+        - specific_user
+    name:
+      description:
+        - Name of the web application.
+      type: str
+      required: true
+    password:
+      description:
+        - The password associated with O(username).
+        - Required when O(connect_as=specific_user).
+      type: str
+    physical_path:
+      description:
+        - The physical path on the remote host to use for the new application.
+        - The specified folder must already exist.
+      type: str
+      aliases:
+        - path
+    site:
+      description:
+        - Name of the site on which the application is created.
+      type: str
+      required: true
+    state:
+      description:
+        - State of the web application.
+        - If V(absent), the web application will be removed.
+        - If V(present), the web application will be created if not already present.
+      type: str
+      choices:
+        - absent
+        - present
+      default: present
+    username:
+      description:
+        - Specifies the user name of an account that can access configuration files and content for this application.
+        - Required when O(connect_as=specific_user).
+      type: str
+  extends_documentation_fragment:
+    - ansible.builtin.action_common_attributes
+  attributes:
+    check_mode:
+      support: full
+    diff_mode:
+      support: none
+    platform:
+      platforms:
+        - windows
+  seealso:
+    - module: microsoft.iis.web_application_info
+    - module: microsoft.iis.web_app_pool
+    - module: microsoft.iis.website
+  author:
+    - Henrik Wallström (@henrikwallstrom)
+
+EXAMPLES: |
+  - name: Add ACME web application on IIS
+    microsoft.iis.web_application:
+      name: api
+      site: acme
+      state: present
+      physical_path: C:\apps\acme\api
+
+  - name: Change connect_as to be specific user
+    microsoft.iis.web_application:
+      name: api
+      site: acme
+      connect_as: specific_user
+      username: acmeuser
+      password: acmepassword
+
+  - name: Delete ACME web application on IIS
+    microsoft.iis.web_application:
+      state: absent
+      name: api
+      site: acme
+
+# Null is needed for Galaxy/AH to not fall flat
+# https://github.com/ansible/ansible-hub-ui/blob/9b35b78f1f5c6a5ef2346d0470e431ba5f25d06b/src/components/render-plugin-doc.tsx#L226-L228
+RETURN: ~

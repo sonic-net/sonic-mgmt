@@ -1,0 +1,25 @@
+---
+- name: Install oVirt Engine package
+  ansible.builtin.package:
+    name: "ovirt-engine"
+    state: present
+  when: ovirt_engine_setup_product_type | lower == 'ovirt'
+
+- name: Check if rhevm package is installed
+  ansible.builtin.dnf:
+    list: "rhevm"
+  when: ovirt_engine_setup_product_type | lower == 'rhv' and ansible_os_family == 'RedHat'
+  register: rhevm_installed
+
+- name: Install RHV package
+  ansible.builtin.package:
+    name: "{{ 'rhevm' if ovirt_engine_setup_version is version('4.2', '<') else 'rhvm' }}"
+    state: present
+  when: ovirt_engine_setup_product_type | lower == 'rhv' and rhevm_installed.results | default([]) | selectattr( 'yumstate', 'match', 'installed') | list | length
+    == 0
+
+- name: Install rest of the packages required for oVirt Engine deployment
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ ovirt_engine_setup_package_list }}"

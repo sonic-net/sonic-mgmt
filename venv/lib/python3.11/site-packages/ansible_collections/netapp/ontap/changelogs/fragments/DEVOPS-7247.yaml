@@ -1,0 +1,2 @@
+bugfixes:
+  - na_ontap_qtree - fix timeout issue with qtree delete in REST.

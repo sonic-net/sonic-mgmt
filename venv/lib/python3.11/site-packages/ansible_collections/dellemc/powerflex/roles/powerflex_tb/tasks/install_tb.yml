@@ -1,0 +1,8 @@
+---
+- name: Install TB for PowerFlex below 4.x
+  ansible.builtin.include_tasks: install_tb3x.yml
+  when: powerflex_tb_scli_version[0] == '3'
+
+- name: Install TB for PowerFlex 4.x
+  ansible.builtin.include_tasks: install_tb4x.yml
+  when: powerflex_tb_scli_version[0] >= '4'

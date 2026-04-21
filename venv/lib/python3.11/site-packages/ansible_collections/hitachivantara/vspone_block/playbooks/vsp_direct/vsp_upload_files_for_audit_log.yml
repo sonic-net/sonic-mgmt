@@ -1,0 +1,43 @@
+---
+####################################################################
+# Example : Uploading the files required to set the transfer destination of audit log files
+####################################################################
+- name: Uploading the files required to set the transfer destination of audit log files
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Upload a primary client certificate file to the Storage System for audit log
+    ####################################################################
+    - name: Upload a primary client certificate file to the Storage System for audit log
+      hitachivantara.vspone_block.vsp.hv_upload_file:
+        connection_info: "{{ connection_info }}"
+        spec:
+          file_path: "/path/to/certificate.crt"
+          file_type: "primary_client"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+    ####################################################################
+    # Task Name : Upload a secondary client certificate file to the Storage System for audit log
+    ####################################################################
+    - name: Upload a secondary client certificate file to the Storage System for audit log
+      hitachivantara.vspone_block.vsp.hv_upload_file:
+        connection_info: "{{ connection_info }}"
+        spec:
+          file_path: "/path/to/secondary_certificate.crt"
+          file_type: "secondary_client"
+      register: result

@@ -1,0 +1,25 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+{#######################################
+
+#Purpose:
+BGP L3 Fabric usecase configuration for SONiC devices
+
+#######################################}
+{# prefix list start #}
+{% if sonic_prefix_list_cli is defined and sonic_prefix_list_cli %}
+    {% for sonic_prefix in sonic_prefix_list_cli %}
+        {% for prefix_entires in sonic_prefix.entries %}
+ip prefix-list {{ sonic_prefix.name }} seq {{ prefix_entires.seq }} {{ 'permit' if sonic_prefix.permit else 'deny' }} {{ prefix_entires.ip }} {{ prefix_entires.condition if prefix_entires.condition is defined else ''}}
+        {% endfor %}
+    {% endfor %}
+{% endif %}
+{# prefix list end #}
+
+{# Route map configuration start #}
+{% if sonic_route_maps_cli is defined and sonic_route_maps_cli %}
+        {% for sonic_route_map in sonic_route_maps_cli %}
+route-map {{ sonic_route_map.name }} {{ 'permit' if sonic_route_map.permit else 'deny' }} {{ sonic_route_map.seq }}
+ match ip address prefix-list {{ sonic_route_map.match_ip_prefix_list }}
+        {% endfor %}
+{% endif %}
+{# Route map configuration start #}

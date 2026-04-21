@@ -1,0 +1,15 @@
+---
+- name: 'Create Domains'  # noqa: args[module]
+  theforeman.foreman.domain:
+    username: "{{ foreman_username | default(omit) }}"
+    password: "{{ foreman_password | default(omit) }}"
+    server_url: "{{ foreman_server_url | default(omit) }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    name: "{{ item.name }}"
+    description: "{{ item.description | default(omit) }}"
+    dns_proxy: "{{ item.dns_proxy | default(omit) }}"
+    locations: "{{ item.locations | default(omit) }}"
+    organizations: "{{ item.organizations | default(omit) }}"
+    parameters: "{{ item.parameters | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ foreman_domains }}"

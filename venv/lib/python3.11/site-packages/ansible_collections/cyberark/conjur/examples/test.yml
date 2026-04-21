@@ -1,0 +1,11 @@
+---
+- name: Example of using Conjur lookup plugin
+  hosts: localhost
+  tasks:
+    - name: Lookup variable in Conjur
+      ansible.builtin.debug:
+        msg: "{{ lookup('cyberark.conjur.conjur_variable', '/path/to/secret') }}"
+
+    - name: Lookup variable in Conjur to not validate certs (in case of self-signed)
+      ansible.builtin.debug:
+        msg: "{{ lookup('cyberark.conjur.conjur_variable', '/path/to/secret', validate_certs=false) }}"

@@ -1,0 +1,2 @@
+bugfixes:
+  - na_ontap_snapmirror - fixed intermittent issue with creating relationship.

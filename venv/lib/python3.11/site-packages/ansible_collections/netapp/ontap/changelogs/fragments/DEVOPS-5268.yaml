@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - na_ontap_service_processor_network - fix idempotency issue on ``dhcp`` option in ZAPI.
+  - na_ontap_service_processor_network - fail module when trying to disable ``dhcp`` and not settting one of
+    ``ip_address``, ``netmask``, ``gateway_ip_address`` different than current.

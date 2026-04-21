@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_certs - Update module to use REST v2 code. This brings in new parameters for certificate management.

@@ -1,0 +1,9 @@
+---
+- name: DNF - Install Promtail from remote URL
+  ansible.builtin.dnf:
+    name: "{{ promtail_download_url_rpm }}"
+    state: present
+    disable_gpg_check: true
+  notify: restart promtail
+  when:
+    - __current_deployed_version.stdout is not defined or promtail_version not in __current_deployed_version.stdout

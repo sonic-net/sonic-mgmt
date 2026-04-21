@@ -1,0 +1,11 @@
+---
+powerflex_sds_disks:
+ansible_available_disks:
+  - '/dev/sdb'
+powerflex_sds_disks_type: HDD
+powerflex_sds_protection_domain: domain1
+powerflex_sds_storage_pool: pool1
+powerflex_sds_role: all
+powerflex_sds_device_media_type: HDD
+powerflex_sds_device_name: '/dev/sdb'
+powerflex_sds_external_acceleration_type: ReadAndWrite

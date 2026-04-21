@@ -1,0 +1,44 @@
+---
+####################################################################
+# Example : Remote iSCSI Port Facts Playbook
+####################################################################
+- name: Remote iSCSI Port Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+  ################################################################################################
+  # Task Name : Get all remote iscsi ports
+  ################################################################################################
+    - name: Get all remote iscsi ports
+      hitachivantara.vspone_block.sds_block.hv_sds_block_remote_iscsi_port_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ################################################################################################
+    # Task Name : Get remote iscsi port by ID
+    ################################################################################################
+    - name: Get remote iscsi port by ID
+      hitachivantara.vspone_block.sds_block.hv_sds_block_remote_iscsi_port_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "da87655a-3958-4921-b4c0-437986397d11"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

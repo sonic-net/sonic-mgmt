@@ -1,0 +1,58 @@
+---
+####################################################################
+# Example : User Facts Playbook
+####################################################################
+- name: User Facts
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Get all Users
+    ####################################################################
+    - name: Get all Users
+      hitachivantara.vspone_block.vsp.hv_user_facts:
+        connection_info: "{{ connection_info }}"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get User by name
+    ####################################################################
+    - name: Get User by name
+      hitachivantara.vspone_block.vsp.hv_user_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          name: "user-01"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Get User by ID
+    ####################################################################
+    - name: Get User by ID
+      hitachivantara.vspone_block.vsp.hv_user_facts:
+        connection_info: "{{ connection_info }}"
+        spec:
+          id: "ucpa"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

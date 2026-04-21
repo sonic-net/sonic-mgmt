@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_mclag - Added delay_restore, gateway_mac, and peer_gateway attributes to module (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/145)

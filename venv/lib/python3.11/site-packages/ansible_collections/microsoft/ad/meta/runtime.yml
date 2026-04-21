@@ -1,0 +1,10 @@
+requires_ansible: '>=2.16.0'
+action_groups:
+  domain:
+    - computer
+    - group
+    - object_info
+    - object
+    - ou
+    - service_account
+    - user

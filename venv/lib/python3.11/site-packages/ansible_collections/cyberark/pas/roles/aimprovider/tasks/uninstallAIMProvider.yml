@@ -1,0 +1,65 @@
+---
+- name: Uninstall AIM Provider Block
+  block:
+
+    - name: Uninstall Provider
+      ansible.builtin.package:
+        name: 'CARKaim'
+        state: absent
+
+    - name: Logon to CyberArk Vault using PAS Web Services SDK - aimprovider_use_shared_logon_authentication
+      cyberark.pas.cyberark_authentication:
+        api_base_url: "{{ aimprovider_api_base_url }}"
+        use_shared_logon_authentication: true
+        validate_certs: "{{ aimprovider_validate_certs }}"
+      when: (aimprovider_use_shared_logon_authentication)
+
+    - name: Logon to CyberArk Vault using PAS Web Services SDK - Not aimprovider_use_shared_logon_authentication
+      cyberark.pas.cyberark_authentication:
+        api_base_url: "{{ aimprovider_api_base_url }}"
+        username: "{{ password_object.password }}"
+        password: "{{ password_object.passprops.username }}"
+        validate_certs: "{{ aimprovider_validate_certs }}"
+      changed_when: false
+      when: (not aimprovider_use_shared_logon_authentication)
+
+    # name: Debug message
+    #  debug:
+    #    msg: "{{ cyberark_session }}"
+    #  when: (cyberark_session.token is defined)
+
+    - name: Remove Provider User
+      cyberark.pas.cyberark_user:
+        username: "Prov_{{ ansible_hostname }}"
+        state: absent
+        cyberark_session: "{{ cyberark_session }}"
+      register: cyberarkaction
+      ignore_errors: true
+      when: (cyberark_session.token is defined)
+
+    # debug:
+    #    msg: "USERDETAILS => {{cyberarkaction}}"
+    #  when: (cyberarkaction.status_code == 200)
+
+    - name: Logoff from CyberArk Vault
+      cyberark.pas.cyberark_authentication:
+        state: absent
+        cyberark_session: "{{ cyberark_session }}"
+      changed_when: false
+      when: (cyberark_session.token is defined)
+
+    - name: Remove /etc/opt/CARKaim
+      ansible.builtin.file:
+        path: '/etc/opt/CARKaim'
+        state: absent
+
+    - name: Remove /var/opt/CARKaim
+      ansible.builtin.file:
+        path: '/var/opt/CARKaim'
+        state: absent
+
+  rescue:
+
+    - name: Fail the task if uninstall fails
+      ansible.builtin.fail:
+        msg: "AIM Credential Provider Uninstall failed!"

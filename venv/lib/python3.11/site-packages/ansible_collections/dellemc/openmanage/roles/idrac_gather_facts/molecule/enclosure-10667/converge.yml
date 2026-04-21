@@ -1,0 +1,69 @@
+---
+- name: Converge idrac_gather_facts for Enclosure
+  hosts: all
+  connection: local
+  gather_facts: true
+  vars:
+    hostname: "{{ lookup('env', 'IDRAC_IP') }}"
+    username: "{{ lookup('env', 'IDRAC_USER') }}"
+    password: "{{ lookup('env', 'IDRAC_PASSWORD') }}"
+    idrac_port: "{{ lookup('env', 'IDRAC_PORT') }}"
+    validate_certs: false
+    target:
+      - Enclosure
+    idrac_gather_facts_uri_method: "GET"
+    idrac_gather_facts_uri_headers:
+      Accept: "application/json"
+      Content-Type: "application/json"
+      OData-Version: "4.0"
+    idrac_gather_facts_uri_body_format: "json"
+    idrac_gather_facts_uri_status_code:
+      - 200
+      - 400
+      - 401
+      - 404
+      - -1
+    idrac_gather_facts_uri_return_content: true
+    diff_data: {}
+    exclude_keys: []
+
+  tasks:
+
+    - name: Find the chassis API
+      ansible.builtin.include_tasks:
+        ../../tests/asserts/_check_chassis_url.yml
+
+    - name: Set 17G url
+      ansible.builtin.set_fact:
+        url1:
+          "https://{{ hostname }}{{ api_chassis }}/Oem/Dell/DellEnclosures/"
+      when:
+        - not is_omsdk_required | bool
+
+    - name: Set <17G url
+      ansible.builtin.set_fact:
+        url1:
+          "https://{{ hostname }}/redfish/v1/Chassis/Oem/Dell/DellEnclosures/"
+      when:
+        - is_omsdk_required | bool
+
+    - name: Gather Facts for the Enclosure component
+      ansible.builtin.include_role:
+        name: "idrac_gather_facts"
+
+    - name: Gather enclosure data
+      ansible.builtin.debug:
+        var: enclosure_data
+
+    - name: Assert enclosure dict for length
+      ansible.builtin.assert:
+        that:
+          - "{{ enclosure | length > 0 }}"
+      when: enclosure_result.status == 200
+
+    - name: Call assertion
+      ansible.builtin.include_tasks: ../../tests/asserts/enclosure_assert.yml
+      with_items: "{{ enclosure }}"
+      loop_control:
+        loop_var: enclosure_data
+      when: enclosure | length > 0

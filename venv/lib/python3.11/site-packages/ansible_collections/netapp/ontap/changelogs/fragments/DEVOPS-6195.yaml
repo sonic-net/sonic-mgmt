@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_s3_groups - fix error when current s3 groups has no users configured.
+  - na_ontap_s3_groups - fix cannot modify ``policies`` if not configured in create.

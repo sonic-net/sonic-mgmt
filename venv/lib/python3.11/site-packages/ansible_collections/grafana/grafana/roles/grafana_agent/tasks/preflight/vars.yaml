@@ -1,0 +1,72 @@
+---
+# Performs initial variable validation
+- name: Fail when variables are not defined
+  ansible.builtin.fail:
+    msg: "The {{ item }} property must be set"
+  when: ( vars[item] is not defined )
+  with_items:
+    - grafana_agent_version
+    - grafana_agent_install_dir
+    - grafana_agent_binary
+    - grafana_agent_config_dir
+    - grafana_agent_config_filename
+    - grafana_agent_env_file
+    - grafana_agent_local_tmp_dir
+    - grafana_agent_wal_dir
+    - grafana_agent_positions_dir
+    - grafana_agent_mode
+    - _grafana_agent_systemd_dir
+    - _grafana_agent_systemd_unit
+    - grafana_agent_user
+    - grafana_agent_user_group
+    - grafana_agent_user_shell
+    - grafana_agent_user_createhome
+    - grafana_agent_local_binary_file
+    - grafana_agent_flags_extra
+    - grafana_agent_env_vars
+    - grafana_agent_env_file_vars
+    - grafana_agent_provisioned_config_file
+    - grafana_agent_metrics_config
+    - grafana_agent_logs_config
+    - grafana_agent_traces_config
+    - grafana_agent_integrations_config
+
+- name: Fail when variables do not have a length
+  ansible.builtin.fail:
+    msg: "The {{ item }} property must be valued"
+  when: ( vars[item] | string | length == 0 )
+  with_items:
+    - grafana_agent_version
+    - grafana_agent_install_dir
+    - grafana_agent_binary
+    - grafana_agent_config_dir
+    - grafana_agent_config_filename
+    - grafana_agent_env_file
+    - grafana_agent_local_tmp_dir
+    - grafana_agent_wal_dir
+    - grafana_agent_positions_dir
+    - grafana_agent_mode
+    - _grafana_agent_systemd_dir
+    - _grafana_agent_systemd_unit
+    - grafana_agent_user
+    - grafana_agent_user_group
+    - grafana_agent_user_shell
+    - grafana_agent_user_createhome
+
+- name: Fail when variables are not a number
+  ansible.builtin.fail:
+    msg: "The {{ item }} property must be number"
+  when: ( vars[item] is defined and vars[item] is not number)
+  with_items: []
+
+- name: Fail when flags are not a boolean
+  ansible.builtin.fail:
+    msg: "The {{ item }} property must be a boolean true or false"
+  when: ( vars[item] | bool | string | lower ) not in ['true', 'false']
+  with_items:
+    - grafana_agent_user_createhome
+
+- name: Fail when the agent mode is not "flow" or "static"
+  ansible.builtin.fail:
+    msg: "The grafana_agent_mode property must be a boolean 'flow' or 'static'"
+  when: grafana_agent_mode not in ['flow', 'static']

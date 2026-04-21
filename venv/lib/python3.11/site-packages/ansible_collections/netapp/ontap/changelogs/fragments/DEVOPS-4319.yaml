@@ -1,0 +1,5 @@
+---
+bugfixes:
+  - na_ontap_snapmirror - ``source_path`` and ``source_hostname`` parameters are not mandatory to delete snapmirror relationship
+    when source cluster is unknown, if specified it will delete snapmirror at destination and release the same at source side.
+    if not, it only deletes the snapmirror at destination and will not look for source to perform snapmirror release.

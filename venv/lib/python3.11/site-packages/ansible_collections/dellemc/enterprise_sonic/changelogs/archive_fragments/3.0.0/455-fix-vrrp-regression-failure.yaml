@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - sonic_vrrp - Update delete handling to fix regression failure (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/455).
+  - Update 'update_url' method to handle multiple interface names (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/455).

@@ -1,0 +1,7 @@
+---
+bugfixes:
+  - na_ontap_interface - FC interfaces - scope is not supported.
+  - na_ontap_interface - FC interfaces - home_port is not supported for ONTAP 9.7 or earlier.
+  - na_ontap_interface - FC interfaces - home_node should not be sent as location.home_node.
+  - na_ontap_interface - FC interfaces - service_policy is not supported.
+  - na_ontap_interface - ignore 'none' when using REST rather than reporting unexpected protocol.

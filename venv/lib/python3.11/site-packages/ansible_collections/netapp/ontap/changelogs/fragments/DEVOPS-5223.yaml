@@ -1,0 +1,6 @@
+---
+bugfixes:
+  - na_ontap_ntp - fixed typeError on ``key_id`` field with ZAPI.
+minor_changes:
+  - na_ontap_ntp - for ONTAP version 9.6 or below fall back to ZAPI when ``use_rest`` is set to ``auto`` or fail when REST is desired.
+  - na_ontap_ntp_key - fail for ONTAP version 9.6 or below when ``use_rest`` is set to ``auto`` or when REST is desired.

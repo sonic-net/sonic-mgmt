@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_lun - support increasing lun_count and total_size when using SAN application template.
+  - na_ontap_lun - new options ``total_size`` and ``total_size_unit`` when using SAN application template.

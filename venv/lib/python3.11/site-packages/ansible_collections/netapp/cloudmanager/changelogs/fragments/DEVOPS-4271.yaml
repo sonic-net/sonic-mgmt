@@ -1,0 +1,4 @@
+minor_changes:
+  - na_cloudmanager_cvo_aws - Support instance_type update
+  - na_cloudmanager_cvo_azure - Support instance_type update
+  - na_cloudmanager_cvo_gcp - Support instance_type update

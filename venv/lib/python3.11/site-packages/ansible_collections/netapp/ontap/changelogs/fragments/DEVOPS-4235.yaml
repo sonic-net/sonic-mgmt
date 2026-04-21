@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_interface - new option ``from_name`` to rename an interface.

@@ -1,0 +1,2 @@
+bugfixes:
+  - na_sg_org_container - fix versioning not enabled on initial bucket creation.

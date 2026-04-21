@@ -1,0 +1,34 @@
+---
+# See PSDEV-1000: Fix infini_vols handling of write_protected parameter
+# Remove three volumes: vol_nonwriteable, vol_explicitly_writable and vol_writable.
+- name: Test remove volumes
+  hosts: localhost
+  gather_facts: false
+  tasks:
+
+    - name: POSITIVE test -> Remove write protected volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_nonwriteable"
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Remove explicitly writable volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_explicitly_writable"
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Remove implicitly writable volume
+      infinidat.infinibox.infini_vol:
+        name: "{{ auto_prefix }}vol_writable"
+        pool: "{{ auto_prefix }}pool"
+        state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"

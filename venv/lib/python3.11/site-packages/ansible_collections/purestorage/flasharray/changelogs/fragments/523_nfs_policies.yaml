@@ -1,0 +1,5 @@
+bugfixes:
+ - purefa_policy - Fix incorrect call of psot instead of patch for NFS policies
+minor_changes:
+ - purefa_policy - Add SMB user based enumeration parameter
+ - purefa_policy - Remove default setting for nfs_version to allow for change of version at policy level

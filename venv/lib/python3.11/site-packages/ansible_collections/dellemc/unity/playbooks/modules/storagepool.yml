@@ -1,0 +1,185 @@
+---
+- name: Storage pool Module Operations on Unity
+  hosts: localhost
+  connection: local
+  vars:
+    unispherehost: '10.*.*.*'
+    validate_certs: false
+    username: 'user'
+    password: '**'
+    pool_name: "test_DND"
+    new_pool_name: "new_pool2"
+    fast_vp_enabled: "enabled"
+    fast_cache_enabled: "enabled"
+    pool_description: "updated"
+    disk_group_id: "dg_16"
+    disk_num: 2
+    raid_type: "RAID10"
+    stripe_width: "BEST_FIT"
+    alert_threshold: 50
+    is_harvest_enabled: true
+    pool_harvest_high_threshold: 59
+    pool_harvest_low_threshold: 40
+    is_snap_harvest_enabled: true
+    snap_harvest_high_threshold: 80
+    snap_harvest_low_threshold: 60
+    pool_type: "DYNAMIC"
+
+  tasks:
+    - name: Get the details of the full storage pool by name
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "Test_Pool"
+        pool_description: "test pool"
+        raid_groups:
+          disk_group_id: "dg_36"
+          disk_num: 3
+          raid_type: "RAID10"
+          stripe_width: "BEST_FIT"
+        alert_threshold: 50
+        is_harvest_enabled: true
+        pool_harvest_high_threshold: 60
+        pool_harvest_low_threshold: 40
+        is_snap_harvest_enabled: true
+        snap_harvest_high_threshold: 70
+        snap_harvest_low_threshold: 50
+        fast_vp: "enabled"
+        fast_cache: "enabled"
+        pool_type: "DYNAMIC"
+        state: "present"
+
+    - name: Get the details of Storage pool by name
+      register: result
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "{{ pool_name }}"
+        state: "present"
+
+    - name: Set storage pool id
+      ansible.builtin.set_fact:
+        pool_id: "{{ result.storage_pool_details.id }}"
+
+    - name: Get the details of Storage pool by pool id
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_id: "{{ pool_id }}"
+        state: "present"
+
+    - name: Rename Storage pool by name
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "{{ pool_name }}"
+        new_pool_name: "{{ new_pool_name }}"
+        state: "present"
+
+    - name: Update Storage pool description
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "{{ new_pool_name }}"
+        pool_description: "{{ pool_description }}"
+        state: "present"
+
+    - name: Update Storage pool description- Idempotent
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "{{ new_pool_name }}"
+        pool_description: "{{ pool_description }}"
+        state: "present"
+
+    - name: Update fast_vp by pool name
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "{{ new_pool_name }}"
+        fast_vp: "{{ fast_vp_enabled }}"
+        state: "present"
+
+    - name: Update fast_cache by pool name
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "{{ new_pool_name }}"
+        fast_cache: "{{ fast_cache_enabled }}"
+        state: "present"
+
+    - name: Rename Storage pool by name back to original
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "{{ new_pool_name }}"
+        new_pool_name: "{{ pool_name }}"
+        state: "present"
+
+    - name: Create a Storage pool
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "test_pool"
+        pool_description: "Unity test pool."
+        raid_groups:
+          disk_group_id: "{{ disk_group_id }}"
+          disk_num: "{{ disk_num }}"
+          raid_type: "{{ raid_type }}"
+          stripe_width: "{{ stripe_width }}"
+        alert_threshold: "{{ alert_threshold }}"
+        is_harvest_enabled: "{{ is_harvest_enabled }}"
+        pool_harvest_high_threshold: "{{ pool_harvest_high_threshold }}"
+        pool_harvest_low_threshold: "{{ pool_harvest_low_threshold }}"
+        is_snap_harvest_enabled: "{{ is_snap_harvest_enabled }}"
+        snap_harvest_high_threshold: "{{ snap_harvest_high_threshold }}"
+        snap_harvest_low_threshold: "{{ snap_harvest_low_threshold }}"
+        fast_vp: "{{ fast_vp_enabled }}"
+        fast_cache: "{{ fast_cache_enabled }}"
+        pool_type: "DYNAMIC"
+        state: "present"
+
+    - name: Create a StoragePool - idempotency
+      storagepool:
+        unispherehost: "{{ unispherehost }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        pool_name: "test_pool"
+        pool_description: "Unity test pool."
+        raid_groups:
+          disk_group_id: "{{ disk_group_id }}"
+          disk_num: "{{ disk_num }}"
+          raid_type: "{{ raid_type }}"
+          stripe_width: "{{ stripe_width }}"
+        alert_threshold: "{{ alert_threshold }}"
+        is_harvest_enabled: "{{ is_harvest_enabled }}"
+        pool_harvest_high_threshold: "{{ pool_harvest_high_threshold }}"
+        pool_harvest_low_threshold: "{{ pool_harvest_low_threshold }}"
+        is_snap_harvest_enabled: "{{ is_snap_harvest_enabled }}"
+        snap_harvest_high_threshold: "{{ snap_harvest_high_threshold }}"
+        snap_harvest_low_threshold: "{{ snap_harvest_low_threshold }}"
+        fast_vp: "{{ fast_vp_enabled }}"
+        fast_cache: "{{ fast_cache_enabled }}"
+        pool_type: "DYNAMIC"
+        state: "present"

@@ -1,0 +1,69 @@
+- name: Using Storage Virtualize collection to replicate system
+  hosts: localhost
+  vars_files:
+    - vars/replication_vars
+    - vars/target_cluster_vars
+
+  gather_facts: false
+
+  tasks:
+    - name: Fetch authorization token for target cluster
+      register: dest_token
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ cluster_ip }}"
+        username: "{{ cluster_username }}"
+        password: "{{ cluster_password }}"
+
+    - name: Initial cluster configuration on FlashSystem
+      ibm.storage_virtualize.ibm_svc_initial_setup:
+        clustername: "{{ cluster_ip }}"
+        token: "{{ dest_token.token }}"
+
+    - name: Setup NTP server
+      ibm.storage_virtualize.ibm_svc_initial_setup:
+        clustername: "{{ cluster_ip }}"
+        token: "{{ dest_token.token }}"
+        ntpip: "{{ System.cluster_ntp_IP_address if System.cluster_ntp_IP_address is defined }}"
+
+    - name: Setup time zone
+      ibm.storage_virtualize.ibm_svc_initial_setup:
+        clustername: "{{ cluster_ip }}"
+        token: "{{ dest_token.token }}"
+        timezone: "{{ System.time_zone | regex_search('^[^\\s]+') if System.time_zone is defined }}"
+
+    - name: Setup DNS server
+      ibm.storage_virtualize.ibm_svc_initial_setup:
+        clustername: "{{ cluster_ip }}"
+        token: "{{ dest_token.token }}"
+        dnsname: "{{ DnsServer | map(attribute='name') | list }}"
+        dnsip: "{{ DnsServer | map(attribute='IP_address') | list }}"
+
+    - name: Create Ownership group
+      ibm.storage_virtualize.ibm_svc_manage_ownershipgroup:
+        name: "{{ item.name }}"
+        state: present
+        clustername: "{{ cluster_ip }}"
+        token: "{{ dest_token.token }}"
+      loop: "{{ OwnershipGroup | default([], true) }}"
+
+    - name: Create Usergroups
+      ibm.storage_virtualize.ibm_svc_manage_usergroup:
+        name: "{{ item.name }}"
+        state: present
+        clustername: "{{ cluster_ip }}"
+        token: "{{ dest_token.token }}"
+        role: "{{ item.role }}"
+        ownershipgroup: "{{ item.owner_name }}"
+      loop: "{{ UserGrp | default([], true) }}"
+
+    - name: Create Users with password
+      ibm.storage_virtualize.ibm_svc_manage_user:
+        name: "{{ item.name }}"
+        state: present
+        clustername: "{{ cluster_ip }}"
+        token: "{{ dest_token.token }}"
+        usergroup: "{{ item.usergrp_name }}"
+        user_password: "{{ user_default_password }}"
+        forcepasswordchange: true
+        auth_type: usergrp
+      loop: "{{ User | default([], true) }}"

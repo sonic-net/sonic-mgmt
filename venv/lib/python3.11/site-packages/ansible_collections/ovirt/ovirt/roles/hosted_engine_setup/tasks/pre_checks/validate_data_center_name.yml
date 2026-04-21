@@ -1,0 +1,15 @@
+---
+- name: Validate Data Center name format
+  block:
+    - name: Fail if Data Center name format is incorrect
+      ansible.builtin.fail:
+        msg: >-
+          "Invalid Data Center name format. Data Center name may only contain letters, numbers, '-', or '_'."
+          " Got {{ he_data_center }}"
+      when: not he_data_center | regex_search( "^[a-zA-Z0-9_-]+$" )
+    - name: Validate Cluster name
+      ansible.builtin.fail:
+        msg: >-
+          "Cluster name cannot be 'Default'. This is a reserved name for the default DataCenter. Please choose"
+          " another name for the cluster"
+      when: he_data_center != "Default" and he_cluster == "Default"

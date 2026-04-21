@@ -1,0 +1,15 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create Network
+      cisco.meraki.networks:
+        state: present
+        organizationId: "828099381482762270"
+        name: Made With Ansible networks
+        notes: Made_with_anisble
+        productTypes:
+          - switch
+          - appliance
+          - wireless
+        timeZone: Australia/Sydney

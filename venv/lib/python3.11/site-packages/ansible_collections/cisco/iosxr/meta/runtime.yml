@@ -1,0 +1,68 @@
+---
+requires_ansible: ">=2.16.0"
+plugin_routing:
+  modules:
+    acl_interfaces:
+      redirect: cisco.iosxr.iosxr_acl_interfaces
+    acls:
+      redirect: cisco.iosxr.iosxr_acls
+    banner:
+      redirect: cisco.iosxr.iosxr_banner
+    command:
+      redirect: cisco.iosxr.iosxr_command
+    config:
+      redirect: cisco.iosxr.iosxr_config
+    facts:
+      redirect: cisco.iosxr.iosxr_facts
+    interfaces:
+      redirect: cisco.iosxr.iosxr_interfaces
+    l2_interfaces:
+      redirect: cisco.iosxr.iosxr_l2_interfaces
+    l3_interfaces:
+      redirect: cisco.iosxr.iosxr_l3_interfaces
+    lacp:
+      redirect: cisco.iosxr.iosxr_lacp
+    lacp_interfaces:
+      redirect: cisco.iosxr.iosxr_lacp_interfaces
+    lag_interfaces:
+      redirect: cisco.iosxr.iosxr_lag_interfaces
+    lldp_global:
+      redirect: cisco.iosxr.iosxr_lldp_global
+    lldp_interfaces:
+      redirect: cisco.iosxr.iosxr_lldp_interfaces
+    logging_global:
+      redirect: cisco.iosxr.iosxr_logging_global
+    netconf:
+      redirect: cisco.iosxr.iosxr_netconf
+    ospfv2:
+      redirect: cisco.iosxr.iosxr_ospfv2
+    ospfv3:
+      redirect: cisco.iosxr.iosxr_ospfv3
+    ospf_interfaces:
+      redirect: cisco.iosxr.iosxr_ospf_interfaces
+    static_routes:
+      redirect: cisco.iosxr.iosxr_static_routes
+    system:
+      redirect: cisco.iosxr.iosxr_system
+    user:
+      redirect: cisco.iosxr.iosxr_user
+    bgp_neighbor_address_family:
+      redirect: cisco.iosxr.iosxr_bgp_neighbor_address_family
+    bgp_address_family:
+      redirect: cisco.iosxr.iosxr_bgp_address_family
+    bgp_global:
+      redirect: cisco.iosxr.iosxr_bgp_global
+    prefix_lists:
+      redirect: cisco.iosxr.iosxr_prefix_lists
+    ntp_global:
+      redirect: cisco.iosxr.iosxr_ntp_global
+    snmp_server:
+      redirect: cisco.iosxr.iosxr_snmp_server
+    hostname:
+      redirect: cisco.iosxr.iosxr_hostname
+    vrf_global:
+      redirect: cisco.iosxr.iosxr_vrf_global
+    vrf_address_family:
+      redirect: cisco.iosxr.iosxr_vrf_address_family
+    vrf_interfaces:
+      redirect: cisco.iosxr.iosxr_vrf_interfaces

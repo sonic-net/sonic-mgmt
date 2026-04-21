@@ -1,0 +1,69 @@
+# This an example file for setting variables for playbooks like test_create_resources.yml.
+#
+# It is recommended that these files be encrypted:
+#   - $ ansible-vault encrypt <file>
+#
+# Any value for auto_prefix may be used.  auto_prefix is used in every resource created by
+# the example playbooks, making example resources easy to find.
+
+auto_prefix: "PSUS_ANSIBLE_"
+user: "user"
+password: "redacted"
+system: "iboxNNNN"
+
+# Variables used by infini_infinimetrics module:
+ibox_serial: 30368
+ibox_url: 172.20.68.167
+ibox_readonly_user: david-ro
+ibox_readonly_password: redacted
+ibox_readonly_email: user@infinidat.com
+imx_system: infinimetrics
+imx_user: IMX_ADMIN
+imx_password: redacted
+
+# Variables used by infini_sso module
+sso_signing_certificate: "signing cert in one single line with the begin and end lines removed" # Used by configure_array playbook
+
+# Other variables
+pool_size: 10GB
+pool_vsize: 11GB
+dataset_default_provisioning: THIN
+use_base2_units: true
+table_export_limit: 3000
+admin_user_name: admin
+admin_user_password: redacted
+admin_user_email: dev.mgmt@infinidat.com
+pool_admin_user_name: Commvault
+pool_admin_user_password: redacted
+pool_admin_user_email: user@infinidat.com
+ldap_name: PSUS_ANSIBLE_ad
+setup_alerting_emails: ["user@infinidat.com"]
+prod_alerting_emails: ["user@infinidat.com"]
+alerting_event_levels: ["INFO", "WARNING", "ERROR", "CRITICAL"]
+alerting_includes: []
+alerting_excludes: ["EVENT_FLOOD", "USER_LOGIN_SUCCESS", "USER_LOGGED_OUT"]
+syslogs:  # A list of syslog dictionaries
+  - target_name: syslog1_target
+    rule_name: syslog1
+    protocol: SYSLOG
+    host: 172.31.88.158
+    port: 514
+    facility: LOCAL7
+    transport: UDP
+    post_test: true  # Not a real test if using UDP
+  - target_name: syslog2_target
+    rule_name: syslog2
+    protocol: SYSLOG
+    host: 172.31.88.158
+    port: 515
+    facility: LOCAL7
+    transport: UDP
+    post_test: true
+  - target_name: graylog_target
+    rule_name: graylog
+    protocol: SYSLOG
+    host: 172.31.77.214
+    port: 1514
+    facility: LOCAL7
+    transport: UDP
+    post_test: true

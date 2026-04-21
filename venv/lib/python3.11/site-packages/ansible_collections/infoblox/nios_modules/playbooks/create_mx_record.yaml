@@ -1,0 +1,20 @@
+---
+- name: Infoblox Member Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.36.118.2
+      username: cloudadmin
+      password: admin
+
+  connection: local
+  tasks:
+    - name: Create Nios MX record
+      infoblox.nios_modules.nios_mx_record:
+        name: mx.ansibletestzone.com
+        mx: mailhost.ansible.com
+        view: ansibleDnsView
+        preference: 0
+        comment: Created with Ansible
+        state: present
+        provider: "{{ nios_provider }}"

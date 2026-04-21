@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_snapmirror - key error CloudProviderName for ONPREM operation

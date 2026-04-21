@@ -1,0 +1,79 @@
+- name: Discover latest OpenTelemetry Collector version
+  ansible.builtin.set_fact:
+    otel_collector_version: "{{ (lookup('url', otel_collector_latest_url, split_lines=False) | from_json).get('tag_name') | replace('v', '') }}"
+  run_once: true
+  until: otel_collector_version is version('0.0.0', '>=')
+  retries: 10
+  when:
+    - otel_collector_version == 'latest'
+
+- name: Discover installed version
+  block:
+    - name: Get installed version
+      register: otel_collector_version_check
+      changed_when: false
+      failed_when: false
+      check_mode: false  # Always run, this does not change anything on the system
+      ansible.builtin.command: '{{ otel_collector_installation_dir }}/{{ otel_collector_executable }} -v'
+
+    - name: Set installed version variable
+      ansible.builtin.set_fact:
+        otel_collector_installed_version: "{{ otel_collector_version_check.stdout_lines[0] | default('otelcorecol version 0.0.0') | ansible.builtin.regex_search('\\d+\\.\\d+\\.\\d+') }}"
+
+- name: Create otel group
+  ansible.builtin.group:
+    name: "{{ otel_collector_service_group }}"
+    system: true
+  become: true
+
+- name: Create otel user
+  ansible.builtin.user:
+    name: "{{ otel_collector_service_user }}"
+    group: "{{ otel_collector_service_group }}"
+    system: true
+    create_home: false  # Appropriate for a system user, usually doesn't need a home directory
+  become: true
+
+- name: Determine the architecture for OpenTelemetry Collector binary
+  set_fact:
+    otel_collector_arch: "{{ arch_mapping[ansible_facts['architecture']] | default('amd64') }}"
+  vars:
+    arch_mapping:
+      x86_64: amd64
+      aarch64: arm64
+      armv7l: armhf
+      i386: i386
+      ppc64le: ppc64le
+
+- name: Download OpenTelemetry Collector binary
+  ansible.builtin.get_url:
+    url: "{{ otel_collector_binary_url }}"
+    dest: "/tmp/otelcol-{{ otel_collector_type }}-{{ otel_collector_version }}.tar.gz"
+    mode: '0755'
+  become: true
+  when: otel_collector_installed_version is version(otel_collector_version, '!=')
+
+- name: Remove existing OpenTelemetry Collector installation directory
+  ansible.builtin.file:
+    path: "{{ otel_collector_installation_dir }}"
+    state: absent
+  become: true
+  when: otel_collector_installed_version is version(otel_collector_version, '!=')
+
+- name: Create OpenTelemetry Collector installation directory
+  ansible.builtin.file:
+    path: "{{ otel_collector_installation_dir }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ otel_collector_service_user }}"
+    group: "{{ otel_collector_service_group }}"
+  become: true
+
+- name: Extract OpenTelemetry Collector binary
+  ansible.builtin.unarchive:
+    src: "/tmp/otelcol-{{ otel_collector_type }}-{{ otel_collector_version }}.tar.gz"
+    dest: "{{ otel_collector_installation_dir }}"
+    remote_src: yes
+  become: true
+  register: extract_result
+  when: not ansible_check_mode and otel_collector_installed_version is version(otel_collector_version, '!=')

@@ -1,0 +1,27 @@
+---
+- name: Create user
+  telekom_mms.icinga_director.icinga_user:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "rb"
+    pager: 'SIP/emergency'
+    period: '24/7'
+    email: "foouser@example.com"
+    imports:
+      - foousertemplate
+    groups:
+      - onCall
+    vars:
+      department: IT
+      role: CTO
+- name: Update user
+  telekom_mms.icinga_director.icinga_user:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: "rb"
+    display_name: "Rufbereitschaft"
+    append: true

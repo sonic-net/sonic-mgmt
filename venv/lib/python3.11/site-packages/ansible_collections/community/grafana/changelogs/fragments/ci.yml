@@ -1,0 +1,2 @@
+trivial:
+  - Update Github workflow to use the ansible-test Action for sanity and units tests execution.

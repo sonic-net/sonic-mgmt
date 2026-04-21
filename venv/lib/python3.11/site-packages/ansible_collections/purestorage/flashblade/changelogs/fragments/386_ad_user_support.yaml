@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_user - All AD users to have SSH keys and/or API tokens assigned, even if they have never accessed the FlashArray before. AD users must have ``ad_user`` set as ``true``.

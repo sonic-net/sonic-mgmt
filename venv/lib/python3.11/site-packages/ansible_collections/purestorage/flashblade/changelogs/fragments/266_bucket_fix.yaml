@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_bucket - Changed logic to allow complex buckets to be created in a single call, rather than having to split into two tasks.

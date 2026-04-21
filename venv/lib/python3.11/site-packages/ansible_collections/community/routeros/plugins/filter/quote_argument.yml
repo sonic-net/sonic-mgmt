@@ -1,0 +1,32 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+DOCUMENTATION:
+  name: quote_argument
+  short_description: Quote an argument
+  version_added: 2.0.0
+  description:
+    - Quote an argument.
+  options:
+    _input:
+      description:
+        - An argument to quote.
+      type: string
+      required: true
+  author:
+    - Felix Fontein (@felixfontein)
+
+EXAMPLES: |
+  ---
+  - name: Quote a RouterOS CLI command argument
+    ansible.builtin.set_fact:
+      quoted: >-
+        {{ 'comment=this is a "comment"' | community.routeros.quote_argument }}
+      # Should result in 'comment="this is a \"comment\""'
+
+RETURN:
+  _value:
+    description: The quoted argument.
+    type: string

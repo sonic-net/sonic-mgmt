@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_rest_info - new option ``use_python_keys`` to replace ``svm/svms`` with ``svm_svms`` to simplify post processing.

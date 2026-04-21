@@ -1,0 +1,37 @@
+---
+# Playbook 1 Configure Network Switch Profiles on Cisco Catalyst Center
+- name: Configure Network Switch Profiles on Cisco Catalyst Center
+  hosts: localhost
+  connection: local
+  vars_files:
+    - "credentials.yml"
+  tasks:
+    - name: Create network profile for switch
+      cisco.dnac.network_profile_switching_workflow_manager:
+        dnac_host: "{{ dnac_host }}"
+        dnac_username: "{{ dnac_username }}"
+        dnac_password: "{{ dnac_password }}"
+        dnac_verify: "{{ dnac_verify }}"
+        dnac_port: "{{ dnac_port }}"
+        dnac_version: "{{ dnac_version }}"
+        dnac_debug: "{{ dnac_debug }}"
+        dnac_log: true
+        dnac_log_level: DEBUG
+        config_verify: true
+        dnac_api_task_timeout: 1000
+        dnac_task_poll_interval: 1
+        state: merged
+        config:
+          - profile_name: Campus_Access_Switch
+            day_n_templates:
+              - Template Provisioning To Device
+            site_names:
+              - Global/APO
+              - Global/Abc
+          - profile_name: DataCenter_Core_Switch
+            day_n_templates:
+              - Template Provisioning To Device
+            site_names:
+              - Global/Chennai
+              - Global/Madurai
+      register: output_list

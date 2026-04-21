@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  author: Yuhao Liu
+  description: The role helps to manage the installation of SDT.
+  company: Dell Technologies
+  license: GPL-3.0-only
+  role_name: powerflex_sdt
+  namespace: dellemc
+
+  min_ansible_version: "2.14.0"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+        - "8"
+    - name: Ubuntu
+      versions:
+        - jammy
+    - name: SLES
+      versions:
+        - "15SP3"
+        - "15SP4"
+
+  galaxy_tags: []

@@ -1,0 +1,6 @@
+---
+roles:
+  - src: geerlingguy.apache
+  - src: geerlingguy.nginx
+  - src: geerlingguy.php
+    version: '5.0.1'

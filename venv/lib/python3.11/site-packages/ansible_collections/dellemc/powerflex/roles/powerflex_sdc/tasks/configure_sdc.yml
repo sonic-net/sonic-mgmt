@@ -1,0 +1,28 @@
+---
+- name: Rename the SDC
+  dellemc.powerflex.sdc:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    validate_certs: "{{ validate_certs }}"
+    sdc_ip: "{{ ansible_host }}"
+    sdc_new_name: "{{ powerflex_sdc_name }}"
+    state: "present"
+  register: powerflex_sdc_rename_output
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  when: powerflex_sdc_name is defined and powerflex_sdc_name | length > 0
+
+- name: Set performance profile of SDC
+  dellemc.powerflex.sdc:
+    hostname: "{{ hostname }}"
+    username: "{{ username }}"
+    password: "{{ password }}"
+    validate_certs: "{{ validate_certs }}"
+    sdc_ip: "{{ ansible_host }}"
+    performance_profile: "{{ powerflex_sdc_performance_profile }}"
+    state: "present"
+  register: powerflex_sdc_performance_profile_output
+  delegate_to: "{{ lookup('ansible.builtin.env', 'RUNON', default='localhost') }}"
+  when:
+    - powerflex_sdc_performance_profile is defined
+    - powerflex_sdc_performance_profile | length > 0

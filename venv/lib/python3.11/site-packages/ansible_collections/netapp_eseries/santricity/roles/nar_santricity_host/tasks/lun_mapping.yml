@@ -1,0 +1,178 @@
+- name: Collect facts on the storage array
+  na_santricity_facts:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+  connection: local
+  register: storage_array_facts
+
+- name: Collect volume host and host group list
+  set_fact:
+    hosts: "{{ lookup('netapp_eseries.santricity.santricity_host', hostvars[inventory_hostname],
+                      volumes=lookup('netapp_eseries.santricity.santricity_volume', hostvars[inventory_hostname])) }}"
+
+- name: Retrieve required details and map luns
+  block:
+    - name: Collect host/host group networking information
+      setup:
+        gather_subset: min
+      register: hosts_info
+      delegate_to: "{{ item }}"
+      delegate_facts: True
+      loop: "{{ lookup('list', (hosts['expected_hosts'].keys() | list)) }}"
+
+    - name: Collect Ansible defined host and host group interface information
+      set_fact:
+        host_interface_ansible: |-
+          {%- set host_interfaces = [] -%}
+          {%- for host in (hosts['expected_hosts'].keys() | list) -%}
+            {%- if "eseries_iscsi_iqn" in (hostvars[host].keys() | list) -%}
+              {%- if host_interfaces.append({"item": host, "stdout_lines": [hostvars[host]["eseries_iscsi_iqn"]]}) -%}{%- endif -%}
+            {%- elif "eseries_nvme_nqn" in (hostvars[host].keys() | list) -%}
+              {%- if host_interfaces.append({"item": host, "stdout_lines": [hostvars[host]["eseries_nvme_nqn"]]}) -%}{%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ host_interfaces }}
+
+    - name: Collect host and host group interface information for Linux
+      shell: "{{ eseries_initiator_command[eseries_initiator_protocol]['linux'] }}"
+      register: host_interface_linux
+      delegate_to: "{{ item }}"
+      become: True
+      changed_when: False
+      failed_when: "host_interface_linux.rc != 0 and not (eseries_initiator_protocol in eseries_protocols_using_eseries_iscsi_iqn or
+                                                          eseries_initiator_protocol in eseries_protocols_using_eseries_nvme_nqn)"
+      when: '((hostvars[item]["ansible_facts"]["system"] | lower) == "linux" and
+              ("eseries_iscsi_iqn" not in (hostvars[item].keys() | list) or eseries_initiator_protocol not in eseries_protocols_using_eseries_iscsi_iqn) and
+              ("eseries_nvme_nqn" not in (hostvars[item].keys() | list) or eseries_initiator_protocol not in eseries_protocols_using_eseries_nvme_nqn))'
+      loop: "{{ lookup('list', (hosts['expected_hosts'].keys() | list)) }}"
+
+    - name: Collect host and host group interface information for Windows
+      win_shell: "{{ eseries_initiator_command[eseries_initiator_protocol]['windows'] }}"
+      register: host_interface_windows
+      delegate_to: "{{ item }}"
+      changed_when: False
+      failed_when: "host_interface_windows.rc != 0"
+      when: '((hostvars[item]["ansible_facts"]["os_family"] | lower == "windows") and
+              ("eseries_iscsi_iqn" not in (hostvars[item].keys() | list) or eseries_initiator_protocol not in eseries_protocols_using_eseries_iscsi_iqn) and
+              ("eseries_nvme_nqn" not in (hostvars[item].keys() | list) or eseries_initiator_protocol not in eseries_protocols_using_eseries_nvme_nqn))'
+      loop: "{{ lookup('list', (hosts['expected_hosts'].keys() | list)) }}"
+
+    - name: Aggregate host/host group interface information
+      set_fact:
+        host_interface: |-
+          {%- set host_interfaces = [] -%}
+          {%- for host in (hosts['expected_hosts'].keys() | list) -%}
+            {%- set found_interfaces = host_interface_ansible + host_interface_linux['results'] + host_interface_windows['results'] -%}
+            {%- for interface in found_interfaces if interface["item"] == host and "skip_reason" not in (interface.keys() | list) and interface["stdout_lines"] -%}
+              {%- if host_interfaces.append(interface) -%}{%- endif -%}
+            {%- else -%}
+              {%- if eseries_initiator_protocol in eseries_protocols_using_eseries_iscsi_iqn -%}
+                {%- if host_interfaces.append({"item": host, "stdout_lines": [eseries_iscsi_iqn_prefix ~ hostvars[host]["ansible_machine_id"][-12:]], "generate": True}) -%}{%- endif -%}
+              {%- elif eseries_initiator_protocol in eseries_protocols_using_eseries_nvme_nqn -%}
+                {%- if host_interfaces.append({"item": host, "stdout_lines": [eseries_nvme_nqn_prefix ~ hostvars[host]["ansible_machine_id"]], "generate": True}) -%}{%- endif -%} {%- endif -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          {{- host_interfaces -}}
+
+    - name: Generate missing host IQN (Linux only).
+      block:
+        - name: Ensure path for initiatorname.iscsi exists.
+          file:
+            state: directory
+            path: "{{ eseries_iscsi_iqn_path }}"
+          delegate_to: "{{ item['item'] }}"
+          become: true
+          loop: "{{ host_interface }}"
+          when: "(hostvars[item['item']]['ansible_facts']['system'] | lower) == 'linux' and (item['generate'] | default(False)) == True"
+        - name: Generate initiatorname.iscsi file.
+          ansible.builtin.template:
+            src: initiatorname_iscsi.j2
+            dest: "{{ eseries_iscsi_iqn_path }}initiatorname.iscsi"
+          delegate_to: "{{ item['item'] }}"
+          become: true
+          loop: "{{ host_interface }}"
+          when: "(hostvars[item['item']]['ansible_facts']['system'] | lower) == 'linux' and (item['generate'] | default(False)) == True"
+      when: eseries_initiator_protocol in eseries_protocols_using_eseries_iscsi_iqn
+
+    - name: Generate missing host NQN (Linux only).
+      block:
+        - name: Ensure NVMe NQN directory exists on host.
+          file:
+            state: directory
+            path: "{{ eseries_nvme_nqn_path }}"
+          delegate_to: "{{ item['item'] }}"
+          become: true
+          loop: "{{ host_interface }}"
+          when: "(hostvars[item['item']]['ansible_facts']['system'] | lower) == 'linux' and (item['generate'] | default(False)) == True"
+        - name: Generate NVMe NQN for host if one was not discovered.
+          ansible.builtin.template:
+            src: hostnqn.j2
+            dest: "{{ eseries_nvme_nqn_path }}hostnqn"
+          delegate_to: "{{ item['item'] }}"
+          become: true
+          loop: "{{ host_interface }}"
+          when: "(hostvars[item['item']]['ansible_facts']['system'] | lower) == 'linux' and (item['generate'] | default(False)) == True"
+      when: eseries_initiator_protocol in eseries_protocols_using_eseries_nvme_nqn
+
+    - name: Organize host/host group interface information and update hosts variable
+      set_fact:
+        hosts: "{{ lookup('netapp_eseries.santricity.santricity_host_detail',
+                           hosts, hosts_info=hosts_info['results'], host_interface_ports=host_interface, protocol=eseries_initiator_protocol) }}"
+
+    - name: "{{'Create' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Delete' }} all hosts objects on the storage array"
+      na_santricity_host:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        state: "{{ eseries_remove_all_configuration_state | default(hosts['expected_hosts'][item]['state'] | default(omit)) }}"
+        name: "{{ hosts['expected_hosts'][item]['sanitized_hostname'] }}"
+        ports: "{{ hosts['expected_hosts'][item]['ports'] }}"
+        force_port: "{{ eseries_host_force_port | default(omit) }}"
+        host_type: "{{ hosts['expected_hosts'][item]['host_type'] | default(omit) }}"
+      connection: local
+      loop: "{{ lookup('list', (hosts['expected_hosts'].keys()|list)) }}"
+
+    - name: "{{'Create' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Delete' }} all required host groups on the storage array"
+      na_santricity_hostgroup:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        state: "{{ eseries_remove_all_configuration_state | default('present') }}"
+        name: "{{ item }}"
+        hosts: "{{ hosts['host_groups'][item] | default(omit) }}"
+      connection: local
+      loop: "{{ lookup('list', (hosts['host_groups'].keys()|list)) }}"
+
+    - name: Update facts on the storage array
+      na_santricity_facts:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+      connection: local
+      register: storage_array_facts
+      when: eseries_remove_all_configuration_state is not defined or eseries_remove_all_configuration_state == False
+
+    - name: "{{'Map' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'Unmap' }} volume to host or host group."
+      na_santricity_lun_mapping:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        state: "{{ 'present' if item['target'] is defined else 'absent' }}"
+        volume: "{{ item['volume'] }}"
+        target: "{{ item['target'] | default(eseries_lun_mapping_host) | default(omit) }}"
+        lun: "{{ item['lun'] | default(omit) }}"
+      connection: local
+      loop: "{{ lookup('netapp_eseries.santricity.santricity_lun_mapping', storage_array_facts,
+                       volumes=lookup('netapp_eseries.santricity.santricity_volume', hostvars[inventory_hostname]), wantlist=True) }}"
+  when: hosts != []

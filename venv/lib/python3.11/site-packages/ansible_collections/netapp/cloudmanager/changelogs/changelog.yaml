@@ -1,0 +1,383 @@
+ancestor: null
+releases:
+  21.10.0:
+    changes:
+      bugfixes:
+      - na_cloudmanager_snapmirror - key error CloudProviderName for ONPREM operation
+      minor_changes:
+      - Only these parameters will be modified on the existing CVOs. svm_passowrd
+        will be updated on each run.
+      - na_cloudmanager_cvo_aws - Support update on svm_password, tier_level, and
+        aws_tag.
+      - na_cloudmanager_cvo_aws - add new parameter ``kms_key_id`` and ``kms_key_arn``
+        as AWS encryption parameters to support AWS CVO encryption
+      - na_cloudmanager_cvo_azure - Add new parameter ``ha_enable_https`` for HA CVO
+        to enable the HTTPS connection from CVO to storage accounts. This can impact
+        write performance. The default is false.
+      - na_cloudmanager_cvo_azure - Support update on svm_password, tier_level, and
+        azure_tag.
+      - na_cloudmanager_cvo_azure - add new parameter ``azure_encryption_parameters``
+        to support AZURE CVO encryption
+      - na_cloudmanager_cvo_gcp - Support update on svm_password, tier_level, and
+        gcp_labels.
+      - na_cloudmanager_cvo_gcp - add new parameter ``gcp_encryption_parameters``
+        to support GCP CVO encryption
+    fragments:
+    - DEVOPS-4065.yaml
+    - DEVOPS-4136.yaml
+    - DEVOPS-4164.yaml
+    - DEVOPS-4200.yaml
+    release_date: '2021-09-01'
+  21.11.0:
+    changes:
+      bugfixes:
+      - na_cloudmanager_connector_gcp - typeError when using proxy certificates.
+      minor_changes:
+      - Add CVO modification unit tests
+      - Adding new parameter ``capacity_package_name`` for all CVOs creation with
+        capacity based ``license_type`` capacity-paygo or ha-capacity-paygo for HA.
+      - all modules - better error reporting if refresh_token is not valid.
+      - na_cloudmanager_connector_gcp - automatically fetch client_id for delete.
+      - na_cloudmanager_connector_gcp - make the module idempotent for create and
+        delete.
+      - na_cloudmanager_connector_gcp - report client_id if connector already exists.
+      - na_cloudmanager_cvo_aws - Add unit tests for capacity based license support.
+      - na_cloudmanager_cvo_azure - Add unit tests for capacity based license support.
+      - na_cloudmanager_cvo_gcp - Add unit tests for capacity based license support
+        and delete cvo.
+      - netapp.py - improve error handling with error content.
+    fragments:
+    - DEVOPS-4267.yaml
+    - DEVOPS-4292.yaml
+    - DEVOPS-4303.yaml
+    - DEVOPS-4321.yaml
+    - DEVOPS-4327.yaml
+    release_date: '2021-10-06'
+  21.12.0:
+    changes:
+      bugfixes:
+      - Fix cannot find working environment if ``working_environment_name`` is provided
+      minor_changes:
+      - PR1 - allow usage of Ansible module group defaults - for Ansible 2.12+.
+      - na_cloudmanager_cvo_azure - Add extra tag handling on azure_tag maintenance
+      - na_cloudmanager_cvo_gcp - Add extra label hendling for HA and only allow add
+        new labels on gcp_labels
+      - na_cloudmanager_snapmirror - working environment get information api not working
+        for onprem is fixed
+    fragments:
+    - DEVOPS-4328.yaml
+    - DEVOPS-4358.yaml
+    - DEVOPS-4386.yaml
+    - DEVOPS-4416.yaml
+    release_date: '2021-11-03'
+  21.12.1:
+    changes:
+      bugfixes:
+      - na_cloudmanager_connector_aws - Fix default ami not based on the region in
+        resource file
+      - na_cloudmanager_snapmirror - report actual error rather than None with "Error
+        getting destination info".
+    fragments:
+    - DEVOPS-4298.yaml
+    - DEVOPS-4458.yaml
+    release_date: '2021-11-23'
+  21.13.0:
+    changes:
+      bugfixes:
+      - na_cloudmanager_cvo_gcp - handle extra two auto-gen GCP labels to prevent
+        update ``gcp_labels`` failure.
+      minor_changes:
+      - Add ``update_svm_password`` for ``svm_password`` update on AWS, AZURE and
+        GCP CVOs. Update ``svm_password`` if ``update_svm_password`` is true.
+      - Add ontap image upgrade on AWS, AZURE and GCP CVOs if ``upgrade_ontap_version``
+        is true and ``ontap_version`` is provided with a specific version. ``use_latest_version``
+        has to be false.
+      - na_cloudmanager_connector_aws - automatically fetch client_id and instance_id
+        for delete.
+      - na_cloudmanager_connector_aws - make the module idempotent for create and
+        delete.
+      - na_cloudmanager_connector_aws - report client_id and instance_id if connector
+        already exists.
+      - na_cloudmanager_cvo_aws - Support instance_type update
+      - na_cloudmanager_cvo_azure - Support instance_type update
+      - na_cloudmanager_cvo_gcp - Support instance_type update
+      - na_cloudmanager_info - new subsets - account_info, agents_info, active_agents_info
+      - na_cloudmanager_volume - Report error if the volume properties cannot be modified.
+        Add support ``tiering_policy`` and ``snapshot_policy_name`` modification.
+    fragments:
+    - DEVOPS-4264.yaml
+    - DEVOPS-4271.yaml
+    - DEVOPS-4492.yaml
+    - DEVOPS-4500.yaml
+    - DEVOPS-4513.yaml
+    - DEVOPS-4542.yaml
+    modules:
+    - description: Cloud ONTAP file system(FSX) in AWS
+      name: na_cloudmanager_aws_fsx
+      namespace: ''
+    release_date: '2022-01-12'
+  21.14.0:
+    changes:
+      bugfixes:
+      - CVO working environment clusterProperties is deprecated. Make changes accordingly.
+        Add CVO update status check on ``instance_type`` change.
+      minor_changes:
+      - na_cloudmanager_snapmirror - Add FSX to snapmirror.
+    fragments:
+    - DEVOPS-4516.yaml
+    - DEVOPS-4563.yaml
+    release_date: '2022-02-02'
+  21.15.0:
+    changes:
+      minor_changes:
+      - Add the description of client_id based on the cloudmanager UI.
+      - Set license_type default value 'capacity-paygo' for single node 'ha-capacity-paygo'
+        for HA and 'capacity_package_name' value 'Essential'
+    fragments:
+    - DEVOPS-4647.yaml
+    - DEVOPS-4703.yaml
+    release_date: '2022-03-02'
+  21.16.0:
+    changes:
+      bugfixes:
+      - Add check when volume is capacity tiered.
+      - na_cloudmanager_connector_azure - Fix string formatting error when deleting
+        the connector.
+      minor_changes:
+      - na_cloudmanager_connector_gcp - when using the user application default credential
+        authentication by running the command gcloud auth application-default login,
+        ``gcp_service_account_path`` is not needed.
+    fragments:
+    - DEVOPS-4567.yaml
+    - DEVOPS-4758.yaml
+    - DEVOPS-4820.yaml
+    release_date: '2022-04-05'
+  21.17.0:
+    changes:
+      minor_changes:
+      - na_cloudmanager_aws_fsx - Import AWS FSX to CloudManager by adding new parameters
+        ``import_file_system`` and ``file_system_id``.
+      - na_cloudmanager_connector_azure - Support user defined ``storage_account``
+        name. The ``storage_account`` can be created automatically. When ``storage_account``
+        is not set, the name is constructed by appending 'sa' to the connector ``name``.
+      - na_cloudmanager_cvo_aws - Support license_type update
+      - na_cloudmanager_cvo_azure - Support license_type update
+      - na_cloudmanager_cvo_gcp - Support license_type update
+    fragments:
+    - DEVOPS-4223.yaml
+    - DEVOPS-4281.yaml
+    - DEVOPS-5002.yaml
+    release_date: '2022-05-04'
+  21.18.0:
+    changes:
+      minor_changes:
+      - na_cloudmanager_connector_azure - Support full ``subnet_id`` and ``vnet_id``.
+    fragments:
+    - DEVOPS-5151.yaml
+    release_date: '2022-06-09'
+  21.19.0:
+    changes:
+      minor_changes:
+      - Support ``writing_speed_state`` modification on AWS, AZURE and GCP CVOs.
+    fragments:
+    - DEVOPS-5252.yaml
+    release_date: '2022-08-03'
+  21.20.0:
+    changes:
+      bugfixes:
+      - na_cloudmanager_connector_gcp - Fix default machine_type value on the GCP
+        connector.
+      minor_changes:
+      - Add ``availability_zone`` option in CVO Azure on the location configuration.
+      - Add ``subnet_path`` option in CVO GCP.
+      - na_cloudmanager_cvo_aws - Add new parameter ``cluster_key_pair_name`` to support
+        SSH authentication method key pair.
+      - na_cloudmanager_volume - Support AWS FsxN working environment.
+    fragments:
+    - DEVOPS-5307.yaml
+    - DEVOPS-5342.yaml
+    - DEVOPS-5366.yaml
+    - DEVOPS-5437.yaml
+    - DEVOPS-5472.yaml
+    release_date: '2022-10-05'
+  21.20.1:
+    changes:
+      bugfixes:
+      - new meta/execution-environment.yml is failing ansible-builder sanitize step.
+    fragments:
+    - DEVOPS-5540.yaml
+    release_date: '2022-10-07'
+  21.21.0:
+    changes:
+      minor_changes:
+      - na_cloudmanager_connector_azure - expose connector managed system identity
+        principal_id to perform role assignment
+      - na_cloudmanager_cvo_azure - Add new ``storage_type`` value Premium_ZRS
+      - na_cloudmanager_cvo_azure - Add parameter ``availability_zone_node1`` and
+        ``availability_zone_node2`` for CVO Azure HA location
+    fragments:
+    - DEVOPS-5527.yaml
+    - DEVOPS-5562.yaml
+    release_date: '2022-11-02'
+  21.22.0:
+    changes:
+      minor_changes:
+      - Add ``svm_name`` option in CVO for AWS, AZURE and GCP creation and update.
+    fragments:
+    - DEVOPS-5452.yaml
+    release_date: '2022-12-07'
+  21.24.0:
+    changes:
+      minor_changes:
+      - na_cloudmanager_cvo_aws - increase timeout for creating cvo to 90 mins.
+      - na_cloudmanager_cvo_azure - increase timeout for creating cvo to 90 mins.
+      - na_cloudmanager_cvo_gcp - increase timeout for creating cvo to 90 mins.
+    fragments:
+    - DEVOPS-5521.yaml
+    release_date: '2024-10-31'
+  21.3.0:
+    modules:
+    - description: NetApp Cloud Manager Aggregate
+      name: na_cloudmanager_aggregate
+      namespace: ''
+    - description: NetApp Cloud Manager cifs server
+      name: na_cloudmanager_cifs_server
+      namespace: ''
+    - description: NetApp Cloud Manager connector for AWS
+      name: na_cloudmanager_connector_aws
+      namespace: ''
+    - description: NetApp Cloud Manager CVO for AWS
+      name: na_cloudmanager_cvo_aws
+      namespace: ''
+    - description: NetApp Cloud Manager nss account
+      name: na_cloudmanager_nss_account
+      namespace: ''
+    - description: NetApp Cloud Manager volume
+      name: na_cloudmanager_volume
+      namespace: ''
+    release_date: '2021-03-03'
+  21.4.0:
+    modules:
+    - description: NetApp Cloud Manager connector for Azure.
+      name: na_cloudmanager_connector_azure
+      namespace: ''
+    - description: NetApp Cloud Manager connector for GCP.
+      name: na_cloudmanager_connector_gcp
+      namespace: ''
+    - description: NetApp Cloud Manager CVO/working environment in single or HA mode
+        for Azure.
+      name: na_cloudmanager_cvo_azure
+      namespace: ''
+    - description: NetApp Cloud Manager info
+      name: na_cloudmanager_info
+      namespace: ''
+    release_date: '2021-04-07'
+  21.5.0:
+    changes:
+      bugfixes:
+      - na_cloudmanager_cvo_aws - Fix incorrect placement of platformSerialNumber
+        in the resulting json structure
+      minor_changes:
+      - na_cloudmanager_connector_aws - Return newly created Azure client ID in cloud
+        manager, instance ID and account ID. New option ``proxy_certificates``.
+      - na_cloudmanager_cvo_aws - Return newly created AWS working_environment_id.
+      - na_cloudmanager_cvo_azure - Return newly created AZURE working_environment_id.
+      - na_cloudmanager_cvo_gcp - Return newly created GCP working_environment_id.
+    fragments:
+    - DEVOPS-3803.yaml
+    - DEVOPS-3844.yaml
+    - DEVOPS-3922.yaml
+    release_date: '2021-04-21'
+  21.6.0:
+    changes:
+      bugfixes:
+      - na_cloudmanager_cifs_server - Fix incorrect API call when is_workgroup is
+        true
+      - na_cloudmanager_connector_azure - Change client_id as optional
+      - na_cloudmanager_connector_azure - Fix python error - msrest.exceptions.ValidationError.
+        Parameter 'Deployment.properties' can not be None.
+      - na_cloudmanager_connector_azure - Fix wrong example on the document and update
+        account_id is required field on deletion.
+      - na_cloudmanager_cvo_gcp - Change vpc_id from optional to required.
+    fragments:
+    - DEVOPS-3910.yaml
+    - DEVOPS-3911.yaml
+    - DEVOPS-3913.yaml
+    - DEVOPS-3946.yaml
+    - DEVOPS-3948.yaml
+    modules:
+    - description: NetApp Cloud Manager SnapMirror
+      name: na_cloudmanager_snapmirror
+      namespace: ''
+    release_date: '2021-05-06'
+  21.7.0:
+    changes:
+      bugfixes:
+      - na_cloudmanager_aggregate - Improve error message
+      - na_cloudmanager_connector_azure - Add subnet_name as aliases of subnet_id,
+        vnet_name as aliases of vnet_id.
+      - na_cloudmanager_connector_azure - Fix KeyError client_id
+      - na_cloudmanager_cvo_gcp - Apply network_project_id check on vpc1_cluster_connectivity,
+        vpc2_ha_connectivity, vpc3_data_replication, subnet1_cluster_connectivity,
+        subnet2_ha_connectivity, subnet3_data_replication
+      - na_cloudmanager_nss_account - Improve error message
+      - na_cloudmanager_volume - Improve error message
+      minor_changes:
+      - na_cloudmanager_aggregate - Add provider_volume_type gp3 support.
+      - na_cloudmanager_connector_gcp - rename option ``service_account_email`` and
+        ``service_account_path`` to ``gcp_service_account_email`` and ``gcp_service_account_path``
+        respectively.
+      - na_cloudmanager_cvo_aws - Add ebs_volume_type gp3 support.
+      - na_cloudmanager_snapmirror - Add provider_volume_type gp3 support.
+      - na_cloudmanager_volume - Add aggregate_name support on volume creation.
+      - na_cloudmanager_volume - Add provider_volume_type gp3 support.
+    fragments:
+    - DEVOPS-3909.yaml
+    - DEVOPS-3912.yaml
+    - DEVOPS-3947.yaml
+    - DEVOPS-3967.yaml
+    - DEVOPS-3975.yaml
+    - DEVOPS-3984.yaml
+    - DEVOPS-3985.yaml
+    - DEVOPS-3995.yaml
+    release_date: '2021-06-03'
+  21.8.0:
+    changes:
+      bugfixes:
+      - na_cloudmanager_aggregate - accept client_id end with or without 'clients'
+      - na_cloudmanager_cifs_server - accept client_id end with or without 'clients'
+      - na_cloudmanager_connector_aws - accept client_id end with or without 'clients'
+      - na_cloudmanager_connector_azure - accept client_id end with or without 'clients'
+      - na_cloudmanager_connector_gcp - accept client_id end with or without 'clients'
+      - na_cloudmanager_cvo_aws - accept client_id end with or without 'clients'
+      - na_cloudmanager_cvo_azure - accept client_id end with or without 'clients'
+      - na_cloudmanager_cvo_gcp - accept client_id end with or without 'clients'
+      - na_cloudmanager_info - accept client_id end with or without 'clients'
+      - na_cloudmanager_nss_account - accept client_id end with or without 'clients'
+      - na_cloudmanager_snapmirror - accept client_id end with or without 'clients'
+      - na_cloudmanager_volume - accept client_id end with or without 'clients'
+      major_changes:
+      - Adding stage environment to all modules in cloudmanager
+      minor_changes:
+      - na_cloudmanager - Support service account with new options ``sa_client_id``
+        and ``sa_secret_key`` to use for API operations.
+    fragments:
+    - DEVOPS-3965.yaml
+    - DEVOPS-4021.yaml
+    - DEVOPS-4105.yaml
+    release_date: '2021-07-14'
+  21.9.0:
+    changes:
+      minor_changes:
+      - na_cloudmanager - Support pd-balanced in ``gcp_volume_type`` for CVO GCP,
+        ``provider_volume_type`` in na_cloudmanager_snapmirror and na_cloudmanager_volume.
+      - na_cloudmanager_connector_azure - Change default value of ``virtual_machine_size``
+        to Standard_DS3_v2.
+      - na_cloudmanager_cvo_gcp - Add selflink support on subnet_id, vpc0_node_and_data_connectivity,
+        vpc1_cluster_connectivity, vpc2_ha_connectivity, vpc3_data_replication, subnet0_node_and_data_connectivity,
+        subnet1_cluster_connectivity, subnet2_ha_connectivity, and subnet3_data_replication.
+    fragments:
+    - DEVOPS-4118.yaml
+    - DEVOPS-4201.yaml
+    - DEVOPS-4205.yaml
+    release_date: '2021-08-04'

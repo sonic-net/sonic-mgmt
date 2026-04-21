@@ -1,0 +1,110 @@
+objects: {}
+plugins:
+  become: {}
+  cache:
+    mongodb:
+      description: Use MongoDB for caching
+      name: mongodb
+      version_added: null
+  callback: {}
+  cliconf: {}
+  connection: {}
+  httpapi: {}
+  inventory: {}
+  lookup:
+    mongodb:
+      description: lookup info from MongoDB
+      name: mongodb
+      version_added: '2.3'
+  module:
+    mongodb_balancer:
+      description: Manages the MongoDB Sharded Cluster Balancer.
+      name: mongodb_balancer
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_index:
+      description: Creates or drops indexes on MongoDB collections.
+      name: mongodb_index
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_info:
+      description: Gather information about MongoDB instance.
+      name: mongodb_info
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_maintenance:
+      description: Enables or disables maintenance mode for a secondary member.
+      name: mongodb_maintenance
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_monitoring:
+      description: Manages the free monitoring feature.
+      name: mongodb_monitoring
+      namespace: ''
+      version_added: 1.3.0
+    mongodb_oplog:
+      description: Resizes the MongoDB oplog.
+      name: mongodb_oplog
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_parameter:
+      description: Change an administrative parameter on a MongoDB server
+      name: mongodb_parameter
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_replicaset:
+      description: Initialises a MongoDB replicaset.
+      name: mongodb_replicaset
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_schema:
+      description: Manages MongoDB Document Schema Validators.
+      name: mongodb_schema
+      namespace: ''
+      version_added: 1.3.0
+    mongodb_shard:
+      description: Add or remove shards from a MongoDB Cluster
+      name: mongodb_shard
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_shard_tag:
+      description: Manage Shard Tags.
+      name: mongodb_shard_tag
+      namespace: ''
+      version_added: 1.3.0
+    mongodb_shard_zone:
+      description: Manage Shard Zones.
+      name: mongodb_shard_zone
+      namespace: ''
+      version_added: 1.3.0
+    mongodb_shell:
+      description: Run commands via the MongoDB shell.
+      name: mongodb_shell
+      namespace: ''
+      version_added: 1.1.0
+    mongodb_shutdown:
+      description: Cleans up all database resources and then terminates the mongod/mongos
+        process.
+      name: mongodb_shutdown
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_status:
+      description: Validates the status of the replicaset.
+      name: mongodb_status
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_stepdown:
+      description: Step down the MongoDB node from a PRIMARY state.
+      name: mongodb_stepdown
+      namespace: ''
+      version_added: 1.0.0
+    mongodb_user:
+      description: Adds or removes a user from a MongoDB database
+      name: mongodb_user
+      namespace: ''
+      version_added: 1.0.0
+  netconf: {}
+  shell: {}
+  strategy: {}
+  vars: {}
+version: 1.3.0

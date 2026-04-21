@@ -1,0 +1,97 @@
+# ======================================
+# scenario: rolling-upgrade-node-alive-pre-gate-fails-b
+# gates used: node_alive
+#
+# flow:
+# 1. setup 3 independent nodes with ravendb 5.4
+# 2. Deliberately sabotage node B (stop service)
+# 3. try to rolling upgrade to 6.2 serially:
+#   - roll A -> B -> C
+#   - pre-gate node_alive
+#   - upgrade the node to 6.2
+#   - post-gate node_alive
+#
+# checkpoints:
+# - A pre-gate passes
+# - A post-gate passes
+# - B pre-gate fails
+# - C pre-gate is never reached
+#
+# outcome:
+# - FAIL before upgrading B. A upgraded to 6.2; B/C remain 5.4
+# - we catch the failure of pre-gate on B and stop the run
+# ======================================
+
+- name: Sabotage B (service down)
+  hosts: ubuntu-bionic-node-b
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Stop RavenDB on B
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: stopped
+
+- name: rolling Update to 6.2
+  hosts: all
+  gather_facts: true
+  serial: 1       
+  tasks:
+    - name: Per-node gates pre upgrade
+      delegate_to: localhost
+      become: false
+      ravendb.ravendb.healthcheck:
+        url: "http://{{ ansible_hostname }}:8080"
+        checks: ['node_alive']
+        max_time_to_wait: 20
+        retry_interval_seconds: 2
+      register: gate_result
+      failed_when: false
+      changed_when: false
+
+    - debug:
+        msg: "Gate result: {{ gate_result }}"
+  
+    - name: Assert pre-gate FAILED on B
+      delegate_to: localhost
+      when: inventory_hostname == 'ubuntu-bionic-node-b'
+      ansible.builtin.assert:
+        that: not (gate_result.diagnostics.node_alive.ok | default(true))
+
+    - name: Halt rollout on B
+      delegate_to: localhost
+      when: inventory_hostname == 'ubuntu-bionic-node-b'
+      meta: end_play
+
+    - name: Upgrade this node to 6.2
+      include_role:
+        name: ravendb.ravendb.ravendb_node
+      vars:
+        ravendb_state: present
+        ravendb_version_minor: 6.2
+        ravendb_settings_preset: default
+    
+    - name: Get RavenDB version
+      become: yes
+      command: >
+        /usr/lib/ravendb/server/Raven.Server --version
+      register: ravendb_version_result
+      changed_when: false
+
+    - name: Make sure it's updated
+      assert:
+        that:
+          - ravendb_version_result.stdout.startswith('6.2')
+        fail_msg: "Server version output: {{ ravendb_version_result.stdout }}"
+    
+    - name: Ensure service is actually up
+      become: true
+      ansible.builtin.systemd:
+        name: ravendb.service
+        state: started
+      register: _svc
+
+    - name: Assert service active
+      ansible.builtin.assert:
+        that:
+          - _svc.status.ActiveState == 'active'

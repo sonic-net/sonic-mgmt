@@ -1,0 +1,27 @@
+---
+- name: Using IBM Storage Virtualize collection to cleanup Global Mirror, GMCV relationships with a prefix and their volumes after migration to PBR
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - inventory_cleanup_ir_<primary_sys_name>_<secondary_sys_name>.ini # NOTE: Specify relevant cleanup inventory
+  vars:
+    logpath: "{{ log_path | default('./gmcv_pbr_migration.log') }}"
+  connection: local
+  tasks:
+    - name: Fetch auth token for master
+      register: master_auth
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ master_clustername }}"
+        username: "{{ master_username }}"
+        password: "{{ master_password }}"
+        log_path: "{{ logpath }}"
+    - name: Fetch auth token for aux
+      register: aux_auth
+      ibm.storage_virtualize.ibm_svc_auth:
+        clustername: "{{ aux_clustername }}"
+        username: "{{ aux_username }}"
+        password: "{{ aux_password }}"
+        log_path: "{{ logpath }}"
+    - name: Delete specified relationships
+      ansible.builtin.include_tasks: _gm_gmcv_ir_delayed_cleanup.yaml
+      loop: "{{ relationships_to_cleanup }}"

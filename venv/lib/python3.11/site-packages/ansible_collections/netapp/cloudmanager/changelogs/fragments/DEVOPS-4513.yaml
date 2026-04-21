@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_cvo_gcp - handle extra two auto-gen GCP labels to prevent update ``gcp_labels`` failure.

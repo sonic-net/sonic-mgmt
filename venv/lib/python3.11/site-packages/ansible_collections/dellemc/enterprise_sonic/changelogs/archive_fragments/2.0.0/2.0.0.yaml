@@ -1,0 +1,3 @@
+---
+release_summary: |
+  This release provides Dell SONiC Enterprise Ansible Collection support for SONiC 4.x images. It is the first release for the 2.x branch of the collection. Subsequent enhancements for support of SONiC 4.x images will also be provided as needed on the 2.x branch. This release also contains bugfixes and enhancements to supplement the Ansible functionality provided previously for SONiC 3.x images. The changelog describes changes made to the modules and plugins included in this collection since release 1.1.0.

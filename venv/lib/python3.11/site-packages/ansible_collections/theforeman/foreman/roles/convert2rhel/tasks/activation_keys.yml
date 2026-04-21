@@ -1,0 +1,111 @@
+---
+- name: "Get organization (SCA) info"
+  theforeman.foreman.organization_info:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    name: "{{ foreman_organization }}"
+  register: foreman_convert2rhel_org_info
+
+- name: "Set non SCA facts"
+  ansible.builtin.set_fact:
+    foreman_convert2rhel_centos7_subs:
+      - name: "Convert2RHEL7"
+    foreman_convert2rhel_centos8_subs:
+      - name: "Convert2RHEL8"
+    foreman_convert2rhel_ol7_subs:
+      - name: "Convert2RHEL7"
+      - name: "{{ foreman_convert2rhel_oracle7_product }}"
+    foreman_convert2rhel_ol8_subs:
+      - name: "Convert2RHEL8"
+      - name: "{{ foreman_convert2rhel_oracle8_product }}"
+  when: not foreman_convert2rhel_org_info['organization']['simple_content_access']
+
+- name: "Create activation key '{{ foreman_convert2rhel_key_centos7 }}'"
+  theforeman.foreman.activation_key:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    name: "{{ foreman_convert2rhel_key_centos7 }}"
+    lifecycle_environment: "{{ foreman_convert2rhel_lifecycle_env }}"
+    content_view: "{{ foreman_convert2rhel_key_centos7 }}"
+  when: foreman_content_rhel_enable_rhel7
+
+- name: "Create activation key '{{ foreman_convert2rhel_key_centos8 }}'"
+  theforeman.foreman.activation_key:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    name: "{{ foreman_convert2rhel_key_centos8 }}"
+    lifecycle_environment: "{{ foreman_convert2rhel_lifecycle_env }}"
+    content_view: "{{ foreman_convert2rhel_key_centos8 }}"
+  when: foreman_content_rhel_enable_rhel8
+
+- name: "Create activation key '{{ foreman_convert2rhel_key_oracle7 }}'"  # noqa: args[module]
+  theforeman.foreman.activation_key:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    name: "{{ foreman_convert2rhel_key_oracle7 }}"
+    lifecycle_environment: "{{ foreman_convert2rhel_lifecycle_env }}"
+    content_view: "{{ foreman_convert2rhel_content_view }}"
+    subscriptions: "{{ foreman_convert2rhel_org_info['organization']['simple_content_access'] | ternary(omit, foreman_convert2rhel_ol7_subs) }}"
+  when: foreman_convert2rhel_enable_oracle7
+
+- name: "Create activation key '{{ foreman_convert2rhel_key_oracle8 }}'"  # noqa: args[module]
+  theforeman.foreman.activation_key:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    name: "{{ foreman_convert2rhel_key_oracle8 }}"
+    lifecycle_environment: "{{ foreman_convert2rhel_lifecycle_env }}"
+    content_view: "{{ foreman_convert2rhel_content_view }}"
+    subscriptions: "{{ foreman_convert2rhel_org_info['organization']['simple_content_access'] | ternary(omit, foreman_convert2rhel_ol8_subs) }}"
+  when: foreman_convert2rhel_enable_oracle8
+
+- name: "Create activation key '{{ foreman_convert2rhel_key_rhel7 }}'"
+  theforeman.foreman.activation_key:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    name: "{{ foreman_convert2rhel_key_rhel7 }}"
+    lifecycle_environment: "{{ foreman_convert2rhel_lifecycle_env }}"
+    content_view: "{{ foreman_convert2rhel_content_view }}"
+    auto_attach: false
+  when: foreman_content_rhel_enable_rhel7
+
+- name: "Create activation key '{{ foreman_convert2rhel_key_rhel8 }}'"
+  theforeman.foreman.activation_key:
+    username: "{{ foreman_username }}"
+    password: "{{ foreman_password }}"
+    server_url: "{{ foreman_server_url }}"
+    validate_certs: "{{ foreman_validate_certs | default(omit) }}"
+    organization: "{{ foreman_organization }}"
+    name: "{{ foreman_convert2rhel_key_rhel8 }}"
+    lifecycle_environment: "{{ foreman_convert2rhel_lifecycle_env }}"
+    content_view: "{{ foreman_convert2rhel_content_view }}"
+    auto_attach: false
+  when: foreman_content_rhel_enable_rhel8
+
+- name: "Add subscriptions to '{{ foreman_convert2rhel_key_rhel7 }}'"
+  ansible.builtin.debug:
+    msg:
+      - "Simple content access is disabled, please add subscriptions to '{{ foreman_convert2rhel_key_rhel7 }}' activation key manually"
+  when: not foreman_convert2rhel_org_info['organization']['simple_content_access'] and foreman_content_rhel_enable_rhel7
+
+- name: "Add subscriptions to '{{ foreman_convert2rhel_key_rhel8 }}'"
+  ansible.builtin.debug:
+    msg:
+      - "Simple content access is disabled, please add subscriptions to '{{ foreman_convert2rhel_key_rhel8 }}' activation key manually"
+  when: not foreman_convert2rhel_org_info['organization']['simple_content_access'] and foreman_content_rhel_enable_rhel8

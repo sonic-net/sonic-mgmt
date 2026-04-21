@@ -1,0 +1,8 @@
+release_summary: release fortinet.fortimanager 2.6.0
+minor_changes:
+  - Supported ansible-core 2.17.
+  - Deleted 9 fmgr_switchcontroller_managedswitch_* modules. Will support them in FortiManager Device Ansible.
+  - Supported FortiManager 7.4.3. 7 new modules.
+bugfixes:
+  - Added more description in the documentation.
+  - Improved fmgr_fact, fmgr_clone, fmgr_move.

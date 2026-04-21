@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - sonic_qos_maps - Comment out PFC priority group map tests cases (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/395).

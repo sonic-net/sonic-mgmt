@@ -1,0 +1,15 @@
+---
+- name: Infoblox Member Configuration
+  hosts: localhost
+  vars:
+    nios_provider:
+      host: 10.196.205.10
+      username: cloudadmin
+      password: infoblox
+      wapi_version: "2.12"
+
+  connection: local
+  tasks:
+    - name: Restart Services
+      infoblox.nios_modules.nios_restartservices:
+        provider: "{{ nios_provider }}"

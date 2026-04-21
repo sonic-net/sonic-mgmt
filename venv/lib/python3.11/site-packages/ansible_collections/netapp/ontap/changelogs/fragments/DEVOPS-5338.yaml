@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - all REST modules - new option ``force_ontap_version`` to bypass permission issues with custom vsadmin roles.
+  - na_ontap_rest_info - new option ``ignore_api_errors`` to report error in subset rather than breaking execution.

@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_nvme - fixed invalid boolean value error for ``status_admin`` when creating nvme service in ZAPI.
+  - na_ontap_nvme - fixed ``status_admin`` option is ignored if set to False when creating nvme service in REST.

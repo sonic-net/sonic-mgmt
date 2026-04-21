@@ -1,0 +1,23 @@
+---
+DOCUMENTATION:
+  name: convert_to_bytes
+  author: "oVirt Developers <devel@ovirt.org>"
+  # version_added: 'historical'
+  short_description: Convert units to bytes
+  description:
+    - This method convert units to bytes, which follow IEC standard
+  positional: _input
+  options:
+    _input:
+      description: Value to be converted
+      type: string
+      required: true
+
+EXAMPLES: |
+  - name: Get number of bytes
+    ansible.builtin.set_fact:
+      disk_size: "{{ '1KiB' | ovirt.ovirt.convert_to_bytes }}"
+RETURN:
+  _value:
+    description: Amount of bytes
+    type: int

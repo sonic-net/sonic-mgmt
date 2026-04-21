@@ -1,0 +1,41 @@
+---
+- name: restart apache
+  ansible.builtin.service:
+    name: "{{ _apache_service }}"
+    state: restarted
+    enabled: true
+  become: true
+
+- name: test nginx config
+  listen: restart nginx
+  ansible.builtin.command: nginx -t
+  register: zabbix_nginx_cfg_check
+  notify: restart nginx tested
+  become: true
+
+- name: restart nginx tested
+  ansible.builtin.service:
+    name: nginx
+    state: restarted
+    enabled: true
+  become: true
+  when:
+    - zabbix_nginx_cfg_check.rc == 0
+
+- name: restart php-fpm-version
+  ansible.builtin.service:
+    name: php{{ zabbix_web_php_installed_version }}-fpm
+    state: restarted
+    enabled: true
+  become: true
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: restart php-fpm
+  ansible.builtin.service:
+    name: php-fpm
+    state: restarted
+    enabled: true
+  become: true
+  when: >
+    ansible_facts['os_family'] == 'Suse' or
+    ansible_facts['os_family'] == 'RedHat'

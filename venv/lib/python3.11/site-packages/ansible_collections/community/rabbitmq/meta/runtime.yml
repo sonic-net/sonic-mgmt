@@ -1,0 +1,18 @@
+---
+requires_ansible: '>=2.9.10'
+action_groups:
+  rabbitmq:
+    - community.rabbitmq.rabbitmq_binding
+    - community.rabbitmq.rabbitmq_exchange
+    - community.rabbitmq.rabbitmq_feature_flag
+    - community.rabbitmq.rabbitmq_global_parameter
+    - community.rabbitmq.rabbitmq_parameter
+    - community.rabbitmq.rabbitmq_plugin
+    - community.rabbitmq.rabbitmq_policy
+    - community.rabbitmq.rabbitmq_publish
+    - community.rabbitmq.rabbitmq_queue
+    - community.rabbitmq.rabbitmq_upgrade
+    - community.rabbitmq.rabbitmq_user
+    - community.rabbitmq.rabbitmq_user_limits
+    - community.rabbitmq.rabbitmq_vhost
+    - community.rabbitmq.rabbitmq_vhost_limits

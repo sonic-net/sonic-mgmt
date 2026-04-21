@@ -1,0 +1,13 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.networks_wireless_ssids_identity_psks:
+        meraki_suppress_logging: true
+        state: present
+        expiresAt: "2018-02-11T00:00:00.090209Z"
+        groupPolicyId: "101"
+        name: Sample Identity PSK
+        networkId: L_828099381482771185
+        number: 1

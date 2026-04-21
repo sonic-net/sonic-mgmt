@@ -1,0 +1,3 @@
+bugfixes:
+ - purefa_dns - Corrects logic where API responds with an empty list rather than a list with a single empty string in it.
+ - purefa_ntp - Corrects workflow so that the state between desired and current are checked before marking the changed flag to true during an absent run

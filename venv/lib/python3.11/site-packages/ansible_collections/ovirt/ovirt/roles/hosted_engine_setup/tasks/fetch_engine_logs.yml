@@ -1,0 +1,41 @@
+---
+- name: Set destination directory path
+  ansible.builtin.set_fact:
+    destdir: "/var/log/ovirt-hosted-engine-setup/engine-logs-{{ ansible_date_time.iso8601 }}/"
+- name: Create destination directory
+  ansible.builtin.file:
+    state: directory
+    path: "{{ destdir }}"
+    owner: root
+    group: root
+    mode: "0700"
+- ansible.builtin.include_tasks: get_local_vm_disk_path.yml
+- name: Give the vm time to flush dirty buffers
+  ansible.builtin.wait_for:
+    timeout: 10
+  delegate_to: localhost
+  become: false
+- name: Copy engine logs
+  ansible.builtin.command: virt-copy-out -a {{ local_vm_disk_path }} {{ item }} {{ destdir }}
+  environment:
+    LIBGUESTFS_BACKEND: direct
+    LANG: en_US.UTF-8
+    LC_MESSAGES: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  ignore_errors: true
+  changed_when: true
+  with_items:
+    - /var/log
+  when: local_vm_disk_path is defined
+- name: Change ownership of copied engine logs
+  # Files owned by ovirt user/group, will be created owned by uid/gid 108, as
+  # the ovirt user/group do not exist on hosts. OpenSCAP requires having an
+  # owner/group, and no other process should automatically have access. So
+  # using 'root' is good enough.
+  ansible.builtin.file:
+    path: "{{ destdir }}"
+    owner: root
+    group: root
+    recurse: true
+  ignore_errors: true
+  changed_when: true

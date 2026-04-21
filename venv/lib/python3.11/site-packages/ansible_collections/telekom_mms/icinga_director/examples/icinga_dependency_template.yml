@@ -1,0 +1,33 @@
+---
+- name: Add dependency template to icinga
+  telekom_mms.icinga_director.icinga_dependency_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: footdependencytemplate
+    period: "24/7"
+- name: Add dependency template to icinga with customization
+  telekom_mms.icinga_director.icinga_dependency_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: footdependencytemplatecustom
+    disable_checks: true
+    disable_notifications: true
+    ignore_soft_states: false
+    period: "24/7"
+    zone: master
+    states:
+      - Warning
+      - Critical
+- name: Update dependency template with ignore_soft_states
+  telekom_mms.icinga_director.icinga_dependency_template:
+    state: present
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    object_name: footdependencytemplateappend
+    ignore_soft_states: true
+    append: true

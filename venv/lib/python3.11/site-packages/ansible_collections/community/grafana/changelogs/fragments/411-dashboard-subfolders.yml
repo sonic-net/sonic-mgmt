@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - grafana_dashboard - allow creating dashboards in subfolders

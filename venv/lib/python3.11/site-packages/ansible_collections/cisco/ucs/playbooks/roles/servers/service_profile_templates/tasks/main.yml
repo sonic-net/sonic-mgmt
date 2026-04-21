@@ -1,0 +1,18 @@
+---
+- name: "Configure {{ template_name }} Service Profile Template"
+  vars:
+    # Create an anchor for login_info that can be used throughout the file
+    login_info: &login_info
+      hostname: "{{ hostname }}"
+      username: "{{ username | default(omit) }}"
+      password: "{{ password | default('password') }}"
+      state: "{{ state | default(omit) }}"
+  cisco.ucs.ucs_service_profile_template:
+    <<: *login_info
+    name: "{{ template_name }}"
+    template_type: "{{ template_type }}"
+    host_firmware_package: "{{ host_firmware_package }}"
+    server_pool: default
+    vmedia_policy: "{{ vmedia_policy }}"
+    boot_policy: vmedia-local
+    maintenance_policy: "{{ maintenance_policy }}"

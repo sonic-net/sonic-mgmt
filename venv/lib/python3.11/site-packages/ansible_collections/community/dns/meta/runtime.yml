@@ -1,0 +1,27 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+requires_ansible: '>=2.14.0'
+action_groups:
+  hetzner:
+    - hetzner_dns_record_info
+    - hetzner_dns_record
+    - hetzner_dns_record_set_info
+    - hetzner_dns_record_set
+    - hetzner_dns_record_sets
+    - hetzner_dns_zone_info
+  hosttech:
+    - hosttech_dns_record_info
+    - hosttech_dns_record
+    - hosttech_dns_record_set_info
+    - hosttech_dns_record_set
+    - hosttech_dns_record_sets
+    - hosttech_dns_zone_info
+plugin_routing:
+  modules:
+    hosttech_dns_records:
+      tombstone:
+        removal_version: 3.0.0
+        warning_text: The hosttech_dns_records module has been renamed to hosttech_dns_record_sets.

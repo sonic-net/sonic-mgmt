@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_lun - new suboption ``exclude_aggregates`` for SAN application.
+  - na_ontap_volume - new suboption ``exclude_aggregates`` for NAS application.

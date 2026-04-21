@@ -1,0 +1,3 @@
+---
+trivial:
+  - tests - Enable automated regression testing of both "native" and "standard" interface naming modes (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/329).

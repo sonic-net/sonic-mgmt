@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_rest_cli - removed incorrect statement indicating that console access is required.

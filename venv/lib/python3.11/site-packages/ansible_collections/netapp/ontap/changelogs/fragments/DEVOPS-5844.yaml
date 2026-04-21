@@ -1,0 +1,3 @@
+---
+minor_changes:
+  - na_ontap_dns - ``skip_validation`` option requires 9.9.1 or later with REST and ignored for cluster DNS operations.

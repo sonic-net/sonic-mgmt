@@ -1,0 +1,15 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Create
+      cisco.meraki.organizations_admins:
+        meraki_suppress_logging: true
+        state: present
+        name: DevNet Admin 345
+        email: devnetmerakiadmin23@yopmail.com
+        authenticationMethod: Email
+        orgAccess: full
+        networks: []
+        tags: []
+        organizationId: "828099381482762270"

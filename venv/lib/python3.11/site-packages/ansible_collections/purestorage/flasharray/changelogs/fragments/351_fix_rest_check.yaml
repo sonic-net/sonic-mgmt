@@ -1,0 +1,2 @@
+bugfixes:
+  - purefa - Remove unneeded REST version check as causes issues with REST mismatches

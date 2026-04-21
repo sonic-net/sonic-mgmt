@@ -1,0 +1,11 @@
+- name: Play Name
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Get all administered _identities _me
+      cisco.meraki.administered_identities_me_info:
+        meraki_suppress_logging: true
+      register: result
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ result }}"

@@ -1,0 +1,45 @@
+---
+requires_ansible: ">=2.14.0"
+
+action_groups:
+  icinga:
+    - icinga_command
+    - icinga_command_info
+    - icinga_command_template
+    - icinga_command_template_info
+    - icinga_deploy
+    - icinga_deploy_info
+    - icinga_endpoint
+    - icinga_endpoint_info
+    - icinga_host
+    - icinga_host_info
+    - icinga_host_template
+    - icinga_host_template_info
+    - icinga_hostgroup
+    - icinga_hostgroup_info
+    - icinga_notification
+    - icinga_notification_info
+    - icinga_notification_template
+    - icinga_notification_template_info
+    - icinga_scheduled_downtime
+    - icinga_service
+    - icinga_service_apply
+    - icinga_service_apply_info
+    - icinga_service_info
+    - icinga_service_template
+    - icinga_service_template_info
+    - icinga_servicegroup
+    - icinga_servicegroup_info
+    - icinga_serviceset
+    - icinga_timeperiod
+    - icinga_timeperiod_info
+    - icinga_timeperiod_template
+    - icinga_timeperiod_template_info
+    - icinga_user
+    - icinga_user_group
+    - icinga_user_group_info
+    - icinga_user_info
+    - icinga_user_template
+    - icinga_user_template_info
+    - icinga_zone
+    - icinga_zone_info

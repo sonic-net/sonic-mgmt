@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_nvme_subsystem - report subsystem as absent if vserver cannot be found when attempting a delete.
+  - na_ontap_svm - added vserver as a convenient alias for name when using module_defaults.
+  - all modules - do not fail on ZAPI EMS log when vserver does not exist.

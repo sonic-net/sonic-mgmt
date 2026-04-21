@@ -1,0 +1,156 @@
+ancestor: null
+releases:
+  0.3.0:
+    changes:
+      minor_changes:
+      - Added support for SSL CA cert verification (https://github.com/ngine-io/ansible-collection-cloudstack/pull/3)
+    fragments:
+    - 3-ca-cert-verification.yml
+    release_date: '2020-07-04'
+  1.0.0:
+    changes:
+      minor_changes:
+      - cs_vlan_ip_range - Added support to set IP range for system VMs (https://github.com/ngine-io/ansible-collection-cloudstack/pull/18)
+      - cs_vlan_ip_range - Added support to specify pod name (https://github.com/ngine-io/ansible-collection-cloudstack/pull/20)
+    fragments:
+    - 18-for_system_vms_cs_vlan_ip_range.yml
+    - 20-cs_vlan_ip_range_pod.yml
+    release_date: '2020-08-15'
+  1.0.1:
+    changes:
+      minor_changes:
+      - cs_configuration - Workaround for empty global settings idempotency (https://github.com/ngine-io/ansible-collection-cloudstack/pull/25).
+    fragments:
+    - 25-empty_config_idempotency.yml
+    release_date: '2020-08-30'
+  1.1.0:
+    changes:
+      minor_changes:
+      - Deprecated the funtionality of first returned zone to be the default zone
+        because of an unreliable API. Zone will be required beginning with next major
+        version 2.0.0.
+      - cs_ip_address - allow to pick a particular IP address for a network, available
+        since CloudStack v4.13 (https://github.com/ngine-io/ansible-collection-cloudstack/issues/30).
+    fragments:
+    - cs_ip_address_reservation.yaml
+    - default_zone_deprecation.yaml
+    release_date: '2020-11-26'
+  1.2.0:
+    changes:
+      minor_changes:
+      - cs_instance - Fixed an edge case caused by `displaytext` not available (https://github.com/ngine-io/ansible-collection-cloudstack/pull/49).
+      - cs_network - Fixed constraints when creating networks. The param `gateway`
+        is no longer required if the param `netmask` is given (https://github.com/ngine-io/ansible-collection-cloudstack/pull/54).
+    fragments:
+    - 49-cs_instance-fix-keyerror.yml
+    - 54-cs_network-fix-constraints.yml
+    release_date: '2021-02-02'
+  2.0.0:
+    changes:
+      breaking_changes:
+      - Authentication option using INI files e.g. ``cloudstack.ini`` has been removed.
+        The only supported option to authenticate is by using the module params with
+        fallback to the ENV variables.
+      - default zone deprecation - The `zone` param default value, across multiple
+        modules, has been deprecated due to unreliable API (https://github.com/ngine-io/ansible-collection-cloudstack/pull/62).
+    fragments:
+    - 62-deprecate-default-zone.yml
+    - remove-ini-config.yml
+    release_date: '2021-02-02'
+  2.1.0:
+    changes:
+      minor_changes:
+      - cs_physical_network - Added VXLAN as an option of isolation methods (https://github.com/ngine-io/ansible-collection-cloudstack/pull/73).
+      - instance - New style inventory plugin implemented for instances (https://github.com/ngine-io/ansible-collection-cloudstack/pull/66)
+    fragments:
+    - 66-instance-inventory-plugin.yml
+    - cs_physical_network_isolation_methods.yml
+    plugins:
+      inventory:
+      - description: Apache CloudStack instance inventory source
+        name: instance
+        namespace: null
+    release_date: '2021-04-12'
+  2.2.0:
+    changes:
+      bugfixes:
+      - cs_instance - Fixed custom service offerings usage (https://github.com/ngine-io/ansible-collection-cloudstack/issues/79).
+      minor_changes:
+      - cs_instance - add support for MAC address and IPv6 in ``ip_to_networks`` (https://github.com/ngine-io/ansible-collection-cloudstack/issues/78).
+      - cs_instance_info - implemented support for ``host`` filter (https://github.com/ngine-io/ansible-collection-cloudstack/pull/83).
+      - cs_network_offering - implemented support for ``tags``, ``zones`` and ``domains``
+        (https://github.com/ngine-io/ansible-collection-cloudstack/pull/82).
+    fragments:
+    - 78-cs_instance_extend_ip_to_networks.yml
+    - 79-cs_instance_fix_details.yml
+    - 82-cs_network_offering_new_args.yml
+    - 83-cs_instance_info_host_filter.yml
+    release_date: '2021-09-01'
+  2.2.1:
+    changes:
+      bugfixes:
+      - cs_instance - Fixed attribute error in custom service offerings handling (https://github.com/ngine-io/ansible-collection-cloudstack/pull/87).
+    fragments:
+    - cs_instance-attribute-error.yml
+    release_date: '2021-09-27'
+  2.2.2:
+    changes:
+      bugfixes:
+      - cs_instance - Fixed missing project ID to volume query when checking root
+        disk size. (https://github.com/ngine-io/ansible-collection-cloudstack/pull/90).
+    fragments:
+    - 90-cs_instance-project-id-volume-query.yml
+    release_date: '2021-10-27'
+  2.2.3:
+    changes:
+      bugfixes:
+      - cs_instance - Fixed regression project ID KeyError if no project is used (https://github.com/ngine-io/ansible-collection-cloudstack/pull/94).
+    fragments:
+    - cs_insance.md
+    release_date: '2022-02-04'
+  2.2.4:
+    changes:
+      minor_changes:
+      - Various documentation fixes and code improvements to address ansible sanity
+        tests failure.
+    fragments:
+    - doc-fix.yml
+    release_date: '2022-05-22'
+  2.3.0:
+    changes:
+      minor_changes:
+      - cs_instance - The arguments ``cpu``, ``cpu_speed`` and ``memory`` are no longer
+        required to be set together (https://github.com/ngine-io/ansible-collection-cloudstack/issues/111).
+      - cs_instance - The optional arguments ``pod`` and ``cluster`` has been added.
+    fragments:
+    - cs_instance-pod-cluster-args.yml
+    - details_cpu_memory.yml
+    release_date: '2022-12-04'
+  2.4.0:
+    changes:
+      minor_changes:
+      - Added possiblity to disable certs validation using ``validate_certs`` argument
+        (https://github.com/ngine-io/ansible-collection-cloudstack/pull/131).
+      - cs_project - Extended to pass ``cleanup=true`` to the deleteProject API when
+        deleting a project (https://github.com/ngine-io/ansible-collection-cloudstack/pull/122).
+    fragments:
+    - cs_project_cleanup_true.yml
+    - validate-certs.yml
+    release_date: '2024-08-23'
+  2.4.1:
+    changes:
+      bugfixes:
+      - Fixed a bug related to the new option ``validate_certs`` (https://github.com/ngine-io/ansible-collection-cloudstack/pull/135).
+    fragments:
+    - fix_validate_certs.yml
+    release_date: '2024-09-25'
+  2.5.0:
+    changes:
+      minor_changes:
+      - cs_instance - Added new arguments ``user_data_name`` and ``user_data_details``
+        (https://github.com/ngine-io/ansible-collection-cloudstack/pull/134).
+      - cs_service_offering - Add support for storagetag (https://github.com/ngine-io/ansible-collection-cloudstack/pull/118).
+    fragments:
+    - cs_instance-user_data_name.yml
+    - cs_service_offering-storage-tag.yml
+    release_date: '2024-09-26'

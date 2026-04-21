@@ -1,0 +1,6 @@
+---
+minor_changes:
+  - na_ontap_snapmirror - ``schedule`` is handled through ``policy`` for REST.
+  - na_ontap_snapmirror_policy - improve error reporting and report errors in check_mode.
+  - na_ontap_snapmirror_policy - new option ``identity_preservation`` added.
+  - na_ontap_snapmirror_policy - ``name`` added as an alias for ``policy_name``.

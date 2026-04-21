@@ -1,0 +1,2 @@
+major_changes:
+  - na_ontap_lun_map_reporting_nodes - added compatibility for ASA r2 systems.

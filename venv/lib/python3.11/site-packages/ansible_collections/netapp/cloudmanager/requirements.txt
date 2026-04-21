@@ -1,0 +1,10 @@
+requests
+boto3
+botocore
+azure-mgmt-compute>=20.0.0
+azure-mgmt-core>=1.2.2
+azure-mgmt-network>=18.0.0
+azure-mgmt-resource>=16.1.0
+azure-mgmt-storage>=17.1.0
+msrestazure
+azure-common

@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_net_subnet - fixed ``ipspace`` option ignored in getting net subnet.

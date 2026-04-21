@@ -1,0 +1,7 @@
+---
+- name: Deploy the icinga config
+  telekom-mms.icinga_director.icinga_deploy:
+    url: "{{ icinga_url }}"
+    url_username: "{{ icinga_user }}"
+    url_password: "{{ icinga_pass }}"
+    timeout: 5

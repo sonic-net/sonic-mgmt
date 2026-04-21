@@ -1,0 +1,90 @@
+---
+- name: Device Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+
+  tasks:
+    - name: Add a device
+      dellemc.powerflex.device:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        current_pathname: "/dev/sdb"
+        sds_name: "node1"
+        media_type: "HDD"
+        device_name: "device2"
+        storage_pool_name: "pool1"
+        protection_domain_name: "domain1"
+        external_acceleration_type: "ReadAndWrite"
+        state: "present"
+
+    - name: Add a device with force flag
+      dellemc.powerflex.device:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        current_pathname: "/dev/sdb"
+        sds_name: "node1"
+        media_type: "HDD"
+        device_name: "device2"
+        storage_pool_name: "pool1"
+        protection_domain_name: "domain1"
+        external_acceleration_type: "ReadAndWrite"
+        force: true
+        state: "present"
+
+    - name: Get device details using device_id
+      dellemc.powerflex.device:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        device_id: "d7fe088900000000"
+        state: "present"
+
+    - name: Get device details using (current_pathname, sds_name)
+      dellemc.powerflex.device:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        current_pathname: "/dev/sdb"
+        sds_name: "node0"
+        state: "present"
+
+    - name: Get device details using (current_pathname, sds_id)
+      dellemc.powerflex.device:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        current_pathname: "/dev/sdb"
+        sds_id: "5717d71800000000"
+        state: "present"
+
+    - name: Remove a device using device_id
+      dellemc.powerflex.device:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        device_id: "76eb7e2f00010000"
+        state: "absent"
+
+    - name: Remove a device using (current_pathname, sds_name)
+      dellemc.powerflex.device:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        current_pathname: "/dev/sdb"
+        sds_name: "node1"
+        state: "absent"

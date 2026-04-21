@@ -1,0 +1,4 @@
+cluster_ip: x.x.x.x # Cluster IP of target system
+cluster_username: username # Username of target system
+cluster_password: password # Password of target system
+user_default_password: new_password # Default password for users created on target system

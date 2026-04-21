@@ -1,0 +1,2 @@
+minor_changes:
+ - purefb_bucket - From REST 2.12 the `mode` parameter default changes to `multi-site-writable`.

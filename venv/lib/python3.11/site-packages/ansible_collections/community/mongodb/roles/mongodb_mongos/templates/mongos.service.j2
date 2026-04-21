@@ -1,0 +1,22 @@
+[Unit]
+Description=mongos
+After=syslog.target
+After=network.target
+
+[Service]
+User={{ mongodb_user }}
+Group={{ mongodb_group }}
+PIDFile={{ pid_file }}
+PermissionsStartOnly=true
+ExecStartPre=/usr/local/bin/mongos_pre.sh
+ExecStart=/usr/bin/mongos --quiet \
+    --config /etc/mongos.conf
+LimitFSIZE=infinity
+LimitCPU=infinity
+LimitAS=infinity
+LimitNOFILE=64000
+LimitNPROC=64000
+TasksAccounting=false
+
+[Install]
+WantedBy=multi-user.target

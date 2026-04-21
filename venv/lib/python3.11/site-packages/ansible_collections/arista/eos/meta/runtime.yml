@@ -1,0 +1,70 @@
+---
+requires_ansible: ">=2.16.0"
+plugin_routing:
+  modules:
+    acl_interfaces:
+      redirect: arista.eos.eos_acl_interfaces
+    acls:
+      redirect: arista.eos.eos_acls
+    banner:
+      redirect: arista.eos.eos_banner
+    bgp_address_family:
+      redirect: arista.eos.eos_bgp_address_family
+    bgp_global:
+      redirect: arista.eos.eos_bgp_global
+    command:
+      redirect: arista.eos.eos_command
+    config:
+      redirect: arista.eos.eos_config
+    eapi:
+      redirect: arista.eos.eos_eapi
+    facts:
+      redirect: arista.eos.eos_facts
+    hostname:
+      redirect: arista.eos.eos_hostname
+    interfaces:
+      redirect: arista.eos.eos_interfaces
+    l2_interfaces:
+      redirect: arista.eos.eos_l2_interfaces
+    l3_interfaces:
+      redirect: arista.eos.eos_l3_interfaces
+    lacp:
+      redirect: arista.eos.eos_lacp
+    lacp_interfaces:
+      redirect: arista.eos.eos_lacp_interfaces
+    lag_interfaces:
+      redirect: arista.eos.eos_lag_interfaces
+    lldp:
+      redirect: arista.eos.eos_lldp
+    lldp_global:
+      redirect: arista.eos.eos_lldp_global
+    lldp_interfaces:
+      redirect: arista.eos.eos_lldp_interfaces
+    logging_global:
+      redirect: arista.eos.eos_logging_global
+    ntp_global:
+      redirect: arista.eos.eos_ntp_global
+    ospfv2:
+      redirect: arista.eos.eos_ospfv2
+    ospfv3:
+      redirect: arista.eos.eos_ospfv3
+    ospf_interfaces:
+      redirect: arista.eos.eos_ospf_interfaces
+    prefix_lists:
+      redirect: arista.eos.eos_prefix_lists
+    route_maps:
+      redirect: arista.eos.eos_route_maps
+    snmp_server:
+      redirect: arista.eos.eos_snmp_server
+    static_routes:
+      redirect: arista.eos.eos_static_routes
+    system:
+      redirect: arista.eos.eos_system
+    user:
+      redirect: arista.eos.eos_user
+    vlans:
+      redirect: arista.eos.eos_vlans
+    vrf:
+      redirect: arista.eos.eos_vrf
+    vrf_global:
+      redirect: arista.eos.eos_vrf_global

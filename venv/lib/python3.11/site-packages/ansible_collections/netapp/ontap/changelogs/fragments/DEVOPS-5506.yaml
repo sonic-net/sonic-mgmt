@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_user - fix idempotency issue with 9.11 because of new is_ldap_fastbind field.

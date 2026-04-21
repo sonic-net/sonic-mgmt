@@ -1,0 +1,3 @@
+---
+bugfixes:
+  - na_ontap_volume_efficiency - Missing fields in REST get should return None and not crash module.

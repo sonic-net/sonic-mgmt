@@ -1,0 +1,28 @@
+---
+- name: Gcsfuse | Ensure gpg is installed
+  ansible.builtin.apt:
+    name: gnupg
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2
+
+- name: Gcsfuse | Add an apt signing key
+  ansible.builtin.apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+
+- name: Gcsfuse | Add the apt repository
+  ansible.builtin.apt_repository:
+    repo: deb https://packages.cloud.google.com/apt gcsfuse-{{ ansible_distribution_release }} main
+    state: present
+    filename: gcsfuse
+
+- name: Gcsfuse | Install gcsfuse
+  ansible.builtin.apt:
+    name: gcsfuse
+    update_cache: "yes"
+  register: task_result
+  until: task_result is success
+  retries: 10
+  delay: 2

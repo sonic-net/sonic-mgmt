@@ -1,0 +1,2 @@
+bugfixes:
+ - purefa_ra - fix disable feature for remote assist, this didn't work due to error in check logic

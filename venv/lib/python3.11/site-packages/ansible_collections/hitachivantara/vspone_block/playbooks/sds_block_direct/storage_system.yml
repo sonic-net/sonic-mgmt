@@ -1,0 +1,76 @@
+---
+####################################################################
+# Example : StorageSystem Playbook
+####################################################################
+- name: SDSB StorageSystem
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Configure storage system with write-back cache protection
+    ####################################################################
+    - name: Configure storage system with write-back cache protection
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_system:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          enable_write_back_mode_with_cache_protection: true
+      register: cache_config_result
+
+    - name: Debug cache configuration result
+      ansible.builtin.debug:
+        var: cache_config_result
+
+    ####################################################################
+    # Task Name : Import root certificate
+    ####################################################################
+    - name: Import root certificate
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_system:
+        connection_info: "{{ connection_info }}"
+        state: import_root_certificate
+        spec:
+          root_certificate_file_path: "/path_of_certificate_file/cert.cer"
+      register: import_cert_result
+
+    - name: Debug import certificate result
+      ansible.builtin.debug:
+        var: import_cert_result
+
+    ####################################################################
+    # Task Name : Download root certificate
+    ###################################################################
+    - name: Download root certificate
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_system:
+        connection_info: "{{ connection_info }}"
+        state: download_root_certificate
+        spec:
+          download_path: "/path_to_store_certificate_file/"
+      register: download_cert_result
+
+    - name: Debug download certificate result
+      ansible.builtin.debug:
+        var: download_cert_result
+
+    # ####################################################################
+    # # Task Name : Delete root certificate
+    # ####################################################################
+    - name: Delete root certificate
+      hitachivantara.vspone_block.sds_block.hv_sds_block_storage_system:
+        connection_info: "{{ connection_info }}"
+        state: delete_root_certificate
+      register: delete_cert_result
+
+    - name: Debug delete certificate result
+      ansible.builtin.debug:
+        var: delete_cert_result

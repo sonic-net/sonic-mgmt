@@ -1,0 +1,13 @@
+bugfixes:
+  - na_cloudmanager_aggregate - accept client_id end with or without 'clients'
+  - na_cloudmanager_cifs_server - accept client_id end with or without 'clients'
+  - na_cloudmanager_connector_aws - accept client_id end with or without 'clients'
+  - na_cloudmanager_connector_azure - accept client_id end with or without 'clients'
+  - na_cloudmanager_connector_gcp - accept client_id end with or without 'clients'
+  - na_cloudmanager_cvo_aws - accept client_id end with or without 'clients'
+  - na_cloudmanager_cvo_azure - accept client_id end with or without 'clients'
+  - na_cloudmanager_cvo_gcp - accept client_id end with or without 'clients'
+  - na_cloudmanager_info - accept client_id end with or without 'clients'
+  - na_cloudmanager_nss_account - accept client_id end with or without 'clients'
+  - na_cloudmanager_snapmirror - accept client_id end with or without 'clients'
+  - na_cloudmanager_volume - accept client_id end with or without 'clients'

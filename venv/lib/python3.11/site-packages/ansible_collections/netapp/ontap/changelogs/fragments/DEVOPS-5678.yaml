@@ -1,0 +1,5 @@
+---
+minor_changes:
+  - na_ontap_snapmirror_policy - new option ``copy_all_source_snapshots`` added in REST.
+bugfixes:
+  - na_ontap_snapmirror_policy - fixed idempotency issue on ``identity_preservation`` option when using REST.

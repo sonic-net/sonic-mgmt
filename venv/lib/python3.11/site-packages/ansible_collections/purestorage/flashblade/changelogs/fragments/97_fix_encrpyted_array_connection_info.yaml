@@ -1,0 +1,2 @@
+bugfixes:
+ - purefb_info - Fix issue getting array info when encrypted connection exists

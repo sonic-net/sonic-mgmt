@@ -1,0 +1,3 @@
+minor_changes:
+ - purefb_info - Expose object store bucket type from Purity//FB 3.3.3
+ - purefb_bucket - Allow setting of bucket type to support VSO - requires Purity//FB 3.3.3 or higher

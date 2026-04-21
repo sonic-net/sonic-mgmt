@@ -1,0 +1,3 @@
+minor_changes:
+  - na_sg_grid_group - new option `read_only` added for grid groups.
+  - na_sg_org_group - new option `read_only` added for tenant groups.

@@ -1,0 +1,4 @@
+---
+bugfixes:
+  - na_ontap_nfs - fix TypeError on NoneType as ``tcp_max_xfer_size`` is not supported in earlier ONTAP versions.
+  - na_ontap_nfs - fix ``Extra input`` error with ZAPI for ``is-nfsv4-enabled``.

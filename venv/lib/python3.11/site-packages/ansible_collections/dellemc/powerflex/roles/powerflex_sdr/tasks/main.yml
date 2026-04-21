@@ -1,0 +1,8 @@
+---
+- name: Add SDR
+  ansible.builtin.include_tasks: add_sdr.yml
+  when: powerflex_sdr_state == 'present'
+
+- name: Remove SDR
+  ansible.builtin.include_tasks: remove_sdr.yml
+  when: powerflex_sdr_state == 'absent'

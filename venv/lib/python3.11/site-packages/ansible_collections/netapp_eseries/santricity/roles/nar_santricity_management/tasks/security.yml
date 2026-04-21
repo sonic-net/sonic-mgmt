@@ -1,0 +1,213 @@
+- name: Ensure admin password is set and is correct
+  netapp_eseries.santricity.na_santricity_auth:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: |-
+      {%- if current_eseries_api_is_proxy == True -%}
+        {{- current_eseries_api_password -}}
+      {%- else -%}
+        {{- eseries_system_old_password | default(current_eseries_api_password) -}}
+      {%- endif -%}
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    current_admin_password: |-
+      {%- if current_eseries_api_is_proxy == True -%}
+        {{- eseries_system_old_password | default(eseries_system_password) -}}
+      {%- else -%}
+        {{- omit -}}
+      {%- endif -%}
+    user: admin
+    password: "{{ eseries_system_password }}"
+  connection: local
+  register: admin_password
+  when: eseries_system_password is defined
+  tags:
+    - always
+
+- name: Update current_eseries_api_password if storage system password changed.
+  block:
+    - name: Update current_eseries_api_password.
+      ansible.builtin.set_fact:
+        current_eseries_api_password: |-
+          {%- if current_eseries_api_is_proxy == True -%}
+            {{- current_eseries_api_password -}}
+          {%- else -%}
+            {{- eseries_system_password -}}
+          {%- endif -%}
+      no_log: true
+    - name: Wait for password to update
+      ansible.builtin.pause:
+        seconds: 5
+  when: admin_password['changed'] == True
+
+- name: Ensure non-admin passwords have been set
+  netapp_eseries.santricity.na_santricity_auth:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    current_admin_password: |-
+      {%- if current_eseries_api_is_proxy == True -%}
+        {{- eseries_system_password -}}
+      {%- else -%}
+        {{- omit -}}
+      {%- endif -%}
+    user: "{{ item['key'] }}"
+    password: "{{ item['value'] }}"
+  connection: local
+  loop: "{{ lookup('dict', non_admin_user_authentication, wantlist=True) }}"
+  vars:
+    non_admin_user_authentication: |-
+      {%- set non_admin_list = {} %}
+        {%- if eseries_system_monitor_password is defined and eseries_system_monitor_password and non_admin_list.update({"monitor": eseries_system_monitor_password})%}{%- endif %}
+        {%- if eseries_system_security_password is defined and eseries_system_security_password and non_admin_list.update({"security": eseries_system_security_password})%}{%- endif %}
+        {%- if eseries_system_storage_password is defined and eseries_system_storage_password and non_admin_list.update({"storage": eseries_system_storage_password})%}{%- endif %}
+        {%- if eseries_system_support_password is defined and eseries_system_support_password and non_admin_list.update({"support": eseries_system_support_password})%}{%- endif %}
+      {{ non_admin_list }}
+
+- name: Ensure client certificates are installed
+  netapp_eseries.santricity.na_santricity_client_certificate:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    certificates: "{{ certificates }}"
+    remove_unspecified_user_certificates: "{{ eseries_client_certificate_remove_unspecified_user_certificates | default(omit) }}"
+  connection: local
+  when: eseries_client_certificate_certificates is defined or eseries_client_certificate_common_certificates is defined
+  tags:
+    - security
+    - certificates
+  vars:
+    certificates: |-
+      {%- set certs = [] -%}
+
+      {#- Add common client certificates -#}
+      {%- if eseries_client_certificate_common_certificates is defined -%}
+        {%- if eseries_client_certificate_common_certificates is string -%}
+          {%- if certs.append(eseries_client_certificate_common_certificates) -%}{%- endif -%}
+        {%- elif eseries_client_certificate_common_certificates is iterable -%}
+          {%- if certs.extend(eseries_client_certificate_common_certificates) -%}{%- endif -%}
+        {%- endif -%}
+      {%- endif -%}
+
+      {#- Add controller A client certificates -#}
+      {%- if eseries_client_certificate_certificates is defined -%}
+        {%- if eseries_client_certificate_certificates is string -%}
+          {%- if eseries_client_certificate_certificates not in certs -%}
+            {%- if certs.append(eseries_client_certificate_certificates) -%}{%- endif -%}
+          {%- endif -%}
+        {%- elif eseries_client_certificate_certificates is iterable -%}
+          {%- for client_cert in eseries_client_certificate_certificates if client_cert not in certs -%}
+            {%- if certs.append(client_cert) -%}{%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+      {%- endif -%}
+      {{- certs -}}
+
+- name: Ensure controller A server certificates are installed
+  netapp_eseries.santricity.na_santricity_server_certificate:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    controller: "A"
+    certificates: "{{ certificates }}"
+    passphrase: "{{ eseries_server_certificate['controller_a']['passphrase'] | default(eseries_server_certificate_common_passphrase | default(omit)) }}"
+  connection: local
+  when: eseries_server_certificate_common_certificates is defined or eseries_server_certificate['controller_a'] is defined or eseries_server_certificate['controller_a']['certificates'] is defined
+  tags:
+    - security
+    - certificates
+  vars:
+    certificates: |-
+      {%- set certs = [] -%}
+
+      {#- Add common server certificates -#}
+      {%- if eseries_server_certificate_common_certificates is defined -%}
+        {%- if eseries_server_certificate_common_certificates is string -%}
+          {%- if certs.append(eseries_server_certificate_common_certificates) -%}{%- endif -%}
+        {%- elif eseries_server_certificate_common_certificates is iterable -%}
+          {%- if certs.extend(eseries_server_certificate_common_certificates) -%}{%- endif -%}
+        {%- endif -%}
+      {%- endif -%}
+
+      {#- Add controller A certificates -#}
+      {%- if eseries_server_certificate is defined and eseries_server_certificate["controller_a"] is defined or eseries_server_certificate["controller_b"]["certificates"] is defined -%}
+        {%- if eseries_server_certificate["controller_a"]["certificates"] is string -%}
+          {%- if eseries_server_certificate["controller_a"]["certificates"] not in certs -%}
+            {%- if certs.append(eseries_server_certificate["controller_a"]["certificates"]) -%}{%- endif -%}
+          {%- endif -%}
+        {%- elif eseries_server_certificate["controller_a"]["certificates"] is iterable -%}
+          {%- for server_cert in eseries_server_certificate["controller_a"]["certificates"] if server_cert not in certs -%}
+            {%- if certs.append(server_cert) -%}{%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+      {%- endif -%}
+      {{- certs -}}
+
+- name: Ensure controller B server certificates are installed
+  netapp_eseries.santricity.na_santricity_server_certificate:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    controller: "B"
+    certificates: "{{ certificates }}"
+    passphrase: "{{ eseries_server_certificate['controller_b']['passphrase'] | default(eseries_server_certificate_common_passphrase | default(omit)) }}"
+  connection: local
+  when: eseries_server_certificate_common_certificates is defined or eseries_server_certificate['controller_b'] is defined or eseries_server_certificate['controller_b']['certificates'] is defined
+  tags:
+    - security
+    - certificates
+  vars:
+    certificates: |-
+      {%- set certs = [] -%}
+
+      {#- Add common server certificates -#}
+      {%- if eseries_server_certificate_common_certificates is defined -%}
+        {%- if eseries_server_certificate_common_certificates is string -%}
+          {%- if certs.append(eseries_server_certificate_common_certificates) -%}{%- endif -%}
+        {%- elif eseries_server_certificate_common_certificates is iterable -%}
+          {%- if certs.extend(eseries_server_certificate_common_certificates) -%}{%- endif -%}
+        {%- endif -%}
+      {%- endif -%}
+
+      {#- Add controller B certificates -#}
+      {%- if eseries_server_certificate is defined and eseries_server_certificate["controller_b"] is defined or eseries_server_certificate["controller_b"]["certificates"] is defined -%}
+        {%- if eseries_server_certificate["controller_b"]["certificates"] is string -%}
+          {%- if eseries_server_certificate["controller_b"] not in certs -%}
+            {%- if certs.append(eseries_server_certificate["controller_b"]["certificates"]) -%}{%- endif -%}
+          {%- endif -%}
+        {%- elif eseries_server_certificate["controller_b"]["certificates"] is iterable -%}
+          {%- for server_cert in eseries_server_certificate["controller_b"]["certificates"] if server_cert not in certs -%}
+            {%- if certs.append(server_cert) -%}{%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+      {%- endif -%}
+      {{- certs -}}
+
+- name: Ensure LDAP has been configured
+  netapp_eseries.santricity.na_santricity_ldap:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: "{{ eseries_ldap_state }}"
+    identifier: "{{ eseries_ldap_identifier | default(omit) }}"
+    server_url: "{{ eseries_ldap_server | default(omit) }}"
+    bind_user: "{{ eseries_ldap_bind_username | default(omit) }}"
+    bind_password: "{{ eseries_ldap_bind_password | default(omit) }}"
+    search_base: "{{ eseries_ldap_search_base | default(omit) }}"
+    user_attribute: "{{ eseries_ldap_user_attribute | default(omit) }}"
+    role_mappings: "{{ eseries_ldap_role_mappings | default(omit) }}"
+  connection: local
+  when: eseries_ldap_state is defined
+  tags:
+    - security
+    - ldap

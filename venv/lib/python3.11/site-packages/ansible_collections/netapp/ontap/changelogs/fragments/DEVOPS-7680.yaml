@@ -1,0 +1,2 @@
+minor_changes:
+  - na_ontap_net_port - Added REST support for `flowcontrol_admin` and `ipspace`.

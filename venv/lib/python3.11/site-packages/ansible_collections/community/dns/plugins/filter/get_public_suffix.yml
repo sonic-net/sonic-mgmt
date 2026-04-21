@@ -1,0 +1,39 @@
+---
+# Copyright (c) Ansible Project
+# GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+DOCUMENTATION:
+  name: get_public_suffix
+  short_description: Returns the public suffix of a DNS name
+  version_added: 0.1.0
+  description:
+    - Returns the public suffix of a DNS name.
+  options:
+    _input:
+      description:
+        - A DNS name.
+      type: string
+      required: true
+    keep_leading_period:
+      description:
+        - This controls whether the leading period of a public suffix is preserved or not.
+      type: boolean
+      default: true
+  extends_documentation_fragment:
+    - community.dns.filters
+    - community.dns.filters.public_suffix
+    - community.dns.filters.get
+  author:
+    - Felix Fontein (@felixfontein)
+
+EXAMPLES: |
+  - name: Extract the public suffix from a DNS name
+    ansible.builtin.set_fact:
+      public_suffix: "{{ 'www.ansible.co.uk' | community.dns.get_public_suffix }}"
+      # Should result in '.co.uk'
+
+RETURN:
+  _value:
+    description: The public suffix.
+    type: string

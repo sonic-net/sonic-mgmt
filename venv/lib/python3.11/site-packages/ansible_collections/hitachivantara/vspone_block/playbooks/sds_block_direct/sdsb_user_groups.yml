@@ -1,0 +1,91 @@
+---
+####################################################################
+# Example : User Group Playbook
+####################################################################
+- name: User Group Module
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../ansible_vault_vars/ansible_vault_storage_var.yml
+
+  vars:
+    # Common connection info for all tasks
+    connection_info:
+      address: "{{ storage_address }}"
+      username: "{{ vault_storage_username }}"
+      password: "{{ vault_storage_secret }}"
+
+  tasks:
+    ####################################################################
+    # Task Name : Create a user group
+    ####################################################################
+    - name: Create a user group
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user_group:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          id: "VpsAdmin"
+          role_names:
+            - "Security"
+            - "Storage"
+            # - "RemoteCopy"
+            - "Monitor"
+            # - "Service"
+            # - "Audit"
+            # - "Resource"
+          # external_group_name: "VpsAdmin"
+          vps_id: "system"
+          scope:
+            - "system"
+            - "2a843522-a819-47ab-a208-69d190809604"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Update a user group
+    ####################################################################
+    - name: Update a user group
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user_group:
+        connection_info: "{{ connection_info }}"
+        state: present
+        spec:
+          id: "admin-vps02"
+          role_names:
+            - "Security"
+            - "Storage"
+            # - "RemoteCopy"
+            - "Monitor"
+            # - "Service"
+            # - "Audit"
+            # - "Resource"
+            # - "VpsSecurity"
+            # - "VpsStorage"
+            # - "VpsMonitor"
+          scope:
+            - "system"
+            - "2a843522-a819-47ab-a208-69d190809604"
+            - "ae0f247c-dc56-491c-9cb9-4b2b6d33b345"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result
+
+    ####################################################################
+    # Task Name : Delete a user group
+    ####################################################################
+    - name: Delete a user group
+      hitachivantara.vspone_block.sds_block.hv_sds_block_user_group:
+        connection_info: "{{ connection_info }}"
+        state: absent
+        spec:
+          id: "admin-vps03"
+      register: result
+
+    - name: Debug the result variable
+      ansible.builtin.debug:
+        var: result

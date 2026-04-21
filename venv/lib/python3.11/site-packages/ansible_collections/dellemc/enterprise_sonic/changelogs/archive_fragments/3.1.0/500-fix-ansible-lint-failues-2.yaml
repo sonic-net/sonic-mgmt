@@ -1,0 +1,4 @@
+---
+trivial:
+  - modules - Fix ansible lint failures in module files part 2, update copyright, and ensure more consistency in example texts (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/500).
+  - playbooks - Fix ansible lint failures in playbooks/common_examples files(https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/500).

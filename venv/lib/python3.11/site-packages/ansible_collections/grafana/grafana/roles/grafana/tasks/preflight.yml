@@ -1,0 +1,104 @@
+---
+- name: "Check variable types"
+  ansible.builtin.assert:
+    that:
+      - grafana_logs_dir is undefined
+      - grafana_data_dir is undefined
+      - grafana_server is undefined
+      - grafana_database is undefined
+      - grafana_security is undefined
+      - grafana_remote_cache is undefined
+      - grafana_welcome_email_on_sign_up  is undefined
+      - grafana_users is undefined
+      - grafana_auth is undefined
+      - grafana_auth_generic_oauth is undefined
+      - grafana_session is undefined
+      - grafana_analytics is undefined
+      - grafana_smtp is undefined
+      - grafana_alerting is undefined
+      - grafana_unified_alerting is undefined
+      - grafana_log is undefined
+      - grafana_metrics is undefined
+      - grafana_tracing is undefined
+      - grafana_snapshots is undefined
+      - grafana_image_storage is undefined
+      - grafana_date_formats is undefined
+      - grafana_feature_toggles is undefined
+      - grafana_plugins_ops is undefined
+      - grafana_instance is undefined
+      - grafana_address is undefined
+      - grafana_port is undefined
+      - grafana_domain is undefined
+      - grafana_url is undefined
+      - grafana_panels is undefined
+    fail_msg: Check upgrade notes
+
+- name: "Fail when datasources aren't configured when dashboards are set to be installed"
+  ansible.builtin.fail:
+    msg: "You need to specify datasources for dashboards!!!"
+  when: "grafana_dashboards != [] and grafana_datasources == []"
+
+- name: "Fail when grafana admin user isn't set"
+  ansible.builtin.fail:
+    msg: "Please specify grafana admin user (grafana_ini.security.admin_user)"
+  when:
+    - "grafana_ini.security.admin_user == '' or
+        grafana_ini.security.admin_user is not defined"
+
+- name: "Fail when grafana admin password isn't set"
+  ansible.builtin.fail:
+    msg: "Please specify grafana admin password (grafana_ini.security.admin_password)"
+  when:
+    - "grafana_ini.security.admin_password == '' or
+        grafana_ini.security.admin_password is not defined"
+
+- name: "Fail on incorrect variable types in datasource definitions"
+  ansible.builtin.fail:
+    msg: "Boolean variables in grafana_datasources shouldn't be passed as strings. Please remove unneeded apostrophes."
+  when: "( item.isDefault is defined and item.isDefault is string ) or
+          ( item.basicAuth is defined and item.basicAuth is string )"
+  loop: "{{ grafana_datasources }}"
+
+- name: "Fail on bad database configuration"
+  ansible.builtin.fail:
+    msg: "Invalid database configuration. Please look at http://docs.grafana.org/installation/configuration/#database"
+  when: "( grafana_ini.database.type == 'sqlite3' and grafana_ini.database.url is defined ) or
+          ( grafana_ini.database.type != 'sqlite3' and grafana_ini.database.path is defined ) or
+          ( grafana_ini.database.type == 'sqlite3' and grafana_ini.database.host is defined ) or
+          ( grafana_ini.database.type == 'sqlite3' and grafana_ini.database.user is defined ) or
+          ( grafana_ini.database.type == 'sqlite3' and grafana_ini.database.password is defined ) or
+          ( grafana_ini.database.type == 'sqlite3' and grafana_ini.database.server_cert_name is defined )"
+
+- name: "Fail when grafana_api_keys uses invalid role names"
+  ansible.builtin.fail:
+    msg: "Check grafana_api_keys. The role can only be one of the following values: Viewer, Editor or Admin."
+  when: "item.role not in ['Viewer', 'Editor', 'Admin']"
+  loop: "{{ grafana_api_keys }}"
+
+- name: "Fail when grafana_ldap isn't set when grafana_ini.auth.ldap is"
+  ansible.builtin.fail:
+    msg: "You need to configure grafana_ldap.servers and grafana_ldap.group_mappings when grafana_ini.auth.ldap is set"
+  when:
+    - "'ldap' in grafana_ini.auth"
+    - "grafana_ldap is not defined or ('servers' not in grafana_ldap or 'group_mappings' not in grafana_ldap)"
+
+- name: "Force grafana_use_provisioning to false if grafana_version is < 5.0 ( grafana_version is set to '{{ grafana_version }}' )"
+  ansible.builtin.set_fact:
+    grafana_use_provisioning: false
+  when:
+    - "grafana_version != 'latest'"
+    - "grafana_version is version_compare('5.0', '<')"
+
+- name: "Fail if grafana_ini.server.http_port is lower than 1024 and grafana_cap_net_bind_service is not true"
+  ansible.builtin.fail:
+    msg: "Trying to use a port lower than 1024 without setting grafana_cap_net_bind_service."
+  when:
+    - "grafana_ini.server.http_port | int <= 1024"
+    - "not grafana_cap_net_bind_service"
+
+- name: "Fail if grafana_ini.server.socket not defined when in socket mode"
+  ansible.builtin.fail:
+    msg: "You need to configure grafana_ini.server.socket when grafana_ini.server.protocol is set to 'socket'"
+  when:
+    - "grafana_ini.server.protocol is defined and grafana_ini.server.protocol == 'socket'"
+    - "grafana_ini.server.socket is undefined or grafana_ini.server.socket == ''"

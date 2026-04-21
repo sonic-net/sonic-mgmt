@@ -1,0 +1,123 @@
+---
+# tasks file for mongodb_mongos
+- name: Include OS-specific vars
+  include_vars:
+    file: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      paths:
+        - "vars"
+      files:
+        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_version }}.yml"
+        - "{{ ansible_facts.os_family }}-{{ ansible_facts.distribution_major_version }}.yml"
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - default.yml
+  tags:
+    - "vars"
+
+- name: Create mongodb_group
+  group:
+    name: "{{ mongodb_group }}"
+    system: yes
+  tags:
+    - "linux"
+    - "setup"
+    - "mongodb"
+
+- name: Create mongodb_user
+  user:
+    name: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+    system: yes
+    createhome: no
+  tags:
+    - "linux"
+    - "setup"
+    - "mongodb"
+
+- name: Copy keyfile to host
+  copy:
+    content: |
+      {{ openssl_keyfile_content }}
+    dest: "{{ openssl_keyfile_path }}"
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+    mode: 0400
+  notify:
+    - Restart mongos service
+  tags:
+    - "setup"
+    - "mongodb"
+
+- name: Ensure /usr/local/bin/ directory exists
+  file:
+    path: /usr/local/bin/
+    state: directory
+    recurse: yes
+  tags:
+    - "setup"
+    - "mongodb"
+
+- name: Ensure mongos service pre start script exists
+  template:
+    src: mongos_pre.sh.j2
+    dest: /usr/local/bin/mongos_pre.sh
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+    mode: 0755
+  tags:
+    - "setup"
+    - "mongodb"
+
+- name: Ensure mongos.service file exists
+  template:
+    src: mongos.service.j2
+    dest: /etc/systemd/system/mongos.service
+    owner: root
+    group: root
+  register: sysd
+  tags:
+    - "setup"
+    - "mongodb"
+
+- name: Run systemctl daemon-reload
+  systemd:
+    daemon_reload: yes
+  when: sysd is changed
+  tags:
+    - "setup"
+    - "service"
+
+- name: Ensure mongos.conf file exists
+  template:
+    src: "{{ mongos_config_template }}"
+    dest: /etc/mongos.conf
+    owner: "{{ mongodb_user }}"
+    group: "{{ mongodb_group }}"
+  notify:
+    - Restart mongos service
+  tags:
+    - "setup"
+    - "mongodb"
+
+- name: Ensure mongos package is installed
+  package:
+    name: "{{ mongos_package }}"
+  register: _pkg
+  until: _pkg is succeeded
+  retries: 5
+  tags:
+    - "setup"
+    - "mongodb"
+    - "pkg"
+
+- name: Start mongos service
+  service:
+    name: "{{ mongos_service }}"
+    state: started
+    enabled: yes
+  tags:
+    - "setup"
+    - "mongodb"
+    - "service"

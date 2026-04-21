@@ -1,0 +1,116 @@
+- name: Determine if any snapshot consistency group views are not specified.
+  block:
+    - name: Retrieve all snapshot consistency groups
+      uri:
+        url: "{{ current_eseries_api_url }}storage-systems/{{ current_eseries_ssid }}/consistency-groups"
+        method: GET
+        url_password: "{{ current_eseries_api_password }}"
+        url_username: "{{ current_eseries_api_username }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+      connection: local
+      register: existing_consistency_groups
+
+    - name: Retrieve all snapshot consistency group views
+      uri:
+        url: "{{ current_eseries_api_url }}storage-systems/{{ current_eseries_ssid }}/consistency-groups/views"
+        method: GET
+        url_password: "{{ current_eseries_api_password }}"
+        url_username: "{{ current_eseries_api_username }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+      connection: local
+      register: existing_consistency_group_views
+
+    - name: Ensure all unspecified snapshot consistency group views are removed.
+      na_santricity_snapshot:
+        ssid: "{{ current_eseries_ssid }}"
+        api_url: "{{ current_eseries_api_url }}"
+        api_username: "{{ current_eseries_api_username }}"
+        api_password: "{{ current_eseries_api_password }}"
+        validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+        state: absent
+        type: view
+        group_name: "{{ item['group_name'] }}"
+        view_name: "{{ item['view_name'] }}"
+      connection: local
+      loop: "{{ unspecified_groups }}"
+      vars:
+        unspecified_groups: |-
+          {%- set unspecified_group_views = [] -%}
+          {%- for existing_view in existing_consistency_group_views["json"] -%}
+            {%- for view in eseries_snapshot_views | default([]) if existing_view["name"] == view["name"] -%}
+              {#- DO NOTHING -#}
+            {%- else -%}
+              {%- for group in existing_consistency_groups["json"] if group["id"] == existing_view["groupRef"] -%}
+                {%- if unspecified_group_views.append({"group_name": group["name"], "view_name": existing_view["name"]}) -%}{%- endif -%}
+              {%- endfor -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          {{- unspecified_group_views -}}
+  when: (eseries_remove_all_configuration | default(False)) == False and eseries_snapshot_remove_unspecified == True
+
+- name: "Ensure all snapshot consistency views {{'exist' if (eseries_remove_all_configuration_state | default('present')) == 'present' else 'are removed' }}."
+  na_santricity_snapshot:
+    ssid: "{{ current_eseries_ssid }}"
+    api_url: "{{ current_eseries_api_url }}"
+    api_username: "{{ current_eseries_api_username }}"
+    api_password: "{{ current_eseries_api_password }}"
+    validate_certs: "{{ current_eseries_validate_certs | default(omit) }}"
+    state: "{{ eseries_remove_all_configuration_state | default('present') }}"
+    type: view
+    view_name: "{{ item['name'] }}"
+    group_name: "{{ item['group_name'] }}"
+    pit_name: "{{ item['pit_name'] | default(omit) }}"
+    pit_timestamp: "{{ item['pit_timestamp'] | default(omit) }}"
+    volumes: "{{ item['volumes'] | default(omit) }}"
+    reserve_capacity_pct: "{{ item['reserve_capacity_pct'] | default(omit) }}"
+    preferred_reserve_storage_pool: "{{ item['preferred_reserve_storage_pool'] | default(omit) }}"
+    alert_threshold_pct: "{{ item['alert_threshold_pct'] | default(omit) }}"
+    view_host: "{{ item['host'] | default(omit) }}"
+    view_writable: "{{ item['writable'] | default(omit) }}"
+    view_validate: "{{ item['validate'] | default(omit) }}"
+  connection: local
+  loop: "{{ consistency_group_views }}"
+  vars:
+    consistency_group_views: |-
+      {%- set consistency_group_views = [] -%}
+      {%- for view in eseries_snapshot_views | default([]) -%}
+        {%- set view_info = {"name": view["name"], "group_name": view["group_name"]} -%}
+        {%- if "pit_name" in (view.keys() | list) and view_info.update({"pit_name": view["pit_name"]}) -%}{%- endif -%}
+        {%- if "pit_timestamp" in (view.keys() | list) and view_info.update({"pit_timestamp": view["pit_timestamp"]}) -%}{%- endif -%}
+
+        {%- if "host" in (view.keys() | list) or eseries_snapshot_views_host is defined -%}
+          {%- if view_info.update({"host": view["host"] | default(eseries_snapshot_views_host)}) -%}{%- endif -%}{%- endif -%}
+        {%- if "reserve_capacity_pct" in (view.keys() | list) or eseries_snapshot_views_reserve_capacity_pct is defined -%}
+          {%- if view_info.update({"reserve_capacity_pct": view["reserve_capacity_pct"] | default(eseries_snapshot_views_reserve_capacity_pct)}) -%}{%- endif -%}{%- endif -%}
+        {%- if "preferred_reserve_storage_pool" in (view.keys() | list) or eseries_snapshot_views_preferred_reserve_storage_pool is defined -%}
+          {%- if view_info.update({"preferred_reserve_storage_pool": view["preferred_reserve_storage_pool"] | default(eseries_snapshot_views_preferred_reserve_storage_pool)}) -%}{%- endif -%}{%- endif -%}
+        {%- if "alert_threshold_pct" in (view.keys() | list) or eseries_snapshot_views_alert_threshold_pct is defined -%}
+          {%- if view_info.update({"alert_threshold_pct": view["alert_threshold_pct"] | default(eseries_snapshot_views_alert_threshold_pct)}) -%}{%- endif -%}{%- endif -%}
+        {%- if "writable" in (view.keys() | list) or eseries_snapshot_views_writable is defined -%}
+          {%- if view_info.update({"writable": view["writable"] | default(eseries_snapshot_views_writable)}) -%}{%- endif -%}{%- endif -%}
+        {%- if "validate" in (view.keys() | list) or eseries_snapshot_views_validate is defined -%}
+          {%- if view_info.update({"validate": view["validate"] | default(eseries_snapshot_views_validate)}) -%}{%- endif -%}{%- endif -%}
+        {%- if "alert_threshold_pct" in (view.keys() | list) or eseries_snapshot_views_alert_threshold_pct is defined -%}
+          {%- if view_info.update({"alert_threshold_pct": view["alert_threshold_pct"] | default(eseries_snapshot_views_alert_threshold_pct)}) -%}{%- endif -%}{%- endif -%}
+
+        {%- if "volumes" in (view.keys() | list) -%}
+          {%- if view_info.update({"volumes": [] }) -%}{%- endif -%}
+          {%- for volume in view["volumes"] -%}
+            {%- set volume_info = {"volume": volume["volume"],
+                                   "reserve_capacity_pct": volume["reserve_capacity_pct"] | default(view_info["reserve_capacity_pct"] | default(False)),
+                                   "snapshot_volume_writable": volume["writable"] | default(view_info["writable"] | default(True)),
+                                   "snapshot_volume_validate": volume["validate"] | default(view_info["validate"] | default(False))} -%}
+
+            {%- if "host" in (volume.keys() | list) or "host" in (view_info.keys() | list) -%}
+              {%- if volume_info.update({"snapshot_volume_host": volume["host"] | default(view_info["host"])}) -%}{%- endif -%}{%- endif -%}
+            {%- if "lun" in (volume.keys() | list) -%}
+              {%- if volume_info.update({"snapshot_volume_lun": volume["lun"]}) -%}{%- endif -%}{%- endif -%}
+            {%- if "preferred_reserve_storage_pool" in (volume.keys() | list) or "preferred_reserve_storage_pool" in (view_info.keys() | list) -%}
+              {%- if volume_info.update({"preferred_reserve_storage_pool": volume["preferred_reserve_storage_pool"] | default(view_info["preferred_reserve_storage_pool"])}) -%}{%- endif -%}{%- endif -%}
+
+            {%- if view_info["volumes"].append(volume_info) -%}{%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+        {%- if consistency_group_views.append(view_info) -%}{%- endif -%}
+      {%- endfor -%}
+      {{- consistency_group_views -}}

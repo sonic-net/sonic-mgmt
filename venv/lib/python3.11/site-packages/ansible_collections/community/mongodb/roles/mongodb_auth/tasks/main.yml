@@ -1,0 +1,117 @@
+---
+# tasks file for mongodb_auth
+- name: Include OS-specific vars
+  include_vars:
+    file: "{{ lookup('first_found', params) }}"
+  vars:
+    params:
+      paths:
+        - "vars"
+      files:
+        - "{{ ansible_facts.distribution }}-{{ ansible_facts.distribution_version }}.yml"
+        - "{{ ansible_facts.os_family }}-{{ ansible_facts.distribution_major_version }}.yml"
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - default.yml
+  tags:
+    - "vars"
+
+- name: Ensure mongod and pyyaml packages are installed
+  package:
+    name:
+      - "{{ mongod_package }}"
+      # pyyaml is used to validate yaml files on change
+      - "{{ pyyaml_package }}"
+  register: _pkg
+  until: _pkg is succeeded
+  retries: 5
+  tags:
+    - "pkg"
+
+- name: Warn about default credentials
+  when: mongodb_admin_pwd == mongodb_default_admin_pwd
+  debug:
+    msg: "[WARNING] Using default admin credentials for mongodb admin account! Please change them!"
+  tags:
+    - "debug"
+
+- name: Enable security section in mongod.conf
+  lineinfile:
+    path: /etc/mongod.conf
+    regexp: |-
+      ^[#'"\s]*security['"]?\s*:
+    line: 'security:'
+    validate: |
+      {{ mongodb_python }} -c '
+      import yaml, io
+      if "security" not in yaml.safe_load(io.open("%s")):
+          exit(1)
+      '
+  tags:
+    - "mongodb"
+    - "setup"
+
+- name: Enable authentication in mongod.conf
+  lineinfile:
+    path: /etc/mongod.conf
+    insertafter: '^security:'
+    # two space indentation (the default) assumed
+    line: '  authorization: {{ authorization }}'
+    regexp: |-
+      ^[#'"\s]+authorization['"]?\s*:
+    validate: |
+      {{ mongodb_python }} -c '
+      import yaml, io
+      if yaml.safe_load(io.open("%s"))["security"]["authorization"] != "{{ authorization }}":
+          exit(1)
+      '
+  register: _enable_mongo_auth
+  tags:
+    - "mongodb"
+    - "setup"
+
+# This is a task instead of a handler so we can add users right away
+- name: Restart mongodb to enable auth before adding additional users
+  # This allows us to safely assume auth is already enabled when adding more users
+  when: _enable_mongo_auth is changed
+  service:
+    name: mongod
+    state: restarted
+  tags:
+    - "mongodb"
+    - "service"
+    - "setup"
+
+- name: Add mongo admin user with localhost exception
+  community.mongodb.mongodb_user:
+    state: present
+
+    # on_create triggers additional queries that are not compatible with localhost exception
+    update_password: always
+
+    name: "{{ mongodb_admin_user }}"
+    password: "{{ mongodb_admin_pwd }}"
+    database: admin
+    roles: "{{ mongodb_admin_roles }}"
+
+    ssl: "{{ mongodb_use_tls }}"
+    ssl_ca_certs: "{{ mongodb_certificate_ca_file if mongodb_use_tls else omit }}"
+    login_host: "{{ mongod_host }}"
+    login_port: "{{ mongod_port | string }}"  # silence implicit int->str conversion warning
+    create_for_localhost_exception: "{{ mongodb_create_for_localhost_exception }}"
+  tags:
+    - "mongodb"
+    - "setup"
+    - "admin_user"
+
+- name: Add additional mongo users
+  include_tasks: mongodb_auth_user.yml
+  loop: "{{ mongodb_users }}"
+  loop_control:
+    loop_var: _mongodb_user
+  # using loop_control: label does not obscure the password in output for verbosity > 1
+  # So, loop over an include where the task name will include the username + db, but the loop var won't print out.
+  no_log: yes
+  tags:
+    - "mongodb"
+    - "app_user"

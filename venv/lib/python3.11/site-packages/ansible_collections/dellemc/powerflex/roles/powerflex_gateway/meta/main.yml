@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  role_name: powerflex_gateway
+  namespace: dellemc
+  author: Bhavneet Sharma
+  description: Role to manage the installation and uninstallation of Powerflex gateway
+  company: Dell Technologies
+  license: GPL-3.0-only
+  min_ansible_version: "2.14.0"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+        - "8"
+
+    - name: Ubuntu
+      versions:
+        - jammy
+
+    - name: SLES
+      versions:
+        - "15SP3"
+        - "15SP4"
+
+  galaxy_tags: []
+
+dependencies:
+  - role: powerflex_common

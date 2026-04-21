@@ -1,0 +1,7 @@
+---
+minor_changes:
+  - na_ontap_volume - add support for SnapLock - only for REST.
+bugfixes:
+  - na_ontap_snapshot - fix key error on volume when using REST.
+  - na_ontap_snapshot - add error message if volume is not found with REST.
+  - na_ontap_volume - fix idempotency issue with compression settings when using REST.

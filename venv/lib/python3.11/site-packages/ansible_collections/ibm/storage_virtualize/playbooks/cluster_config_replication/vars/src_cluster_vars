@@ -1,0 +1,41 @@
+cluster_ip: x.x.x.x # Cluster IP of source system
+cluster_username: username # Username of source system
+cluster_password: password # Password of source system
+search_replace_pairs:
+  - search: "{"
+    replace: "\n"
+  - search: "}"
+    replace: "\n"
+  - search: ","
+    replace: "\n "
+  - search: "'"
+    replace: ""
+  - search: "\\["
+    replace: ""
+  - search: "\\]"
+    replace: ""
+  - search: "name"
+    replace: "- name"
+  - search: "_- name"
+    replace: "_name"
+  - search: "time_zone"
+    replace: "  time_zone"
+
+settable_fields:
+  System_fields: 
+    - time_zone
+    - cluster_ntp_IP_address
+    - cluster_isns_IP_address
+  DnsServer_fields:
+    - name
+    - IP_address
+  Ownershipgroup_fields:
+    - name
+  UserGrp_fields:
+    - name
+    - role
+    - owner_name
+  User_fields:
+    - name
+    - usergrp_name
+

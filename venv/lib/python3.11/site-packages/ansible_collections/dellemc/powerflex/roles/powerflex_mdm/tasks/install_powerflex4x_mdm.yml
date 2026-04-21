@@ -1,0 +1,108 @@
+---
+- name: Install java
+  ansible.builtin.include_tasks: "../../powerflex_common/tasks/install_java_{{ ansible_distribution }}.yml"
+
+- name: Include install_powerflex.yml
+  ansible.builtin.include_tasks: ../../powerflex_common/tasks/install_powerflex.yml
+
+- name: Include the add_certs.yml
+  ansible.builtin.include_tasks: add_certs.yml
+
+- name: Add primary MDM with virtual ip
+  ansible.builtin.command: >
+    scli --create_mdm_cluster
+    --primary_mdm_ip {{ powerflex_mdm_primary_ip }}
+    --primary_mdm_management_ip {{ powerflex_mdm_primary_ip }}
+    --primary_mdm_name {{ powerflex_mdm_primary_hostname }}
+    --primary_mdm_virtual_ip_interface {{ ansible_default_ipv4.interface }}
+    --cluster_virtual_ip {{ powerflex_mdm_virtual_ip }}
+    --accept_license --approve_certificate
+  run_once: true
+  register: powerflex_mdm_add_primary_output
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  until: ("{{ powerflex_mdm_add_primary_output.rc }} == 0") or ("{{ powerflex_mdm_add_primary_output.rc }} == 7")
+  ignore_errors: true
+  when:
+    - powerflex_mdm_virtual_ip is defined
+    - powerflex_mdm_virtual_ip | length > 0
+  changed_when: powerflex_mdm_add_primary_output.rc == 0
+
+- name: Add primary MDM without virtual ip
+  ansible.builtin.command: >
+    scli --create_mdm_cluster
+    --primary_mdm_ip {{ powerflex_mdm_primary_ip }}
+    --primary_mdm_management_ip {{ powerflex_mdm_primary_ip }}
+    --primary_mdm_name {{ powerflex_mdm_primary_hostname }}
+    --primary_mdm_virtual_ip_interface {{ ansible_default_ipv4.interface }}
+    --accept_license --approve_certificate
+  run_once: true
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  until: ("{{ powerflex_mdm_add_primary_output.rc }} == 0") or ("{{ powerflex_mdm_add_primary_output.rc }} == 7")
+  register: powerflex_mdm_add_primary_output
+  ignore_errors: true
+  when:
+    - powerflex_mdm_virtual_ip | length == 0
+  changed_when: powerflex_mdm_add_primary_output.rc == 0
+
+- name: Wait for MDM to be active
+  ansible.builtin.wait_for:
+    port: 8611
+    state: started
+  run_once: true
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+
+- name: Add certificate file for PowerFlex version 4.x
+  ansible.builtin.command: scli --add_certificate --certificate_file /opt/emc/scaleio/mdm/cfg/mgmt_ca.pem
+  run_once: true
+  register: powerflex_mdm_add_certificate
+  changed_when: powerflex_mdm_add_certificate.rc == 0
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+
+- name: Login to primary MDM node
+  register: powerflex_mdm_secondary_login
+  ansible.builtin.command: >
+    scli --login --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ powerflex_mdm_cert_password }}
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  run_once: true
+  when: powerflex_mdm_secondary_ip is defined
+  changed_when: powerflex_mdm_secondary_login.rc == 0
+
+- name: Add secondary MDM
+  ansible.builtin.command: >
+    scli --add_standby_mdm
+    --new_mdm_ip {{ powerflex_mdm_secondary_ip }}
+    --mdm_role manager
+    --new_mdm_name {{ powerflex_mdm_secondary_hostname }}
+    --new_mdm_management_ip {{ powerflex_mdm_secondary_ip }}
+    --new_mdm_virtual_ip_interface {{ ansible_default_ipv4.interface }}
+    --approve_certificate
+  run_once: true
+  register: powerflex_mdm_add_secondary_output
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  ignore_errors: true
+  changed_when: powerflex_mdm_add_secondary_output.rc == 0
+
+- name: Login to Primary MDM node
+  register: powerflex_mdm_tertiary_login
+  ansible.builtin.command: >
+    scli --login --p12_path /opt/emc/scaleio/mdm/cfg/cli_certificate.p12 --p12_password {{ powerflex_mdm_cert_password }}
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  run_once: true
+  when: powerflex_mdm_tertiary_ip is defined
+  changed_when: powerflex_mdm_tertiary_login.rc == 0
+
+- name: Add tertiary MDM
+  ansible.builtin.command: >
+    scli --add_standby_mdm
+    --new_mdm_ip {{ powerflex_mdm_tertiary_ip }}
+    --mdm_role manager
+    --new_mdm_name {{ powerflex_mdm_tertiary_hostname }}
+    --new_mdm_management_ip {{ powerflex_mdm_tertiary_ip }}
+    --new_mdm_virtual_ip_interface {{ ansible_default_ipv4.interface }}
+    --approve_certificate
+  run_once: true
+  register: powerflex_mdm_add_tertiary_output
+  delegate_to: "{{ powerflex_mdm_primary_hostname }}"
+  ignore_errors: true
+  when: powerflex_mdm_tertiary_ip is defined
+  changed_when: powerflex_mdm_add_tertiary_output.rc == 0

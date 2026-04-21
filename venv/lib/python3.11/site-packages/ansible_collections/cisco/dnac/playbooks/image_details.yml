@@ -1,0 +1,12 @@
+# noqa all
+image_details:
+  - import_type: "url"
+    url_source: "http://10.104.118.10/swim/17.9/cat9k_iosxe.BLD_V179_THROTTLE_LATEST_20220429_033422.SSA.bin"
+    device_role: "ALL"
+    device_family_name: "Cisco Catalyst 9606R Switch-Cisco Catalyst 9600 Series Supervisor Engine 1"
+    device_serial_number: "FXS2325Q01C"
+  - import_type: "url"
+    url_source: "http://10.104.118.10/swim/17.9/cat9k_iosxe.BLD_V179_THROTTLE_LATEST_20220429_033422.SSA.bin"
+    device_role: "ALL"
+    device_family_name: "Cisco Catalyst 9606R Switch-Cisco Catalyst 9600 Series Supervisor Engine 1"
+    device_serial_number: "FXS5632Q01C"

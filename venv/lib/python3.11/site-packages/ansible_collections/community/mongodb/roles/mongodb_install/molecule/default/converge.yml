@@ -1,0 +1,9 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  roles:
+    - role: community.mongodb.mongodb_repository
+      tags: molecule-idempotence-notest
+    - role: community.mongodb.mongodb_install
+  tasks:

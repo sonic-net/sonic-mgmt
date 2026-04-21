@@ -1,0 +1,4 @@
+---
+minor_changes:
+  - na_ontap_info - add computed serial_hex and naa_id for lun_info.
+  - na_ontap_rest_info - add computed serial_hex and naa_id for storage/luns when serial_number is present.

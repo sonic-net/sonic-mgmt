@@ -1,0 +1,130 @@
+---
+- name: Snapshot Operations
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hostname: 'x.x.x.x'
+    username: 'admin'
+    password: 'Password'
+    validate_certs: false
+
+  tasks:
+    - name: Create snapshot
+      register: result
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "ansible_snapshot_1"
+        vol_name: "ansible_volume"
+        state: "present"
+
+    - name: Set snapshot id
+      ansible.builtin.set_fact:
+        snapshot_id: "{{ result.snapshot_details.id }}"
+
+    - name: Create snapshot with retention
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "ansible_snapshot_2"
+        vol_name: "ansible_volume"
+        desired_retention: 2
+        state: "present"
+
+    - name: Get snapshot details using snapshot id
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        state: "present"
+
+    - name: Modify the retention
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_name: "ansible_snapshot_2"
+        desired_retention: 4
+        state: "present"
+
+    - name: Map snapshot to SDC
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        sdc:
+          - sdc_ip: '**.**.**.**'
+          - sdc_id: "663ac0d200000001"
+        allow_multiple_mappings: true
+        sdc_state: "mapped"
+        state: "present"
+
+    - name: Modify the attributes of SDC mapped to snapshot
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        sdc:
+          - sdc_ip: '**.**.**.**'
+            iops_limit: 11
+            bandwidth_limit: 4096
+          - sdc_id: "663ac0d200000001"
+            iops_limit: 20
+            bandwidth_limit: 2048
+        sdc_state: "mapped"
+        state: "present"
+
+    - name: Extend the size of snapshot
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        size: 16
+        state: "present"
+
+    - name: Unmap SDCs from snapshot
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        sdc:
+          - sdc_ip: '**.**.**.**'
+          - sdc_id: "663ac0d200000001"
+        sdc_state: "unmapped"
+        state: "present"
+
+    - name: Rename snapshot
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        snapshot_new_name: "ansible_renamed_snapshot"
+        state: "present"
+
+    - name: Delete snapshot
+      dellemc.powerflex.snapshot:
+        hostname: "{{ hostname }}"
+        username: "{{ username }}"
+        password: "{{ password }}"
+        validate_certs: "{{ validate_certs }}"
+        snapshot_id: "{{ snapshot_id }}"
+        remove_mode: "ONLY_ME"
+        state: "absent"

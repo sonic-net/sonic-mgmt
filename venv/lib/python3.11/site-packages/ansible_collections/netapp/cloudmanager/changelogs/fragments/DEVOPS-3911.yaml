@@ -1,0 +1,2 @@
+bugfixes:
+  - na_cloudmanager_connector_azure - Fix wrong example on the document and update account_id is required field on deletion.

@@ -1,0 +1,16 @@
+[Unit]
+Description=Disable Transparent Huge Pages
+DefaultDependencies=no
+After=sysinit.target local-fs.target
+Before=mongod.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '\
+  for thp in /sys/kernel/mm/*transparent_hugepage; do \
+    echo never | tee $thp/enabled > /dev/null && \
+    echo never | tee $thp/defrag > /dev/null; \
+  done'
+
+[Install]
+WantedBy=multi-user.target

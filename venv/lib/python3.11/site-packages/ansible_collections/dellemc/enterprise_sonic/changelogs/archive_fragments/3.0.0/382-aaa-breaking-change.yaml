@@ -1,0 +1,3 @@
+---
+breaking_changes:
+  - sonic_aaa - Update AAA module to align with SONiC functionality (https://github.com/ansible-collections/dellemc.enterprise_sonic/pull/382)

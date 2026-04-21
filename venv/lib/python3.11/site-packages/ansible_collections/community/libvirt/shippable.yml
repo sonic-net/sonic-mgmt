@@ -1,0 +1,53 @@
+language: python
+
+env:
+  matrix:
+    - T=none
+
+matrix:
+  exclude:
+    - env: T=none
+  include:
+    - env: T=sanity
+
+    - env: T=units/2.6
+    - env: T=units/2.7
+    - env: T=units/3.5
+    - env: T=units/3.6
+    - env: T=units/3.7
+    - env: T=units/3.8
+    - env: T=units/3.9
+
+#   - env: T=aix/7.2/1
+#   - env: T=osx/10.11/1
+    - env: T=rhel/7.8/1
+    - env: T=rhel/8.2/1
+    - env: T=freebsd/11.1/1
+    - env: T=freebsd/12.1/1
+    - env: T=linux/centos6/1
+    - env: T=linux/centos7/1
+    - env: T=linux/fedora31/1
+    - env: T=linux/fedora32/1
+    - env: T=linux/opensuse15py2/1
+    - env: T=linux/opensuse15/1
+    - env: T=linux/ubuntu1604/1
+    - env: T=linux/ubuntu1804/1
+
+
+branches:
+  except:
+    - "*-patch-*"
+    - "revert-*-*"
+
+build:
+  ci:
+    - tests/utils/shippable/timing.sh tests/utils/shippable/shippable.sh $T
+
+integrations:
+  notifications:
+    - integrationName: email
+      type: email
+      on_success: never
+      on_failure: never
+      on_start: never
+      on_pull_request: never

@@ -1,0 +1,10 @@
+dnacentersdk
+Jinja2
+PyYAML
+cryptography
+paramiko
+pyzipper
+ansible
+ansible-runner
+requests
+yamale
