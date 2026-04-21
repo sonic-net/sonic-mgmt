@@ -58,27 +58,150 @@ router bgp 65001
 The default configuration of DUT is fine.
 
 ## Test cases
-### Test case #1 - Peer Group
+### Test case #1 - BGP Unnumbered 
 
 #### Test objective
 
-Configure peer group passwords for IPv4 and IPv6 for specified neighbor and ensure relationship is established.
-1. Configure peer group passwords for both IPv4 and IPv6 on DUT
-2. Verify neighbor is not up
-3. Configure password on neighbor
-4. Verify neighbor is up
-5. Set a mismatched password on DUT
-6. Verify neighbor is not up
-7. Turn off passwords on DUT and neighbor
+Verify that a BGP Unnumbered session forms successfully between DUT and peer
 
-### Test case #2 - Individual Neighbor
+Steps:
+1. Configure BGP Unnumbered on DUT and peer using interface-based neighbors
+2. Enable required address-family (IPv4/IPv6)
+3. Check BGP session state
+
+Expected Result:
+1. Session state is Established
+2. Neighbor uses IPv6 link-local address
+
+
+### Test case #2 - Route Advertisement and Learning
 
 #### Test objective
-Configure individual passwords for IPv4 and IPv6 for specified neighbor and ensure relationship is established.
-1. Configure neighbor passwords for IPv4 and IPv6 on DUT
-2. Verify neighbor is not up
-3. Configure password on neighbor
-4. Verify neighbor is up
-5. Set a mismatched password on DUT
-6. Verify neighbor is not up
-7. Turn off passwords on DUT and neighbor
+
+Verify routes are exchanged over BGP Unnumbered session
+
+Steps:
+1. Configure BGP Unnumbered on DUT and peer using interface-based neighbors
+2. Enable required address-family (IPv4/IPv6)
+3. Check BGP session state
+4. Advertise routes (e.g., loopback prefixes) from DUT
+5. Advertise routes from peer
+
+Expected Result:
+1. Routes are learned from peer and installed in routing table
+
+### Test case #3 - Traffic Forwarding 
+
+#### Test objective
+
+Verify data-plane traffic using learned routes
+
+Steps:
+1. Establish BGP session and exchange routes
+2. Send traffic between DUT and peer loopbacks
+
+Expected Result:
+1. Traffic successfully reaches destination
+2. No packet loss after convergence
+
+### Test case #4 - Link Flap Recovery 
+
+#### Test objective
+
+Verify BGP session resiliency to interface flaps
+
+Steps:
+1. Establish BGP session
+2. Shutdown DUT interface
+3. Bring interface back up
+
+Expected Result:
+1. Session transitions: Established → Idle → Established
+2. Routes withdrawn and reinstalled correctly
+
+### Test case #5 - Warm Reboot/Fast Reboot/Cold Reboot
+
+#### Test objective
+
+Verify BGP Unnumbered behavior during warm reboot
+
+Steps:
+1. Establish BGP session and traffic flow
+2. Perform warm/Fast/Cold reboot on DUT
+
+Expected Result:
+1. Session recovers automatically
+2. Minimal traffic disruption
+3. Routes preserved or quickly relearned
+
+### Test case #6 - Peer-Group Neighbor Establishment
+
+#### Test objective
+
+Verify BGP Unnumbered sessions form using peer-group configuration
+
+Steps:
+1. Configure peer-group on DUT and peer
+2. Associate interface neighbors with peer-group
+3. Activate address-family
+
+Expected Result:
+1. All sessions are Established
+2. Peer-group applied correctly
+
+### Test case #7 - Route Exchange via Peer-Group
+
+#### Test objective
+
+Verify route exchange works correctly with peer-group
+
+Steps:
+1. Advertise routes from DUT
+2. Advertise routes from peers
+
+Expected Result:
+1. Routes learned from all peers and installed in routing table
+
+### Test case #8 - Link Flap with Peer-Group
+
+#### Test objective
+
+Verify only affected sessions reset within a peer-group
+
+Steps:
+1. Establish multiple peer-group sessions
+2. Flap one interface
+
+Expected Result:
+1. Only that neighbor resets
+2. Other sessions remain stable
+3. Routes reconverge correctly
+
+### Test case #9 - Traffic Forwarding with Peer-Group
+
+#### Test objective
+
+Verify traffic forwarding across multiple peer-group neighbors
+
+Steps:
+1. Establish sessions and exchange routes
+2. Send traffic
+
+Expected Result:
+1. Traffic successfully reaches destination
+2. No packet loss after convergence
+
+### Test case #10 - Warm Reboot/Fast Reboot/Cold Reboot
+
+#### Test objective
+
+Verify BGP Unnumbered peer-group behavior during warm reboot
+
+Steps:
+1. Establish BGP session and traffic flow
+2. Perform warm/Fast/Cold reboot on DUT
+
+Expected Result:
+1. Session recovers automatically
+2. Minimal traffic disruption
+3. Routes preserved or quickly relearned
