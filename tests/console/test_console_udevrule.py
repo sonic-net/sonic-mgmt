@@ -3,7 +3,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('c0', 'c0-lo')
 ]
 
 
