@@ -22,9 +22,12 @@ def is_sonic_console(conn_graph_facts, dut_hostname):
 
 
 def get_expected_baud_rate(duthost):
-    DEFAULT_BAUDRATE = 9600
+    # BMC platforms configure the kernel console at 115200 baud, while the rest of the
+    # fleet historically defaults to 9600. Inventory-level `console_baudrate` hostvar
+    # still takes precedence over this platform-class default when present.
+    default_baudrate = 115200 if duthost.is_bmc() else 9600
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    return hostvars.get('console_baudrate', DEFAULT_BAUDRATE)
+    return hostvars.get('console_baudrate', default_baudrate)
 
 
 def test_console_baud_rate_config(duthost):
