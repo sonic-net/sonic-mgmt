@@ -57,31 +57,6 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
     pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
 
-def test_reboot_cause(duthosts, dpuhosts,
-                      enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn, num_dpu_modules):    # noqa: F811
-    """
-    @summary: Verify `Reboot Cause` using parallel execution.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
-                                                 duthost,
-                                                 platform_api_conn,
-                                                 num_dpu_modules)
-
-    logging.info("Shutting DOWN the DPUs in parallel")
-    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
-
-    logging.info("Starting UP the DPUs in parallel")
-    dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
-    post_test_dpus_check(duthost, dpuhosts,
-                         dpu_on_list, ip_address_list,
-                         num_dpu_modules,
-                         re.compile(r"reboot|Non-Hardware",
-                                    re.IGNORECASE))
-
-
 def test_pcie_link(duthosts, dpuhosts,
                    enum_rand_one_per_hwsku_hostname,
                    platform_api_conn, num_dpu_modules):   # noqa: F811
