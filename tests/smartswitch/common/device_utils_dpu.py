@@ -4,6 +4,7 @@ Helper script for DPU  operations
 import logging
 import pytest
 import re
+from datetime import datetime
 from tests.common.platform.device_utils import (  # noqa: F401,F403
     platform_api_conn, start_platform_api_service, get_configured_dpu_names
 )
@@ -32,6 +33,12 @@ REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
 PING_TIME_INT = 10
+
+# Syslog error patterns to check after reboot (exclude known/expected messages)
+DPU_SYSLOG_ERROR_IGNORE_PATTERNS = [
+    r".*ERR.*transceiver.*",
+    r".*ERR.*syncd.*SAI_STATUS_ITEM_NOT_FOUND.*",
+]
 
 
 @pytest.fixture(scope='function')
@@ -553,7 +560,195 @@ def post_test_switch_check(duthost, localhost,
     return
 
 
-def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause, extra_dpu_online_timeout=0):
+
+def get_dpu_uptime(dpuhosts, dpu_id):
+    """
+    Retrieve the boot time of a DPU as a datetime object using 'uptime -s'.
+    Args:
+        dpuhosts: DPU host handles
+        dpu_id: Integer DPU index
+    Returns:
+        datetime of last boot, or None if unreachable
+    """
+    dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+    if dpuhost is None:
+        logging.warning("DPU%d not in dpuhosts; cannot retrieve uptime", dpu_id)
+        return None
+    try:
+        result = dpuhost.command("uptime -s")
+        boot_time_str = result["stdout"].strip()
+        return datetime.strptime(boot_time_str, "%Y-%m-%d %H:%M:%S")
+    except Exception as e:
+        logging.warning("Failed to get uptime for DPU%d: %s", dpu_id, e)
+        return None
+
+
+def get_all_dpu_uptimes(dpuhosts, dpu_on_list):
+    """
+    Collect boot times for all online DPUs before a reboot operation.
+    Args:
+        dpuhosts: DPU host handles
+        dpu_on_list: List of DPU names currently online (e.g. ['DPU0', 'DPU1'])
+    Returns:
+        dict mapping dpu_name -> datetime (last boot time), or None if unavailable
+    """
+    uptimes = {}
+    for dpu_name in dpu_on_list:
+        dpu_id = int(re.search(r'\d+', dpu_name).group())
+        uptimes[dpu_name] = get_dpu_uptime(dpuhosts, dpu_id)
+        if uptimes[dpu_name]:
+            logging.info("DPU %s last boot time before test: %s", dpu_name, uptimes[dpu_name])
+        else:
+            logging.warning("Could not record pre-test boot time for %s", dpu_name)
+    return uptimes
+
+
+def verify_dpu_rebooted(dpuhosts, dpu_name, pre_boot_time):
+    """
+    Verify that a DPU rebooted by comparing current boot time to pre-reboot boot time.
+    Args:
+        dpuhosts: DPU host handles
+        dpu_name: Name of the DPU (e.g. 'DPU0')
+        pre_boot_time: datetime of boot time before reboot
+    Returns:
+        True if rebooted (boot time changed), False otherwise
+    """
+    dpu_id = int(re.search(r'\d+', dpu_name).group())
+    post_boot_time = get_dpu_uptime(dpuhosts, dpu_id)
+    if post_boot_time is None:
+        logging.warning("Cannot verify reboot for %s: post-reboot uptime unavailable", dpu_name)
+        return True
+    if pre_boot_time is None:
+        logging.warning("Cannot verify reboot for %s: pre-reboot uptime was not recorded", dpu_name)
+        return True
+    rebooted = post_boot_time > pre_boot_time
+    if rebooted:
+        logging.info("%s confirmed rebooted: boot time changed from %s to %s",
+                     dpu_name, pre_boot_time, post_boot_time)
+    else:
+        logging.error("%s did NOT reboot: boot time unchanged (%s)", dpu_name, pre_boot_time)
+    return rebooted
+
+
+def verify_all_dpus_rebooted(dpuhosts, dpu_on_list, pre_boot_times):
+    """
+    Verify all online DPUs rebooted by comparing boot times.
+    Args:
+        dpuhosts: DPU host handles
+        dpu_on_list: List of DPU names that were online before reboot
+        pre_boot_times: dict mapping dpu_name -> pre-reboot boot datetime
+    """
+    failed = []
+    for dpu_name in dpu_on_list:
+        pre_time = pre_boot_times.get(dpu_name)
+        if not verify_dpu_rebooted(dpuhosts, dpu_name, pre_time):
+            failed.append(dpu_name)
+    pytest_assert(not failed,
+                  "DPUs {} did not reboot as expected (boot time unchanged)".format(failed))
+
+
+def check_dpu_syslog_errors(dpuhosts, dpu_id, since_boot_time=None):
+    """
+    Check DPU syslog for unexpected ERROR/CRIT messages after reboot.
+    Ignores patterns listed in DPU_SYSLOG_ERROR_IGNORE_PATTERNS.
+    Args:
+        dpuhosts: DPU host handles
+        dpu_id: Integer DPU index
+        since_boot_time: datetime; only scan logs after this time
+    Returns:
+        list of unexpected error lines (empty means no errors)
+    """
+    dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+    if dpuhost is None:
+        logging.warning("DPU%d not in dpuhosts; skipping syslog error check", dpu_id)
+        return []
+    if since_boot_time:
+        since_str = since_boot_time.strftime("%Y-%m-%d %H:%M:%S")
+        cmd = 'sudo journalctl -p err --since "{}" --no-pager -q 2>/dev/null'.format(since_str)
+    else:
+        cmd = "sudo journalctl -p err -b --no-pager -q 2>/dev/null"
+    try:
+        result = dpuhost.command(cmd, module_ignore_errors=True)
+        lines = result.get("stdout_lines", [])
+    except Exception as e:
+        logging.warning("Failed to read syslog on DPU%d: %s", dpu_id, e)
+        return []
+    ignore_patterns = [re.compile(p, re.IGNORECASE) for p in DPU_SYSLOG_ERROR_IGNORE_PATTERNS]
+    unexpected_errors = []
+    for line in lines:
+        if any(pat.match(line) for pat in ignore_patterns):
+            logging.debug("DPU%d: Ignoring expected syslog error: %s", dpu_id, line)
+            continue
+        unexpected_errors.append(line)
+    if unexpected_errors:
+        logging.error("DPU%d: Found %d unexpected syslog error(s) after reboot:",
+                      dpu_id, len(unexpected_errors))
+        for err in unexpected_errors:
+            logging.error("  %s", err)
+    else:
+        logging.info("DPU%d: No unexpected syslog errors found after reboot", dpu_id)
+    return unexpected_errors
+
+
+def check_all_dpus_no_syslog_errors(dpuhosts, dpu_on_list, pre_boot_times=None):
+    """
+    Check all online DPUs for unexpected syslog errors post-reboot.
+    Args:
+        dpuhosts: DPU host handles
+        dpu_on_list: List of DPU names online
+        pre_boot_times: Optional dict mapping dpu_name -> pre-reboot boot datetime
+    """
+    all_errors = {}
+    for dpu_name in dpu_on_list:
+        dpu_id = int(re.search(r'\d+', dpu_name).group())
+        since_time = pre_boot_times.get(dpu_name) if pre_boot_times else None
+        errors = check_dpu_syslog_errors(dpuhosts, dpu_id, since_boot_time=since_time)
+        if errors:
+            all_errors[dpu_name] = errors
+    pytest_assert(not all_errors,
+                  "Unexpected syslog errors found on DPUs after reboot: {}".format(
+                      {k: v[:5] for k, v in all_errors.items()}))
+
+
+def check_npu_syslog_errors(duthost, since_boot_time=None):
+    """
+    Check NPU syslog for unexpected ERROR/CRIT messages after reboot.
+    Args:
+        duthost: DUT host handle
+        since_boot_time: datetime; only scan logs after this time
+    Returns:
+        list of unexpected error lines (empty means no errors)
+    """
+    if since_boot_time:
+        since_str = since_boot_time.strftime("%Y-%m-%d %H:%M:%S")
+        cmd = 'sudo journalctl -p err --since "{}" --no-pager -q 2>/dev/null'.format(since_str)
+    else:
+        cmd = "sudo journalctl -p err -b --no-pager -q 2>/dev/null"
+    try:
+        result = duthost.command(cmd, module_ignore_errors=True)
+        lines = result.get("stdout_lines", [])
+    except Exception as e:
+        logging.warning("Failed to read syslog on NPU: %s", e)
+        return []
+    npu_ignore_patterns = [
+        re.compile(r".*kernel.*EXT4-fs error.*", re.IGNORECASE),
+        re.compile(r".*ERR.*syncd.*SAI_STATUS_ITEM_NOT_FOUND.*", re.IGNORECASE),
+    ]
+    unexpected_errors = []
+    for line in lines:
+        if any(pat.match(line) for pat in npu_ignore_patterns):
+            logging.debug("NPU: Ignoring expected syslog error: %s", line)
+            continue
+        unexpected_errors.append(line)
+    if unexpected_errors:
+        logging.warning("NPU: Found %d unexpected syslog error(s) after reboot",
+                        len(unexpected_errors))
+        for err in unexpected_errors[:10]:
+            logging.warning("  %s", err)
+    return unexpected_errors
+
+
+def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause, extra_dpu_online_timeout=0, pre_boot_times=None):
     """
     Runs all required checks for a given DPU
     Args:
@@ -591,9 +786,25 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause, extra_dpu_onl
             f"Reboot cause for DPU {dpu_name} is incorrect"
         )
 
+    # Verify DPU actually rebooted via uptime comparison
+    if pre_boot_times and dpu_name in pre_boot_times:
+        logging.info(f"Verifying {dpu_name} actually rebooted via uptime comparison")
+        pytest_assert(
+            verify_dpu_rebooted(dpuhosts, dpu_name, pre_boot_times[dpu_name]),
+            f"DPU {dpu_name} did not reboot: boot time is unchanged"
+        )
+
+        # Check DPU syslog for unexpected errors since last reboot
+        logging.info(f"Checking syslog for unexpected errors on {dpu_name}")
+        errors = check_dpu_syslog_errors(dpuhosts, dpu_id,
+                                         since_boot_time=pre_boot_times[dpu_name])
+        pytest_assert(not errors,
+                      f"Unexpected syslog errors on {dpu_name} after reboot: {errors[:5]}")
+
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
-                         num_dpu_modules, reboot_cause, extra_dpu_online_timeout=0):
+                         num_dpu_modules, reboot_cause, extra_dpu_online_timeout=0,
+                         pre_boot_times=None):
     """
     Checks DPU OFF/ON and reboot cause status Post Test
     Args:
@@ -611,7 +822,7 @@ def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
         for dpu in dpu_on_list:
             executor.submit(post_test_dpu_check, duthost,
                             dpuhosts, dpu, reboot_cause,
-                            extra_dpu_online_timeout)
+                            extra_dpu_online_timeout, pre_boot_times)
 
     logging.info("Checking all powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
