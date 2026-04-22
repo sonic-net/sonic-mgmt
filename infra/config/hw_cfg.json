@@ -1161,23 +1161,18 @@
             "extra_onie_commands": [
                 [
                     "sudo bash",
-                    "cd /usr/share/sonic/device/x86_64-8101_32fh_o-r0/32x400Gb/",
+                    "cd /usr/share/sonic/device/x86_64-8101_32fh_o-r0/Cisco-8101-32FH-O/",
                     "scp rraghav@1.74.23.7:/var/www/html/ztp/platform_cisco_cfg.yaml .",
                     "rm /etc/sonic/config_db.json",
                     "reboot"
                 ],
                 [
                     "sudo bash",
-                    "cd /usr/share/sonic/device/x86_64-8201_32fh_o-r0/32x400Gb/",
+                    "cd /usr/share/sonic/device/x86_64-8201_32fh_o-r0/Cisco-8201-32FH-O/",
                     "scp rraghav@1.74.23.7:/var/www/html/ztp-B2/platform_cisco_cfg.yaml .",
                     "rm /etc/sonic/config_db.json",
                     "reboot",
                     "show lldp table",
-                    "sudo config interface fec Ethernet96 none",
-                    "sudo config interface fec Ethernet104 none",
-                    "sudo config interface fec Ethernet112 none",
-                    "sudo config interface fec Ethernet120 none",
-                    "sudo config save -y"
                 ]
             ],
             "special_run_commands": [
