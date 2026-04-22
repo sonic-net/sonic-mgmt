@@ -263,7 +263,6 @@ def configure_unnumbered_bgp(setup_info):
     neigh_ipv6 = setup_info['neigh_ipv6']
     dut_ipv4 = setup_info['dut_ipv4']
     dut_ipv6 = setup_info['dut_ipv6']
-    dut_link_local = setup_info['dut_link_local']
     neigh_pc_intf = setup_info['neigh_pc_intf']
 
     # --- Setup ---
@@ -329,30 +328,55 @@ def configure_unnumbered_bgp(setup_info):
                   "Failed to configure unnumbered BGP: {}".format(
                       result.get('stderr', '')))
 
-    # Configure link-local neighbor on EOS
-    # EOS does not support the Linux/FRR "fe80::addr%intf" notation.
-    # Use separate neighbor + update-source commands instead.
-    eos_neighbor = dut_link_local
-    logger.info("Configure link-local BGP neighbor on EOS (%s via %s)",
-                eos_neighbor, neigh_pc_intf)
+    # Configure BGP peering on EOS using interface-based (unnumbered) config.
+    # EOS does not support raw fe80:: addresses as BGP neighbors.
+    # Instead, EOS uses: neighbor interface <intf> peer-group <pg>
+    # with the peer-group configured for the remote AS.
+    eos_peer_group = "LINK_LOCAL_PG"
+    logger.info("Configure interface-based BGP peering on EOS via %s (peer-group %s)",
+                neigh_pc_intf, eos_peer_group)
     neigh_host.eos_config(
         lines=[
-            "neighbor {} remote-as {}".format(eos_neighbor, dut_asn),
-            "neighbor {} update-source {}".format(eos_neighbor, neigh_pc_intf),
+            "neighbor {} peer group".format(eos_peer_group),
+            "neighbor {} remote-as {}".format(eos_peer_group, dut_asn),
+            "neighbor interface {} peer-group {}".format(neigh_pc_intf, eos_peer_group),
         ],
         parents="router bgp {}".format(neigh_asn))
 
+    # Enable address families for the peer-group
+    for af in ["ipv4", "ipv6"]:
+        neigh_host.eos_config(
+            lines=[
+                "neighbor {} activate".format(eos_peer_group),
+            ],
+            parents=["router bgp {}".format(neigh_asn),
+                     "address-family {}".format(af)])
+
+    # Verify EOS accepted the config
+    eos_bgp_cfg = neigh_host.eos_command(
+        commands=["show running-config section bgp"])
+    eos_cfg_text = eos_bgp_cfg['stdout'][0] if isinstance(
+        eos_bgp_cfg['stdout'], list) else eos_bgp_cfg['stdout']
+    logger.info("EOS BGP config after setup:\n%s", eos_cfg_text)
+    if eos_peer_group not in eos_cfg_text:
+        pytest.fail("EOS did not accept the interface-based BGP config. "
+                    "Running config:\n{}".format(eos_cfg_text))
+
     yield {
         'initial_prefixes': initial_prefixes,
-        'eos_neighbor': eos_neighbor,
+        'eos_peer_group': eos_peer_group,
     }
 
     # --- Teardown ---
     logger.info("Teardown: Restoring original configuration")
 
-    # Remove link-local neighbor from EOS and restore originals
+    # Remove interface-based peering from EOS and restore originals
+    eos_peer_group = "LINK_LOCAL_PG"
     try:
-        cleanup_lines = ["no neighbor {}".format(eos_neighbor)]
+        cleanup_lines = [
+            "no neighbor interface {}".format(neigh_pc_intf),
+            "no neighbor {}".format(eos_peer_group),
+        ]
         if dut_ipv4:
             cleanup_lines.append(
                 "neighbor {} remote-as {}".format(dut_ipv4, dut_asn))
