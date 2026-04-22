@@ -238,8 +238,8 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
 
     # Health check to make sure the gnmi server is listening on port
     health_check_cmd = f"sudo ss -ltnp | grep -E '{env.gnmi_port}|{env.gnmi_program}'"
-    assert(wait_until(120, 1, 5,
-               lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0))
+    assert wait_until(120, 1, 5,
+                      lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0)
 
     output = ptfhost.shell(cmd, module_ignore_errors=True)
 
