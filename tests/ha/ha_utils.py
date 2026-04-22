@@ -314,7 +314,7 @@ def wait_for_pending_operation_id(
 def bfd_pin_primary(localhost, ptfhost, duthosts):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
 
@@ -336,7 +336,7 @@ def bfd_pin_primary(localhost, ptfhost, duthosts):
 def bfd_unpin_primary(localhost, ptfhost, duthosts):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
 
@@ -358,7 +358,7 @@ def bfd_unpin_primary(localhost, ptfhost, duthosts):
 def bfd_pin_both_sides(localhost, ptfhost, duthosts):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
 
@@ -380,7 +380,7 @@ def bfd_pin_both_sides(localhost, ptfhost, duthosts):
 def bfd_unpin_both_sides(localhost, ptfhost, duthosts):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
 
