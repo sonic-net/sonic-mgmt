@@ -237,8 +237,8 @@ router bgp {{ host['bgp']['asn'] }}
  bgp confederation peers {{ host['bgp']['confed_peers'] }}
 !
 {% endif %}
-    {% for asn, remote_ips in host['bgp']['peers'].items() %}
-        {% for remote_ip in remote_ips %}
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+    {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
  neighbor {{ remote_ip }} next-hop-self

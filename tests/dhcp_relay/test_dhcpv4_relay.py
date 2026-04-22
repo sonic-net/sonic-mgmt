@@ -18,6 +18,54 @@ from tests.common.dhcp_relay_utils import (
         sonic_dhcp_relay_unconfig
 )
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
+import json
+
+
+def _save_interface_ip_entries(duthost, table, interface):
+    """Save all CONFIG_DB entries for an interface, including the base entry.
+
+    Uses redis-cli to capture exact key-value pairs so they can be
+    restored after VRF operations strip them.
+    """
+    # Save the base entry (e.g. VLAN_INTERFACE|Vlan1000) and all IP entries
+    # Use two queries: one for the base entry, one for IP sub-entries
+    base_raw = duthost.shell(
+        'redis-cli -n 4 --json HGETALL "{}|{}"'.format(table, interface),
+        verbose=False)['stdout'].strip()
+    base_fields = json.loads(base_raw) if base_raw else {}
+
+    ip_keys_raw = duthost.shell(
+        'redis-cli -n 4 --json keys "{}|{}|*"'.format(table, interface),
+        verbose=False)['stdout'].strip()
+    ip_keys = json.loads(ip_keys_raw) if ip_keys_raw else []
+
+    saved = {}
+    # Always save the base entry
+    saved["{}|{}".format(table, interface)] = base_fields
+    for key in ip_keys:
+        raw = duthost.shell(
+            'redis-cli -n 4 --json HGETALL "{}"'.format(key),
+            verbose=False)['stdout'].strip()
+        fields = json.loads(raw) if raw else {}
+        saved[key] = fields
+    return saved
+
+
+def _restore_interface_ip_entries(duthost, saved_entries):
+    """Restore CONFIG_DB IP entries using sonic-db-cli.
+
+    Writes back the exact field-value pairs that were saved, preserving
+    attributes like the secondary flag. SONiC's intfmgrd automatically
+    applies CONFIG_DB changes to the kernel.
+    """
+    for key, fields in saved_entries.items():
+        if not fields or fields == {"NULL": "NULL"}:
+            duthost.shell('sonic-db-cli CONFIG_DB HSET "{}" "NULL" "NULL"'.format(key))
+        else:
+            for field, value in fields.items():
+                duthost.shell(
+                    'sonic-db-cli CONFIG_DB HSET "{}" "{}" "{}"'.format(key, field, value))
+
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -344,6 +392,12 @@ def test_dhcp_relay_with_non_default_vrf(
         portchannels = dhcp_relay['portchannels_with_ips']
         vlan_ip = "{}/{}".format(dhcp_relay['downlink_vlan_iface']['addr'], dhcp_relay['downlink_vlan_iface']['mask'])
 
+    # Save all interface IP entries before VRF operations strip them
+    saved_vlan_ips = _save_interface_ip_entries(duthost, "VLAN_INTERFACE", vlan_iface)
+    saved_pc_ips = {}
+    for pc in portchannels:
+        saved_pc_ips.update(_save_interface_ip_entries(duthost, "PORTCHANNEL_INTERFACE", pc))
+
     # Step 1: Remove IPs from interfaces
     for pc, params in portchannels.items():
         duthost.shell(f"sudo config interface ip remove {pc} {params['ip']}")
@@ -368,7 +422,46 @@ def test_dhcp_relay_with_non_default_vrf(
     duthost.shell(f"sudo config route add prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
                   f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
 
+    # Pre-initialize Loopback rebind locals so the finally block's existence
+    # check still works even if Step 6 itself raises before assigning them.
+    loopback_for_src = dut_dhcp_relay_data[0]['loopback_iface']
+    loopback_ip_key_prefix = "LOOPBACK_INTERFACE|{}|".format(loopback_for_src)
+    saved_loopback_ips = {}
+
+    # Move the try: to cover Step 6 as well so that any partial failure during
+    # the Loopback IP-strip / vrf bind / restore sequence still triggers the
+    # cleanup in the finally block.
     try:
+        # Step 6: For the "source_intf" testcase only, rebind the
+        # source-interface Loopback into CLIENT_VRF_NAME.
+        #
+        # SONiC orchagent installs the IP2ME (trap-to-CPU) route per-VRF
+        # (intfsorch.cpp::addIp2MeRoute is called with
+        # vr_id = port.m_vr_id). The "source_intf" testcase passes
+        # --source-interface Loopback0 to the relay, so dhcp4relay sets
+        # giaddr to the Loopback IP and the server unicasts the OFFER back
+        # to that IP. If Loopback0 stays in the default VRF while the
+        # ingress interface is in CLIENT_VRF_NAME, platforms whose silicon
+        # enforces strict per-VRF IP2ME (for example, Broadcom Helix4) have
+        # no matching trap entry in CLIENT_VRF_NAME and silently drop the
+        # OFFER. Rebinding the Loopback into CLIENT_VRF_NAME co-locates the
+        # trap route with the ingress VRF so the test passes uniformly
+        # across platforms. The other testcases (vrf_selection,
+        # server_id_override) do not use --source-interface, so no rebind
+        # is required.
+        if testcase == "source_intf":
+            saved_loopback_ips = _save_interface_ip_entries(
+                duthost, "LOOPBACK_INTERFACE", loopback_for_src)
+            for key in list(saved_loopback_ips.keys()):
+                if key.startswith(loopback_ip_key_prefix):
+                    ip_with_mask = key.split("|", 2)[2]
+                    duthost.shell(
+                        f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
+                        module_ignore_errors=True)
+            duthost.shell(
+                f"sudo config interface vrf bind {loopback_for_src} {CLIENT_VRF_NAME}")
+            _restore_interface_ip_entries(duthost, saved_loopback_ips)
+
         for dhcp_relay in dut_dhcp_relay_data:
             dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
             duthost.shell(f'config dhcpv4_relay del {vlan_iface}')
@@ -429,14 +522,38 @@ def test_dhcp_relay_with_non_default_vrf(
 
     finally:
         duthost.shell(f"config dhcpv4_relay del {vlan_iface}", module_ignore_errors=True)
+
+        # Unbind the source-interface Loopback from CLIENT_VRF_NAME before
+        # deleting the VRF so it has no remaining member interfaces.
+        # Only needed when we rebound it (source_intf testcase).
+        if saved_loopback_ips:
+            loopback_ip_key_prefix = "LOOPBACK_INTERFACE|{}|".format(loopback_for_src)
+            for key in list(saved_loopback_ips.keys()):
+                if key.startswith(loopback_ip_key_prefix):
+                    ip_with_mask = key.split("|", 2)[2]
+                    duthost.shell(
+                        f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
+                        module_ignore_errors=True)
+            duthost.shell(
+                f"sudo config interface vrf unbind {loopback_for_src}",
+                module_ignore_errors=True)
+
         # VRF config cleanup
         duthost.shell(f"sudo config route del prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
                       f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
         duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
-        for pc, params in portchannels.items():
-            duthost.shell(f"sudo config interface ip add {pc} {params['ip']}")
 
-        duthost.shell(f"sudo config interface ip add {vlan_iface} {vlan_ip}")
+        # Restore all interface CONFIG_DB entries (base entry, IPs, and attributes).
+        # "config interface vrf bind" strips ALL IPs (secondary IPv4, IPv6, etc.),
+        # not just the primary. A simple "config interface ip add" only restores
+        # the primary IPv4, permanently losing secondary IPs and IPv6 addresses.
+        # Instead, we save and restore the exact CONFIG_DB entries via redis-cli,
+        # preserving all attributes (e.g. the secondary flag). intfmgrd then
+        # automatically applies the restored entries to the kernel.
+        _restore_interface_ip_entries(duthost, saved_loopback_ips)
+        _restore_interface_ip_entries(duthost, saved_vlan_ips)
+        _restore_interface_ip_entries(duthost, saved_pc_ips)
+        duthost.shell("sudo config save -y")
 
 
 def test_dhcp_relay_with_different_non_default_vrf(
@@ -462,10 +579,15 @@ def test_dhcp_relay_with_different_non_default_vrf(
         3. Bind VLAN interface to CLIENT_VRF_NAME and PortChannels to SERVER_VRF_NAME.
         4. Reassign IPs back to the interfaces.
         5. Add default routes in SERVER_VRF_NAME for DHCP server reachability.
-        6. Configure DHCP relay with vrf_selection and link_selection enabled.
-        7. Run the DHCP relay test from the PTF host.
-        8. Optionally validate DHCP relay logs using loganalyzer.
-        9. Cleanup: remove routes and VRF bindings, restore original config.
+        6. Rebind the source-interface Loopback into SERVER_VRF_NAME so the IP2ME
+           (CPU-trap) route for the Loopback IP lives in the same VRF that the
+           OFFER ingresses on (required on platforms that enforce strict per-VRF
+           IP2ME, e.g. Broadcom Helix4).
+        7. Configure DHCP relay with vrf_selection and link_selection enabled.
+        8. Run the DHCP relay test from the PTF host.
+        9. Optionally validate DHCP relay logs using loganalyzer.
+        10. Cleanup: remove routes and VRF bindings, restore original config
+            (including unbinding the Loopback from SERVER_VRF_NAME).
 
     Expected Results:
         - DHCP Discover, Offer, Request, and ACK messages are relayed successfully across different VRFs.
@@ -481,6 +603,12 @@ def test_dhcp_relay_with_different_non_default_vrf(
         vlan_iface = str(dhcp_relay['downlink_vlan_iface']['name'])
         portchannels = dhcp_relay['portchannels_with_ips']
         vlan_ip = "{}/{}".format(dhcp_relay['downlink_vlan_iface']['addr'], dhcp_relay['downlink_vlan_iface']['mask'])
+
+    # Save all interface IP entries before VRF operations strip them
+    saved_vlan_ips = _save_interface_ip_entries(duthost, "VLAN_INTERFACE", vlan_iface)
+    saved_pc_ips = {}
+    for pc in portchannels:
+        saved_pc_ips.update(_save_interface_ip_entries(duthost, "PORTCHANNEL_INTERFACE", pc))
 
     # Step 1: Remove IPs from interfaces
     for pc, params in portchannels.items():
@@ -507,7 +635,40 @@ def test_dhcp_relay_with_different_non_default_vrf(
     duthost.shell(f"sudo config route add prefix vrf {SERVER_VRF_NAME} 0.0.0.0/0 nexthop"
                   f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}")
 
+    # Pre-initialize Loopback rebind locals so the finally block's existence
+    # check still works even if Step 6 itself raises before assigning them.
+    loopback_for_src = dut_dhcp_relay_data[0]['loopback_iface']
+    loopback_ip_key_prefix = "LOOPBACK_INTERFACE|{}|".format(loopback_for_src)
+    saved_loopback_ips = {}
+
+    # Move the try: to cover Step 6 as well so that any partial failure during
+    # the Loopback IP-strip / vrf bind / restore sequence still triggers the
+    # cleanup in the finally block.
     try:
+        # Step 6: Rebind the source-interface Loopback into SERVER_VRF_NAME for
+        # the duration of the test. This test passes --source-interface
+        # Loopback0, so dhcp4relay sets giaddr to the Loopback IP and a real
+        # DHCP server unicasts the OFFER back to that IP (this is exactly what
+        # PTF mocks once source_interface=True / link_selection=True are passed
+        # below). The OFFER ingresses on the server-facing PortChannel uplinks,
+        # which are bound to SERVER_VRF_NAME. If Loopback0 stays in the default
+        # VRF, platforms whose silicon enforces strict per-VRF IP2ME handling
+        # (for example, Broadcom Helix4) have no matching trap entry in
+        # SERVER_VRF_NAME and silently drop the OFFER. Rebinding the Loopback
+        # into SERVER_VRF_NAME co-locates the trap route with the OFFER ingress
+        # VRF so the test passes uniformly across platforms.
+        saved_loopback_ips = _save_interface_ip_entries(
+            duthost, "LOOPBACK_INTERFACE", loopback_for_src)
+        for key in list(saved_loopback_ips.keys()):
+            if key.startswith(loopback_ip_key_prefix):
+                ip_with_mask = key.split("|", 2)[2]
+                duthost.shell(
+                    f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
+                    module_ignore_errors=True)
+        duthost.shell(
+            f"sudo config interface vrf bind {loopback_for_src} {SERVER_VRF_NAME}")
+        _restore_interface_ip_entries(duthost, saved_loopback_ips)
+
         for dhcp_relay in dut_dhcp_relay_data:
             dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
             loopback_iface = dhcp_relay["loopback_iface"]    # noqa: F841
@@ -543,6 +704,16 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                "client_vrf": CLIENT_VRF_NAME,
                                "link_selection_ip": str(dhcp_relay['downlink_vlan_iface']['link_selection_ip']),
                                "server_vrf": True,
+                               # Tell PTF to mock a real DHCP server that honors giaddr.
+                               # Without these flags, create_dhcp_offer_packet() falls into
+                               # the elif branch and unicasts the OFFER to relay_iface_ip
+                               # (Vlan IP, in CLIENT_VRF) instead of switch_loopback_ip
+                               # (Loopback IP). Since this test's data plane crosses VRFs,
+                               # targeting the Vlan IP from the SERVER_VRF ingress means
+                               # the OFFER never matches any IP2ME entry on platforms that
+                               # enforce strict per-VRF IP2ME (e.g. Broadcom Helix4).
+                               "source_interface": True,
+                               "link_selection": True,
                                "portchannels_ip_list": dhcp_relay['portchannels_ip_list'],
                                "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
                        log_file="/tmp/test_dhcp_relay_with_different_non_default_vrf.DHCPTest.log", is_python3=True)
@@ -553,16 +724,40 @@ def test_dhcp_relay_with_different_non_default_vrf(
 
     finally:
         duthost.shell(f"config dhcpv4_relay del {vlan_iface}", module_ignore_errors=True)
+
+        # Unbind the source-interface Loopback from SERVER_VRF_NAME before
+        # deleting the VRF so it has no remaining member interfaces. Restore
+        # the saved CONFIG_DB entries so all original Loopback IP attributes
+        # (IPv4, IPv6, secondary flag, etc.) come back.
+        if saved_loopback_ips:
+            for key in list(saved_loopback_ips.keys()):
+                if key.startswith(loopback_ip_key_prefix):
+                    ip_with_mask = key.split("|", 2)[2]
+                    duthost.shell(
+                        f"sudo config interface ip remove {loopback_for_src} {ip_with_mask}",
+                        module_ignore_errors=True)
+            duthost.shell(
+                f"sudo config interface vrf unbind {loopback_for_src}",
+                module_ignore_errors=True)
+            _restore_interface_ip_entries(duthost, saved_loopback_ips)
+
         # VRF config cleanup
         duthost.shell(f"sudo config route del prefix vrf {SERVER_VRF_NAME} 0.0.0.0/0 nexthop"
                       f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}")
 
         duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
         duthost.shell(f"sudo config vrf del {SERVER_VRF_NAME}")
-        for pc, params in portchannels.items():
-            duthost.shell(f"sudo config interface ip add {pc} {params['ip']}")
 
-        duthost.shell(f"sudo config interface ip add {vlan_iface} {vlan_ip}")
+        # Restore all interface CONFIG_DB entries (base entry, IPs, and attributes).
+        # "config interface vrf bind" strips ALL IPs (secondary IPv4, IPv6, etc.),
+        # not just the primary. A simple "config interface ip add" only restores
+        # the primary IPv4, permanently losing secondary IPs and IPv6 addresses.
+        # Instead, we save and restore the exact CONFIG_DB entries via redis-cli,
+        # preserving all attributes (e.g. the secondary flag). intfmgrd then
+        # automatically applies the restored entries to the kernel.
+        _restore_interface_ip_entries(duthost, saved_vlan_ips)
+        _restore_interface_ip_entries(duthost, saved_pc_ips)
+        duthost.shell("sudo config save -y")
 
 
 @pytest.mark.parametrize("max_hop_count", [CONFIG_HOP_COUNT, MAX_HOP_COUNT])
