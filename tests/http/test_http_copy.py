@@ -5,11 +5,13 @@ import tempfile
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.devices.multi_asic import MultiAsicSonicHost
 
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology("any", "t1-multi-asic"),
     pytest.mark.device_type("vs"),
 ]
+
 
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
