@@ -259,7 +259,7 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
 
                 # Send packets to switch to populate the layer 2 table with dummy MACs for each port
                 # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
-                dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
+                dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index % 256, i)
                               for i in range(dummy_mac_count)]
 
                 for dummy_mac in dummy_macs:
