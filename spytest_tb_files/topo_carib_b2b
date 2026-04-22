@@ -28,36 +28,34 @@ devices:
 
     T1:
         device_type: TGEN
-        properties: {type: ixia, version: 9.20, ip: 10.29.158.194, ix_server: 10.29.158.65}
+        properties: {type: ixia, version: 10.25, ip: 10.29.158.194, ix_server: 10.29.158.108}
         credentials: {username: admin, password: admin, altpassword: admin}
 
 
 topology:
     leaf0:
         interfaces:
-            Ethernet1_32: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
-            Ethernet1_15: {EndDevice: leaf1, EndPort: Ethernet1_15, params: def_link}
-            Ethernet1_15_1: {EndDevice: leaf1, EndPort: Ethernet1_15_1, params: def_link}
-            Ethernet1_15_2: {EndDevice: leaf1, EndPort: Ethernet1_15_2, params: def_link}
-            Ethernet1_15_3: {EndDevice: leaf1, EndPort: Ethernet1_15_3, params: def_link}
-            Ethernet1_15_4: {EndDevice: leaf1, EndPort: Ethernet1_15_4, params: def_link}
-            Eth1_15_1.100: {EndDevice: leaf1, EndPort: Eth1_15_1.100, params: def_link}
-            Eth1_15_2.100: {EndDevice: leaf1, EndPort: Eth1_15_2.100, params: def_link}
-            Eth1_15_3.100: {EndDevice: leaf1, EndPort: Eth1_15_3.100, params: def_link}
-            Eth1_15_4.100: {EndDevice: leaf1, EndPort: Eth1_15_4.100, params: def_link}
+            Ethernet1_32: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
+            Ethernet1_2: {EndDevice: leaf1, EndPort: Ethernet1_2, params: def_link}
+            Ethernet1_2_1: {EndDevice: leaf1, EndPort: Ethernet1_2_1, params: def_link}
+            Ethernet1_2_2: {EndDevice: leaf1, EndPort: Ethernet1_2_2, params: def_link}
+            Ethernet1_2_3: {EndDevice: leaf1, EndPort: Ethernet1_2_3, params: def_link}
+            Ethernet1_2_4: {EndDevice: leaf1, EndPort: Ethernet1_2_4, params: def_link}
+            Eth1_2_1.100: {EndDevice: leaf1, EndPort: Eth1_2_1.100, params: def_link}
+            Eth1_2_2.100: {EndDevice: leaf1, EndPort: Eth1_2_2.100, params: def_link}
+            Eth1_2_3.100: {EndDevice: leaf1, EndPort: Eth1_2_3.100, params: def_link}
+            Eth1_2_4.100: {EndDevice: leaf1, EndPort: Eth1_2_4.100, params: def_link}
 
   
     leaf1:
         interfaces:
             Ethernet1_32: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
-            Ethernet1_15: {EndDevice: leaf0, EndPort: Ethernet1_15, params: def_link}
-            Ethernet1_15_1: {EndDevice: leaf0, EndPort: Ethernet1_15_1, params: def_link}
-            Ethernet1_15_2: {EndDevice: leaf0, EndPort: Ethernet1_15_2, params: def_link}
-            Ethernet1_15_3: {EndDevice: leaf0, EndPort: Ethernet1_15_3, params: def_link}
-            Ethernet1_15_4: {EndDevice: leaf0, EndPort: Ethernet1_15_4, params: def_link}
-            Eth1_15_1.100: {EndDevice: leaf0, EndPort: Eth1_15_1.100, params: def_link}
-            Eth1_15_2.100: {EndDevice: leaf0, EndPort: Eth1_15_2.100, params: def_link}
-            Eth1_15_3.100: {EndDevice: leaf0, EndPort: Eth1_15_3.100, params: def_link}
-            Eth1_15_4.100: {EndDevice: leaf0, EndPort: Eth1_15_4.100, params: def_link}
-
-
+            Ethernet1_2: {EndDevice: leaf0, EndPort: Ethernet1_2, params: def_link}
+            Ethernet1_2_1: {EndDevice: leaf0, EndPort: Ethernet1_2_1, params: def_link}
+            Ethernet1_2_2: {EndDevice: leaf0, EndPort: Ethernet1_2_2, params: def_link}
+            Ethernet1_2_3: {EndDevice: leaf0, EndPort: Ethernet1_2_3, params: def_link}
+            Ethernet1_2_4: {EndDevice: leaf0, EndPort: Ethernet1_2_4, params: def_link}
+            Eth1_2_1.100: {EndDevice: leaf0, EndPort: Eth1_2_1.100, params: def_link}
+            Eth1_2_2.100: {EndDevice: leaf0, EndPort: Eth1_2_2.100, params: def_link}
+            Eth1_2_3.100: {EndDevice: leaf0, EndPort: Eth1_2_3.100, params: def_link}
+            Eth1_2_4.100: {EndDevice: leaf0, EndPort: Eth1_2_4.100, params: def_link}

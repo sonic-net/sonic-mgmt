@@ -28,7 +28,7 @@ devices:
 
     T1:
         device_type: TGEN
-        properties: {type: ixia, version: 9.20, ip: 10.29.158.194, ix_server: 10.29.158.65}
+        properties: {type: ixia, version: 10.25, ip: 10.29.158.194, ix_server: 10.29.158.108}
         credentials: {username: admin, password: admin, altpassword: admin}
 
 

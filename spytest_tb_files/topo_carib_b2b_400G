@@ -28,14 +28,14 @@ devices:
 
     T1:
         device_type: TGEN
-        properties: {type: ixia, version: 9.20, ip: 10.29.158.194, ix_server: 10.29.158.65}
+        properties: {type: ixia, version: 10.25, ip: 10.29.158.194, ix_server: 10.29.158.108}
         credentials: {username: admin, password: admin, altpassword: admin}
 
 
 topology:
     leaf0:
         interfaces:
-            Ethernet1_32: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
+            Ethernet1_32: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
             Ethernet1_31: {EndDevice: leaf1, EndPort: Ethernet1_31, params: def_link}
             Ethernet1_31_1: {EndDevice: leaf1, EndPort: Ethernet1_31_1, params: def_link}
             Ethernet1_31_2: {EndDevice: leaf1, EndPort: Ethernet1_31_2, params: def_link}

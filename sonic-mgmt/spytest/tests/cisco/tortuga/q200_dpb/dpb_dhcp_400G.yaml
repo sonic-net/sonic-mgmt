@@ -31,6 +31,8 @@ leaf0:
         sudo config interface vrf unbind D1D2P4
         sudo config interface vrf unbind D1D2P5
         sudo config interface vrf unbind Vlan10
+        sudo config dhcp_relay helper del 20
+        sudo config vlan dhcp-relay-src del 20
         sudo config vrf del Vrf10
         sudo config vlan member del 10 D1T1P1
         sudo config vlan del 10
@@ -106,6 +108,8 @@ leaf1:
         sudo config interface vrf unbind D2D1P4
         sudo config interface vrf unbind D2D1P5
         sudo config interface vrf unbind Vlan20
+        sudo config dhcp_relay ipv4 helper del 20 10.10.10.10
+        sudo config vlan dhcp-relay-src del 20
         sudo config vrf del Vrf10
         sudo config vlan member del 20 D2T1P1
         sudo config vlan del 20

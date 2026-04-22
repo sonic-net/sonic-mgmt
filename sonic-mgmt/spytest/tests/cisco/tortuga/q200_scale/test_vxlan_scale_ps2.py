@@ -8,187 +8,191 @@ import apis.routing.vrf as vrf_obj
 import apis.system.basic as basic_obj
 import apis.switching.vlan as vlan_obj
 import apis.system.interface as interface_obj
-from ixnetwork_restpy import SessionAssistant, StatViewAssistant
+from ixnetwork_restpy import SessionAssistant, StatViewAssistant, Files
+from spytest.utils import poll_wait
  
 
 def get_dut_config_file(feature):
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    ixia_configs_dir = os.path.join(script_dir, 'ixia_config_files')
     
     dut_config = ""
     ixia_config = ""
     if feature == 'vrf_scale_1_v6vtep_v6host':
         dut_config = 'vrf_scale_1_v6vtep_v6hosts_configs.yaml'
-        ixia_config = r'HW_L3VNI_V6vteps_V6hosts_Scale_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_V6vteps_V6hosts_Scale_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     elif feature == 'vrf_scale':
         dut_config = 'vrf_scale_configs.yaml'
-        ixia_config = r'HW_L3VNI_Leaf0_LEAF1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_Leaf0_LEAF1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     elif feature == 'l2vni_scale':
         dut_config = 'l2vni_scale_dut_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v4vtep_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v4vtep_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
     elif feature == 'l2vni_scale_v6host':
         dut_config = 'l2vni_scale_dut_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v4vtep_v6hosts_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v4vtep_v6hosts_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
     elif feature =="l2vni_host_scale":
         dut_config = 'l2vni_host_scale_configs.yaml'
-        ixia_config = r'HW_32k_mac_route_1_latest_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_32k_mac_route_1_latest_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 3, "port2": 1}
 
     elif feature =="l2vni_host_scale_v6host":
         dut_config = 'l2vni_host_scale_configs.yaml'
-        ixia_config = r'HW_32k_mac_route_1_latest_v6host_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_32k_mac_route_1_latest_v6host_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 3, "port2": 1}
 
 
     elif feature =="l2vni_host_scale_v6vtep_v6host":
         dut_config = 'l2vni_host_scale_v6vtep_v6host_configs.yaml'
-        ixia_config = r'HW_32k_mac_route_1_latest_v6host_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_32k_mac_route_1_latest_v6host_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 3, "port2": 1}
 
     elif feature =="l2vni_host_scale_v6vtep_v4host":
         dut_config = 'l2vni_host_scale_v6vtep_v6host_configs.yaml'
-        ixia_config = r'HW_32k_mac_route_1_latest_PS2.ixncfg'
-        port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 3, "port2": 1}
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_32k_mac_route_1_latest_PS2.ixncfg')
+        port_info = {"chassis_ip" : "10.29.1587.51", "slot": 1, "port1": 3, "port2": 1}
 
 
     elif feature =="l2vni_1_v6vtep_v6host_100vlan":
         dut_config = 'l2vni_1_v6vtep_v6host_100vlan_configs.yaml'
-        ixia_config = r'HW_L2VNI_V6vteps_V6hosts_Leaf0_leaf1_100Vlan_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_V6vteps_V6hosts_Leaf0_leaf1_100Vlan_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
  
     elif feature =="l2vni_1_v6vtep_v6host_100vlan_with_sag":
         dut_config = 'l2vni_1_v6vtep_v6host_100vlan_with_sag_configs.yaml'
-        ixia_config = r'HW_L2VNI_V6vteps_V6hosts_Leaf0_leaf1_100Vlan_WITH_SAG_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_V6vteps_V6hosts_Leaf0_leaf1_100Vlan_WITH_SAG_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l2vni_1_v6vtep_v4host_100vlan_with_sag":
         dut_config = 'l2vni_1_v6vtep_v4host_100vlan_with_sag_configs.yaml'
-        ixia_config = r'HW_L2VNI_V6vteps_V4hosts_Leaf0_leaf1_100Vlan_WITH_SAG_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_V6vteps_V4hosts_Leaf0_leaf1_100Vlan_WITH_SAG_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature == 'l2vni_scale_32v4vtep_v4hosts_with_sag':
         dut_config = 'l2vni_scale_32v4vtep_v4hosts_configs_with_sag_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v4vtep_new_from_RAM_WITH_SAG_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v4vtep_new_from_RAM_WITH_SAG_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
     elif feature == 'l2vni_scale_32v4vtep_v6hosts_with_sag': 
         dut_config = 'l2vni_scale_32v4vtep_v6hosts_configs_with_sag_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v4vtep_v6hosts_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v4vtep_v6hosts_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
     elif feature == 'l3vni_scale_32v4vtep_v4hosts':
         dut_config = 'l3vni_32v4vtep_v4host_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v4vtep_new_from_RAM_L3VNI_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v4vtep_new_from_RAM_L3VNI_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
     elif feature == 'l3vni_scale_32v4vtep_v6hosts':
         dut_config = 'l3vni_32v4vtep_v6host_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v4vtep_v6hosts_new_from_RAM_L3VNI_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v4vtep_v6hosts_new_from_RAM_L3VNI_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
 
     elif feature == 'l3vni_scale_32v6vtep_v6hosts':
         dut_config = 'l3vni_32v6vtep_v6host_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v6vtep_using_leaf1_testconfig_v6HOSTS_L3VNI_3_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v6vtep_using_leaf1_testconfig_v6HOSTS_L3VNI_3_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
     elif feature == 'l3vni_scale_32v6vtep_v4hosts':
         dut_config = 'l3vni_32v6vtep_v4host_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v6vtep_using_leaf1_testconfig_v4HOSTS_L3VNI_3_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v6vtep_using_leaf1_testconfig_v4HOSTS_L3VNI_3_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
     
     elif feature == 'l2vni_32v6vtep_v4hosts_scale':
         dut_config = 'l2vni_scale_dut_32v6vtep_v4hosts_configs.yaml'
-        ixia_config = r'HW_ipv6_underlay_32_v6vtep_using_leaf1_testconfig_v4HOSTS_port24_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_ipv6_underlay_32_v6vtep_using_leaf1_testconfig_v4HOSTS_port24_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 2, "port2": 3}
 
     elif feature =="l2vni_host_scale_sag":
         dut_config = 'l2vni_host_scale_configs_sag.yaml'
-        ixia_config = r'HW_L2VNI_32K_IP_prefix_SAG_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_32K_IP_prefix_SAG_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     elif feature =="l2vni_host_scale_v6vtep_sag":
         dut_config = 'l2vni_host_scale_configs_v6vtep_sag.yaml'
-        ixia_config = r'HW_L2VNI_32K_IP_prefix_SAG_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_32K_IP_prefix_SAG_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     
     elif feature =="l2vni_host_scale_v4vtep_v6host_sag":
         dut_config = 'l2vni_host_v4vtep_v6host_scale_configs_sag.yaml'
-        ixia_config = r'HW_L2VNI_32K_IP_prefix_v6hosts_SAG_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_32K_IP_prefix_v6hosts_SAG_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     elif feature =="l2vni_host_scale_v6vtep_v6host_sag":
         dut_config = 'l2vni_host_v6vtep_v6host_scale_configs_sag.yaml'
-        ixia_config = r'HW_L2VNI_32K_IP_prefix_v6hosts_SAG_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_32K_IP_prefix_v6hosts_SAG_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
 
     elif feature =="l2vni_v6vtep_v6host_customimix":
         dut_config = 'l2vni_v6vtep_v6host_customimix_configs.yaml'
-        ixia_config = r'HW_L2VNI_V6vteps_V6hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_V6vteps_V6hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l2vni_v6vtep_v4host_customimix":
         dut_config = 'l2vni_v6vtep_v6host_customimix_configs.yaml'
-        ixia_config = r'HW_L2VNI_V6vteps_V4hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_V6vteps_V4hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     elif feature =="l2vni_v4vtep_v4host_customimix":
         dut_config = 'l2vni_v4vtep_customimix_configs.yaml'
-        ixia_config = r'HW_L2VNI_V6vteps_V4hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_V6vteps_V4hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     elif feature =="l2vni_v4vtep_v6host_customimix":
         dut_config = 'l2vni_v4vtep_customimix_configs.yaml'
-        ixia_config = r'HW_L2VNI_V6vteps_V6hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L2VNI_V6vteps_V6hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     elif feature =="l3vni_v6vtep_v6host_customimix":
         dut_config = 'l3vni_v6vtep_v6host_customimix_configs.yaml'
-        ixia_config = r'HW_L3VNI_V6vteps_V6hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_V6vteps_V6hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l3vni_host_scale":
         dut_config = 'l3vni_v4vtep_v4host_2kip_prefix.yaml'
-        ixia_config = r'HW_L3VNI_32K_IP_prefix_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_32K_IP_prefix_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l3vni_v6vtep_host_scale":
         dut_config = 'l3vni_v6vtep_v4host_2kip_prefix.yaml'
-        ixia_config = r'HW_L3VNI_32K_IP_prefix_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_32K_IP_prefix_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l3vni_v4vtep_v6host_scale":
         dut_config = 'l3vni_v4vtep_v6host_2kip_prefix.yaml'
-        ixia_config = r'HW_L3VNI_32K_IP_prefix_v6hosts_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_32K_IP_prefix_v6hosts_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l3vni_v6vtep_v4host_customimix":
         dut_config = 'l3vni_v6vtep_v4host_customimix_configs.yaml'
-        ixia_config = r'HW_L3VNI_V6vteps_V4hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_V6vteps_V4hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l3vni_v4vtep_v4host_customimix":
         dut_config = 'l3vni_v4vtep_v4host_customimix_configs.yaml'
-        ixia_config = r'HW_L3VNI_V6vteps_V4hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_V6vteps_V4hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l3vni_v4vtep_v6host_customimix":
         dut_config = 'l3vni_v4vtep_v6host_customimix_configs.yaml'
-        ixia_config = r'HW_L3VNI_V6vteps_V6hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_V6vteps_V6hosts_Leaf0_leaf1_customIMIX_1_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
     
     elif feature =="l3vni_v6vtep_v6host_scale":
         dut_config = 'l3vni_v6vtep_v6host_2kip_prefix.yaml'
-        ixia_config = r'HW_L3VNI_32K_IP_prefix_v6hosts_PS2.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'HW_L3VNI_32K_IP_prefix_v6hosts_PS2.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": 1, "port2": 3}
 
     else:
@@ -205,40 +209,75 @@ def initialize_variables():
 
 
 def ixia_setup(ixia_config_file,port_info):
-    ixnetwork_session = SessionAssistant(IpAddress="10.29.158.65", UserName="admin", Password="admin")
-    ixnetwork = ixnetwork_session.Ixnetwork
-    ixnetwork.LoadConfig(Arg1=ixia_config_file)
-    st.wait(30)
+    # Validate config file exists
+    if not os.path.exists(ixia_config_file):
+        st.error(f"IXIA config file not found: {ixia_config_file}")
+        st.report_fail("test_case_failed")
     
-    # Assign ports. Map physical ports to the configured vports.
-    portMap = ixnetwork_session.PortMapAssistant()
-    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port1'], Name=ixnetwork.Vport.find()[0].Name)
-    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port2'], Name=ixnetwork.Vport.find()[1].Name)
-    portMap.Connect(ForceOwnership=True)
-    st.wait(10)
-    ixnetwork.StartAllProtocols(Arg1='sync')
-    st.wait(20)
-
+    st.log(f"Loading IXIA config from: {ixia_config_file}")
+    
     try:
-    # Check the condition 'Sessions Down' equal to 0
-        protocolSummary = ixnetwork_session.StatViewAssistant('Protocols Summary')
-        protocolSummary.CheckCondition('Sessions Down', protocolSummary.EQUAL, 0)
-        ixnetwork.info(protocolSummary)
-        st.log("Condition met: Sessions Down is 0")
-    except Exception as e:
-        st.log("Error: "+str(e))
-        ixnetwork.StopAllProtocols(Arg1='sync')
-        st.wait(8)
-        ixnetwork.StartAllProtocols(Arg1='sync')
+        # Create session with ClearConfig=True for clean state
+        ixnetwork_session = SessionAssistant(
+            IpAddress="10.29.158.108",
+            UserName="admin",
+            Password="admin",
+            ClearConfig=True
+        )
+        ixnetwork = ixnetwork_session.Ixnetwork
+        st.log(f"sessionId: {ixnetwork_session.Session.Id}")
+        # Load config using Files() method
+        st.log("Uploading and loading IXIA configuration file...")
+        ixnetwork.LoadConfig(Files(ixia_config_file, local_file=True))
         st.wait(30)
-        st.log("Restarted protocols due to 'Sessions Down' not equal to 0")
-    traffic_items = ixnetwork.Traffic.TrafficItem.find()
-    for traffic_item in traffic_items:
-        traffic_item.Generate()
-    st.wait(5)
-    ixnetwork.Traffic.Apply()
-    st.wait(5)
-    return ixnetwork,ixnetwork_session
+        
+        # Validate vports
+        vports = ixnetwork.Vport.find()
+        st.log(f"Found {len(vports)} vports in configuration")
+        if len(vports) < 2:
+            st.error("Configuration should have at least 2 vports")
+            st.report_fail("test_case_failed")
+        
+        # Assign ports. Map physical ports to the configured vports.
+        st.log(f"Mapping physical ports: {port_info['chassis_ip']} slot {port_info['slot']}")
+        portMap = ixnetwork_session.PortMapAssistant()
+        portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port1'], Name=vports[0].Name)
+        portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port2'], Name=vports[1].Name)
+        portMap.Connect(ForceOwnership=True)
+        st.wait(10)
+        
+        st.log("Starting all protocols...")
+        ixnetwork.StartAllProtocols(Arg1='sync')
+        st.wait(20)
+
+        try:
+            # Check the condition 'Sessions Down' equal to 0
+            protocolSummary = ixnetwork_session.StatViewAssistant('Protocols Summary')
+            protocolSummary.CheckCondition('Sessions Down', protocolSummary.EQUAL, 0)
+            ixnetwork.info(protocolSummary)
+            st.log("Condition met: Sessions Down is 0")
+        except Exception as e:
+            st.log("Error: "+str(e))
+            ixnetwork.StopAllProtocols(Arg1='sync')
+            st.wait(8)
+            ixnetwork.StartAllProtocols(Arg1='sync')
+            st.wait(30)
+            st.log("Restarted protocols due to 'Sessions Down' not equal to 0")
+        
+        st.log("Generating and applying traffic...")
+        traffic_items = ixnetwork.Traffic.TrafficItem.find()
+        for traffic_item in traffic_items:
+            traffic_item.Generate()
+        st.wait(5)
+        ixnetwork.Traffic.Apply()
+        st.wait(5)
+        
+        st.log("IXIA setup completed successfully")
+        return ixnetwork,ixnetwork_session
+        
+    except Exception as e:
+        st.error(f"Failed to setup IXIA: {str(e)}")
+        st.report_fail("test_case_failed")
     
 def ixia_start_devices(ixnetwork):
     # Find all IPv4 device
@@ -257,15 +296,20 @@ def ixia_start_devices(ixnetwork):
 
 def ixia_teardown(ixnetwork_session):
     # Disconnect from the IxNetwork API server
+    st.log("Ixia Teardown")
     ixnetwork_session.Session.remove()
 
 def start_stop_traffic(ixnetwork):
+    ixnetwork.Traffic.Apply()
+    st.wait(5)
     ixnetwork.Traffic.StartStatelessTrafficBlocking()
     st.wait(60)
     ixnetwork.Traffic.StopStatelessTrafficBlocking()
     st.wait(5)
 
 def start_traffic(ixnetwork):
+    ixnetwork.Traffic.Apply()
+    st.wait(5)
     ixnetwork.Traffic.StartStatelessTrafficBlocking()
     st.wait(30)
 
@@ -993,12 +1037,13 @@ def l3vni_v4vtep_v4host_customimix_setup():
 
 @pytest.fixture(scope="function")
 def l3vni_host_scale_setup():
+
     config_files = get_dut_config_file('l3vni_host_scale')
     updated_cfg_file = modify_config_file(config_files[0],vars)
     static_config_push(updated_cfg_file)
     #static_config_push(config_files[0])
-    get_config_out()
-    get_cli_out()
+    #get_config_out()
+    #get_cli_out()
     out = ixia_setup(config_files[1],config_files[2])
     yield out
     try:
@@ -1075,6 +1120,21 @@ def l3vni_v6vtep_v6host_scale_setup():
         get_config_out()
     except Exception as e:
         st.log("Error: "+str(e))
+
+@pytest.fixture(scope="function", autouse=True)
+def dut_nodes_cleanup():
+    doc_count_dict = {}
+    st.banner('Cleaning of config on all nodes before tescase')
+    for node in st.get_dut_names():
+        doc_count_dict[node] = basic_obj.get_and_match_docker_count(node)
+        st.config(node, 'sudo cp /etc/sonic/config_db.json.bk1 /etc/sonic/config_db.json')
+        st.config(node, 'sudo config reload -y')
+    st.wait(60)
+    for node in st.get_dut_names():
+        if not poll_wait(basic_obj.verify_docker_status, 300, node, 'Exited'):
+            st.error("Docker(s) is/are not auto recovered.")
+        if not poll_wait(basic_obj.get_and_match_docker_count, 300, node, doc_count_dict[node]):
+            st.error("Not all dockers are UP")
 
 
 ## TESTCASES ###
@@ -1948,7 +2008,6 @@ def test_l3vni_scale_32v6vtep_v4hosts(l3vni_scale_32v6vtep_v4hosts_setup):
 def test_l2vni_32v6vtep_v4hosts_scale(l2vni_32v6vtep_v4hosts_scale_setup):
     ixnetwork = l2vni_32v6vtep_v4hosts_scale_setup[0]
     ixnetwork_session = l2vni_32v6vtep_v4hosts_scale_setup[1]
-#    import pdb; pdb.set_trace()
     start_stop_traffic(ixnetwork)
     stats = get_traffic_stats(ixnetwork_session)
     #check tx and rx packet count
@@ -2027,7 +2086,11 @@ def get_config_out():
     for dut in st.get_dut_names():
         if "leaf" in dut:
             output = st.config(dut, "do show run" , type = "vtysh")
+            output_resources = st.config(dut, "sudo crm show resources all")
             st.log(output)
+            st.log("#####################################################")
+            st.log("Check the output below for resource utilization")
+            st.log(output_resources)
 
 def modify_config_file(config_file,vars):
     vars = st.get_testbed_vars()

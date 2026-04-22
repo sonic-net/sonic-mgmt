@@ -70,6 +70,7 @@ leaf1:
       deconfig: |
         sudo config interface vrf unbind D2D1P1
         sudo config interface vrf unbind Vlan20
+        sudo config dhcp_relay ipv4 helper del 20 10.10.10.10
         sudo config vrf del Vrf10
         sudo config vlan member del 20 D2T1P1
         sudo config vlan del 20

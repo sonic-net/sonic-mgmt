@@ -8,7 +8,7 @@ import apis.routing.vrf as vrf_obj
 import apis.system.basic as basic_obj
 import apis.switching.vlan as vlan_obj
 import apis.system.interface as interface_obj
-from ixnetwork_restpy import SessionAssistant, StatViewAssistant
+from ixnetwork_restpy import SessionAssistant, StatViewAssistant, Files
 import apis.system.port as papi 
 
 
@@ -27,196 +27,201 @@ def get_dut_config_file(feature):
     np2 = p2[-1:]
     dut_config = ""
     ixia_config = ""
+    
+    # Get the absolute path to ixia_configs directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    ixia_configs_dir = os.path.join(script_dir, 'ixia_configs')
+    
     if feature == 'dpb_subinterface':
         dut_config = 'dpb_subinterface.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_vrf":
         dut_config = 'dpb_vrf.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_bfd":
         dut_config = 'dpb_bfd.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_dhcp":
         dut_config = 'dpb_dhcp.yaml'
-        ixia_config = r'DHCP relay-working.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'DHCP relay-working.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_portch":
         dut_config = 'dpb_portchannel.yaml'
-        ixia_config = r'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_mtu":
         dut_config = 'dpb_mtu.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G_mtu1500.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G_mtu1500.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature == 'dpb_subinterface_400G':
         dut_config = 'dpb_subinterface_400G.yaml'
-        ixia_config = r'carib_carib_optics_l3_traffic_bidir_only25_1_to_25_4.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'carib_carib_optics_l3_traffic_bidir_only25_1_to_25_4.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_vrf_400G":
         dut_config = 'dpb_vrf_400G.yaml'
-        ixia_config = r'carib_carib_optics_l3_traffic_bidir_only25_1_to_25_4.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'carib_carib_optics_l3_traffic_bidir_only25_1_to_25_4.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_bfd_400G":
         dut_config = 'dpb_bfd_400G.yaml'
-        ixia_config = r'carib_carib_optics_l3_traffic_bidir_only25_1_to_25_4.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'carib_carib_optics_l3_traffic_bidir_only25_1_to_25_4.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_dhcp_400G":
         dut_config = 'dpb_dhcp_400G.yaml'
-        ixia_config = r'DHCP relay-working.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'DHCP relay-working.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_portch_400G":
         dut_config = 'dpb_portchannel_400G.yaml'
-        ixia_config = r'carib_carib_optics_l2_traffic-4UDP-bidirec-vlannew.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'carib_carib_optics_l2_traffic-4UDP-bidirec-vlannew.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_mtu_400G":
         dut_config = 'dpb_mtu_400G.yaml'
-        ixia_config = r'carib_carib_optics_l3_traffic_bidir_only25_1_to_25_4_MTU1500.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'carib_carib_optics_l3_traffic_bidir_only25_1_to_25_4_MTU1500.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_vrf_40G":
         dut_config = 'dpb_vrf_40G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_bfd_40G":
         dut_config = 'dpb_bfd_40G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature == 'dpb_subinterface_40G':
         dut_config = 'dpb_subinterface_40G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_dhcp_40G":
         dut_config = 'dpb_dhcp_40G.yaml'
-        ixia_config = r'siren-DHCP relay-working_50_to_10.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren-DHCP relay-working_50_to_10.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_portch_40G":
         dut_config = 'dpb_portchannel_40G.yaml'
-        ixia_config = r'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_10G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_10G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_mtu_40G":
         dut_config = 'dpb_mtu_40G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_10G_mtu1500.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_10G_mtu1500.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_vrf_siren_10G":
         dut_config = 'dpb_vrf_siren_10G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_bfd_siren_10G":
         dut_config = 'dpb_bfd_siren_10G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature == 'dpb_subinterface_siren_10G':
         dut_config = 'dpb_subinterface_siren_10G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_10G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_dhcp_siren_10G":
         dut_config = 'dpb_dhcp_siren_10G.yaml'
-        ixia_config = r'siren-DHCP relay-working_50_to_10.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren-DHCP relay-working_50_to_10.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_portch_siren_10G":
         dut_config = 'dpb_portchannel_siren_10G.yaml'
-        ixia_config = r'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_10G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_10G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_mtu_siren_10G":
         dut_config = 'dpb_mtu_siren_10G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_10G_mtu1500.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_10G_mtu1500.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature == 'dpb_subinterface_siren_25G':
         dut_config = 'dpb_subinterface_siren_25G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_vrf_siren_25G":
         dut_config = 'dpb_vrf_siren_25G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_bfd_siren_25G":
         dut_config = 'dpb_bfd_siren_25G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_dhcp_siren_25G":
         dut_config = 'dpb_dhcp_siren_25G.yaml'
-        ixia_config = r'DHCP relay-working.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'DHCP relay-working.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_portch_siren_25G":
         dut_config = 'dpb_portchannel_siren_25G.yaml'
-        ixia_config = r'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_mtu_siren_25G":
         dut_config = 'dpb_mtu_siren_25G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G_mtu1500.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G_mtu1500.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature == 'dpb_subinterface_siren_50G':
         dut_config = 'dpb_subinterface_siren_50G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_vrf_siren_50G":
         dut_config = 'dpb_vrf_siren_50G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_bfd_siren_50G":
         dut_config = 'dpb_bfd_siren_50G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
     elif feature =="dpb_dhcp_siren_50G":
         dut_config = 'dpb_dhcp_siren_50G.yaml'
-        ixia_config = r'DHCP relay-working.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'DHCP relay-working.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_portch_siren_50G":
         dut_config = 'dpb_portchannel_siren_50G.yaml'
-        ixia_config = r'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_25G.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l2_traffic-UDP-bidirec-vlannew_50_to_25G.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
     elif feature =="dpb_mtu_siren_50G":
         dut_config = 'dpb_mtu_siren_50G.yaml'
-        ixia_config = r'siren_optics_l3_traffic_bidir_50_to_25G_mtu1500.ixncfg'
+        ixia_config = os.path.join(ixia_configs_dir, 'siren_optics_l3_traffic_bidir_50_to_25G_mtu1500.ixncfg')
         port_info = {"chassis_ip" : "10.29.158.194", "slot": 1, "port1": np1, "port2": np2}
 
 
@@ -227,17 +232,51 @@ def get_dut_config_file(feature):
 
 
 def ixia_setup(ixia_config_file,port_info):
-    ixnetwork_session = SessionAssistant(IpAddress="10.29.158.65", UserName="admin", Password="admin")
+    st.log("=== IXIA Setup: Loading config file ===")
+    st.log("Config file path: {}".format(ixia_config_file))
+    
+    # Verify file exists before attempting to load
+    if not os.path.exists(ixia_config_file):
+        st.error("IXIA config file not found: {}".format(ixia_config_file))
+        st.report_fail("test_case_failed")
+    
+    # Create session with ClearConfig to ensure clean state
+    ixnetwork_session = SessionAssistant(
+        IpAddress="10.29.158.196", 
+        UserName="admin", 
+        Password="admin",
+        ClearConfig=True,
+        LogLevel=SessionAssistant.LOGLEVEL_INFO
+    )
     ixnetwork = ixnetwork_session.Ixnetwork
-    ixnetwork.LoadConfig(Arg1=ixia_config_file)
-    st.wait(30)
+    
+    # Use Files() to load the config file - will upload local file to IxNetwork server
+    st.log("Loading IXIA configuration...")
+    try:
+        ixnetwork.LoadConfig(Files(ixia_config_file, local_file=True))
+        st.log("Config loaded successfully")
+    except Exception as e:
+        st.error("Failed to load IXIA config: {}".format(str(e)))
+        st.report_fail("test_case_failed")
+    
+    st.wait(30, "Waiting for config to initialize")
     
     # Assign ports. Map physical ports to the configured vports.
+    st.log("Mapping ports to virtual ports...")
     portMap = ixnetwork_session.PortMapAssistant()
-    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port1'], Name=ixnetwork.Vport.find()[0].Name)
-    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port2'], Name=ixnetwork.Vport.find()[1].Name)
+    vports = ixnetwork.Vport.find()
+    st.log("Found {} virtual ports in config".format(len(vports)))
+    
+    if len(vports) < 2:
+        st.error("Config file should have at least 2 vports, found {}".format(len(vports)))
+        st.report_fail("test_case_failed")
+    
+    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port1'], Name=vports[0].Name)
+    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port2'], Name=vports[1].Name)
+    
+    st.log("Connecting to physical ports...")
     portMap.Connect(ForceOwnership=True)
-    st.wait(10)
+    st.wait(10, "Waiting for port connection")
     ixnetwork.StartAllProtocols(Arg1='sync')
     st.wait(20)
 
@@ -252,17 +291,52 @@ def ixia_setup(ixia_config_file,port_info):
 
 def ixia_setup_dhcp(ixia_config_file,port_info):
     flag = False
-    ixnetwork_session = SessionAssistant(IpAddress="10.29.158.65", UserName="admin", Password="admin")
+    st.log("=== IXIA DHCP Setup: Loading config file ===")
+    st.log("Config file path: {}".format(ixia_config_file))
+    
+    # Verify file exists before attempting to load
+    if not os.path.exists(ixia_config_file):
+        st.error("IXIA config file not found: {}".format(ixia_config_file))
+        st.report_fail("test_case_failed")
+    
+    # Create session with ClearConfig to ensure clean state
+    ixnetwork_session = SessionAssistant(
+        IpAddress="10.29.158.196", 
+        UserName="admin", 
+        Password="admin",
+        ClearConfig=True,
+        LogLevel=SessionAssistant.LOGLEVEL_INFO
+    )
+    st.log("sessionId: {}".format(ixnetwork_session.Session.Id))
     ixnetwork = ixnetwork_session.Ixnetwork
-    ixnetwork.LoadConfig(Arg1=ixia_config_file)
-    st.wait(30)
+    
+    # Use Files() to load the config file - will upload local file to IxNetwork server
+    st.log("Loading IXIA configuration...")
+    try:
+        ixnetwork.LoadConfig(Files(ixia_config_file, local_file=True))
+        st.log("Config loaded successfully")
+    except Exception as e:
+        st.error("Failed to load IXIA config: {}".format(str(e)))
+        st.report_fail("test_case_failed")
+    
+    st.wait(30, "Waiting for config to initialize")
 
     # Assign ports. Map physical ports to the configured vports.
+    st.log("Mapping ports to virtual ports...")
     portMap = ixnetwork_session.PortMapAssistant()
-    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port1'], Name=ixnetwork.Vport.find()[0].Name)
-    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port2'], Name=ixnetwork.Vport.find()[1].Name)
+    vports = ixnetwork.Vport.find()
+    st.log("Found {} virtual ports in config".format(len(vports)))
+    
+    if len(vports) < 2:
+        st.error("Config file should have at least 2 vports, found {}".format(len(vports)))
+        st.report_fail("test_case_failed")
+    
+    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port1'], Name=vports[0].Name)
+    portMap.Map(IpAddress=port_info['chassis_ip'], CardId=port_info['slot'], PortId=port_info['port2'], Name=vports[1].Name)
+    
+    st.log("Connecting to physical ports...")
     portMap.Connect(ForceOwnership=True)
-    st.wait(10)
+    st.wait(10, "Waiting for port connection")
     ixnetwork.StartAllProtocols(Arg1='sync')
     st.wait(20)
     dhcp_addresses = ixnetwork.Topology.find(Name='Topology 2').DeviceGroup.find().Ethernet.find().Dhcpv4client.find()
