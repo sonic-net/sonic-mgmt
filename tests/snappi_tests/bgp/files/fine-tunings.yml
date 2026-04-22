@@ -1,0 +1,21 @@
+baseline_config_db:
+  config_db_wo_tuning: true
+
+north_zmq_ring_buffer:
+  DEVICE_METADATA:
+    localhost:
+      orch_northbond_route_zmq_enabled: "true"
+      ring_thread_enabled: "true"
+
+north_zmq:
+  DEVICE_METADATA:
+    localhost:
+      orch_northbond_route_zmq_enabled: "true"
+
+non_north_zmq_optimized:
+  DEVICE_METADATA:
+    localhost:
+      orch_northbond_route_zmq_enabled: "false"
+      synchronous_mode: "enable"
+      suppress-fib-pending: "disabled"
+      nexthop_group: "enabled"

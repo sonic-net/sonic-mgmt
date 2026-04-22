@@ -6,6 +6,7 @@ from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import is_virtual_platform
 
 logger = logging.getLogger(__name__)
 
@@ -322,8 +323,7 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
     logger.info("LLDP table interfaces in total: {}".format(len(lldp_table_interfaces)))
 
     # On virtual/KVM testbeds, eth0 has no LLDP neighbor so it won't appear in the LLDP table
-    is_virtual = duthost.facts.get('asic_type', '') == 'vs'
-    if is_virtual:
+    if is_virtual_platform(duthost):
         if 'eth0' not in lldp_table_interfaces:
             logger.info("eth0 not in LLDP table (expected on virtual/KVM testbed){}"
                         .format(context))
@@ -399,8 +399,7 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
     logger.info("lldpcli interfaces in total: {}".format(len(lldpcli_interfaces)))
 
     # On virtual/KVM testbeds, eth0 may not appear in lldpcli
-    is_virtual = duthost.facts.get('asic_type', '') == 'vs'
-    if is_virtual:
+    if is_virtual_platform(duthost):
         if 'eth0' not in lldpcli_interfaces:
             logger.info("eth0 not in lldpcli interfaces (expected on virtual/KVM testbed){}"
                         .format(context))
@@ -475,8 +474,7 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
     )['ansible_facts']
 
     # Verify eth0 is in lldpctl_facts (only on physical testbeds)
-    is_virtual = duthost.facts.get('asic_type', '') == 'vs'
-    if is_virtual:
+    if is_virtual_platform(duthost):
         if 'eth0' not in lldpctl_facts.get('lldpctl', {}):
             logger.info("eth0 not in lldpctl_facts (expected on virtual/KVM testbed){}"
                         .format(context))
