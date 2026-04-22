@@ -18,15 +18,15 @@ pytestmark = [
 
 
 @pytest.fixture
-def setup(rand_selected_dut):
+def pause_arp_update(rand_selected_dut):
     cmds = [
         "docker exec swss supervisorctl stop arp_update",
         "ip neigh flush all"
     ]
-    rand_selected_dut.shell_cmds(cmds)
+    rand_selected_dut.shell_cmds(cmds=cmds)
     yield
     cmds[0] = "docker exec swss supervisorctl start arp_update"
-    # rand_selected_dut.shell_cmds(cmds)
+    rand_selected_dut.shell_cmds(cmds=cmds)
 
 
 def neighbor_learned(dut, target_ip):
@@ -47,6 +47,7 @@ def ip_version_string(version):
 
 @pytest.mark.parametrize("ip_version", [4, 6], ids=ip_version_string)
 def test_kernel_asic_mac_mismatch(
+    pause_arp_update,
     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
     rand_selected_dut, ip_version, setup_vlan_arp_responder,  # noqa: F811
@@ -84,7 +85,9 @@ def test_kernel_asic_mac_mismatch(
     asic_db_mac = rand_selected_dut.shell(
         f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"
     )['stdout']
-    pt_assert(neighbor_info[4].lower() != asic_db_mac.lower())
+    pt_assert(neighbor_info[4].lower() != asic_db_mac.lower(),
+              f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "
+              "Ensure arp_update is stopped before modifying APPL_DB.")
     logger.info("APPL_DB and kernel are out of sync (expected)")
 
     rand_selected_dut.shell("docker exec swss supervisorctl start arp_update")
