@@ -20,24 +20,16 @@ SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
-def _is_bmc_topology(tbinfo):
-    """Return True if the current testbed is a BMC topology (no snmp container)."""
-    if not tbinfo:
-        return False
-    topo = tbinfo.get('topo', {}) or {}
-    return 'bmc' in (topo.get('type') or '') or 'bmc' in (topo.get('name') or '')
-
-
-def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, tbinfo):
+def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
     """Test control plane ACL functionality on a SONiC device"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     data_acl = get_data_acl(duthost)
     dut_mgmt_ip = duthost.mgmt_ip
-    # SNMP container is not supported on BMC topology, skip SNMP probes there.
-    skip_snmp = _is_bmc_topology(tbinfo)
+    # SNMP container is not supported on BMC devices, skip SNMP probes there.
+    skip_snmp = duthost.is_bmc()
     if skip_snmp:
-        logging.info("BMC topology detected; skipping SNMP probes in test_cacl_function.")
+        logging.info("BMC device detected; skipping SNMP probes in test_cacl_function.")
 
     # Start an NTP client
     if NTPLIB_INSTALLED:
