@@ -63,7 +63,7 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
         duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config before test
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 
 def config_compare(golden_config, running_config):
