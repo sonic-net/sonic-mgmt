@@ -560,7 +560,6 @@ def post_test_switch_check(duthost, localhost,
     return
 
 
-
 def get_dpu_uptime(dpuhosts, dpu_id):
     """
     Retrieve the boot time of a DPU as a datetime object using 'uptime -s'.

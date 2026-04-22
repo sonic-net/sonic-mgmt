@@ -275,10 +275,10 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
         triggered_dpu_on_list.append(dpu_on)
         triggered_ip_list.append(ip_address_list[index])
 
-    logging.info("Recording DPU boot times before DPU kernel panic")
-    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
-
     pytest_assert(triggered_dpu_on_list, "No DPUs were triggered; all skipped due to missing dpuhosts")
+
+    logging.info("Recording DPU boot times before DPU kernel panic")
+    pre_boot_times = get_all_dpu_uptimes(dpuhosts, triggered_dpu_on_list)
 
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, triggered_ip_list)
@@ -311,7 +311,8 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
                          num_dpu_modules,
                          re.compile(reboot_cause_pattern,
                                     re.IGNORECASE),
-                         EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG)
+                         EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG,
+                         pre_boot_times=pre_boot_times)
 
 
 @pytest.mark.disable_loganalyzer
@@ -380,7 +381,8 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                          num_dpu_modules,
                          re.compile(reboot_cause_pattern,
                                     re.IGNORECASE),
-                         EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG)
+                         EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG,
+                         pre_boot_times=pre_boot_times)
 
 
 @pytest.mark.disable_loganalyzer
@@ -420,7 +422,8 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                          dpu_on_list, ip_address_list,
                          num_dpu_modules,
                          re.compile(r"reboot|Non-Hardware",
-                                    re.IGNORECASE))
+                                    re.IGNORECASE),
+                         pre_boot_times=pre_boot_times)
 
 
 def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
