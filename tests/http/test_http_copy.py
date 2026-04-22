@@ -30,8 +30,10 @@ def mgmt_ip_is_v6(duthost: MultiAsicSonicHost) -> bool:
 
 
 @pytest.fixture(autouse=True)
-def setup_teardown(ptfhost, duthost):
+def setup_teardown(ptfhost, duthosts, rand_one_dut_hostname):
     global TEST_FILE_NAME
+
+    duthost = duthosts[rand_one_dut_hostname]
 
     # Copies http server files to ptf
     local_start_server_filename = LOCAL_START_SERVER_FILENAME_IPV6 if mgmt_ip_is_v6(duthost) else LOCAL_START_SERVER_FILENAME
