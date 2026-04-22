@@ -365,21 +365,36 @@ def configure_unnumbered_bgp(setup_info):
     # --- Teardown ---
     logger.info("Teardown: Restoring original configuration")
 
-    # Remove interface-based peering from EOS and restore originals
+    # Remove interface-based peering from EOS and restore originals.
+    # Order matters: remove interface neighbor first, then deactivate
+    # from address-families, then remove the peer-group itself.
     eos_peer_group = "LINK_LOCAL_PG"
     try:
-        cleanup_lines = [
-            "no neighbor interface {}".format(neigh_pc_intf),
-            "no neighbor {}".format(eos_peer_group),
-        ]
+        # Step 1: remove interface neighbor (must precede peer-group removal)
+        neigh_host.eos_config(
+            lines=["no neighbor interface {}".format(neigh_pc_intf)],
+            parents="router bgp {}".format(neigh_asn))
+        # Step 2: deactivate from address-families
+        for af in ["ipv4", "ipv6"]:
+            neigh_host.eos_config(
+                lines=["no neighbor {} activate".format(eos_peer_group)],
+                parents=["router bgp {}".format(neigh_asn),
+                         "address-family {}".format(af)])
+        # Step 3: remove the peer-group
+        neigh_host.eos_config(
+            lines=["no neighbor {} peer group".format(eos_peer_group)],
+            parents="router bgp {}".format(neigh_asn))
+        # Step 4: restore original numbered neighbors
+        restore_lines = []
         if dut_ipv4:
-            cleanup_lines.append(
+            restore_lines.append(
                 "neighbor {} remote-as {}".format(dut_ipv4, dut_asn))
         if dut_ipv6:
-            cleanup_lines.append(
+            restore_lines.append(
                 "neighbor {} remote-as {}".format(dut_ipv6, dut_asn))
-        neigh_host.eos_config(lines=cleanup_lines,
-                              parents="router bgp {}".format(neigh_asn))
+        if restore_lines:
+            neigh_host.eos_config(lines=restore_lines,
+                                  parents="router bgp {}".format(neigh_asn))
     except Exception as e:
         logger.error("EOS cleanup failed: %s", e)
         # Still proceed to config_reload below, but fail the teardown afterward
