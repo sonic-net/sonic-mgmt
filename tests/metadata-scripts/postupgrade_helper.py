@@ -93,9 +93,13 @@ def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_p
 def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process, skip_bgp_neighbor,
                      check_failed=True, check_stderr=True):
 
-    # Temp disregard this stderr for deprecation warning
-    SONIC_INSTALLER_STDERR = ["Warning: 'sonic_installer' command is deprecated and will be removed in the future",
-                              "Please use 'sonic-installer' instead"]
+    # Known harmless stderr lines to ignore
+    HARMLESS_STDERR = [
+        "Warning: 'sonic_installer' command is deprecated and will be removed in the future",
+        "Please use 'sonic-installer' instead",
+    ]
+    # vtysh usage warning on multi-ASIC devices (vtysh requires -n <namespace>)
+    VTYSH_USAGE_PREFIX = "Usage: /usr/bin/vtysh"
 
     if not metadata_process or skip_bgp_neighbor:
         logger.info("Skipping bgp_neighbor")
@@ -131,8 +135,13 @@ def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process, skip_bgp_neig
     logger.info("bgp_neighbor startup result: {}".format(str(result)))
 
     errors = None
-    if ('stderr' in result and result.get('stderr_lines') != SONIC_INSTALLER_STDERR):
-        errors = result.get('stderr')
+    if 'stderr' in result:
+        # Filter out known harmless stderr lines (deprecation warning, vtysh multi-ASIC usage)
+        unexpected_lines = [line for line in result.get('stderr_lines', [])
+                            if line not in HARMLESS_STDERR
+                            and not line.startswith(VTYSH_USAGE_PREFIX)]
+        if unexpected_lines:
+            errors = "\n".join(unexpected_lines)
 
     failed = result.get('failed')
 
