@@ -347,6 +347,9 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
         triggered_dpu_on_list.append(dpu_on)
         triggered_ip_list.append(ip_address_list[index])
 
+
+    logging.info("Recording DPU boot times before DPU memory exhaustion")
+    pre_boot_times = get_all_dpu_uptimes(dpuhosts, triggered_dpu_on_list)
     pytest_assert(triggered_dpu_on_list, "No DPUs were triggered; all skipped due to missing dpuhosts")
 
     logging.info("Checking DPUs are not pingable")
@@ -448,6 +451,9 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(duthost, platform_api_conn, num_dpu_modules)
 
     logging.info("Starting switch reboot...")
+    logging.info("Recording DPU boot times before switch cold reboot")
+    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
+
     perform_reboot(duthost, REBOOT_TYPE_COLD, None)
 
     logging.info("Executing post test check")
