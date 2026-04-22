@@ -337,6 +337,7 @@ def test_bgp_update_timer_single_route(
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
+                n0.announce_route(route)
                 # Wait until the DUT has advertised the route to n1 before
                 # withdrawing.  This replaces the fixed sleep and prevents the
                 # MRAI-suppression race where the withdrawal arrives before FRR
