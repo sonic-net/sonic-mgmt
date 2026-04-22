@@ -4,10 +4,9 @@ import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.dhcp_relay_utils import check_dhcp_stress_status
-from tests.common.dhcp_relay_utils import restart_dhcp_service
+from tests.common.dhcp_relay_utils import restart_dhcp_service, check_dhcp_stress_status
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa F401
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.ptf_runner import ptf_runner
 
@@ -22,16 +21,21 @@ DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 
 
-def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist,
-                                        testing_config, relay_agent,
-                                        request, setup_standby_ports_on_rand_unselected_tor,
+@pytest.mark.parametrize("interface_type", ["vlan"])
+def test_dhcp_relay_restart_with_stress(ptfhost, one_interface_per_type, interface_type, validate_dut_routes_exist,
+                                        testing_config, request, setup_standby_ports_on_rand_unselected_tor,
                                         toggle_all_simulator_ports_to_rand_selected_tor_m):      # noqa F811
     """
-    This test case is to make sure DHCPv4 relay would work well when startup with stress packets coming
+    This test case is to make sure DHCPv4 relay would work well when startup with stress packets coming.
+
+    This test runs for one interface of the specified type (vlan or routed).
     """
-    # Only test First Vlan
-    pytest_require(len(dut_dhcp_relay_data) >= 1, "Skip because cannot get enough vlan data")
+    dhcp_relay = one_interface_per_type.get(interface_type)
+    if not dhcp_relay:
+        pytest.skip("No {} dhcp_relay interface available".format(interface_type))
+
     testing_mode, duthost = testing_config
+    relay_agent = "isc-relay-agent"
 
     # Unit: s, indicates duration time for sending stress packets
     duration = request.config.getoption("--stress_restart_duration")
@@ -41,29 +45,31 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
 
     for _ in range(test_rounds):
         # Keep sending packets and then restart dhcp_relay
-        ptf_runner(ptfhost, "ptftests", "dhcp_relay_stress_test.DHCPContinuousStressTest", platform_dir="ptftests",
+        ptf_runner(ptfhost, "ptftests", "dhcp_relay_stress_test.DHCPContinuousStressTest",
+                   platform_dir="ptftests",
                    params={"hostname": duthost.hostname,
-                           "client_port_index": dut_dhcp_relay_data[0]['client_iface']['port_idx'],
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
                             # This port is introduced to test DHCP relay packet received
                             # on other client port
-                            "other_client_port": repr(dut_dhcp_relay_data[0]['other_client_ports']),
-                            "leaf_port_indices": repr(dut_dhcp_relay_data[0]['uplink_port_indices']),
-                            "num_dhcp_servers": len(dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs']),
-                            "server_ip": dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs'],
-                            "relay_iface_ip": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['addr']),
-                            "relay_iface_mac": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mac']),
-                            "relay_iface_netmask": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mask']),
+                            "other_client_port": repr(dhcp_relay['other_client_ports']),
+                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                            "num_dhcp_servers": len(dhcp_relay['downlink_iface']['dhcp_server_addrs']),
+                            "server_ip": dhcp_relay['downlink_iface']['dhcp_server_addrs'],
+                            "relay_iface_ip": str(dhcp_relay['downlink_iface']['addr']),
+                            "relay_iface_mac": str(dhcp_relay['downlink_iface']['mac']),
+                            "relay_iface_netmask": str(dhcp_relay['downlink_iface']['mask']),
                             "dest_mac_address": BROADCAST_MAC,
                             "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
-                            "switch_loopback_ip": dut_dhcp_relay_data[0]['switch_loopback_ip'],
-                            "uplink_mac": str(dut_dhcp_relay_data[0]['uplink_mac']),
+                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                             "testing_mode": testing_mode,
+                            "relay_agent": relay_agent,
                             "duration": duration,
                             "pps": pps,
-                            "kvm_support": True,
-                            "relay_agent": relay_agent,
-                            "downlink_vlan_iface_name": str(dut_dhcp_relay_data[0]["downlink_vlan_iface"]["name"])},
-                   log_file="/tmp/dhcp_relay_stress_test.DHCPContinuousStressTest.log", is_python3=True,
+                            "kvm_support": True},
+                   log_file="/tmp/dhcp_relay_stress_test.DHCPContinuousStressTest.{}.log".format(
+                       dhcp_relay['downlink_iface']['name']),
+                   is_python3=True,
                    async_mode=True)
 
         restart_dhcp_service(duthost)
@@ -75,7 +81,8 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                       module_ignore_errors=True)
 
         def _check_socket_buffer():
-            output = duthost.shell('ss -nlpu | grep Vlan | awk \'{print $2}\'',
+            iface_name = dhcp_relay['downlink_iface']['name']
+            output = duthost.shell('ss -nlpu | grep {} | awk \'{{print $2}}\''.format(iface_name),
                                    module_ignore_errors=True)
             return (not output['rc'] and output['stderr'] == '' and len(output['stdout_lines']) != 0 and
                     all(element == '0' for element in output['stdout_lines']))
@@ -86,60 +93,67 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
         # Run the DHCP relay test on the PTF host, make sure DHCPv4 relay is functionality good
         ptf_runner(ptfhost, "ptftests", "dhcp_relay_test.DHCPTest", platform_dir="ptftests",
                    params={"hostname": duthost.hostname,
-                           "client_port_index": dut_dhcp_relay_data[0]['client_iface']['port_idx'],
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
                             # This port is introduced to test DHCP relay packet received
                             # on other client port
-                            "other_client_port": repr(dut_dhcp_relay_data[0]['other_client_ports']),
-                            "client_iface_alias": str(dut_dhcp_relay_data[0]['client_iface']['alias']),
-                            "leaf_port_indices": repr(dut_dhcp_relay_data[0]['uplink_port_indices']),
+                            "other_client_port": repr(dhcp_relay['other_client_ports']),
+                            "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                            "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
                             "num_dhcp_servers":
-                                len(dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs']),
-                            "server_ip": dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs'],
-                            "relay_iface_ip": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['addr']),
-                            "relay_iface_mac": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mac']),
-                            "relay_iface_netmask": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mask']),
+                                len(dhcp_relay['downlink_iface']['dhcp_server_addrs']),
+                            "server_ip": dhcp_relay['downlink_iface']['dhcp_server_addrs'],
+                            "relay_iface_ip": str(dhcp_relay['downlink_iface']['addr']),
+                            "relay_iface_mac": str(dhcp_relay['downlink_iface']['mac']),
+                            "relay_iface_netmask": str(dhcp_relay['downlink_iface']['mask']),
                             "dest_mac_address": BROADCAST_MAC,
                             "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
-                            "switch_loopback_ip": dut_dhcp_relay_data[0]['switch_loopback_ip'],
-                            "uplink_mac": str(dut_dhcp_relay_data[0]['uplink_mac']),
+                            "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                             "testing_mode": testing_mode,
-                            "kvm_support": True,
                             "relay_agent": relay_agent,
-                            "downlink_vlan_iface_name": str(dut_dhcp_relay_data[0]["downlink_vlan_iface"]["name"])},
-                   log_file="/tmp/dhcp_relay_test.stress.DHCPTest.log", is_python3=True)
+                            "circuit_id": str(dhcp_relay['downlink_iface']['addr']),
+                            "kvm_support": True},
+                   log_file="/tmp/dhcp_relay_test.stress.DHCPTest.{}.log".format(
+                       dhcp_relay['downlink_iface']['name']),
+                   is_python3=True)
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
-def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist,
-                           testing_config, relay_agent,
-                           setup_standby_ports_on_rand_unselected_tor,
+@pytest.mark.parametrize("interface_type", ["vlan"])
+def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, interface_type, validate_dut_routes_exist,
+                           testing_config, setup_standby_ports_on_rand_unselected_tor,
                            toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
                            dhcp_type, clean_processes_after_stress_test):
     """Test DHCP relay functionality on T0 topology
-       and verify that HCP relay service can handle the maximum load without failure.
+       and verify that DHCP relay service can handle the maximum load without failure.
     """
+    interfaces_to_test = dut_dhcp_relay_data.get(interface_type, [])
+    if not interfaces_to_test:
+        pytest.skip("No {} dhcp_relay interfaces available for testing".format(interface_type))
+
     testing_mode, duthost = testing_config
     packets_send_duration = 120
     client_packets_per_sec = 10000
+    relay_agent = "isc-relay-agent"
 
-    for dhcp_relay in dut_dhcp_relay_data:
+    for dhcp_relay in interfaces_to_test:
         client_port_name = str(dhcp_relay['client_iface']['name'])
         client_port_id = dhcp_relay['client_iface']['port_idx']
         client_mac = ptfadapter.dataplane.get_mac(0, client_port_id).decode('utf-8')
         server_port_name = dhcp_relay['uplink_interfaces'][0]
         server_mac = ptfadapter.dataplane.get_mac(0, dhcp_relay['uplink_port_indices'][0]).decode('utf-8')
-        num_dhcp_servers = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+        num_dhcp_servers = len(dhcp_relay['downlink_iface']['dhcp_server_addrs'])
         params = {
             "hostname": duthost.hostname,
             "client_port_index": client_port_id,
             "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
             "other_client_ports": repr(dhcp_relay['other_client_ports']),
             "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
-            "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
-            "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
-            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-            "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+            "num_dhcp_servers": len(dhcp_relay['downlink_iface']['dhcp_server_addrs']),
+            "server_ip": dhcp_relay['downlink_iface']['dhcp_server_addrs'],
+            "relay_iface_ip": str(dhcp_relay['downlink_iface']['addr']),
+            "relay_iface_mac": str(dhcp_relay['downlink_iface']['mac']),
+            "relay_iface_netmask": str(dhcp_relay['downlink_iface']['mask']),
             "dest_mac_address": BROADCAST_MAC,
             "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
             "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
@@ -147,9 +161,9 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             "packets_send_duration": packets_send_duration,
             "client_packets_per_sec": client_packets_per_sec,
             "testing_mode": testing_mode,
-            "kvm_support": True,
+            "circuit_id": str(dhcp_relay['downlink_iface']['addr']),
             "relay_agent": relay_agent,
-            "downlink_vlan_iface_name": str(dhcp_relay["downlink_vlan_iface"]["name"])
+            "kvm_support": True
         }
         count_file = '/tmp/dhcp_stress_test_{}'.format(dhcp_type)
 

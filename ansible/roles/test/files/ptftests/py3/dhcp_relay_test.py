@@ -185,7 +185,7 @@ class DHCPTest(DataplaneBaseTest):
         # 'dual' for dual tor testing
         # 'single' for regular single tor testing
         self.dual_tor = (self.test_params['testing_mode'] == 'dual')
-        self.vlan_iface_name = self.test_params.get('downlink_vlan_iface_name', None)
+        self.iface_name = self.test_params.get('downlink_iface_name', None)
 
         # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
         # circuit_id is stored as suboption 1 of option 82.
@@ -196,7 +196,7 @@ class DHCPTest(DataplaneBaseTest):
         # Our circuit_id string is of the form "hostname:portname"
         circuit_id_string = self.hostname + ":" + self.client_iface_alias
         if self.relay_agent == "sonic-relay-agent":
-            circuit_id_string = circuit_id_string + ":" + self.vlan_iface_name
+            circuit_id_string = circuit_id_string + ":" + self.iface_name
         self.option82 = struct.pack('BB', self.CIRCUIT_ID_SUBOPTION, len(circuit_id_string))
         self.option82 += circuit_id_string.encode('utf-8')
 
@@ -241,11 +241,11 @@ class DHCPTest(DataplaneBaseTest):
                 self.option82 += struct.pack('BB', self.VRF_NAME_SUBOPTION, len(vrf_bytes))
                 self.option82 += vrf_bytes.encode('utf-8')
 
-        # In 'dual' testing mode, vlan ip is stored as suboption 5 of option 82.
+        # In 'dual' testing mode, downlink interface ip is stored as suboption 5 of option 82.
         # It consists of the following:
         #  Byte 0: Suboption number, always set to 5
         #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
-        #  Bytes 2+: vlan ip addr
+        #  Bytes 2+: downlink interface ip addr
         if self.dual_tor:
             link_selection = bytes(
                 list(map(int, self.relay_iface_ip.split('.'))))
