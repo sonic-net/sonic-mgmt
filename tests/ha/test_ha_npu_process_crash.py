@@ -46,8 +46,6 @@ HA_CHECK_INTERVAL = 5
 TRAFFIC_SEND_INTERVAL = 0.1
 PL_VERIFY_TIMEOUT = 10
 
-ACTIVE_SCOPE_KEY = "vdpu0_0:haset0_0"
-STANDBY_SCOPE_KEY = "vdpu1_0:haset0_0"
 
 # Processes whose containers must be fully restarted for recovery because
 # dependent-startup injects required runtime arguments (e.g. --slot-id).
@@ -202,6 +200,16 @@ def primary_dut(duthosts):
 @pytest.fixture(scope="module")
 def standby_dut(duthosts):
     return duthosts[1]
+
+
+@pytest.fixture(scope="module")
+def primary_vdpu_key(dpuhosts):
+    return f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
+
+
+@pytest.fixture(scope="module")
+def standby_vdpu_key(dpuhosts):
+    return f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
 
 
 class TestNpuProcessCrash:
@@ -465,10 +473,10 @@ class TestNpuProcessCrash:
         self._run(
             process_name=process_name, container=container,
             crash_duthost=primary_dut,
-            crash_scope_key=ACTIVE_SCOPE_KEY,
+            crash_scope_key=primary_vdpu_key,
             expected_ha_state_after_crash="active",
             verify_duthost=standby_dut,
-            verify_scope_key=STANDBY_SCOPE_KEY,
+            verify_scope_key=standby_vdpu_key,
             expected_ha_state_verify="active",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=0, duthosts=duthosts,
@@ -478,7 +486,7 @@ class TestNpuProcessCrash:
     @pytest.mark.parametrize("process_name,container", NPU_CRITICAL_PROCESSES)
     def test_crash_active_npu_traffic_on_standby(
         self, process_name, container,
-        primary_dut, standby_dut, duthosts,
+        primary_dut, standby_dut, primary_vdpu_key, standby_vdpu_key, duthosts,
         setup_ha_config, setup_dash_ha_from_json,
         setup_gnmi_server, setup_dash_pl_pipeline_module_scope,
         ptfadapter, dash_pl_config,
@@ -488,10 +496,10 @@ class TestNpuProcessCrash:
         self._run(
             process_name=process_name, container=container,
             crash_duthost=primary_dut,
-            crash_scope_key=ACTIVE_SCOPE_KEY,
+            crash_scope_key=primary_vdpu_key,
             expected_ha_state_after_crash="active",
             verify_duthost=standby_dut,
-            verify_scope_key=STANDBY_SCOPE_KEY,
+            verify_scope_key=standby_vdpu_key,
             expected_ha_state_verify="active",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=1, duthosts=duthosts,
@@ -501,7 +509,7 @@ class TestNpuProcessCrash:
     @pytest.mark.parametrize("process_name,container", NPU_CRITICAL_PROCESSES)
     def test_crash_standby_npu_traffic_on_active(
         self, process_name, container,
-        primary_dut, standby_dut, duthosts,
+        primary_dut, standby_dut, primary_vdpu_key, standby_vdpu_key, duthosts,
         setup_ha_config, setup_dash_ha_from_json,
         setup_gnmi_server, setup_dash_pl_pipeline_module_scope,
         ptfadapter, dash_pl_config,
@@ -511,10 +519,10 @@ class TestNpuProcessCrash:
         self._run(
             process_name=process_name, container=container,
             crash_duthost=standby_dut,
-            crash_scope_key=STANDBY_SCOPE_KEY,
+            crash_scope_key=standby_vdpu_key,
             expected_ha_state_after_crash="active",
             verify_duthost=primary_dut,
-            verify_scope_key=ACTIVE_SCOPE_KEY,
+            verify_scope_key=primary_vdpu_key,
             expected_ha_state_verify="active",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=0, duthosts=duthosts,
@@ -524,7 +532,7 @@ class TestNpuProcessCrash:
     @pytest.mark.parametrize("process_name,container", NPU_CRITICAL_PROCESSES)
     def test_crash_standby_npu_traffic_on_standby(
         self, process_name, container,
-        primary_dut, standby_dut, duthosts,
+        primary_dut, standby_dut, primary_vdpu_key, standby_vdpu_key, duthosts,
         setup_ha_config, setup_dash_ha_from_json,
         setup_gnmi_server, setup_dash_pl_pipeline_module_scope,
         ptfadapter, dash_pl_config,
@@ -534,10 +542,10 @@ class TestNpuProcessCrash:
         self._run(
             process_name=process_name, container=container,
             crash_duthost=standby_dut,
-            crash_scope_key=STANDBY_SCOPE_KEY,
+            crash_scope_key=standby_vdpu_key,
             expected_ha_state_after_crash="active",
             verify_duthost=primary_dut,
-            verify_scope_key=ACTIVE_SCOPE_KEY,
+            verify_scope_key=primary_vdpu_key,
             expected_ha_state_verify="active",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=1, duthosts=duthosts,
