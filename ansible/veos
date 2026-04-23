@@ -13125,6 +13125,14 @@ vms_29:
       ansible_host: 172.16.69.104
     VM29095:
       ansible_host: 172.16.69.105
+    VM29100:
+      ansible_host: 172.16.69.106
+    VM29101:
+      ansible_host: 172.16.69.107
+    VM29102:
+      ansible_host: 172.16.69.108
+    VM29103:
+      ansible_host: 172.16.69.109
 vms_svc_1:
   hosts:
     VM10000:

@@ -224,3 +224,7 @@ pdu-94,31,str2-8101-fanout-21,PSU1
 pdu-95,31,str2-8101-fanout-21,PSU2
 pdu-118,42,str2-7260cx3-acs-root02,PSU1
 pdu-119,42,str2-7260cx3-acs-root02,PSU2
+pdu-45,19,str2-7260cx3-acs-fan-37,PSU1
+pdu-46,19,str2-7260cx3-acs-fan-37,PSU2
+pdu-45,20,str2-8223-azd-t0-01,PSU1
+pdu-46,20,str2-8223-azd-t0-01,PSU2

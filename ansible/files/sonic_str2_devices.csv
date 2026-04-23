@@ -122,6 +122,8 @@ str2-bluefield-bmc-02,10.64.247.35/26,DPU,DevSonic,,sonic
 str2-bluefield-host-02,10.64.246.249/25,DPU,DevSonic,,sonic
 str2-pensando-3,10.3.146.235/24,DPU,DevSonic,,sonic
 str2-pensando-host-3,10.64.246.232/25,DPU,DevSonic,,sonic
+str2-7260cx3-acs-fan-37,10.3.150.165/27,Arista-7260CX3,FanoutLeaf,,
+str2-8223-azd-t0-01,10.3.150.164/27,Cisco-8223-C64,DevSonic,,sonic
 str2-acs-serv-16,10.64.246.95/25,TestServ,Server,,
 str2-acs-serv-18,10.64.246.97/25,TestServ,Server,,
 str2-acs-serv-19,10.64.246.111/25,TestServ,Server,,
@@ -169,6 +171,8 @@ pdu-122,10.3.154.123,Sentry4,Pdu,snmp,
 pdu-123,10.3.154.124,Sentry4,Pdu,snmp,
 pdu-124,10.3.154.125,Sentry4,Pdu,snmp,
 pdu-125,10.3.154.126,Sentry4,Pdu,snmp,
+pdu-45,10.3.154.45,Sentry,Pdu,snmp,
+pdu-46,10.3.154.46,Sentry,Pdu,snmp,
 console-80,10.3.145.80,Cisco,ConsoleServer,ssh,,tacacs
 console-81,10.3.145.81,Cisco,ConsoleServer,ssh,,tacacs
 console-82,10.3.145.82,Cisco,ConsoleServer,ssh,,tacacs
@@ -186,3 +190,4 @@ str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
+str43-0101-0200-06c0,10.3.158.58,Cisco,ConsoleServer,ssh,
