@@ -45,7 +45,7 @@ def setup_c0(request, duthost, tbinfo):
                                       fanouthosts.values()))
         if len(console_fanouts) != 1:
             pytest.fail("Test requires exactly one console switch fanout device (could be dut itself)")
-        console_fanout = console_fanouts[0]
+        console_fanout = console_fanouts[0].host
     elif tbinfo["topo"]["name"] == "c0-lo":
         console_fanout = duthost
     else:
