@@ -16,7 +16,7 @@ The goal of this test is to verify that the BGP Unnumbered feature works as expe
 The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to test BGP Unnumbered feature, which includes peer group and individual neighbor implementation.
 
 ### Testbed
-The test could run on t0,t1 and t2 testbed.
+The test could run on T0,T1 and T2 testbed.
 
 ### Related DUT CLI commands
 
@@ -57,10 +57,9 @@ Peer group level configs:
       neighbor SPINE activate
      exit-address-family
  
-## Test structure
-### Setup configuration
+## Setup configuration
 
-The default configuration of DUT is fine.
+This test requires configuring BGP unnumbered on both DUT and peer devices. Interfaces must be enabled for IPv6, as BGP unnumbered relies on IPv6 link-local addressing. Ensure neighbor relationships are established using interface-based configuration.
 
 ## Test cases
 ### Test case #1 - BGP Unnumbered 
