@@ -283,8 +283,17 @@ def configure_unnumbered_bgp(setup_info):
     logger.info("Initial prefix count from %s: %d", neigh_ipv4,
                 initial_prefixes)
 
-    # Remove existing BGP sessions on DUT
-    logger.info("Remove existing BGP neighbor %s on DUT", neigh_ipv4)
+    # Remove existing BGP sessions on DUT — must remove from both CONFIG_DB
+    # and FRR. If we only remove from FRR (vtysh), bgpcfgd will re-add the
+    # neighbor from CONFIG_DB, causing the test to fail.
+    logger.info("Remove existing BGP neighbor %s from CONFIG_DB and FRR", neigh_ipv4)
+    duthost.shell(
+        'sonic-db-cli CONFIG_DB DEL "BGP_NEIGHBOR|{}"'.format(neigh_ipv4),
+        module_ignore_errors=True)
+    if neigh_ipv6:
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB DEL "BGP_NEIGHBOR|{}"'.format(neigh_ipv6),
+            module_ignore_errors=True)
     vtysh_remove = ['config', 'router bgp {}'.format(dut_asn),
                     'no neighbor {}'.format(neigh_ipv4)]
     if neigh_ipv6:
