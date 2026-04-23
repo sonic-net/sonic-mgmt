@@ -1172,7 +1172,7 @@
                     "scp rraghav@1.74.23.7:/var/www/html/ztp-B2/platform_cisco_cfg.yaml .",
                     "rm /etc/sonic/config_db.json",
                     "reboot",
-                    "show lldp table",
+                    "show lldp table"
                 ]
             ],
             "special_run_commands": [
