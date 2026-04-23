@@ -283,6 +283,7 @@ sonic:
     sonic_arista_7280dr3_400G:
     sonic_arista_7280r4_400G:
     sonic_nexthop_ut2:
+    sonic_arista_7050cx3:
 
 sonic_arista_7060x6_512:
   hosts:
@@ -819,6 +820,28 @@ sonic_nexthop_ut2:
           - "0x00 0x00 0xF6 0x62 0x01 0x4E 0x48 0x2D 0x53 0x4D 0x50 0x32 0x35 0x34 0x32 0x30 0x30 0x32 0x35"
           - "0x00 0x00 0xF6 0x62 0x02 0x4E 0x48 0x32 0x35 0x2D 0x35 0x30"
         "0xFE": "0x47649AF3"
+
+sonic_arista_7050cx3:
+  hosts:
+    str43-dcs-7050cx3-32s-f-d04-u01:
+      ansible_host: 10.3.146.52
+      ansible_hostv6: 2a01:111:e210:3000::a03:9234
+      mgmt_subnet_mask_length: 24
+      hwsku: Arista-7050CX3-32S-C28S4
+      model: DCS-7050CX3-32S
+      serial: JPN2426P04K
+      base_mac: 68:8b:f4:88:3e:bc
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S"
+        "0x22": "ASY0288213A0"
+        "0x23": "JPN2426P04K"
+        "0x24": "68:8b:f4:88:3e:bc"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "111"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s-r0"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
 
 sonic_arista_7280r4_400G:
   vars:

@@ -1,0 +1,138 @@
+# Pipeline for performing PDU actions (power cycle, status check, etc.) on lab devices.
+# Trigger manually from: https://dev.azure.com/mssonic/internal/_build?definitionScope=%5CTestbed
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: DEVICE_NAME
+    type: string
+    displayName: "Device Name (power cycle is disruptive, please check the device name carefully before running)"
+
+  - name: INVENTORY
+    type: string
+    default: "auto"
+    displayName: "Inventory file name. Usually inferred from device name (e.g. strtk5-8101-01 -> strtk5). Only specify for special cases where the inferred name is incorrect."
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly-svc
+      - nightly-bjw
+      - nightly-tk5
+    displayName: "Agent Pool"
+
+  - name: ACTIONS
+    type: string
+    default: "pdu_status"
+    displayName: "Actions (comma-separated). Supported actions: pdu_status, pdu_on, pdu_off, pdu_reboot, pdu_failures. Use integers for sleep seconds. Example: pdu_off,5,pdu_on. WARNING: pdu_reboot/pdu_off/pdu_on may interrupt nightly tests or other people using the device."
+
+  - name: LOG_LEVEL
+    type: string
+    default: info
+    values:
+      - debug
+      - info
+      - warn
+      - error
+      - close
+    displayName: "Log Level"
+
+stages:
+  - stage: PduAction
+    displayName: "PDU Action on ${{ parameters.DEVICE_NAME }}"
+    jobs:
+      - job: PduAction
+        pool: ${{ parameters.AGENT_POOL }}
+        timeoutInMinutes: 30
+        variables:
+          - group: SECRETS_JSON
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+          - checkout: self
+
+          - template: ../nightly/templates/get_secrets.yml
+
+          - bash: |
+              set -euo pipefail
+
+              DEVICE_NAME="${{ parameters.DEVICE_NAME }}"
+              INVENTORY="${{ parameters.INVENTORY }}"
+              ACTIONS="${{ parameters.ACTIONS }}"
+              LOG_LEVEL="${{ parameters.LOG_LEVEL }}"
+
+              # Validate device name is not empty
+              if [ -z "$DEVICE_NAME" ]; then
+                echo "##[error]Device name must not be empty."
+                exit 1
+              fi
+
+              # Infer inventory from device name if not provided.
+              # Convention: inventory is the prefix before the first '-' in the device name.
+              # Example: strtk5-8101-01 -> strtk5
+              if [ "$INVENTORY" = "auto" ] || [ -z "$INVENTORY" ]; then
+                INVENTORY=$(echo "$DEVICE_NAME" | cut -d'-' -f1)
+                echo "Inventory not specified, inferred from device name: $INVENTORY"
+              else
+                echo "Using specified inventory: $INVENTORY"
+              fi
+
+              # Validate and parse the actions parameter.
+              IFS=',' read -ra ACTION_LIST <<< "$ACTIONS"
+              for i in "${!ACTION_LIST[@]}"; do
+                item="${ACTION_LIST[$i]}"
+                # Trim leading and trailing whitespace using parameter expansion
+                item="${item#"${item%%[![:space:]]*}"}"
+                item="${item%"${item##*[![:space:]]}"}"
+                ACTION_LIST[$i]="$item"
+                if [[ "$item" =~ ^[0-9]+$ ]]; then
+                  continue  # integer means sleep
+                fi
+                case "$item" in
+                  pdu_status|pdu_on|pdu_off|pdu_reboot|pdu_failures)
+                    ;;  # valid devutils action
+                  *)
+                    echo "##[error]Invalid action: '$item'. Must be one of: pdu_status, pdu_on, pdu_off, pdu_reboot, pdu_failures, or an integer (sleep seconds)."
+                    exit 1
+                    ;;
+                esac
+              done
+
+              echo "Device:    $DEVICE_NAME"
+              echo "Inventory: $INVENTORY"
+              echo "Actions:   $ACTIONS"
+              echo "Log Level: $LOG_LEVEL"
+              echo "=========================================="
+
+              cd ansible
+
+              # Always run pdu_status before the actions
+              echo ""
+              echo ">>> [pre] pdu_status"
+              ./devutils -i "$INVENTORY" -l "$DEVICE_NAME" -a pdu_status --log-level "$LOG_LEVEL"
+
+              # Execute each action in sequence
+              for item in "${ACTION_LIST[@]}"; do
+                if [[ "$item" =~ ^[0-9]+$ ]]; then
+                  echo ""
+                  echo ">>> Sleeping $item seconds..."
+                  sleep "$item"
+                else
+                  echo ""
+                  echo ">>> Running action: $item"
+                  ./devutils -i "$INVENTORY" -l "$DEVICE_NAME" -a "$item" --log-level "$LOG_LEVEL"
+                fi
+              done
+
+              # Always run pdu_status after the actions
+              echo ""
+              echo ">>> [post] pdu_status"
+              ./devutils -i "$INVENTORY" -l "$DEVICE_NAME" -a pdu_status --log-level "$LOG_LEVEL"
+
+            displayName: "Run PDU Actions"

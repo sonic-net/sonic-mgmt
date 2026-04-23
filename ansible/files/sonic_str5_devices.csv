@@ -49,6 +49,8 @@ str5-nh5010-ut2-4,10.3.152.73/26,NH-5010-F-O64,DevSonic,,sonic
 str5-nh5010-ut2-5,10.3.152.74/26,NH-5010-F-O64,DevSonic,,sonic
 str5-7280r4-ut2-3,10.3.152.71/26,Arista-7280R4K-32QF-32DF,DevSonic,,sonic
 str5-7280r4-ut2-4,10.3.152.72/26,Arista-7280R4K-32QF-32DF,DevSonic,,sonic
+str5-7060x6-moby-512-4,10.64.247.38/26,Arista-7060X6-16PE-384C-B-O128S2,DevSonic,,sonic
+str43-dcs-7050cx3-32s-f-d04-u01,10.3.146.52/24,Arista-7050CX3-32S-C28S4,DevSonic,,sonic
 pdu-83,10.3.154.83,ApcRPDU,Pdu,snmp,
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
@@ -93,6 +95,7 @@ console-178,10.3.145.178,Cisco,ConsoleServer,ssh,,tacacs
 console-179,10.3.145.179,Cisco,ConsoleServer,ssh,,tacacs
 console-182,10.3.145.182,Cisco,ConsoleServer,ssh,,tacacs
 console-184,10.3.145.184,Cisco,ConsoleServer,ssh,,tacacs
+console-191,10.3.145.191,Cisco,ConsoleServer,ssh,,tacacs
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh,,tacacs
 console-196,10.3.145.196,Cisco,ConsoleServer,ssh,,tacacs
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,,tacacs
