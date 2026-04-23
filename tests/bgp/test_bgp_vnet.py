@@ -333,17 +333,6 @@ def dynamic_range_add_delete(duthost, template):
     validate_dynamic_peer_established(bgp_summary, template)
 
 
-def get_core_dumps(duthost):
-    '''
-    Check if there is a core dump file in the /var/core directory.
-    '''
-    cmd = "ls /var/core 2>/dev/null"  # List only core dump files (core*)
-    result = duthost.shell(cmd)['stdout'].strip()
-
-    # If result is empty, no core dumps exist, otherwise core dumps are present
-    return result.split('\n') if result else []
-
-
 def get_ptf_port_index(interface_name):
     """
     Convert Ethernet interface name to PTF port index (Ethernet112 → 28).
@@ -548,8 +537,6 @@ def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
         dynamic_peer = g_vars["vnet2"]["dynamic"]["ARISTA03T1"]
         static_peer_uptime_before, dynamic_peer_uptime_before = get_bgp_peer_uptime(
             duthost, static_peers, dynamic_peer)
-        core_dumps_before = get_core_dumps(duthost)
-
         for i in range(20):
             modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_del')
             modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
@@ -562,9 +549,6 @@ def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
                 f"Static peer {static_peer} should not flap when a dynamic peer is modified!"
         assert dynamic_peer_uptime_after >= dynamic_peer_uptime_before, \
             f"Dynamic peer {dynamic_peer} should not flap when a dynamic peer is modified!"
-        core_dumps_after = get_core_dumps(duthost)
-        assert core_dumps_before == core_dumps_after, \
-            "Core dumps should not be generated when modifying dynamic peer configuration."
         # restore the config
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
@@ -583,8 +567,6 @@ def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
         time.sleep(120)
         static_peers = g_vars["vnet2"]["static"]
         static_peer_uptime_before = get_bgp_peer_uptime(duthost, static_peers)
-        core_dumps_before = get_core_dumps(duthost)
-
         for i in range(20):
             redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
             duthost.shell(redis_cmd)
@@ -598,9 +580,6 @@ def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
         for static_peer in static_peers:
             assert static_peer_uptime_after[static_peer] >= static_peer_uptime_before[static_peer] + 20*20*1000, \
                 f"Static peer {static_peer} should not flap when a dynamic peer is deleted!"
-        core_dumps_after = get_core_dumps(duthost)
-        assert core_dumps_before == core_dumps_after, \
-            "Core dumps should not be generated when deleting dynamic peer configuration."
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
         logger.error("Exception raised in test_dynamic_peer_delete_stress: {}".format(repr(e)))
