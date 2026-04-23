@@ -1,0 +1,306 @@
+"""Stress / loaded-bandwidth tests for the SONiC console subsystem.
+
+The test in this module pushes a large amount of data through a console
+loopback path and verifies the bytes returned match what was sent. The
+payload is the ASCII character ``'U'`` (``0x55`` / ``0b01010101``); the
+alternating bit pattern produces the maximum number of edges per unit
+time on the wire and makes single-bit errors trivial to detect by XOR.
+"""
+
+import hashlib
+import os
+import threading
+import time
+import uuid
+
+import pexpect
+import pytest
+
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa: F401
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.console_helper import (
+    check_target_line_status,
+    create_ssh_client,
+    ensure_console_session_up,
+)
+from tests.common.utilities import wait_until
+
+pytestmark = [
+    pytest.mark.topology('c0', 'c0-lo')
+]
+
+# How much data to push through the line per parametrize combo. The payload
+# is sized per baud rate so the test stays roughly in the same order of
+# magnitude of wall-clock time (~15 min on the wire per parameter combo):
+#   - 9600 baud   ->  1 MiB   (~16 min on the wire)
+#   - 115200 baud -> 10 MiB   (~15 min on the wire)
+TOTAL_BYTES_BY_BAUD = {
+    "9600": 1 * 1024 * 1024,
+    "115200": 10 * 1024 * 1024,
+}
+
+FILL_CHAR = 'U'
+
+# Per-byte framing on the wire (8N1) used by the console line.
+_BITS_PER_BYTE = 10
+
+# Stop the test if no new bytes arrive on the receive side for this many
+# seconds (independent of the projected wire time).
+_NO_PROGRESS_TIMEOUT = 60.0
+
+
+def _dut_console_lines(conn_graph_facts, duthost):  # noqa: F811
+    """Return the DUT's console line numbers (as strings) sorted ascending,
+    sourced from the ``*_serial_links.csv`` inventory exposed via
+    ``conn_graph_facts['device_serial_link']``.
+    """
+    dut_serial_links = conn_graph_facts.get('device_serial_link', {}).get(duthost.hostname, {})
+    return sorted(dut_serial_links.keys(), key=int)
+
+
+def _bit_error_summary(expected, actual, max_report=10):
+    """Build a human-readable description of how ``actual`` differs from
+    ``expected`` (length, md5, total bit-error count, first few diffs).
+    """
+    lines = []
+    lines.append("expected length = {} bytes, actual length = {} bytes".format(
+        len(expected), len(actual)))
+    lines.append("expected md5 = {}".format(hashlib.md5(expected).hexdigest()))
+    lines.append("actual   md5 = {}".format(hashlib.md5(actual).hexdigest()))
+
+    n = min(len(expected), len(actual))
+    bit_errors = 0
+    diff_offsets = []
+    for i in range(n):
+        if expected[i] != actual[i]:
+            xor = expected[i] ^ actual[i]
+            be = bin(xor).count("1")
+            bit_errors += be
+            if len(diff_offsets) < max_report:
+                diff_offsets.append((i, expected[i], actual[i], be))
+
+    lines.append("differing bytes over the first {} bytes = {}".format(n, len(diff_offsets)))
+    lines.append("total bit errors over the first {} bytes = {}".format(n, bit_errors))
+    if diff_offsets:
+        lines.append("first {} differing bytes:".format(len(diff_offsets)))
+        for offset, exp_b, got_b, be in diff_offsets:
+            lines.append("  offset {:>10d}: sent 0x{:02x} got 0x{:02x} ({} bit-flip(s))".format(
+                offset, exp_b, got_b, be))
+    if len(expected) != len(actual):
+        lines.append("note: length differs; bit-error count above is over the overlapping prefix only")
+    return "\n".join(lines)
+
+
+def _save_artifact(name, blob):
+    """Persist ``blob`` to ``tests/logs/console/<name>`` so a CI run captures
+    it as part of the standard log artifacts. Returns the absolute path.
+    """
+    log_dir = os.path.join("logs", "console")
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except Exception:
+        log_dir = "/tmp"
+    path = os.path.abspath(os.path.join(log_dir, name))
+    with open(path, "wb") as f:
+        f.write(blob)
+    return path
+
+
+@pytest.mark.parametrize("chunk_size", [128, 1024, 2048])
+@pytest.mark.parametrize("baud_rate", ["9600", "115200"])
+@pytest.mark.parametrize("flow_control", ["enable", "disable"])
+def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control,  # noqa: F811
+                      chunk_size, cleanup_modules):
+    """
+    Push a baud-rate-dependent amount of ``'U'`` (``0x55``) bytes through the
+    lowest-numbered console line of the DUT in chunks of ``chunk_size`` bytes
+    and verify the bytes returned by the loopback match what was sent. On
+    mismatch the test reports length, md5, and per-bit error count plus the
+    first few differing offsets, and persists the captured payload under
+    ``tests/logs/console/``.
+    """
+    duthost, console_fanout = setup_c0
+    same_host = duthost is console_fanout
+
+    lines = _dut_console_lines(conn_graph_facts, duthost)
+    pytest_assert(
+        len(lines) >= 1,
+        "Stress test requires at least 1 console line for DUT '{}'; got none in *_serial_links.csv".format(
+            duthost.hostname))
+    target_line = lines[0]
+    flow_control_bool = (flow_control == "enable")
+    total_bytes = TOTAL_BYTES_BY_BAUD[baud_rate]
+
+    projected_seconds = total_bytes * _BITS_PER_BYTE / float(baud_rate)
+    print("[console_load] DUT={} line={} baud={} flow_control={} chunk_size={}; "
+          "total_bytes={} bytes; projected one-way wire time ~{:.1f}s ({:.2f}h)".format(
+              duthost.hostname, target_line, baud_rate, flow_control, chunk_size,
+              total_bytes, projected_seconds, projected_seconds / 3600.0))
+
+    duthost.command("config console baud {} {}".format(target_line, baud_rate))
+    duthost.command("config console flow_control {} {}".format(flow_control, target_line))
+    if not same_host:
+        console_fanout.command("config console flow_control {} {}".format(flow_control, target_line))
+        console_fanout.set_loopback(target_line, baud_rate, flow_control_bool)
+
+    pytest_assert(
+        check_target_line_status(duthost, target_line, "IDLE"),
+        "Target line {} is busy before stress test starts".format(target_line))
+
+    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    dutuser = creds['sonicadmin_user']
+    dutpass = creds['sonicadmin_password']
+    ressh_user = "{}:{}".format(dutuser, target_line)
+
+    # Unique per-run sentinels so that ambient console output (banners, prompts,
+    # picocom status lines) cannot collide with our framing markers.
+    run_token = uuid.uuid4().hex
+    start_marker = "\nSTART_{}\n".format(run_token).encode('latin-1')
+    end_marker = "\nEND_{}\n".format(run_token).encode('latin-1')
+
+    client = None
+    try:
+        client = create_ssh_client(dutip, ressh_user, dutpass)
+        ensure_console_session_up(client, target_line)
+
+        recv_buf = bytearray()
+        recv_lock = threading.Lock()
+        stop_reader = threading.Event()
+        reader_exc = []
+        last_progress_ts = [time.time()]
+
+        def _reader():
+            try:
+                while not stop_reader.is_set():
+                    try:
+                        data = client.read_nonblocking(size=8192, timeout=0.2)
+                    except pexpect.TIMEOUT:
+                        continue
+                    except pexpect.EOF:
+                        return
+                    if not data:
+                        continue
+                    if isinstance(data, str):
+                        data = data.encode('latin-1')
+                    with recv_lock:
+                        recv_buf.extend(data)
+                        last_progress_ts[0] = time.time()
+            except Exception as e:
+                reader_exc.append(e)
+
+        reader_thread = threading.Thread(target=_reader, name="console-load-reader", daemon=True)
+        reader_thread.start()
+
+        def _send_all(payload_bytes):
+            """Loop until the entire payload has been written to the spawn,
+            handling partial ``send()`` returns and surfacing reader errors.
+            """
+            view = memoryview(payload_bytes)
+            while view:
+                if reader_exc:
+                    raise reader_exc[0]
+                try:
+                    written = client.send(view.tobytes().decode('latin-1'))
+                except (pexpect.TIMEOUT, OSError) as e:
+                    pytest.fail("Failed to write to console session: {}".format(e))
+                if not written:
+                    time.sleep(0.05)
+                    continue
+                view = view[written:]
+
+        send_start = time.time()
+        _send_all(start_marker)
+
+        chunk_payload = (FILL_CHAR * chunk_size).encode('latin-1')
+        total_sent = 0
+        next_progress_log = max(total_bytes // 10, 1)
+        while total_sent < total_bytes:
+            remaining = total_bytes - total_sent
+            payload = chunk_payload if remaining >= chunk_size else (FILL_CHAR * remaining).encode('latin-1')
+            _send_all(payload)
+            total_sent += len(payload)
+            if total_sent >= next_progress_log:
+                elapsed = time.time() - send_start
+                rate = total_sent / max(elapsed, 0.001)
+                print("[console_load] sent {}/{} bytes ({:.0f} B/s, {:.0f}s elapsed)".format(
+                    total_sent, total_bytes, rate, elapsed))
+                next_progress_log += max(total_bytes // 10, 1)
+
+        _send_all(end_marker)
+
+        # Wait for END to arrive on the receive side, with both a wire-time
+        # budget and a forward-progress watchdog.
+        wire_budget = (total_bytes + len(start_marker) + len(end_marker)) * _BITS_PER_BYTE / float(baud_rate)
+        absolute_deadline = time.time() + wire_budget * 2.0 + 60.0
+        while True:
+            if reader_exc:
+                raise reader_exc[0]
+            with recv_lock:
+                seen_end = end_marker in recv_buf
+            if seen_end:
+                break
+            now = time.time()
+            if now > absolute_deadline:
+                pytest.fail(
+                    "Did not see end sentinel within {:.0f}s (total_bytes={}, baud={})".format(
+                        absolute_deadline - send_start, total_bytes, baud_rate))
+            if now - last_progress_ts[0] > _NO_PROGRESS_TIMEOUT:
+                pytest.fail(
+                    "No new bytes received for {:.0f}s; line appears stalled "
+                    "(sent {} of {} bytes, captured {} bytes)".format(
+                        now - last_progress_ts[0], total_sent, total_bytes, len(recv_buf)))
+            time.sleep(0.5)
+
+        # Small post-END drain so any trailing bytes land in the buffer.
+        time.sleep(1.0)
+        stop_reader.set()
+        reader_thread.join(timeout=10)
+        if reader_exc:
+            raise reader_exc[0]
+
+        captured = bytes(recv_buf)
+        start_idx = captured.find(start_marker)
+        end_idx = captured.find(end_marker, start_idx + len(start_marker) if start_idx >= 0 else 0)
+
+        artifact_name = "console_load_line{}_{}_{}_{}_{}.bin".format(
+            target_line, baud_rate, flow_control, chunk_size, run_token[:8])
+
+        if start_idx < 0 or end_idx < 0:
+            artifact_path = _save_artifact(artifact_name, captured)
+            pytest.fail(
+                "Did not find start/end sentinels in captured stream for line {} "
+                "(start={}, end={}, captured={} bytes); raw capture saved to {}".format(
+                    target_line, start_idx, end_idx, len(captured), artifact_path))
+
+        recv_payload = captured[start_idx + len(start_marker):end_idx]
+        expected_payload = (FILL_CHAR * total_bytes).encode('latin-1')
+
+        if recv_payload == expected_payload:
+            return
+
+        artifact_path = _save_artifact(artifact_name, recv_payload)
+        pytest.fail(
+            "Console loopback content mismatch on line {} (artifact saved to {}).\n{}".format(
+                target_line, artifact_path,
+                _bit_error_summary(expected_payload, recv_payload)))
+
+    finally:
+        if client is not None:
+            try:
+                client.sendcontrol('a')
+                client.sendcontrol('x')
+            except Exception:
+                pass
+            try:
+                client.close(force=True)
+            except Exception:
+                pass
+        if not same_host:
+            try:
+                console_fanout.unset_loopback(target_line)
+            except Exception:
+                pass
+        try:
+            wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE")
+        except Exception:
+            pass
