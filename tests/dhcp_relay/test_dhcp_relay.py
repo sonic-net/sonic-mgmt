@@ -13,7 +13,6 @@ from tests.common.gcu_utils import generate_tmpfile, create_checkpoint, \
     rollback_or_reload, delete_checkpoint
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
-from tests.common.utilities import skip_release
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload

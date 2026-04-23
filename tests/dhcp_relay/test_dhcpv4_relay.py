@@ -428,12 +428,6 @@ def test_dhcp_relay_with_non_default_vrf(
 
     """
 
-    # Ignore expected FRR errors when creating/managing VRF interfaces
-    if loganalyzer:
-        loganalyzer[duthost.hostname].ignore_regex.extend([
-            r".*ERR bgp#.* INTERFACE_STATE: Cannot find IF Vrf\d+ in VRF \d+.*",
-        ])
-
     interfaces_to_test = dut_dhcp_relay_data.get(interface_type, [])
     if not interfaces_to_test:
         pytest.skip("No {} dhcp_relay interfaces available for testing".format(interface_type))
