@@ -57,8 +57,8 @@ def test_cpu_queue_shaper(duthosts, localhost, enum_rand_one_per_hwsku_frontend_
     Validates the cpu queue shaper configuration survives reboot by comparing
     shaper values before and after reboot.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     try:
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         reboot_type = request.config.getoption("--cpu_shaper_reboot_type")
         # Read shaper config before reboot
         before_pps = get_cpu_queue_shaper(duthost)
