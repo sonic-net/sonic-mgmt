@@ -347,7 +347,6 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
         triggered_dpu_on_list.append(dpu_on)
         triggered_ip_list.append(ip_address_list[index])
 
-
     logging.info("Recording DPU boot times before DPU memory exhaustion")
     pre_boot_times = get_all_dpu_uptimes(dpuhosts, triggered_dpu_on_list)
     pytest_assert(triggered_dpu_on_list, "No DPUs were triggered; all skipped due to missing dpuhosts")
