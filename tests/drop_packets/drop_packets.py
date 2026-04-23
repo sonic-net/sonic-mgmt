@@ -104,7 +104,7 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             fanout.restore_drop_counter_config()
 
     if fanout:
-        if fanout.facts["asic_type"] == "marvell-teralynx":
+        if hasattr(fanout, "facts") and fanout.facts.get("asic_type") == "marvell-teralynx":
             # Check and clean up existing REDIRECT_VLAN ACL table if present.
             check_output = fanout.shell("show acl table", module_ignore_errors=True)
             if "REDIRECT_VLAN" in check_output["stdout"]:
@@ -663,7 +663,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
     src_mac = ports_info["dst_mac"]
 
     # Marvell ASIC specific ACL rule injection
-    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':
@@ -712,7 +712,7 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
                    pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     # Marvell ASIC specific ACL rule injection
-    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':

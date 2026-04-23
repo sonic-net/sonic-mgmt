@@ -2539,13 +2539,13 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
 
         # Find the exact point from which the accumulative headroom starts to exceed the limit via using binary seach
         cable_length_upper = cable_length
-        cable_length_step /= 2
+        cable_length_step //= 2
         cable_length -= cable_length_step
         cable_length_lower = cable_length
         logging.info("Cable length {} can be applied but {} can't. Finding the exact maximum cable length"
                      .format(cable_length_lower, cable_length_upper))
         while True:
-            cable_length = (cable_length_upper + cable_length_lower) / 2
+            cable_length = (cable_length_upper + cable_length_lower) // 2
             duthost.shell(
                 'config interface cable-length {} {}m'.format(port_to_test, cable_length))
             expected_profile = make_expected_profile_name(
@@ -2676,7 +2676,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
                           duthost, param_name, maximum_profile[param_name]),
                           'The profile with a large size was applied to APPL_DB, which can make headroom exceeding.')
             size_in_appldb = duthost.shell(
-                f'redis-cli hget "BUFFER_PROFILE_TABLE: test-headroom" {param_name}')['stdout']
+                f'redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" {param_name}')['stdout']
             pytest_assert(size_in_appldb == maximum_profile[param_name],
                           'The profile with a large size was applied to APPL_DB, which can make headroom exceeding. '
                           f'size_in_appldb: {size_in_appldb}, '

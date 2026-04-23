@@ -180,7 +180,7 @@ def test_gnmi_counterdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptf
     exp_cnt = 3
     namespace_name = get_namespace(duthost)
     path_list = [f"{test_data['path']}{namespace_name}/COUNTERS_PORT_NAME_MAP{test_data['port']}"]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt, origin="sonic-db")
     assert msg.count("oid") >= exp_cnt, (
         "Expected count of 'oid' not met. "
         "Expected count: {}"
@@ -210,7 +210,7 @@ def test_gnmi_counterdb_streaming_sample_02(duthosts, rand_one_dut_hostname, ptf
 
     # Subscribe table field
     path_list = [f"/sonic-db:COUNTERS_DB/{namespace_name}/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt, origin="sonic-db")
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "
         "Expected count: {}"

@@ -637,6 +637,8 @@ class SonicHost(AnsibleHostBase):
             service_critical_process['status'] = False
         for line in service_result['stdout_lines']:
             pname, status, _ = re.split('\\s+', line, 2)
+            # Extract group name from supervisor "group:process" format
+            group_name = pname.split(':')[0] if ':' in pname else None
             # 1. Check status is valid
             # Sometimes, stdout_lines may be error messages but not emtpy
             # In this situation, service container status should be false
@@ -646,12 +648,12 @@ class SonicHost(AnsibleHostBase):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
-                # 3. Check process is critical
-                if pname in critical_group_list or pname in critical_process_list:
+                # 3. Check process is critical (match by exact name or supervisor group prefix)
+                if pname in critical_process_list or (group_name and group_name in critical_group_list):
                     service_critical_process['exited_critical_process'].append(pname)
                     service_critical_process['status'] = False
             else:
-                if pname in critical_group_list or pname in critical_process_list:
+                if pname in critical_process_list or (group_name and group_name in critical_group_list):
                     service_critical_process['running_critical_process'].append(pname)
 
         return service_critical_process
@@ -1736,6 +1738,8 @@ Totals               6450                 6449
             "th3": {"b98", "BCM5698"},
             "th4": {"b99", "BCM5699"},
             "th5": {"f90", "BCM7890"},
+            "j2": {"Device 869"},
+            "j2c+": {"Device 885"},
             "q3d": {"8870", "8872"},
         }
         for asic in search_sets.keys():
@@ -3228,6 +3232,11 @@ print(device_prefix)
         Gets the management IP address (v4 or v6) on eth0.
         Defaults to IPv4 on a dual stack configuration.
         """
+        # For SmartSwitch DPU, the exposed mgmt IP is the switch mgmt IP with a NAT port
+        # And it's IPv4 only
+        if self.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
+            return {"mgmt_ip": self.mgmt_ip, "version": "v4"}
+
         ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
         ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
 

@@ -7,6 +7,22 @@ from pytest_ansible.results import AdHocResult, ModuleResult
 
 from tests.common.errors import RunAnsibleModuleFail
 
+
+# Patch load_extra_vars to return a copy instead of the shared cached dict.
+# Without this, any code that calls variable_manager.extra_vars.update() (e.g., EosHost)
+# permanently pollutes the cache, causing all subsequent VariableManagers to inherit
+# stale connection variables (wrong ansible_user, ansible_connection, etc.).
+import ansible.vars.manager as _avm
+_original_load_extra_vars = _avm.load_extra_vars
+
+
+def _safe_load_extra_vars(loader):
+    return dict(_original_load_extra_vars(loader))
+
+
+_avm.load_extra_vars = _safe_load_extra_vars
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,7 +84,7 @@ class AnsibleHostBase(object):
         if hostname == 'localhost':
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
-            self.host = ansible_adhoc(become=True, *args, **kwargs)[hostname]
+            self.host = ansible_adhoc(become=True, host_pattern=hostname, *args, **kwargs)[hostname]
             host_vars = self.host.options["inventory_manager"].get_host(hostname).vars
             ansible_host = host_vars.get("ansible_host")
             ansible_hostv6 = host_vars.get("ansible_hostv6")

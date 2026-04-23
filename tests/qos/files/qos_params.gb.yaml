@@ -20,7 +20,7 @@ qos_params:
                 q4_num_of_pkts: 75
                 q5_num_of_pkts: 70
                 q6_num_of_pkts: 70
-                limit: 80
+                limit: 160
             wrr_chg:
                 ecn: 1
                 q0_num_of_pkts: 40
@@ -30,7 +30,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 40
                 q6_num_of_pkts: 40
-                limit: 80
+                limit: 160
                 lossy_weight: 8
                 lossless_weight: 30
             hdrm_pool_wm_multiplier: 1
@@ -54,7 +54,7 @@ qos_params:
                     q4_num_of_pkts: 75
                     q5_num_of_pkts: 70
                     q6_num_of_pkts: 70
-                    limit: 80
+                    limit: 160
                 wrr_chg:
                     ecn: 1
                     q0_num_of_pkts: 40
@@ -64,7 +64,7 @@ qos_params:
                     q4_num_of_pkts: 150
                     q5_num_of_pkts: 40
                     q6_num_of_pkts: 40
-                    limit: 80
+                    limit: 160
                     lossy_weight: 8
                     lossless_weight: 30
             400000_5m:
@@ -279,7 +279,7 @@ qos_params:
                 q4_num_of_pkts: 75
                 q5_num_of_pkts: 70
                 q6_num_of_pkts: 70
-                limit: 80
+                limit: 160
             wrr_chg:
                 ecn: 1
                 q0_num_of_pkts: 40
@@ -289,7 +289,7 @@ qos_params:
                 q4_num_of_pkts: 150
                 q5_num_of_pkts: 40
                 q6_num_of_pkts: 40
-                limit: 80
+                limit: 160
                 lossy_weight: 8
                 lossless_weight: 30
             100000_300m:

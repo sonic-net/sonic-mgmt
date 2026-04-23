@@ -1312,7 +1312,7 @@ def capture_and_check_packet_on_dut(
     pkts_validator_args=[],
     pkts_validator_kwargs={},
     wait_time=1,
-    tcpdump_buffer_size=102400
+    tcpdump_buffer_size=4096
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1509,7 +1509,8 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
-        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
+                      wait_for_bgp=True)
     finally:
         # Cleanup golden config because some other test or device recover may reload config with golden config
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
@@ -1749,3 +1750,10 @@ def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
         namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
         asic_interface_map["-n {}".format(namespace)].append(interface)
     return dict(asic_interface_map)
+
+
+def testbed_is_multi_vrf(tbinfo):
+    val = tbinfo.get('use_converged_peers')
+    if val:
+        return str(val).lower() == 'true'
+    return False

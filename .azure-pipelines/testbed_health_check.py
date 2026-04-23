@@ -28,7 +28,7 @@ if ansible_path not in sys.path:
 
 from devutil.devices.factory import init_host, init_localhost, init_sonichosts  # noqa: E402
 from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa: E402
-from devutil.devices.sonic import (  # noqa: E402
+from devutil.devices.dpu_utils import (  # noqa: E402
     is_nat_enabled_for_dpu,
     enable_nat_for_dpuhosts as _enable_nat_for_dpuhosts,
 )
@@ -248,9 +248,11 @@ class TestbedHealthChecker:
 
         logger.info("======================= pre_check starts =======================")
 
+        group = os.path.basename(self.inventory[0]) if self.inventory else None
         # Retrieve the connection graph facts of localhost
         conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
-                                                           filepath=os.path.join(ansible_path, "files"))
+                                                           filepath=os.path.join(ansible_path, "files"),
+                                                           group=group)
 
         # Check hosts reachability
         hosts_reachable = True
