@@ -172,6 +172,134 @@ def flat_test_port_ids(hierarchy):
             yield from flat_test_port_ids(value)
 
 
+def wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """Wait until condition is True or timeout. Returns True if condition met, False otherwise."""
+    import traceback
+
+    print("Wait until {} is True, timeout is {} seconds, checking interval is {}, delay is {} seconds".format(
+        condition.__name__, timeout, interval, delay), file=sys.stderr)
+
+    if delay > 0:
+        print("Delay for {} seconds first".format(delay), file=sys.stderr)
+        time.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+
+    while elapsed_time < timeout:
+        print("Time elapsed: {:.1f} seconds".format(elapsed_time), file=sys.stderr)
+
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            print("Exception caught while checking {}: {}, error: {}".format(
+                condition.__name__, "".join(details), e), file=sys.stderr)
+            check_result = False
+
+        if check_result:
+            print("{} is True, exit early with True".format(condition.__name__), file=sys.stderr)
+            return True
+        else:
+            print("{} is False, wait {} seconds and check again".format(
+                condition.__name__, interval), file=sys.stderr)
+            time.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    if elapsed_time >= timeout:
+        print("{} is still False after {} seconds, exit with False".format(
+            condition.__name__, timeout), file=sys.stderr)
+        return False
+
+
+def check_orchagent_ready(test_case):
+    """Check if orchagent restart check succeeds"""
+    try:
+        stdout, stderr, ret = test_case.exec_cmd_on_dut(
+            test_case.src_server_ip,
+            test_case.test_params['dut_username'],
+            test_case.test_params['dut_password'],
+            "docker exec swss /usr/bin/orchagent_restart_check -n -s -w 2000",
+            timeout=100
+        )
+        if ret == 0 and stdout:
+            result = ''.join(stdout) if isinstance(stdout, list) else str(stdout)
+            return "RESTARTCHECK succeeded" in result
+        return False
+    except Exception as e:
+        print(f"orchagent_restart_check failed: {e}", file=sys.stderr)
+        return False
+
+
+def check_pg_packets_received(test_case, pg, pg_counters_base, recv_counters_base, pkts_to_send):
+    """Check if PG received packets >= sent packets
+
+    Args:
+        test_case: The test case instance
+        pg: Priority group number to check
+        pg_counters_base: Baseline PG counters
+        recv_counters_base: Baseline receive counters
+        pkts_to_send: Number of packets sent
+
+    Returns:
+        True if received packets >= sent packets, False otherwise
+    """
+    pg_counters = sai_thrift_read_pg_counters(
+        test_case.src_client, port_list['src'][test_case.src_port_id])
+    recv_counters, _ = sai_thrift_read_port_counters(
+        test_case.src_client, test_case.asic_type, port_list['src'][test_case.src_port_id])
+
+    pkts_received = pg_counters[pg] - pg_counters_base[pg]
+
+    # For Broadcom DNX, include ingress drops in received count
+    if test_case.platform_asic and test_case.platform_asic == "broadcom-dnx":
+        ingress_drops = ([recv_counters[cntr] - recv_counters_base[cntr]
+                         for cntr in test_case.ingress_counters])[0]
+        pkts_received += ingress_drops
+
+    print("PG{} check: received={}, sent={}".format(pg, pkts_received, pkts_to_send), file=sys.stderr)
+    return pkts_received >= pkts_to_send
+
+
+def read_pg_port_counters(test_case, src_port_id, dst_port_id):
+    """Read all PG and port counters, return dict with pg_counters, recv_counters, xmit_counters, and drop totals."""
+    # Read all PG counters
+    pg_counters = sai_thrift_read_pg_counters(
+        test_case.src_client, port_list['src'][src_port_id])
+
+    # Read port counters
+    recv_counters, _ = sai_thrift_read_port_counters(
+        test_case.src_client, test_case.asic_type, port_list['src'][src_port_id])
+    xmit_counters, _ = sai_thrift_read_port_counters(
+        test_case.dst_client, test_case.asic_type, port_list['dst'][dst_port_id])
+
+    # Calculate drops
+    ingress_drops = ([recv_counters[cntr] for cntr in test_case.ingress_counters])[0]
+    egress_drops = ([xmit_counters[cntr] for cntr in test_case.egress_counters])[0]
+    total_drops = ingress_drops + egress_drops
+
+    return {
+        'pg_counters': pg_counters,
+        'recv_counters': recv_counters,
+        'xmit_counters': xmit_counters,
+        'ingress_drops': ingress_drops,
+        'egress_drops': egress_drops,
+        'total_drops': total_drops
+    }
+
+
+def run_cmd_on_dut(test_case, cmd, timeout=30):
+    """Execute command on DUT."""
+    return test_case.exec_cmd_on_dut(
+        test_case.src_server_ip,
+        test_case.test_params['dut_username'],
+        test_case.test_params['dut_password'],
+        cmd,
+        timeout=timeout
+    )
+
+
 class CounterCollector:
     '''Collect, compare and display counters for test'''
 
@@ -7631,17 +7759,7 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
 
 
 class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
-    """
-    Test to validate PG MIN threshold behavior.
-
-    Creates 2 buffer profiles for 2 different PGs:
-    - PG0: No PG MIN (uses shared pool only)
-    - PG1: Has PG MIN threshold configured
-
-    Validates:
-    - Traffic to PG0 exhausts shared pool, excess packets are dropped
-    - Traffic to PG1 gets PG MIN bandwidth guaranteed, packets exceeding (Shared - PG MIN) are dropped
-    """
+    """Test PG MIN threshold behavior: PG0 (no MIN) vs PG1 (with MIN)."""
 
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
@@ -7653,14 +7771,17 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
         self.router_mac = self.test_params['router_mac']
         self.sonic_version = self.test_params['sonic_version']
         self.asic_type = self.test_params['sonic_asic_type']
+        self.platform_asic = self.test_params['platform_asic']
+
+        # Get counter names to query
+        self.ingress_counters, self.egress_counters = get_counter_names(
+            self.sonic_version)
 
         # PG configuration
         self.pg0_dscp = self.test_params['pg0_dscp']  # DSCP for PG0 (no PG MIN)
         self.pg1_dscp = self.test_params['pg1_dscp']  # DSCP for PG1 (with PG MIN)
         self.pg0 = self.test_params['pg0']  # PG number without MIN
         self.pg1 = self.test_params['pg1']  # PG number with MIN
-        self.pg0_cntr_idx = self.pg0 + 2
-        self.pg1_cntr_idx = self.pg1 + 2
 
         # Port configuration
         self.src_port_id = int(self.test_params['src_port_id'])
@@ -7669,24 +7790,48 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_ip = self.test_params['dst_port_ip']
 
         # Buffer configuration
-        self.shared_pool_size = int(self.test_params['shared_pool_size'])
-        self.pg1_min_size = int(self.test_params['pg1_min_size'])
-        self.packet_size = int(self.test_params.get('packet_size', 1500))
+        self.packet_size = int(self.test_params.get('packet_size', 64))
         self.cell_size = int(self.test_params.get('cell_size', 254))
+        self.pg1_min_size = int(self.test_params['pg1_min_size'])  # PG1 MIN threshold in bytes
+
+        # Calculate how many packets can be accommodated in PG1 MIN threshold
+        import math
+        # Step 1: Calculate cells per packet (ceil of packet_size / cell_size)
+        self.cells_per_packet = int(math.ceil(float(self.packet_size) / float(self.cell_size)))
+
+        # Step 2: Calculate total cells in PG1 threshold (floor of threshold / cell_size)
+        self.cells_in_pg1_threshold = int(math.floor(float(self.pg1_min_size) / float(self.cell_size)))
+
+        # Step 3: Calculate packets that can fit (floor of cells_in_threshold / cells_per_packet)
+        self.pg1_capacity_pkts = int(math.floor(float(self.cells_in_pg1_threshold) / float(self.cells_per_packet)))
 
         # Calculate packet counts
-        # For PG0: should fill shared pool completely
-        self.pg0_pkts_to_fill = int(self.test_params['pg0_pkts_to_fill'])
-        self.pg0_pkts_to_drop = int(self.test_params['pg0_pkts_to_drop'])
+        self.pg_pkts_to_fill = int(self.test_params['pg_pkts_to_fill'])
 
-        # For PG1: should fill PG MIN + remaining shared
-        self.pg1_pkts_to_fill = int(self.test_params['pg1_pkts_to_fill'])
-        self.pg1_pkts_to_drop = int(self.test_params['pg1_pkts_to_drop'])
+        # Packet count tolerance for drop comparison (accounts for timing variations and background traffic)
+        self.pkt_count_tolerance = int(self.test_params.get('pkt_count_tolerance', 5))
 
-        self.margin = int(self.test_params.get('pkts_num_margin', 5))
+        # Validate that PG1 capacity is greater than tolerance
+        assert self.pg1_capacity_pkts >= self.pkt_count_tolerance, \
+            "PG1 capacity ({}) must be greater than or equal to tolerance ({}) for meaningful test validation".format(
+                self.pg1_capacity_pkts, self.pkt_count_tolerance)
+
+        # Get test interface name from test_params
+        self.test_interface = self.test_params.get('test_interface')
+        if not self.test_interface:
+            raise ValueError("test_interface not provided in test_params")
 
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
-        self.src_port_mac = self.dataplane.get_mac(0, self.src_port_id)
+
+        # Find PG0 profile and key
+        self.pg0_profile_name, self.pg0_key = self._find_pg_profile(self.pg0)
+        if not self.pg0_profile_name:
+            raise ValueError("Could not find profile for PG{} on {}".format(self.pg0, self.test_interface))
+
+        # Create PG1 key by replacing last part of PG0 key
+        self.pg1_key = "{}|{}".format(self.pg0_key.rsplit('|', 1)[0], self.pg1)
+
+        self._create_and_apply_pg1_buffer_profile()
 
         # Correct destination port if in LAG
         real_dst_port_id = get_rx_port(
@@ -7699,165 +7844,316 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.dst_port_id, real_dst_port_id), file=sys.stderr)
             self.dst_port_id = real_dst_port_id
 
+    def _find_pg_profile(self, pg_number):
+        """Find buffer profile and key for given PG. Returns (profile_name, pg_key) or (None, None)."""
+        # Get all BUFFER_PG keys for the interface
+        cmd = 'sonic-db-cli CONFIG_DB keys "BUFFER_PG|{}|*"'.format(self.test_interface)
+        stdout, stderr, ret = run_cmd_on_dut(self, cmd)
+
+        if ret != 0 or not stdout:
+            print("Warning: Failed to get BUFFER_PG keys: {}".format(stderr), file=sys.stderr)
+            return None, None
+
+        pg_keys = stdout if isinstance(stdout, list) else [stdout]
+
+        # Find the key that contains our PG number
+        for pg_key in pg_keys:
+            pg_key = pg_key.strip()
+            if not pg_key:
+                continue
+
+            # Extract PG range from key (e.g., "3-4" or "0")
+            pg_range = pg_key.split('|')[-1]
+
+            # Check if our PG is in this range
+            if '-' in pg_range:
+                start, end = map(int, pg_range.split('-'))
+                if start <= pg_number <= end:
+                    # Found the right key, get the profile
+                    cmd = 'sonic-db-cli CONFIG_DB HGET "{}" "profile"'.format(pg_key)
+                    stdout, stderr, ret = run_cmd_on_dut(self, cmd)
+
+                    if ret == 0 and stdout:
+                        profile = stdout[0].strip() if isinstance(stdout, list) else stdout.strip()
+                        return profile, pg_key
+            else:
+                # Single PG
+                if int(pg_range) == pg_number:
+                    cmd = 'sonic-db-cli CONFIG_DB HGET "{}" "profile"'.format(pg_key)
+                    stdout, stderr, ret = run_cmd_on_dut(self, cmd)
+
+                    if ret == 0 and stdout:
+                        profile = stdout[0].strip() if isinstance(stdout, list) else stdout.strip()
+                        return profile, pg_key
+
+        return None, None
+
+    def _create_and_apply_pg1_buffer_profile(self):
+        """Update PG0 profile size to 0, create PG1 profile with pg1_min_size, restart swss."""
+        try:
+
+            # Step 1: Get PG0 profile configuration
+            cmd = 'sonic-db-cli CONFIG_DB HGETALL "BUFFER_PROFILE|{}"'.format(self.pg0_profile_name)
+            stdout, stderr, ret = run_cmd_on_dut(self, cmd)
+
+            if ret != 0 or not stdout:
+                raise ValueError("Failed to get PG0 profile config: {}".format(stderr))
+
+            # Parse profile config
+            import ast
+            stdout_str = '\n'.join(stdout) if isinstance(stdout, list) else stdout
+            profile_config = ast.literal_eval(stdout_str.strip())
+
+            # Step 2: Update PG0 profile size to 0
+            cmd = 'sonic-db-cli CONFIG_DB HSET "BUFFER_PROFILE|{}" "size" "0"'.format(self.pg0_profile_name)
+            stdout, stderr, ret = run_cmd_on_dut(self, cmd)
+
+            if ret != 0:
+                print("Warning: Failed to update PG0 profile size: {}".format(stderr), file=sys.stderr)
+
+            # Step 3: Create new profile for PG1 with pg1_min_size
+            self.pg1_profile_name = "{}_pg_min_set".format(self.pg0_profile_name)
+
+            # Copy all fields from PG0 profile and update size
+            profile_config['size'] = str(self.pg1_min_size)
+
+            # Build HMSET command
+            hmset_args = []
+            for key, value in profile_config.items():
+                hmset_args.append('"{}" "{}"'.format(key, value))
+
+            cmd = 'sonic-db-cli CONFIG_DB -- HMSET "BUFFER_PROFILE|{}" {}'.format(
+                self.pg1_profile_name, ' '.join(hmset_args))
+            stdout, stderr, ret = run_cmd_on_dut(self, cmd)
+
+            if ret != 0:
+                raise ValueError("Failed to create PG1 profile: {}".format(stderr))
+
+            # Step 4: Apply PG1 profile to PG1
+            cmd = 'sonic-db-cli CONFIG_DB HSET "{}" "profile" "{}"'.format(self.pg1_key, self.pg1_profile_name)
+            stdout, stderr, ret = run_cmd_on_dut(self, cmd)
+
+            if ret != 0:
+                raise ValueError("Failed to apply PG1 profile: {}".format(stderr))
+
+            # Step 5: Restart swss
+            cmd = 'sudo systemctl restart swss &'
+            stdout, stderr, ret = run_cmd_on_dut(self, cmd, timeout=100)
+
+            if ret != 0:
+                print("Warning: Failed to restart swss: {}".format(stderr), file=sys.stderr)
+
+            if not wait_until(420, 10, 5, check_orchagent_ready, self):
+                print("Warning: orchagent_restart_check did not succeed within timeout", file=sys.stderr)
+                
+            sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
+            sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+            time.sleep(1)
+
+        except Exception as e:
+            print("Error in _create_and_apply_pg1_buffer_profile: {}".format(str(e)), file=sys.stderr)
+            raise
+
     def tearDown(self):
-        sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
+        """Cleanup: config reload to restore original configuration."""
+        try:
+            cmd = "sudo config reload -y -f &>/dev/null"
+            stdout, stderr, ret = run_cmd_on_dut(self, cmd, timeout=100)
 
-    def wait_for_counter_update(self, timeout=10, interval=0.5):
-        """
-        Wait for PG counters to stabilize after packet transmission.
-        Polls counters until they stop changing or timeout is reached.
+            if ret != 0:
+                print("Warning: Config reload failed: {}".format(stderr), file=sys.stderr)
+            else:
+                # Wait for orchagent to be ready after config reload
+                if not wait_until(420, 10, 5, check_orchagent_ready, self):
+                    print("Warning: orchagent_restart_check did not succeed within timeout", file=sys.stderr)
+                time.sleep(30)
 
-        Args:
-            timeout: Maximum time to wait in seconds
-            interval: Polling interval in seconds
-
-        Returns:
-            True if counters stabilized, False if timeout
-        """
-        start_time = time.time()
-        prev_counters = None
-        stable_count = 0
-        required_stable_reads = 3  # Require 3 consecutive stable reads
-
-        while (time.time() - start_time) < timeout:
-            curr_counters = sai_thrift_read_pg_counters(
-                self.src_client, port_list['src'][self.src_port_id])
-
-            if prev_counters is not None:
-                # Check if counters are stable (no change)
-                if curr_counters == prev_counters:
-                    stable_count += 1
-                    if stable_count >= required_stable_reads:
-                        print("Counters stabilized after {:.2f}s".format(
-                            time.time() - start_time), file=sys.stderr)
-                        return True
-                else:
-                    stable_count = 0
-
-            prev_counters = curr_counters
-            time.sleep(interval)
-
-        print("Warning: Counter stabilization timeout after {:.2f}s".format(
-            time.time() - start_time), file=sys.stderr)
-        return False
+        except Exception as e:
+            print("Error during tearDown: {}".format(str(e)), file=sys.stderr)
+        finally:
+            sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
-        print("\n=== Starting PG MIN Threshold Test (Simplified) ===", file=sys.stderr)
-        print("PG0 (lossy): DSCP={}, PG={}".format(self.pg0_dscp, self.pg0), file=sys.stderr)
-        print("PG1 (lossless): DSCP={}, PG={}".format(self.pg1_dscp, self.pg1), file=sys.stderr)
+        print("\n=== Starting PG MIN Threshold Test ===", file=sys.stderr)
+        print("PG0: DSCP={}, PG={}".format(self.pg0_dscp, self.pg0), file=sys.stderr)
+        print("PG1: DSCP={}, PG={}".format(self.pg1_dscp, self.pg1), file=sys.stderr)
+        print("PG1 MIN size: {} bytes, capacity: {} packets".format(
+            self.pg1_min_size, self.pg1_capacity_pkts), file=sys.stderr)
+        print("Total packets to send: {}".format(self.pg_pkts_to_fill), file=sys.stderr)
         sys.stderr.flush()
-
-        # Get baseline counters
-        pg_drop_counters_base = sai_thrift_read_pg_drop_counters(
-            self.src_client, port_list['src'][self.src_port_id])
-        pg_counters_base = sai_thrift_read_pg_counters(
-            self.src_client, port_list['src'][self.src_port_id])
 
         # Disable TX on destination port to accumulate packets
         self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
 
         try:
-            # ===== Test: Send traffic to both PGs simultaneously =====
-            print("\n--- Sending traffic to both PGs to fill buffers ---", file=sys.stderr)
-
-            # Construct packets for both PGs
-            pkt_pg0 = construct_ip_pkt(
-                self.packet_size,
-                self.router_mac if self.router_mac != '' else self.dst_port_mac,
-                self.src_port_mac,
-                self.src_port_ip,
-                self.dst_port_ip,
-                self.pg0_dscp,
-                None,
-                ecn=1,
-                ttl=64
+            # Construct both PG0 and PG1 packets
+            print("\n--- Creating packets for PG0 and PG1 ---", file=sys.stderr)
+            pkt_pg0 = simple_tcp_packet(
+                pktlen=self.packet_size,
+                eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
+                ip_src=self.src_port_ip,
+                ip_dst=self.dst_port_ip,
+                ip_tos=self.pg0_dscp << 2,
+                ip_ttl=64,
+                ip_ecn=1
             )
 
-            pkt_pg1 = construct_ip_pkt(
-                self.packet_size,
-                self.router_mac if self.router_mac != '' else self.dst_port_mac,
-                self.src_port_mac,
-                self.src_port_ip,
-                self.dst_port_ip,
-                self.pg1_dscp,
-                None,
-                ecn=1,
-                ttl=64
+            pkt_pg1 = simple_tcp_packet(
+                pktlen=self.packet_size,
+                eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
+                ip_src=self.src_port_ip,
+                ip_dst=self.dst_port_ip,
+                ip_tos=self.pg1_dscp << 2,
+                ip_ttl=64,
+                ip_ecn=1
             )
+            print("PG0 packet: DSCP={}, TOS={}".format(self.pg0_dscp, self.pg0_dscp << 2), file=sys.stderr)
+            print("PG1 packet: DSCP={}, TOS={}".format(self.pg1_dscp, self.pg1_dscp << 2), file=sys.stderr)
 
-            # Send packets to PG0 (lossy)
-            print("Sending {} packets to PG0 (lossy)".format(self.pg0_pkts_to_fill), file=sys.stderr)
-            send_packet(self, self.src_port_id, pkt_pg0, self.pg0_pkts_to_fill)
-            self.wait_for_counter_update(timeout=10, interval=0.5)
+            # ===== PHASE 1: Send traffic to PG0 =====
+            print("\n--- PHASE 1: Sending traffic to PG0 ---", file=sys.stderr)
 
-            # Send packets to PG1 (lossless)
-            print("Sending {} packets to PG1 (lossless)".format(self.pg1_pkts_to_fill), file=sys.stderr)
-            send_packet(self, self.src_port_id, pkt_pg1, self.pg1_pkts_to_fill)
-            self.wait_for_counter_update(timeout=10, interval=0.5)
+            # Record baseline counters for PG0 using helper function
+            counters_base_pg0 = read_pg_port_counters(self, self.src_port_id, self.dst_port_id)
+            pg_counters_base_pg0 = counters_base_pg0['pg_counters']
+            recv_counters_base_pg0 = counters_base_pg0['recv_counters']
 
-            # Read drop counters and packet counters
-            pg_drop_counters = sai_thrift_read_pg_drop_counters(
-                self.src_client, port_list['src'][self.src_port_id])
-            pg_counters = sai_thrift_read_pg_counters(
-                self.src_client, port_list['src'][self.src_port_id])
+            print("Baseline PG0 counter: {}".format(counters_base_pg0['pg_counters'][self.pg0]), file=sys.stderr)
+            print("Baseline ingress drops: {}".format(counters_base_pg0['ingress_drops']), file=sys.stderr)
+            print("Baseline egress drops: {}".format(counters_base_pg0['egress_drops']), file=sys.stderr)
 
-            pg0_drops = pg_drop_counters[self.pg0] - pg_drop_counters_base[self.pg0]
-            pg1_drops = pg_drop_counters[self.pg1] - pg_drop_counters_base[self.pg1]
-            pg0_pkts = pg_counters[self.pg0] - pg_counters_base[self.pg0]
-            pg1_pkts = pg_counters[self.pg1] - pg_counters_base[self.pg1]
+            # Send packets to PG0
+            print("Sending {} packets to PG0".format(self.pg_pkts_to_fill), file=sys.stderr)
+            send_packet(self, self.src_port_id, pkt_pg0, self.pg_pkts_to_fill)
 
-            print("\n=== Results ===", file=sys.stderr)
-            print("PG0 (lossy) packets: {}, drops: {}".format(pg0_pkts, pg0_drops), file=sys.stderr)
-            print("PG1 (lossless) packets: {}, drops: {}".format(pg1_pkts, pg1_drops), file=sys.stderr)
+            print("Completed sending {} packets to PG0".format(self.pg_pkts_to_fill), file=sys.stderr)
 
-            # Validation: Multiple assertions to ensure test correctness
-            print("\n--- Validation ---", file=sys.stderr)
+            # Wait until received packets >= sent packets
+            if not wait_until(10, 2, 2, check_pg_packets_received, self, self.pg0,
+                              pg_counters_base_pg0, recv_counters_base_pg0, self.pg_pkts_to_fill):
+                print("Warning: PG0 did not receive all packets within timeout", file=sys.stderr)
 
-            # Assert 1: Packets were actually received on both PGs (sanity check)
-            assert pg0_pkts > 0, \
-                "No packets received on PG0 (lossy), expected {}".format(self.pg0_pkts_to_fill)
-            assert pg1_pkts > 0, \
-                "No packets received on PG1 (lossless), expected {}".format(self.pg1_pkts_to_fill)
-            print("Assert 1 PASSED: Packets received on both PGs (PG0={}, PG1={})".format(
-                pg0_pkts, pg1_pkts), file=sys.stderr)
+            # Read counters after PG0 traffic
+            print("Reading PG0 counters...", file=sys.stderr)
+            counters_after_pg0 = read_pg_port_counters(self, self.src_port_id, self.dst_port_id)
 
-            # Assert 2: PG0 (lossy) should have some drops (may be small if buffer is large)
-            # Relaxed: just check that lossy has any drops at all
-            assert pg0_drops > 0, \
-                "PG0 (lossy) should have at least some drops, but got {}".format(pg0_drops)
-            print("Assert 2 PASSED: PG0 (lossy) has drops ({})".format(pg0_drops), file=sys.stderr)
+            # Calculate results for PG0
+            pg0_pkts_received = counters_after_pg0['pg_counters'][self.pg0] - counters_base_pg0['pg_counters'][self.pg0]
+            pg0_ingress_drops = counters_after_pg0['ingress_drops'] - counters_base_pg0['ingress_drops']
+            pg0_egress_drops = counters_after_pg0['egress_drops'] - counters_base_pg0['egress_drops']
+            pg0_total_drops = pg0_ingress_drops + pg0_egress_drops
 
-            # Assert 3: PG1 (lossless) should have minimal or no drops
-            # Relaxed: allow some drops but should be much less than lossy
-            print("PG1 (lossless) drops: {} (margin: {})".format(pg1_drops, self.margin), file=sys.stderr)
-            if pg1_drops <= self.margin:
-                print("Assert 3 PASSED: PG1 (lossless) has minimal drops ({})".format(pg1_drops), file=sys.stderr)
-            else:
-                print("Assert 3 WARNING: PG1 (lossless) has more drops than expected ({} > {})".format(
-                    pg1_drops, self.margin), file=sys.stderr)
+            # For Broadcom DNX, include ingress drops in received count
+            if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                pg0_pkts_received += pg0_ingress_drops
 
-            # Assert 4: Lossy should drop more than or equal to lossless (main validation)
-            assert pg0_drops >= pg1_drops, \
-                "PG0 (lossy) should drop at least as many packets as PG1 (lossless), but got PG0={}, PG1={}".format(
-                    pg0_drops, pg1_drops)
-            print("Assert 4 PASSED: PG0 drops ({}) >= PG1 drops ({})".format(pg0_drops, pg1_drops), file=sys.stderr)
+            print("\n=== PG0 Test Results ===", file=sys.stderr)
+            print("PG0 - sent: {}, received: {}, ingress drops: {}, egress drops: {}, total drops: {}".format(
+                self.pg_pkts_to_fill, pg0_pkts_received, pg0_ingress_drops, pg0_egress_drops, pg0_total_drops),
+                file=sys.stderr)
 
-            # Assert 5: If both have drops, lossy should drop more
-            if pg1_drops > 0:
-                drop_ratio = float(pg0_drops) / float(pg1_drops)
-                print("Drop ratio (PG0/PG1): {:.2f}".format(drop_ratio), file=sys.stderr)
-                # Relaxed: just check lossy drops more, not a specific ratio
-                assert pg0_drops > pg1_drops, \
-                    "When both PGs drop, PG0 (lossy) should drop more than PG1 (lossless), " \
-                    "but got PG0={}, PG1={}".format(pg0_drops, pg1_drops)
-                print("Assert 5 PASSED: PG0 drops more than PG1 (ratio: {:.2f})".format(drop_ratio), file=sys.stderr)
-            else:
-                print("Assert 5 PASSED: PG1 has no drops, PG0 has {} drops".format(pg0_drops), file=sys.stderr)
+            # Validation for PG0
+            print("\n--- Validating PG0 ---", file=sys.stderr)
+            assert pg0_pkts_received >= self.pg_pkts_to_fill, \
+                "PG0: Received packets ({}) should be >= sent packets ({})".format(
+                    pg0_pkts_received, self.pg_pkts_to_fill)
+            print("✓ PG0 Validation 1 PASSED: Received ({}) >= Sent ({})".format(
+                pg0_pkts_received, self.pg_pkts_to_fill), file=sys.stderr)
 
-            print("\nALL ASSERTIONS PASSED: Lossy traffic behavior validated", file=sys.stderr)
+            assert pg0_total_drops > 0, \
+                "PG0: Total drops ({}) should be > 0 (buffer should be exhausted)".format(pg0_total_drops)
+            print("✓ PG0 Validation 2 PASSED: Total drops ({}) > 0".format(pg0_total_drops), file=sys.stderr)
+
+            # ===== Enable TX to drain traffic =====
+            print("\n--- Draining PG0 traffic ---", file=sys.stderr)
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+            print("TX enabled, waiting for traffic to drain...", file=sys.stderr)
+            time.sleep(60)
+            print("Traffic drained", file=sys.stderr)
+
+            # Disable TX again for PG1 test
+            print("Disabling TX for PG1 test...", file=sys.stderr)
+            self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
+            print("TX disabled", file=sys.stderr)
+
+            # ===== PHASE 2: Send traffic to PG1 =====
+            print("\n--- PHASE 2: Sending traffic to PG1 ---", file=sys.stderr)
+
+            # Record baseline counters for PG1
+            counters_base_pg1 = read_pg_port_counters(self, self.src_port_id, self.dst_port_id)
+            pg_counters_base_pg1 = counters_base_pg1['pg_counters']
+            recv_counters_base_pg1 = counters_base_pg1['recv_counters']
+
+            print("Baseline PG1 counter: {}".format(counters_base_pg1['pg_counters'][self.pg1]), file=sys.stderr)
+            print("Baseline ingress drops: {}".format(counters_base_pg1['ingress_drops']), file=sys.stderr)
+            print("Baseline egress drops: {}".format(counters_base_pg1['egress_drops']), file=sys.stderr)
+
+            # Send packets to PG1
+            print("Sending {} packets to PG1".format(self.pg_pkts_to_fill), file=sys.stderr)
+            send_packet(self, self.src_port_id, pkt_pg1, self.pg_pkts_to_fill)
+
+            print("Completed sending {} packets to PG1".format(self.pg_pkts_to_fill), file=sys.stderr)
+
+            # Wait until received packets >= sent packets
+            if not wait_until(10, 2, 2, check_pg_packets_received, self, self.pg1,
+                              pg_counters_base_pg1, recv_counters_base_pg1, self.pg_pkts_to_fill):
+                print("Warning: PG1 did not receive all packets within timeout", file=sys.stderr)
+
+            # Read counters after PG1 traffic
+            print("Reading PG1 counters...", file=sys.stderr)
+            counters_after_pg1 = read_pg_port_counters(self, self.src_port_id, self.dst_port_id)
+
+            # Calculate results for PG1
+            pg1_pkts_received = counters_after_pg1['pg_counters'][self.pg1] - counters_base_pg1['pg_counters'][self.pg1]
+            pg1_ingress_drops = counters_after_pg1['ingress_drops'] - counters_base_pg1['ingress_drops']
+            pg1_egress_drops = counters_after_pg1['egress_drops'] - counters_base_pg1['egress_drops']
+            pg1_total_drops = pg1_ingress_drops + pg1_egress_drops
+
+            # For Broadcom DNX, include ingress drops in received count
+            if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                pg1_pkts_received += pg1_ingress_drops
+
+            print("\n=== PG1 Test Results ===", file=sys.stderr)
+            print("PG1 - sent: {}, received: {}, ingress drops: {}, egress drops: {}, total drops: {}".format(
+                self.pg_pkts_to_fill, pg1_pkts_received, pg1_ingress_drops, pg1_egress_drops, pg1_total_drops),
+                file=sys.stderr)
+
+            # Validation for PG1
+            print("\n--- Validating PG1 ---", file=sys.stderr)
+            assert pg1_pkts_received >= self.pg_pkts_to_fill, \
+                "PG1: Received packets ({}) should be >= sent packets ({})".format(
+                    pg1_pkts_received, self.pg_pkts_to_fill)
+            print("✓ PG1 Validation 1 PASSED: Received ({}) >= Sent ({})".format(
+                pg1_pkts_received, self.pg_pkts_to_fill), file=sys.stderr)
+
+            # ===== PHASE 3: Compare PG0 and PG1 drops =====
+            print("\n--- PHASE 3: Comparing PG0 and PG1 drops ---", file=sys.stderr)
+            print("PG0 total drops: {}".format(pg0_total_drops), file=sys.stderr)
+            print("PG1 total drops: {}".format(pg1_total_drops), file=sys.stderr)
+            print("PG1 MIN capacity: {} packets".format(self.pg1_capacity_pkts), file=sys.stderr)
+            print("Tolerance: {} packets".format(self.pkt_count_tolerance), file=sys.stderr)
+
+            # Final validation: pg0_drops - pg1_drops >= tolerance
+            drop_difference = pg0_total_drops - pg1_total_drops
+
+            print("Drop difference (PG0 - PG1): {}".format(drop_difference), file=sys.stderr)
+
+            # Use margin for comparison because after draining PG0 traffic, PG1 traffic may not
+            # immediately utilize the full shared space even though all PG0 traffic has been drained.
+            # While waiting longer could help, it doesn't guarantee complete shared pool utilization.
+            assert drop_difference >= self.pkt_count_tolerance, \
+                "Drop difference ({}) should be >= tolerance ({}). " \
+                "This indicates PG1 MIN threshold is not protecting enough packets.".format(
+                    drop_difference, self.pkt_count_tolerance)
+            print("✓ Final Validation PASSED: Drop difference ({}) >= tolerance ({})".format(
+                drop_difference, self.pkt_count_tolerance), file=sys.stderr)
+
+            print("\n=== ALL VALIDATIONS PASSED ===", file=sys.stderr)
             print("=== PG MIN Threshold Test PASSED ===\n", file=sys.stderr)
             sys.stderr.flush()
 
         finally:
             # Re-enable TX on destination port
+            print("\n--- Enabling TX on destination port ---", file=sys.stderr)
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+            print("TX enabled", file=sys.stderr)

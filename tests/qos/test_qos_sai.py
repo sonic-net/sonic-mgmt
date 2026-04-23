@@ -25,6 +25,7 @@ import pytest
 import time
 import json
 import re
+import ipaddress
 from tabulate import tabulate
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa: F401
@@ -44,7 +45,9 @@ from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
 from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_links, select_random_link,  # noqa: F401
                                                    get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown,
-                                                   fetch_test_logs_ptf)
+                                                   fetch_test_logs_ptf,
+                                                   select_test_interface_and_ptf_port, get_interface_ip_address,
+                                                   detect_portchannel_egress_member)  # noqa: F401
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 
@@ -1850,7 +1853,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiPgMinThreshold(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        get_src_dst_asic_and_duts
+        get_src_dst_asic_and_duts, tbinfo, ptfadapter
     ):
         """
             Test QoS SAI PG MIN threshold behavior
@@ -1866,29 +1869,71 @@ class TestQosSai(QosSaiBase):
                     and test ports
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
                 get_src_dst_asic_and_duts: Fixture for getting source/destination ASIC and DUTs
+                tbinfo: Testbed info fixture
+                ptfadapter: PTF adapter fixture
             Returns:
                 None
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        import ptf.testutils as testutils
+
         qosConfig = dutQosConfig["param"]
 
         if "pg_min_threshold" not in qosConfig:
             pytest.skip("PG MIN threshold test parameters not configured for this platform")
 
-        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
-        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
-        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
-        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        # Get source DUT
+        src_dut = get_src_dst_asic_and_duts['src_dut']
 
-        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
-        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
-        src_testPortIds = list(src_testPortIps.keys())
-        dst_testPortIds = list(dst_testPortIps.keys())
+        # Select test interface and PTF port using the helper function
+        test_interface, ptf_port_index = select_test_interface_and_ptf_port(src_dut, tbinfo)
+        pytest_assert(test_interface and ptf_port_index is not None,
+                      "Could not find test interface with PTF port mapping")
 
-        # Use first available source and destination ports
-        src_port_id = src_testPortIds[0]
-        dst_port_id = dst_testPortIds[0]
+        # Get IP address for the selected interface
+        mg_facts = src_dut.get_extended_minigraph_facts(tbinfo)
+        interface_ip = get_interface_ip_address(test_interface, mg_facts)
+        pytest_assert(interface_ip,
+                      "Could not find IP address for interface {}".format(test_interface))
+
+        # Calculate source and destination IPs from interface network
+        interface_network = ipaddress.ip_interface(interface_ip)
+        src_ip = str(interface_network.ip - 1)
+        dst_ip = str(interface_network.ip + 1)
+
+        logger.info("Selected test interface: {} (PTF port: {}), IP: {}".format(
+            test_interface, ptf_port_index, interface_ip))
+        logger.info("Source IP: {}, Destination IP: {}".format(src_ip, dst_ip))
+
+        # Create test packet for PortChannel detection
+        router_mac = src_dut.facts["router_mac"]
+        test_packet = testutils.simple_tcp_packet(
+            eth_dst=router_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
+            ip_dscp=0,
+        )
+
+        # If PortChannel, detect actual egress member
+        portchannels = mg_facts.get('minigraph_portchannels', {})
+        if test_interface in portchannels:
+            logger.info("{} is a PortChannel, detecting egress member".format(test_interface))
+
+            # Detect actual egress member
+            detected_interface, detected_ptf_port = detect_portchannel_egress_member(
+                src_dut, tbinfo, ptfadapter, test_interface, test_packet
+            )
+            if detected_interface and detected_ptf_port is not None:
+                logger.info("Detected egress member: {} (PTF port {})".format(
+                    detected_interface, detected_ptf_port))
+                test_interface = detected_interface
+                ptf_port_index = detected_ptf_port
+            else:
+                pytest.fail("Could not detect egress member for PortChannel {}".format(test_interface))
+
+        logger.info("Final test interface: {} (PTF port: {})".format(
+            test_interface, ptf_port_index))
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1898,16 +1943,15 @@ class TestQosSai(QosSaiBase):
             "pg1_dscp": qosConfig["pg_min_threshold"]["pg1_dscp"],
             "pg0": qosConfig["pg_min_threshold"]["pg0"],
             "pg1": qosConfig["pg_min_threshold"]["pg1"],
-            "src_port_id": src_port_id,
-            "src_port_ip": src_testPortIps[src_port_id]['peer_addr'],
-            "dst_port_id": dst_port_id,
-            "dst_port_ip": dst_testPortIps[dst_port_id]['peer_addr'],
-            "shared_pool_size": qosConfig["pg_min_threshold"]["shared_pool_size"],
+            "src_port_id": ptf_port_index,
+            "src_port_ip": src_ip,
+            "dst_port_id": ptf_port_index,
+            "dst_port_ip": dst_ip,
+            "router_mac": router_mac,
             "pg1_min_size": qosConfig["pg_min_threshold"]["pg1_min_size"],
-            "pg0_pkts_to_fill": qosConfig["pg_min_threshold"]["pg0_pkts_to_fill"],
-            "pg0_pkts_to_drop": qosConfig["pg_min_threshold"]["pg0_pkts_to_drop"],
-            "pg1_pkts_to_fill": qosConfig["pg_min_threshold"]["pg1_pkts_to_fill"],
-            "pg1_pkts_to_drop": qosConfig["pg_min_threshold"]["pg1_pkts_to_drop"],
+            "pg_pkts_to_fill": qosConfig["pg_min_threshold"]["pg_pkts_to_fill"],
+            "pkt_count_tolerance": qosConfig["pg_min_threshold"]["pkt_count_tolerance"],
+            "test_interface": test_interface,
         })
 
         if "packet_size" in qosConfig["pg_min_threshold"]:
@@ -1916,11 +1960,6 @@ class TestQosSai(QosSaiBase):
         if "cell_size" in qosConfig["pg_min_threshold"]:
             testParams["cell_size"] = qosConfig["pg_min_threshold"]["cell_size"]
 
-        if "pkts_num_margin" in qosConfig["pg_min_threshold"]:
-            testParams["pkts_num_margin"] = qosConfig["pg_min_threshold"]["pkts_num_margin"]
-
-        # Note: Not passing log_file to avoid pcap generation for this high-volume test
-        # With 2M packets, pcap files become too large and cause OOM during compression
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.PgMinThresholdTest",
             testParams=testParams,
