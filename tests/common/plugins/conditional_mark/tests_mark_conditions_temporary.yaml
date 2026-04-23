@@ -1,0 +1,23 @@
+bgp/test_bgp_slb.py:
+  skip:
+    reason: "Got multiple image issue, temporarily skip because multiple fix PRs are blocked"
+    conditions:
+      - "asic_type in ['vs']"
+
+generic_config_updater/test_ntp.py:
+  skip:
+    reason: "Got multiple image issue, temporarily skip because multiple fix PRs are blocked"
+    conditions:
+      - "asic_type in ['vs']"
+
+pc/test_retry_count.py:
+  skip:
+    reason: "Got multiple image issue, temporarily skip because multiple fix PRs are blocked"
+    conditions:
+      - "asic_type in ['vs']"
+
+platform_tests/test_reboot.py:
+  skip:
+    reason: "Got multiple image issue, temporarily skip because multiple fix PRs are blocked"
+    conditions:
+      - "asic_type in ['vs']"
