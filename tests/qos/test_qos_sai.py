@@ -190,19 +190,6 @@ class TestQosSai(QosSaiBase):
         are verified.
     """
 
-    SUPPORTED_HEADROOM_SKUS = [
-        'Arista-7060CX-32S-C32',
-        'Celestica-DX010-C32',
-        'Arista-7260CX3-D108C8',
-        'Arista-7260CX3-D108C10',
-        'Force10-S6100',
-        'Arista-7260CX3-Q64',
-        'Arista-7050CX3-32S-C32',
-        'Arista-7050CX3-32S-C28S4',
-        'Arista-7050CX3-32S-D48C8',
-        'dbmvtx9180_64osfp_128x400G_lab'
-    ]
-
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, disable_voq_watchdog_class_scope):
         return
