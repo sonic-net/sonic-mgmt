@@ -7,7 +7,7 @@ from tests.common.helpers.console_helper import check_target_line_status
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('c0', 'c0-lo', 'bmc')
+    pytest.mark.topology('c0', 'c0-lo')
 ]
 
 
