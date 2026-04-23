@@ -15,6 +15,9 @@ The goal of this test is to verify that the BGP Unnumbered feature works as expe
 
 The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to test BGP Unnumbered feature, which includes peer group and individual neighbor implementation.
 
+### Testbed
+The test could run on t0,t1 and t2 testbed.
+
 ### Related DUT CLI commands
 
 | Command | Comment |
