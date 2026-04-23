@@ -434,6 +434,27 @@ bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+# BGP link-local (unnumbered) tests — skip while upstream issues are open.
+# Using 'skip' instead of 'xfail' because:
+#   - These tests take ~16 minutes total (setup, 120s wait timeout per test, teardown
+#     with config reload) only to confirm two known feature gaps.
+#   - xfail would still execute the full test and consume CI resources every run,
+#     which is wasteful when the outcome is predetermined by open image-level bugs.
+#   - skip preserves the test code for when the issues are resolved — once both
+#     issues below are closed, the conditional mark becomes inactive and the tests
+#     run normally with zero code changes needed.
+# Issues:
+#   - sonic-buildimage#26959: FRR 10.5.1 bgpd cannot resolve interface to link-local
+#     address for unnumbered BGP — session stays Idle with (unspec), FD=-1.
+#   - sonic-buildimage#26960: bgpcfgd reactively injects 'no capability link-local'
+#     for interface-based neighbors, overriding manual corrections.
+bgp/test_bgp_link_local.py::test_bgp_link_local:
+  skip:
+    reason: "FRR 10.5.1 cannot resolve interface to link-local for unnumbered BGP (sonic-buildimage#26959); bgpcfgd also blocks link-local capability (sonic-buildimage#26960)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/26959
+      - https://github.com/sonic-net/sonic-buildimage/issues/26960
+
 bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"
@@ -6112,23 +6133,3 @@ zmq/test_gnmi_zmq.py::test_gnmi_zmq:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
-# BGP link-local (unnumbered) tests — skip while upstream issues are open.
-# Using 'skip' instead of 'xfail' because:
-#   - These tests take ~16 minutes total (setup, 120s wait timeout per test, teardown
-#     with config reload) only to confirm two known feature gaps.
-#   - xfail would still execute the full test and consume CI resources every run,
-#     which is wasteful when the outcome is predetermined by open image-level bugs.
-#   - skip preserves the test code for when the issues are resolved — once both
-#     issues below are closed, the conditional mark becomes inactive and the tests
-#     run normally with zero code changes needed.
-# Issues:
-#   - sonic-buildimage#26959: FRR 10.5.1 bgpd cannot resolve interface to link-local
-#     address for unnumbered BGP — session stays Idle with (unspec), FD=-1.
-#   - sonic-buildimage#26960: bgpcfgd reactively injects 'no capability link-local'
-#     for interface-based neighbors, overriding manual corrections.
-bgp/test_bgp_link_local.py::test_bgp_link_local:
-  skip:
-    reason: "FRR 10.5.1 cannot resolve interface to link-local for unnumbered BGP (sonic-buildimage#26959); bgpcfgd also blocks link-local capability (sonic-buildimage#26960)"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/26959
-      - https://github.com/sonic-net/sonic-buildimage/issues/26960
