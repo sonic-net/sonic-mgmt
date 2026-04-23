@@ -6,7 +6,7 @@ import shutil
 import tempfile
 import traceback
 import xml.dom.minidom as minidom
-import defusedxml.ElementTree as ET
+import xml.etree.ElementTree as ET
 from copy import deepcopy
 
 from collections import OrderedDict
