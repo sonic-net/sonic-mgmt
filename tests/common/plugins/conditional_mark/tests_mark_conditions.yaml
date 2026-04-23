@@ -3950,6 +3950,16 @@ packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::
       - "'isolated' in topo_name and release in ['202412']"
 
 #######################################
+#####      passw_hardening        #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  xfail:
+    reason: "Skip the script due to Issue #13582. Command currently not supported multi-asic platforms"
+    conditions:
+      - "is_multi_asic==True"
+      - https://github.com/sonic-net/sonic-buildimage/issues/13582
+
+#######################################
 #####           pc               #####
 #######################################
 
