@@ -644,6 +644,7 @@ t1-lag-vpp:
   - arp/test_wr_arp.py
   - arp/test_arp_dualtor.py
   - arp/test_stress_arp.py
+  - bfd/test_bfd.py
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_sentinel.py
@@ -683,6 +684,8 @@ t1-lag-vpp:
   - bgp/test_bgp_vnet.py
   - bgp/test_bgpmon_v6.py
   - bgp/test_traffic_shift_sup.py
+  - crm/test_crm.py
+  - crm/test_crm_available.py
   - fib/test_fib.py
   - test_interfaces.py
   - http/test_http_copy.py
@@ -692,6 +695,7 @@ t1-lag-vpp:
   - ipfwd/test_nhop_group.py
   - ipfwd/test_mtu.py
   - ipfwd/test_dip_sip.py
+  - lldp/test_lldp.py
   - pc/test_po_voq.py
   - pc/test_lag_member.py
   - pc/test_po_update.py

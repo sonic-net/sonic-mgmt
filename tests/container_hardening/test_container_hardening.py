@@ -39,7 +39,7 @@ def get_base_container_name(container_name):
 
 
 def test_container_block_device_mounted(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
-                                        enum_dut_feature):
+                                        enum_dut_feature, vendor_specific_privileged_containers):
     """
     Test only containers allowed have access to block devices such as /dev/vda*, /dev/sda*, /dev/nvme0n1*
     """
@@ -49,7 +49,7 @@ def test_container_block_device_mounted(duthosts, enum_rand_one_per_hwsku_hostna
     disabled_containers = get_disabled_container_list(duthost)
 
     skip_condition = disabled_containers[:]
-    skip_condition.extend(CONTAINERS_WITH_BLOCKDEVICE_MOUNT)
+    skip_condition.extend(CONTAINERS_WITH_BLOCKDEVICE_MOUNT + vendor_specific_privileged_containers)
     # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
     feature_name = get_base_container_name(container_name)
     pytest_require(feature_name not in skip_condition, "Skipping test for container {}".format(feature_name))
@@ -75,7 +75,8 @@ def test_container_block_device_mounted(duthosts, enum_rand_one_per_hwsku_hostna
     pytest_assert(not base_output, 'The base block device {} exists.'.format(base_device))
 
 
-def test_container_privileged(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_container_privileged(duthosts, enum_rand_one_per_hwsku_hostname,
+                              vendor_specific_privileged_containers):
     """
     Test that no containers are running in privileged mode except those explicitly allowed.
 
@@ -83,6 +84,7 @@ def test_container_privileged(duthosts, enum_rand_one_per_hwsku_hostname):
     and fails if any container not in PRIVILEGED_CONTAINERS is running with --privileged.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    allowed_privileged = PRIVILEGED_CONTAINERS + vendor_specific_privileged_containers
 
     # Get all running containers
     running_containers = duthost.shell(
@@ -100,7 +102,7 @@ def test_container_privileged(duthosts, enum_rand_one_per_hwsku_hostname):
 
         if is_privileged:
             base_name = get_base_container_name(container_name)
-            if base_name not in PRIVILEGED_CONTAINERS:
+            if base_name not in allowed_privileged:
                 logger.error("Container '{}' is running in privileged mode but is not allowed".format(container_name))
                 unauthorized_privileged.append(container_name)
             else:

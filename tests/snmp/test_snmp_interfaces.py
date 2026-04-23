@@ -40,6 +40,20 @@ def disable_conterpoll(duthosts, enum_rand_one_per_hwsku_hostname):
                                                                     CounterpollConstants.RIF])
 
 
+@pytest.fixture(scope="module")
+def snmp_interfaces_module_facts(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
+    """
+    One SNMP walk per module except for test_snmp_interfaces_error_discard / verify_snmp_counter
+    (needs fresh facts after counter writes).
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
+    return get_snmp_facts(
+        duthost, localhost, host=hostip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+
+
 def get_interfaces(duthost, tbinfo):
     """
     Method to get interfaces for testing
@@ -248,7 +262,15 @@ def verify_snmp_speed(facts, snmp_facts, results):
 def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, rif_interface, rif_counters,
                         port_counters, num_port_intfs):
     """
-    Verify correct correctness of snmp counter
+    Verify correctness of SNMP counters with tolerance for live traffic.
+
+    Allows a small margin of error to account for live traffic that may cause
+    additional discards/errors between when counters are set and when SNMP is queried.
+    The margin is the lesser of 5% of the expected value or 100 packets.
+
+    Returns False if:
+    - Counter is below expected value (test counters not applied)
+    - Counter exceeds expected value + margin (excessive live traffic interference)
     """
     snmp_facts = get_snmp_facts(
         duthost, localhost, host=hostip, version="v2c",
@@ -259,38 +281,40 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
     interface = rif_interface if 'PortChannel' in rif_interface else minigraph_port_name_to_alias_map[rif_interface]
     rif_snmp_facts = snmp_facts['snmp_interfaces'][snmp_port_map[interface]]
 
-    if (int(rif_snmp_facts['ifInDiscards']) != int(rif_counters[rif_interface]['rx_err']) +
-            int(port_counters['rx_drp'])):
-        logger.info(f"ifInDiscards value is {rif_snmp_facts['ifInDiscards']} but must be "
-                    f"{int(rif_counters[rif_interface]['rx_err']) + int(port_counters['rx_drp'])}")
+    # Allow margin for live traffic: lesser of 5% of expected or 100 packets
+    def check_counter_with_margin(actual, expected, counter_name):
+        margin = min(int(expected * 0.05), 100)
+        if actual < expected:
+            logger.info(f"{counter_name} value is {actual} but must be at least {expected}")
+            return False
+        if actual > expected + margin:
+            logger.info(f"{counter_name} value is {actual} but must not exceed {expected + margin} "
+                        f"(expected {expected} + margin {margin})")
+            return False
+        return True
+
+    expected_in_discards = int(rif_counters[rif_interface]['rx_err']) + int(port_counters['rx_drp'])
+    if not check_counter_with_margin(int(rif_snmp_facts['ifInDiscards']), expected_in_discards, 'ifInDiscards'):
         return False
-    if (int(rif_snmp_facts['ifOutDiscards']) != int(rif_counters[rif_interface]['tx_err']) +
-            int(port_counters['tx_drp'])):
-        logger.info(f"ifOutDiscards value is {rif_snmp_facts['ifOutDiscards']} but must be "
-                    f"{int(rif_counters[rif_interface]['tx_err']) + int(port_counters['tx_drp'])}")
+
+    expected_out_discards = int(rif_counters[rif_interface]['tx_err']) + int(port_counters['tx_drp'])
+    if not check_counter_with_margin(int(rif_snmp_facts['ifOutDiscards']), expected_out_discards, 'ifOutDiscards'):
         return False
-    if int(rif_snmp_facts['ifInErrors']) != COUNTER_VALUE * num_port_intfs:
-        logger.info(f"ifInErrors value is {rif_snmp_facts['ifInErrors']} "
-                    f"but must be {COUNTER_VALUE * num_port_intfs}")
+
+    if not check_counter_with_margin(int(rif_snmp_facts['ifInErrors']), COUNTER_VALUE * num_port_intfs, 'ifInErrors'):
         return False
-    if int(rif_snmp_facts['ifOutErrors']) != COUNTER_VALUE * num_port_intfs:
-        logger.info(f"ifOutErrors value is {rif_snmp_facts['ifOutErrors']} "
-                    f"but must be {COUNTER_VALUE * num_port_intfs}")
+
+    if not check_counter_with_margin(int(rif_snmp_facts['ifOutErrors']), COUNTER_VALUE * num_port_intfs, 'ifOutErrors'):
         return False
 
     return True
 
 
 @pytest.mark.bsl
-def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
+def test_snmp_interfaces(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
 
     snmp_ifnames = [v['name']
                     for k, v in list(snmp_facts['snmp_interfaces'].items())]
@@ -310,16 +334,11 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
 
 
 @pytest.mark.bsl
-def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
+def test_snmp_mgmt_interface(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts):
     """compare the snmp facts between observed states and target state"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="persistent")['ansible_facts']
 
@@ -344,15 +363,11 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
             not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 
-def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
+def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
        ifAdminStatus, ifOperStatus, ifAlias, ifHighSpeed, ifType """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
 
     for asic in duthost.asics:
         config_facts = duthost.config_facts(

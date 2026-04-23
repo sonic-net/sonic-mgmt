@@ -320,7 +320,7 @@ A new set of utilities will be created for this purpose.
 - **Topo**: c0-lo
 - **Test Setup**:
   1. parameter: [flowcontrol-off, flowcontrol-on]
-  1. parameter: [baud-9600(flow 10KB/s), baud-115200(100KB/s)]
+  1. parameter: [baud-9600(flow 0.96KB/s), baud-115200(11.52KB/s)]
   1. parameter: [chunksize-32, chunksize-128, chunksize-1024]
   1. Config all DUT console ports
 - **Test Steps**:

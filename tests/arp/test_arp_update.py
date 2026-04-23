@@ -5,7 +5,7 @@ import ptf.testutils as testutils
 import pytest
 import random
 
-from tests.arp.arp_utils import clear_dut_arp_cache, fdb_cleanup, get_dut_mac, fdb_has_mac, get_first_vlan_ipv4
+from tests.arp.arp_utils import clear_dut_arp_cache, fdb_cleanup, get_dut_mac, fdb_has_mac, get_vlan_last_ipv4
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import setup_vlan_arp_responder, run_icmp_responder  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -21,15 +21,15 @@ pytestmark = [
 
 
 @pytest.fixture
-def setup(rand_selected_dut):
+def pause_arp_update(rand_selected_dut):
     cmds = [
         "docker exec swss supervisorctl stop arp_update",
         "ip neigh flush all"
     ]
-    rand_selected_dut.shell_cmds(cmds)
+    rand_selected_dut.shell_cmds(cmds=cmds)
     yield
     cmds[0] = "docker exec swss supervisorctl start arp_update"
-    # rand_selected_dut.shell_cmds(cmds)
+    rand_selected_dut.shell_cmds(cmds=cmds)
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def dut_interface_info(rand_selected_dut, config_facts, tbinfo):
     """
     duthost = rand_selected_dut
     dut_mac = get_dut_mac(duthost, config_facts, tbinfo)
-    vlan_name, dut_ipv4 = get_first_vlan_ipv4(config_facts)
+    vlan_name, dut_ipv4 = get_vlan_last_ipv4(config_facts)
 
     return {
         'host': duthost,
@@ -122,6 +122,7 @@ def ip_version_string(version):
 
 @pytest.mark.parametrize("ip_version", [4, 6], ids=ip_version_string)
 def test_kernel_asic_mac_mismatch(
+    pause_arp_update,
     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
     rand_selected_dut, ip_version, setup_vlan_arp_responder,  # noqa: F811
@@ -159,7 +160,9 @@ def test_kernel_asic_mac_mismatch(
     asic_db_mac = rand_selected_dut.shell(
         f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"
     )['stdout']
-    pt_assert(neighbor_info[4].lower() != asic_db_mac.lower())
+    pt_assert(neighbor_info[4].lower() != asic_db_mac.lower(),
+              f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "
+              "Ensure arp_update is stopped before modifying APPL_DB.")
     logger.info("APPL_DB and kernel are out of sync (expected)")
 
     rand_selected_dut.shell("docker exec swss supervisorctl start arp_update")

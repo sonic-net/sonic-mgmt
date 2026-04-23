@@ -282,7 +282,7 @@
 
 - name: Setup external front port
   include_tasks: external_port.yml
-  when: external_port is defined
+  when: external_port is defined and "bmc" not in topo
 
 - name: Setup internal management network
   include_tasks: internal_mgmt_network.yml
@@ -433,6 +433,11 @@
       when: action == 'renumber_topo'
 
   when: vm_required is defined and vm_required == True
+
+- name: Set fallback default value for VM_targets
+  set_fact:
+    VM_targets: []
+  when: VM_targets is not defined
 
 - name: Generate DPU list of target DPUs
   set_fact: dpu_targets={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}

@@ -362,3 +362,74 @@ class PtfGnoi:
         response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request, metadata=metadata)
         logger.info("Reboot request sent: method=%s delay=%s force=%s", method, delay, force)
         return response
+
+    def os_verify(self) -> Dict:
+        """
+        Verify the current OS version on the device.
+
+        Returns:
+            Dictionary containing:
+            - version: Current OS version string
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        try:
+            response = self.grpc_client.call_unary("gnoi.os.OS", "Verify")
+            return response
+
+        except Exception as e:
+            logger.error(f"Failed to verify OS version: {e}")
+            raise
+
+    def os_activate(self, version: str) -> Dict:
+        """
+        Activate an OS version on the device.
+
+        Args:
+            version: OS version string to activate
+
+        Returns:
+            Dictionary containing activation response:
+            - activateOk: {} on success
+            - activateError: {"detail": "..."} on failure
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        request = {"version": version}
+
+        try:
+            response = self.grpc_client.call_unary("gnoi.os.OS", "Activate", request)
+            return response
+
+        except Exception as e:
+            logger.error(f"Failed to activate OS version {version}: {e}")
+            raise
+
+    def reboot_status(self, metadata=None) -> Dict:
+        """
+        Get the reboot status from the DUT using gNOI System.RebootStatus.
+
+        Returns:
+            Dictionary containing:
+            - active: Boolean indicating if a reboot is in progress
+            - when: Unix timestamp of when the reboot will occur
+            - reason: Reason string for the pending reboot
+            - count: Number of reboots since last power cycle
+            - method: RebootMethod enum value of the pending reboot
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        logger.debug("Getting reboot status via gNOI System.RebootStatus")
+
+        response = self.grpc_client.call_unary("gnoi.system.System", "RebootStatus", metadata=metadata)
+        logger.debug(f"Reboot status: {response}")
+        return response

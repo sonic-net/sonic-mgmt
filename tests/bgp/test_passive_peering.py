@@ -19,6 +19,7 @@ pytestmark = [
 
 BGP_WAIT_TIMEOUT = 90
 BGP_WAIT_INTERVAL = 10
+# [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test placeholder password")]
 peer_password = "sonic.123"
 wrong_password = "wrong-password"
 EOS_BACKUP_CONFIG_FILE = "/tmp/eos_neighbor_test_passive_peering_backup_config_{}"

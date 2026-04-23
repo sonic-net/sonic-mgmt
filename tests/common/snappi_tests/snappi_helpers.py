@@ -135,7 +135,7 @@ class SnappiFanoutManager():
 
         # Chassis connection details
         self.last_device_connection_details = \
-            self.fanout_list[self.last_fanout_assessed]['device_conn']
+            self.fanout_list[self.last_fanout_assessed]['device_linked_ports']
 
         # Chassis ip details
         chassis_ip = self.fanout_list[self.last_fanout_assessed]['device_info']['mgmtip']
