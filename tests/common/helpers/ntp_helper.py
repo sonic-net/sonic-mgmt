@@ -115,6 +115,22 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     time.sleep(20)
 
 
+def setup_ntp_client(duthost, ptfhost):
+    """Configure DUT to use PTF as NTP server. Reusable after reboot."""
+    use_v6 = duthost.get_mgmt_ip()["version"] == "v6"
+    ptf_ntp_ip = ptfhost.mgmt_ipv6 if use_v6 else ptfhost.mgmt_ip
+
+    ntp_add_help = duthost.command("config ntp add --help")
+    iburst_flag = "--iburst" if "iburst" in ntp_add_help["stdout"] else ""
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    ntp_servers = config_facts.get('NTP_SERVER', {})
+    for ntp_server in ntp_servers:
+        duthost.command("config ntp del %s" % ntp_server, module_ignore_errors=True)
+
+    duthost.command("config ntp add %s %s" % (iburst_flag, ptf_ntp_ip))
+
+
 @pytest.fixture(scope="function")
 def setup_ntp_func(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
     with setup_ntp_context(ptfhost, duthosts[rand_one_dut_hostname], ptf_use_ipv6) as result:
