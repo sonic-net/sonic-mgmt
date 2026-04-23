@@ -31,6 +31,7 @@ from ptf.mask import Mask
 from switch import (switch_init,          # noqa F401
                     sai_thrift_create_scheduler_profile,
                     sai_thrift_clear_all_counters,
+                    sai_thrift_clear_queue_watermarks,
                     sai_thrift_read_port_counters,
                     port_list,
                     sai_thrift_read_port_watermarks,
@@ -6833,16 +6834,43 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         margin = int(self.test_params['pkts_num_margin']) if self.test_params.get(
             'pkts_num_margin') else 8
 
+        expected_wm = pkt_count * cell_occupancy
+        lower = (expected_wm - margin) * cell_size
+        upper = (expected_wm + margin) * cell_size
+
+        def offset_text(offset):
+            sign = "-" if offset < 0 else "+"
+            return sign + " " + str(abs(offset))
+
         try:
+            # Test each (port, queue) combination immediately:
+            # Clear -> Send -> Read -> Verify
+            # This minimizes the window for background traffic to interfere
+            failures = []
+            diagnostics = []  # Capture timing data for analysis
             for i in range(len(prio_list)):
                 log_message("DSCP index {}/{}".format(i + 1, len(prio_list)), to_stderr=True)
                 queue = queue_list[i]
                 for p_cnt in range(len(dst_port_ids)):
                     dst_port = dst_port_ids[p_cnt]
+
+                    # Capture initial watermark BEFORE clearing (outside critical section)
+                    # This helps diagnose background traffic accumulation
+                    initial_qwms = sai_thrift_read_port_watermarks(
+                        self.dst_client, port_list['dst'][dst_port])[0]
+                    initial_wm = initial_qwms[queue]
+
+                    # Log BEFORE critical section to avoid I/O during measurement
+                    log_message("Port {}, Queue {}: Initial watermark={} bytes, starting measurement".format(
+                        dst_port, queue, initial_wm), to_stderr=True)
+
+                    # === CRITICAL TIMING SECTION START ===
+                    # No I/O operations allowed until measurement complete
+                    t_start = time.time()
+
+                    sai_thrift_clear_queue_watermarks(self.dst_client, [dst_port])
                     self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port])
 
-                    # leakout
-                    log_message("Sending {} leakout packets".format(pkts_num_leak_out), to_stderr=True)
                     send_packet(self, src_port_id, pkts[dst_port][i], pkts_num_leak_out)
                     if 'cisco-8000' in asic_type:
                         fill_leakout_plus_one(
@@ -6850,33 +6878,52 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
                             queue, asic_type)
                         send_packet(self, src_port_id, pkts[dst_port][i], pkt_count-1)
                     else:
-                        # send packet
                         send_packet(self, src_port_id, pkts[dst_port][i], pkt_count)
+
                     self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port])
-            time.sleep(2)
-            # get all q_wm values for all port
-            dst_q_wm_res_all_port = [sai_thrift_read_port_watermarks(
-                self.dst_client, port_list['dst'][sid])[0] for sid in dst_port_ids]
-            log_message("queue watermark for all port is {}".format(dst_q_wm_res_all_port), to_stderr=True)
-            expected_wm = pkt_count * cell_occupancy
+                    time.sleep(0.1)  # Brief pause for watermark to settle
 
-            def offset_text(offset):
-                sign = "-" if offset < 0 else "+"
-                return sign + " " + str(abs(offset))
-
-            # verification of queue watermark for all ports
-            failures = []
-            for dst_i, qwms in enumerate(dst_q_wm_res_all_port):
-                for queue in queue_list:
+                    qwms = sai_thrift_read_port_watermarks(
+                        self.dst_client, port_list['dst'][dst_port])[0]
                     qwm = qwms[queue]
-                    lower = (expected_wm - margin) * cell_size
-                    upper = (expected_wm + margin) * cell_size
-                    msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
-                        queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
+
+                    t_end = time.time()
+                    # === CRITICAL TIMING SECTION END ===
+
+                    # Now safe to do I/O - capture diagnostics
+                    elapsed_ms = (t_end - t_start) * 1000
+                    passed = lower <= qwm <= upper
+                    diagnostics.append({
+                        'port': dst_port, 'queue': queue,
+                        'initial_wm': initial_wm, 'watermark': qwm,
+                        'lower': lower, 'upper': upper, 'elapsed_ms': elapsed_ms,
+                        'passed': passed
+                    })
+
+                    msg = "Port {}, Queue {}: lower {} {} = queue_wm {} = upper {} {} (elapsed: {:.1f}ms)".format(
+                        dst_port, queue, lower, offset_text(qwm - lower), qwm, upper,
+                        offset_text(qwm - upper), elapsed_ms)
                     log_message(msg, to_stderr=True)
-                    if not (lower <= qwm <= upper):
-                        failures.append((dst_port_ids[dst_i], queue))
-                        log_message("Failed check", to_stderr=True)
+                    if not passed:
+                        failures.append((dst_port, queue))
+                        log_message("FAILED: initial_wm={}, excess={} bytes".format(
+                            initial_wm, qwm - upper), to_stderr=True)
+
+            # Summary of timing and initial watermarks for analysis
+            if diagnostics:
+                elapsed_times = [d['elapsed_ms'] for d in diagnostics]
+                initial_wms = [d['initial_wm'] for d in diagnostics]
+                nonzero_initial = [d for d in diagnostics if d['initial_wm'] > 0]
+                log_message("Timing summary: min={:.1f}ms, max={:.1f}ms, avg={:.1f}ms".format(
+                    min(elapsed_times), max(elapsed_times),
+                    sum(elapsed_times) / len(elapsed_times)), to_stderr=True)
+                log_message("Initial watermark summary: max={} bytes, nonzero_count={}/{}".format(
+                    max(initial_wms), len(nonzero_initial), len(diagnostics)), to_stderr=True)
+                if nonzero_initial:
+                    for d in nonzero_initial:
+                        log_message("  Port {}, Queue {}: initial_wm={} bytes".format(
+                            d['port'], d['queue'], d['initial_wm']), to_stderr=True)
+
             assert len(failures) == 0, "Failed on (dst port id, queue) for the following: {}".format(failures)
 
         finally:
