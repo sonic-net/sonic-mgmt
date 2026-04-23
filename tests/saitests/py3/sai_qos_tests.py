@@ -4558,9 +4558,9 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
 
         # Get a snapshot of counter values
-        port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
+        recv_counters_base, queue_counters_base = sai_thrift_read_port_counters(
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
-        print(port_counters_base)
+        print(recv_counters_base)
         print(queue_counters_base)
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         # Clear wred counters
@@ -4600,9 +4600,9 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
 
             # Read Counters
             print("DST port counters: ")
-            port_counters, queue_counters = sai_thrift_read_port_counters(
+            recv_counters, queue_counters = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
-            print(port_counters)
+            print(recv_counters)
             print(queue_counters)
 
             # if (ecn == 1) - capture and parse all incoming packets
@@ -4661,10 +4661,10 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                     limit = 0
                 assert (int(stdOut[0].split()[4]) == marked_cnt)
 
-            assert (port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS] >= num_of_pkts)
+            assert (recv_counters[TRANSMITTED_PKTS] - recv_counters_base[TRANSMITTED_PKTS] >= num_of_pkts)
             if ecn == 0:
                 assert (marked_cnt == 0)
-                transmitted_data = ((port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS])
+                transmitted_data = ((recv_counters[TRANSMITTED_PKTS] - recv_counters_base[TRANSMITTED_PKTS])
                                     * cell_occupancy)
                 assert (min_limit <= transmitted_data <= limit * 1.05)
             else:
@@ -4677,7 +4677,18 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                     assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
 
                 for cntr in ingress_counters:
-                    assert (port_counters[cntr] == port_counters_base[cntr])
+                    margin_asics = ["broadcom-dnx"]
+                    counter_margin = COUNTER_MARGIN if (
+                            platform_asic and platform_asic in margin_asics) else 0
+                    # Check if ingress drop is caused by environmental non-unicast noise
+                    if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                            self.src_client, port_list['src'][src_port_id],
+                            recv_counters, recv_counters_base, cntr,
+                            counter_margin=counter_margin):
+                        # Legitimate ingress drop, should fail test
+                        if platform_asic and platform_asic in ["broadcom-dnx"]:
+                            if cntr == 1:
+                                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
         finally:
             # RELEASE PORT
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
