@@ -11,7 +11,7 @@ pytestmark = [
 ]
 
 
-def _dut_lowest_console_line(conn_graph_facts, duthost):
+def _dut_lowest_console_line(conn_graph_facts, duthost):  # noqa: F811
     """Return the lowest console line number recorded for ``duthost`` in
     ``ansible/files/*_serial_links.csv`` (exposed via ``conn_graph_facts``).
     """
