@@ -6132,4 +6132,3 @@ zmq/test_gnmi_zmq.py::test_gnmi_zmq:
     conditions:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
