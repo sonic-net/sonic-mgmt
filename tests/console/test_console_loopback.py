@@ -18,7 +18,7 @@ pytestmark = [
 ]
 
 
-def _dut_console_lines(conn_graph_facts, duthost):
+def _dut_console_lines(conn_graph_facts, duthost):  # noqa: F811
     """
     Return the DUT's console line numbers (as strings) sorted ascending by
     numeric value, sourced from the ``*_serial_links.csv`` inventory exposed
@@ -105,9 +105,10 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
     """
     duthost, console_fanout = setup_c0
     if duthost is console_fanout:
-        pytest.skip("ping-pong test requires a separate console fanout; on DUT '{}' the console fanout is the DUT itself, "
-                    "so the bridging socat process and the reverse-SSH picocom would contend for the same tty device".format(
-                        duthost.hostname))
+        pytest.skip(
+            "ping-pong test requires a separate console fanout; on DUT '{}' the console fanout is the DUT itself, "
+            "so the bridging socat process and the reverse-SSH picocom would contend for the same tty device".format(
+                duthost.hostname))
 
     lines = _dut_console_lines(conn_graph_facts, duthost)
     if len(lines) < 2:
