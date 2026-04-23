@@ -6066,6 +6066,14 @@ vxlan/test_vxlan_underlay_ecmp.py:
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
+vxlan/test_vxlan_vnet_bgp_subintf.py:
+  skip:
+    reason: "test_vxlan_vnet_bgp_subintf requires INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC; not supported on cisco-8000 202511 image (orchagent validate fails). Skip only when both apply."
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['cisco-8000']"
+      - "release in ['202511']"
+
 #######################################
 #####           wan_lacp          #####
 #######################################
