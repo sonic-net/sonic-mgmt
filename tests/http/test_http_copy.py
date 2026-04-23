@@ -36,7 +36,8 @@ def setup_teardown(ptfhost, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Copies http server files to ptf
-    local_start_server_filename = LOCAL_START_SERVER_FILENAME_IPV6 if mgmt_ip_is_v6(duthost) else LOCAL_START_SERVER_FILENAME
+    local_start_server_filename = (LOCAL_START_SERVER_FILENAME_IPV6 if mgmt_ip_is_v6(duthost)
+                                   else LOCAL_START_SERVER_FILENAME)
     ptfhost.copy(src=local_start_server_filename, dest=PTF_START_SERVER_FILENAME)
     ptfhost.copy(src=LOCAL_STOP_SERVER_FILENAME, dest=PTF_STOP_SERVER_FILENAME)
 
