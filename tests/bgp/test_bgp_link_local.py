@@ -4,21 +4,24 @@ Tests for BGP peering over IPv6 link-local addresses (unnumbered BGP).
 This test validates that SONiC can establish BGP sessions using interface-based
 (unnumbered) peering, which uses IPv6 link-local addresses for session setup.
 
-Test plan:
-1. Select one interface (PortChannel or Ethernet) with an existing BGP neighbor
-2. Record the neighbor's ASN and current BGP session details
-3. Remove the existing global-IP BGP sessions on both DUT and neighbor
-4. Configure unnumbered BGP peering on DUT (neighbor <interface> interface remote-as)
-5. Configure interface-based BGP neighbor on EOS/cEOS peer
-6. Verify the BGP session establishes successfully
-7. Verify routes are exchanged
-8. Clean up by restoring the original configuration via config reload
+Two scenarios are tested via parametrization:
+1. Unnumbered BGP over a PortChannel (LAG) interface
+2. Unnumbered BGP over a plain Ethernet interface (LAG broken)
 
-Addresses issue: https://github.com/sonic-net/sonic-mgmt/issues/18431
+Known issues blocking unnumbered BGP:
+- FRR 10.5.1 bug: https://github.com/sonic-net/sonic-buildimage/issues/26959
+- bgpcfgd bug: https://github.com/sonic-net/sonic-buildimage/issues/26960
+Tests are skipped via conditional_mark (tests_mark_conditions.yaml) while
+these issues are open. When both are resolved, remove the conditional marks
+and the bgpcfgd stop/start workaround in the fixture.
+
+Addresses: https://github.com/sonic-net/sonic-mgmt/issues/18431
+           https://github.com/sonic-net/sonic-mgmt/issues/24134
 """
 
 import json
 import logging
+import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -36,7 +39,7 @@ POLL_INTERVAL = 10
 
 
 def find_neigh_eos_intf(neigh_host, neigh_ipv4):
-    """Find the neighbor's interface (Port-Channel or Ethernet) that has the given IP.
+    """Find the neighbor's interface that has the given IP.
 
     Args:
         neigh_host: Neighbor host object (EosHost)
@@ -46,12 +49,14 @@ def find_neigh_eos_intf(neigh_host, neigh_ipv4):
         Interface name (e.g. 'Port-Channel1', 'Ethernet1') or None
     """
     try:
-        result = neigh_host.eos_command(commands=["show ip interface brief | json"])
-        intf_data = result['stdout'][0] if isinstance(result['stdout'], list) else result['stdout']
+        result = neigh_host.eos_command(
+            commands=["show ip interface brief | json"])
+        intf_data = result['stdout'][0] if isinstance(
+            result['stdout'], list) else result['stdout']
         if isinstance(intf_data, dict):
             for intf_name, intf_info in intf_data.get('interfaces', {}).items():
-                # Skip loopback, management, vlan interfaces
-                if not (intf_name.startswith('Ethernet') or intf_name.startswith('Port-Channel')):
+                if not (intf_name.startswith('Ethernet')
+                        or intf_name.startswith('Port-Channel')):
                     continue
                 ip_info = intf_info.get('interfaceAddress', {})
                 if isinstance(ip_info, dict):
@@ -60,19 +65,22 @@ def find_neigh_eos_intf(neigh_host, neigh_ipv4):
                         return intf_name
                 elif isinstance(ip_info, list):
                     for entry in ip_info:
-                        addr = entry.get('primaryIp', {}).get('address', '')
+                        addr = entry.get('primaryIp', {}).get(
+                            'address', '')
                         if addr == neigh_ipv4:
                             return intf_name
     except Exception as e:
-        logger.warning("Could not query neighbor interfaces: {}".format(e))
+        logger.warning("Could not query neighbor interfaces: %s", e)
     return None
 
 
 @pytest.fixture(scope='module')
 def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
-    """Gather setup information for the link-local BGP test."""
-    # This test uses eos_command/eos_config on the neighbor host, so it
-    # requires EOS/cEOS neighbors.
+    """Gather setup information for the link-local BGP test.
+
+    Finds a PortChannel-based BGP neighbor and collects all the info needed
+    to test unnumbered BGP on both the PortChannel and its member Ethernet.
+    """
     common_props = tbinfo.get('topo', {}).get('properties', {}).get(
         'configuration_properties', {}).get('common', {})
     neighbor_type = common_props.get('neighbor_type', 'eos')
@@ -86,56 +94,52 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     if not dut_asn:
         config_facts_tmp = duthost.config_facts(
             host=duthost.hostname, source="running")['ansible_facts']
-        device_metadata = config_facts_tmp.get('DEVICE_METADATA', {}).get('localhost', {})
+        device_metadata = config_facts_tmp.get(
+            'DEVICE_METADATA', {}).get('localhost', {})
         dut_asn = device_metadata.get('bgp_asn')
         if not dut_asn:
-            pytest.skip("dut_asn not found in testbed configuration_properties or DEVICE_METADATA")
+            pytest.skip("dut_asn not found in configuration")
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = duthost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     portchannels = config_facts.get('PORTCHANNEL', {})
     portchannel_members = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
-    intf_table = config_facts.get('INTERFACE', {})
     pc_intf_table = config_facts.get('PORTCHANNEL_INTERFACE', {})
 
-    # Build map: interface -> neighbor name
-    # For PortChannels: look up member interfaces in DEVICE_NEIGHBOR
-    intf_to_neighbor = {}
+    # Build map: PortChannel -> (neighbor_name, member_ethernet)
+    pc_to_info = {}
     for pc_name in portchannels:
         if pc_name not in portchannel_members:
             continue
-        for member_intf in portchannel_members[pc_name]:
+        members = list(portchannel_members[pc_name].keys())
+        for member_intf in members:
             if member_intf in dev_nbrs:
-                intf_to_neighbor[pc_name] = dev_nbrs[member_intf]['name']
+                pc_to_info[pc_name] = {
+                    'neigh_name': dev_nbrs[member_intf]['name'],
+                    'members': members,
+                }
                 break
 
-    # For direct Ethernet interfaces with BGP: check INTERFACE table
-    for intf_key in intf_table:
-        # intf_key could be "EthernetX" or "EthernetX|ip/mask"
-        intf_name = intf_key.split('|')[0] if '|' in intf_key else intf_key
-        if intf_name.startswith('Ethernet') and intf_name in dev_nbrs:
-            if intf_name not in intf_to_neighbor:
-                intf_to_neighbor[intf_name] = dev_nbrs[intf_name]['name']
-
-    # Find an interface with an established IPv4 BGP neighbor
+    # Find a PortChannel with an established IPv4 BGP neighbor
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     selected = None
     for neigh_ip, neigh_info in bgp_neighbors.items():
         if ':' in neigh_ip:
-            continue  # Skip IPv6, find IPv4 first
+            continue
         bgp_state = bgp_facts.get('bgp_neighbors', {}).get(
             neigh_ip, {}).get('state', '')
         neigh_name = neigh_info.get('name', '')
-        logger.info("Candidate neighbor %s (%s): BGP state=%s, in nbrhosts=%s",
-                    neigh_ip, neigh_name, bgp_state, neigh_name in nbrhosts)
         if bgp_state != 'established':
             continue
         neigh_asn = neigh_info.get('asn', '')
-        for intf_name, mapped_neigh in intf_to_neighbor.items():
-            if mapped_neigh == neigh_name and neigh_name in nbrhosts:
+        for pc_name, pc_info in pc_to_info.items():
+            if (pc_info['neigh_name'] == neigh_name
+                    and neigh_name in nbrhosts):
                 selected = {
-                    'intf': intf_name,
+                    'pc_intf': pc_name,
+                    'member_ethernet': pc_info['members'][0],
                     'neigh_name': neigh_name,
                     'neigh_ipv4': neigh_ip,
                     'neigh_asn': neigh_asn,
@@ -145,23 +149,22 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
             break
 
     if not selected:
-        pytest.skip("No BGP neighbor with established session found on any interface")
+        pytest.skip("No PortChannel BGP neighbor found")
 
-    dut_intf = selected['intf']
+    pc_intf = selected['pc_intf']
 
-    # Find IPv6 address for the same neighbor
+    # Get IPv6 neighbor address
     neigh_ipv6 = None
     for neigh_ip, neigh_info in bgp_neighbors.items():
-        if neigh_info.get('name', '') == selected['neigh_name'] and ':' in neigh_ip:
+        if (neigh_info.get('name', '') == selected['neigh_name']
+                and ':' in neigh_ip):
             neigh_ipv6 = neigh_ip
             break
 
-    # Get DUT's addresses on this interface
+    # Get DUT's addresses on the PortChannel
     dut_ipv4 = None
     dut_ipv6 = None
-    # Check both PORTCHANNEL_INTERFACE and INTERFACE tables
-    addr_table = pc_intf_table.get(dut_intf, {}) if dut_intf.startswith('PortChannel') \
-        else intf_table.get(dut_intf, {})
+    addr_table = pc_intf_table.get(pc_intf, {})
     for addr_key in addr_table:
         addr = addr_key.split('/')[0] if '/' in addr_key else addr_key
         if ':' in addr:
@@ -169,49 +172,57 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
         else:
             dut_ipv4 = addr
 
-    # Get DUT's link-local on this interface
-    result = duthost.shell("ip -6 addr show dev {} scope link".format(dut_intf))
+    # Get DUT's link-local on the PortChannel
+    result = duthost.shell(
+        "ip -6 addr show dev {} scope link".format(pc_intf))
     dut_link_local = None
     for line in result['stdout'].split('\n'):
         if 'inet6 fe80' in line.strip():
             dut_link_local = line.strip().split()[1].split('/')[0]
             break
-
     pytest_assert(dut_link_local,
-                  "No link-local address on {}".format(dut_intf))
+                  "No link-local address on {}".format(pc_intf))
 
-    # Find the EOS neighbor's interface
+    # Find EOS neighbor's interface
     neigh_host = nbrhosts[selected['neigh_name']]['host']
     neigh_intf = find_neigh_eos_intf(neigh_host, selected['neigh_ipv4'])
     if not neigh_intf:
-        # Fallback: try common naming patterns
-        if dut_intf.startswith('PortChannel'):
-            pc_num = ''.join(c for c in dut_intf if c.isdigit())
-            candidates = ["Port-Channel{}".format(pc_num),
+        pc_num = ''.join(c for c in pc_intf if c.isdigit())
+        for candidate in ["Port-Channel{}".format(pc_num),
                           "Port-Channel1",
-                          "Port-Channel{}".format(int(pc_num) % 100 if pc_num else 1)]
-        else:
-            # For Ethernet, try Ethernet1 (cEOS typically uses Ethernet1 for the first port)
-            candidates = ["Ethernet1"]
-        for candidate in candidates:
+                          "Port-Channel{}".format(
+                              int(pc_num) % 100 if pc_num else 1)]:
             try:
-                neigh_host.eos_command(commands=["show interfaces {}".format(candidate)])
+                neigh_host.eos_command(
+                    commands=["show interfaces {}".format(candidate)])
                 neigh_intf = candidate
                 break
             except Exception:
                 continue
-
     pytest_assert(neigh_intf,
-                  "Could not determine neighbor's interface for {}".format(
-                      selected['neigh_name']))
+                  "Could not determine neighbor's interface")
+
+    # Get DUT IP prefixes with masks for later re-assignment
+    dut_ipv4_prefix = None
+    dut_ipv6_prefix = None
+    for addr_key in addr_table:
+        if '/' not in addr_key:
+            continue
+        if ':' in addr_key:
+            dut_ipv6_prefix = addr_key
+        else:
+            dut_ipv4_prefix = addr_key
 
     info = {
         'duthost': duthost,
         'dut_asn': dut_asn,
         'dut_ipv4': dut_ipv4,
         'dut_ipv6': dut_ipv6,
+        'dut_ipv4_prefix': dut_ipv4_prefix,
+        'dut_ipv6_prefix': dut_ipv6_prefix,
         'dut_link_local': dut_link_local,
-        'dut_intf': dut_intf,
+        'pc_intf': pc_intf,
+        'member_ethernet': selected['member_ethernet'],
         'neigh_name': selected['neigh_name'],
         'neigh_host': neigh_host,
         'neigh_asn': selected['neigh_asn'],
@@ -220,18 +231,17 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
         'neigh_intf': neigh_intf,
     }
 
-    logger.info("Setup: DUT %s (%s) <-> %s (%s) via %s/%s",
-                dut_ipv4, dut_link_local, selected['neigh_name'],
-                selected['neigh_ipv4'], dut_intf, neigh_intf)
+    logger.info(
+        "Setup: DUT %s (%s) <-> %s (%s) via %s (member %s) / %s",
+        dut_ipv4, dut_link_local, selected['neigh_name'],
+        selected['neigh_ipv4'], pc_intf,
+        selected['member_ethernet'], neigh_intf)
 
     return info
 
 
-def bgp_unnumbered_established(duthost, dut_intf):
-    """Check if the unnumbered BGP session via an interface is established.
-
-    FRR shows unnumbered neighbors by interface name in 'show bgp summary'.
-    """
+def bgp_unnumbered_established(duthost, intf_name):
+    """Check if unnumbered BGP session via an interface is established."""
     result = duthost.shell(
         "vtysh -c 'show bgp summary json'", module_ignore_errors=True)
     if result['rc'] != 0:
@@ -243,7 +253,7 @@ def bgp_unnumbered_established(duthost, dut_intf):
             for peer_key, peer_data in peers.items():
                 if peer_data.get('state') != 'Established':
                     continue
-                if dut_intf.lower() in peer_key.lower():
+                if intf_name.lower() in peer_key.lower():
                     logger.info(
                         "Unnumbered peer found: %s (AF=%s, pfxRcd=%s)",
                         peer_key, af, peer_data.get('pfxRcd', 0))
@@ -253,84 +263,47 @@ def bgp_unnumbered_established(duthost, dut_intf):
     return False
 
 
-@pytest.fixture(scope='function')
-def configure_unnumbered_bgp(setup_info):
-    """Configure unnumbered BGP peering and restore original config afterward."""
-    duthost = setup_info['duthost']
-    neigh_host = setup_info['neigh_host']
-    dut_intf = setup_info['dut_intf']
-    dut_asn = setup_info['dut_asn']
-    neigh_asn = setup_info['neigh_asn']
-    neigh_ipv4 = setup_info['neigh_ipv4']
-    neigh_ipv6 = setup_info['neigh_ipv6']
-    dut_ipv4 = setup_info['dut_ipv4']
-    dut_ipv6 = setup_info['dut_ipv6']
-    neigh_intf = setup_info['neigh_intf']
+def debug_bgp_state(duthost, intf_name, setup_info):
+    """Dump debug info when BGP session fails to establish."""
+    summary = duthost.shell(
+        "vtysh -c 'show bgp summary'", module_ignore_errors=True)
+    logger.error("BGP summary:\n%s", summary.get('stdout', ''))
 
-    # --- Setup ---
-
-    # Wait for the selected BGP session to be established
-    logger.info("Waiting for BGP session to %s to be established", neigh_ipv4)
-    pytest_assert(
-        wait_until(60, 5, 0, lambda: duthost.bgp_facts()['ansible_facts']
-                   .get('bgp_neighbors', {}).get(neigh_ipv4, {})
-                   .get('state', '') == 'established'),
-        "IPv4 BGP session to {} not established".format(neigh_ipv4))
-
-    bgp_facts = duthost.bgp_facts()['ansible_facts']
-    initial_prefixes = int(
-        bgp_facts['bgp_neighbors'][neigh_ipv4].get('accepted prefixes', 0))
-    logger.info("Initial prefix count from %s: %d", neigh_ipv4,
-                initial_prefixes)
-
-    # Stop bgpcfgd to prevent it from re-adding the numbered neighbor.
-    # bgpcfgd monitors CONFIG_DB and reconciles FRR config — even after
-    # removing the neighbor from both CONFIG_DB and FRR, bgpcfgd can
-    # re-add it from its internal peer cache or startup state.
-    logger.info("Stopping bgpcfgd to prevent neighbor reconciliation")
-    duthost.shell("docker exec bgp supervisorctl stop bgpcfgd",
-                  module_ignore_errors=True)
-
-    # Remove existing BGP neighbor from CONFIG_DB and FRR
-    logger.info("Remove existing BGP neighbor %s from CONFIG_DB and FRR", neigh_ipv4)
-    duthost.shell(
-        'sonic-db-cli CONFIG_DB DEL "BGP_NEIGHBOR|{}"'.format(neigh_ipv4),
+    detail = duthost.shell(
+        "vtysh -c 'show bgp neighbors {}'".format(intf_name),
         module_ignore_errors=True)
-    if neigh_ipv6:
-        duthost.shell(
-            'sonic-db-cli CONFIG_DB DEL "BGP_NEIGHBOR|{}"'.format(neigh_ipv6),
-            module_ignore_errors=True)
-    vtysh_remove = ['config', 'router bgp {}'.format(dut_asn),
-                    'no neighbor {}'.format(neigh_ipv4)]
-    if neigh_ipv6:
-        vtysh_remove.append('no neighbor {}'.format(neigh_ipv6))
-    cmd = 'vtysh ' + ' '.join(['-c "{}"'.format(c) for c in vtysh_remove])
-    duthost.shell(cmd, module_ignore_errors=True)
+    logger.error("Neighbor %s detail:\n%s",
+                 intf_name, detail.get('stdout', ''))
 
-    # Remove existing BGP session on EOS neighbor
-    logger.info("Remove DUT neighbors on EOS peer")
-    remove_lines = []
-    if dut_ipv4:
-        remove_lines.append("no neighbor {}".format(dut_ipv4))
-    if dut_ipv6:
-        remove_lines.append("no neighbor {}".format(dut_ipv6))
-    if remove_lines:
-        neigh_host.eos_config(lines=remove_lines,
-                              parents="router bgp {}".format(neigh_asn))
+    frr_run = duthost.shell(
+        "vtysh -c 'show running-config bgpd'",
+        module_ignore_errors=True)
+    logger.error("FRR running config:\n%s", frr_run.get('stdout', ''))
 
-    # Wait for old neighbor to be removed
-    def old_neighbor_removed():
-        facts = duthost.bgp_facts()['ansible_facts']
-        return neigh_ipv4 not in facts.get('bgp_neighbors', {})
+    try:
+        neigh_host = setup_info['neigh_host']
+        eos_bgp = neigh_host.eos_command(
+            commands=["show ip bgp summary"])
+        eos_out = eos_bgp['stdout'][0] if isinstance(
+            eos_bgp['stdout'], list) else eos_bgp['stdout']
+        logger.error("EOS BGP summary:\n%s", eos_out)
 
-    wait_until(30, 3, 0, old_neighbor_removed)
+        eos_run = neigh_host.eos_command(
+            commands=["show running-config section bgp"])
+        eos_run_out = eos_run['stdout'][0] if isinstance(
+            eos_run['stdout'], list) else eos_run['stdout']
+        logger.error("EOS BGP running config:\n%s", eos_run_out)
+    except Exception as e:
+        logger.error("Could not get EOS BGP info: %s", e)
 
-    # Configure unnumbered BGP on DUT
-    logger.info("Configure unnumbered BGP on DUT via %s", dut_intf)
-    vtysh_add = [
+
+def configure_unnumbered_dut(duthost, dut_asn, dut_intf, neigh_asn):
+    """Configure unnumbered BGP neighbor on DUT via vtysh."""
+    vtysh_cmds = [
         'config',
         'router bgp {}'.format(dut_asn),
-        'neighbor {} interface remote-as {}'.format(dut_intf, neigh_asn),
+        'neighbor {} interface v6only remote-as {}'.format(
+            dut_intf, neigh_asn),
         'address-family ipv4 unicast',
         'neighbor {} activate'.format(dut_intf),
         'exit-address-family',
@@ -338,68 +311,108 @@ def configure_unnumbered_bgp(setup_info):
         'neighbor {} activate'.format(dut_intf),
         'exit-address-family',
     ]
-    cmd = 'vtysh ' + ' '.join(['-c "{}"'.format(c) for c in vtysh_add])
+    cmd = 'vtysh ' + ' '.join(
+        ['-c "{}"'.format(c) for c in vtysh_cmds])
     result = duthost.shell(cmd)
     pytest_assert(result['rc'] == 0,
-                  "Failed to configure unnumbered BGP: {}".format(
-                      result.get('stderr', '')))
+                  "Failed to configure unnumbered BGP on {}: {}".format(
+                      dut_intf, result.get('stderr', '')))
 
-    # Configure BGP peering on EOS using interface-based (unnumbered) config.
+    # Log FRR running config for debugging
+    frr_cfg = duthost.shell(
+        "vtysh -c 'show running-config bgpd'",
+        module_ignore_errors=True)
+    logger.info("FRR running config after unnumbered setup on %s:\n%s",
+                dut_intf, frr_cfg.get('stdout', ''))
+
+
+def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn, neigh_intf):
+    """Configure interface-based BGP neighbor on EOS peer."""
     eos_peer_group = "LINK_LOCAL_PG"
-    logger.info("Configure interface-based BGP peering on EOS via %s (peer-group %s)",
-                neigh_intf, eos_peer_group)
     neigh_host.eos_config(
         lines=[
             "neighbor {} peer group".format(eos_peer_group),
             "neighbor {} remote-as {}".format(eos_peer_group, dut_asn),
-            "neighbor interface {} peer-group {}".format(neigh_intf, eos_peer_group),
+            "neighbor interface {} peer-group {}".format(
+                neigh_intf, eos_peer_group),
         ],
         parents="router bgp {}".format(neigh_asn))
 
-    # Enable address families for the peer-group
     for af in ["ipv4", "ipv6"]:
         neigh_host.eos_config(
-            lines=[
-                "neighbor {} activate".format(eos_peer_group),
-            ],
+            lines=["neighbor {} activate".format(eos_peer_group)],
             parents=["router bgp {}".format(neigh_asn),
                      "address-family {}".format(af)])
 
-    # Verify EOS accepted the config
+    # Verify config was accepted
     eos_bgp_cfg = neigh_host.eos_command(
         commands=["show running-config section bgp"])
     eos_cfg_text = eos_bgp_cfg['stdout'][0] if isinstance(
         eos_bgp_cfg['stdout'], list) else eos_bgp_cfg['stdout']
     logger.info("EOS BGP config after setup:\n%s", eos_cfg_text)
-    if eos_peer_group not in eos_cfg_text:
-        pytest.fail("EOS did not accept the interface-based BGP config. "
-                    "Running config:\n{}".format(eos_cfg_text))
+    pytest_assert(eos_peer_group in eos_cfg_text,
+                  "EOS did not accept interface-based BGP config")
+    return eos_peer_group
 
-    yield {
-        'initial_prefixes': initial_prefixes,
-        'eos_peer_group': eos_peer_group,
-    }
 
-    # --- Teardown ---
-    logger.info("Teardown: Restoring original configuration")
+def remove_numbered_bgp(duthost, neigh_host, dut_asn, neigh_asn,
+                        neigh_ipv4, neigh_ipv6, dut_ipv4, dut_ipv6):
+    """Remove existing numbered BGP sessions on both DUT and EOS."""
+    # Remove from CONFIG_DB
+    duthost.shell(
+        'sonic-db-cli CONFIG_DB DEL "BGP_NEIGHBOR|{}"'.format(neigh_ipv4),
+        module_ignore_errors=True)
+    if neigh_ipv6:
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB DEL "BGP_NEIGHBOR|{}"'.format(
+                neigh_ipv6),
+            module_ignore_errors=True)
 
+    # Remove from FRR
+    vtysh_rm = ['config', 'router bgp {}'.format(dut_asn),
+                'no neighbor {}'.format(neigh_ipv4)]
+    if neigh_ipv6:
+        vtysh_rm.append('no neighbor {}'.format(neigh_ipv6))
+    cmd = 'vtysh ' + ' '.join(
+        ['-c "{}"'.format(c) for c in vtysh_rm])
+    duthost.shell(cmd, module_ignore_errors=True)
+
+    # Remove on EOS
+    remove_lines = []
+    if dut_ipv4:
+        remove_lines.append("no neighbor {}".format(dut_ipv4))
+    if dut_ipv6:
+        remove_lines.append("no neighbor {}".format(dut_ipv6))
+    if remove_lines:
+        neigh_host.eos_config(
+            lines=remove_lines,
+            parents="router bgp {}".format(neigh_asn))
+
+    # Wait for removal
+    def old_neighbor_gone():
+        facts = duthost.bgp_facts()['ansible_facts']
+        return neigh_ipv4 not in facts.get('bgp_neighbors', {})
+    wait_until(30, 3, 0, old_neighbor_gone)
+
+
+def cleanup_eos_unnumbered(neigh_host, neigh_asn, dut_asn,
+                           neigh_intf, dut_ipv4, dut_ipv6):
+    """Remove unnumbered config from EOS and restore numbered neighbors."""
     eos_peer_group = "LINK_LOCAL_PG"
     try:
-        # Remove interface neighbor
         neigh_host.eos_config(
             lines=["no neighbor interface {}".format(neigh_intf)],
             parents="router bgp {}".format(neigh_asn))
-        # Deactivate from address-families
         for af in ["ipv4", "ipv6"]:
             neigh_host.eos_config(
-                lines=["no neighbor {} activate".format(eos_peer_group)],
+                lines=[
+                    "no neighbor {} activate".format(eos_peer_group)],
                 parents=["router bgp {}".format(neigh_asn),
                          "address-family {}".format(af)])
-        # Remove peer-group
         neigh_host.eos_config(
-            lines=["no neighbor {} peer group".format(eos_peer_group)],
+            lines=[
+                "no neighbor {} peer group".format(eos_peer_group)],
             parents="router bgp {}".format(neigh_asn))
-        # Restore original numbered neighbors
         restore_lines = []
         if dut_ipv4:
             restore_lines.append(
@@ -408,97 +421,111 @@ def configure_unnumbered_bgp(setup_info):
             restore_lines.append(
                 "neighbor {} remote-as {}".format(dut_ipv6, dut_asn))
         if restore_lines:
-            neigh_host.eos_config(lines=restore_lines,
-                                  parents="router bgp {}".format(neigh_asn))
+            neigh_host.eos_config(
+                lines=restore_lines,
+                parents="router bgp {}".format(neigh_asn))
     except Exception as e:
         logger.error("EOS cleanup failed: %s", e)
-        eos_cleanup_failed = True
-    else:
-        eos_cleanup_failed = False
-
-    # Restart bgpcfgd before config reload (was stopped during setup)
-    logger.info("Restarting bgpcfgd before config reload")
-    duthost.shell("docker exec bgp supervisorctl start bgpcfgd",
-                  module_ignore_errors=True)
-
-    # Config reload on DUT to restore everything
-    config_reload(duthost, wait=120)
-
-    # Wait for all original BGP sessions to re-establish
-    original_neighbors = [neigh_ipv4]
-    if neigh_ipv6:
-        original_neighbors.append(neigh_ipv6)
-    if not wait_until(WAIT_TIMEOUT, POLL_INTERVAL, 0,
-                      duthost.check_bgp_session_state, original_neighbors):
-        pytest_assert(False,
-                      "BGP sessions did not re-establish after config reload")
-    else:
-        logger.info("Original configuration restored, all sessions up")
-
-    if eos_cleanup_failed:
-        pytest.fail("EOS cleanup failed during teardown - neighbor may still "
-                    "have stale link-local configuration")
 
 
-@pytest.mark.disable_loganalyzer
-def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
+def break_lag_to_ethernet(duthost, neigh_host, setup_info):
+    """Break PortChannel and move IPs to the member Ethernet interface.
+
+    Returns the EOS Ethernet interface name to use for peering.
     """
-    Test BGP peering over IPv6 link-local addresses (unnumbered).
+    pc_intf = setup_info['pc_intf']
+    eth_intf = setup_info['member_ethernet']
+    dut_ipv4_prefix = setup_info['dut_ipv4_prefix']
+    dut_ipv6_prefix = setup_info['dut_ipv6_prefix']
+    neigh_intf = setup_info['neigh_intf']
 
-    Validates that:
-    1. Unnumbered BGP session can be established via an interface
-    2. Routes are exchanged over the link-local session
-    3. The session uses IPv6 link-local addressing
-    """
-    duthost = setup_info['duthost']
-    dut_intf = setup_info['dut_intf']
-    initial_prefixes = configure_unnumbered_bgp['initial_prefixes']
+    logger.info("Breaking %s: removing %s, moving IPs to %s",
+                pc_intf, eth_intf, eth_intf)
+    duthost.shell(
+        "sudo config portchannel member del {} {}".format(
+            pc_intf, eth_intf))
+    if dut_ipv4_prefix:
+        duthost.shell(
+            "sudo config interface ip remove {} {}".format(
+                pc_intf, dut_ipv4_prefix),
+            module_ignore_errors=True)
+        duthost.shell(
+            "sudo config interface ip add {} {}".format(
+                eth_intf, dut_ipv4_prefix))
+    if dut_ipv6_prefix:
+        duthost.shell(
+            "sudo config interface ip remove {} {}".format(
+                pc_intf, dut_ipv6_prefix),
+            module_ignore_errors=True)
+        duthost.shell(
+            "sudo config interface ip add {} {}".format(
+                eth_intf, dut_ipv6_prefix))
 
-    # Wait for BGP session to establish
-    logger.info("Waiting for unnumbered BGP session to establish (timeout=%ds)",
-                WAIT_TIMEOUT)
-    established = wait_until(WAIT_TIMEOUT, POLL_INTERVAL, 0,
-                             bgp_unnumbered_established, duthost, dut_intf)
+    # Wait for link-local address on Ethernet
+    time.sleep(5)
+    ll_check = duthost.shell(
+        "ip -6 addr show {} scope link".format(eth_intf),
+        module_ignore_errors=True)
+    logger.info("Link-local on %s:\n%s",
+                eth_intf, ll_check.get('stdout', ''))
+
+    # EOS side: remove Port-Channel, use Ethernet1 directly
+    eos_eth_intf = "Ethernet1"
+    logger.info("Configuring EOS %s for direct Ethernet peering",
+                eos_eth_intf)
+    neigh_host.eos_config(
+        lines=["no interface {}".format(neigh_intf)],
+        module_ignore_errors=True)
+
+    return eos_eth_intf
+
+
+def restore_lag_on_eos(neigh_host, neigh_intf):
+    """Restore EOS Port-Channel after LAG breakout test."""
+    try:
+        if "Port-Channel" in neigh_intf:
+            neigh_host.eos_config(
+                lines=[
+                    "interface {}".format(neigh_intf),
+                    "channel-group 1 mode active",
+                ],
+                module_ignore_errors=True)
+    except Exception as e:
+        logger.warning("EOS LAG restore attempt: %s", e)
+
+
+def verify_bgp_established(duthost, intf_name, setup_info):
+    """Wait for unnumbered BGP to establish; dump debug on failure."""
+    logger.info(
+        "Waiting for unnumbered BGP on %s to establish (timeout=%ds)",
+        intf_name, WAIT_TIMEOUT)
+    established = wait_until(
+        WAIT_TIMEOUT, POLL_INTERVAL, 0,
+        bgp_unnumbered_established, duthost, intf_name)
 
     if not established:
-        # Debug output
-        summary = duthost.shell("vtysh -c 'show bgp summary'",
-                                module_ignore_errors=True)
-        logger.error("BGP summary:\n%s", summary.get('stdout', ''))
-        detail = duthost.shell(
-            "vtysh -c 'show bgp neighbors {}'".format(dut_intf),
-            module_ignore_errors=True)
-        logger.error("Neighbor detail:\n%s", detail.get('stdout', ''))
-        try:
-            neigh_host = setup_info['neigh_host']
-            eos_bgp = neigh_host.eos_command(
-                commands=["show ip bgp summary"])
-            eos_out = eos_bgp['stdout'][0] if isinstance(
-                eos_bgp['stdout'], list) else eos_bgp['stdout']
-            logger.error("EOS BGP summary:\n%s", eos_out)
-        except Exception as e:
-            logger.error("Could not get EOS BGP summary: %s", e)
-
+        debug_bgp_state(duthost, intf_name, setup_info)
         pytest.fail(
-            "Unnumbered BGP session via {} did not establish within {}s."
-            .format(dut_intf, WAIT_TIMEOUT))
+            "Unnumbered BGP session via {} did not establish within {}s"
+            .format(intf_name, WAIT_TIMEOUT))
 
-    logger.info("Unnumbered BGP session established!")
+    logger.info("Unnumbered BGP session on %s established!", intf_name)
 
-    # Verify routes are received
-    logger.info("Verify routes are received via unnumbered session")
 
-    def routes_received(duthost, dut_intf):
-        result = duthost.shell("vtysh -c 'show bgp summary json'",
-                               module_ignore_errors=True)
+def verify_routes_received(duthost, intf_name):
+    """Verify routes are received over the unnumbered session."""
+    def routes_received():
+        result = duthost.shell(
+            "vtysh -c 'show bgp summary json'",
+            module_ignore_errors=True)
         if result['rc'] != 0:
             return False
         try:
             bgp_summary = json.loads(result['stdout'])
             for af in ['ipv4Unicast', 'ipv6Unicast']:
-                for peer, data in bgp_summary.get(af, {}).get(
-                        'peers', {}).items():
-                    if (dut_intf.lower() in peer.lower()
+                for peer, data in bgp_summary.get(
+                        af, {}).get('peers', {}).items():
+                    if (intf_name.lower() in peer.lower()
                             and data.get('pfxRcd', 0) > 0):
                         return True
         except (json.JSONDecodeError, KeyError):
@@ -506,63 +533,109 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
         return False
 
     pytest_assert(
-        wait_until(30, 5, 0, routes_received, duthost, dut_intf),
-        "No routes received via unnumbered BGP session on {}".format(dut_intf))
+        wait_until(30, 5, 0, routes_received),
+        "No routes received via unnumbered BGP on {}".format(intf_name))
+    logger.info("Routes received via unnumbered BGP on %s", intf_name)
 
-    # Log actual route count
-    result = duthost.shell("vtysh -c 'show bgp summary json'",
-                           module_ignore_errors=True)
-    route_count = 0
-    if result['rc'] == 0:
-        try:
-            bgp_summary = json.loads(result['stdout'])
-            for af in ['ipv4Unicast', 'ipv6Unicast']:
-                for peer, data in bgp_summary.get(af, {}).get(
-                        'peers', {}).items():
-                    if dut_intf.lower() in peer.lower():
-                        pfx = data.get('pfxRcd', 0)
-                        if pfx > 0:
-                            route_count = pfx
-                            logger.info("Peer %s (AF=%s): received %d prefixes",
-                                        peer, af, pfx)
-                            break
-                if route_count > 0:
-                    break
-        except (json.JSONDecodeError, KeyError) as e:
-            logger.warning("Could not parse BGP summary JSON: %s", e)
-    logger.info("Received %d routes via unnumbered BGP (was %d via global IP)",
-                route_count, initial_prefixes)
 
-    # Verify session details
-    logger.info("Verify session details")
-    detail_json = duthost.shell(
-        "vtysh -c 'show bgp neighbors {} json'".format(dut_intf),
-        module_ignore_errors=True)
-    if detail_json['rc'] == 0:
-        try:
-            nbr_data = json.loads(detail_json['stdout'])
-            session_established = False
-            for nbr_key, nbr_info in nbr_data.items():
-                state = nbr_info.get('bgpState', '')
-                if state == 'Established':
-                    session_established = True
-                    logger.info("Session detail confirmed: %s is Established via %s",
-                                nbr_key, dut_intf)
-                    break
-            pytest_assert(session_established,
-                          "BGP neighbor detail does not show Established state "
-                          "for {}".format(dut_intf))
-        except (json.JSONDecodeError, KeyError) as e:
-            logger.warning("Failed to parse neighbor JSON: %s", e)
-            detail = duthost.shell(
-                "vtysh -c 'show bgp neighbors {}'".format(dut_intf),
-                module_ignore_errors=True)
-            pytest_assert('Established' in detail.get('stdout', ''),
-                          "BGP neighbor detail does not show Established state")
+@pytest.fixture(scope='function',
+                params=['portchannel', 'ethernet'],
+                ids=['portchannel', 'ethernet'])
+def configure_unnumbered_bgp(request, setup_info):
+    """Configure unnumbered BGP on a DUT interface.
+
+    Parametrized with two scenarios:
+    - portchannel: test unnumbered BGP on the existing PortChannel
+    - ethernet: break the PortChannel, test on the member Ethernet
+
+    Both scenarios:
+    1. Wait for baseline numbered BGP to be established
+    2. Stop bgpcfgd (workaround for sonic-buildimage#26960)
+    3. Remove existing numbered BGP sessions
+    4. (ethernet only) Break LAG and move IPs to member Ethernet
+    5. Configure unnumbered BGP on DUT and EOS
+    6. Yield the test interface name
+    7. Teardown: restore EOS, restart bgpcfgd, config_reload
+    """
+    intf_type = request.param
+    duthost = setup_info['duthost']
+    neigh_host = setup_info['neigh_host']
+    dut_asn = setup_info['dut_asn']
+    neigh_asn = setup_info['neigh_asn']
+    neigh_ipv4 = setup_info['neigh_ipv4']
+    neigh_ipv6 = setup_info['neigh_ipv6']
+    dut_ipv4 = setup_info['dut_ipv4']
+    dut_ipv6 = setup_info['dut_ipv6']
+    neigh_intf = setup_info['neigh_intf']
+
+    # Wait for baseline BGP session
+    logger.info("Waiting for BGP session to %s to be established",
+                neigh_ipv4)
+    pytest_assert(
+        wait_until(60, 5, 0, lambda: duthost.bgp_facts()['ansible_facts']
+                   .get('bgp_neighbors', {}).get(neigh_ipv4, {})
+                   .get('state', '') == 'established'),
+        "IPv4 BGP session to {} not established".format(neigh_ipv4))
+
+    # Stop bgpcfgd to prevent neighbor reconciliation
+    # TODO: Remove this workaround when sonic-buildimage#26960 is fixed.
+    # bgpcfgd injects 'no capability link-local' which blocks unnumbered BGP.
+    # Stopping bgpcfgd isolates the FRR behavior so that when FRR is fixed
+    # (sonic-buildimage#26959), the test will pass and alert us.
+    logger.info("Stopping bgpcfgd")
+    duthost.shell("docker exec bgp supervisorctl stop bgpcfgd",
+                  module_ignore_errors=True)
+
+    # Remove numbered BGP
+    remove_numbered_bgp(duthost, neigh_host, dut_asn, neigh_asn,
+                        neigh_ipv4, neigh_ipv6, dut_ipv4, dut_ipv6)
+
+    # Determine DUT and EOS interfaces based on scenario
+    eos_intf = neigh_intf
+    if intf_type == 'portchannel':
+        dut_intf = setup_info['pc_intf']
     else:
-        detail = duthost.shell(
-            "vtysh -c 'show bgp neighbors {}'".format(dut_intf),
-            module_ignore_errors=True)
-        pytest_assert('Established' in detail.get('stdout', ''),
-                      "BGP neighbor detail does not show Established state")
-        logger.info("Session detail confirmed: Established via %s", dut_intf)
+        dut_intf = setup_info['member_ethernet']
+        eos_intf = break_lag_to_ethernet(
+            duthost, neigh_host, setup_info)
+
+    # Configure unnumbered BGP
+    configure_unnumbered_dut(duthost, dut_asn, dut_intf, neigh_asn)
+    configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn, eos_intf)
+
+    yield {'dut_intf': dut_intf, 'intf_type': intf_type}
+
+    # Teardown
+    logger.info("Teardown [%s]: restoring BGP config", intf_type)
+    cleanup_eos_unnumbered(neigh_host, neigh_asn, dut_asn,
+                           eos_intf, dut_ipv4, dut_ipv6)
+    if intf_type == 'ethernet':
+        restore_lag_on_eos(neigh_host, neigh_intf)
+    duthost.shell("docker exec bgp supervisorctl start bgpcfgd",
+                  module_ignore_errors=True)
+    config_reload(duthost, wait=120)
+    original_neighbors = [neigh_ipv4]
+    if neigh_ipv6:
+        original_neighbors.append(neigh_ipv6)
+    if not wait_until(WAIT_TIMEOUT, POLL_INTERVAL, 0,
+                      duthost.check_bgp_session_state,
+                      original_neighbors):
+        logger.error("BGP sessions did not re-establish after restore")
+
+
+@pytest.mark.disable_loganalyzer
+def test_bgp_link_local(setup_info, configure_unnumbered_bgp):
+    """Test unnumbered BGP peering over PortChannel and Ethernet interfaces.
+
+    Parametrized via configure_unnumbered_bgp fixture:
+    - test_bgp_link_local[portchannel]: unnumbered BGP on LAG
+    - test_bgp_link_local[ethernet]: break LAG, unnumbered on plain Ethernet
+
+    Validates that SONiC can establish an unnumbered BGP session using
+    interface-based peering and receive routes over it.
+    """
+    duthost = setup_info['duthost']
+    dut_intf = configure_unnumbered_bgp['dut_intf']
+
+    verify_bgp_established(duthost, dut_intf, setup_info)
+    verify_routes_received(duthost, dut_intf)
