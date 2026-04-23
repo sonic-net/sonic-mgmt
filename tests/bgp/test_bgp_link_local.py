@@ -283,9 +283,15 @@ def configure_unnumbered_bgp(setup_info):
     logger.info("Initial prefix count from %s: %d", neigh_ipv4,
                 initial_prefixes)
 
-    # Remove existing BGP sessions on DUT — must remove from both CONFIG_DB
-    # and FRR. If we only remove from FRR (vtysh), bgpcfgd will re-add the
-    # neighbor from CONFIG_DB, causing the test to fail.
+    # Stop bgpcfgd to prevent it from re-adding the numbered neighbor.
+    # bgpcfgd monitors CONFIG_DB and reconciles FRR config — even after
+    # removing the neighbor from both CONFIG_DB and FRR, bgpcfgd can
+    # re-add it from its internal peer cache or startup state.
+    logger.info("Stopping bgpcfgd to prevent neighbor reconciliation")
+    duthost.shell("docker exec bgp supervisorctl stop bgpcfgd",
+                  module_ignore_errors=True)
+
+    # Remove existing BGP neighbor from CONFIG_DB and FRR
     logger.info("Remove existing BGP neighbor %s from CONFIG_DB and FRR", neigh_ipv4)
     duthost.shell(
         'sonic-db-cli CONFIG_DB DEL "BGP_NEIGHBOR|{}"'.format(neigh_ipv4),
@@ -409,6 +415,11 @@ def configure_unnumbered_bgp(setup_info):
         eos_cleanup_failed = True
     else:
         eos_cleanup_failed = False
+
+    # Restart bgpcfgd before config reload (was stopped during setup)
+    logger.info("Restarting bgpcfgd before config reload")
+    duthost.shell("docker exec bgp supervisorctl start bgpcfgd",
+                  module_ignore_errors=True)
 
     # Config reload on DUT to restore everything
     config_reload(duthost, wait=120)
