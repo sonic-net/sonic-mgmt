@@ -74,7 +74,7 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
             "Local IP map: {}"
         ).format(neighbor_name, local_ip_map))
         localip = local_ip_map[neighbor_name]
-        vrf = neighbor_name if nbrhost["is_multi_vrf_peer"] else "default"
+        vrf = neighbor_name if nbrhost.get("is_multi_vrf_peer", False) else "default"
         verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf=vrf)
 
 

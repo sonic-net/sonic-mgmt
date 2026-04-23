@@ -85,6 +85,7 @@
         <target dev='{{ dut_name }}-0' />
     {% if asic_type == 'vpp' %}
         <model type='virtio-net-pci' />
+        <driver name='vhost' tx_queue_size='1024' rx_queue_size='1024'/>
     {% elif port_alias|length > 128 %}
         <model type='virtio' />
     {% else %}
@@ -96,6 +97,7 @@
         <target dev='{{ dut_name }}-{{ i + 1 }}' />
     {% if asic_type == 'vpp' %}
         <model type='virtio-net-pci' />
+        <driver name='vhost' tx_queue_size='1024' rx_queue_size='1024'/>
     {% elif port_alias|length > 128 %}
         <model type='virtio' />
     {% else %}

@@ -2630,6 +2630,12 @@ generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_replacemen
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
+generic_config_updater/test_ecn_config_update.py:
+  skip:
+    reason: "ECN config updates rely on SWSS/orchagent; BMC SONiC image has no SWSS container"
+    conditions:
+      - "'bmc' in topo_type"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "WRED dynamic config updates not implemented in SAI for PAC/GR2 ASICs"
@@ -2639,6 +2645,18 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/22295 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0']"
+
+generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates[None-replace-green_max_threshold]:
+  xfail:
+    reason: "Xfail due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/23597"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23597 and platform in ['x86_64-nvidia_sn5640-r0']"
+
+generic_config_updater/test_eth_interface.py:
+  skip:
+    reason: "Ethernet interface config update tests require the PORT table; BMC SONiC image has no PORT table (no front-panel data ports)"
+    conditions:
+      - "'bmc' in topo_type"
 
 generic_config_updater/test_eth_interface.py::test_port_speed_change_oper_status:
   skip:
@@ -2901,6 +2919,12 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
+gnmi/test_gnmi_countersdb.py:
+  xfail:
+    reason: "This test does not supported multi-asic. Skipping test for multi-asic DUTs."
+    conditions:
+      - "is_multi_asic==True"
+
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
@@ -2968,6 +2992,15 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
 #######################################
 #####           ha              #####
 #######################################
+ha/test_ha_bfd_pin.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "topo_name not in 't1-smartswitch-ha'"
+
 ha/test_ha_bgp_down.py:
   skip:
     conditions_logical_operator: or
@@ -2978,6 +3011,51 @@ ha/test_ha_bgp_down.py:
       - "topo_name not in 't1-smartswitch-ha'"
 
 ha/test_ha_config_reload.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_dpu_power_down.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_dpu_process_crash.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_link_failure.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_npu_process_crash.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_npu_reboot.py:
   skip:
     conditions_logical_operator: or
     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
@@ -3308,11 +3386,12 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-Non
 
 hash/test_generic_hash.py::test_reboot:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. Warm reboot is not supported on x86_64-nvidia_sn5640-r0.'
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'marvell-teralynx']"
+      - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -3864,6 +3943,12 @@ packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::
     conditions:
       - "asic_gen in ['th5']"
 
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_with_srv6:
+  xfail:
+    reason: "vlan decap is disabled in 202412 image"
+    conditions:
+      - "'isolated' in topo_name and release in ['202412']"
+
 #######################################
 #####           pc               #####
 #######################################
@@ -4094,6 +4179,30 @@ platform_tests/test_reboot.py:
     reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
     conditions:
       - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/26743"
+
+platform_tests/test_reboot.py::test_fast_reboot:
+  skip:
+    reason: "fast-reboot is not supported on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/test_reboot.py::test_soft_reboot:
+  skip:
+    reason: "soft-reboot is not supported on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/test_reboot.py::test_warm_reboot:
+  skip:
+    reason: "warm-reboot is not supported on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/test_reboot.py::test_watchdog_reboot:
+  skip:
+    reason: "watchdog reboot is not supported on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
 
 platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
@@ -4622,9 +4731,11 @@ reboot/test_reboot_blocking_mode.py:
 #######################################
 reset_factory/test_reset_factory.py:
   skip:
-    reason: "This case has a known issue which leaves the DUT in a bad state. Skipping until the issue is addressed."
+    reason: "This case has a known issue which leaves the DUT in a bad state. Skipping until the issue is addressed. Also skipped on BMC due to a system clock image issue."
+    conditions_logical_operator: or
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11103
+      - "'bmc' in topo_type"
 
 #######################################
 #####         restapi             #####
@@ -4747,6 +4858,10 @@ route/test_route_flow_counter.py:
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs']"
+  xfail:
+    reason: "xfail for IPv6-only topologies, didn't use IPv6 when should"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19926 and '-v6-' in topo_name and asic_type in ['mellanox']"
 
 route/test_route_perf.py:
   skip:
@@ -4859,6 +4974,10 @@ sflow/test_sflow.py::TestReboot::testWarmreboot:
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "platform in ['x86_64-nvidia_sn5640-r0']"
+  xfail:
+    reason: "testWarmreboot sflow failure: VS SAI warm reboot bug (sonic-net/sonic-buildimage#26594)"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/26594 and asic_type in ['vs']"
 
 #######################################
 #####      show_techsupport       #####
@@ -4876,6 +4995,12 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[c
     conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/15051
 
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_rate_limit_interval:
+  skip:
+    reason: "auto techsupport relies on the eventd service which is not available on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
+
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
     reason: "Test supported only on Nvidia(Mellanox) devices / auto techsupport on multi asic platforms doesnt work"
@@ -4883,6 +5008,12 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
     conditions:
       - "asic_type not in ['mellanox']"
       - "is_multi_asic==True"
+
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sanity:
+  skip:
+    reason: "auto techsupport relies on the eventd service which is not available on BMC SONiC image"
+    conditions:
+      - "'bmc' in topo_type"
 
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
@@ -5263,6 +5394,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     conditions:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
+
+system_health/test_watchdog.py::test_orchagent_watchdog:
+  skip:
+    reason: "orchagent watchdog test requires SWSS/orchagent; BMC SONiC image has no orchagent"
+    conditions:
+      - "'bmc' in topo_type"
 
 #######################################
 #####           tacacs          #####
@@ -5881,6 +6018,12 @@ vxlan/test_vxlan_multi_tunnel.py:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
       - "platform in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0')"
 
+vxlan/test_vxlan_multiple_tunnels.py:
+  skip:
+    reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test cannot currently run on most platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+
 vxlan/test_vxlan_route_advertisement.py:
   skip:
     reason: "VxLAN route advertisement can only run on cisco , mnlx and marvell-teralynx platforms. "
@@ -5922,6 +6065,14 @@ vxlan/test_vxlan_underlay_ecmp.py:
     reason: "VxLAN underlay ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+
+vxlan/test_vxlan_vnet_bgp_subintf.py:
+  skip:
+    reason: "test_vxlan_vnet_bgp_subintf requires INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC; not supported on cisco-8000 202511 image (orchagent validate fails). Skip only when both apply."
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['cisco-8000']"
+      - "release in ['202511']"
 
 #######################################
 #####           wan_lacp          #####
