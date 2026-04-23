@@ -8,6 +8,7 @@ time on the wire and makes single-bit errors trivial to detect by XOR.
 """
 
 import hashlib
+import logging
 import os
 import threading
 import time
@@ -25,8 +26,10 @@ from tests.common.helpers.console_helper import (
 )
 from tests.common.utilities import wait_until
 
+logger = logging.getLogger(__name__)
+
 pytestmark = [
-    pytest.mark.topology('c0', 'c0-lo')
+    pytest.mark.topology('c0-lo')
 ]
 
 # How much data to push through the line per parametrize combo. The payload
@@ -98,7 +101,10 @@ def _save_artifact(name, blob):
     log_dir = os.path.join("logs", "console")
     try:
         os.makedirs(log_dir, exist_ok=True)
-    except Exception:
+    except Exception as e:
+        # CWD may not be writable (e.g. running outside the tests/ dir);
+        # fall back to /tmp so the forensic capture is still preserved.
+        logger.warning("Cannot create %s (%s); falling back to /tmp", log_dir, e)
         log_dir = "/tmp"
     path = os.path.abspath(os.path.join(log_dir, name))
     with open(path, "wb") as f:
@@ -119,29 +125,26 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
     first few differing offsets, and persists the captured payload under
     ``tests/logs/console/``.
     """
-    duthost, console_fanout = setup_c0
-    same_host = duthost is console_fanout
+    # On the c0-lo topology the DUT and the console fanout are the same host
+    # (the loopback is wired on the device itself), so there is no separate
+    # console_fanout to configure.
+    duthost, _ = setup_c0
 
     lines = _dut_console_lines(conn_graph_facts, duthost)
     pytest_assert(
         len(lines) >= 1,
-        "Stress test requires at least 1 console line for DUT '{}'; got none in *_serial_links.csv".format(
-            duthost.hostname))
+        "Stress test requires at least 1 console line; got none in *_serial_links.csv")
     target_line = lines[0]
-    flow_control_bool = (flow_control == "enable")
     total_bytes = TOTAL_BYTES_BY_BAUD[baud_rate]
 
     projected_seconds = total_bytes * _BITS_PER_BYTE / float(baud_rate)
-    print("[console_load] DUT={} line={} baud={} flow_control={} chunk_size={}; "
-          "total_bytes={} bytes; projected one-way wire time ~{:.1f}s ({:.2f}h)".format(
-              duthost.hostname, target_line, baud_rate, flow_control, chunk_size,
-              total_bytes, projected_seconds, projected_seconds / 3600.0))
+    logger.info("[console_load] line=%s baud=%s flow_control=%s chunk_size=%s; "
+                "total_bytes=%d bytes; projected one-way wire time ~%.1fs (%.2fh)",
+                target_line, baud_rate, flow_control, chunk_size,
+                total_bytes, projected_seconds, projected_seconds / 3600.0)
 
     duthost.command("config console baud {} {}".format(target_line, baud_rate))
     duthost.command("config console flow_control {} {}".format(flow_control, target_line))
-    if not same_host:
-        console_fanout.command("config console flow_control {} {}".format(flow_control, target_line))
-        console_fanout.set_loopback(target_line, baud_rate, flow_control_bool)
 
     pytest_assert(
         check_target_line_status(duthost, target_line, "IDLE"),
@@ -222,8 +225,8 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
             if total_sent >= next_progress_log:
                 elapsed = time.time() - send_start
                 rate = total_sent / max(elapsed, 0.001)
-                print("[console_load] sent {}/{} bytes ({:.0f} B/s, {:.0f}s elapsed)".format(
-                    total_sent, total_bytes, rate, elapsed))
+                logger.info("[console_load] sent %d/%d bytes (%.0f B/s, %.0fs elapsed)",
+                            total_sent, total_bytes, rate, elapsed)
                 next_progress_log += max(total_bytes // 10, 1)
 
         _send_all(end_marker)
@@ -287,20 +290,19 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
     finally:
         if client is not None:
             try:
+                # Best-effort picocom escape (Ctrl-A Ctrl-X) to release the
+                # console line; ignore failures during teardown.
                 client.sendcontrol('a')
                 client.sendcontrol('x')
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to send picocom escape during cleanup: %s", e)
             try:
                 client.close(force=True)
-            except Exception:
-                pass
-        if not same_host:
-            try:
-                console_fanout.unset_loopback(target_line)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to close pexpect spawn during cleanup: %s", e)
         try:
+            # Best-effort: wait for the line to return to IDLE so the next
+            # parametrize combo starts from a clean state.
             wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Line %s did not return to IDLE during cleanup: %s", target_line, e)
