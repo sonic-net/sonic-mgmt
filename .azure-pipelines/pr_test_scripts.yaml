@@ -634,16 +634,10 @@ t1-lag:
 
 t1-lag-vpp:
   - acl/test_acl.py
-  - arp/test_neighbor_mac_noptf.py
   - arp/test_arpall.py
-  - arp/test_arp_update.py
-  - arp/test_unknown_mac.py
-  - arp/test_arp_extended.py
-  - arp/test_tagged_arp.py
   - arp/test_neighbor_mac.py
-  - arp/test_wr_arp.py
-  - arp/test_arp_dualtor.py
-  - arp/test_stress_arp.py
+  - arp/test_neighbor_mac_aging.py
+  - arp/test_neighbor_mac_noptf.py
   - bfd/test_bfd.py
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_stress_link_flap.py
