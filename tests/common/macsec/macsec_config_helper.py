@@ -314,6 +314,11 @@ def generate_macsec_profile(port_name, cipher_suite="GCM-AES-128", priority=64,
     #             AES-256 variants use 32 bytes (64 hex chars).
     if "128" in cipher_suite:
         cak = secrets.token_hex(16)
+        # token_hex produces a string of n*2 chars (as each hex num is 2 chars)
+        # For CKN, this is interpreted as the literal password, so when passed to
+        # the type7 encoder each hex char is treated as its own byte.
+        # This is why the number passed to token hex is half the expected number of bytes,
+        # because the length of the string generated is double
         ckn = secrets.token_hex(16)
     else:
         cak = secrets.token_hex(32)
@@ -513,19 +518,19 @@ def wait_for_macsec_cleanup(host, interfaces, timeout=90):
 
         if all_clean:
             logger.info(
-                f"Automatic MACsec cleanup completed successfully in {elapsed:.1f}s"
+                f"Automatic MACsec cleanup completed successfully in {elapsed: .1f}s"
             )
             return True
 
         # Log progress every 30 seconds to reduce verbosity
         if int(elapsed) % 30 == 0 and elapsed > 0:
-            logger.info(f"Still waiting for cleanup... ({elapsed:.0f}s elapsed)")
+            logger.info(f"Still waiting for cleanup... ({elapsed: .0f}s elapsed)")
 
         time.sleep(poll_interval)
 
     # Timeout reached
     elapsed = time.time() - start_time
-    logger.warning(f"Automatic MACsec cleanup timeout after {elapsed:.1f}s")
+    logger.warning(f"Automatic MACsec cleanup timeout after {elapsed: .1f}s")
 
     # Log summary of remaining entries
     total_remaining = sum(len(entries) for entries in remaining_entries.values())
