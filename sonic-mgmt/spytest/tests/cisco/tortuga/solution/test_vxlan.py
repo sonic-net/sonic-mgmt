@@ -845,9 +845,12 @@ class TestVxlanSagTriggers():
             rate_percent = 0.01
         leaf0_underlay_portlist = int_config_dict['leaf0']['underlay']
         udp_src_no = [25225,60000,65001,45000]
-        #choose no of src port no based on no of underlay interfaces
-        new_list = udp_src_no[:len(leaf0_underlay_portlist)]
-        for udp_src_no in new_list:
+        udp_dst_no = [5001,8080,12000,33000]
+
+        #choose no of src/dst port no based on no of underlay interfaces
+        src_list = udp_src_no[:len(leaf0_underlay_portlist)]
+        dst_list = udp_dst_no[:len(leaf0_underlay_portlist)]
+        for udp_src, udp_dst in zip(src_list, dst_list):
             new_raw_stream = tg_handle.tg_traffic_config(
                             port_handle=my_topo_handle['src_port'], 
                             port_handle2=my_topo_handle['dst_port'], 
@@ -863,7 +866,8 @@ class TestVxlanSagTriggers():
                             ip_dst_addr = host_info_dict['dst_ip'],
                             ip_src_addr = host_info_dict['src_ip'],
                             l4_protocol = 'udp',
-                            udp_src_port = udp_src_no
+                            udp_src_port = udp_src,
+                            udp_dst_port = udp_dst
                             )
             new_stream_id = new_raw_stream['stream_id']
             stream_list.append(new_stream_id)
