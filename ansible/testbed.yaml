@@ -3949,7 +3949,7 @@
   ptf_extra_mgmt_ip:
     - 172.16.188.133/17
 
-- conf-name: testbed-bjw2-can-t0-8101c1-5
+- conf-name: testbed-bjw2-can-t0-8101c1-7
   group-name: bjw2-2-c
   topo: t0-64
   ptf_image_name: docker-ptf
@@ -3959,7 +3959,7 @@
   server: server_bjw2_2
   vm_base: VM82155
   dut:
-    - bjw2-can-8101c1-5
+    - bjw2-can-8101c1-7
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
@@ -4902,8 +4902,8 @@
   server: server_bjw2_5
   vm_base: VM85143
   dut:
+    - bjw2-can-8101c1-5
     - bjw2-can-8101c1-6
-    - bjw2-can-8101c1-7
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
