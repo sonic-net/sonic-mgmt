@@ -14,7 +14,7 @@ from tests.common.helpers.console_helper import (
 )
 
 pytestmark = [
-    pytest.mark.topology('c0', 'c0-lo', 'bmc')
+    pytest.mark.topology('c0', 'c0-lo')
 ]
 
 
