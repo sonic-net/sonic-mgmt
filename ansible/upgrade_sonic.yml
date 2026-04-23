@@ -128,7 +128,7 @@
           async: 300
           poll: 0
           ignore_errors: true
-          when: inventory_hostname != sup_dut
+          when: sup_dut is not defined or inventory_hostname != sup_dut
 
       when: upgrade_type == "sonic"
 
@@ -167,7 +167,7 @@
       - name: Wait for chassis initialization
         pause: seconds=60
 
-      when: upgrade_type == "sonic" and inventory_hostname == sup_dut
+      when: upgrade_type == "sonic" and sup_dut is defined and inventory_hostname == sup_dut
 
     - name: Wait for SONiC initialization
       pause: seconds=60
