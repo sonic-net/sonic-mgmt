@@ -697,6 +697,10 @@ def pytest_collection_modifyitems(session, config, items):
         nodeid = item.nodeid
         if nodeid.startswith(root_prefix):
             nodeid = nodeid[len(root_prefix):]
+        nodeid = item.nodeid
+        # Strip tests/ prefix if present (pytest includes it when running from tests/ directory)
+        if nodeid.startswith("tests/"):
+            nodeid = nodeid[6:]  # len("tests/") = 6
         all_matches = find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
