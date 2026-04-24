@@ -220,10 +220,10 @@ def gnmi_tls(request, duthost, ptfhost):
         _create_gnoi_certs(duthost, ptfhost, cert_dir)
 
         # 3. Configure server for TLS mode
-        _configure_gnoi_tls_server(duthost)
+        configure_gnoi_tls_server(duthost)
 
         # 4. Restart gNOI server process
-        _restart_gnoi_server(duthost)
+        restart_gnoi_server(duthost)
 
         # 5. Verify TLS connectivity
         _verify_gnoi_tls_connectivity(duthost, ptfhost)
@@ -449,7 +449,7 @@ def _create_gnoi_certs(duthost, ptfhost, cert_dir):
     logger.info("Certificate generation and distribution completed")
 
 
-def _configure_gnoi_tls_server(duthost):
+def configure_gnoi_tls_server(duthost):
     """Configure CONFIG_DB for TLS mode."""
     logger.info("Configuring gNOI server for TLS mode")
 
@@ -475,7 +475,7 @@ def _configure_gnoi_tls_server(duthost):
     logger.info("TLS configuration completed")
 
 
-def _restart_gnoi_server(duthost):
+def restart_gnoi_server(duthost):
     """Restart gNOI server to pick up new TLS configuration."""
     logger.info("Restarting gNOI server process")
 
