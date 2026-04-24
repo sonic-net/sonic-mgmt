@@ -1,305 +1,711 @@
 {
-  "testcases": [ 
+  "testcases": [
     {
       "tcname": "TC_acl_ace",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu acl ace",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_acl_bind",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu acl bind",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_acl_key-profile",
       "command": "sudo show platform npu acl key-profile",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "ACL key profile"
     },
     {
       "tcname": "TC_acl_oid",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu acl oid",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_acl_summary",
       "command": "sudo show platform npu acl summary",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_arc-debug-counters",
       "command": "sudo show platform npu arc-debug-counters",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_asic-errors",
       "command": "sudo show platform npu asic-errors",
       "supported": "yes",
-      "output_match_str": "ECC Counters"
+      "output_match_str": "ECC Counters",
+      "command_variants": [
+        "sudo show platform npu asic-errors"
+      ]
     },
     {
       "tcname": "TC_bfd_counter",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu bfd counter",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu bfd counter -d 1",
+        "sudo show platform npu bfd counter"
+      ]
     },
     {
       "tcname": "TC_bfd_summary",
       "command": "sudo show platform npu bfd summary",
       "supported": "yes",
-      "output_match_str": "NO_PATTERN"
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu bfd summary"
+      ]
     },
     {
       "tcname": "TC_bp-interface-map",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu bp-interface-map",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_cem-db",
-      "command": "TBD",
-      "supported": "debug_cli_to_be_used_only_when_necessary",
+      "command": "sudo show platform npu cem-db",
+      "supported": "rexec",
       "output_match_str": "TBD"
     },
     {
       "tcname": "TC_counters",
       "command": "sudo show platform npu counters",
       "supported": "yes",
-      "output_match_str": "(.*Slice0.*Slice1.*Slice2.*Slice3.*Slice4.*Slice5.*)"
+      "output_match_str": "(.*Slice0.*Slice1.*Slice2.*Slice3.*Slice4.*Slice5.*)",
+      "command_variants": [
+        "sudo show platform npu counters",
+        "sudo show platform npu counters -t 10"
+      ]
     },
     {
       "tcname": "TC_ecmp",
       "command": "sudo show platform npu ecmp",
       "supported": "yes",
-      "output_match_str": "NO_PATTERN"
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu ecmp",
+        "sudo show platform npu ecmp -t 10"
+      ]
     },
     {
       "tcname": "TC_multipath",
       "command": "sudo show platform npu multipath",
-      "supported": "yes",
-      "output_match_str": "NO_PATTERN"
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu multipath",
+        "sudo show platform npu multipath -t 10"
+      ]
     },
     {
       "tcname": "TC_hash",
       "command": "sudo show platform npu hash",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_event-trap",
       "command": "sudo show platform npu event-trap",
-      "supported": "lc_output_too_big_not_working",
-      "output_match_str": "event trap counter"
+      "supported": "yes - linecards-do-no-respond",
+      "output_match_str": "event trap counter",
+      "command_variants": [
+        "sudo show platform npu event-trap",
+        "sudo show platform npu event-trap -c"
+      ]
     },
     {
       "tcname": "TC_global",
       "command": "sudo show platform npu global",
       "supported": "yes",
-      "output_match_str": "NO_PATTERN"
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu global",
+        "sudo show platform npu global -t 10"
+      ]
     },
     {
       "tcname": "TC_histogram",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu histogram sms",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu histogram sms",
+        "sudo show platform npu histogram sqg -i 0",
+        "sudo show platform npu histogram sqg -i 3 -b",
+        "sudo show platform npu histogram tc -i 0",
+        "sudo show platform npu histogram tc -i 7 -b"
+      ]
     },
     {
       "tcname": "TC_l3-interface",
       "command": "sudo show platform npu l3-interface",
       "supported": "yes",
-      "output_match_str": "l3 interface"
+      "output_match_str": "l3 interface",
+      "command_variants": [
+        "sudo show platform npu l3-interface"
+      ]
     },
     {
       "tcname": "TC_lag_entries",
-      "command": "TBD",
-      "supported": "not_supported_by_sdk",
+      "command": "sudo show platform npu lag entries",
+      "supported": "rexec",
       "output_match_str": "TBD"
     },
     {
       "tcname": "TC_lag_members",
       "command": "sudo show platform npu lag members",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "LAG.*member info"
     },
     {
       "tcname": "TC_lpm-db",
-      "command": "TBD",
-      "supported": "throws_traceback",
+      "command": "sudo show platform npu lpm-db",
+      "supported": "rexec",
       "output_match_str": "TBD"
     },
     {
       "tcname": "TC_lpts",
       "command": "sudo show platform npu lpts",
       "supported": "yes",
-      "output_match_str": "lpts key"
+      "output_match_str": "lpts key",
+      "command_variants": [
+        "sudo show platform npu lpts",
+        "sudo show platform npu lpts -t 10"
+      ]
     },
     {
       "tcname": "TC_mac-state",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu mac-state -a all",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu mac-state -a all",
+        "sudo show platform npu mac-state -i {interface}"
+      ]
     },
     {
       "tcname": "TC_next-hop_entries",
       "command": "sudo show platform npu next-hop entries",
       "supported": "yes",
-      "output_match_str": "Next Hop Entries"
+      "output_match_str": "Next Hop Entries",
+      "command_variants": [
+        "sudo show platform npu next-hop entries",
+        "sudo show platform npu next-hop entries -t 10"
+      ]
     },
     {
       "tcname": "TC_next-hop_usage",
       "command": "sudo show platform npu next-hop usage",
       "supported": "yes",
-      "output_match_str": "Next Hop Usage"
+      "output_match_str": "Next Hop Usage",
+      "command_variants": [
+        "sudo show platform npu next-hop usage"
+      ]
     },
     {
       "tcname": "TC_oq-debug",
       "command": "sudo show platform npu oq-debug",
-      "supported": "LC output throws traceback",
-      "output_match_str": "NO_PATTERN"
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu oq-debug",
+        "sudo show platform npu oq-debug -c",
+        "sudo show platform npu oq-debug -t 10"
+      ]
     },
     {
       "tcname": "TC_port_counters",
       "command": "sudo show platform npu port counters",
       "supported": "yes",
-      "output_match_str": "Port Counters"
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu port counters",
+        "sudo show platform npu port counters -m 1",
+        "sudo show platform npu port counters -s 4"
+      ]
     },
     {
       "tcname": "TC_port_entries",
       "command": "sudo show platform npu port entries",
       "supported": "yes",
-      "output_match_str": "Port Status"
+      "output_match_str": "Port Status",
+      "command_variants": [
+        "sudo show platform npu port entries",
+        "sudo show platform npu port entries -s 4",
+        "sudo show platform npu port entries -t 10"
+      ]
     },
     {
       "tcname": "TC_rate-check",
       "command": "sudo show platform npu rate-check",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_resource",
       "command": "sudo show platform npu resource",
       "supported": "yes",
-      "output_match_str": "Resource.*Granularity.*Location"
+      "output_match_str": "Resource.*Granularity.*Location",
+      "command_variants": [
+        "sudo show platform npu resource",
+        "sudo show platform npu resource -t 10"
+      ]
     },
     {
       "tcname": "TC_router_details",
       "command": "sudo show platform npu router details",
-      "supported": "command_not_supported_on_sup_asic",
-      "output_match_str": "Router Port Details"
+      "supported": "yes",
+      "output_match_str": "Router Port Details",
+      "command_variants": [
+        "sudo show platform npu router details",
+        "sudo show platform npu router details -t 10"
+      ]
     },
     {
       "tcname": "TC_router_entries",
       "command": "sudo show platform npu router entries",
       "supported": "yes",
-      "output_match_str": "Routers"
+      "output_match_str": "Routers",
+      "command_variants": [
+        "sudo show platform npu router entries",
+        "sudo show platform npu router entries -t 10"
+      ]
     },
     {
       "tcname": "TC_router_port-counters",
       "command": "sudo show platform npu router port-counters",
       "supported": "yes",
-      "output_match_str": "router-id.*router-port-id.*conn-type"
-    },
-    {
-      "tcname": "TC_router_ports",
-      "command": "sudo show platform npu router ports",
-      "supported": "yes",
-      "output_match_str": "Router Ports"
+      "output_match_str": "router-id.*router-port-id.*conn-type",
+      "command_variants": [
+        "sudo show platform npu router port-counters"
+      ]
     },
     {
       "tcname": "TC_router_prefix",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu router prefix -ip 10.10.10.0/24 -vrf 0",
+      "supported": "yes - command-fails-without-config",
+      "output_match_str": "Router Ports",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu router prefix -ip 10.10.10.0/24 -vrf 0",
+        "sudo show platform npu router prefix -ipv6 2001:db8::/64 -vrf 0",
+        "sudo show platform npu router prefix",
+        "sudo show platform npu router prefix -ip 10.10.10.0/24",
+        "sudo show platform npu router prefix -ipv6 2001:db8::/64",
+        "sudo show platform npu router prefix -vrf 0"
+      ]
     },
     {
       "tcname": "TC_router_route-table",
       "command": "sudo show platform npu router route-table",
-      "supported": "remote-socket-terminated",
-      "output_match_str": "Route Table"
+      "supported": "yes",
+      "output_match_str": "Route Table",
+      "command_variants": [
+        "sudo show platform npu router route-table",
+        "sudo show platform npu router route-table -t 10"
+      ]
     },
     {
       "tcname": "TC_rx",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu rx cgm_global",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu rx cgm_global",
+        "sudo show platform npu rx cgm_profile -i {interface} -t 0",
+        "sudo show platform npu rx interface_cgm -i {interface} -t 7",
+        "sudo show platform npu rx punt"
+      ]
     },
     {
       "tcname": "TC_script",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu script",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu script -s {dummy_script}",
+        "sudo show platform npu script -s {dummy_script} arg1",
+        "sudo show platform npu script",
+        "sudo show platform npu script -s 1",
+        "sudo show platform npu script -t 10"
+      ]
     },
     {
       "tcname": "TC_sdk-debug_status",
       "command": "sudo show platform npu sdk-debug status",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_switch_entries",
       "command": "sudo show platform npu switch entries",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "Switch Entries"
     },
     {
       "tcname": "TC_switch_ports",
       "command": "sudo show platform npu switch ports",
-      "supported": "yes",
+      "supported": "rexec",
       "output_match_str": "Switch Ports"
     },
     {
       "tcname": "TC_temperatures",
       "command": "sudo show platform npu temperatures",
-      "supported": "yes",
-      "output_match_str": "Device Temperatures"
+      "supported": "yes - command-not-allowed-on-linecards",
+      "output_match_str": "Device Temperatures",
+      "command_variants": [
+        "sudo show platform npu temperatures",
+        "sudo show platform npu temperatures -t 10"
+      ]
     },
     {
       "tcname": "TC_trap",
       "command": "sudo show platform npu trap",
-      "supported": "remote-socket-terminated",
-      "output_match_str": "Trap Info"
+      "supported": "yes - command-not-allowed-on-linecards",
+      "output_match_str": "Trap Info",
+      "command_variants": [
+        "sudo show platform npu trap",
+        "sudo show platform npu trap -e 10",
+        "sudo show platform npu trap -s 1",
+        "sudo show platform npu trap -e 1",
+        "sudo show platform npu trap -s 10"
+      ]
     },
     {
       "tcname": "TC_trap_start_event_option",
-      "command": "TBD",
-      "supported": "requires_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu trap -s 1",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu trap -s 1",
+        "sudo show platform npu trap -s 10",
+        "sudo show platform npu trap",
+        "sudo show platform npu trap -e 10",
+        "sudo show platform npu trap -e 1"
+      ]
     },
     {
       "tcname": "TC_trap_end_event_option",
-      "command": "TBD",
-      "supported": "requires_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu trap -e 1",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu trap -e 1",
+        "sudo show platform npu trap -e 10",
+        "sudo show platform npu trap",
+        "sudo show platform npu trap -s 1",
+        "sudo show platform npu trap -s 10"
+      ]
     },
     {
       "tcname": "TC_trap-list",
       "command": "sudo show platform npu trap-list",
-      "supported": "has_extra_checks_with_output",
-      "output_match_str": "NO_PATTERN"
+      "supported": "rexec",
+      "output_match_str": "ETHERNET_ARP"
     },
     {
       "tcname": "TC_tx",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu tx cgm_global",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu tx cgm_global",
+        "sudo show platform npu tx cgm_state -i {interface}"
+      ]
     },
     {
       "tcname": "TC_voq",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu voq voq_globals",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu voq voq_globals",
+        "sudo show platform npu voq cgm_profile -i {interface}",
+        "sudo show platform npu voq queue_counters -i {interface} -t 0",
+        "sudo show platform npu voq stats -i {interface} -s {interface} -t 0",
+        "sudo show platform npu voq voq_info -v all"
+      ]
     },
     {
       "tcname": "TC_vxlan",
-      "command": "TBD",
-      "supported": "require_parameters",
-      "output_match_str": "TBD"
+      "command": "sudo show platform npu vxlan counters -s 10.0.0.1 -r 10.0.0.2",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_active_lc_service_slots",
+      "command": "sudo show platform npu active-lc-service-slots",
+      "supported": "debug",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu active-lc-service-slots"
+      ]
+    },
+    {
+      "tcname": "TC_arp_age",
+      "command": "sudo show platform npu arp-age",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_ars_flows",
+      "command": "sudo show platform npu ars flows",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu ars flows",
+        "sudo show platform npu ars flows -s 1",
+        "sudo show platform npu ars flows -v 1"
+      ]
+    },
+    {
+      "tcname": "TC_ars_info",
+      "command": "sudo show platform npu ars info",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu ars info",
+        "sudo show platform npu ars info -s 1"
+      ]
+    },
+    {
+      "tcname": "TC_histogram_sqg",
+      "command": "sudo show platform npu histogram sqg",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu histogram sqg",
+        "sudo show platform npu histogram sqg -b",
+        "sudo show platform npu histogram sqg -i Ethernet0"
+      ]
+    },
+    {
+      "tcname": "TC_histogram_tc",
+      "command": "sudo show platform npu histogram tc",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu histogram tc",
+        "sudo show platform npu histogram tc -b",
+        "sudo show platform npu histogram tc -i Ethernet0"
+      ]
+    },
+    {
+      "tcname": "TC_mac_age",
+      "command": "sudo show platform npu mac-age",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_oq",
+      "command": "sudo show platform npu oq",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_packet_debug_capture",
+      "command": "sudo show platform npu packet-debug capture",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu packet-debug capture",
+        "sudo show platform npu packet-debug capture --count 10",
+        "sudo show platform npu packet-debug capture -a",
+        "sudo show platform npu packet-debug capture -c",
+        "sudo show platform npu packet-debug capture -d",
+        "sudo show platform npu packet-debug capture -f dump.txt",
+        "sudo show platform npu packet-debug capture -i Ethernet0"
+      ]
+    },
+    {
+      "tcname": "TC_packet_debug_port_vlan_miss_capture",
+      "command": "sudo show platform npu packet-debug port-vlan-miss capture",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu packet-debug port-vlan-miss capture",
+        "sudo show platform npu packet-debug port-vlan-miss capture -a",
+        "sudo show platform npu packet-debug port-vlan-miss capture -c",
+        "sudo show platform npu packet-debug port-vlan-miss capture -d",
+        "sudo show platform npu packet-debug port-vlan-miss capture -f dump.txt"
+      ]
+    },
+    {
+      "tcname": "TC_packet_debug_port_vlan_miss_status",
+      "command": "sudo show platform npu packet-debug port-vlan-miss status",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu packet-debug port-vlan-miss status",
+        "sudo show platform npu packet-debug port-vlan-miss status -d"
+      ]
+    },
+    {
+      "tcname": "TC_packet_debug_status",
+      "command": "sudo show platform npu packet-debug status",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu packet-debug status",
+        "sudo show platform npu packet-debug status -d"
+      ]
+    },
+    {
+      "tcname": "TC_packet_path",
+      "command": "sudo show platform npu packet-path",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu packet-path",
+        "sudo show platform npu packet-path --ipv4",
+        "sudo show platform npu packet-path --ipv6",
+        "sudo show platform npu packet-path -dip 10.0.0.10",
+        "sudo show platform npu packet-path -dport 2000",
+        "sudo show platform npu packet-path -flow_label 0",
+        "sudo show platform npu packet-path -l 1",
+        "sudo show platform npu packet-path -proto 6",
+        "sudo show platform npu packet-path -sip 10.0.0.1",
+        "sudo show platform npu packet-path -sport 1000"
+      ]
+    },
+    {
+      "tcname": "TC_port_state",
+      "command": "sudo show platform npu port state",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu port state",
+        "sudo show platform npu port state --interface Ethernet0",
+        "sudo show platform npu port state --vlan 100",
+        "sudo show platform npu port state -i Ethernet0",
+        "sudo show platform npu port state -v 1"
+      ]
+    },
+    {
+      "tcname": "TC_router_route_diff_sai_sdk",
+      "command": "sudo show platform npu router route-diff sai-sdk",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu router route-diff sai-sdk",
+        "sudo show platform npu router route-diff sai-sdk -t 10"
+      ]
+    },
+    {
+      "tcname": "TC_rx_cgm_profile",
+      "command": "sudo show platform npu rx cgm_profile",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu rx cgm_profile",
+        "sudo show platform npu rx cgm_profile -i Ethernet0",
+        "sudo show platform npu rx cgm_profile -t 10",
+        "sudo show platform npu rx cgm_profile -i {interface} -t 0"
+      ]
+    },
+    {
+      "tcname": "TC_rx_interface_cgm",
+      "command": "sudo show platform npu rx interface_cgm",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu rx interface_cgm",
+        "sudo show platform npu rx interface_cgm -i Ethernet0",
+        "sudo show platform npu rx interface_cgm -t 10",
+        "sudo show platform npu rx interface_cgm -i {interface} -t 7"
+      ]
+    },
+    {
+      "tcname": "TC_rx_punt",
+      "command": "sudo show platform npu rx punt",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu rx punt"
+      ]
+    },
+    {
+      "tcname": "TC_techsupport",
+      "command": "sudo show platform npu techsupport",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_tgen_examples",
+      "command": "sudo show platform npu tgen examples",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_tgen_list",
+      "command": "sudo show platform npu tgen list",
+      "supported": "rexec",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_tx_cgm_state",
+      "command": "sudo show platform npu tx cgm_state",
+      "supported": "yes - TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu tx cgm_state",
+        "sudo show platform npu tx cgm_state -i {interface}"
+      ]
+    },
+    {
+      "tcname": "TC_voq_cgm_profile",
+      "command": "sudo show platform npu voq cgm_profile",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu voq cgm_profile",
+        "sudo show platform npu voq cgm_profile -i {interface}"
+      ]
+    },
+    {
+      "tcname": "TC_voq_queue_counters",
+      "command": "sudo show platform npu voq queue_counters",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu voq queue_counters",
+        "sudo show platform npu voq queue_counters -i {interface}",
+        "sudo show platform npu voq queue_counters -t 10",
+        "sudo show platform npu voq queue_counters -i {interface} -t 0"
+      ]
+    },
+    {
+      "tcname": "TC_voq_stats",
+      "command": "sudo show platform npu voq stats",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu voq stats",
+        "sudo show platform npu voq stats -i {interface}",
+        "sudo show platform npu voq stats -s 1",
+        "sudo show platform npu voq stats -t 10",
+        "sudo show platform npu voq stats -i {interface} -s {interface} -t 0"
+      ]
+    },
+    {
+      "tcname": "TC_voq_voq_info",
+      "command": "sudo show platform npu voq voq_info",
+      "supported": "TBD",
+      "output_match_str": "NO_PATTERN",
+      "command_variants": [
+        "sudo show platform npu voq voq_info",
+        "sudo show platform npu voq voq_info -v 1",
+        "sudo show platform npu voq voq_info -v all"
+      ]
     }
   ]
 }
-
