@@ -51,6 +51,10 @@ _BITS_PER_BYTE = 10
 # seconds (independent of the projected wire time).
 _NO_PROGRESS_TIMEOUT = 60.0
 
+# Emit a "still receiving" log line at this interval while waiting for the
+# end sentinel to arrive on the receive side.
+_RECV_PROGRESS_LOG_INTERVAL = 30.0
+
 
 def _dut_console_lines(conn_graph_facts, duthost):  # noqa: F811
     """Return the DUT's console line numbers (as strings) sorted ascending,
@@ -235,23 +239,32 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
         # budget and a forward-progress watchdog.
         wire_budget = (total_bytes + len(start_marker) + len(end_marker)) * _BITS_PER_BYTE / float(baud_rate)
         absolute_deadline = time.time() + wire_budget * 2.0 + 60.0
+        recv_wait_start = time.time()
+        next_recv_log = recv_wait_start + _RECV_PROGRESS_LOG_INTERVAL
         while True:
             if reader_exc:
                 raise reader_exc[0]
             with recv_lock:
                 seen_end = end_marker in recv_buf
+                recv_len = len(recv_buf)
             if seen_end:
                 break
             now = time.time()
+            if now >= next_recv_log:
+                elapsed = now - recv_wait_start
+                rate = recv_len / max(elapsed, 0.001)
+                logger.info("[console_load] receiving: captured %d bytes (~%.0f B/s, %.0fs since send done)",
+                            recv_len, rate, elapsed)
+                next_recv_log = now + _RECV_PROGRESS_LOG_INTERVAL
             if now > absolute_deadline:
                 pytest.fail(
-                    "Did not see end sentinel within {:.0f}s (total_bytes={}, baud={})".format(
-                        absolute_deadline - send_start, total_bytes, baud_rate))
+                    "Did not see end sentinel within {:.0f}s (total_bytes={}, baud={}, captured={} bytes)".format(
+                        absolute_deadline - send_start, total_bytes, baud_rate, recv_len))
             if now - last_progress_ts[0] > _NO_PROGRESS_TIMEOUT:
                 pytest.fail(
                     "No new bytes received for {:.0f}s; line appears stalled "
                     "(sent {} of {} bytes, captured {} bytes)".format(
-                        now - last_progress_ts[0], total_sent, total_bytes, len(recv_buf)))
+                        now - last_progress_ts[0], total_sent, total_bytes, recv_len))
             time.sleep(0.5)
 
         # Small post-END drain so any trailing bytes land in the buffer.
