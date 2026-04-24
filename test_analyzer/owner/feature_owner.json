@@ -1530,8 +1530,8 @@
     },
     {
         "feature": "snappi_tests",
-        "owner": "Dev Ojha",
-        "email": "devojha@microsoft.com",
+        "owner": "Shawn Dashuai Zhang",
+        "email": "dashuaizhang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1553,8 +1553,8 @@
                     "snappi_tests.pfcwd.test_pfcwd_runtime_traffic_with_snappi",
                     "snappi_tests.qos.test_ipip_packet_reorder_with_snappi"
                 ],
-                "owner": "Dev Ojha",
-                "email": "devojha@microsoft.com"
+                "owner": "Shawn Dashuai Zhang",
+                "email": "dashuaizhang@microsoft.com"
             },
             {
                 "scripts": [
