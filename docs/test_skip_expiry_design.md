@@ -11,10 +11,10 @@ This document proposes a solution to address the issue of test skips being left 
 1. [Background](#background)
 2. [Problem Statement](#problem-statement)
 3. [Proposed Approaches](#proposed-approaches)
-   - [Approach 3: GitHub Issue-Based Expiry Management](#approach-3-github-issue-based-expiry-management)
+   - [GitHub Issue-Based Expiry Management](#approach-3-github-issue-based-expiry-management)
 4. [Selected Approach](#selected-approach)
 5. [Detailed Design (Selected Approach)](#detailed-design-selected-approach)
-6. [Appendix A: Archived Alternative Approaches](#appendix-a-archived-alternative-approaches)
+6. [Appendix B: Archived Alternative Approaches](#appendix-a-archived-alternative-approaches)
 
 ---
 
@@ -27,8 +27,6 @@ While this consolidation improves maintainability, tests can be skipped and forg
 - Technical debt accumulation
 - Reduced test coverage
 - Loss of visibility into why tests were skipped
-
----
 
 ## Problem Statement
 
@@ -53,34 +51,31 @@ While this consolidation improves maintainability, tests can be skipped and forg
 - `skip:` entries with an issue are also temporary exceptions and must be tracked by expiry workflow.
 - `skip:` entries without an issue are permanent skips.
 
----
+## Overview Of GitHub Issue-Based Expiry Management
 
-## Proposed Approaches
+> **NOTE** Approach 1 and Approach 2 were evaluated during design exploration and are now moved to [Appendix A](#appendix-a-archived-alternative-approaches).
 
-Approach 1 and Approach 2 were evaluated during design exploration and are now moved to [Appendix A](#appendix-a-archived-alternative-approaches) to keep the main design narrative focused on the selected implementation path.
+This approach separates concerns between the conditional mark YAML file and GitHub issue tracking.
 
-### Approach 3: GitHub Issue-Based Expiry Management
+- **Permanent skips** are `skip:` entries without a GitHub issue.
+- **Temporary exceptions** are `xfail:` or `skip:` entries with GitHub issue.
 
-Leverage GitHub issues as the source of truth for temporary skip expiry, with automated workflows managing issue lifecycle and expiry detection.
+The design identifies external automation workflows and reporting tools to identify, manage and track skipped issues.
 
-#### Overview
-
-This approach separates concerns between the conditional mark YAML file and GitHub issue tracking:
-
-1. **Permanent skips**: `skip:` entries without a GitHub issue.
-2. **Temporary exceptions**: `xfail:` entries with GitHub issue and `skip:` entries with GitHub issue.
-3. **Conditional mark plugin**: Checks referenced GitHub issue state to determine effective behavior.
-4. **External automation**: Event-based PR gate workflow enforces review policy; scheduled workflow monitors issues and manages expiry.
-
-#### YAML Structure
+### YAML Structure
 
 There is no structural change with this design or approach.
 
-#### Expiry Detection Strategies
+### Expiry Detection Strategies
 
-The following strategies are proposed for determining when a GitHub issue (and its associated skip) has expired:
+This section describes two methods to classify an issue as expired.
 
-**Strategy A: Time-Based Expiry from Issue Creation**
+1. Strategy A: Time-Based Expiry from Issue Creation is chosen.
+2. Strategy B: Priority Tag Escalation
+
+Chosen strategy is **Strategy A: Time-Based Expiry from Issue Creation**.
+
+#### Strategy A: Time-Based Expiry from Issue Creation
 
 - Calculate expiry based on issue creation date plus a configurable duration (e.g., 6 months)
 - The automation workflow marks the issue as expired when the expiry threshold is reached
@@ -95,7 +90,7 @@ Today: 2026-02-18
 Status: EXPIRED → Workflow adds expired label and comments with maintainer mentions
 ```
 
-**Strategy B: Priority Tag Escalation**
+#### Strategy B: Priority Tag Escalation
 
 - Issues are assigned initial priority tags (e.g., P3) with associated time-to-expiry values
 - As time passes, priority is automatically escalated (P3 → P2 → P1 → P0)
@@ -110,55 +105,9 @@ Priority Tag Timeline:
   P0: Critical, 2 weeks to maintainer escalation
 ```
 
-**Detailed Description: Priority Tag Escalation**
-A scheduled workflow that runs periodically (e.g., daily) to:
-- Parse all conditional mark YAML files to extract referenced GitHub issues
-- Query GitHub API for each issue's metadata (creation date, labels, state)
-- Check assignee metadata for each tracked issue and flag issues with no assignee
-- Apply Priority tag based escalation logic
-- Check whether one of the configured skip maintainers has applied a maintainer-extension label in the form `skip-maintainer-extension-N`, where `N` is the number of extension days granted
-- Take action on expired issues:
-  - Add expiry-related labels (e.g., `sonic-wf-priority-3`, `sonic-wf-priority-2` etc.)
-  - Bump priority labels if using escalation strategy
-  - Add an explicit expired label when P0 duration is exceeded
-  - Post or update an issue comment that `@` mentions configured skip maintainers
-  - Surface active maintainer-extension labels in the generated report
-  - Optionally notify issue assignees in the same comment
+### Automation Components
 
-**Issue Comment Generation:**
-
-The workflow generates issue comments to make escalation and expiry dates explicit:
-
-- **When workflow adds a priority label (P3, P2, P1, P0)**: Post a comment such as `"Priority tag [skip-wf-priority-N] was added. This issue will be escalated to the next priority / expire in M days on [date]."`
-- **When anyone deletes a workflow-applied priority label**: Post a comment such as `"Priority tag [skip-wf-priority-N] was deleted by @[user]. This label is workflow-managed and manual deletion does not change expiry timeline calculations."`
-- **When a designated skip maintainer adds `skip-maintainer-extension-N`**: Post a comment such as `"Expiry extension granted for N days; next expiry on [date]."`
-- **When a designated skip maintainer removes `skip-maintainer-extension-N`**: Post a comment such as `"Expiry extension canceled by maintainer @[maintainer] on [date]. Issue is now considered expired."`
-- **Idempotency**: Comments use deterministic markers so repeated runs do not create duplicates for the same event.
-
-**Maintainer registry**
-
-- Maintain a dedicated registry file for governance leads, recommended as `.github/SKIP_MAINTAINERS.yml`
-- The file contains the GitHub usernames that should be mentioned when a temporary skip reaches its expired state
-- This keeps the escalation list explicit, reviewable, and independent of issue assignee churn
-- Maintainer-extension labels are only honored when they were applied by one of the usernames listed in this file
-
-**Maintainer extension labels**
-
-- A designated skip maintainer may grant a grace period by adding a label in the form `skip-maintainer-extension-N`
-- `N` is interpreted as calendar days of temporary extension starting from the moment that label was applied (i.e., `extension_due_date = label_applied_at + N`)
-- The workflow must validate that the label was applied by a configured skip maintainer before honoring it in reporting
-- A maintainer may add the label multiple times as each extension period runs out (e.g., add `skip-maintainer-extension-30`, and after 30 days add it again to grant another 30-day window)
-- Because the same label name can appear multiple times in the issue timeline, the workflow must use the `labeled` event timestamp from the GitHub issue timeline API for each occurrence rather than relying solely on currently attached labels
-- An extension is considered **active** only if `today < label_applied_at + N`; expired extension occurrences are disregarded
-- When multiple authorized extension label occurrences are present (same or different `N`), the workflow selects the one whose computed `extension_due_date` is furthest in the future and still active; all occurrences are preserved in the report artifacts for auditability
-
-#### Chosen Expiry Strategy
-
-**Strategy A: Time-Based Expiry from Issue Creation**
-
-#### Automation Components
-
-**0. PR Review Gate Workflow (Event-Based)**
+##### 1. PR Review Gate Workflow
 
 A workflow is triggered on PR events (opened, reopened, synchronize, ready_for_review) with path filter for conditional mark YAML files, for example:
 - `tests/common/plugins/conditional_mark/**/*.yaml`
@@ -177,15 +126,14 @@ Implementation notes:
 
 > **Note:** This workflow will be implemented by modifying the existing workflow at `.github/workflows/assignReviewers.yaml` rather than creating a new workflow file.
 
----
 
-**1. Issue Expiry Workflow**
+##### 2. Issue Expiry Workflow
 
 This workflow prevents protected GitHub issues from being closed. When an issue is closed, it scans all conditional mark files named `test_mark_conditions*.yaml` on `main` and on a configured list of release branches, extracts every GitHub issue referenced in `skip` and `xfail` conditions, and checks whether the closed issue is still present in any of those files. If it is, the workflow posts a comment explaining that the issue cannot be closed until the conditional mark entry is removed, then reopens the issue.
 
----
+> **NOTE** See "Detailed Design Of GitHub Issue-Based Expiry Management" section for more details.
 
-**2. Reporting and Dashboard Tool**
+##### 3. Reporting and Dashboard Tool
 
 A separate tool that generates periodic reports and dashboards:
 
@@ -194,7 +142,44 @@ A separate tool that generates periodic reports and dashboards:
 - Track skip health metrics across the repository
 - Provide visibility into permanent vs temporary skip distribution
 
-#### Report Buckets and Warning-Day Semantics
+> **NOTE** See "Detailed Design Of GitHub Issue-Based Expiry Management" section for more details.
+
+#### 4. Pre-Expiry Test Execution (Optional)
+
+To provide early warning, tests associated with soon-to-expire skips can be run before their expiry date:
+- Run skipped tests in a non-blocking mode when expiry is approaching
+- Report results to issue comments or dashboard
+- Gives developers advance notice to fix issues before maintainer escalation
+
+**Implementation via Pipelines:**
+
+This feature will be implemented as a scheduled Azure Pipeline that:
+1. Queries for issues in the conditional mark file
+2. Identifies the test cases associated with those issues from the conditional mark YAML
+3. Runs those specific tests with the `--ignore-skip-for-issues` flag (bypassing the skip)
+4. Collects test results and posts a summary comment on each relevant GitHub issue
+5. Generates an aggregate report for review
+
+The pipeline runs weekly (or on-demand) and operates in non-blocking mode - test failures are reported but do not block any merges or deployments.
+
+## Detailed Design Of GitHub Issue-Based Expiry Management
+
+### 1. Issue Expiry Workflow Details
+
+The solution is implemented as a GitHub Actions workflow that listens for issue close events on the repository. When an issue is closed, the workflow runs on the main branch and evaluates whether the issue is still referenced by any conditional mark configuration.
+
+At a high level, the workflow performs the following steps.
+* It checks out the repository and fetches a configured set of release branches that should also be examined.
+* Runs a Python-based parser that scans all conditional mark files matching the pattern `test_mark_conditions*.yaml` from the main checkout and from each allowed branch.
+* Aggregates all GitHub issue numbers referenced in `skip` and `xfail` condition lists and determines whether the closed issue is present in that combined set.
+
+If the closed issue is found in any conditional mark file across the examined branches, the workflow treats the issue as protected. In that case, it posts a comment explaining that the issue cannot be closed until the corresponding conditional mark entry is removed, and then reopens the issue automatically.
+
+The implementation is designed so that branch coverage is configurable through an allowlist of branches. This ensures that an issue cannot be closed simply because it has been removed from the main branch while it is still actively referenced in one or more maintained release branches.
+
+The workflow operates on each issue close event independently. If multiple issues are closed around the same time, GitHub triggers separate workflow runs, and each run evaluates the specific issue that caused the event against the combined conditional mark references from all configured branches.
+
+### 2. Reporting and Dashboard Tool
 
 The report is generated from conditional mark YAML entries and GitHub issue metadata, and highlights three mandatory buckets:
 
@@ -254,29 +239,7 @@ Important scope clarification:
 - Project views are expected to be created manually once in GitHub UI.
 - The workflow keeps items and field values up to date; it does not need to create views.
 
----
-
-**3. Pre-Expiry Test Execution (Optional)**
-
-To provide early warning, tests associated with soon-to-expire skips can be run before their expiry date:
-- Run skipped tests in a non-blocking mode when expiry is approaching
-- Report results to issue comments or dashboard
-- Gives developers advance notice to fix issues before maintainer escalation
-
-**Implementation via Pipelines:**
-
-This feature will be implemented as a scheduled Azure Pipeline that:
-1. Queries for issues in the conditional mark file
-2. Identifies the test cases associated with those issues from the conditional mark YAML
-3. Runs those specific tests with the `--ignore-skip-for-issues` flag (bypassing the skip)
-4. Collects test results and posts a summary comment on each relevant GitHub issue
-5. Generates an aggregate report for review
-
-The pipeline runs weekly (or on-demand) and operates in non-blocking mode - test failures are reported but do not block any merges or deployments.
-
----
-
-#### Open Issues and Considerations
+## Issues and Considerations
 
 **1. PR Pipeline Impact**
 
@@ -316,114 +279,7 @@ Different release branches may have different skip requirements for the same tes
 
 **Chosen Approach - Option C: Conditional Mark issues can only be closed after entries are removed from all release branches**
 
----
-
-## Selected Approach
-
-**Decision: Approach 3 (GitHub Issue-Based Expiry Management) has been selected.**
-
-### Rationale for Selection
-
-1. **Alignment with existing workflows**: The team already uses GitHub issues to track bugs and feature work. Linking skips to issues creates a natural connection between test status and development progress.
-2. **Rich context and discussion**: GitHub issues provide a centralized place for discussing why a test is skipped, tracking progress toward a fix, and linking related PRs and commits.
-3. **Built-in notification system**: GitHub's notifications, assignees, and watchers provide visibility without building custom alerting infrastructure.
-4. **Dynamic expiry management**: Expiry policies can be adjusted centrally in the automation workflow without modifying individual YAML entries.
-5. **Priority escalation**: The ability to automatically escalate issue priority provides graduated urgency and gives developers multiple opportunities to address issues before expiry.
-6. **Non-disruptive governance**: Expired skips should surface ownership gaps without causing workflow-driven breakage in unrelated PRs.
-
-### Trade-offs Accepted
-
-- **External API dependency**: The team accepts the dependency on GitHub API availability, with caching as mitigation
-- **Increased complexity**: The automation workflow and caching layer add implementation complexity
-- **No code review for state changes**: Issue state changes don't require PR approval, relying instead on team discipline and visibility
-- **Split context**: Information is distributed between YAML files and GitHub issues
-- **Soft enforcement model**: Expiry is governed through visibility and escalation, not automatic closure or forced CI failures
-
----
-
-## Detailed Design (Selected Approach)
-
-> **Note**: This section describes the detailed design for Approach 3 (GitHub Issue-Based Expiry Management), which has been selected for implementation. Archived alternatives are captured in Appendix A.
-
-### Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Test Execution                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐   │
-│  │ tests_mark_     │───▶│ Conditional Mark │───▶│ GitHub Issue Cache  │   │
-│  │ conditions.yaml │    │ Plugin           │    │                     │   │
-│  └─────────────────┘    └──────────────────┘    └──────────┬──────────┘   │
-│                                                             │              │
-│                                                             ▼              │
-│                                                  ┌─────────────────────┐   │
-│                                                  │ GitHub API          │   │
-│                                                  │ (Issue State Query) │   │
-│                                                  └─────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Automation Pipeline                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐   │
-│  │ Scheduled       │───▶│ Issue Expiry     │───▶│ GitHub API          │   │
-│  │ Workflow (Daily)│    │ Checker          │    │ (Issue Management)  │   │
-│  └─────────────────┘    └──────────────────┘    └──────────┬──────────┘   │
-│                                                             │              │
-│                                                             ▼              │
-│                                                  ┌─────────────────────┐   │
-│                                                  │ Actions:            │   │
-│                                                  │ - Update labels     │   │
-│                                                  │ - Comment/@mention  │   │
-│                                                  │ - Notify assignees  │   │
-│                                                  └─────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Reporting & Dashboard                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐   │
-│  │ Report          │───▶│ Dashboard        │───▶│ Metrics:            │   │
-│  │ Generator       │    │ (Web UI)         │    │ - Expiring soon     │   │
-│  └─────────────────┘    └──────────────────┘    │ - By category       │   │
-│                                                  │ - By assignee       │   │
-│                                                  └─────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-**NOTE** There are no changes to the conditional mark plugin with this approach.
-
-### 1. YAML Structure Definition
-
-There are no structural changes to the conditional mark YAML file.
-
-**Best-practice guideline**:
-- Temporary exceptions may be represented as either `xfail:` or `skip:`, and must include an associated GitHub issue.
-- `skip:` entries without an associated issue are permanent exclusions.
-- `skip:` entries with an associated issue are temporary exceptions and are managed by the same expiry workflow as `xfail:` with issue.
-
-### 2. Issue Expiry Workflow Details
-
-Implementation Details
-
-The solution is implemented as a GitHub Actions workflow that listens for issue close events on the repository. When an issue is closed, the workflow runs on the main branch and evaluates whether the issue is still referenced by any conditional mark configuration.
-
-At a high level, the workflow performs the following steps.
-* It checks out the repository and fetches a configured set of release branches that should also be examined.
-* Runs a Python-based parser that scans all conditional mark files matching the pattern `test_mark_conditions*.yaml` from the main checkout and from each allowed branch.
-* Aggregates all GitHub issue numbers referenced in `skip` and `xfail` condition lists and determines whether the closed issue is present in that combined set.
-
-If the closed issue is found in any conditional mark file across the examined branches, the workflow treats the issue as protected. In that case, it posts a comment explaining that the issue cannot be closed until the corresponding conditional mark entry is removed, and then reopens the issue automatically.
-
-The implementation is designed so that branch coverage is configurable through an allowlist of branches. This ensures that an issue cannot be closed simply because it has been removed from the main branch while it is still actively referenced in one or more maintained release branches.
-
-The workflow operates on each issue close event independently. If multiple issues are closed around the same time, GitHub triggers separate workflow runs, and each run evaluates the specific issue that caused the event against the combined conditional mark references from all configured branches.
-
-#### 4. Conditional Mark Hygiene
+**4. Conditional Mark Hygiene**
 
 - A periodic hygiene review is required for conditional mark files to check:
   - every temporary exception (`xfail:` with issue, `skip:` with issue) has a valid associated GitHub issue
@@ -433,7 +289,51 @@ The workflow operates on each issue close event independently. If multiple issue
 
 ---
 
-## Appendix A: Archived Alternative Approaches
+## Appendix A: Detailed Description: Priority Tag Escalation
+
+A scheduled workflow that runs periodically (e.g., daily) to:
+- Parse all conditional mark YAML files to extract referenced GitHub issues
+- Query GitHub API for each issue's metadata (creation date, labels, state)
+- Check assignee metadata for each tracked issue and flag issues with no assignee
+- Apply Priority tag based escalation logic
+- Check whether one of the configured skip maintainers has applied a maintainer-extension label in the form `skip-maintainer-extension-N`, where `N` is the number of extension days granted
+- Take action on expired issues:
+  - Add expiry-related labels (e.g., `sonic-wf-priority-3`, `sonic-wf-priority-2` etc.)
+  - Bump priority labels if using escalation strategy
+  - Add an explicit expired label when P0 duration is exceeded
+  - Post or update an issue comment that `@` mentions configured skip maintainers
+  - Surface active maintainer-extension labels in the generated report
+  - Optionally notify issue assignees in the same comment
+
+**Issue Comment Generation:**
+
+The workflow generates issue comments to make escalation and expiry dates explicit:
+
+- **When workflow adds a priority label (P3, P2, P1, P0)**: Post a comment such as `"Priority tag [skip-wf-priority-N] was added. This issue will be escalated to the next priority / expire in M days on [date]."`
+- **When anyone deletes a workflow-applied priority label**: Post a comment such as `"Priority tag [skip-wf-priority-N] was deleted by @[user]. This label is workflow-managed and manual deletion does not change expiry timeline calculations."`
+- **When a designated skip maintainer adds `skip-maintainer-extension-N`**: Post a comment such as `"Expiry extension granted for N days; next expiry on [date]."`
+- **When a designated skip maintainer removes `skip-maintainer-extension-N`**: Post a comment such as `"Expiry extension canceled by maintainer @[maintainer] on [date]. Issue is now considered expired."`
+- **Idempotency**: Comments use deterministic markers so repeated runs do not create duplicates for the same event.
+
+**Maintainer registry**
+
+- Maintain a dedicated registry file for governance leads, recommended as `.github/SKIP_MAINTAINERS.yml`
+- The file contains the GitHub usernames that should be mentioned when a temporary skip reaches its expired state
+- This keeps the escalation list explicit, reviewable, and independent of issue assignee churn
+- Maintainer-extension labels are only honored when they were applied by one of the usernames listed in this file
+
+**Maintainer extension labels**
+
+- A designated skip maintainer may grant a grace period by adding a label in the form `skip-maintainer-extension-N`
+- `N` is interpreted as calendar days of temporary extension starting from the moment that label was applied (i.e., `extension_due_date = label_applied_at + N`)
+- The workflow must validate that the label was applied by a configured skip maintainer before honoring it in reporting
+- A maintainer may add the label multiple times as each extension period runs out (e.g., add `skip-maintainer-extension-30`, and after 30 days add it again to grant another 30-day window)
+- Because the same label name can appear multiple times in the issue timeline, the workflow must use the `labeled` event timestamp from the GitHub issue timeline API for each occurrence rather than relying solely on currently attached labels
+- An extension is considered **active** only if `today < label_applied_at + N`; expired extension occurrences are disregarded
+- When multiple authorized extension label occurrences are present (same or different `N`), the workflow selects the one whose computed `extension_due_date` is furthest in the future and still active; all occurrences are preserved in the report artifacts for auditability
+
+
+## Appendix B: Archived Alternative Approaches
 
 This appendix preserves earlier design explorations for historical reference. These approaches are not the selected implementation path.
 
