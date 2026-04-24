@@ -173,6 +173,9 @@ all:
         vms20-10:
           ansible_host: 10.64.246.39
           ansible_hostv6: 2a01:111:e210:b000::a40:f627
+        vms29-5:
+          ansible_host: 10.64.246.240
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6f0
 
     pdu:
       hosts:
@@ -287,6 +290,12 @@ all:
         pdu-242:
           ansible_host: 10.3.154.131
           protocol: snmp
+        pdu-45:
+          ansible_host: 10.3.154.45
+          protocol: snmp
+        pdu-46:
+          ansible_host: 10.3.154.46
+          protocol: snmp
 
 fanout:
   hosts:
@@ -393,6 +402,9 @@ fanout:
     str2-7260cx3-acs-fan-36:
       ansible_host: 10.3.146.23
       ansible_hostv6: 2a01:111:e210:3000::a03:9217
+    str2-7260cx3-acs-fan-37:
+      ansible_host: 10.3.150.165
+      ansible_hostv6: 2a01:111:e210:3000::a03:96A5
     str2-7260cx3-d09-u04:
       ansible_host: 10.3.146.19
       ansible_hostv6: 2a01:111:e210:3000::a03:9213
@@ -491,6 +503,7 @@ sonic:
     sonic_nokia_lc_100G:
     sonic_appliance:
     sonic_cisco_8111_O32:
+    sonic_cisco_8223:
 
 sonic_mlnx:
   vars:
@@ -2858,6 +2871,45 @@ sonic_cisco_8101_tornado_C32:
       plt_reboot_dict:
         cold:
           timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+
+sonic_cisco_8223:
+  vars:
+    hwsku: Cisco-8223-C64
+    iface_speed: 100000
+  hosts:
+    str2-8223-azd-t0-01:
+      ansible_host: 10.3.150.164
+      ansible_hostv6: 2a01:111:e210:3000::a03:96A4
+      mgmt_subnet_mask_length: 27
+      model: 8223-64EH-MO
+      serial: FLM293338ZW
+      base_mac: FC:58:9A:1E:76:5C
+      macsec_card: True
+      syseeprom_info:
+        "0x21": "8223-64EH-MO"
+        "0x22": "ECI123"
+        "0x23": "FLM293338ZW"
+        "0x24": "FC:58:9A:1E:76:5C"
+        "0x26": "0"
+        "0x28": "x86_64-8223_64e_mo-r0"
+        "0x2A": "1024"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0xD7D1F624"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
           wait: 360
         watchdog:
           timeout: 300

@@ -703,6 +703,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                        "Cisco-8102-28FH-DPU-O12C16"]:
             for i in range(0, 36):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
+        elif hwsku in ["Cisco-8223-P64S2", "Cisco-8223-C64"]:
+            for i in range(0, 64):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
         elif hwsku in ["Cisco-8102-28FH-DPU-O8C40", "Cisco-8102-28FH-DPU-O8V40"]:
             idx = 0
             # Range 1: etp0a, etp0b ... etp11a, etp11b
