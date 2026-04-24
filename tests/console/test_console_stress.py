@@ -184,13 +184,14 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
     end_marker = "\nEND_{}\n".format(run_token).encode('latin-1')
 
     client = None
+    stop_reader = threading.Event()
+    reader_thread = None
     try:
         client = create_ssh_client(dutip, ressh_user, dutpass)
         ensure_console_session_up(client, target_line)
 
         recv_buf = bytearray()
         recv_lock = threading.Lock()
-        stop_reader = threading.Event()
         reader_exc = []
         last_progress_ts = [time.time()]
 
@@ -226,7 +227,7 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
                     raise reader_exc[0]
                 try:
                     written = client.send(view.tobytes().decode('latin-1'))
-                except (pexpect.TIMEOUT, OSError) as e:
+                except (pexpect.TIMEOUT, pexpect.EOF, OSError) as e:
                     pytest.fail("Failed to write to console session: {}".format(e))
                 if not written:
                     time.sleep(0.05)
@@ -256,7 +257,7 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
         # Wait for END to arrive on the receive side, with both a wire-time
         # budget and a forward-progress watchdog.
         wire_budget = (total_bytes + len(start_marker) + len(end_marker)) * _BITS_PER_BYTE / float(baud_rate)
-        absolute_deadline = time.time() + wire_budget * 2.0 + 60.0
+        absolute_deadline = send_start + wire_budget * 2.0 + 60.0
         recv_wait_start = time.time()
         next_recv_log = recv_wait_start + _RECV_PROGRESS_LOG_INTERVAL
         while True:
@@ -287,8 +288,6 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
 
         # Small post-END drain so any trailing bytes land in the buffer.
         time.sleep(1.0)
-        stop_reader.set()
-        reader_thread.join(timeout=10)
         if reader_exc:
             raise reader_exc[0]
 
@@ -319,6 +318,14 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
                 _bit_error_summary(expected_payload, recv_payload)))
 
     finally:
+        # Stop the reader thread BEFORE closing the SSH client so the thread
+        # exits via its stop_reader check rather than via a read_nonblocking
+        # exception when the client is torn down. Also covers the case where
+        # the test fails inside the try block via pytest.fail() and never
+        # reached the explicit stop_reader.set() in the happy path.
+        stop_reader.set()
+        if reader_thread is not None:
+            reader_thread.join(timeout=10)
         if client is not None:
             try:
                 # Best-effort picocom escape (Ctrl-A Ctrl-X) to release the
