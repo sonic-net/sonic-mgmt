@@ -7,6 +7,7 @@ import time
 import pytest
 from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
+from scapy.layers.l2 import CookedLinux
 
 from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
 from tests.common.errors import RunAnsibleModuleFail
@@ -135,11 +136,20 @@ def is_neighbor_session_established(duthost, neighbor):
 
 
 def bgp_notification_packets(pcap_file, is_v6_topo):
-    """Get bgp notification packets from pcap file."""
+    """Get incoming bgp notification packets from pcap file.
+
+    When tcpdump captures on the 'any' interface with LINUX_SLL link type,
+    each packet has a CookedLinux header with a pkttype field indicating
+    direction. Filter out outgoing packets (pkttype == 4, 'sent-by-us')
+    so only incoming notifications are validated.
+    """
     ip_ver = IPv6 if is_v6_topo else IP
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: ip_ver in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 3,
+        lfilter=lambda p: (ip_ver in p and
+                           bgp.BGPHeader in p and
+                           p[bgp.BGPHeader].type == 3 and
+                           not (CookedLinux in p and p[CookedLinux].pkttype == 4)),
     )
     return packets
 
@@ -152,12 +162,9 @@ def match_bgp_notification(packet, src_ip, dst_ip, action, bgp_session_down_time
 
     bgp_fields = packet[bgp.BGPNotification].fields
     if action == "cease":
-        # error_code 6: Cease. References: RFC 4271
-        # error_subcode 3: Peer De-configured — expected during admin shutdown
-        # error_subcode 7: Connection Collision Resolution — may occur transiently
-        #   if FRR attempts to reconnect while the old session is still clearing
+        # error_code 6: Cease, error_subcode 3: Peer De-configured. References: RFC 4271
         return (bgp_fields["error_code"] == 6 and
-                bgp_fields["error_subcode"] in (3, 7) and
+                bgp_fields["error_subcode"] == 3 and
                 (bgp_session_down_time is None or float(packet.time) < bgp_session_down_time))
     else:
         return False
