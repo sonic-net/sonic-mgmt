@@ -147,6 +147,24 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
                 target_line, baud_rate, flow_control, chunk_size,
                 total_bytes, projected_seconds, projected_seconds / 3600.0)
 
+    # Capture the line's CONFIG_DB state BEFORE we mutate it so teardown can
+    # restore it. core_dump_and_config_check fails the test if we leave the
+    # CONSOLE_PORT|<line> entry dirty (especially flow_control drift).
+    def _read_field(field, default):
+        try:
+            res = duthost.command(
+                "sonic-db-cli CONFIG_DB hget 'CONSOLE_PORT|{}' {}".format(target_line, field),
+                module_ignore_errors=True)
+            val = (res.get('stdout') or '').strip()
+            return val if val else default
+        except Exception as e:
+            logger.debug("Failed to read original %s for line %s: %s", field, target_line, e)
+            return default
+
+    orig_baud = _read_field("baud_rate", "9600")
+    orig_flow_control_int = _read_field("flow_control", "0")
+    orig_flow_control = "enable" if orig_flow_control_int == "1" else "disable"
+
     duthost.command("config console baud {} {}".format(target_line, baud_rate))
     duthost.command("config console flow_control {} {}".format(flow_control, target_line))
 
@@ -319,3 +337,18 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
             wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE")
         except Exception as e:
             logger.debug("Line %s did not return to IDLE during cleanup: %s", target_line, e)
+        # Restore the original CONFIG_DB state for this line so that
+        # core_dump_and_config_check does not flag baud_rate / flow_control
+        # drift as a teardown failure.
+        try:
+            duthost.command(
+                "config console baud {} {}".format(target_line, orig_baud),
+                module_ignore_errors=True)
+        except Exception as e:
+            logger.debug("Failed to restore baud_rate for line %s: %s", target_line, e)
+        try:
+            duthost.command(
+                "config console flow_control {} {}".format(orig_flow_control, target_line),
+                module_ignore_errors=True)
+        except Exception as e:
+            logger.debug("Failed to restore flow_control for line %s: %s", target_line, e)
