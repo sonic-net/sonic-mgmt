@@ -837,7 +837,8 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
         if not ipv6_address[duthost.hostname]:
             pytest.skip(f"{duthost.hostname} doesn't have IPv6 Management IP address")
         if not has_available_ipv6_addr:
-            pytest.skip(f"{duthost.hostname} doesn't have available IPv6 Management IP address")
+            pytest.skip(f"{duthost.hostname} IPv6 Management IP is not reachable from the test runner. "
+                        "This test requires IPv6 connectivity to the DUT management interface.")
 
     # Remove IPv4 mgmt-ip
     for duthost in duthosts.nodes:
