@@ -11,9 +11,11 @@ import logging
 import paramiko
 import yaml
 from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, copy_logfiles
-from typing import Tuple
+from typing import Tuple, Any, Dict, List, Union
 import stat
 import argparse
+
+JsonObject = Dict[str, Any]
 
 HW_CONFIG_FILE = "config/hw_cfg.json"
 FORWARDING_TESTCASES = ['reporting/suites/tortuga-mh', 'reporting/suites/tortuga', 'reporting/suites/tortuga_parallel']
@@ -333,13 +335,52 @@ def getSonicMgmtFolder(stream, testbed):
 
 def getLogsPath(stream, testbed):
     testbed_info_dict = getTestbedInfoDict(testbed)
-    branch = getBranchFromStream(stream)
-    if f"logs_path_{branch}" in testbed_info_dict:
-        return testbed_info_dict[f"logs_path_{branch}"]
-    elif "logs_path_default" not in testbed_info_dict:
-        return DEFAULT_LOGS_PATH
-    else:
-        return testbed_info_dict["logs_path_default"]
+    docker = getSonicMgmtContainterName(stream, testbed)
+    log.debug("getLogsPath before docker cmd")
+    with paramiko.SSHClient() as client:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(
+            hostname=testbed_info_dict['ucs_host'],
+            username=testbed_info_dict['ucs_username'],
+            password=testbed_info_dict['ucs_password']
+        )
+        stdout, stderr, rc = _run_cmd_in_ssh(client, f"docker inspect {docker}")
+        
+        log.debug(stdout)
+        if rc==0:
+            inspect_list = parse_docker_inspect_output(stdout)
+            log.debug(f"inspect_output: {inspect_list}")
+            if not inspect_list:
+                log.warning("docker inspect returned an empty JSON array")
+            else:
+                mounts = inspect_list[0]["Mounts"]
+                log.debug(f"mounts: {mounts}")
+                run_logs_source = next(m["Source"] for m in mounts if m["Destination"] == "/run_logs")
+                log.debug(f"run_logs_source: {run_logs_source}")
+                return run_logs_source
+            # results = [obj for obj in arr if obj.get('c') == 'd']
+        else:
+            log.debug(f"inspect_error: {stderr}")
+            log.error("Failed to get run logs source from docker inspect")
+    return DEFAULT_LOGS_PATH
+
+def parse_docker_inspect_output(raw: Union[str, bytes]) -> List[JsonObject]:
+    """
+    Parse `docker inspect` stdout into a list of inspection dicts.
+
+    :param raw: Full output string or bytes from `docker inspect ...`
+    :return: List of container/image JSON objects (same order as docker's output)
+    :raises json.JSONDecodeError: If the text is not valid JSON
+    :raises ValueError: If the root JSON value is not an array
+    """
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8")
+    data = json.loads(raw)
+    if not isinstance(data, list):
+        raise ValueError(
+            "docker inspect output must be a JSON array; got %s" % type(data).__name__
+        )
+    return data
 
 def getBranchFromStream(stream):
     log.info(f"getBranchFromStream executed with arg stream={stream}")

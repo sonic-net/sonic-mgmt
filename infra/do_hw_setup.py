@@ -698,8 +698,7 @@ def add_topo(args):
         _, _, rc = _run_cmd_in_ssh(client, add_topo_outside_docker_cmd, timeout=ADD_TOPO_TIMEOUT_SEC)
         if rc:
             raise RuntimeError("add-topo returned non-zero return code. Please check logs.")
-
-
+        
     # install python-saithrift_1.13.0_amd64.deb inside docker ptf container
     SAITHRIFT_DEB_FILENAME = "python-saithrift_1.13.0_amd64.deb"
     SAITHRIFT_DEB_URL = f"http://172.26.235.76/MISC/{SAITHRIFT_DEB_FILENAME}"

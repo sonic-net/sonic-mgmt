@@ -40,7 +40,6 @@
                 "sonic_mgmt_container_202405c": "cicd_prod_202405c",
                 "sonic_mgmt_container_master": "cicd_prod_master",
                 "sonic_mgmt_container_202511": "cicd_prod_202511",
-                "logs_path_202505": "/home/sonic/test_logs/",
                 "sonic_installer_commands":[
                     "sudo show boot",
                     "sudo sonic-installer install $image_url -y --skip-package-migration",
@@ -557,7 +556,6 @@
             "hw_type":"siren",
             "docker_prompt":"root@tu2",
             "run_type_check": "siren-b2b-full.yaml",
-            "logs_folder":"/data/run_logs/",
             "git_update_flag": "true",
             "sonic_test_dir": "/home/sonic/test_logs/tortuga",
             "sonic_mgmt_container_202305": "cicd_prod_master_ixia_v9_20",
@@ -602,7 +600,6 @@
             "hw_type":"mathilda-64",
             "docker_prompt":"root@tu2",
             "run_type_check": "ip_fabric_topo2.yaml",
-            "logs_folder":"/data/run_logs/",
             "git_update_flag": "true",
             "sonic_test_dir": "/home/sonic/test_logs/tortuga",
             "sonic_mgmt_container_202305": "cicd_prod_master_ixia_v9_20",
@@ -654,7 +651,6 @@
             "tests_list": ["cisco/test_platform.py", "cisco/tortuga/security/cisco-security-uefi.py", "cisco/tortuga/security/cisco-security-test.py"],
             "hw_type":"carib",
             "run_type_check": "spytest_topo_carib_only",
-            "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
             "collect_spytest_flag":"true",
             "sonic_installer_commands":[
@@ -717,7 +713,6 @@
             "tests_list": ["cisco/test_platform.py", "cisco/tortuga/security/cisco-security-uefi.py", "cisco/tortuga/security/cisco-security-test.py"],
             "hw_type":"siren",
             "run_type_check": "spytest_topo_siren_only",
-            "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
             "collect_spytest_flag":"true",
             "sonic_installer_commands":[
@@ -777,7 +772,6 @@
             "hw_type":"siren",
             "git_update_flag": "false",
             "run_type_check": "spytest",
-            "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
             "sonic_installer_commands":[
                 "sudo rm /image-*/old_config/config_db.json || true",
@@ -806,7 +800,6 @@
             "hw_type":"siren",
             "git_update_flag": "false",
             "run_type_check": "spytest",
-            "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
             "sonic_installer_commands":[
                 "sudo rm /image-*/old_config/config_db.json || true",
@@ -835,7 +828,6 @@
             "hw_type":"carib",
             "git_update_flag": "false",
             "run_type_check": "spytest",
-            "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
             "sonic_installer_commands":[
                 "sudo rm /image-*/old_config/config_db.json || true",
@@ -1197,7 +1189,6 @@
             "ucs_ssh_prompt": "sonic@tu2",
             "hw_type":"carib",
             "run_type_check": "carib-b2b-full.yaml",
-            "logs_folder":"/data/run_logs/",
             "git_update_flag": "true",
             "docker_prompt":"root@tu2",
             "sonic_mgmt_container_202205": "cicd_prod_master_ixia_v9_20",
@@ -1516,7 +1507,6 @@
             "sonic_mgmt_container_master": "cicd_prod_master",
             "sonic_mgmt_container_202311": "202311-whitebox-sonic-mgmt",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
-            "logs_path_202505": "/home/sonic/test_logs/202505/",
             "run_type_check": "run_tests",
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
@@ -1826,7 +1816,6 @@
             "tests_list": ["cisco/test_vxlan_multi_homing.py"],
             "hw_type":"siren",
             "run_type_check": "spytest_topo_siren_only",
-            "logs_folder":"/run_logs/",
             "allure_flag": "false",
             "collect_spytest_flag":"true",
             "sonic_installer_commands":[
@@ -1873,7 +1862,6 @@
             "tests_list": ["cisco/test_vxlan_multi_homing.py"],
             "hw_type":"carib",
             "run_type_check": "spytest_topo_siren_only",
-            "logs_folder":"/run_logs/",
             "allure_flag": "false",
             "collect_spytest_flag":"true",
             "sonic_installer_commands":[
@@ -1962,8 +1950,6 @@
             "sonic_mgmt_container_202411": "cicd_prod_202411",
             "sonic_mgmt_container_202501": "cicd_prod_202411",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
-            "logs_path_202505": "/home/sonic/test_logs/",
-            "logs_path_default": "/home/sonic/test_logs/",
             "sonic_installer_commands":[
                 "sudo show boot",
                 "sudo sonic-installer install $image_url -y --skip-package-migration",

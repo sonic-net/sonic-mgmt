@@ -432,6 +432,7 @@ def collect_results(args):
     results_path = os.path.join(WORKSPACE, SUMMARY_REPORT_FILENAME)
     dut_run_log_folder = f'{image_id}_jenkins_logs_{build_id}_{testbed}'
     logs_path = getLogsPath(stream, testbed)
+    log.debug(f"logs_path: {logs_path}")
 
     #default results json
     result = {
