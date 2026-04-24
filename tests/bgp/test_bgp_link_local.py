@@ -277,6 +277,8 @@ def bgp_unnumbered_established(duthost, intf_name):
                                     "link-local) — IPv4 fallback",
                                     peer_key, remote)
                         except (json.JSONDecodeError, KeyError):
+                            # Can't parse neighbor detail; fall through
+                            # to return False below
                             pass
                     # If we can't verify, don't accept it
                     return False
@@ -509,6 +511,7 @@ def restore_eos_full_config(neigh_host, saved_config_path):
                     p.get('peerState') == 'Established'
                     for p in peers.values())
         except Exception:
+            # EOS command or parsing failed; treat as not established
             pass
         return False
 
