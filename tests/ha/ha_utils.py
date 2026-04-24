@@ -298,6 +298,13 @@ def set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, desired_ha_state, 
                          expected_state=None)
 
 
+def set_dead_dash_ha_scope(localhost, duthost, ptfhost, scope_key, owner="dpu"):
+    """
+    Convenience wrapper: set DASH HA scope to DEAD state.
+    """
+    set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, "dead", owner)
+
+
 def wait_for_pending_operation_id(
     duthost,
     scope_key,
