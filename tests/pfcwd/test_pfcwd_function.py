@@ -1286,8 +1286,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         detect_time = self.timers['pfc_wd_detect_time']
         queue = self.pfc_wd['queue_index']
         rx_port = self.pfc_wd['rx_port'][0]
+        asic_ns_option = dut.get_port_asic_instance(rx_port).cli_ns_option
 
-        dut.shell("sudo config interface pfc priority {} {} off".format(rx_port, queue))
+        dut.shell("sudo config interface {} pfc priority {} {} off".format(asic_ns_option, rx_port, queue))
         start_wd_on_ports(dut, port, restore_time, detect_time, action)
         send_tx_egress(self.traffic_inst, action, False, async_mode=True, pkt_count=5000000)
 
@@ -1323,11 +1324,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         finally:
             self.storm_hndle.stop_storm()
-            dut.shell("sudo config interface pfc priority {} {} on".format(rx_port, queue))
+            dut.shell("sudo config interface {} pfc priority {} {} on".format(asic_ns_option, rx_port, queue))
             wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
                        dut, port, queue, "restored")
 
-    def test_pfcwd_storm_during_traffic(self, request, setup_pfc_test, tbinfo, nbrhosts,
+    def test_pfcwd_storm_during_traffic(self, setup_pfc_test, tbinfo, nbrhosts,
                                         setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
                                         duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
@@ -1377,8 +1378,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.is_dualtor,
             ip_version)
 
-        pfc_wd_restore_time_large = request.config.getoption("--restore-time")
-        self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
         if is_cisco_device(duthost):
             actions = ['drop']
         else:
