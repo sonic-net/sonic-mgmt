@@ -178,6 +178,11 @@ def disable_macsec_port(host, port):
         host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
 
 
+def replace_macsec_port(host, port, profile_name):
+    disable_macsec_port(host, port)
+    enable_macsec_port(host, port, profile_name)
+
+
 def enable_macsec_feature(duthost, macsec_nbrhosts):
     nbrhosts = macsec_nbrhosts
     num_asics = duthost.num_asics()

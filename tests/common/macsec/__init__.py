@@ -26,6 +26,7 @@ from .macsec_helper import load_all_macsec_info, getns_prefix
 
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ class MacsecPlugin(object):
             profiles[dut_port] = generate_macsec_profile(
                 port_name=dut_port,
                 cipher_suite=macsec_profile["cipher_suite"],
-                priority=macsec_profile["default_priority"],
+                priority=macsec_profile["priority"],
                 policy=macsec_profile["policy"],
                 send_sci=macsec_profile["send_sci"],
                 rekey_period=macsec_profile["rekey_period"],
@@ -124,17 +125,8 @@ class MacsecPlugin(object):
                     # will drop it for macsec kernel module does not correctly handle it.
                     pytest.skip(
                         "macsec on dut vsonic, neighbor eos, send_sci false")
-            if 't2' not in topo_name:
-                cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
-            setup_macsec_configuration(macsec_duthost, ctrl_links,
-                                       profile['name'], profile['priority'], profile['cipher_suite'],
-                                       profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                       profile['send_sci'], profile['rekey_period'], tbinfo)
-            logger.info(
-                "Setup MACsec configuration with arguments:\n{}".format(locals()))
 
             if port_profiles:
-                # Layer per-interface profiles on top of the base config.
                 # Save original profile bindings so shutdown can restore them.
                 self._original_profile_per_port = {}
                 for dut_port in ctrl_links:
@@ -143,11 +135,24 @@ class MacsecPlugin(object):
                         ns, dut_port)
                     output = macsec_duthost.command(cmd)['stdout'].strip()
                     self._original_profile_per_port[dut_port] = output if output else None
+
                 setup_macsec_multi_profile_configuration(
                     macsec_duthost, ctrl_links, port_profiles, tbinfo)
+
                 logger.info(
                     "Setup per-interface MACsec configuration with profiles:\n{}".format(
                         {p: pp["name"] for p, pp in port_profiles.items()}))
+            else:
+
+                if 't2' not in topo_name:
+                    cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
+                setup_macsec_configuration(macsec_duthost, ctrl_links,
+                                        profile['name'], profile['priority'], profile['cipher_suite'],
+                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
+                                        profile['send_sci'], profile['rekey_period'], tbinfo)
+            logger.info(
+                "Setup MACsec configuration with arguments:\n{}".format(locals()))
+
         return __startup_macsec
 
     @pytest.fixture(scope="module")
@@ -194,6 +199,11 @@ class MacsecPlugin(object):
         """
 
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
+
+            macsec_preconfigured = is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links)
+            if not macsec_preconfigured or port_profiles is not None:
+                request.getfixturevalue('macsec_setup')
+
             # Ensure MKA sessions are established (SC/SA present in DB) if the
             # test environment provides the wait_mka_establish fixture
             # (defined in tests/macsec/conftest.py). For environments that do

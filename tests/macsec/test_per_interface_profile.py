@@ -2,13 +2,14 @@ import pytest
 import logging
 
 from tests.common.utilities import wait_until
-from tests.common.macsec.macsec_helper import get_appl_db, get_ipnetns_prefix, load_all_macsec_info
+from tests.common.macsec.macsec_helper import get_appl_db, get_ipnetns_prefix, load_all_macsec_info, __check_appl_db
 from tests.common.macsec.macsec_config_helper import (
     generate_macsec_profile,
     setup_macsec_multi_profile_configuration,
     disable_macsec_port,
     enable_macsec_port,
     delete_macsec_profile,
+    replace_macsec_port
 )
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ class TestPerInterfaceProfile():
 
     @pytest.mark.disable_loganalyzer
     def test_profile_isolation(self, duthost, ctrl_links, upstream_links,
-                               port_profiles, tbinfo, wait_mka_establish):
+                               port_profiles, policy, cipher_suite, send_sci, tbinfo, wait_mka_establish):
         '''Disable MACsec on one port and verify other ports remain operational
         '''
         if not port_profiles:
@@ -82,7 +83,9 @@ class TestPerInterfaceProfile():
                                target_profile["name"])
             assert wait_until(300, 3, 0,
                               lambda: duthost.iface_macsec_ok(target_port) and
-                              target_nbr["host"].iface_macsec_ok(target_nbr["port"])), \
+                              target_nbr["host"].iface_macsec_ok(target_nbr["port"]) and
+                              __check_appl_db(duthost, target_port, target_nbr, target_nbr["port"],
+                                              policy, cipher_suite, send_sci)), \
                 "MACsec did not recover on {}".format(target_port)
 
         load_all_macsec_info(duthost, ctrl_links, tbinfo)
@@ -136,10 +139,18 @@ class TestPerInterfaceProfile():
             assert pt["cipher_suite"] == port_profiles[other_port]["cipher_suite"], \
                 "Other port cipher changed unexpectedly"
         finally:
-            orig_port_profiles = {target_port: port_profiles[target_port]}
-            setup_macsec_multi_profile_configuration(
-                duthost, {target_port: target_nbr}, orig_port_profiles, tbinfo)
-            # can use this since its just one port
+            # Replace profile on port back to the original, and clean up the test profile
+            orig_port_profile = port_profiles[target_port]
+            replace_macsec_port(duthost, target_port, orig_port_profile, tbinfo)
+            replace_macsec_port(target_nbr["host"], target_nbr["port"], orig_port_profile, tbinfo)
             delete_macsec_profile(duthost, target_port, new_profile["name"])
+            delete_macsec_profile(target_nbr["host"], target_nbr["port"], new_profile["name"])
+
+            assert wait_until(300, 3, 0,
+                              lambda: duthost.iface_macsec_ok(target_port) and
+                              target_nbr["host"].iface_macsec_ok(target_nbr["port"]) and
+                              __check_appl_db(duthost, target_port, target_nbr["host"], target_nbr["port"],
+                                              policy, cipher_suite, send_sci)), \
+                "MACsec did not recover on {}".format(target_port)
 
         load_all_macsec_info(duthost, ctrl_links, tbinfo)
