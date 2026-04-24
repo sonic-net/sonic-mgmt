@@ -124,6 +124,7 @@ def _planned_swo_phase(
             time.sleep(0.2)
         logging.info("Set %s to standby (planned switchover)", label)
         set_dash_ha_scope(localhost, swo_duthost, ptfhost, swo_scope_key, "unspecified", ha_owner)
+        set_dash_ha_scope(localhost, peer_duthost, ptfhost, peer_scope_key, "active", ha_owner)
 
     t = threading.Thread(target=swo_action, name=f"{label}_swo_action_thread")
     t.start()
@@ -170,11 +171,7 @@ def test_ha_planned_swo(
     Only supported when ha_owner is "switch" (Mellanox SN4280 platform).
 
     Phase 1: Switch primary (active) to standby.
-             Verify primary becomes standby and secondary becomes active.
-             Re-activate primary.
     Phase 2: Switch secondary (now active) again to standby.
-             Verify states remain consistent.
-             Re-activate secondary.
     """
 
     if ha_owner != "switch":
