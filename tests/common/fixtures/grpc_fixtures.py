@@ -26,6 +26,7 @@ from typing import Optional
 from tests.common.cert_utils import create_gnmi_cert_generator
 from tests.common.grpc_config import grpc_config
 from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.ptf_grpc import PtfGrpc
 from tests.common.ptf_gnoi import PtfGnoi
@@ -283,6 +284,13 @@ def gnmi_tls(request, duthost, ptfhost):
                 logger.info("Configuration rollback completed")
         except Exception as e:
             logger.error("Configuration rollback failed with exception: %s", e)
+
+        try:
+            logger.info("Waiting for critical processes to be healthy after rollback")
+            wait_critical_processes(duthost)
+            logger.info("All critical processes are healthy")
+        except Exception as e:
+            logger.error("Waiting for critical processes failed with exception: %s", e)
 
         try:
             _delete_gnoi_certs(cert_dir)
