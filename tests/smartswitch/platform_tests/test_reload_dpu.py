@@ -185,6 +185,7 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                          re.compile(r"reboot|Non-Hardware", re.IGNORECASE),
                          pre_boot_times=pre_boot_times)
 
+
 @pytest.mark.disable_loganalyzer
 def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                                              enum_rand_one_per_hwsku_hostname,
@@ -230,6 +231,7 @@ def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                          num_dpu_modules,
                          re.compile(r"reboot|Non-Hardware", re.IGNORECASE),
                          pre_boot_times=pre_boot_times)
+
 
 @pytest.mark.disable_loganalyzer
 def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
@@ -450,6 +452,7 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules,
                          re.compile(r"reboot|Non-Hardware", re.IGNORECASE),
                          pre_boot_times=pre_boot_times)
+
 
 def test_reboot_cause(duthosts, dpuhosts,
                       enum_rand_one_per_hwsku_hostname,

@@ -640,7 +640,11 @@ def verify_all_dpus_rebooted(dpuhosts, dpu_on_list, pre_boot_times):
             failed.append(dpu_name)
     pytest_assert(not failed,
                   "DPUs {} did not reboot as expected (boot time unchanged)".format(failed))
-def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause, extra_dpu_online_timeout=0, pre_boot_times=None):
+
+
+def post_test_dpu_check(duthost, dpuhosts, dpu_name,
+                        reboot_cause, extra_dpu_online_timeout=0,
+                        pre_boot_times=None):
     """
     Runs all required checks for a given DPU
     Args:
@@ -685,7 +689,6 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause, extra_dpu_onl
             verify_dpu_rebooted(dpuhosts, dpu_name, pre_boot_times[dpu_name]),
             f"DPU {dpu_name} did not reboot: boot time is unchanged"
         )
-
 
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
