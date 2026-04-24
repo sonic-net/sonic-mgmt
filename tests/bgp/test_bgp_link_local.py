@@ -8,20 +8,12 @@ Two scenarios are tested via parametrization:
 1. Unnumbered BGP over a PortChannel (LAG) interface
 2. Unnumbered BGP over a plain Ethernet interface (LAG broken)
 
-Known issues blocking unnumbered BGP:
-- FRR 10.5.1 bug: https://github.com/sonic-net/sonic-buildimage/issues/26959
-- bgpcfgd bug: https://github.com/sonic-net/sonic-buildimage/issues/26960
-Tests are skipped via conditional_mark (tests_mark_conditions.yaml) while
-these issues are open. When both are resolved, remove the conditional marks
-and the bgpcfgd stop/start workaround in the fixture.
-
 Addresses: https://github.com/sonic-net/sonic-mgmt/issues/18431
            https://github.com/sonic-net/sonic-mgmt/issues/24134
 """
 
 import json
 import logging
-import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -241,7 +233,12 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
 
 
 def bgp_unnumbered_established(duthost, intf_name):
-    """Check if unnumbered BGP session via an interface is established."""
+    """Check if unnumbered BGP session via an interface is established.
+
+    Verifies that the session uses link-local (fe80::) addressing,
+    not IPv4 fallback. FRR may ignore 'v6only' and fall back to IPv4
+    on interfaces that have an IPv4 address — that's a false positive.
+    """
     result = duthost.shell(
         "vtysh -c 'show bgp summary json'", module_ignore_errors=True)
     if result['rc'] != 0:
@@ -255,9 +252,34 @@ def bgp_unnumbered_established(duthost, intf_name):
                     continue
                 if intf_name.lower() in peer_key.lower():
                     logger.info(
-                        "Unnumbered peer found: %s (AF=%s, pfxRcd=%s)",
+                        "Candidate peer: %s (AF=%s, pfxRcd=%s)",
                         peer_key, af, peer_data.get('pfxRcd', 0))
-                    return True
+                    # Verify it's using link-local, not IPv4 fallback
+                    neigh_detail = duthost.shell(
+                        "vtysh -c 'show bgp neighbors {} json'"
+                        .format(intf_name),
+                        module_ignore_errors=True)
+                    if neigh_detail['rc'] == 0:
+                        try:
+                            nd = json.loads(neigh_detail['stdout'])
+                            # FRR nests under interface or IP key
+                            for key, info in nd.items():
+                                remote = info.get(
+                                    'bgpNeighborAddr', '')
+                                if remote.startswith('fe80'):
+                                    logger.info(
+                                        "Confirmed link-local peer:"
+                                        " %s remote=%s",
+                                        peer_key, remote)
+                                    return True
+                                logger.warning(
+                                    "Peer %s uses %s (not "
+                                    "link-local) — IPv4 fallback",
+                                    peer_key, remote)
+                        except (json.JSONDecodeError, KeyError):
+                            pass
+                    # If we can't verify, don't accept it
+                    return False
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning("Failed to parse BGP summary JSON: %s", e)
     return False
@@ -298,7 +320,7 @@ def debug_bgp_state(duthost, intf_name, setup_info):
 
 
 def configure_unnumbered_dut(duthost, dut_asn, dut_intf, neigh_asn):
-    """Configure unnumbered BGP neighbor on DUT via vtysh."""
+    """Configure unnumbered BGP neighbor on DUT via vtysh (FRR direct)."""
     vtysh_cmds = [
         'config',
         'router bgp {}'.format(dut_asn),
@@ -326,9 +348,52 @@ def configure_unnumbered_dut(duthost, dut_asn, dut_intf, neigh_asn):
                 dut_intf, frr_cfg.get('stdout', ''))
 
 
-def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn, neigh_intf):
+def configure_unnumbered_dut_configdb(
+        duthost, dut_asn, dut_intf, neigh_asn):
+    """Configure unnumbered BGP neighbor on DUT via CONFIG_DB (production path).
+
+    CONFIG_DB BGP_NEIGHBOR uses IP addresses as keys — there is no schema
+    for interface-based (unnumbered) neighbors. This function attempts the
+    configuration to validate the production path, but it is expected to
+    fail until bgpcfgd gains unnumbered BGP support (sonic-buildimage#26960).
+    """
+    # CONFIG_DB BGP_NEIGHBOR expects IP key; use interface name anyway
+    # to test if bgpcfgd can handle it (it currently cannot).
+    neighbor_entry = {
+        "asn": str(neigh_asn),
+        "name": dut_intf,
+        "admin_status": "up",
+    }
+    entry_json = json.dumps(neighbor_entry)
+    duthost.shell(
+        "sonic-db-cli CONFIG_DB HMSET 'BGP_NEIGHBOR|{}' {}".format(
+            dut_intf,
+            ' '.join('{} {}'.format(k, v)
+                     for k, v in neighbor_entry.items())),
+        module_ignore_errors=True)
+    logger.info(
+        "CONFIG_DB BGP_NEIGHBOR|%s set: %s (bgpcfgd may not process this)",
+        dut_intf, entry_json)
+
+    # Log FRR running config to see if bgpcfgd picked it up
+    import time
+    time.sleep(10)  # Give bgpcfgd time to process
+    frr_cfg = duthost.shell(
+        "vtysh -c 'show running-config bgpd'",
+        module_ignore_errors=True)
+    logger.info("FRR running config after CONFIG_DB setup on %s:\n%s",
+                dut_intf, frr_cfg.get('stdout', ''))
+
+
+def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn, neigh_intf,
+                             eos_vrf=None):
     """Configure interface-based BGP neighbor on EOS peer."""
     eos_peer_group = "LINK_LOCAL_PG"
+    # In converged mode, BGP config lives under a VRF context
+    if eos_vrf:
+        bgp_parent = "router bgp {} vrf {}".format(neigh_asn, eos_vrf)
+    else:
+        bgp_parent = "router bgp {}".format(neigh_asn)
     neigh_host.eos_config(
         lines=[
             "neighbor {} peer group".format(eos_peer_group),
@@ -336,12 +401,12 @@ def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn, neigh_intf):
             "neighbor interface {} peer-group {}".format(
                 neigh_intf, eos_peer_group),
         ],
-        parents="router bgp {}".format(neigh_asn))
+        parents=bgp_parent)
 
     for af in ["ipv4", "ipv6"]:
         neigh_host.eos_config(
             lines=["neighbor {} activate".format(eos_peer_group)],
-            parents=["router bgp {}".format(neigh_asn),
+            parents=[bgp_parent,
                      "address-family {}".format(af)])
 
     # Verify config was accepted
@@ -357,7 +422,11 @@ def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn, neigh_intf):
 
 def remove_numbered_bgp(duthost, neigh_host, dut_asn, neigh_asn,
                         neigh_ipv4, neigh_ipv6, dut_ipv4, dut_ipv6):
-    """Remove existing numbered BGP sessions on both DUT and EOS."""
+    """Remove existing numbered BGP sessions on both DUT and EOS.
+
+    Uses direct sonic-db-cli + vtysh instead of config commands to
+    avoid config reconciliation side effects.
+    """
     # Remove from CONFIG_DB
     duthost.shell(
         'sonic-db-cli CONFIG_DB DEL "BGP_NEIGHBOR|{}"'.format(neigh_ipv4),
@@ -393,6 +462,74 @@ def remove_numbered_bgp(duthost, neigh_host, dut_asn, neigh_asn,
         facts = duthost.bgp_facts()['ansible_facts']
         return neigh_ipv4 not in facts.get('bgp_neighbors', {})
     wait_until(30, 3, 0, old_neighbor_gone)
+
+
+def restore_eos_bgp_config(neigh_host, neigh_asn):
+    """Restore EOS BGP config by removing unnumbered and re-adding numbered.
+
+    Since 'configure replace startup-config' fails on cEOS (deprecated
+    'ipv6 nd ra suppress' in startup-config), we surgically remove
+    the unnumbered config and re-add numbered neighbors from the saved
+    backup captured before modifications.
+    """
+    # This is now handled by the full EOS restore in teardown.
+    # Kept as a no-op for interface compatibility.
+    pass
+
+
+def restore_eos_full_config(neigh_host, saved_config_path):
+    """Restore EOS to pre-test state using configure replace.
+
+    Uses a saved copy of the running-config (captured before test
+    modifications) to atomically restore the full EOS config.
+    Running-config avoids deprecated syntax issues in startup-config.
+    Waits for EOS BGP to re-establish after restore.
+    """
+    try:
+        neigh_host.eos_command(commands=[
+            "configure replace flash:{}".format(saved_config_path)
+        ])
+        logger.info("EOS config replaced from flash:%s",
+                    saved_config_path)
+    except Exception as e:
+        logger.error("EOS config restore failed: %s", e)
+        return
+
+    # Wait for EOS BGP sessions to re-establish
+    def eos_bgp_established():
+        try:
+            result = neigh_host.eos_command(
+                commands=["show ip bgp summary | json"])
+            bgp_data = result['stdout'][0] if isinstance(
+                result['stdout'], list) else result['stdout']
+            if isinstance(bgp_data, dict):
+                peers = bgp_data.get('vrfs', {}).get(
+                    'default', {}).get('peers', {})
+                return all(
+                    p.get('peerState') == 'Established'
+                    for p in peers.values())
+        except Exception:
+            pass
+        return False
+
+    if wait_until(120, 10, 0, eos_bgp_established):
+        logger.info("EOS BGP sessions re-established after restore")
+    else:
+        logger.warning("EOS BGP sessions did not re-establish "
+                       "within 120s after config restore")
+
+
+def save_eos_running_config(neigh_host, filename="pre-test-config"):
+    """Save EOS running-config to flash for later configure replace."""
+    try:
+        neigh_host.eos_command(commands=[
+            "copy running-config flash:{}".format(filename)
+        ])
+        logger.info("Saved EOS running-config to flash:%s", filename)
+        return filename
+    except Exception as e:
+        logger.error("Failed to save EOS running-config: %s", e)
+        return None
 
 
 def cleanup_eos_unnumbered(neigh_host, neigh_asn, dut_asn,
@@ -439,45 +576,146 @@ def break_lag_to_ethernet(duthost, neigh_host, setup_info):
     dut_ipv6_prefix = setup_info['dut_ipv6_prefix']
     neigh_intf = setup_info['neigh_intf']
 
-    logger.info("Breaking %s: removing %s, moving IPs to %s",
-                pc_intf, eth_intf, eth_intf)
+    logger.info("Breaking %s: removing %s for direct Ethernet peering",
+                pc_intf, eth_intf)
     duthost.shell(
         "sudo config portchannel member del {} {}".format(
             pc_intf, eth_intf))
+    # Remove IPs from PortChannel (no longer has a member)
     if dut_ipv4_prefix:
         duthost.shell(
             "sudo config interface ip remove {} {}".format(
                 pc_intf, dut_ipv4_prefix),
             module_ignore_errors=True)
-        duthost.shell(
-            "sudo config interface ip add {} {}".format(
-                eth_intf, dut_ipv4_prefix))
     if dut_ipv6_prefix:
         duthost.shell(
             "sudo config interface ip remove {} {}".format(
                 pc_intf, dut_ipv6_prefix),
             module_ignore_errors=True)
-        duthost.shell(
-            "sudo config interface ip add {} {}".format(
-                eth_intf, dut_ipv6_prefix))
+    # Do NOT add IPs to Ethernet — unnumbered BGP should use
+    # link-local only. Adding IPv4 would allow FRR to fall back
+    # to numbered peering, masking the v6only bug.
 
     # Wait for link-local address on Ethernet
-    time.sleep(5)
-    ll_check = duthost.shell(
-        "ip -6 addr show {} scope link".format(eth_intf),
-        module_ignore_errors=True)
-    logger.info("Link-local on %s:\n%s",
-                eth_intf, ll_check.get('stdout', ''))
+    def _has_link_local():
+        out = duthost.shell(
+            "ip -6 addr show {} scope link".format(eth_intf),
+            module_ignore_errors=True)['stdout']
+        return 'inet6 fe80' in out
 
-    # EOS side: remove Port-Channel, use Ethernet1 directly
-    eos_eth_intf = "Ethernet1"
+    pytest_assert(
+        wait_until(30, 2, 0, _has_link_local),
+        "No link-local on {} after LAG breakout".format(eth_intf))
+
+    # EOS side: derive member Ethernet from Port-Channel.
+    # Parse running-config to find which Ethernet has channel-group
+    # for this Port-Channel (works on all cEOS versions).
+    pc_num = neigh_intf.replace("Port-Channel", "")
+    eos_run = neigh_host.eos_command(
+        commands=["show running-config"])
+    eos_full_cfg = eos_run['stdout'][0] if isinstance(
+        eos_run['stdout'], list) else eos_run['stdout']
+    eos_eth_intf = None
+    current_intf = None
+    for line in eos_full_cfg.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("interface Ethernet"):
+            current_intf = stripped.split()[-1]
+        elif (current_intf and
+              "channel-group {}".format(pc_num) in stripped):
+            eos_eth_intf = current_intf
+            break
+        elif stripped.startswith("interface ") and current_intf:
+            current_intf = None
+    if not eos_eth_intf:
+        eos_eth_intf = "Ethernet1"
+        logger.warning("Could not derive EOS member, falling back to %s",
+                       eos_eth_intf)
+    logger.info("Derived EOS member interface: %s from %s",
+                eos_eth_intf, neigh_intf)
+
+    # Detect VRF assignment on Port-Channel before removing it
+    # (converged peers use VRFs like ARISTA01T1)
+    pc_vrf = None
+    pc_cfg_result = neigh_host.eos_command(
+        commands=["show running-config interfaces {}".format(neigh_intf)])
+    pc_cfg_out = pc_cfg_result['stdout'][0] if isinstance(
+        pc_cfg_result['stdout'], list) else pc_cfg_result['stdout']
+    for line in str(pc_cfg_out).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("vrf "):
+            pc_vrf = stripped.split()[1]
+            break
+    if pc_vrf:
+        logger.info("Port-Channel %s is in VRF %s (converged mode)",
+                    neigh_intf, pc_vrf)
+
     logger.info("Configuring EOS %s for direct Ethernet peering",
                 eos_eth_intf)
     neigh_host.eos_config(
         lines=["no interface {}".format(neigh_intf)],
         module_ignore_errors=True)
+    # After removing Port-Channel, EOS Ethernet reverts to switchport
+    # mode (cEOS default). Must configure as routed port for L3 peering.
+    eos_intf_lines = [
+        "no switchport",
+        "ipv6 enable",
+    ]
+    if pc_vrf:
+        # Assign Ethernet to the same VRF as the original Port-Channel
+        # so EOS BGP (configured under this VRF) can peer over it.
+        eos_intf_lines.insert(0, "vrf {}".format(pc_vrf))
+    neigh_host.eos_config(
+        lines=eos_intf_lines,
+        parents="interface {}".format(eos_eth_intf),
+        module_ignore_errors=True)
 
-    return eos_eth_intf
+    # Verify EOS Ethernet has link-local address
+    eos_ll_result = neigh_host.eos_command(
+        commands=["show ipv6 interface {} brief".format(eos_eth_intf)])
+    eos_ll_out = eos_ll_result['stdout'][0] if isinstance(
+        eos_ll_result['stdout'], list) else eos_ll_result['stdout']
+    logger.info("EOS %s IPv6 status:\n%s", eos_eth_intf, eos_ll_out)
+
+    # Get EOS link-local for ping test
+    eos_ll_detail = neigh_host.eos_command(
+        commands=["show ipv6 interface {}".format(eos_eth_intf)])
+    eos_ll_detail_out = eos_ll_detail['stdout'][0] if isinstance(
+        eos_ll_detail['stdout'], list) else eos_ll_detail['stdout']
+    logger.info("EOS %s IPv6 detail:\n%s",
+                eos_eth_intf, eos_ll_detail_out)
+
+    # Also check DUT side link-local
+    dut_ll = duthost.shell(
+        "ip -6 addr show {} scope link".format(eth_intf),
+        module_ignore_errors=True)
+    logger.info("DUT %s link-local:\n%s",
+                eth_intf, dut_ll.get('stdout', ''))
+
+    # Try ping from DUT to EOS link-local (parse fe80 from EOS output)
+    eos_ll_addr = None
+    for line in str(eos_ll_detail_out).splitlines():
+        if 'fe80' in line.lower():
+            # Extract fe80::xxx address
+            for token in line.split():
+                if token.lower().startswith('fe80'):
+                    eos_ll_addr = token.split('/')[0]
+                    break
+            if eos_ll_addr:
+                break
+    if eos_ll_addr:
+        ping_result = duthost.shell(
+            "ping6 -c 3 -I {} {}".format(eth_intf, eos_ll_addr),
+            module_ignore_errors=True)
+        logger.info("Ping DUT %s -> EOS %s (%s): rc=%d\n%s",
+                    eth_intf, eos_eth_intf, eos_ll_addr,
+                    ping_result['rc'],
+                    ping_result.get('stdout', ''))
+    else:
+        logger.warning("No link-local found on EOS %s — cannot ping",
+                       eos_eth_intf)
+
+    return eos_eth_intf, pc_vrf
 
 
 def restore_lag_on_eos(neigh_host, neigh_intf):
@@ -539,25 +777,30 @@ def verify_routes_received(duthost, intf_name):
 
 
 @pytest.fixture(scope='function',
-                params=['portchannel', 'ethernet'],
-                ids=['portchannel', 'ethernet'])
+                params=['portchannel', 'ethernet',
+                        'portchannel-frrtest'],
+                ids=['portchannel', 'ethernet',
+                     'portchannel-frrtest'])
 def configure_unnumbered_bgp(request, setup_info):
     """Configure unnumbered BGP on a DUT interface.
 
-    Parametrized with two scenarios:
-    - portchannel: test unnumbered BGP on the existing PortChannel
-    - ethernet: break the PortChannel, test on the member Ethernet
+    Params:
+    - portchannel: unnumbered BGP on existing PortChannel (full stack)
+    - ethernet: break LAG, unnumbered BGP on member Ethernet (full stack)
+    - portchannel-frrtest: stops bgpcfgd to isolate FRR regression testing
 
-    Both scenarios:
+    Steps:
     1. Wait for baseline numbered BGP to be established
-    2. Stop bgpcfgd (workaround for sonic-buildimage#26960)
-    3. Remove existing numbered BGP sessions
-    4. (ethernet only) Break LAG and move IPs to member Ethernet
+    2. Remove existing numbered BGP sessions
+    3. Remove IPv4/IPv6 addresses from test interface
+    4. (ethernet only) Break LAG, configure EOS Ethernet as routed port
     5. Configure unnumbered BGP on DUT and EOS
     6. Yield the test interface name
-    7. Teardown: restore EOS, restart bgpcfgd, config_reload
+    7. Teardown: restore EOS via configure replace, config_reload DUT
     """
-    intf_type = request.param
+    param = request.param
+    stop_bgpcfgd = param.endswith('-frrtest')
+    intf_type = param.replace('-frrtest', '')
     duthost = setup_info['duthost']
     neigh_host = setup_info['neigh_host']
     dut_asn = setup_info['dut_asn']
@@ -577,42 +820,92 @@ def configure_unnumbered_bgp(request, setup_info):
                    .get('state', '') == 'established'),
         "IPv4 BGP session to {} not established".format(neigh_ipv4))
 
-    # Stop bgpcfgd to prevent neighbor reconciliation
-    # TODO: Remove this workaround when sonic-buildimage#26960 is fixed.
-    # bgpcfgd injects 'no capability link-local' which blocks unnumbered BGP.
-    # Stopping bgpcfgd isolates the FRR behavior so that when FRR is fixed
-    # (sonic-buildimage#26959), the test will pass and alert us.
-    logger.info("Stopping bgpcfgd")
-    duthost.shell("docker exec bgp supervisorctl stop bgpcfgd",
-                  module_ignore_errors=True)
+    # Save EOS running-config before any modifications
+    eos_config_backup = save_eos_running_config(neigh_host)
+
+    # Track whether post-yield teardown ran, so addfinalizer
+    # doesn't duplicate the cleanup.
+    teardown_done = []
+
+    # Register addfinalizer for full cleanup — runs even if fixture
+    # crashes before yield (e.g. EOS command error during setup).
+    # This ensures EOS config is restored and DUT is config_reloaded.
+    def _full_cleanup():
+        if teardown_done:
+            return
+        logger.info("addfinalizer: restoring EOS and DUT config")
+        if eos_config_backup:
+            restore_eos_full_config(neigh_host, eos_config_backup)
+        if stop_bgpcfgd:
+            duthost.shell("docker exec bgp supervisorctl start bgpcfgd",
+                          module_ignore_errors=True)
+        config_reload(duthost, wait=120)
+    request.addfinalizer(_full_cleanup)
+
+    # Optionally stop bgpcfgd to isolate FRR behavior for regression testing.
+    # When bgpcfgd is running, it may inject config that masks FRR issues.
+    if stop_bgpcfgd:
+        logger.info("Stopping bgpcfgd (FRR isolation mode)")
+        duthost.shell("docker exec bgp supervisorctl stop bgpcfgd",
+                      module_ignore_errors=True)
 
     # Remove numbered BGP
     remove_numbered_bgp(duthost, neigh_host, dut_asn, neigh_asn,
                         neigh_ipv4, neigh_ipv6, dut_ipv4, dut_ipv6)
 
+    # Remove IPv4/IPv6 addresses from test interface to prevent FRR
+    # from falling back to numbered peering (ignoring v6only keyword).
+    # This makes the test deterministic — only link-local can be used.
+    if intf_type == 'portchannel':
+        dut_test_intf = setup_info['pc_intf']
+        if setup_info.get('dut_ipv4_prefix'):
+            duthost.shell(
+                "sudo config interface ip remove {} {}".format(
+                    dut_test_intf, setup_info['dut_ipv4_prefix']),
+                module_ignore_errors=True)
+        if setup_info.get('dut_ipv6_prefix'):
+            duthost.shell(
+                "sudo config interface ip remove {} {}".format(
+                    dut_test_intf, setup_info['dut_ipv6_prefix']),
+                module_ignore_errors=True)
+        # Remove IPs on EOS side too
+        neigh_host.eos_config(
+            lines=[
+                "no ip address",
+                "no ipv6 address",
+            ],
+            parents="interface {}".format(neigh_intf),
+            module_ignore_errors=True)
+
     # Determine DUT and EOS interfaces based on scenario
     eos_intf = neigh_intf
+    eos_vrf = None
     if intf_type == 'portchannel':
         dut_intf = setup_info['pc_intf']
     else:
         dut_intf = setup_info['member_ethernet']
-        eos_intf = break_lag_to_ethernet(
+        eos_intf, eos_vrf = break_lag_to_ethernet(
             duthost, neigh_host, setup_info)
 
     # Configure unnumbered BGP
-    configure_unnumbered_dut(duthost, dut_asn, dut_intf, neigh_asn)
-    configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn, eos_intf)
+    if stop_bgpcfgd:
+        # FRR isolation: configure directly via vtysh
+        configure_unnumbered_dut(duthost, dut_asn, dut_intf, neigh_asn)
+    else:
+        # Production path: configure via CONFIG_DB (bgpcfgd renders FRR)
+        configure_unnumbered_dut_configdb(
+            duthost, dut_asn, dut_intf, neigh_asn)
+    configure_unnumbered_eos(
+        neigh_host, neigh_asn, dut_asn, eos_intf, eos_vrf=eos_vrf)
 
     yield {'dut_intf': dut_intf, 'intf_type': intf_type}
 
-    # Teardown
-    logger.info("Teardown [%s]: restoring BGP config", intf_type)
-    cleanup_eos_unnumbered(neigh_host, neigh_asn, dut_asn,
-                           eos_intf, dut_ipv4, dut_ipv6)
-    if intf_type == 'ethernet':
-        restore_lag_on_eos(neigh_host, neigh_intf)
-    duthost.shell("docker exec bgp supervisorctl start bgpcfgd",
-                  module_ignore_errors=True)
+    # Teardown — restore full EOS config from saved backup.
+    # This handles both BGP config and interface/Port-Channel restoration,
+    # which is critical for the ethernet variant that breaks the LAG.
+    logger.info("Teardown [%s]: restoring full EOS config from backup",
+                intf_type)
+    restore_eos_full_config(neigh_host, eos_config_backup)
     config_reload(duthost, wait=120)
     original_neighbors = [neigh_ipv4]
     if neigh_ipv6:
@@ -621,18 +914,17 @@ def configure_unnumbered_bgp(request, setup_info):
                       duthost.check_bgp_session_state,
                       original_neighbors):
         logger.error("BGP sessions did not re-establish after restore")
+    teardown_done.append(True)
 
 
 @pytest.mark.disable_loganalyzer
 def test_bgp_link_local(setup_info, configure_unnumbered_bgp):
-    """Test unnumbered BGP peering over PortChannel and Ethernet interfaces.
+    """Test unnumbered BGP peering via link-local addresses.
 
-    Parametrized via configure_unnumbered_bgp fixture:
-    - test_bgp_link_local[portchannel]: unnumbered BGP on LAG
-    - test_bgp_link_local[ethernet]: break LAG, unnumbered on plain Ethernet
-
-    Validates that SONiC can establish an unnumbered BGP session using
-    interface-based peering and receive routes over it.
+    Parametrized variants:
+    - [portchannel]: unnumbered BGP on LAG interface (full stack)
+    - [ethernet]: break LAG, unnumbered BGP on plain Ethernet (full stack)
+    - [portchannel-frrtest]: bgpcfgd stopped, isolates FRR regressions
     """
     duthost = setup_info['duthost']
     dut_intf = configure_unnumbered_bgp['dut_intf']

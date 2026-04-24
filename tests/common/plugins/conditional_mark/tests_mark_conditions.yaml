@@ -448,11 +448,16 @@ bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
 #     address for unnumbered BGP — session stays Idle with (unspec), FD=-1.
 #   - sonic-buildimage#26960: bgpcfgd reactively injects 'no capability link-local'
 #     for interface-based neighbors, overriding manual corrections.
-bgp/test_bgp_link_local.py::test_bgp_link_local:
+bgp/test_bgp_link_local.py::test_bgp_link_local[ethernet]:
   skip:
-    reason: "FRR 10.5.1 cannot resolve interface to link-local for unnumbered BGP (sonic-buildimage#26959); bgpcfgd also blocks link-local capability (sonic-buildimage#26960)"
+    reason: "bgpcfgd lacks unnumbered BGP support via CONFIG_DB (sonic-buildimage#26960)"
     conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/26959
+      - https://github.com/sonic-net/sonic-buildimage/issues/26960
+
+bgp/test_bgp_link_local.py::test_bgp_link_local[portchannel]:
+  skip:
+    reason: "bgpcfgd lacks unnumbered BGP support via CONFIG_DB (sonic-buildimage#26960)"
+    conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/26960
 
 bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
