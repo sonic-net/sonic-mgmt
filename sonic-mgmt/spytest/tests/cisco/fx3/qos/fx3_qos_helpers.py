@@ -40,6 +40,12 @@ Configuration Verification (individual, composable):
   Call individually to map to specific test cases, or use the combined:
   - verify_config_db_baseline()  : runs all 5 checks under a FX3 QoS banner
 
+DSCP-to-TC CONFIG_DB helpers (thin wrappers; no pass/fail logic):
+  - reload_qos()                 : run 'config qos reload' and wait
+  - get_dscp_to_tc_map()         : HGETALL DSCP_TO_TC_MAP|<name> → dict
+  - get_port_dscp_tc_map()       : HGET PORT_QOS_MAP|<intf> dscp_to_tc_map
+  - redis_keys()                 : CONFIG_DB KEYS <pattern> → list
+
 Display:
   - print_banner()               : prominent banner (=== >>> title <<< ===)
   - print_section()              : section header (=== title ===)
@@ -74,8 +80,11 @@ Usage:
       verify_wred_profile, verify_config_db_baseline,
       ensure_interfaces_admin_up, verify_queue_counters,
       validate_scheduler,
+      reload_qos, get_dscp_to_tc_map, get_port_dscp_tc_map, redis_keys,
       deploy_dchal_helper, dchal_show_queuing,
-      get_queue_counters, get_dut_mac, parse_dchal_queue_stats
+      get_queue_counters, get_dut_mac, parse_dchal_queue_stats,
+      tcam_ipv4_dscp_entries, tcam_ipv6_dscp_entries, tcam_ipv6_wide_halves,
+      tcam_build_dscp_to_qos_idx, tcam_ipv6_build_dscp_to_qos_idx,
   )
 """
 
@@ -508,6 +517,221 @@ def verify_port_qos_map(dut, port_info, fail_msgs):
                 "{} dscp_to_tc_map = '{}', expected AZURE".format(
                     intf, bound_map))
     return passed
+
+
+# ── DSCP-to-TC CONFIG_DB fetch helpers ────────────────────────────────────
+#
+# Thin wrappers around sonic-db-cli with no pass/fail logic.
+# Used by test_dscp_map_config.py and any future DSCP tests.
+# ──────────────────────────────────────────────────────────────────────────
+
+def reload_qos(dut, wait=5):
+    """Run 'config qos reload' and wait *wait* seconds for CONFIG_DB to settle."""
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(wait)
+
+
+def get_dscp_to_tc_map(dut, map_name='AZURE'):
+    """Return DSCP_TO_TC_MAP|<map_name> from CONFIG_DB as a {str: str} dict.
+
+    Returns {} if the key does not exist.  Delegates to parse_redis_hgetall
+    for output normalisation (supports both dict-literal and numbered-line
+    formats emitted by different sonic-db-cli versions).
+    """
+    output = st.show(
+        dut,
+        'sonic-db-cli CONFIG_DB HGETALL "DSCP_TO_TC_MAP|{}"'.format(map_name),
+        skip_tmpl=True)
+    return parse_redis_hgetall(output)
+
+
+def get_port_dscp_tc_map(dut, intf):
+    """Return the dscp_to_tc_map field of PORT_QOS_MAP|<intf> from CONFIG_DB.
+
+    Returns '' (empty string) when the field is not set.
+    """
+    output = st.show(
+        dut,
+        'sonic-db-cli CONFIG_DB HGET "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(
+            intf),
+        skip_tmpl=True)
+    return parse_redis_hget(output)
+
+
+def redis_keys(dut, pattern):
+    """Return a list of CONFIG_DB keys matching *pattern* (glob-style).
+
+    Filters shell-prompt lines (contain '@' and end with '$').
+    Returns [] when no keys match.
+    """
+    output = st.show(
+        dut,
+        'sonic-db-cli CONFIG_DB KEYS "{}"'.format(pattern),
+        skip_tmpl=True)
+    result = []
+    for raw in (output or '').splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.endswith('$') and '@' in line:  # shell prompt
+            continue
+        result.append(line)
+    return result
+
+
+def asic_qos_map_types(dut):
+    """Return a list of SAI_QOS_MAP_ATTR_TYPE strings for every
+    ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP entry in ASIC_DB.
+
+    Example return: ['SAI_QOS_MAP_TYPE_DSCP_TO_TC']
+    """
+    keys_out = st.show(
+        dut,
+        'sonic-db-cli ASIC_DB KEYS "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:*"',
+        skip_tmpl=True)
+    types = []
+    for raw in (keys_out or '').splitlines():
+        key = raw.strip()
+        if not key or (key.endswith('$') and '@' in key):
+            continue
+        type_out = st.show(
+            dut,
+            'sonic-db-cli ASIC_DB HGET "{}" "SAI_QOS_MAP_ATTR_TYPE"'.format(key),
+            skip_tmpl=True)
+        for t in (type_out or '').splitlines():
+            t = t.strip()
+            if not t or (t.endswith('$') and '@' in t):
+                continue
+            types.append(t)
+    return types
+
+
+def asic_qos_map_oid(dut, map_type='SAI_QOS_MAP_TYPE_DSCP_TO_TC'):
+    """Return the ASIC_DB key for the first QoS map with the given type.
+
+    Equivalent to the OID returned by SAI sai_create_qos_map().
+    Returns the full key string e.g.
+    'ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:oid:0x14000000000663'
+    or None if no matching map is found.
+    """
+    keys_out = st.show(
+        dut,
+        'sonic-db-cli ASIC_DB KEYS "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:*"',
+        skip_tmpl=True)
+    for raw in (keys_out or '').splitlines():
+        key = raw.strip()
+        if not key or (key.endswith('$') and '@' in key):
+            continue
+        type_out = st.show(
+            dut,
+            'sonic-db-cli ASIC_DB HGET "{}" "SAI_QOS_MAP_ATTR_TYPE"'.format(key),
+            skip_tmpl=True)
+        for t in (type_out or '').splitlines():
+            t = t.strip()
+            if t == map_type:
+                return key
+    return None
+
+
+def asic_dscp_to_tc_map(dut):
+    """Read SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST from ASIC_DB and return
+    a {dscp_int: tc_int} dict.
+
+    ASIC_DB stores the list as a JSON string:
+      {"count": 64, "list": [{"key": {"dscp": N, ...}, "value": {"tc": M, ...}}, ...]}
+
+    Equivalent to SAI _readback_dscp_to_tc_map() which does:
+      raw = sai_get(oid, SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST)
+      return {entry[0][1]: entry[1][0] for entry in raw}
+
+    Returns {} if the map OID is not found or the JSON cannot be parsed.
+    """
+    # Collect all DSCP_TO_TC OIDs and pick the one with the most entries.
+    # This handles the case where a transient custom map OID (e.g. CUSTOM_3 with 3
+    # entries) coexists with the global AZURE OID (64 entries) in ASIC_DB during
+    # a rebind operation — we always want the "full" map.
+    keys_out = st.show(
+        dut,
+        'sonic-db-cli ASIC_DB KEYS "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:*"',
+        skip_tmpl=True)
+    candidate_maps = {}
+    for raw in (keys_out or '').splitlines():
+        key = raw.strip()
+        if not key or (key.endswith('$') and '@' in key):
+            continue
+        type_out = st.show(
+            dut,
+            'sonic-db-cli ASIC_DB HGET "{}" "SAI_QOS_MAP_ATTR_TYPE"'.format(key),
+            skip_tmpl=True)
+        for t in (type_out or '').splitlines():
+            t = t.strip()
+            if t != 'SAI_QOS_MAP_TYPE_DSCP_TO_TC':
+                continue
+            raw_out = st.show(
+                dut,
+                'sonic-db-cli ASIC_DB HGET "{}" "SAI_QOS_MAP_ATTR_MAP_TO_VALUE_LIST"'.format(
+                    key),
+                skip_tmpl=True)
+            val_str = None
+            for line in (raw_out or '').splitlines():
+                line = line.strip()
+                if not line or (line.endswith('$') and '@' in line):
+                    continue
+                val_str = line
+                break
+            if not val_str:
+                continue
+            try:
+                data = json.loads(val_str)
+                entries = {entry['key']['dscp']: entry['value']['tc']
+                           for entry in data.get('list', [])}
+                candidate_maps[key] = entries
+            except (ValueError, KeyError):
+                pass
+    if not candidate_maps:
+        return {}
+    # Return the map with the greatest number of entries (the "full" AZURE map)
+    best_key = max(candidate_maps, key=lambda k: len(candidate_maps[k]))
+    return candidate_maps[best_key]
+
+
+def asic_port_oid(dut, intf):
+    """Return the SAI port OID for *intf* using COUNTERS_PORT_NAME_MAP.
+
+    Returns an OID string like 'oid:0x100000000002d', or None if not found.
+    Uses COUNTERS_DB which maps interface name → OID directly (single command).
+    """
+    raw = st.show(
+        dut,
+        'sonic-db-cli COUNTERS_DB HGET "COUNTERS_PORT_NAME_MAP" "{}"'.format(intf),
+        skip_tmpl=True)
+    for line in (raw or '').splitlines():
+        line = line.strip()
+        if line and not (line.endswith('$') and '@' in line):
+            return line
+    return None
+
+
+def asic_port_dscp_tc_map_oid(dut, intf):
+    """Return SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP OID for *intf* from ASIC_DB.
+
+    Returns a string like 'oid:0x14000000000663' when a map is bound,
+    or 'oid:0x0' when no per-port binding is active (FX3 default: global map).
+    Returns None if the port OID cannot be resolved.
+    """
+    port_oid = asic_port_oid(dut, intf)
+    if port_oid is None:
+        return None
+    raw = st.show(
+        dut,
+        'sonic-db-cli ASIC_DB HGET "ASIC_STATE:SAI_OBJECT_TYPE_PORT:{}" '
+        '"SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP"'.format(port_oid),
+        skip_tmpl=True)
+    for line in (raw or '').splitlines():
+        line = line.strip()
+        if line and not (line.endswith('$') and '@' in line):
+            return line
+    return None
 
 
 def verify_scheduler_profiles(dut, fail_msgs, baseline=None,
@@ -1000,6 +1224,126 @@ except Exception as e:
 """
 
 
+# ── DCHAL TCAM script ────────────────────────────────────────────────────────
+#
+# Deployed as /tmp/dchal_tcam.py inside syncd.  Uses the dchalshell binary
+# directly via subprocess pipe — the same technique used by
+# dump_qos_tcam_tables.sh — because acl.py (the gRPC-based command module)
+# requires acl_pb2 which is in generated/ and not on the default PYTHONPATH.
+#
+# Two modes (argv[1]):
+#   info <region>               — query region summary (Used / Start)
+#                                 prints: TCAM_INFO_JSON:{region, used, start_idx}
+#   dump <start_idx> <count>    — dump N entries from start_idx
+#                                 prints: TCAM_DUMP_JSON:[{hw_index, proto,
+#                                           dscp, qos_map_idx, stats_pkts}, ...]
+#
+# Both IPv4 and IPv6 entries expose  'dscp : 0xN/0x3f'  as a key field.
+# IPv4 entries: proto=='ipv4', dscp==int (0-63), 1 slot per DSCP.
+# IPv6 entries: proto=='ipv6', dscp==int (0-63), 2 slots per DSCP —
+#   the first (active) slot has qos_map_idx set; the second (NOP) slot
+#   has qos_map_idx=None but still carries its own dscp value.
+# Use tcam_ipv4_dscp_entries() / tcam_ipv6_dscp_entries() to filter.
+DCHAL_TCAM_SCRIPT = """\
+import json, re, subprocess, sys
+
+_DCHALSHELL_DIR = '/usr/share/sonic/dchalshell'
+_DCHALSHELL_BIN = './dchalshell'
+
+
+def _dchal(cmd, timeout=30):
+    proc = subprocess.Popen(
+        [_DCHALSHELL_BIN],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        cwd=_DCHALSHELL_DIR,
+    )
+    out, _ = proc.communicate((cmd + chr(10) + 'quit' + chr(10)).encode(), timeout=timeout)
+    return out.decode('utf-8', errors='replace')
+
+
+def _mode_info(region):
+    out = _dchal('acl show tcam-info ingress region {}'.format(region))
+    used = -1
+    start = -1
+    for line in out.splitlines():
+        m = re.search(r'Start:\\s*(\\d+)', line)
+        if m:
+            start = int(m.group(1))
+        m = re.search(r'Used:\\s*(\\d+)', line)
+        if m:
+            used = int(m.group(1))
+    print('TCAM_INFO_JSON:' + json.dumps({'region': region, 'used': used, 'start_idx': start}))
+
+
+def _mode_dump(start_idx, count):
+    out = _dchal('acl show tcam inst 0 ingress start-idx {} count {}'.format(start_idx, count))
+    entries = []
+    cur = None
+    in_ipv4 = False
+    in_ipv6 = False
+    for line in out.splitlines():
+        if 'hw_index[' in line:
+            if cur is not None:
+                entries.append(cur)
+            m = re.search(r'hw_index\\[(\\d+)\\]', line)
+            hw_idx = int(m.group(1)) if m else -1
+            wide = 'wide_key[1]' in line
+            cur = {
+                'hw_index': hw_idx,
+                'wide_half': wide,
+                'proto': None,
+                'dscp': None,
+                'qos_map_idx': None,
+                'stats_pkts': 0,
+            }
+            in_ipv4 = False
+            in_ipv6 = False
+        elif cur is not None:
+            if 'IPV4 FIELDS' in line:
+                in_ipv4 = True
+                in_ipv6 = False
+                cur['proto'] = 'ipv4'
+            elif 'IPV6 FIELDS' in line:
+                in_ipv6 = True
+                in_ipv4 = False
+                cur['proto'] = 'ipv6'
+            elif 'RESULT FIELDS' in line or 'ACL Stats' in line or 'key/mask values' in line:
+                in_ipv4 = False
+                in_ipv6 = False
+            m = re.match(r'\\s+dscp\\s*:\\s*(0x[0-9a-fA-F]+)/', line)
+            if m:
+                cur['dscp'] = int(m.group(1), 16)
+            m = re.match(r'\\s+qos_map_idx\\s*:\\s*(0x[0-9a-fA-F]+)', line)
+            if m:
+                cur['qos_map_idx'] = int(m.group(1), 16)
+            m = re.match(r'\\s+pkts:\\s*(\\d+)', line)
+            if m:
+                cur['stats_pkts'] = int(m.group(1))
+    if cur is not None:
+        entries.append(cur)
+    print('TCAM_DUMP_JSON:' + json.dumps(entries))
+
+
+if len(sys.argv) < 2:
+    print('TCAM_ERROR: usage: dchal_tcam.py info <region> | dump <start_idx> <count>')
+    sys.exit(0)
+
+mode = sys.argv[1]
+try:
+    if mode == 'info':
+        region = sys.argv[2] if len(sys.argv) > 2 else 'ing-l3-vlan-qos'
+        _mode_info(region)
+    elif mode == 'dump':
+        sidx = int(sys.argv[2]) if len(sys.argv) > 2 else 1792
+        cnt  = int(sys.argv[3]) if len(sys.argv) > 3 else 256
+        _mode_dump(sidx, cnt)
+    else:
+        print('TCAM_ERROR: unknown mode {}'.format(mode))
+except Exception as e:
+    print('TCAM_ERROR: {}'.format(e))
+"""
+
+
 def deploy_dchal_helper(dut):
     """Deploy DCHAL scripts into /tmp/ inside the syncd container.
 
@@ -1054,6 +1398,190 @@ def dchal_show_queuing(dut, label, interface):
         skip_tmpl=True, skip_error_check=True) or ''
     st.log(out)
     return out
+
+
+def _parse_tcam_dump_output(out):
+    """Parse dchalshell 'acl show tcam inst ...' text output into entry dicts."""
+    import re as _re
+    entries = []
+    cur = None
+    in_ipv4 = False
+    in_ipv6 = False
+    for line in out.splitlines():
+        if 'hw_index[' in line:
+            if cur is not None:
+                entries.append(cur)
+            m = _re.search(r'hw_index\[(\d+)\]', line)
+            hw_idx = int(m.group(1)) if m else -1
+            wide = 'wide_key[1]' in line
+            cur = {
+                'hw_index': hw_idx,
+                'wide_half': wide,
+                'proto': None,
+                'dscp': None,
+                'qos_map_idx': None,
+                'stats_pkts': 0,
+            }
+            in_ipv4 = False
+            in_ipv6 = False
+        elif cur is not None:
+            if 'IPV4 FIELDS' in line:
+                in_ipv4 = True
+                in_ipv6 = False
+                cur['proto'] = 'ipv4'
+            elif 'IPV6 FIELDS' in line:
+                in_ipv6 = True
+                in_ipv4 = False
+                cur['proto'] = 'ipv6'
+            elif 'RESULT FIELDS' in line or 'ACL Stats' in line or 'key/mask values' in line:
+                in_ipv4 = False
+                in_ipv6 = False
+            m = _re.match(r'\s+dscp\s*:\s*(0x[0-9a-fA-F]+)/', line)
+            if m:
+                cur['dscp'] = int(m.group(1), 16)
+            m = _re.match(r'\s+qos_map_idx\s*:\s*(0x[0-9a-fA-F]+)', line)
+            if m:
+                cur['qos_map_idx'] = int(m.group(1), 16)
+            m = _re.match(r'\s+pkts:\s*(\d+)', line)
+            if m:
+                cur['stats_pkts'] = int(m.group(1))
+    if cur is not None:
+        entries.append(cur)
+    return entries
+
+
+def _parse_tcam_info_output(out, region):
+    """Parse dchalshell 'acl show tcam-info' text output into info dict.
+
+    Two output shapes are handled:
+      - Region allocated:   a line containing 'Start: NNN  Total: NNN  Used: NNN'
+      - Region not created: a line containing 'created: 0'
+        In this case Used is unambiguously 0 (no TCAM entries allocated),
+        and region_created is set to False so callers can detect the transient
+        'region not yet allocated' state and retry if they expect non-zero.
+    """
+    import re as _re
+    used = -1
+    start = -1
+    region_created = True   # assume created unless we see 'created: 0'
+    for line in out.splitlines():
+        # Region allocated — 'Start: 1792 Total: 512  Used: 192'
+        m = _re.search(r'Start:\s*(\d+)', line)
+        if m:
+            start = int(m.group(1))
+        m = _re.search(r'Used:\s*(\d+)', line)
+        if m:
+            used = int(m.group(1))
+        # Region not yet created — dchalshell emits 'created: 0' with no Used line.
+        # Treat this as 0 entries (not a parse error).
+        m = _re.search(r'\bcreated:\s*0\b', line)
+        if m:
+            region_created = False
+            if used == -1:
+                used = 0
+    return {'region': region, 'used': used, 'start_idx': start,
+            'region_created': region_created}
+
+
+# How long to wait between retries when syncd's gRPC server is not yet ready
+# after a swss/syncd restart.  Each attempt costs _DCHAL_RETRY_WAIT seconds.
+_DCHAL_RETRY_WAIT = 10
+_DCHAL_RETRY_MAX  = 9   # up to ~90 s total
+
+
+def dchal_tcam_info(dut, region="ing-l3-vlan-qos", min_used=None):
+    """Query TCAM region summary (Used / Start) by piping directly to dchalshell.
+
+    Args:
+        min_used: When set to an int > 0, retry until used >= min_used or until
+                  _DCHAL_RETRY_MAX attempts are exhausted.  Use this after a
+                  'config qos reload' where the TCAM region may take a moment
+                  to be re-allocated (dchalshell returns 'created: 0' while
+                  orchagent is still programming the region).
+
+    Returns a dict::
+
+        {'region': str, 'used': int, 'start_idx': int, 'region_created': bool}
+
+    Returns {'used': -1, ...} only on a genuine parse failure that is not a
+    transient gRPC-unavailable or region-not-yet-created condition.
+    """
+    cmd = ("sudo docker exec syncd sh -c "
+           "'printf \"acl show tcam-info ingress region {r}\\nquit\\n\" "
+           "| (cd /usr/share/sonic/dchalshell && ./dchalshell)'".format(r=region))
+
+    _GRPC_NOT_READY = ("Connection refused", "Server connection not opened",
+                       "StatusCode.UNAVAILABLE", "UNKNOWN: ipv4:")
+
+    result = {'region': region, 'used': -1, 'start_idx': -1, 'region_created': True}
+    for attempt in range(_DCHAL_RETRY_MAX):
+        out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True) or ''
+        result = _parse_tcam_info_output(out, region)
+
+        # gRPC not ready — syncd still restarting.
+        if result['used'] == -1 and any(sig in out for sig in _GRPC_NOT_READY):
+            if attempt < _DCHAL_RETRY_MAX - 1:
+                st.log(
+                    "WARN: dchal_tcam_info: syncd gRPC not ready "
+                    "(attempt {}/{}); retrying in {} s...".format(
+                        attempt + 1, _DCHAL_RETRY_MAX, _DCHAL_RETRY_WAIT))
+                st.wait(_DCHAL_RETRY_WAIT)
+                continue
+            st.log("WARN: dchal_tcam_info: gRPC still unavailable after {} attempts.".format(
+                _DCHAL_RETRY_MAX))
+            break
+
+        # Region not yet created after reload — wait for orchagent to allocate.
+        if (min_used is not None and min_used > 0
+                and result['used'] < min_used
+                and not result.get('region_created', True)):
+            if attempt < _DCHAL_RETRY_MAX - 1:
+                st.log(
+                    "WARN: dchal_tcam_info: region not yet created "
+                    "(used={}, want>={}) (attempt {}/{}); retrying in {} s...".format(
+                        result['used'], min_used,
+                        attempt + 1, _DCHAL_RETRY_MAX, _DCHAL_RETRY_WAIT))
+                st.wait(_DCHAL_RETRY_WAIT)
+                continue
+            break
+
+        # Generic parse failure (no specific transient signal).
+        if result['used'] == -1:
+            st.log("WARN: dchal_tcam_info: could not parse Used/Start from:\n{}".format(
+                out[:400]))
+            break
+
+        # Success (or min_used satisfied).
+        return result
+    return result
+
+
+def dchal_tcam_dump(dut, start_idx=1792, count=256):
+    """Dump TCAM entries by piping directly to dchalshell inside syncd.
+
+    Returns a list of entry dicts::
+
+        [{'hw_index': int,
+          'wide_half': bool,     # True = upper half of an IPv6 wide-key entry
+          'proto': 'ipv4'|'ipv6'|None,
+          'dscp': int|None,      # int 0-63 for IPv4 and IPv6 entries
+          'qos_map_idx': int|None,
+          'stats_pkts': int}, ...]
+
+    Returns [] on any failure.
+    """
+    import json as _json
+    cmd = ("sudo docker exec syncd sh -c "
+           "'printf \"acl show tcam inst 0 ingress start-idx {s} count {c}\\nquit\\n\" "
+           "| (cd /usr/share/sonic/dchalshell && ./dchalshell)'".format(
+               s=start_idx, c=count))
+    out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True) or ''
+    entries = _parse_tcam_dump_output(out)
+    if not entries:
+        st.log("WARN: dchal_tcam_dump: no entries parsed from output:\n{}".format(out[:300]))
+    else:
+        st.log("TCAM_DUMP_JSON:" + _json.dumps(entries))
+    return entries
 
 
 DCHAL_PEAK_SCRIPT = """\
@@ -4606,13 +5134,12 @@ def _setup_l3_breakout(dut, dut2, port_info, dut2_port_info,
 
 
 def _teardown_l3_breakout(dut, dut2, port_info, dut2_port_info):
-    """Remove L3 config and static routes.
+    """Remove L3 config/static routes and revert sub-ports back to 1x100G.
 
-    Port breakout is intentionally **not** reverted here because the
-    reverse breakout (4x25G -> 1x100G) triggers the same SAI port-deletion
-    bug that prevents orchagent from removing sub-ports from ASIC_DB.
-    The DUTs are left in breakout state; a reboot with the original
-    config_db.json is required to fully restore 1x100G.
+    We own the full breakout lifecycle ourselves (Spytest is hands-off via
+    ``--breakout-mode none``): setup_topo applied 4x25G at module init, and
+    this teardown restores the parent ports to 1x100G via native DPB so the
+    DUTs are left in a clean default port map.
     """
     st.log("setup_topo: teardown [breakout] — removing L3 + routes")
     egress_sub = port_info['egress']
@@ -4650,10 +5177,17 @@ def _teardown_l3_breakout(dut, dut2, port_info, dut2_port_info):
     )
     st.config(dut2, d2_cleanup, skip_error_check=True)
 
-    st.banner("WARNING: DUTs are still in 4x25G breakout. Reverse breakout "
-              "is skipped due to a SAI port-deletion bug. A reboot with the "
-              "original config_db.json is required before running tests that "
-              "expect the default 1x100G port map.")
+    st.log("setup_topo: teardown [breakout] — reverting sub-ports to 1x100G")
+    for _dut, _label in [(dut, 'dut1'), (dut2, 'dut2')]:
+        blist = st.get_breakout(_dut)
+        for port, _bmode in (blist or []):
+            st.log("teardown [breakout]: restoring {} port {} to 1x100G"
+                   .format(_label, port))
+            st.config(_dut,
+                      'config interface breakout {} "1x100G" -yfl'.format(
+                          port),
+                      skip_error_check=True)
+    st.wait(5)
     st.log("setup_topo: teardown [breakout] complete")
 
 
@@ -5161,3 +5695,45 @@ def verify_egress_reachable(dut_handle, tg, tg_ph, af):
 
     dump_l3_diag(dut_handle, target)
     return False
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# TCAM dump utilities
+# ──────────────────────────────────────────────────────────────────────────────
+
+def tcam_ipv4_dscp_entries(dump):
+    """Return IPv4 entries that have a resolved integer DSCP key field."""
+    return [e for e in dump if e.get('proto') == 'ipv4' and e.get('dscp') is not None]
+
+
+def tcam_build_dscp_to_qos_idx(dump):
+    """Return {int_dscp: int_qos_map_idx} for all IPv4 DSCP entries in *dump*."""
+    return {e['dscp']: e['qos_map_idx'] for e in tcam_ipv4_dscp_entries(dump)}
+
+
+def tcam_ipv6_build_dscp_to_qos_idx(dump):
+    """Return {int_dscp: int_qos_map_idx} for IPv6 active wide-key entries in *dump*."""
+    return {e['dscp']: e['qos_map_idx'] for e in tcam_ipv6_dscp_entries(dump)
+            if e.get('dscp') is not None}
+
+
+def tcam_ipv6_dscp_entries(dump):
+    """Return IPv6 wide-key active entries (one per DSCP, qos_map_idx set).
+
+    Each DSCP value produces one IPv6 wide-key TCAM pair occupying 2 consecutive
+    slots.  Both slots appear in the dump with proto='ipv6', wide_half=True, and
+    a parsed dscp value.  The first slot carries qos_map_idx (action); the second
+    is a NOP placeholder (qos_map_idx=None).  This function returns the 64 active halves.
+    """
+    return [e for e in dump if e.get('proto') == 'ipv6' and e.get('qos_map_idx') is not None]
+
+
+def tcam_ipv6_wide_halves(dump):
+    """Return IPv6 NOP wide-key halves (second slot of each pair, qos_map_idx=None).
+
+    Each NOP half still has a parsed dscp value (same as its active partner).
+    After 'config qos reload' there should be exactly 64 such entries,
+    one per DSCP value, located at hw_index = active_half_hw_index + 1.
+    """
+    return [e for e in dump if e.get('proto') == 'ipv6' and e.get('qos_map_idx') is None]
+
