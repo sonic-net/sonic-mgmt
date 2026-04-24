@@ -141,8 +141,8 @@ class TestPerInterfaceProfile():
         finally:
             # Replace profile on port back to the original, and clean up the test profile
             orig_port_profile = port_profiles[target_port]
-            replace_macsec_port(duthost, target_port, orig_port_profile, tbinfo)
-            replace_macsec_port(target_nbr["host"], target_nbr["port"], orig_port_profile, tbinfo)
+            replace_macsec_port(duthost, target_port, orig_port_profile)
+            replace_macsec_port(target_nbr["host"], target_nbr["port"], orig_port_profile)
             delete_macsec_profile(duthost, target_port, new_profile["name"])
             delete_macsec_profile(target_nbr["host"], target_nbr["port"], new_profile["name"])
 
