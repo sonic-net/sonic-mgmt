@@ -1,7 +1,6 @@
 import pytest
 import logging
 import json
-import time
 
 from tests.common.utilities import wait_until, file_exists_on_dut
 from tests.common.helpers.assertions import pytest_assert as py_assert
@@ -153,6 +152,10 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
               "All critical services should be fully started!")
 
 
+def check_container_not_running(duthost, container_name):
+    return not is_container_running(duthost, container_name)
+
+
 def validate_is_v1_enabled(duthost, sidecar_container_name):
     """
     If sidecar container of existing service has IS_V1_ENABLED=false,
@@ -162,9 +165,8 @@ def validate_is_v1_enabled(duthost, sidecar_container_name):
     cmd = "docker exec %s env | grep IS_V1_ENABLED" % sidecar_container_name
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     if "IS_V1_ENABLED=false" in output:
-        time.sleep(5)
-        if is_container_running(duthost, container_name):
-            py_assert(False, f"{container_name} container should not be running")
+        py_assert(wait_until(30, 5, 5, check_container_not_running, duthost, container_name),
+                  f"{container_name} container should not be running")
 
 
 def pull_run_dockers(duthost, creds, env):
@@ -183,9 +185,15 @@ def pull_run_dockers(duthost, creds, env):
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
         duthost.shell(f"docker tag {docker_image} {container}:latest")
-        if name in existing_systemd_services and "IS_V1_ENABLED=true" in optional_parameters:
-            migrate_container_systemd(duthost, name, parameters)
-            continue
+        if "IS_V1_ENABLED=true" in optional_parameters \
+            and "watchdog" not in name and "sidecar" not in name:
+            # For k8s containers, derive the V1 service name
+            # via substring match against existing_systemd_services
+            v1_service = next((svc for svc in existing_systemd_services if svc in name), None)
+            if v1_service:
+                # Migrate V1 systemd service instead of docker-running k8s container
+                migrate_container_systemd(duthost, v1_service, parameters)
+                continue
         else:
             if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
                              module_ignore_errors=True)['rc'] != 0:
