@@ -186,7 +186,7 @@ def pull_run_dockers(duthost, creds, env):
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
         duthost.shell(f"docker tag {docker_image} {container}:latest")
         if "IS_V1_ENABLED=true" in optional_parameters \
-            and "watchdog" not in name and "sidecar" not in name:
+                and "watchdog" not in name and "sidecar" not in name:
             # For k8s containers, derive the V1 service name
             # via substring match against existing_systemd_services
             v1_service = next((svc for svc in existing_systemd_services if svc in name), None)
