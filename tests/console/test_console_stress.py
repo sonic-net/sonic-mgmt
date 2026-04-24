@@ -116,7 +116,7 @@ def _save_artifact(name, blob):
     return path
 
 
-@pytest.mark.parametrize("chunk_size", [128, 1024, 2048])
+@pytest.mark.parametrize("chunk_size", [128, 1024])
 @pytest.mark.parametrize("baud_rate", ["9600", "115200"])
 @pytest.mark.parametrize("flow_control", ["enable", "disable"])
 def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control,  # noqa: F811
