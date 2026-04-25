@@ -401,6 +401,34 @@ def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn,
     return eos_peer_group
 
 
+def _cleanup_eos_sessions(neigh_host):
+    """Abort any stale EOS config sessions to free the session pool.
+
+    cEOS has a limited pool (~6 pending sessions). Prior test runs that
+    errored out may leave uncommitted sessions that block new eos_config
+    calls with 'Maximum number of pending sessions reached'.
+    """
+    try:
+        sessions_out = neigh_host.eos_command(
+            commands=["show configuration sessions"])
+        sessions_text = sessions_out['stdout'][0] if isinstance(
+            sessions_out['stdout'], list) else sessions_out['stdout']
+        logger.info("EOS config sessions:\n%s", sessions_text)
+        if isinstance(sessions_text, str):
+            for line in sessions_text.split('\n'):
+                parts = line.split()
+                if parts and parts[0] not in ['Name', '----', '']:
+                    sess_name = parts[0]
+                    logger.info("Aborting stale EOS session: %s",
+                                sess_name)
+                    neigh_host.eos_command(
+                        commands=["configure session {}".format(
+                            sess_name), "abort"])
+    except Exception as e:
+        # Non-fatal: session cleanup is best-effort
+        logger.warning("Could not clean EOS config sessions: %s", e)
+
+
 @pytest.fixture(scope='function',
                 params=['portchannel', 'ethernet',
                         'portchannel-frrtest'],
@@ -446,6 +474,8 @@ def configure_unnumbered_bgp(request, setup_info):
 
     # --- Teardown (registered first via addfinalizer) ---
     def _full_cleanup():
+        # Clean up stale EOS config sessions before restoring
+        _cleanup_eos_sessions(neigh_host)
         if eos_config_backup:
             restore_eos_full_config(neigh_host, eos_config_backup)
         if stop_bgpcfgd:
@@ -468,31 +498,8 @@ def configure_unnumbered_bgp(request, setup_info):
 
     # --- Setup ---
 
-    # Clear any stale EOS config sessions before starting.
-    # cEOS has a limited session pool (~6) and prior test runs may leave
-    # uncommitted sessions that block new eos_config calls with
-    # "Maximum number of pending sessions reached".
-    try:
-        sessions_out = neigh_host.eos_command(
-            commands=["show configuration sessions"])
-        sessions_text = sessions_out['stdout'][0] if isinstance(
-            sessions_out['stdout'], list) else sessions_out['stdout']
-        logger.info("EOS config sessions before cleanup:\n%s",
-                    sessions_text)
-        # Abort any pending sessions (session names vary)
-        if isinstance(sessions_text, str):
-            for line in sessions_text.split('\n'):
-                parts = line.split()
-                if parts and parts[0] not in ['Name', '----', '']:
-                    sess_name = parts[0]
-                    logger.info("Aborting stale EOS session: %s",
-                                sess_name)
-                    neigh_host.eos_command(
-                        commands=["configure session {}".format(
-                            sess_name), "abort"])
-    except Exception as e:
-        # Non-fatal: session cleanup is best-effort
-        logger.warning("Could not clean EOS config sessions: %s", e)
+    # Clear stale EOS config sessions before starting
+    _cleanup_eos_sessions(neigh_host)
 
     # Save EOS running-config for reliable teardown via configure replace
     eos_config_backup = save_eos_running_config(neigh_host)
