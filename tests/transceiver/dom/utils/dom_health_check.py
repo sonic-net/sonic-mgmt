@@ -132,6 +132,68 @@ def _parse_supervisor_uptime_seconds(output):
     return days * 86400 + hours * 3600 + minutes * 60 + seconds
 
 
+def _parse_supervisor_status_state(output):
+    """Parse the supervisorctl state token from status output.
+
+    Args:
+        output: Raw ``supervisorctl status`` output.
+
+    Returns:
+        str: Uppercase process state, or an empty string when parsing fails.
+    """
+    lines = [line.strip() for line in str(output).splitlines() if line.strip()]
+    if not lines:
+        return ""
+
+    parts = lines[0].split()
+    if len(parts) < 2:
+        return ""
+    return parts[1].upper()
+
+
+def _parse_sfputil_presence_state(output, port):
+    """Parse the sfputil single-port presence state from command output.
+
+    Args:
+        output: Raw ``sfputil show presence -p <port>`` output.
+        port: Interface name expected in the output.
+
+    Returns:
+        bool | None: ``True`` when present, ``False`` when explicitly not present,
+        otherwise ``None`` when no exact state can be parsed.
+    """
+    lines = [line.strip() for line in str(output).splitlines() if line.strip()]
+    if not lines:
+        return None
+
+    port_lower = str(port).strip().lower()
+    for line in lines:
+        normalized = " ".join(line.split())
+        lowered = normalized.lower()
+
+        if ":" in normalized:
+            name, status = normalized.split(":", 1)
+            if name.strip().lower() != port_lower:
+                continue
+            status = status.strip().lower()
+            if status == "present":
+                return True
+            if status == "not present":
+                return False
+
+        tokens = normalized.split()
+        if not tokens or tokens[0].lower() != port_lower:
+            continue
+
+        tail = " ".join(tokens[1:]).lower()
+        if tail == "present":
+            return True
+        if tail == "not present":
+            return False
+
+    return None
+
+
 def _line_count(duthost, path):
     """Return the line count for a DUT file, or None when unavailable.
 
@@ -176,11 +238,12 @@ def get_xcvrd_status(duthost):
     """
     result = _run_command(duthost, "docker exec pmon supervisorctl status xcvrd")
     stdout = result.get("stdout", "")
+    state = _parse_supervisor_status_state(stdout)
     return {
         "rc": result.get("rc", 1),
         "stdout": stdout,
         "stdout_lines": _stdout_lines(result),
-        "running": result.get("rc", 1) == 0 and "RUNNING" in stdout,
+        "running": result.get("rc", 1) == 0 and state == "RUNNING",
         "uptime_sec": _parse_supervisor_uptime_seconds(stdout),
     }
 
@@ -430,12 +493,11 @@ def get_transceiver_presence(duthost, port):
     """
     result = _run_command(duthost, "sudo sfputil show presence -p {}".format(port))
     stdout = result.get("stdout", "")
-    lowered = stdout.lower()
-    present = result.get("rc", 1) == 0 and "present" in lowered and "not present" not in lowered
+    present_state = _parse_sfputil_presence_state(stdout, port)
     return {
         "rc": result.get("rc", 1),
         "stdout": stdout,
-        "present": present,
+        "present": result.get("rc", 1) == 0 and present_state is True,
     }
 
 
@@ -526,7 +588,7 @@ def validate_lldp_neighbors(duthost, ports):
     details = {
         "enabled": is_lldp_enabled(duthost),
         "missing_ports": [],
-        "stdout": "",
+        "observed_ports": [],
     }
     if not details["enabled"]:
         return {
@@ -534,17 +596,23 @@ def validate_lldp_neighbors(duthost, ports):
             "details": details,
         }
 
-    result = _run_command(duthost, "show lldp table", use_shell=True)
-    stdout = result.get("stdout", "")
-    details["stdout"] = stdout
-    if result.get("rc", 1) != 0:
+    try:
+        lldp_table = duthost.show_and_parse("show lldp table") or []
+    except Exception as exc:
         return {
-            "errors": ["LLDP is enabled but show lldp table failed: {}".format(stdout)],
+            "errors": ["LLDP is enabled but show lldp table failed: {}".format(exc)],
             "details": details,
         }
 
+    observed_ports = {
+        str(entry.get("localport", "")).strip()
+        for entry in lldp_table
+        if entry.get("localport")
+    }
+    details["observed_ports"] = sorted(observed_ports)
+
     for port in ports:
-        if port not in stdout:
+        if port not in observed_ports:
             details["missing_ports"].append(port)
 
     errors = []
@@ -609,22 +677,52 @@ def validate_transceiver_baseline(duthost, ports, check_lldp=True):
     }
 
 
-def get_dom_polling_state(duthost, port):
+def get_dom_polling_state(duthost, port, namespace=None):
     """Return CONFIG_DB DOM polling state for one port.
 
     Args:
         duthost: DUT host fixture used to query CONFIG_DB.
         port: Interface name whose DOM polling state should be checked.
+        namespace: Optional ASIC namespace to query before generic lookup.
 
     Returns:
-        dict: Command status, raw config value, and normalized enabled state.
+        dict: Command status, raw config value, normalized enabled state,
+        and the namespace that returned the value when applicable.
     """
-    result = _run_command(duthost, 'sonic-db-cli CONFIG_DB HGET "PORT|{}" "dom_polling"'.format(port))
-    raw = result.get("stdout", "").strip()
+    commands = []
+
+    if namespace:
+        commands.append((
+            namespace,
+            'sonic-db-cli -n {} CONFIG_DB HGET "PORT|{}" "dom_polling"'.format(namespace, port),
+        ))
+    elif getattr(duthost, "is_multi_asic", False):
+        for asic in getattr(duthost, "frontend_asics", []):
+            commands.append((
+                asic.namespace,
+                'sonic-db-cli -n {} CONFIG_DB HGET "PORT|{}" "dom_polling"'.format(asic.namespace, port),
+            ))
+
+    commands.append((None, 'sonic-db-cli CONFIG_DB HGET "PORT|{}" "dom_polling"'.format(port)))
+
+    result = {"rc": 1, "stdout": ""}
+    raw = ""
+    resolved_namespace = None
+
+    for command_namespace, cmd in commands:
+        result = _run_command(duthost, cmd)
+        if result.get("rc", 1) != 0:
+            continue
+        raw = result.get("stdout", "").strip()
+        resolved_namespace = command_namespace
+        if raw or command_namespace is None:
+            break
+
     return {
         "rc": result.get("rc", 1),
         "raw": raw,
         "enabled": result.get("rc", 1) == 0 and raw.lower() in DOM_POLLING_ENABLED_VALUES,
+        "namespace": resolved_namespace,
     }
 
 

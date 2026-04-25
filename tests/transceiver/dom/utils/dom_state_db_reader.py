@@ -49,20 +49,29 @@ def parse_hgetall_output(stdout_lines):
     return parsed
 
 
-def read_state_db_hash(duthost, key):
-    """Read one STATE_DB hash, trying sonic-db-cli first and redis-cli as fallback.
+def read_state_db_hash(duthost, key, namespace=None):
+    """Read one STATE_DB hash with multi-ASIC namespace lookup support.
 
     Args:
         duthost: DUT host fixture used to execute database commands.
         key: STATE_DB hash key to read.
+        namespace: Optional ASIC namespace to query before generic lookup.
 
     Returns:
         dict: Parsed hash field/value pairs, or an empty dict if the key cannot be read.
     """
-    commands = [
+    commands = []
+
+    if namespace:
+        commands.append('sonic-db-cli -n {} STATE_DB HGETALL "{}"'.format(namespace, key))
+    elif getattr(duthost, "is_multi_asic", False):
+        for asic in getattr(duthost, "frontend_asics", []):
+            commands.append('sonic-db-cli -n {} STATE_DB HGETALL "{}"'.format(asic.namespace, key))
+
+    commands.extend([
         'sonic-db-cli STATE_DB HGETALL "{}"'.format(key),
         'redis-cli --raw -n 6 HGETALL "{}"'.format(key),
-    ]
+    ])
 
     for cmd in commands:
         result = duthost.command(cmd, module_ignore_errors=True)

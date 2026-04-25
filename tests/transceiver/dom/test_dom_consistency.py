@@ -36,6 +36,8 @@ def test_dom_data_consistency_verification(
     has_configured_checks = bool(dom_ports)
 
     read_sensor = dom_db_reader["sensor"]
+    poll_groups = {}
+    port_states = {}
 
     for port in dom_ports:
         # Step 1: Resolve per-port polling configuration and expected DOM fields.
@@ -101,96 +103,124 @@ def test_dom_data_consistency_verification(
         if previous_ts is None:
             field_failures.append("baseline last_update_time missing or unparsable")
 
-        # Step 3/4: Poll repeatedly, validate timestamp progression and reasonable sensor behavior.
+        port_states[port] = {
+            "expected_fields": expected_fields,
+            "field_ranges": field_ranges,
+            "variation_thresholds": variation_thresholds,
+            "field_failures": field_failures,
+            "invalid_range_attrs": invalid_range_attrs,
+            "invalid_variation_rule_attrs": invalid_variation_rule_attrs,
+            "previous": previous,
+            "previous_ts": previous_ts,
+            "polling_active": True,
+        }
+        poll_groups.setdefault((poll_count, poll_interval_sec), []).append(port)
+
+    # Step 3/4: Poll grouped ports repeatedly so the sleep cost scales by poll group, not by port.
+    for (poll_count, poll_interval_sec), grouped_ports in poll_groups.items():
         for poll_idx in range(1, poll_count):
             time.sleep(poll_interval_sec)
-            current = read_sensor(port)
-            if not current:
-                field_failures.append("DOM sensor read failed during consistency polling")
-                break
 
-            curr_ts = parse_dom_update_time(current.get("last_update_time"))
-            if curr_ts is None:
-                field_failures.append("last_update_time missing or unparsable during consistency polling")
-            elif previous_ts is not None:
-                if curr_ts <= previous_ts:
-                    field_failures.append(
+            for port in grouped_ports:
+                state = port_states[port]
+                if not state["polling_active"]:
+                    continue
+
+                current = read_sensor(port)
+                if not current:
+                    state["field_failures"].append("DOM sensor read failed during consistency polling")
+                    state["polling_active"] = False
+                    continue
+
+                previous = state["previous"]
+                previous_ts = state["previous_ts"]
+                curr_ts = parse_dom_update_time(current.get("last_update_time"))
+                if curr_ts is None:
+                    state["field_failures"].append("last_update_time missing or unparsable during consistency polling")
+                elif previous_ts is not None and curr_ts <= previous_ts:
+                    state["field_failures"].append(
                         "last_update_time did not advance (prev={}, curr={})".format(
                             previous_ts.isoformat(), curr_ts.isoformat()
                         )
                     )
 
-            for field in expected_fields:
-                prev_val = parse_dom_numeric(previous.get(field))
-                curr_val = parse_dom_numeric(current.get(field))
-                if prev_val is None or curr_val is None:
-                    field_failures.append("{} missing/non-numeric value during consistency polling".format(field))
-                    continue
-
-                range_info = field_ranges.get(field)
-                if range_info is None:
-                    continue
-
-                attr_name = range_info["attr_name"]
-                min_cfg = parse_dom_numeric(range_info.get("min"))
-                max_cfg = parse_dom_numeric(range_info.get("max"))
-                if min_cfg is None or max_cfg is None:
-                    if attr_name not in invalid_range_attrs:
-                        field_failures.append(
-                            "{} missing/non-numeric min or max in DOM_ATTRIBUTES".format(attr_name)
+                for field in state["expected_fields"]:
+                    prev_val = parse_dom_numeric(previous.get(field))
+                    curr_val = parse_dom_numeric(current.get(field))
+                    if prev_val is None or curr_val is None:
+                        state["field_failures"].append(
+                            "{} missing/non-numeric value during consistency polling".format(field)
                         )
-                        invalid_range_attrs.add(attr_name)
-                    continue
+                        continue
 
-                if min_cfg > max_cfg:
-                    if attr_name not in invalid_range_attrs:
-                        field_failures.append(
-                            "{} has invalid range with min={} > max={}".format(attr_name, min_cfg, max_cfg)
+                    range_info = state["field_ranges"].get(field)
+                    if range_info is None:
+                        continue
+
+                    attr_name = range_info["attr_name"]
+                    min_cfg = parse_dom_numeric(range_info.get("min"))
+                    max_cfg = parse_dom_numeric(range_info.get("max"))
+                    if min_cfg is None or max_cfg is None:
+                        if attr_name not in state["invalid_range_attrs"]:
+                            state["field_failures"].append(
+                                "{} missing/non-numeric min or max in DOM_ATTRIBUTES".format(attr_name)
+                            )
+                            state["invalid_range_attrs"].add(attr_name)
+                        continue
+
+                    if min_cfg > max_cfg:
+                        if attr_name not in state["invalid_range_attrs"]:
+                            state["field_failures"].append(
+                                "{} has invalid range with min={} > max={}".format(attr_name, min_cfg, max_cfg)
+                            )
+                            state["invalid_range_attrs"].add(attr_name)
+                        continue
+
+                    if not min_cfg <= curr_val <= max_cfg:
+                        state["field_failures"].append(
+                            "{} value {} out of configured operational range [{}, {}] during poll {}".format(
+                                field, curr_val, min_cfg, max_cfg, poll_idx + 1
+                            )
                         )
-                        invalid_range_attrs.add(attr_name)
-                    continue
 
-                if not min_cfg <= curr_val <= max_cfg:
-                    field_failures.append(
-                        "{} value {} out of configured operational range [{}, {}] during poll {}".format(
-                            field, curr_val, min_cfg, max_cfg, poll_idx + 1
+                    variation_rule = dom_consistency_variation_rules.get(attr_name)
+                    if variation_rule is None:
+                        continue
+
+                    threshold_attr, mode = variation_rule
+                    threshold_value = state["variation_thresholds"].get(threshold_attr)
+                    if threshold_value is None:
+                        continue
+
+                    if mode == "abs":
+                        allowed_delta = threshold_value
+                    elif mode == "pct":
+                        allowed_delta = abs(prev_val) * threshold_value / 100.0
+                    else:
+                        if attr_name not in state["invalid_variation_rule_attrs"]:
+                            state["field_failures"].append(
+                                "{} has invalid consistency variation mode {}".format(attr_name, mode)
+                            )
+                            state["invalid_variation_rule_attrs"].add(attr_name)
+                        continue
+
+                    delta = abs(curr_val - prev_val)
+                    if delta > allowed_delta:
+                        state["field_failures"].append(
+                            "{} unreasonable change between polls (prev={}, curr={}, delta={}, "
+                            "allowed_delta={}, threshold_attr={})".format(
+                                field, prev_val, curr_val, delta, allowed_delta, threshold_attr
+                            )
                         )
-                    )
 
-                variation_rule = dom_consistency_variation_rules.get(attr_name)
-                if variation_rule is None:
-                    continue
+                state["previous"] = current
+                if curr_ts is not None:
+                    state["previous_ts"] = curr_ts
 
-                threshold_attr, mode = variation_rule
-                threshold_value = variation_thresholds.get(threshold_attr)
-                if threshold_value is None:
-                    continue
-
-                if mode == "abs":
-                    allowed_delta = threshold_value
-                elif mode == "pct":
-                    allowed_delta = abs(prev_val) * threshold_value / 100.0
-                else:
-                    if attr_name not in invalid_variation_rule_attrs:
-                        field_failures.append("{} has invalid consistency variation mode {}".format(attr_name, mode))
-                        invalid_variation_rule_attrs.add(attr_name)
-                    continue
-
-                delta = abs(curr_val - prev_val)
-                if delta > allowed_delta:
-                    field_failures.append(
-                        "{} unreasonable change between polls (prev={}, curr={}, delta={}, "
-                        "allowed_delta={}, threshold_attr={})".format(
-                            field, prev_val, curr_val, delta, allowed_delta, threshold_attr
-                        )
-                    )
-
-            previous = current
-            if curr_ts is not None:
-                previous_ts = curr_ts
-
-        if field_failures:
-            all_failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
+    for port in dom_ports:
+        state = port_states.get(port)
+        if state and state["field_failures"]:
+            all_failures.append("{}:\n  {}".format(port, "\n  ".join(state["field_failures"])))
 
     # Step 5: Final decision for skip/fail.
     if not has_configured_checks:
