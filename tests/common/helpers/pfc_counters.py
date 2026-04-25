@@ -89,8 +89,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                         int_status[intf]['admin_state'] == 'up' and
                         int_status[intf]['oper_state'] == 'up' and
                         intf in conn_facts]
-    only_lossless_rx_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
-    no_xon_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
+    only_lossless_rx_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
+    only_lossless_rx_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in only_lossless_rx_counters_hwskus)
+    no_xon_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
+    no_xon_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in no_xon_counters_hwskus)
     if only_lossless_rx_counters and asic_type != 'vs':
         config_facts = asic.config_facts(host=asic.hostname, source='persistent')['ansible_facts']
     if not check_continuous_pfc:
