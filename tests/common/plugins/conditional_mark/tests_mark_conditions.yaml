@@ -4456,7 +4456,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
     conditions:
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-arista_7800r3_48cq2_lc', 'x86_64-arista_7800r3_48cqm2_lc', 'x86_64-arista_7800r3a_36d2_lc', 'x86_64-arista_7800r3a_36dm2_lc','x86_64-arista_7800r3ak_36dm2_lc']"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
+      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
       - "topo_type not in ['t0'] and asic_type in ['marvell-teralynx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
@@ -4561,7 +4561,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4570,7 +4570,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4579,7 +4579,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
