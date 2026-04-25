@@ -245,8 +245,8 @@ def bgp_unnumbered_established(duthost, portchannel):
 
 def save_eos_running_config(neigh_host, filename="pre-test-config"):
     """Save EOS running-config to flash for later restore via configure replace."""
-    neigh_host.eos_config(
-        lines=["copy running-config flash:{}".format(filename)])
+    neigh_host.eos_command(
+        commands=["copy running-config flash:{}".format(filename)])
     logger.info("Saved EOS running-config to flash:%s", filename)
     return "flash:{}".format(filename)
 
@@ -254,8 +254,8 @@ def save_eos_running_config(neigh_host, filename="pre-test-config"):
 def restore_eos_full_config(neigh_host, saved_config_path):
     """Restore EOS config from saved file via configure replace."""
     try:
-        neigh_host.eos_config(
-            lines=["configure replace {}".format(saved_config_path)])
+        neigh_host.eos_command(
+            commands=["configure replace {}".format(saved_config_path)])
         logger.info("Restored EOS config from %s", saved_config_path)
     except Exception as e:
         logger.error("EOS configure replace failed: %s", e)
@@ -302,19 +302,20 @@ def break_lag_to_ethernet(duthost, neigh_host, setup_info):
     pc_num = ''.join(c for c in neigh_pc_intf if c.isdigit())
     eos_eth_intf = "Ethernet{}".format(pc_num)
 
-    # Remove Port-Channel on EOS (frees member Ethernets)
-    logger.info("Breaking LAG: removing EOS %s", neigh_pc_intf)
-    neigh_host.eos_config(
-        lines=["no interface {}".format(neigh_pc_intf)])
-
-    # Configure freed Ethernet on EOS for L3 unnumbered peering
-    eos_intf_lines = ["no switchport", "ipv6 enable"]
+    # Remove Port-Channel on EOS and configure freed Ethernet (single session)
+    logger.info("Breaking LAG: removing EOS %s, configuring %s",
+                neigh_pc_intf, eos_eth_intf)
+    eos_config_lines = [
+        "configure",
+        "no interface {}".format(neigh_pc_intf),
+        "interface {}".format(eos_eth_intf),
+        "no switchport",
+        "ipv6 enable",
+    ]
     if pc_vrf:
-        eos_intf_lines.insert(0, "vrf {}".format(pc_vrf))
-    neigh_host.eos_config(
-        lines=eos_intf_lines,
-        parents="interface {}".format(eos_eth_intf))
-    logger.info("EOS %s configured: %s", eos_eth_intf, eos_intf_lines)
+        eos_config_lines.append("vrf {}".format(pc_vrf))
+    neigh_host.eos_command(commands=eos_config_lines)
+    logger.info("EOS %s configured (VRF=%s)", eos_eth_intf, pc_vrf)
 
     # Remove PortChannel member and PortChannel on DUT
     duthost.shell("sudo config portchannel member del {} {}".format(
@@ -338,6 +339,9 @@ def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn,
                              eos_intf, eos_vrf=None):
     """Configure unnumbered BGP on EOS using interface-based peer-group.
 
+    Uses a single eos_command(configure) call to avoid exhausting cEOS's
+    limited session pool (default 6 pending sessions).
+
     Applies:
     - IPv6 RA enablement (required for FRR peer discovery)
     - Interface-based peer-group with remote-as
@@ -345,50 +349,47 @@ def configure_unnumbered_eos(neigh_host, neigh_asn, dut_asn,
     - RFC 5549 extended next-hop for IPv4 NLRI over IPv6 session
     """
     eos_peer_group = "LINK_LOCAL_PG"
-    bgp_parent = "router bgp {}".format(neigh_asn)
+
+    # Build a single configure block to minimize EOS sessions
+    config_lines = [
+        "configure",
+        # Enable IPv6 RAs on the interface
+        "interface {}".format(eos_intf),
+        "no ipv6 nd ra disabled",
+        "exit",
+        # Global RFC 5549 knob
+        "ip routing ipv6 interfaces",
+    ]
+
+    # BGP section — handle VRF if present
+    config_lines.append("router bgp {}".format(neigh_asn))
     if eos_vrf:
-        bgp_parent = ["router bgp {}".format(neigh_asn),
-                      "vrf {}".format(eos_vrf)]
+        config_lines.append("vrf {}".format(eos_vrf))
 
-    # Enable IPv6 RAs (FRR discovers peer link-local via RAs)
-    logger.info("Enable IPv6 RAs on EOS %s", eos_intf)
-    neigh_host.eos_config(
-        lines=["no ipv6 nd ra disabled"],
-        parents="interface {}".format(eos_intf))
-
-    # Configure interface-based peer-group
-    logger.info("Configure BGP peer-group %s on EOS via %s",
-                eos_peer_group, eos_intf)
-    pg_lines = [
+    config_lines.extend([
         "neighbor {} peer group".format(eos_peer_group),
         "neighbor {} remote-as {}".format(eos_peer_group, dut_asn),
         "neighbor interface {} peer-group {}".format(
             eos_intf, eos_peer_group),
-    ]
-    if isinstance(bgp_parent, list):
-        neigh_host.eos_config(lines=pg_lines, parents=bgp_parent)
-    else:
-        neigh_host.eos_config(lines=pg_lines, parents=bgp_parent)
+        # IPv4 address-family
+        "address-family ipv4",
+        "neighbor {} activate".format(eos_peer_group),
+        "neighbor {} next-hop address-family ipv6 originate".format(
+            eos_peer_group),
+        "exit-address-family",
+        # IPv6 address-family
+        "address-family ipv6",
+        "neighbor {} activate".format(eos_peer_group),
+        "exit-address-family",
+    ])
 
-    # Enable address families
-    for af in ["ipv4", "ipv6"]:
-        af_parents = bgp_parent if isinstance(bgp_parent, list) else [bgp_parent]
-        neigh_host.eos_config(
-            lines=["neighbor {} activate".format(eos_peer_group)],
-            parents=af_parents + ["address-family {}".format(af)])
+    logger.info("Configure unnumbered BGP on EOS %s (peer-group %s, VRF=%s)",
+                eos_intf, eos_peer_group, eos_vrf)
+    logger.info("EOS config block:\n%s", "\n".join(config_lines))
 
-    # RFC 5549 — IPv4 NLRI over IPv6 next-hop
-    logger.info("Enable RFC 5549 on EOS for %s", eos_peer_group)
-    neigh_host.eos_config(lines=["ip routing ipv6 interfaces"])
-    af4_parents = bgp_parent if isinstance(bgp_parent, list) else [bgp_parent]
-    neigh_host.eos_config(
-        lines=[
-            "neighbor {} next-hop address-family ipv6 originate".format(
-                eos_peer_group),
-        ],
-        parents=af4_parents + ["address-family ipv4"])
+    neigh_host.eos_command(commands=config_lines)
 
-    # Verify config accepted
+    # Verify config accepted (single eos_command call)
     eos_bgp_cfg = neigh_host.eos_command(
         commands=["show running-config section bgp"])
     eos_cfg_text = eos_bgp_cfg['stdout'][0] if isinstance(
@@ -529,9 +530,10 @@ def configure_unnumbered_bgp(request, setup_info):
         if dut_ipv6:
             remove_lines.append("no neighbor {}".format(dut_ipv6))
         if remove_lines:
-            neigh_host.eos_config(
-                lines=remove_lines,
-                parents="router bgp {}".format(neigh_asn))
+            neigh_host.eos_command(
+                commands=["configure",
+                          "router bgp {}".format(neigh_asn)]
+                + remove_lines)
 
     # Wait for old neighbor to be removed from DUT BGP
     def old_neighbor_removed():
