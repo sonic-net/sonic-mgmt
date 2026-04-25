@@ -33,7 +33,7 @@ from kusto_uploader import ingest_records_from_env
 logging.basicConfig(level=logging.INFO, format='[%(threadName)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
-MSSONIC_TOKEN = os.getenv("MSSONIC_TOKEN")
+AZURE_DEVOPS_ACCESS_TOKEN = os.getenv("AZURE_DEVOPS_ACCESS_TOKEN")
 BUILD_REASON = "BinarySearch"
 # Default parameters used across pipelines
 DEFAULT_PARALLEL_TESTS = "3"
@@ -1282,11 +1282,11 @@ def main():
             logger.error(f"No failure entry found for failure_join_key={args.failure_join_key}")
             return
         logger.info(f"Filtered to 1 entry for failure_join_key={args.failure_join_key}")
-    if not MSSONIC_TOKEN:
-        logger.error("MSSONIC_TOKEN is empty, cannot trigger Azure DevOps pipelines.")
+    if not AZURE_DEVOPS_ACCESS_TOKEN:
+        logger.error("AZURE_DEVOPS_ACCESS_TOKEN is empty, cannot trigger Azure DevOps pipelines.")
         return
 
-    client = AzureDevOpsClient(BASE_URL, ORGANIZATION, PROJECT, token=MSSONIC_TOKEN)
+    client = AzureDevOpsClient(BASE_URL, ORGANIZATION, PROJECT, token=AZURE_DEVOPS_ACCESS_TOKEN)
 
     # Process failure entries sequentially — one pipeline run per failure episode.
     # Each entry triggers its own build and test pipelines independently so that

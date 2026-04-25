@@ -21,7 +21,7 @@ ELASTICTEST_PLAN_PATTERNS = [
 class AzureDevOpsClient:
     def __init__(self, base_url: str, organization: str, project: str, token: str):
         if not token:
-            raise ValueError("MSSONIC_TOKEN is empty. Azure DevOps PAT is required.")
+            raise ValueError("Azure DevOps access token is empty. A token is required.")
         self.base_url = base_url.rstrip("/")
         self.organization = organization
         self.project = project

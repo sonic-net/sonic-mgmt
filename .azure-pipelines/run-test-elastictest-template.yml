@@ -211,7 +211,7 @@ steps:
           set -ex
           # If sonic-metadata repo, need to download test_plan.py from sonic-mgmt-int
           if [[ "${{ variables['BUILD.REPOSITORY.NAME'] }}" == *"sonic-metadata"* || "${{ variables['BUILD.REPOSITORY.NAME'] }}" == *"sonic-upgrade-scripts"* ]]; then
-            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Ftest_plan.py" -o ./.azure-pipelines/test_plan.py
+            curl -u :$(System.AccessToken) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Ftest_plan.py" -o ./.azure-pipelines/test_plan.py
           else
             curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
           fi
@@ -226,7 +226,7 @@ steps:
 
           # Else, internal build image repo, download from internal sonic-mgmt repo
           else
-            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            curl -u :$(System.AccessToken) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
         displayName: "Download Pr Script"
   - ${{ else }}:

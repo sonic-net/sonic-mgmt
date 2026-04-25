@@ -62,7 +62,6 @@ stages:
           - group: KUSTO_SECRETS
           - group: GIT_SECRETS
           - group: PR Regression
-          - group: sonicbld
           - name: skipComponentGovernanceDetection
             value: true
         steps:
@@ -108,4 +107,4 @@ stages:
                   --enable_ci_prescreening ${{ parameters.ENABLE_CI_PRESCREENING }}
             env:
               KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-              MSSONIC_TOKEN: $(MSSONIC-TOKEN)
+              AZURE_DEVOPS_ACCESS_TOKEN: $(System.AccessToken)

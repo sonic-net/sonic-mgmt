@@ -6,7 +6,7 @@ isolated, independently cancellable ADO pipeline run.
 Environment variables required:
   ACCESS_TOKEN              - AAD token for Kusto (https://api.kusto.windows.net)
   KUSTO_CLUSTER_INGEST_URL  - ingest cluster URL (ingest-<cluster>)
-  MSSONIC_TOKEN             - ADO PAT used to queue pipeline runs
+  AZURE_DEVOPS_ACCESS_TOKEN - Azure DevOps OAuth token (e.g. $(System.AccessToken)) used to queue pipeline runs
 
 CLI arguments:
   --kusto_lookback_hours    - lookback window for PRBinarySearchFailureInfo (default: 48)
@@ -98,13 +98,13 @@ def main():
 
     access_token = os.environ.get("ACCESS_TOKEN")
     kusto_ingest_url = os.environ.get("KUSTO_CLUSTER_INGEST_URL")
-    mssonic_token = os.environ.get("MSSONIC_TOKEN")
+    azure_devops_access_token = os.environ.get("AZURE_DEVOPS_ACCESS_TOKEN")
 
     if not access_token or not kusto_ingest_url:
         logger.error("ACCESS_TOKEN and KUSTO_CLUSTER_INGEST_URL env vars are required")
         sys.exit(1)
-    if not mssonic_token and not args.dry_run:
-        logger.error("MSSONIC_TOKEN is required to trigger pipelines")
+    if not azure_devops_access_token and not args.dry_run:
+        logger.error("AZURE_DEVOPS_ACCESS_TOKEN is required to trigger pipelines")
         sys.exit(1)
 
     kusto_query_url = kusto_ingest_url.replace("//ingest-", "//", 1)
@@ -154,7 +154,7 @@ def main():
     logger.info(f"Triggering {len(failure_info)} binary search pipeline runs (one per episode)")
 
     ado_client = AzureDevOpsClient(
-        BASE_URL, ORGANIZATION, BINARY_SEARCH_PIPELINE_PROJECT, token=mssonic_token or "dry_run")
+        BASE_URL, ORGANIZATION, BINARY_SEARCH_PIPELINE_PROJECT, token=azure_devops_access_token or "dry_run")
     triggered = []
     errors = []
     for entry in failure_info:
