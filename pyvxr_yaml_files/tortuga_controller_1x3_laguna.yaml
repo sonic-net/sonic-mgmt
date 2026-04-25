@@ -63,7 +63,7 @@ devices:
         # the below config can be removed when dsim issue is fixed
         ConfigS1EgressSeen: 'true'
         ConfigS1DelayAfterEgressSeen: '60'
-        ConfigEnableNgdp: 'true'
+        # ConfigEnableNgdp: 'true'
     os_type: sonic
     memory: 28GB
     vcpu: 12
