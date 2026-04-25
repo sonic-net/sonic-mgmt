@@ -1,9 +1,8 @@
 """Helpers for loading, installing, and validating vendor utility docker images on the DUT.
 
 Commands run on the DUT are built only from the vendor JSON (see ``files/*.json``).
-- Cisco 8000 default: ``files/cisco_utility_docker.json``
-- Other vendors: add ``files/<vendor>_utility_docker.json`` and pass
-  ``--utility-docker-config`` to pytest.
+- Default path: ``files/<asic_type>_utility_docker.json`` (from DUT ``facts['asic_type']``),
+  for example ``files/cisco-8000_utility_docker.json``. Override with ``--utility-docker-config``.
 
 The JSON must define ``docker_run`` (``docker load`` if needed, then ``docker run``), ``health``,
 and ``validation`` (container name for checks). Optional fields: ``tarball_filename``, ``version_matrix``.
@@ -37,7 +36,19 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_CONFIG = os.path.join(MODULE_DIR, "files", "cisco_utility_docker.json")
+
+
+def default_vendor_config_path(asic_type):
+    """
+    Return absolute path to ``files/<asic_type>_utility_docker.json`` under this package.
+
+    ``asic_type`` is typically ``duthost.facts['asic_type']`` (e.g. ``cisco-8000``).
+    """
+    name = (asic_type or "").strip()
+    if not name:
+        raise ValueError("asic_type is empty")
+    return os.path.abspath(os.path.join(MODULE_DIR, "files", "{}_utility_docker.json".format(name)))
+
 
 # SONiC DUT default login home (same idea as admin $HOME for pre-staged tarballs)
 DUT_ADMIN_HOME = "/home/admin"
@@ -108,8 +119,11 @@ def sonic_matches_sonic_glob(duthost, glob_pattern):
         ver_line = duthost.shell("show version | head -1", module_ignore_errors=True).get("stdout", "")
         if ver_line.strip() and fnmatch.fnmatch(ver_line.strip(), glob_pattern):
             return True
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(
+            "sonic_matches_sonic_glob: optional show version line probe failed (ignored): %s",
+            exc,
+        )
     return False
 
 
@@ -586,7 +600,9 @@ def run_config_reload_utility_start_reload_health(duthost, resolved_cfg):
     logger.info("First config reload (utility container stopped)")
     config_reload(
         duthost,
-        config_source="config_db"
+        config_source="config_db",
+        safe_reload=True,
+        wait_for_bgp=True,
     )
     logger.info(
         "Waiting %s s after first config reload before starting utility container",
@@ -599,7 +615,9 @@ def run_config_reload_utility_start_reload_health(duthost, resolved_cfg):
     logger.info("Second config reload (utility container running)")
     config_reload(
         duthost,
-        config_source="config_db"
+        config_source="config_db",
+        safe_reload=True,
+        wait_for_bgp=True,
     )
     return wait_for_health_ready(duthost, resolved_cfg["health"])
 

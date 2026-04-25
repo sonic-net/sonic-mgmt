@@ -1,8 +1,10 @@
 """
 Vendor utility docker tests load a single JSON that defines docker_run, health, and validation.
-Default: files/cisco_utility_docker.json (Cisco 8000). Other vendors
-should add files/<name>.json and select it with --utility-docker-config; commands on the DUT
-are assembled in utility_docker_helpers from that JSON only.
+
+Default path: ``files/<asic_type>_utility_docker.json`` (``asic_type`` from the enum DUT), for
+example ``files/cisco-8000_utility_docker.json``. Missing file is a hard failure. Override with
+``--utility-docker-config``. Commands on the DUT are assembled in utility_docker_helpers from
+that JSON only.
 """
 
 import logging
@@ -19,23 +21,38 @@ def pytest_addoption(parser):
     parser.addoption(
         "--utility-docker-config",
         action="store",
-        default=udh.DEFAULT_CONFIG,
-        help="Path to vendor utility docker JSON (default: files/cisco_utility_docker.json for Cisco 8000)",
+        default=None,
+        help=(
+            "Path to vendor utility docker JSON (default: files/<asic_type>_utility_docker.json "
+            "from DUT facts, e.g. files/cisco-8000_utility_docker.json; fails if missing)"
+        ),
     )
     parser.addoption(
         "--utility-docker-tarball",
         action="store",
         default=None,
-        help="Full path to the .gz image on the test runner (default: <vendor_utility_docker>/tarball_filename from JSON)",
+        help="Full path to the .gz image on the DUT (default: <vendor_utility_docker>/tarball_filename from JSON)",
     )
 
 
 @pytest.fixture(scope="module")
-def utility_docker_vendor_cfg(request):
-    path = request.config.getoption("--utility-docker-config")
-    path = os.path.abspath(path)
+def utility_docker_vendor_cfg(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    opt = request.config.getoption("--utility-docker-config")
+    if opt:
+        path = os.path.abspath(opt)
+    else:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        asic_type = (duthost.facts.get("asic_type") or "").strip()
+        if not asic_type:
+            pytest.fail("DUT asic_type is empty; cannot resolve vendor utility docker JSON path")
+        path = udh.default_vendor_config_path(asic_type)
+        logger.info(
+            "utility_docker_vendor_cfg: using default from asic_type=%s -> %s",
+            asic_type,
+            path,
+        )
     if not os.path.isfile(path):
-        pytest.skip("Vendor utility docker config not found: {}".format(path))
+        pytest.fail("Vendor utility docker config not found: {}".format(path))
     return udh.load_vendor_config(path)
 
 
@@ -83,7 +100,7 @@ def utility_docker_install_source(
     )
     if res.kind == "none":
         pytest.skip(
-            "Utility docker not available: no matching image on DUT, no tarball at {}, "
+            "Utility docker not available: no matching image on DUT, no tarball at {0}, "
             "and no tarball on the test runner. Pre-load the image (`docker load`), copy "
             "{1} to the DUT home dir, place {1} under tests/vendor_utility_docker/ on the test "
             "runner, pass --utility-docker-tarball, or ensure docker_registry_host in Ansible creds "
