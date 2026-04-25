@@ -1,0 +1,9 @@
+#######################################
+#####   vendor utility docker       #####
+#######################################
+
+tests/vendor_utility_docker/test_utility_docker.py:
+  skip:
+    reason: "Vendor utility docker tests are for Cisco 8000 platforms only (asic_type=cisco-8000)"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
