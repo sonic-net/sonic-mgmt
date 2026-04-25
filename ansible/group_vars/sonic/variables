@@ -46,6 +46,7 @@ cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Ci
 cisco-8000_gr_hwskus: ["Cisco-8111-O32", "Cisco-8111-O64"]
 cisco-8000_gr2_hwskus: ["Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128", "Cisco-8122-O128S2"]
 cisco-8000_pac_hwskus: ["Cisco-8800-LC-48H-C48"]
+cisco-8000_p200_hwskus: ["Cisco-8223-P64S2", "Cisco-8223-O128S2", "Cisco-8223-P32O64S2"]
 
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
