@@ -19,6 +19,7 @@ Addresses issue: https://github.com/sonic-net/sonic-mgmt/issues/18431
 
 import json
 import logging
+import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -547,26 +548,43 @@ def configure_unnumbered_bgp(request, setup_info):
         duthost.shell("sudo config interface ip remove {} {}/126".format(
             dut_intf, dut_ipv6), module_ignore_errors=True)
 
-    # Configure unnumbered BGP on DUT via vtysh
-    logger.info("Configure unnumbered BGP on DUT via %s", dut_intf)
-    vtysh_add = [
-        'config',
-        'router bgp {}'.format(dut_asn),
-        'neighbor {} interface v6only remote-as {}'.format(
-            dut_intf, neigh_asn),
-        'address-family ipv4 unicast',
-        'neighbor {} activate'.format(dut_intf),
-        'exit-address-family',
-        'address-family ipv6 unicast',
-        'neighbor {} activate'.format(dut_intf),
-        'exit-address-family',
-    ]
-    cmd = 'vtysh ' + ' '.join(
-        ['-c "{}"'.format(c) for c in vtysh_add])
-    result = duthost.shell(cmd)
-    pytest_assert(result['rc'] == 0,
-                  "Failed to configure unnumbered BGP on {}: {}".format(
-                      dut_intf, result.get('stderr', '')))
+    # Configure unnumbered BGP on DUT
+    if stop_bgpcfgd:
+        # FRR isolation mode: configure directly via vtysh
+        logger.info("Configure unnumbered BGP on DUT via vtysh (FRR isolation) on %s", dut_intf)
+        vtysh_add = [
+            'config',
+            'router bgp {}'.format(dut_asn),
+            'neighbor {} interface v6only remote-as {}'.format(
+                dut_intf, neigh_asn),
+            'address-family ipv4 unicast',
+            'neighbor {} activate'.format(dut_intf),
+            'exit-address-family',
+            'address-family ipv6 unicast',
+            'neighbor {} activate'.format(dut_intf),
+            'exit-address-family',
+        ]
+        cmd = 'vtysh ' + ' '.join(
+            ['-c "{}"'.format(c) for c in vtysh_add])
+        result = duthost.shell(cmd)
+        pytest_assert(result['rc'] == 0,
+                      "Failed to configure unnumbered BGP on {}: {}".format(
+                          dut_intf, result.get('stderr', '')))
+    else:
+        # Full-stack path: configure via CONFIG_DB (bgpcfgd should push to FRR)
+        # CONFIG_DB BGP_NEIGHBOR table uses IP keys — there is currently no
+        # schema support for interface-based (unnumbered) neighbors.
+        # This path exercises the production stack and is expected to fail
+        # until sonic-buildimage#26960 is implemented.
+        logger.info("Configure unnumbered BGP on DUT via CONFIG_DB on %s", dut_intf)
+        duthost.shell(
+            'sonic-db-cli CONFIG_DB HSET "BGP_NEIGHBOR|{}" "asn" "{}" "name" "{}"'.format(
+                dut_intf, neigh_asn, setup_info['neigh_name']),
+            module_ignore_errors=True)
+        # Give bgpcfgd time to process the CONFIG_DB change
+        time.sleep(10)
+        logger.info("CONFIG_DB BGP_NEIGHBOR entry added for %s "
+                    "(bgpcfgd should configure FRR)", dut_intf)
 
     # Configure unnumbered BGP on EOS
     eos_peer_group = configure_unnumbered_eos(
