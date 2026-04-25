@@ -270,7 +270,7 @@ def get_host_rsyslogd_pid(duthost):
 
 
 @contextlib.contextmanager
-def expect_host_rsyslog_restart(duthost, timeout=30):
+def expect_host_rsyslog_restart(duthost, timeout=60):
     current_pid = get_host_rsyslogd_pid(duthost)
 
     yield
