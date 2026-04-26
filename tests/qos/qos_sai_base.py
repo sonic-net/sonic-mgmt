@@ -3100,9 +3100,10 @@ class QosSaiBase(QosBase):
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
     @pytest.fixture(scope="function", autouse=False)
-    def block_non_test_traffic_on_fanout(self, get_src_dst_asic_and_duts, tbinfo,
-                                  nbrhosts, dutConfig, fanouthosts,
-                                  conn_graph_facts, request):
+    def permit_only_test_traffic_on_fanout(
+            self, get_src_dst_asic_and_duts, tbinfo,
+            nbrhosts, dutConfig, fanouthosts,
+            conn_graph_facts, request):
         """
         Block non-test traffic (LACP, ARP, LLDP, etc.) from reaching DUT ingress ports
         during QoS headroom pool tests to prevent false InDiscard counter increments.
@@ -3139,9 +3140,10 @@ class QosSaiBase(QosBase):
             if idx in dutConfig.get('dutInterfaces', {}):
                 src_interfaces.append(dutConfig['dutInterfaces'][idx])
 
-        logger.debug("block_non_test_traffic_on_fanout: testPorts = %s", dutConfig.get('testPorts', {}))
-        logger.info("block_non_test_traffic_on_fanout: protecting %d ports: %s",
-                     len(src_interfaces), src_interfaces)
+        logger.debug("permit_only_test_traffic_on_fanout: testPorts = %s", dutConfig.get('testPorts', {}))
+        logger.info(
+            "permit_only_test_traffic_on_fanout: protecting %d ports: %s",
+            len(src_interfaces), src_interfaces)
 
         # Find LAG names containing any of the protected interfaces
         portchannels = src_mgfacts.get('minigraph_portchannels', {})
@@ -3153,15 +3155,16 @@ class QosSaiBase(QosBase):
                 if member in src_interfaces:
                     if port_ch not in lag_names:
                         lag_names.append(port_ch)
-                        logger.debug("block_non_test_traffic_on_fanout: %s is member of %s", member, port_ch)
+                        logger.debug("permit_only_test_traffic_on_fanout: %s is member of %s", member, port_ch)
                     break
 
         # --- Step 1 & 2: LACP-specific (only when ports are in LAG) ---
         eos_restore_list = []
         lacpd_stopped = False
         if lag_names:
-            logger.info("block_non_test_traffic_on_fanout: found %d LAGs, stopping lacpd and setting timer",
-                         len(lag_names))
+            logger.info(
+                "permit_only_test_traffic_on_fanout: found %d LAGs, "
+                "stopping lacpd and setting timer", len(lag_names))
             # Step 1: Stop DUT teamd lacpd (use asic-aware docker name for multi-ASIC)
             teamd_docker = src_asic.get_docker_name("teamd")
             src_dut.command("docker exec {} supervisorctl stop lacpd".format(teamd_docker),
@@ -3185,12 +3188,12 @@ class QosSaiBase(QosBase):
                         continue
                     vm_host = nbrhosts[peer_device]['host']
                     if isinstance(vm_host, EosHost):
-                        logger.info("block_non_test_traffic_on_fanout: setting LACP multiplier 600 on %s %s",
+                        logger.info("permit_only_test_traffic_on_fanout: setting LACP multiplier 600 on %s %s",
                                     peer_device, neighbor_port)
                         vm_host.set_interface_lacp_time_multiplier(neighbor_port, 600)
                         eos_restore_list.append((vm_host, neighbor_port))
         else:
-            logger.info("block_non_test_traffic_on_fanout: no LAGs found, skipping LACP steps")
+            logger.info("permit_only_test_traffic_on_fanout: no LAGs found, skipping LACP steps")
 
         # --- Step 3: Disable LLDP + egress MAC ACL on fanout DUT-facing ports ---
         fanout_restore_list = []
@@ -3236,17 +3239,19 @@ class QosSaiBase(QosBase):
                             parents=['interface %s' % fanout_port]
                         )
                         fanout_restore_list.append((fanout, fanout_name, fanout_port, fanout_os))
-                        logger.info("block_non_test_traffic_on_fanout: protected %s %s",
+                        logger.info("permit_only_test_traffic_on_fanout: protected %s %s",
                                     fanout_name, fanout_port)
                     except Exception as e:
-                        logger.warning("block_non_test_traffic_on_fanout: failed on fanout %s: %s",
+                        logger.warning("permit_only_test_traffic_on_fanout: failed on fanout %s: %s",
                                        fanout_name, str(e))
                 elif fanout_os == 'sonic':
-                    logger.warning("block_non_test_traffic_on_fanout: SONiC fanout not supported, "
-                                   "skipping %s", fanout_name)
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: SONiC fanout not supported, "
+                        "skipping %s", fanout_name)
 
-        logger.info("block_non_test_traffic_on_fanout: setup complete — %d ports protected, "
-                     "%d LACP timers set", len(fanout_restore_list), len(eos_restore_list))
+        logger.info(
+            "permit_only_test_traffic_on_fanout: setup complete — %d ports protected, "
+            "%d LACP timers set", len(fanout_restore_list), len(eos_restore_list))
 
         yield
 
@@ -3254,7 +3259,7 @@ class QosSaiBase(QosBase):
         # Step 1 reverse: restart DUT lacpd FIRST (before timer restore)
         if lacpd_stopped:
             teamd_docker = src_asic.get_docker_name("teamd")
-            logger.info("block_non_test_traffic_on_fanout: restarting lacpd in %s", teamd_docker)
+            logger.info("permit_only_test_traffic_on_fanout: restarting lacpd in %s", teamd_docker)
             src_dut.command("docker exec {} supervisorctl start lacpd".format(teamd_docker),
                             module_ignore_errors=True)
 
@@ -3263,7 +3268,7 @@ class QosSaiBase(QosBase):
             try:
                 vm_host.no_lacp_time_multiplier(neighbor_port)
             except Exception as e:
-                logger.warning("block_non_test_traffic_on_fanout: failed to restore LACP timer: %s", str(e))
+                logger.warning("permit_only_test_traffic_on_fanout: failed to restore LACP timer: %s", str(e))
 
         # Step 3 reverse: unbind ACL from all ports, then delete ACL once per fanout
         for fanout, fanout_name, fanout_port, fanout_os in fanout_restore_list:
@@ -3274,7 +3279,7 @@ class QosSaiBase(QosBase):
                     parents=['interface %s' % fanout_port]
                 )
             except Exception as e:
-                logger.warning("block_non_test_traffic_on_fanout: failed to unbind ACL from %s: %s",
+                logger.warning("permit_only_test_traffic_on_fanout: failed to unbind ACL from %s: %s",
                                fanout_port, str(e))
 
         for fanout_name in acl_created_fanouts:
@@ -3282,10 +3287,10 @@ class QosSaiBase(QosBase):
                 fanout = fanouthosts[fanout_name]
                 fanout.host.eos_config(lines=['no mac access-list %s' % acl_name])
             except Exception as e:
-                logger.warning("block_non_test_traffic_on_fanout: failed to delete ACL on %s: %s",
+                logger.warning("permit_only_test_traffic_on_fanout: failed to delete ACL on %s: %s",
                                fanout_name, str(e))
 
-        logger.info("block_non_test_traffic_on_fanout: teardown complete")
+        logger.info("permit_only_test_traffic_on_fanout: teardown complete")
 
     def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         dshell_script = '''
