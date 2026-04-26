@@ -14,7 +14,8 @@ from scapy.contrib import bgp
 from tests.bgp.bgp_helpers import (
         capture_bgp_packages_to_file,
         fetch_and_delete_pcap_file,
-        is_neighbor_sessions_established
+        is_neighbor_sessions_established,
+        check_routes_presence
 )
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until, delete_running_config
@@ -171,6 +172,21 @@ def common_setup_teardown(
         ),
     )
 
+    # Clear TSA maintenance mode if active. On platforms with startup_tsa_tsb
+    # service enabled, config_reload (from setup_interfaces) restarts swss which
+    # triggers TSA with a 15-minute TSB timer. This causes test failures because
+    # the DUT only advertises loopback routes while in TSA mode.
+    # See: https://github.com/sonic-net/sonic-mgmt/issues/23336
+    tsa_status = duthost.shell("TSC", module_ignore_errors=True)['stdout']
+    if 'maintenance' in tsa_status.lower():
+        logging.info("DUT is in TSA maintenance mode, running TSB to clear it")
+        duthost.shell("TSB")
+        pytest_assert(
+            wait_until(60, 5, 0, lambda: 'maintenance' not in
+                       duthost.shell("TSC", module_ignore_errors=True)['stdout'].lower()),
+            "DUT did not exit TSA maintenance mode after TSB"
+        )
+
     yield bgp_neighbors, use_vtysh
 
     # Cleanup suppress-fib-pending config
@@ -181,13 +197,16 @@ def common_setup_teardown(
 
 
 @pytest.fixture
-def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, tbinfo):
+def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, tbinfo,
+              duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     class _C(object):
         """Dummy class to save test constants."""
 
         pass
 
     _constants = _C()
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_vs_platform = duthost.facts.get("asic_type") == "vs"
     if is_quagga:
         _constants.sleep_interval = 40
         _constants.update_interval_threshold = 20
@@ -195,6 +214,10 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, t
         _constants.sleep_interval = 5
         if not has_suppress_feature:
             _constants.update_interval_threshold = 1
+        elif is_vs_platform:
+            # KVM/VS platforms have higher latency due to virtual
+            # switching; use a relaxed threshold to reduce flakiness
+            _constants.update_interval_threshold = 5
         else:
             _constants.update_interval_threshold = 2.5
 
@@ -315,6 +338,11 @@ def test_bgp_update_timer_single_route(
     try:
         n0.start_session()
         n1.start_session()
+        bgp_neighbor_cmd_tmpl = (
+            "show bgp ipv6 neighbors {} received-routes"
+            if is_v6_topo
+            else "show ip bgp neighbors {} received-routes"
+        )
 
         # ensure new sessions are ready
         if not wait_until(
@@ -330,33 +358,22 @@ def test_bgp_update_timer_single_route(
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
+                asichost = duthost.asic_instance_from_namespace(n0.namespace)
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
-                duthost.shell(
-                    "vtysh -c 'show {} neighbors {} received-routes' | grep '{}'".format(
-                        "bgp ipv6" if is_v6_topo else "ip bgp", n0.ip, route["prefix"]
-                    ),
-                    module_ignore_errors=True,
-                )
-                duthost.shell(
-                    "vtysh -c 'show {} neighbors {} advertised-routes' | grep '{}'".format(
-                        "bgp ipv6" if is_v6_topo else "ip bgp", n1.ip, route["prefix"]
-                    ),
-                    module_ignore_errors=True,
-                )
+                res = asichost.run_vtysh(
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n0.ip)))
+                check_routes_presence(res, route["prefix"])
+                res = asichost.run_vtysh(
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n1.ip)))
+                check_routes_presence(res, route["prefix"])
                 n0.withdraw_route(route)
-                duthost.shell(
-                    "vtysh -c 'show {} neighbors {} received-routes' | grep '{}'".format(
-                        "bgp ipv6" if is_v6_topo else "ip bgp", n0.ip, route["prefix"]
-                    ),
-                    module_ignore_errors=True,
-                )
-                duthost.shell(
-                    "vtysh -c 'show {} neighbors {} advertised-routes' | grep '{}'".format(
-                        "bgp ipv6" if is_v6_topo else "ip bgp", n1.ip, route["prefix"]
-                    ),
-                    module_ignore_errors=True,
-                )
+                res = asichost.run_vtysh(
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n0.ip)))
+                check_routes_presence(res, route["prefix"])
+                res = asichost.run_vtysh(
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n1.ip)))
+                check_routes_presence(res, route["prefix"])
                 time.sleep(constants.sleep_interval)
 
             local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)

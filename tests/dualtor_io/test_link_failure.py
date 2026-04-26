@@ -215,15 +215,19 @@ def test_active_tor_downlink_down_upstream(
 def test_active_tor_downlink_down_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
-    shutdown_upper_tor_downlink_intfs                                   # noqa: F811
+    shutdown_upper_tor_downlink_intfs,                                  # noqa: F811
+    link_down_downstream_active_duplication_setting                     # noqa: F811
 ):
     """
     Send traffic from T1 to active ToR and shutdown the active ToR downlink on DUT.
     Verify switchover and disruption lasts < 1 second
     """
+    allowed_duplication, merge_duplications = link_down_downstream_active_duplication_setting
     send_t1_to_server_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=1, action=shutdown_upper_tor_downlink_intfs
+        allowed_disruption=1, action=shutdown_upper_tor_downlink_intfs,
+        allowed_duplication=allowed_duplication,
+        merge_duplications_into_disruptions=merge_duplications
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -235,15 +239,19 @@ def test_active_tor_downlink_down_downstream_active(
 def test_active_tor_downlink_down_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa: F811
     toggle_all_simulator_ports_to_upper_tor,                            # noqa: F811
-    shutdown_upper_tor_downlink_intfs                                   # noqa: F811
+    shutdown_upper_tor_downlink_intfs,                                  # noqa: F811
+    link_down_downstream_active_duplication_setting                     # noqa: F811
 ):
     """
     Send traffic from T1 to standby ToR and shutdown the active ToR downlink on DUT.
     Verify switchover and disruption lasts < 1 second
     """
+    allowed_duplication, merge_duplications = link_down_downstream_active_duplication_setting
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        allowed_disruption=1, action=shutdown_upper_tor_downlink_intfs
+        allowed_disruption=1, action=shutdown_upper_tor_downlink_intfs,
+        allowed_duplication=allowed_duplication,
+        merge_duplications_into_disruptions=merge_duplications
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,

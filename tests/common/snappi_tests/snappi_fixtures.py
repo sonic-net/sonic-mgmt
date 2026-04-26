@@ -28,6 +28,7 @@ from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings, create_front_panel_ports, \
     create_connections, create_uhdIp_list, create_arp_bypass, create_profiles
 logger = logging.getLogger(__name__)
+_next_system_id = 1
 
 macsec_enabled_port = {}
 macsec_profile_name = ""
@@ -66,22 +67,35 @@ def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(scope='module')
 def snappi_api(snappi_api_serv_ip,
-               snappi_api_serv_port):
+               snappi_api_serv_port,
+               tbinfo):
     """
     Fixture for session handle,
     for creating snappi objects and making API calls.
     Args:
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
-        snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture.
+        snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture
+        tbinfo (pytest fixture): fixture provides information about testbed.
     """
-    location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
-    # TODO: Currently extension is defaulted to ixnetwork.
-    # Going forward, we should be able to specify extension
-    # from command line while running pytest.
-    api = snappi.api(location=location, ext="ixnetwork")
-    # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
-    # api._username = "<please mention the username if other than default username>"
-    # api._password = "<please mention the password if other than default password>"
+
+    ptf_image_name = tbinfo.get("ptf_image_name", "")
+    if not ptf_image_name:
+        logger.warning('Cannot get ptf_image_name in tbinfo {}, defaulting to ixnetwork'.format(tbinfo))
+
+    if "docker-stc-api-server" in ptf_image_name:
+        logger.info("for docker-stc-api-server")
+        location = snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
+        api = snappi.api(location=location, transport="grpc")
+        api.request_timeout = 300
+    else:
+        logger.info("for docker-keysight-api-server")
+        location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
+        api = snappi.api(location=location, ext="ixnetwork")
+
+        # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
+        # api._username = "<please mention the username if other than default username>"
+        # api._password = "<please mention the password if other than default password>"
+
     yield api
 
     if getattr(api, 'assistant', None) is not None:
@@ -156,7 +170,11 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
         grouped.setdefault(entry['attachto'], []).append(entry)
 
     for intf, entries in grouped.items():
-        port_ids = [i for i, sp in enumerate(snappi_ports) if sp['peer_port'] == intf]
+        # Added fix to select snappi-ports based on ports and duthost.
+        port_ids = [id for id, snappi_port in enumerate(snappi_ports)
+                    if ((snappi_port['peer_port'] == intf) and
+                        (snappi_port['peer_device'] == duthost.hostname))]
+
         if len(port_ids) != 1:
             continue
         port_id = port_ids[0]
@@ -211,7 +229,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
                 ipv6=v6_addr,
                 gw_ipv6=v6_gw,
                 prefix_len_v6=str(v6_prefix) if v6_prefix is not None else None,
-                port_type=SnappiPortType.IPInterface,
+                port_type=SnappiPortType.RtrInterface,
                 peer_port=intf
             )
             port_config_list.append(port_config)
@@ -247,7 +265,8 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             gw4 = v4_entry['addr']
             pfx4 = v4_entry['prefixlen']
             subnet4 = f"{gw4}/{pfx4}"
-            member_ipv4s = get_addrs_in_subnet(subnet4, len(members))
+            # Do not assign the VLAN gateway IP to a TGEN interface.
+            member_ipv4s = get_addrs_in_subnet(subnet4, len(members), exclude_ips=[gw4])
         else:
             gw4 = pfx4 = None
             member_ipv4s = [None] * len(members)
@@ -256,7 +275,8 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             gw6 = v6_entry['addr']
             pfx6 = v6_entry['prefixlen']
             subnet6 = f"{gw6}/{pfx6}"
-            member_ipv6s = get_ipv6_addrs_in_subnet(subnet6, len(members))
+            # Do not assign the VLAN gateway IP to a TGEN interface.
+            member_ipv6s = get_ipv6_addrs_in_subnet(subnet6, len(members), exclude_ips=[gw6])
         else:
             gw6 = pfx6 = None
             member_ipv6s = [None] * len(members)
@@ -316,6 +336,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
     """
     Generate Snappi configuration of PortChannel (LAG) member and LAG interfaces (IPv4 + IPv6).
     """
+    global _next_system_id
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     if 'minigraph_portchannels' not in mg_facts:
         return True
@@ -337,17 +358,31 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         v4_entry = next((e for e in entries if __valid_ipv4_addr(e['addr'])), None)
         v6_entry = next((e for e in entries if not __valid_ipv4_addr(e['addr'])), None)
 
-        member_port_ids = [i for i, sp in enumerate(snappi_ports) for m in members if sp['peer_port'] == m]
+        # Added fix to select member_port_id based on peer_port and peer_dut
+        member_port_ids = [
+            int(sp['port_id'])
+            for sp in (snappi_ports)
+            for m in members
+            if ((sp['peer_port'] == m) and (sp['peer_device'] == duthost.hostname))]
+
+        member_port_ids = [int(sp['port_id']) for sp in (snappi_ports) for m in members if
+                           ((sp['peer_port'] == m) and (sp['peer_device'] == duthost.hostname))]
+
         if not member_port_ids:
             continue
-
+        last_byte = _next_system_id & 0xFF
         lag = config.lags.lag(name='Lag {}'.format(pc))[-1]
-        lag.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
+        lag.protocol.lacp.actor_system_id = f"00:00:00:00:00:{last_byte:02x}"
         lag.protocol.lacp.actor_system_priority = 1
         lag.protocol.lacp.actor_key = 1
 
         for phy in members:
-            port_ids = [i for i, sp in enumerate(snappi_ports) if sp['peer_port'] == phy]
+            # Added fix to select snappi_ports based on peer-device and peer-hostname.
+            port_ids = [
+                int(sp['port_id'])
+                for sp in (snappi_ports)
+                if ((sp['peer_port'] == phy) and (sp['peer_device'] == duthost.hostname))]
+
             if len(port_ids) != 1:
                 continue
             port_id = port_ids[0]
@@ -406,6 +441,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             ip6_stack.gateway = v6_entry['addr']
 
         pc_id += 1
+        _next_system_id += 1
 
     return True
 
@@ -583,8 +619,171 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     return config, port_config_list
 
 
+def _normalize_sonic_config_asn(asn_field):
+    if asn_field is None:
+        return None
+    if isinstance(asn_field, bytes):
+        return int(asn_field.decode('utf-8'))
+    return int(asn_field)
+
+
+def _merged_bgp_neighbor_table(config_facts):
+    nbrs = {}
+    nbrs.update(config_facts.get('BGP_NEIGHBOR') or {})
+    nbrs.update(config_facts.get('BGP_INTERNAL_NEIGHBOR') or {})
+    nbrs.update(config_facts.get('BGP_VOQ_CHASSIS_NEIGHBOR') or {})
+    return nbrs
+
+
+def _peer_asn_from_bgp_neighbor_table(bgp_table, neighbor_ip):
+    if not neighbor_ip:
+        return None
+    ent = bgp_table.get(str(neighbor_ip))
+    if not ent:
+        return None
+    return _normalize_sonic_config_asn(ent.get('asn'))
+
+
+def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, config_facts):       # noqa: F811
+    """
+    Build tgen_ports list from config_db PORTCHANNEL and PORTCHANNEL_INTERFACE.
+    Used when --bgp_pc_config is set (port-channels preconfigured on testbed).
+    Returns same format as tgen_ports (INTERFACE path).
+    """
+    speed_type = {
+        '10000': 'speed_10_gbps',
+        '25000': 'speed_25_gbps',
+        '40000': 'speed_40_gbps',
+        '50000': 'speed_50_gbps',
+        '100000': 'speed_100_gbps',
+        '200000': 'speed_200_gbps',
+        '400000': 'speed_400_gbps',
+        '800000': 'speed_800_gbps',
+    }
+    pc_interface = config_facts.get('PORTCHANNEL_INTERFACE') or {}
+    pc_member = config_facts.get('PORTCHANNEL_MEMBER') or {}
+    if not pc_interface or not pc_member:
+        return None
+    # Normalize PORTCHANNEL_INTERFACE: keys may be "PortChannel1" or "PortChannel1|1.1.1.1/24"
+    pc_ips = {}
+    for key, val in list(pc_interface.items()):
+        if '|' in key:
+            pc_name, addr = key.split('|', 1)
+            pc_ips.setdefault(pc_name, []).append(addr)
+        else:
+            addrs = list(val.keys()) if isinstance(val, dict) else list(val)
+            pc_ips[key] = addrs
+    # PortChannel names in stable order (PortChannel1, PortChannel2, ...)
+    pc_names = sorted(
+        pc_ips.keys(),
+        key=lambda x: (
+            int(x.replace('PortChannel', ''))
+            if x.replace('PortChannel', '').isdigit()
+            else 0
+        )
+    )
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts, dut_hostname=duthost.hostname)
+    if snappi_fanouts is None:
+        return None
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        break
+    else:
+        return None
+    port_speeds = {int(p['speed']) for p in snappi_ports}
+    if len(port_speeds) != 1:
+        return None
+    port_speed = port_speeds.pop()
+    peer_port_to_snappi = {p['peer_port']: p for p in snappi_ports}
+    # BGP_NEIGHBOR: key = neighbor (TGEN) IP, value has 'local_addr' = DUT IP
+    # Map local_addr -> neighbor_ip to get TGEN IP from DUT IP on the port-channel
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR') or {}
+    local_to_neighbor = {}
+    for neighbor_ip, props in list(bgp_neighbors.items()):
+        local_addr = props.get('local_addr')
+        # Changing IP addresses esp IPv6 to lower case.
+        if local_addr:
+            local_to_neighbor[local_addr.lower()] = neighbor_ip.lower()
+    bgp_merged = _merged_bgp_neighbor_table(config_facts)
+    dm_local = (config_facts.get('DEVICE_METADATA') or {}).get('localhost') or {}
+    dut_asn_global = _normalize_sonic_config_asn(dm_local.get('bgp_asn'))
+    pytest_assert(
+        dut_asn_global is not None,
+        'DEVICE_METADATA localhost bgp_asn missing; cannot attach ASN fields to tgen_ports')
+    result = []
+    for port_id, pc_name in enumerate(pc_names):
+        members = pc_member.get(pc_name)
+        if members is None:
+            members = [m.split('|', 1)[1] for m in list(pc_member.keys()) if m.startswith(pc_name + '|')]
+        else:
+            members = list(members.keys()) if isinstance(members, dict) else members
+        # Skip portchannel if it has no ports or has more than 2 ports as members.
+        if (not members) or (len(members) >= 2):
+            continue
+        pc_port_member = members[0]
+        sp = peer_port_to_snappi.get(pc_port_member)
+        if sp is None:
+            continue
+        addrs = pc_ips.get(pc_name, [])
+        peer_ip = peer_ipv6 = prefix = ipv6_prefix = None
+        for a in addrs:
+            if ':' in a:
+                peer_ipv6, ipv6_prefix = a.split('/')
+            else:
+                peer_ip, prefix = a.split('/')
+        if peer_ip is None and peer_ipv6 is None:
+            continue
+        entry = {
+            'card_id': sp.get('card_id', '1'),
+            'location': sp['location'],
+            'peer_device': duthost.hostname,
+            'peer_port': pc_name,
+            'port_id': str(port_id),
+            'speed': speed_type.get(str(port_speed), sp.get('speed', 'speed_400_gbps')),
+        }
+        if peer_ip:
+            entry['peer_ip'] = peer_ip
+            entry['prefix'] = prefix
+            # Prefer BGP_NEIGHBOR (neighbor IP = TGEN side) when local_addr matches DUT IP
+            entry['ip'] = local_to_neighbor.get(peer_ip) or get_addrs_in_subnet(
+                peer_ip + '/' + prefix, 1, exclude_ips=[peer_ip])[0]
+        else:
+            entry['peer_ip'] = ''
+            entry['prefix'] = '24'
+            entry['ip'] = ''
+        if peer_ipv6:
+            entry['peer_ipv6'] = peer_ipv6.lower()
+            entry['ipv6_prefix'] = ipv6_prefix
+            # Prefer BGP_NEIGHBOR (neighbor IP = TGEN side) when local_addr matches DUT IPv6
+            entry['ipv6'] = local_to_neighbor.get(peer_ipv6.lower()) or get_addrs_in_subnet(
+                peer_ipv6 + '/' + ipv6_prefix, 1, exclude_ips=[peer_ipv6])[0]
+        else:
+            entry['peer_ipv6'] = ''
+            entry['ipv6_prefix'] = '64'
+            entry['ipv6'] = ''
+        asn4 = _peer_asn_from_bgp_neighbor_table(bgp_merged, entry.get('ip') or '')
+        asn6 = _peer_asn_from_bgp_neighbor_table(bgp_merged, entry.get('ipv6') or '')
+        if asn4 is not None and asn6 is not None:
+            pytest_assert(
+                asn4 == asn6,
+                'BGP neighbor ASN mismatch for {}: IPv4 TGEN {} asn {} vs IPv6 TGEN {} asn {}'.format(
+                    pc_name, entry.get('ip'), asn4, entry.get('ipv6'), asn6))
+        peer_asn = asn4 if asn4 is not None else asn6
+        pytest_assert(
+            peer_asn is not None,
+            'No BGP neighbor asn for {} (TGEN ip={}, ipv6={})'.format(
+                pc_name, entry.get('ip'), entry.get('ipv6')))
+        entry['dut_asn'] = dut_asn_global
+        entry['peer_asn'] = peer_asn
+        result.append(entry)
+    return result if result else None
+
+
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
+def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts, request):      # noqa: F811
     """
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
@@ -617,6 +816,18 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         'prefix': u'24',
         'speed': 'speed_400_gbps'}]
     """
+    use_bgp_pc_config = request.config.getoption("--bgp_pc_config", default=False)
+    config_facts = duthost.config_facts(host=duthost.hostname,
+                                        source="running")['ansible_facts']
+
+    if use_bgp_pc_config:
+        tgen_ports_list = _tgen_ports_from_portchannel(
+            duthost, conn_graph_facts, fanout_graph_facts, config_facts
+        )
+        pytest_assert(tgen_ports_list is not None,
+                      'Failed to build tgen_ports from port-channel (PORTCHANNEL_INTERFACE / PORTCHANNEL_MEMBER)')
+        return tgen_ports_list
+
     speed_type = {
                   '10000': 'speed_10_gbps',
                   '25000': 'speed_25_gbps',
@@ -626,8 +837,6 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
                   '200000': 'speed_200_gbps',
                   '400000': 'speed_400_gbps',
                   '800000': 'speed_800_gbps'}
-    config_facts = duthost.config_facts(host=duthost.hostname,
-                                        source="running")['ansible_facts']
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                              dut_hostname=duthost.hostname)
     pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
@@ -838,49 +1047,80 @@ def setup_dut_ports(
         config,
         port_config_list,
         snappi_ports):
+    """
+    Function is used to setup interfaces for the test.
+    config_port function does not have explicit setup flag as there is no clean-up required.
+    if setup flag is true, VLANs, Port-channels and rtr interfaces are used in that order.
+    Last option is to use P2P IPs in 20.x.x.x configured in variables.override.yml file.
+    If setup flag is false, then port-type is used to determine if rtr interface is used.
+    For router interfaces, there is no explicit clean-up on the DUT.
+    For P2P interfaces, the P2P IPs configured on the DUT are removed.
+    """
+
+    target_ports = len(snappi_ports)
+
+    # Function to check if port_config_list has all ports required for test.
+    def found_ports():
+        return len(port_config_list) >= target_ports
+
+    def config_port(fn):
+        for index, duthost in enumerate(duthost_list):
+            config_result = fn(config=config,
+                               port_config_list=port_config_list,
+                               duthost=duthost,
+                               snappi_ports=snappi_ports)
+            pytest_assert(config_result is True, 'Failed to configure ports via {}'.format(fn.__name__))
+        return found_ports()
+
+    def config_port_setup(fn):
+        for index, duthost in enumerate(duthost_list):
+            config_result = fn(config=config,
+                               port_config_list=port_config_list,
+                               duthost=duthost,
+                               snappi_ports=snappi_ports,
+                               setup=setup)
+            pytest_assert(config_result is True, 'Failed to configure ports via {}'.format(fn.__name__))
+        return found_ports()
 
     ptype = "--snappi_macsec" in sys.argv
-    if not ptype:
-        for index, duthost in enumerate(duthost_list):
-            config_result = __vlan_intf_config(config=config,
-                                               port_config_list=port_config_list,
-                                               duthost=duthost,
-                                               snappi_ports=snappi_ports)
-            pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
 
-        for index, duthost in enumerate(duthost_list):
-            config_result = __portchannel_intf_config(config=config,
-                                                      port_config_list=port_config_list,
-                                                      duthost=duthost,
-                                                      snappi_ports=snappi_ports)
-            pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
+    # if not MACSEC and setup=True, find usual ports for the test.
+    if ((not ptype) and setup):
+        if config_port(__vlan_intf_config):
+            logger.info('Found relevant VLAN interfaces')
+            return config, port_config_list, snappi_ports
+        if config_port(__portchannel_intf_config):
+            logger.info('Found relevant portchannel interfaces')
+            return config, port_config_list, snappi_ports
 
-        if is_snappi_multidut(duthost_list):
-            for index, duthost in enumerate(duthost_list):
-                config_result = __intf_config_multidut(
-                                                        config=config,
-                                                        port_config_list=port_config_list,
-                                                        duthost=duthost,
-                                                        snappi_ports=snappi_ports,
-                                                        setup=setup)
-                pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
-        else:
-            for index, duthost in enumerate(duthost_list):
-                config_result = __l3_intf_config(config=config,
-                                                 port_config_list=port_config_list,
-                                                 duthost=duthost,
-                                                 snappi_ports=snappi_ports,
-                                                 setup=setup)
-                pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
+        if config_port_setup(__l3_intf_config):
+            logger.info('Found relevant router interfaces')
+            return config, port_config_list, snappi_ports
+
+        # If no ports found above, empty port_config_list for p2p IPs.
+        port_config_list = []
+        if config_port_setup(__intf_config_multidut):
+            logger.info('Found relevant p2p interfaces')
+            return config, port_config_list, snappi_ports
+        pytest_assert(found_ports(), 'Failed to find and configure DUT ports')
+    # if MACSEC, then configure or remove the MACSec ports.
+    elif ptype:
+        config_port_setup(__intf_config_macsec)
+        if found_ports():
+            logger.info('Found relevant ports for MACSec')
+            return config, port_config_list, snappi_ports
+        pytest_assert(found_ports(), 'Failed to configure MACSec ports')
+    # if not MACSEC, and setup=False, then proceed to remove intf config.
     else:
-        for index, duthost in enumerate(duthost_list):
-            config_result = __intf_config_macsec(config=config,
-                                                 port_config_list=port_config_list,
-                                                 duthost=duthost,
-                                                 snappi_ports=snappi_ports,
-                                                 setup=setup)
-            pytest_assert(config_result is True, 'Fail to configure macsec on snappi ports')
-    return config, port_config_list, snappi_ports
+        for port_config in port_config_list:
+            if port_config.type == SnappiPortType.RtrInterface:
+                logger.info('Cleanup for router interfaces...')
+                config_port_setup(__l3_intf_config)
+                return None
+            if port_config.type == SnappiPortType.IPInterface:
+                logger.info('Cleanup for p2p ip interfaces...')
+                config_port_setup(__intf_config_multidut)
+                return None
 
 
 def get_tgen_peer_ports(snappi_ports, hostname):
@@ -1252,7 +1492,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                                 gw=dutIp,
                                 gw_mac=duthost.get_dut_iface_mac(port['peer_port']),
                                 prefix_len=prefix_length,
-                                port_type=SnappiPortType.IPInterface,
+                                port_type=SnappiPortType.MacsecInterface,
                                 peer_port=port['peer_port']
                             )
             port_config_list.append(port_config)
@@ -1594,9 +1834,9 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
 def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
-    if len(duthosts) == 1:
+    if not duthosts[0].get_facts().get("modular_chassis") and len(duthosts) == 1:
         return False
-    if len(duthosts) > 1:
+    if not duthosts[0].get_facts().get("modular_chassis") and len(duthosts) > 1:
         return True
     return duthosts[0].get_facts().get("modular_chassis")
 
@@ -1841,11 +2081,18 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
         arp_opt = f"-d {addr}"
 
     try:
-        dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
-        dut.shell(
-            "{} config route {} prefix {}/32 nexthop {} {}".format(
-                asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
-                DEST_TO_GATEWAY_MAP[addr]['intf']))
+        if setup:
+            dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
+            dut.shell(
+                f"{asic_arg} config route {cmd} prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
+                f"{addr} dev {DEST_TO_GATEWAY_MAP[addr]['intf']}"
+            )
+        else:
+            dut.shell(
+                f"{asic_arg} config route {cmd} prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
+                f"{addr} dev {DEST_TO_GATEWAY_MAP[addr]['intf']}"
+            )
+            dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
     except RunAnsibleModuleFail:
         if setup:
             raise
@@ -2082,20 +2329,24 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
                 rx_port_count,
                 testbed
             )
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, snappi_ports, snappi_api, setup=True)
+        yield (testbed_config, port_config_list, snappi_ports)
+        logger.info('Snappi cleanup after test')
+        setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
+    else:
+        flatten_skeleton_parameter = request.param
+        speed, category = flatten_skeleton_parameter.split("-")
+
+        if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+        snappi_ports = snappi_port_selection[float(speed)][category]
+
+        if not snappi_ports:
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
         return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
-
-    flatten_skeleton_parameter = request.param
-    speed, category = flatten_skeleton_parameter.split("-")
-
-    if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
-        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
-
-    snappi_ports = snappi_port_selection[float(speed)][category]
-
-    if not snappi_ports:
-        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
-
-    return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
 
 
 def flatten_list(lst):

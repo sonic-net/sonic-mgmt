@@ -79,6 +79,7 @@ all:
           - tgen-t1-3-lag
           - mgmttor
           - t2
+          - t2-isolated-d128s2
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120

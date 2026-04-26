@@ -1,12 +1,14 @@
 #!/usr/bin/python
+import json
 import paramiko
 import os
 import time
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.misc_utils import wait_for_path
-from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config, smartswitch_vlan_config
 
 DPU_HOST_IP_BASE = "169.254.200.{}"
+SRC_DPU_CONFIG_TEMPLATE = "/tmp/dpu_extra_template.json"
 SRC_DPU_CONFIG_FILE = "/tmp/dpu_extra.json"
 DST_DPU_CONFIG_FILE = "/tmp/dpu_extra.json"
 DST_FULL_CONFIG_FILE = "/tmp/dpu_full.json"
@@ -15,6 +17,7 @@ GEN_FULL_CONFIG_CMD = "jq -s '.[0] * .[1]' {} {} > {}".format(
     DEFAULT_CONFIG_FILE, DST_DPU_CONFIG_FILE, DST_FULL_CONFIG_FILE)
 CONFIG_RELOAD_CMD = "sudo config reload {} -y -f".format(DST_FULL_CONFIG_FILE)
 CONFIG_SAVE_CMD = "sudo config save -y"
+CONFIG_SETUP_FACTORY_CMD = "sudo config-setup factory"
 # Need to add retry for Cisco SS since DPU takes longer to admin up
 MAX_RETRIES = 5
 RETRY_DELAY = 60  # sec
@@ -28,15 +31,21 @@ class LoadExtraDpuConfigModule(object):
         self.module = AnsibleModule(
             argument_spec=dict(
                 hwsku=dict(type='str', required=True),
+                hostname=dict(type='str', required=True),
                 host_username=dict(type='str', required=True),
-                host_passwords=dict(type='list', elements='str', required=True, no_log=True)
+                host_passwords=dict(type='list', elements='str', required=True, no_log=True),
+                npu_index=dict(type='int', required=False, default=0),
+                target_dpu_index=dict(type='int', required=False, default=-1)
             ),
             supports_check_mode=False
         )
 
         self.hwsku = self.module.params['hwsku']
+        self.hostname = self.module.params['hostname']
         self.host_username = self.module.params['host_username']
         self.host_passwords = self.module.params['host_passwords']
+        self.npu_index = self.module.params['npu_index']
+        self.target_dpu_index = self.module.params['target_dpu_index']
 
         try:
             self.hwsku_config = smartswitch_hwsku_config[self.hwsku]
@@ -104,13 +113,25 @@ class LoadExtraDpuConfigModule(object):
             return False
 
     def configure_dpus(self):
-        """Configure all DPUs based on the hardware SKU configuration"""
+        """Configure all DPUs (or a single DPU if target_dpu_index is set) based on the hardware SKU configuration"""
         if not os.path.isfile(SRC_DPU_CONFIG_FILE):
             self.module.fail_json(msg="DPU config file not found: {}".format(SRC_DPU_CONFIG_FILE))
 
+        # Determine which DPUs to configure
+        if self.target_dpu_index >= 0:
+            if self.target_dpu_index >= self.dpu_num:
+                self.module.fail_json(
+                    msg="target_dpu_index {} is out of range (dpu_num={})".format(
+                        self.target_dpu_index, self.dpu_num))
+            dpu_indices = [self.target_dpu_index]
+            total_to_configure = 1
+        else:
+            dpu_indices = list(range(0, self.dpu_num))
+            total_to_configure = self.dpu_num
+
         success_count = 0
         failure_count = 0
-        required_success_count = int(self.dpu_num * SUCCESS_THRESHOLD)
+        required_success_count = int(total_to_configure * SUCCESS_THRESHOLD)
 
         # Ensure at least 1 success is required when threshold < 1.0
         if SUCCESS_THRESHOLD < 1.0 and required_success_count == 0:
@@ -123,12 +144,52 @@ class LoadExtraDpuConfigModule(object):
                 .format(required_success_count, MAX_RETRIES)
             )
 
-        self.module.log("Configuring {} DPUs, requiring at least {} successful configurations".format(
-            self.dpu_num, required_success_count))
+        self.module.log("Configuring {} DPU(s), requiring at least {} successful configurations".format(
+            total_to_configure, required_success_count))
 
-        for i in range(0, self.dpu_num):
-            # Update the extra dpu config file
-            self.module.run_command("sed -i 's/18.*202/18.{}.202/g' {}".format(i, SRC_DPU_CONFIG_FILE))
+        # Backup the original template before modifications
+        self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_FILE, SRC_DPU_CONFIG_TEMPLATE))
+
+        vlan_cfg = smartswitch_vlan_config.get(self.npu_index, smartswitch_vlan_config[0])
+        gateway_ip = vlan_cfg["vlan_interface_ip"].split("/")[0]
+
+        for i in dpu_indices:
+            # Copy fresh template for each DPU
+            self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_TEMPLATE, SRC_DPU_CONFIG_FILE))
+
+            with open(SRC_DPU_CONFIG_FILE, 'r') as f:
+                dpu_config = json.load(f)
+
+            dpu_config["DEVICE_METADATA"]["localhost"]["hostname"] = "{}-dpu-{}".format(
+                self.hostname, i)
+
+            dpu_dataplane_ip = "{}{}/24".format(vlan_cfg["dpu_ip_prefix"], i + 1)
+            dpu_config["INTERFACE"] = {
+                "Ethernet0": {},
+                "Ethernet0|{}".format(dpu_dataplane_ip): {}
+            }
+            dpu_config["STATIC_ROUTE"] = {
+                "default|0.0.0.0/0": {
+                    "nexthop": gateway_ip,
+                    "ifname": "Ethernet0",
+                    "nexthop-vrf": "",
+                    "blackhole": "false",
+                    "distance": "0"
+                }
+            }
+
+            # Override port config for Mellanox SmartSwitch hwskus
+            if self.hwsku.startswith("Mellanox"):
+                if "PORT" in dpu_config:
+                    for port_name in dpu_config["PORT"]:
+                        dpu_config["PORT"][port_name]["autoneg"] = "on"
+                        dpu_config["PORT"][port_name]["speed"] = "400000"
+                        dpu_config["PORT"][port_name]["index"] = "1"
+                        dpu_config["PORT"][port_name]["role"] = "Dpc"
+                        dpu_config["PORT"][port_name]["subport"] = "0"
+
+            with open(SRC_DPU_CONFIG_FILE, 'w') as f:
+                json.dump(dpu_config, f, indent=4)
 
             dpu_ip = DPU_HOST_IP_BASE.format(i + 1)
 
@@ -142,9 +203,19 @@ class LoadExtraDpuConfigModule(object):
 
             try:
                 # Attempt each step and track success
-                if (self.transfer_to_dpu(ssh, dpu_ip) and
-                        self.wait_for_dpu_path(ssh, dpu_ip, DEFAULT_CONFIG_FILE) and
-                        self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
+                if not self.transfer_to_dpu(ssh, dpu_ip):
+                    failure_count += 1
+                    self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
+                    continue
+
+                # Run config-setup factory to generate factory default config_db.json
+                self.module.log("Running config-setup factory on DPU {}".format(dpu_ip))
+                if not self.execute_command(ssh, dpu_ip, CONFIG_SETUP_FACTORY_CMD):
+                    failure_count += 1
+                    self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
+                    continue
+
+                if (self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD) and
                         self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE)) and
@@ -162,16 +233,17 @@ class LoadExtraDpuConfigModule(object):
                 ssh.close()
 
         self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_FILE))
+        self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_TEMPLATE))
 
-        self.module.log("Configuration completed: {} successful, {} failed out of {} total DPUs".format(
-            success_count, failure_count, self.dpu_num))
+        self.module.log("Configuration completed: {} successful, {} failed out of {} DPU(s)".format(
+            success_count, failure_count, total_to_configure))
 
         if success_count < required_success_count:
             self.module.fail_json(
                 msg="Failed to meet success threshold: {} successful configs required, "
-                    "but only {} succeeded out of {} DPUs. "
+                    "but only {} succeeded out of {} DPU(s). "
                     "Failures: {}".format(
-                        required_success_count, success_count, self.dpu_num, failure_count))
+                        required_success_count, success_count, total_to_configure, failure_count))
 
         self.module.log("Checking the number of DPUs fully online")
         if not self.wait_for_dpu_count_fully_online(required_success_count):
@@ -212,7 +284,7 @@ class LoadExtraDpuConfigModule(object):
         for line in out.split("\n"):
             if "up" in line and "dpu_midplane_link_state" in line:
                 dpu_midplane_up_count += 1
-            if line.startswith("DPU") and "Online" in line and "Partial" not in line:
+            if line.startswith("DPU") and "Online" in line:
                 dpu_online_count += 1
         return dpu_online_count, dpu_midplane_up_count
 

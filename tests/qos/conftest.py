@@ -4,6 +4,8 @@ import pytest
 import yaml
 from .args.qos_sai_args import add_qos_sai_args
 from .args.buffer_args import add_dynamic_buffer_calculation_args
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
+from tests.common.config_reload import config_reload
 
 # QoS pytest arguments
 
@@ -171,3 +173,25 @@ def skip_traditional_model(is_buffer_model_dynamic):
 def skip_lossy_buffer_only(is_lossy_only_pool):
     if is_lossy_only_pool:
         pytest.skip("Skip test for lossy only pool")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def enable_dscp_remapping_on_dualtor_flag(request, duthost):
+    """
+    Enable dscp remapping if not enabled when --qos_dual_tor is True.
+    """
+    config_changed = False
+    if not is_tunnel_qos_remap_enabled(duthost) and request.config.getoption("--qos_dual_tor"):
+        duthost.shell("redis-cli -n 4 hset 'SYSTEM_DEFAULTS|tunnel_qos_remap' status enabled")
+        duthost.shell("config qos reload --no-dynamic-buffer")
+        duthost.shell("config save -y")
+        config_reload(duthost, safe_reload=True, yang_validate=False)
+        config_changed = True
+
+    yield
+
+    if config_changed:
+        duthost.shell('redis-cli -n 4 DEL "SYSTEM_DEFAULTS|tunnel_qos_remap"')
+        duthost.shell("config qos reload --no-dynamic-buffer")
+        duthost.shell("config save -y")
+        config_reload(duthost, safe_reload=True, yang_validate=False)
