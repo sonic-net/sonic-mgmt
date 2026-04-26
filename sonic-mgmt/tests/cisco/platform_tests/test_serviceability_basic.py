@@ -37,7 +37,7 @@ PERMISSION_DENIED_MESSAGE = "Are you using sudo"
 npu_cli_dict_usr_mode = {
     "next-hop": ["usage", "entries"],
     "router": ["entries", "ports", "details", "route-table"],
-    "trap": ["", "list"],
+    "trap": [""],
     "global": [""],
     "resource": [""],
     "port": ["counters", "entries"],
@@ -45,19 +45,15 @@ npu_cli_dict_usr_mode = {
     "counters": [""],
     "event-trap": [""],
     "asic-errors": [""],
-    "asic-interrupts": [""],
     "ecmp": [""],
     "lpts": [""],
-    "packet-path": [""],
     "hash": [""],
-    "bfd": ["summary", "counter"],
+    "bfd": ["summary"],
     "l3-interface": [""],
     "temperatures": [""],
-    "histograms": ["sms", "sqg", "tc"],
-    "mac": ["state"],
+    "histogram": ["sms", "sqg", "tc"],
     "rx": ["cgm_profile", "cgm_global", "interface_cgm", "punt"],
     "tx": ["cgm_state", "cgm_global"],
-    "voq": ["cgm_profile", "queue_counters", "stats", "voq_globals", "voq_ids", "hbm"],
 }
 
 # NPU CLIs that require sudo (not allowed in non-sudo user mode)
@@ -70,7 +66,6 @@ npu_cli_dict_general = {
         "rate-check": " ",
         "sdk-debug": ["status"],
         "switch": ["entries", "ports"],
-        "trap-list": " ",
         "script": [f"-s {SCRIPT_FILE} -t 60"],
         # "ars": ["info","flows"]
 }
