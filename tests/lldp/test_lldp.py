@@ -696,7 +696,7 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
                       "No LLDP neighbors found before config reload")
 
         logger.info("Step 2: Performing config reload")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         logger.info("Step 3: Waiting for system to stabilize after config reload")
         # Wait for LLDP to converge
