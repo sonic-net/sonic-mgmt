@@ -4419,6 +4419,12 @@ qos/test_qos_probe.py:
       # Mellanox SPC3 (Spectrum 3)
       - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
 
+qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
+  xfail:
+    reason: "SPC1 HeadroomPool probe: pg=4 PFC not triggered and headroom total mismatch. Tracked by #24215."
+    conditions:
+      - "asic_gen == 'spc1'"
+
 qos/test_qos_sai.py:
   skip:
     reason: "qos_sai tests not supported on t1 topo / M* topo does not support qos and It is skipped for '202412' for now"
