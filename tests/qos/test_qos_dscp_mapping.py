@@ -290,7 +290,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ptf_dst_port_ids = get_stream_ptf_ports(links)
         pytest_assert(ptf_dst_port_ids, f"ptf_dst_port_ids is {ptf_dst_port_ids}")
 
-        ptf_dst_port_ids.remove(ptf_src_port_id)
+        if ptf_src_port_id in ptf_dst_port_ids:
+            ptf_dst_port_ids.remove(ptf_src_port_id)
 
         return {
             'ptf_src_port_id': ptf_src_port_id,
