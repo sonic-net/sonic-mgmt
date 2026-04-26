@@ -9,6 +9,7 @@ from copy import deepcopy
 
 from tests.common.utilities import wait_until
 from tests.common.reboot import SONIC_SSH_REGEX
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.firmware_helper import show_firmware
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,9 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
             localhost.wait_for(
                 host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10, timeout=post_reboot_timeout)
 
+        logger.info("Waiting for docker service to start")
+        pytest_assert(wait_until(300, 10, 0, duthost.is_host_service_running, "docker"),
+                      "Docker service failed to start")
         logger.info("Waiting on critical systems to come online...")
         wait_until(300, 30, 0, duthost.critical_services_fully_started)
         time.sleep(60)
