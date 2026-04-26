@@ -1207,7 +1207,8 @@ def validate_expected_stub_files(duthost, validation_folder, expected_stub_files
     :param not_expected_stub_files_list: not expected files list
     :param expected_max_folder_size: expected maximum folder size
     """
-    validation_files_list = duthost.shell('sudo ls {}'.format(validation_folder))['stdout_lines']
+    validation_files_list = duthost.shell(f'sudo ls -p {validation_folder} | grep -v /',
+                                          module_ignore_errors=True)['stdout_lines']
 
     # Check that all expected stub files exist
     validate_files_in_folder(validation_files_list, expected_stub_files_list)
