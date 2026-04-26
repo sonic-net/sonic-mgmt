@@ -283,14 +283,14 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
     rand_selected_dut.command(f'sonic-db-cli CONFIG_DB DEL "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}"')
     logger.info(f"Removed static route {SRV6_ROUTE_PREFIX}")
 
-    for locator_param in SRV6_MY_LOCATOR_LIST:
-        locator_name = locator_param[0]
-        del_srv6_locator(rand_selected_dut, locator_name)
-
     for sid_param in SRV6_MY_SID_LIST:
         locator_name = sid_param[0]
         ip_addr = sid_param[1]
         del_srv6_sid(rand_selected_dut, locator_name, ip_addr)
+
+    for locator_param in SRV6_MY_LOCATOR_LIST:
+        locator_name = locator_param[0]
+        del_srv6_locator(rand_selected_dut, locator_name)
 
 
 @pytest.fixture(scope="function")
