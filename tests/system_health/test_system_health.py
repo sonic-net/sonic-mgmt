@@ -389,7 +389,8 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
 
 @pytest.mark.disable_loganalyzer
 def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic):  # noqa F811
+                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic,  # noqa F811
+                                  is_support_fan):                                                      # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
