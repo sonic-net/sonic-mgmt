@@ -1926,42 +1926,74 @@ class QosSaiBase(QosBase):
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             elif dutAsic == 'th5':
-                logger.info("Generator script not implemented for TH5")
+                logger.info("Generator script not implemented for TH5 - using YAML defaults")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
-                bufferConfig = dutBufferConfig(duthost, dut_asic)
-                pytest_assert(len(bufferConfig) == 4,
-                              "buffer config is incompleted")
-                pytest_assert('BUFFER_POOL' in bufferConfig,
-                              'BUFFER_POOL is not exist in bufferConfig')
-                pytest_assert('BUFFER_PROFILE' in bufferConfig,
-                              'BUFFER_PROFILE is not exist in bufferConfig')
-                pytest_assert('BUFFER_QUEUE' in bufferConfig,
-                              'BUFFER_QUEUE is not exist in bufferConfig')
-                pytest_assert('BUFFER_PG' in bufferConfig,
-                              'BUFFER_PG is not exist in bufferConfig')
-
                 current_file_dir = os.path.dirname(os.path.realpath(__file__))
-                sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
-                if sub_folder_dir not in sys.path:
-                    sys.path.append(sub_folder_dir)
-                import qos_param_generator
-                qpm = qos_param_generator.QosParamBroadcom({'qos_params': qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                            'asic_type': dutAsic,
-                                                            'speed_cable_len': portSpeedCableLength,
-                                                            'dutConfig': dutConfig,
-                                                            'ingressLosslessProfile': ingressLosslessProfile,
-                                                            'ingressLossyProfile': ingressLossyProfile,
-                                                            'egressLosslessProfile': egressLosslessProfile,
-                                                            'egressLossyProfile': egressLossyProfile,
-                                                            'sharedHeadroomPoolSize': sharedHeadroomPoolSize,
-                                                            'dualTor': dutConfig["dualTor"],
-                                                            'dutTopo': dutTopo,
-                                                            'bufferConfig': bufferConfig,
-                                                            'dutHost': duthost,
-                                                            'testbedTopologyName': tbinfo["topo"]["name"],
-                                                            'selected_profile': profileName})
-                qosParams = qpm.run()
+                onbox_script = os.path.join(current_file_dir, "files/brcm/qos_param_onbox.py")
+                use_onbox = False
+
+                if os.path.exists(onbox_script):
+                    # On-box calculation: SCP script to DUT, run, parse JSON output, merge
+                    logger.info("Using qos_param_onbox.py for on-box QoS parameter calculation")
+                    duthost.copy(src=onbox_script, dest="/tmp/qos_param_onbox.py")
+                    onbox_result = duthost.shell(
+                        "sudo python3 /tmp/qos_param_onbox.py --format json --no-meta",
+                        module_ignore_errors=True)
+                    if onbox_result['rc'] == 0 and onbox_result['stdout'].strip():
+                        import json as json_mod
+                        onbox_params = json_mod.loads(onbox_result['stdout'])
+                        onbox_speed = list(onbox_params.keys())[0]
+                        qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
+                        if onbox_speed not in qosParams:
+                            qosParams[onbox_speed] = {}
+                        for profile_name, fields in onbox_params[onbox_speed].items():
+                            if profile_name in qosParams.get(onbox_speed, {}):
+                                qosParams[onbox_speed][profile_name].update(fields)
+                            else:
+                                qosParams[onbox_speed][profile_name] = fields
+                        logger.info("On-box calculation merged {} profiles for {}".format(
+                            len(onbox_params[onbox_speed]), onbox_speed))
+                        use_onbox = True
+                    else:
+                        logger.warning("On-box calculation failed (rc={}), falling back to old generator".format(
+                            onbox_result['rc']))
+
+                if not use_onbox:
+                    # Fallback: old qos_param_generator.py
+                    bufferConfig = dutBufferConfig(duthost, dut_asic)
+                    pytest_assert(len(bufferConfig) == 4,
+                                  "buffer config is incompleted")
+                    pytest_assert('BUFFER_POOL' in bufferConfig,
+                                  'BUFFER_POOL is not exist in bufferConfig')
+                    pytest_assert('BUFFER_PROFILE' in bufferConfig,
+                                  'BUFFER_PROFILE is not exist in bufferConfig')
+                    pytest_assert('BUFFER_QUEUE' in bufferConfig,
+                                  'BUFFER_QUEUE is not exist in bufferConfig')
+                    pytest_assert('BUFFER_PG' in bufferConfig,
+                                  'BUFFER_PG is not exist in bufferConfig')
+
+                    sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
+                    if sub_folder_dir not in sys.path:
+                        sys.path.append(sub_folder_dir)
+                    import qos_param_generator
+                    qpm = qos_param_generator.QosParamBroadcom({
+                        'qos_params': qosConfigs['qos_params'][dutAsic][dutTopo],
+                        'asic_type': dutAsic,
+                        'speed_cable_len': portSpeedCableLength,
+                        'dutConfig': dutConfig,
+                        'ingressLosslessProfile': ingressLosslessProfile,
+                        'ingressLossyProfile': ingressLossyProfile,
+                        'egressLosslessProfile': egressLosslessProfile,
+                        'egressLossyProfile': egressLossyProfile,
+                        'sharedHeadroomPoolSize': sharedHeadroomPoolSize,
+                        'dualTor': dutConfig["dualTor"],
+                        'dutTopo': dutTopo,
+                        'bufferConfig': bufferConfig,
+                        'dutHost': duthost,
+                        'testbedTopologyName': tbinfo["topo"]["name"],
+                        'selected_profile': profileName})
+                    qosParams = qpm.run()
         elif is_cisco_device(duthost):
             bufferConfig = dutBufferConfig(duthost, dut_asic)
             pytest_assert('BUFFER_POOL' in bufferConfig,
