@@ -29,12 +29,13 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         ntp_service_name = 'ntp'
 
     if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
-        # Limit listening to the mgmt interface, to prevent socket allocation
-        # exhaustion
+        # Limit listening to the mgmt and loopback interfaces, to prevent socket
+        # allocation exhaustion on PTF hosts with many test interfaces.
+        # The loopback interface is required so that ntpstat can query ntpd via
+        # 127.0.0.1 to verify the service is running.
         ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
+        ptfhost.lineinfile(path=ntp_conf_path, line="interface listen lo")
         ptfhost.lineinfile(path=ntp_conf_path, line="interface listen mgmt")
-
-    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # Comment out the default pool configuration
     ptfhost.lineinfile(
@@ -52,7 +53,15 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     ptfhost.lineinfile(
         path=ntp_conf_path, line="#tos minclock 4 minsane 3", regexp="^tos.*minclock.*minsane.*")
 
-    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
+    if ntp_daemon_type == NtpDaemon.NTPSEC:
+        # ntpsec removed the LOCL (undisciplined local clock) refclock driver, so
+        # "server 127.127.1.0 prefer" has no effect and ntpd stays in INIT state
+        # indefinitely.  Use orphan mode instead: ntpd immediately self-synchronises
+        # at the given stratum so that ntpstat and the DUT can treat it as a valid
+        # time source.  orphanwait 0 skips the default 300-second delay.
+        ptfhost.lineinfile(path=ntp_conf_path, line="tos orphan 10 orphanwait 0")
+    else:
+        ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # restart ntp server
     ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
@@ -98,10 +107,14 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     ptfhost.lineinfile(
         path=ntp_conf_path, line="pool 3.debian.pool.ntp.org iburst", regexp="#pool.*3.debian.*pool.*ntp.*org.*")
 
-    ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
+    if ntp_daemon_type == NtpDaemon.NTPSEC:
+        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^tos.*orphan.*orphanwait")
+    else:
+        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
 
     if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
         ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.ignore.wildcard")
+        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.lo")
         ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
 
     # reset ntp client configuration
