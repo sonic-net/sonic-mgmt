@@ -147,6 +147,12 @@ SRV6_MY_SID_LIST = [
 # Static route prefix for SRv6 packets
 SRV6_ROUTE_PREFIX = '2001::/16'
 
+# Ingress ACL on the SRv6 egress interface to drop packets bounced back from the neighbor
+SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME = "SRV6_LOOP_BREAK_TYPE"
+SRV6_LOOP_BREAK_ACL_TABLE_NAME = "SRV6_LOOP_BREAK"
+SRV6_LOOP_BREAK_ACL_RULE_NAME = "DROP_BOUNCED_SRV6"
+SRV6_LOOP_BREAK_ACL_RULE_PRIORITY = "999"
+
 # Drop counter
 # The polling interval should be no less than 2 seconds to avoid BGP routes large convergence time.
 TRIMMING_COUNTER_INTERVAL = 2000

@@ -22,6 +22,9 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
+                                             SRV6_ROUTE_PREFIX, SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME,
+                                             SRV6_LOOP_BREAK_ACL_TABLE_NAME, SRV6_LOOP_BREAK_ACL_RULE_NAME,
+                                             SRV6_LOOP_BREAK_ACL_RULE_PRIORITY,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
                                              SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
@@ -1550,6 +1553,111 @@ def cleanup_trimming_acl(duthost):
     duthost.shell("show acl rule")
 
     logger.info("ACL rules cleanup completed successfully")
+
+
+def configure_srv6_loop_break_acl(duthost, egress_ports):
+    """
+    Add an ingress ACL on the SRv6 egress physical interface(s) to drop packets bounced
+    back from the neighbor whose destination falls in SRV6_ROUTE_PREFIX. Without this
+    filter, the DUT keeps re-forwarding bounced packets out the same interface, forming a
+    DUT<->neighbor L3 ping-pong loop until hlim hits zero (~32 bounces per packet).
+
+    Matching only on DST_IPV6 is sufficient: SRV6_ROUTE_PREFIX is exclusive to this
+    test, and on this port's ingress side no legitimate traffic should carry such a
+    destination (the legitimate flow is PTF -> DUT -> neighbor, not the reverse).
+
+    The ACL is bound to physical port(s) (e.g. PortChannel members), not the PortChannel
+    name itself, to keep the table type's BIND_POINTS=["PORT"] consistent and avoid the
+    PortChannel-bind-mismatch failure mode.
+
+    Args:
+        duthost: DUT host object
+        egress_ports (list[str] or str): Physical port name(s) to bind the ACL to as
+            ingress. Accepts a single port string or a list. For a PortChannel egress,
+            pass the channel members (e.g. test_params['egress_ports'][0]['dut_members']).
+    """
+    if isinstance(egress_ports, str):
+        ports_list = [egress_ports]
+    else:
+        ports_list = list(egress_ports)
+
+    logger.info(f"Configuring SRv6 loop-break ACL on {ports_list}, drop dst={SRV6_ROUTE_PREFIX}")
+
+    acl_config = {
+        "ACL_RULE": {
+            f"{SRV6_LOOP_BREAK_ACL_TABLE_NAME}|{SRV6_LOOP_BREAK_ACL_RULE_NAME}": {
+                "PACKET_ACTION": "DROP",
+                "PRIORITY": SRV6_LOOP_BREAK_ACL_RULE_PRIORITY,
+                "DST_IPV6": SRV6_ROUTE_PREFIX
+            }
+        },
+        "ACL_TABLE": {
+            SRV6_LOOP_BREAK_ACL_TABLE_NAME: {
+                "policy_desc": "Drop SRv6 bounced packets to break DUT<->neighbor L3 loop",
+                "ports": ports_list,
+                "stage": "INGRESS",
+                "type": SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME
+            }
+        },
+        "ACL_TABLE_TYPE": {
+            SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME: {
+                "ACTIONS": [
+                    "PACKET_ACTION",
+                    "COUNTER"
+                ],
+                "BIND_POINTS": [
+                    "PORT"
+                ],
+                "MATCHES": [
+                    "DST_IPV6"
+                ]
+            }
+        }
+    }
+
+    with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as temp_file:
+        temp_file_path = temp_file.name
+        json.dump(acl_config, temp_file, indent=4)
+
+    dut_json_path = f"/tmp/acl_config_{SRV6_LOOP_BREAK_ACL_TABLE_NAME}.json"
+    duthost.copy(src=temp_file_path, dest=dut_json_path)
+    os.unlink(temp_file_path)
+
+    duthost.shell(f"sonic-cfggen -w -j {dut_json_path}")
+
+    # Verify the ACL table and rule were actually installed - silent apply failures
+    # would let the bounce loop run unchecked and inflate egress queue counters.
+    table_output = duthost.shell("show acl table")["stdout"]
+    rule_output = duthost.shell("show acl rule")["stdout"]
+    logger.info(f"ACL tables after apply:\n{table_output}")
+    logger.info(f"ACL rules after apply:\n{rule_output}")
+
+    if SRV6_LOOP_BREAK_ACL_TABLE_NAME not in table_output:
+        raise RuntimeError(
+            f"SRv6 loop-break ACL table {SRV6_LOOP_BREAK_ACL_TABLE_NAME} was not installed. "
+            f"show acl table output:\n{table_output}"
+        )
+    if SRV6_LOOP_BREAK_ACL_RULE_NAME not in rule_output:
+        raise RuntimeError(
+            f"SRv6 loop-break ACL rule {SRV6_LOOP_BREAK_ACL_RULE_NAME} was not installed. "
+            f"show acl rule output:\n{rule_output}"
+        )
+
+    logger.info("SRv6 loop-break ACL applied and verified")
+
+
+def cleanup_srv6_loop_break_acl(duthost):
+    """
+    Remove the SRv6 loop-break ACL configuration installed by configure_srv6_loop_break_acl.
+    """
+    logger.info(f"Cleaning up SRv6 loop-break ACL, table: {SRV6_LOOP_BREAK_ACL_TABLE_NAME}")
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB DEL "
+        f"'ACL_RULE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}|{SRV6_LOOP_BREAK_ACL_RULE_NAME}'"
+    )
+    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_TABLE|{SRV6_LOOP_BREAK_ACL_TABLE_NAME}'")
+    duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'ACL_TABLE_TYPE|{SRV6_LOOP_BREAK_ACL_TABLE_TYPE_NAME}'")
+    logger.info("SRv6 loop-break ACL cleanup completed")
 
 
 def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, block_queue_profile):
