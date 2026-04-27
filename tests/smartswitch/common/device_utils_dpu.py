@@ -34,6 +34,14 @@ REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
 PING_TIME_INT = 10
 
+# Syslog error patterns to ignore on DPUs after reboot (known/expected messages).
+# These will be used as loganalyzer ignore patterns for DPUs once
+# loganalyzer gains --dpu-pattern support.
+DPU_SYSLOG_ERROR_IGNORE_PATTERNS = [
+    r".*ERR.*transceiver.*",
+    r".*ERR.*syncd.*SAI_STATUS_ITEM_NOT_FOUND.*",
+]
+
 
 @pytest.fixture(scope='function')
 def num_dpu_modules(platform_api_conn):   # noqa F811
