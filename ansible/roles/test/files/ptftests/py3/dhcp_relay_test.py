@@ -13,6 +13,7 @@ from ptf import config
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 import scapy.all as scapy2
+import threading
 from threading import Thread
 
 logger = logging.getLogger(__name__)
@@ -902,9 +903,30 @@ class DHCPTest(DataplaneBaseTest):
                 if self.option82 in pkt_options:
                     self.verified_option82 = True
 
-    def Sniffer(self, iface):
+    def Sniffer(self, iface, ready_event=None):
+        if ready_event:
+            ready_event.set()
         scapy2.sniff(iface=iface, filter="udp and (port 67 or 68)",
                      prn=self.pkt_callback, store=0, timeout=5)
+
+    def start_sniffers_and_wait(self):
+        """Start sniffer threads on all server ports and wait for them to be ready.
+
+        This avoids a race condition where packets could be sent before the
+        sniffer BPF socket is bound, causing missed packets and flaky failures.
+        """
+        events = []
+        threads = []
+        for interface_index in self.server_port_indices:
+            ready = threading.Event()
+            events.append(ready)
+            t1 = Thread(target=self.Sniffer, args=(
+                "eth"+str(interface_index), ready))
+            t1.start()
+            threads.append(t1)
+        for e in events:
+            e.wait(timeout=2)
+        return threads
 
     # Verify that the DHCP relay actually received and relayed the DHCPDISCOVER message to all of
     # its known DHCP servers. We also verify that the relay inserted Option 82 information in the
@@ -1247,10 +1269,7 @@ class DHCPTest(DataplaneBaseTest):
         else:
             # Start sniffer process for each server port to capture DHCP packet
             # and then verify option 82
-            for interface_index in self.server_port_indices:
-                t1 = Thread(target=self.Sniffer, args=(
-                    "eth"+str(interface_index),))
-                t1.start()
+            self.start_sniffers_and_wait()
 
             self.client_send_discover(
                 self.dest_mac_address, self.client_udp_src_port)
@@ -1290,10 +1309,7 @@ class DHCPPacketsServerToClientTest(DHCPTest):
     """
     def runTest(self):
         # Start sniffer process for each server port to capture DHCP packet
-        for interface_index in self.server_port_indices:
-            t1 = Thread(target=self.Sniffer, args=(
-                "eth"+str(interface_index),))
-            t1.start()
+        self.start_sniffers_and_wait()
 
         self.server_send_offer()
         self.verify_offer_received()
@@ -1342,10 +1358,7 @@ class DHCPInvalidChecksumTest(DHCPTest):
     def runTest(self):
         # Start sniffer process for each server port to capture DHCP packet
         # and then verify option 82
-        for interface_index in self.server_port_indices:
-            t1 = Thread(target=self.Sniffer, args=(
-                "eth"+str(interface_index),))
-            t1.start()
+        self.start_sniffers_and_wait()
 
         self.client_send_discover(
             self.dest_mac_address, self.client_udp_src_port)
