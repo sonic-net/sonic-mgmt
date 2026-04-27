@@ -312,10 +312,11 @@ Verify BGP Unnumbered behavior during Cold reboot
 
 Steps:
 1. Establish BGP session and traffic flow
-2. Perform cold-reboot on DUT
+2. Perform a cold reboot on the DUT
+3. Monitor BGP session state and traffic during reboot and recovery
 
 Expected Result:
-1. Session recovers automatically
+1. BGP session is re-established automatically after reboot
 2. Minimal traffic disruption
 3. Routes preserved or quickly relearned
 
@@ -326,12 +327,13 @@ Expected Result:
 Verify BGP Unnumbered behavior during Cold reboot
 
 Steps:
-1. Establish BGP session and traffic flow
-2. Perform warm-reboot on DUT
+1. Establish BGP session and confirm stable traffic flow
+2. Perform a warm reboot on the DUT
+3. Monitor BGP session state and traffic during reboot and recovery
 
 Expected Result:
-1. Session recovers automatically
-2. Minimal traffic disruption
+1. BGP session is preserved or quickly re-established
+2. Minimal or no traffic disruption
 3. Routes preserved or quickly relearned
 
 ### Test case #15 - Fast Reboot
@@ -341,11 +343,12 @@ Expected Result:
 Verify BGP Unnumbered behavior during Fast reboot
 
 Steps:
-1. Establish BGP session and traffic flow
-2. Perform fast-reboot on DUT
+1. Establish BGP session and confirm stable traffic flow
+2. Perform a fast reboot on the DUT
+3. Monitor BGP session state and traffic during reboot and recovery
 
 Expected Result:
-1. Session recovers automatically
+1. BGP session is preserved or rapidly re-established.
 2. Minimal traffic disruption
 3. Routes preserved or quickly relearned
 
