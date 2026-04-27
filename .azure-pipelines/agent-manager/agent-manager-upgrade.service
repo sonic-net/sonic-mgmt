@@ -1,0 +1,9 @@
+[Unit]
+Description=Pull the configured docker image and restart agent-manager
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/agent-manager-upgrade

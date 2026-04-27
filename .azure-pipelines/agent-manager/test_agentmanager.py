@@ -1,561 +1,497 @@
-import agentmanager
-import json
-from json import dumps as _dumps
-import pathlib
-import os
-import random
-import uuid
-import unittest
-from unittest.mock import patch
-from pyfakefs.fake_filesystem_unittest import TestCase, patchfs
-import yaml
+"""Unit tests for agentmanager.
 
-agent_manager_conf = """
+Covers the new AAD-token-service flow that replaces the legacy PAT-refresh
+mechanism. Uses pyfakefs for the conf/secret files and unittest.mock for
+the docker client and HTTP layer.
+"""
+
+import stat
+import time
+import unittest
+import uuid
+from unittest.mock import MagicMock, patch
+
+from pyfakefs.fake_filesystem_unittest import TestCase
+
+import agentmanager
+
+
+CONF_PATH = '/etc/agent-manager.conf'
+SECRET_PATH = '/etc/agent-manager.secret'
+
+VALID_CONF = """
 image:
-    name: dockeragent
-    tag: v1.1.9
+    name: sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt
+    tag: 2026.04.x-pinned
 azp:
     url: "https://dev.azure.com/mssonic"
     pool: "nightly"
-    token: "this is a test token"
+    token_service:
+        url: "https://sonic-nightly-service.azurewebsites.net/token"
+        secret_file: "/etc/agent-manager.secret"
 proxy:
     http: "http://10.201.148.40:8080"
     https: "http://10.201.148.40:8080"
 agent:
-    count: 28 
+    count: 5
     name: azp-agent
 """
 
-class MockDockerImage:
-    VERSIONS = ['v1.1.8', 'v1.1.9', 'v2.0.0']
-    # version_selector 
-    # <0 - old
-    # =0 - current,
-    # >0 - new
-    def __init__(self, version_selector):
-        self.name = 'dockeragent'
-        idx = 0
-        if version_selector < 0:
-            idx = 0
-        if version_selector == 0:
-            idx = 1
-        if version_selector > 0:
-            idx = 2
-        self.tags = [self.name + ':' + self.VERSIONS[idx]]
 
-class MockContainerProcess:
-    def __init__(self, busy):
-        if busy:
-            self.exit_code = 0
-        else:
-            self.exit_code = 1
+class _FakeImage(object):
+    def __init__(self, image_id):
+        self.id = image_id
+        self.tags = []
 
-class MockContainer:
-    MAX_ID = 2**32
-    # version_selector for docker image
-    # <0 - old
-    # =0 - current,
-    # >0 - new
-    def __init__(self, version_selector, status, busy=False):
-        self.image = MockDockerImage(version_selector)
-        self.id = random.randint(0, self.MAX_ID)
-        self.name = "azp-agent-" + str(uuid.uuid4())
-        self.short_id = random.randint(0, self.MAX_ID)
-        # valid status include
-        # created, restarting, running, removing, paused, exited, dead
+
+class _FakeContainer(object):
+    """Minimal mock matching the docker.Container surface we touch."""
+
+    def __init__(self, image_id, status='running', busy=False, slot=None,
+                 name=None, managed=True):
+        self.attrs = {'Image': image_id}
         self.status = status
         self.busy = busy
+        self.short_id = uuid.uuid4().hex[:12]
+        self.id = 'sha256:' + uuid.uuid4().hex
+        self.name = name or 'azp-agent-{:02d}-{}'.format(slot or 0, uuid.uuid4().hex[:8])
+        self.labels = {}
+        if managed:
+            self.labels[agentmanager.AgentManager.LABEL_MANAGED] = 'true'
+        if slot is not None:
+            self.labels[agentmanager.AgentManager.LABEL_SLOT] = str(slot)
+        self.removed = False
 
-    def remove(*args, **kwargs):
-        return
+    def remove(self, force=False):
+        self.removed = True
+
+    def stop(self, timeout=None):
+        self.stopped = True
+        self.stop_timeout = timeout
+        self.status = 'exited'
 
     def exec_run(self, cmd):
-        return MockContainerProcess(self.busy)
+        rv = MagicMock()
+        rv.exit_code = 0 if self.busy else 1
+        return rv
 
 
-def dumps_wrapper(*args, **kwargs):
-    return _dumps(*args, **(kwargs | {"default": lambda obj: "mock"}))
+class _FakeDockerClient(object):
+    def __init__(self, image_id='sha256:current', containers=None):
+        self.image_id = image_id
+        self._containers = containers or []
+        self.images = MagicMock()
+        self.images.list.return_value = [_FakeImage(image_id)]
+        self.images.get.return_value = _FakeImage(image_id)
+        self.containers = MagicMock()
+        self.containers.list = self._list_containers
+        self.containers.run = MagicMock(return_value=MagicMock(
+            id='sha256:' + uuid.uuid4().hex, short_id='new1234', name='new-container'))
+
+    def _list_containers(self, all=False, filters=None, ignore_removed=False):
+        if filters and 'label' in filters:
+            label = filters['label']
+            key, _, val = label.partition('=')
+            return [c for c in self._containers if c.labels.get(key) == val]
+        return list(self._containers)
+
+    def ping(self):
+        return True
 
 
-class TestAgentManager(TestCase):
+def _setup_fs(self, secret_value='test-secret-value', secret_mode=0o600):
+    """Set up the fake filesystem with a conf and a secret file.
 
-    AGENT_CONF_PATH = '/etc/agent-manager.conf'
+    `self` is the pyfakefs TestCase instance; we use `self.fs.create_file`
+    so st_mode is set explicitly (pyfakefs's os.chmod is unreliable on
+    Windows hosts where it keeps the default 0o666).
+    """
+    self.fs.create_file(CONF_PATH, contents=VALID_CONF)
+    self.fs.create_file(
+        SECRET_PATH,
+        contents=secret_value + '\n',
+        st_mode=stat.S_IFREG | secret_mode,
+    )
 
-    @classmethod
-    def setUpClass(cls):
-        cls.setUpClassPyfakefs()
-        # setup the fake filesystem using standard functions
-        path = pathlib.Path("/etc")
-        path.mkdir()
-        (path / cls.AGENT_CONF_PATH).touch()
-        with open(cls.AGENT_CONF_PATH, 'w') as f:
-            f.write(agent_manager_conf)
- 
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_agent_manager_init(self, mock_docker, fake_fs, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
 
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'read_pat_token')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_refresh_token_no_token_file(self, mock_docker, fake_fs, mock_read_pat_token, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        mock_read_pat_token.return_value = None
-        assert agt_mgr.refresh_token() is False
+class TestTokenProvider(unittest.TestCase):
 
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'read_pat_token')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_refresh_token_new_token_file(self, mock_docker, fake_fs, mock_read_pat_token, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        new_token = "this is a new token"
-        mock_read_pat_token.return_value = new_token
-        assert agt_mgr.config_token_same(new_token) is False
-        assert agt_mgr.config['azp']['token'] != new_token
-        old_config = None
-        with open(self.AGENT_CONF_PATH, 'r') as f:
-            old_config = yaml.safe_load(f)
-        assert agt_mgr.refresh_token() is True
-        new_config = None
-        with open(self.AGENT_CONF_PATH, 'r') as f:
-            new_config = yaml.safe_load(f)
-        res = all(old_config.get(k) == v for k, v in new_config.items())
-        assert res is False
+    def _make_response(self, status=200, payload=None):
+        resp = MagicMock()
+        resp.status_code = status
+        resp.json.return_value = payload or {
+            'access_token': 'tok-abc',
+            'expires_on': int(time.time()) + 3600,
+        }
+        return resp
 
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_get_agent_containers_empty(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        mock_list_of_agent_containers.return_value = []
-        old, curr = agt_mgr.get_agent_containers()
-        assert len(old) == 0
-        assert len(curr) == 0
+    def test_first_call_fetches(self):
+        http = MagicMock(return_value=self._make_response())
+        tp = agentmanager.TokenProvider(
+            url='https://x/token', secret_loader=lambda: 'sec', http_get=http)
+        self.assertEqual(tp.get_token(), 'tok-abc')
+        self.assertEqual(http.call_count, 1)
+        # Authorization header sent as Bearer secret
+        self.assertEqual(
+            http.call_args[1]['headers']['Authorization'], 'Bearer sec')
 
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_get_agent_containers_old_only(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        mock_list_of_agent_containers.return_value = [
-            MockContainer(-1, 'running'),
-            MockContainer(-1, 'dead'),
-            MockContainer(-1, 'running')
+    def test_second_call_uses_cache(self):
+        http = MagicMock(return_value=self._make_response())
+        tp = agentmanager.TokenProvider(
+            url='https://x/token', secret_loader=lambda: 'sec', http_get=http)
+        tp.get_token()
+        tp.get_token()
+        self.assertEqual(http.call_count, 1)
+
+    def test_refresh_when_near_expiry(self):
+        # First fetch: token expires in 100 seconds, well under 300s safety margin.
+        near_exp = self._make_response(payload={
+            'access_token': 'tok-1', 'expires_on': int(time.time()) + 100,
+        })
+        far_exp = self._make_response(payload={
+            'access_token': 'tok-2', 'expires_on': int(time.time()) + 3600,
+        })
+        http = MagicMock(side_effect=[near_exp, far_exp])
+        tp = agentmanager.TokenProvider(
+            url='https://x/token', secret_loader=lambda: 'sec', http_get=http)
+        self.assertEqual(tp.get_token(), 'tok-1')
+        self.assertEqual(tp.get_token(), 'tok-2')
+        self.assertEqual(http.call_count, 2)
+
+    def test_http_error_raises_after_retries(self):
+        resp = MagicMock()
+        resp.status_code = 401
+        http = MagicMock(return_value=resp)
+        tp = agentmanager.TokenProvider(
+            url='https://x/token', secret_loader=lambda: 'sec', http_get=http)
+        # No actual sleeping
+        with patch('agentmanager.time.sleep'):
+            with self.assertRaises(agentmanager.TokenServiceError):
+                tp.get_token()
+        self.assertEqual(http.call_count, agentmanager.TokenProvider.MAX_RETRIES)
+
+    def test_empty_secret_raises_immediately(self):
+        http = MagicMock()
+        tp = agentmanager.TokenProvider(
+            url='https://x/token', secret_loader=lambda: '', http_get=http)
+        with self.assertRaises(agentmanager.TokenServiceError):
+            tp.get_token()
+        http.assert_not_called()
+
+    def test_secret_reread_on_each_refresh(self):
+        # Simulates dual-secret rotation: secret_loader changes between fetches.
+        secrets = iter(['sec1', 'sec2'])
+        http = MagicMock(return_value=self._make_response(payload={
+            'access_token': 'tok', 'expires_on': int(time.time()) + 100,
+        }))
+        tp = agentmanager.TokenProvider(
+            url='https://x/token',
+            secret_loader=lambda: next(secrets),
+            http_get=http,
+        )
+        tp.get_token()
+        tp.get_token()
+        self.assertEqual(http.call_args_list[0][1]['headers']['Authorization'], 'Bearer sec1')
+        self.assertEqual(http.call_args_list[1][1]['headers']['Authorization'], 'Bearer sec2')
+
+
+class TestConfigLoad(TestCase):
+
+    def setUp(self):
+        self.setUpPyfakefs()
+        _setup_fs(self)
+
+    def _build_mgr(self):
+        with patch('agentmanager.docker.from_env') as df:
+            df.return_value = _FakeDockerClient()
+            return agentmanager.AgentManager(conf=CONF_PATH)
+
+    def test_valid_conf_loads(self):
+        mgr = self._build_mgr()
+        self.assertEqual(mgr.config['azp']['pool'], 'nightly')
+        self.assertEqual(mgr.config['agent']['count'], 5)
+        self.assertEqual(
+            mgr.config['azp']['token_service']['url'],
+            'https://sonic-nightly-service.azurewebsites.net/token',
+        )
+        self.assertEqual(
+            mgr.config['azp']['token_service']['secret_file'], SECRET_PATH)
+        # No legacy 'token' key
+        self.assertNotIn('token', mgr.config['azp'])
+
+    def test_missing_token_service_url_fails(self):
+        with open(CONF_PATH, 'w') as f:
+            f.write(VALID_CONF.replace(
+                'url: "https://sonic-nightly-service.azurewebsites.net/token"',
+                ''))
+        with patch('agentmanager.docker.from_env') as df:
+            df.return_value = _FakeDockerClient()
+            with self.assertRaises(SystemExit):
+                agentmanager.AgentManager(conf=CONF_PATH)
+
+    def test_both_secret_and_secret_file_fails(self):
+        bad = VALID_CONF.replace(
+            'secret_file: "/etc/agent-manager.secret"',
+            'secret_file: "/etc/agent-manager.secret"\n        secret: "inline"',
+        )
+        with open(CONF_PATH, 'w') as f:
+            f.write(bad)
+        with patch('agentmanager.docker.from_env') as df:
+            df.return_value = _FakeDockerClient()
+            with self.assertRaises(SystemExit):
+                agentmanager.AgentManager(conf=CONF_PATH)
+
+    def test_neither_secret_nor_secret_file_fails(self):
+        bad = VALID_CONF.replace(
+            'secret_file: "/etc/agent-manager.secret"', '')
+        with open(CONF_PATH, 'w') as f:
+            f.write(bad)
+        with patch('agentmanager.docker.from_env') as df:
+            df.return_value = _FakeDockerClient()
+            with self.assertRaises(SystemExit):
+                agentmanager.AgentManager(conf=CONF_PATH)
+
+    def test_world_readable_secret_file_rejected(self):
+        # Recreate the secret with world-readable mode (0o644). pyfakefs's
+        # os.chmod is a no-op on Windows, so use create_file with explicit
+        # st_mode after removing the existing one.
+        self.fs.remove(SECRET_PATH)
+        self.fs.create_file(
+            SECRET_PATH, contents='x', st_mode=stat.S_IFREG | 0o644)
+        with patch('agentmanager.docker.from_env') as df:
+            df.return_value = _FakeDockerClient()
+            with self.assertRaises(SystemExit):
+                agentmanager.AgentManager(conf=CONF_PATH)
+
+    def test_inline_secret_works(self):
+        inline_conf = VALID_CONF.replace(
+            'secret_file: "/etc/agent-manager.secret"',
+            'secret: "inline-secret-value"',
+        )
+        with open(CONF_PATH, 'w') as f:
+            f.write(inline_conf)
+        with patch('agentmanager.docker.from_env') as df:
+            df.return_value = _FakeDockerClient()
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        self.assertEqual(mgr._secret_loader(), 'inline-secret-value')
+
+    def test_secret_file_loader_strips(self):
+        mgr = self._build_mgr()
+        self.assertEqual(mgr._secret_loader(), 'test-secret-value')
+
+
+class TestImageClassification(TestCase):
+
+    def setUp(self):
+        self.setUpPyfakefs()
+        _setup_fs(self)
+
+    def _mgr_with_containers(self, image_id, containers):
+        client = _FakeDockerClient(image_id=image_id, containers=containers)
+        with patch('agentmanager.docker.from_env', return_value=client):
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        # AgentManager stashes the image-id on validate(); confirm it.
+        return mgr, client
+
+    def test_split_by_image_id(self):
+        current_id = 'sha256:NEW'
+        mgr, _ = self._mgr_with_containers(current_id, [
+            _FakeContainer(image_id='sha256:OLD', slot=1),
+            _FakeContainer(image_id=current_id, slot=2),
+            _FakeContainer(image_id=current_id, slot=3),
+        ])
+        old, curr = mgr.get_agent_containers()
+        self.assertEqual(len(old), 1)
+        self.assertEqual(len(curr), 2)
+
+    def test_name_prefix_treated_as_strong_namespace_claim(self):
+        # The agent.name prefix is a strong namespace marker: any container
+        # starting with it is treated as ours, labeled or not. This is
+        # required so that legacy/orphan containers that survived the
+        # initial drain (because they were busy) keep being tracked across
+        # subsequent reconcile cycles, not just on the very first one.
+        client = _FakeDockerClient(image_id='sha256:NEW', containers=[
+            _FakeContainer(image_id='sha256:OLD', slot=1),
+            _FakeContainer(image_id='sha256:OLD',
+                           name='azp-agent-orphan', managed=False),
+        ])
+        # A container that doesn't share the prefix must still be ignored.
+        client._containers.append(
+            _FakeContainer(image_id='sha256:UNRELATED',
+                           name='unrelated-svc', managed=False))
+        with patch('agentmanager.docker.from_env', return_value=client):
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        listed = mgr.list_of_agent_containers()
+        self.assertEqual(len(listed), 2)
+        self.assertNotIn('unrelated-svc', [c.name for c in listed])
+
+    def test_no_labeled_falls_back_to_name_prefix(self):
+        # No managed=true containers; the legacy fallback should kick in
+        # so we don't lose track during the rollout.
+        client = _FakeDockerClient(image_id='sha256:NEW', containers=[
+            _FakeContainer(image_id='sha256:OLD', name='azp-agent-legacy',
+                           managed=False),
+            _FakeContainer(image_id='sha256:OLD', name='unrelated',
+                           managed=False),
+        ])
+        with patch('agentmanager.docker.from_env', return_value=client):
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        listed = mgr.list_of_agent_containers()
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0].name, 'azp-agent-legacy')
+
+
+class TestStartContainers(TestCase):
+
+    def setUp(self):
+        self.setUpPyfakefs()
+        _setup_fs(self)
+
+    def _build(self, containers=None, http_payload=None, http_status=200):
+        client = _FakeDockerClient(image_id='sha256:NEW',
+                                   containers=containers or [])
+        with patch('agentmanager.docker.from_env', return_value=client):
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        # Replace the token provider with a stub fed by our fake HTTP.
+        resp = MagicMock()
+        resp.status_code = http_status
+        resp.json.return_value = http_payload or {
+            'access_token': 'tok-fresh',
+            'expires_on': int(time.time()) + 3600,
+        }
+        http = MagicMock(return_value=resp)
+        mgr.token_provider = agentmanager.TokenProvider(
+            url='https://x/token',
+            secret_loader=lambda: 'sec',
+            http_get=http,
+        )
+        return mgr, client
+
+    def test_starts_with_aad_env_and_labels(self):
+        mgr, client = self._build()
+        started = mgr.start_containers(num=2)
+        self.assertEqual(len(started), 2)
+        self.assertEqual(client.containers.run.call_count, 2)
+
+        first_call = client.containers.run.call_args_list[0]
+        env = first_call[1]['environment']
+        self.assertEqual(env['AZP_TOKEN'], 'tok-fresh')
+        self.assertEqual(env['AZP_URL'], 'https://dev.azure.com/mssonic')
+        self.assertEqual(env['AZP_POOL'], 'nightly')
+        self.assertEqual(env['AZP_WORK'], '_work')
+        self.assertIn('AZP_AGENT_NAME', env)
+        self.assertIn('http_proxy', env)
+        self.assertEqual(first_call[1]['command'], ['/azp/start.sh'])
+        self.assertEqual(first_call[1]['working_dir'], '/azp')
+
+        labels = first_call[1]['labels']
+        self.assertEqual(labels[mgr.LABEL_MANAGED], 'true')
+        self.assertEqual(labels[mgr.LABEL_POOL], 'nightly')
+        self.assertIn(mgr.LABEL_SLOT, labels)
+
+    def test_skips_when_token_fetch_fails(self):
+        mgr, client = self._build(http_status=503)
+        with patch('agentmanager.time.sleep'):  # don't sleep on retry
+            started = mgr.start_containers(num=3)
+        self.assertEqual(started, [])
+        client.containers.run.assert_not_called()
+
+    def test_allocates_free_slots(self):
+        # Slots 1 and 3 are taken; only 2, 4, 5 are free.
+        existing = [
+            _FakeContainer(image_id='sha256:NEW', slot=1),
+            _FakeContainer(image_id='sha256:NEW', slot=3),
         ]
-        old, curr = agt_mgr.get_agent_containers()
-        assert len(old) == 3
-        assert len(curr) == 0
-
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_get_agent_containers_old_and_curr(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        mock_list_of_agent_containers.return_value = [
-            MockContainer(-1, 'running'),
-            MockContainer(0, 'running'),
-            MockContainer(0, 'running')
+        mgr, client = self._build(containers=existing)
+        mgr.start_containers(num=2)
+        slots_started = [
+            int(call[1]['labels'][mgr.LABEL_SLOT])
+            for call in client.containers.run.call_args_list
         ]
-        old, curr = agt_mgr.get_agent_containers()
-        assert len(old) == 1
-        assert len(curr) == 2
+        self.assertEqual(sorted(slots_started), [2, 4])
 
-    # test_remove_healthy_containers_none tests the fact that 'No' container running
-    # an active Agent.Worker process should be removed.
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_remove_healthy_containers_none(self, mock_docker, fake_fs, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = [
-            MockContainer(0, 'running', True),
-            MockContainer(0, 'running', True),
-            MockContainer(0, 'running', True)
+    def test_request_more_than_free_slots(self):
+        # 4 of 5 slots taken; asking for 3 starts only 1.
+        existing = [
+            _FakeContainer(image_id='sha256:NEW', slot=s) for s in (1, 2, 3, 4)
         ]
-        removed = agt_mgr.remove_healthy_containers(containers)
-        assert len(removed) == 0
+        mgr, client = self._build(containers=existing)
+        mgr.start_containers(num=3)
+        self.assertEqual(client.containers.run.call_count, 1)
+        self.assertEqual(
+            client.containers.run.call_args_list[0][1]['labels'][mgr.LABEL_SLOT],
+            '5',
+        )
 
-    # test_remove_healthy_containers_one removes one container that was idle
-    # it does not matter if it is old or current.
-    # old agents are removed anyway
-    # new agents are removed only for a pat refresh
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_remove_healthy_containers_none(self, mock_docker, fake_fs, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = [
-            MockContainer(0, 'running', True),   # current version; running pipeline job.
-            MockContainer(0, 'running', False),  # current version; running but no pipeline job.
-            MockContainer(-1, 'running', False)  # old version; running but no pipeline job.
-        ]
-        removed = agt_mgr.remove_healthy_containers(containers)
-        assert len(removed) == 2
-        assert removed[0] == containers[1].short_id
-        assert removed[1] == containers[2].short_id
 
-    # test should remove only one dead container
-    # via remove_unhealthy_containers
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_remove_unhealthy_containers(self, mock_docker, fake_fs, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = [
-            MockContainer(0, 'dead'),   # current version; dead
-            MockContainer(0, 'running', True),  # current version; running pipeline job
-            MockContainer(-1, 'running', True)  # old version; running pipeline job.
-        ]
-        removed = agt_mgr.remove_unhealthy_containers(containers)
-        assert len(removed) == 1
-        assert removed[0] == containers[0].short_id
+class TestGracefulStop(TestCase):
 
-    # test prune containers to remove any containers that are running and not busy
-    # but are too many (greater than threshold)
-    # configuration has max of 28
-    # test should prune the last two containers that are not busy
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_remove_unhealthy_containers(self, mock_docker, fake_fs, mock_validate):
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
-        for i in range(28):
-            containers.append(MockContainer(0, 'running', True))
-        containers.append(MockContainer(0, 'running', False))
-        containers.append(MockContainer(0, 'running', False))
-        removed = agt_mgr.prune_containers(2, containers)
-        assert len(removed) == 2
-        assert removed[0] == containers[28].short_id
-        assert removed[1] == containers[29].short_id
+    def setUp(self):
+        self.setUpPyfakefs()
+        _setup_fs(self)
 
-    # test start containers 
-    # just starts n containers;
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_start_containers(self, mock_docker, fake_fs, mock_validate):
-        # make MagicMock serializable to JSON by mocking dumps
-        # without this the test fails due to logging errors
-        json.dumps = unittest.mock.MagicMock(wraps=dumps_wrapper)
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
-        n_running = 10
-        for i in range(n_running):
-            containers.append(MockContainer(0, 'running', True))
-        to_start = agt_mgr.config['agent']['count'] - n_running
-        started = agt_mgr.start_containers(to_start)
-        assert len(started) == to_start
+    def test_running_container_is_stopped_then_removed(self):
+        # Idle running old container -> SIGTERM via stop() (so the
+        # in-container trap can deregister the agent), then remove().
+        c = _FakeContainer(image_id='sha256:OLD', slot=1)
+        client = _FakeDockerClient(image_id='sha256:NEW', containers=[c])
+        with patch('agentmanager.docker.from_env', return_value=client):
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        mgr.remove_healthy_containers([c])
+        self.assertTrue(getattr(c, 'stopped', False),
+                        'running container must be stopped() before removal')
+        self.assertTrue(c.removed)
 
-    #
-    # respawn tests
-    # - should only remove and respawn unhealthy containers
-    # - should keep number of containers running to the configured
-    #   threshold
-    # 
+    def test_force_remove_used_when_graceful_stop_fails(self):
+        # If stop() raises an APIError, fall back to remove(force=True)
+        # so we never leak a container.
+        c = _FakeContainer(image_id='sha256:OLD', slot=1)
+        force_calls = []
+        original_remove = c.remove
 
-    # No PAT refresh; 10 healthy containers running; Number is below configured threshold
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_respawn_number_below_threshold(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        # make MagicMock serializable to JSON by mocking dumps
-        # without this the test fails due to logging errors
-        json.dumps = unittest.mock.MagicMock(wraps=dumps_wrapper)
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
-        n_running = 10
-        for i in range(n_running):
-            containers.append(MockContainer(0, 'running', True))
-        mock_list_of_agent_containers.return_value = containers
-        # have 10 healthy current containers
-        # respawn should start 18 more
-        n_started, n_updated, n_removed, n_pruned = agt_mgr.respawn()
-        assert n_started == agt_mgr.config['agent']['count'] - n_running
-        assert n_updated == 0
-        assert n_removed == 0
-        assert n_pruned == 0
+        def remove(force=False):
+            force_calls.append(force)
+            original_remove(force=force)
+        c.remove = remove
+        c.stop = MagicMock(
+            side_effect=agentmanager.docker.errors.APIError('stop failed'))
+        client = _FakeDockerClient(image_id='sha256:NEW', containers=[c])
+        with patch('agentmanager.docker.from_env', return_value=client):
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        mgr.remove_healthy_containers([c])
+        self.assertTrue(c.removed)
+        self.assertIn(True, force_calls,
+                      'fallback path must call remove(force=True)')
 
-    # No PAT refresh; 5 dead containers
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_respawn_remove_unhealthy_containers(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        # make MagicMock serializable to JSON by mocking dumps
-        # without this the test fails due to logging errors
-        json.dumps = unittest.mock.MagicMock(wraps=dumps_wrapper)
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
-        n_running = 10
-        for i in range(n_running):
-            containers.append(MockContainer(0, 'running', True))
-        n_dead = 5
-        for i in range(n_dead):
-            containers.append(MockContainer(0, 'dead'))
-        mock_list_of_agent_containers.return_value = containers
-        n_started, n_updated, n_removed, n_pruned = agt_mgr.respawn()
-        assert n_started == agt_mgr.config['agent']['count'] - n_running
-        assert n_updated == 0
-        assert n_removed == n_dead
-        assert n_pruned == 0
+    def test_exited_container_skips_stop(self):
+        # Already-exited containers (status != 'running') should be
+        # removed but not stopped first.
+        c = _FakeContainer(image_id='sha256:OLD', slot=1, status='exited')
+        client = _FakeDockerClient(image_id='sha256:NEW', containers=[c])
+        with patch('agentmanager.docker.from_env', return_value=client):
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        mgr.remove_unhealthy_containers([c])
+        self.assertFalse(getattr(c, 'stopped', False),
+                         'already-exited containers must not be re-stopped')
+        self.assertTrue(c.removed)
 
-    # PAT refresh; 5 busy agents; 5 idle agents; 
-    # So should refresh the 5 idle agents
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_respawn_pat_refresh_with_few_idle_agents(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        # make MagicMock serializable to JSON by mocking dumps
-        # without this the test fails due to logging errors
-        json.dumps = unittest.mock.MagicMock(wraps=dumps_wrapper)
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
-        n_running = 5
-        # running and busy
-        for i in range(n_running):
-            containers.append(MockContainer(0, 'running', True))
-        # running and idle (i.e. no Agent.Worker)
-        n_idle = 5
-        for i in range(n_idle):
-            containers.append(MockContainer(0, 'running', False))
 
-        mock_list_of_agent_containers.return_value = containers
-        n_started, n_updated, n_removed, n_pruned = agt_mgr.respawn(pat_refresh=True)
-        assert n_started == agt_mgr.config['agent']['count'] - n_running
-        assert n_updated == n_idle
-        assert n_removed == n_idle
-        assert n_pruned == 0
+class TestSighup(TestCase):
 
-    # PAT refresh;
-    # All healthy case
-    # 5 busy agents; --> Should not touch
-    # 5 idle agents with current version; --> Should be updated
-    # 5 busy agents with older version; --> Should not touch
-    # 5 idle agents with older version; --> Should be updated
-    # Must start containers to keep number of workers to configured threshold
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_respawn_pat_refresh_with_mixed_case(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        # make MagicMock serializable to JSON by mocking dumps
-        # without this the test fails due to logging errors
-        json.dumps = unittest.mock.MagicMock(wraps=dumps_wrapper)
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
+    def setUp(self):
+        self.setUpPyfakefs()
+        _setup_fs(self)
 
-        # 5 busy agents; --> Should not touch
-        n_running = 5
-        for i in range(n_running):
-            containers.append(MockContainer(0, 'running', True))
+    def test_sighup_only_sets_pending_flag(self):
+        with patch('agentmanager.docker.from_env', return_value=_FakeDockerClient()):
+            mgr = agentmanager.AgentManager(conf=CONF_PATH)
+        self.assertFalse(mgr._pending_reload)
+        original_pool = mgr.config['azp']['pool']
+        mgr.sighup_handler(1, None)
+        # Config must NOT have been touched yet
+        self.assertEqual(mgr.config['azp']['pool'], original_pool)
+        self.assertTrue(mgr._pending_reload)
 
-        # 5 idle agents with current version; --> Should be updated
-        n_idle = 5
-        for i in range(n_idle):
-            containers.append(MockContainer(0, 'running', False))
-
-        # 5 busy agents with older version; --> Should not touch
-        n_old_and_busy = 5
-        for i in range(n_old_and_busy):
-            containers.append(MockContainer(-1, 'running', True))
-        
-        # 5 idle agents with older version; --> Should be updated
-        n_old_and_idle = 5
-        for i in range(n_old_and_idle):
-            containers.append(MockContainer(-1, 'running', False))
-
-        mock_list_of_agent_containers.return_value = containers
-        n_started, n_updated, n_removed, n_pruned = agt_mgr.respawn(pat_refresh=True)
-        assert n_started == agt_mgr.config['agent']['count'] - (n_running + n_old_and_busy)
-        assert n_updated == n_idle + n_old_and_idle
-        assert n_removed == n_idle + n_old_and_idle
-        assert n_pruned == 0
-
-    # PAT refresh;
-    # Few unhealthy case
-    # 5 busy agents; --> Should not touch
-    # 5 idle agents with current version; --> Should be updated
-    # 5 busy agents with older version; --> Should not touch
-    # 5 idle agents with older version; --> Should be updated
-    # 1 unhealthy agent current version; --> Should be removed
-    # 1 unhealthy agent old version; --> Should be removed
-    # Must start containers to keep number of workers to configured threshold
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_respawn_pat_refresh_with_mixed_case(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        # make MagicMock serializable to JSON by mocking dumps
-        # without this the test fails due to logging errors
-        json.dumps = unittest.mock.MagicMock(wraps=dumps_wrapper)
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
-
-        # 5 busy agents; --> Should not touch
-        n_running = 5
-        for i in range(n_running):
-            containers.append(MockContainer(0, 'running', True))
-
-        # 5 idle agents with current version; --> Should be updated
-        n_idle = 5
-        for i in range(n_idle):
-            containers.append(MockContainer(0, 'running', False))
-
-        # 5 busy agents with older version; --> Should not touch
-        n_old_and_busy = 5
-        for i in range(n_old_and_busy):
-            containers.append(MockContainer(-1, 'running', True))
-        
-        # 5 idle agents with older version; --> Should be updated
-        n_old_and_idle = 5
-        for i in range(n_old_and_idle):
-            containers.append(MockContainer(-1, 'running', False))
-
-        # 1 unhealthy agent current version; --> Should be removed
-        n_unhealthy = 2
-        containers.append(MockContainer(0, 'dead'))
-        # 1 unhealthy agent old version; --> Should be removed
-        containers.append(MockContainer(-1, 'dead'))
-        
-        mock_list_of_agent_containers.return_value = containers
-        n_started, n_updated, n_removed, n_pruned = agt_mgr.respawn(pat_refresh=True)
-        assert n_started == agt_mgr.config['agent']['count'] - (n_running + n_old_and_busy)
-        assert n_updated == n_idle + n_old_and_idle
-        assert n_removed == n_idle + n_old_and_idle + n_unhealthy
-        assert n_pruned == 0
-
-    # PAT refresh;
-    # Few unhealthy case and pruning needed
-    # 5 busy agents; --> Should not touch
-    # 5 idle agents with current version; --> Should be updated
-    # 5 busy agents with older version; --> Should not touch
-    # 5 idle agents with older version; --> Should be updated
-    # 1 unhealthy agent current version; --> Should be removed
-    # 1 unhealthy agent old version; --> Should be removed
-    # Must start containers to keep number of workers to configured threshold
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_respawn_pat_refresh_with_mixed_case_prune_needed(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        # make MagicMock serializable to JSON by mocking dumps
-        # without this the test fails due to logging errors
-        json.dumps = unittest.mock.MagicMock(wraps=dumps_wrapper)
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
-
-        # 5 busy agents; --> Should not touch
-        n_running = 5
-        for i in range(n_running):
-            containers.append(MockContainer(0, 'running', True))
-
-        # 5 idle agents with current version; --> Should be updated
-        n_idle = 5
-        for i in range(n_idle):
-            containers.append(MockContainer(0, 'running', False))
-
-        # 5 busy agents with older version; --> Should not touch
-        n_old_and_busy = 5
-        for i in range(n_old_and_busy):
-            containers.append(MockContainer(-1, 'running', True))
-        
-        # 5 idle agents with older version; --> Should be updated
-        n_old_and_idle = 5
-        for i in range(n_old_and_idle):
-            containers.append(MockContainer(-1, 'running', False))
-
-        # 1 unhealthy agent current version; --> Should be removed
-        n_unhealthy = 2
-        containers.append(MockContainer(0, 'dead'))
-        # 1 unhealthy agent old version; --> Should be removed
-        containers.append(MockContainer(-1, 'dead'))
-
-        # starting another 10 healthy containers; number goes to 32
-        # so should prune 4 down
-        # NOTE they are not busy; else they won't be pruned
-        n_extra = 10
-        for i in range(n_extra):
-            containers.append(MockContainer(0, 'running'))
-        
-        mock_list_of_agent_containers.return_value = containers
-        n_started, n_updated, n_removed, n_pruned = agt_mgr.respawn(pat_refresh=True)
-        assert n_started == agt_mgr.config['agent']['count'] - (n_running + n_old_and_busy)
-        assert n_updated == n_idle + n_old_and_idle + n_extra
-        assert n_removed == n_idle + n_old_and_idle + n_unhealthy + n_extra # extra because they are not busy
-        # the extra ones got pruned during the removal process
-        assert n_pruned == 0 
-
-    # Full loop check; Finds the PAT file
-    # 5 busy agents; --> Should not touch
-    # 5 idle agents with current version; --> Should be updated
-    # 5 busy agents with older version; --> Should not touch
-    # 5 idle agents with older version; --> Should be updated
-    # 1 unhealthy agent current version; --> Should be removed
-    # 1 unhealthy agent old version; --> Should be removed
-    # Must start containers to keep number of workers to configured threshold
-    @patch('agentmanager.docker')
-    @patchfs
-    @patch.object(agentmanager.AgentManager, 'list_of_agent_containers')
-    @patch.object(agentmanager.AgentManager, 'validate')
-    def test_respawn_pat_refresh_with_mixed_case_full_loop(self, mock_docker, fake_fs, mock_list_of_agent_containers, mock_validate):
-        # make MagicMock serializable to JSON by mocking dumps
-        # without this the test fails due to logging errors
-        json.dumps = unittest.mock.MagicMock(wraps=dumps_wrapper)
-        agt_mgr = agentmanager.AgentManager(conf=self.AGENT_CONF_PATH)
-        containers = []
-
-        # 5 busy agents; --> Should not touch
-        n_running = 5
-        for i in range(n_running):
-            containers.append(MockContainer(0, 'running', True))
-
-        # 5 idle agents with current version; --> Should be updated
-        n_idle = 5
-        for i in range(n_idle):
-            containers.append(MockContainer(0, 'running', False))
-
-        # 5 busy agents with older version; --> Should not touch
-        n_old_and_busy = 5
-        for i in range(n_old_and_busy):
-            containers.append(MockContainer(-1, 'running', True))
-        
-        # 5 idle agents with older version; --> Should be updated
-        n_old_and_idle = 5
-        for i in range(n_old_and_idle):
-            containers.append(MockContainer(-1, 'running', False))
-
-        # 1 unhealthy agent current version; --> Should be removed
-        n_unhealthy = 2
-        containers.append(MockContainer(0, 'dead'))
-        # 1 unhealthy agent old version; --> Should be removed
-        containers.append(MockContainer(-1, 'dead'))
-
-        # simulate landing of a PAT file
-        with open(agt_mgr.PAT_FILE_PATH, 'w') as f:
-            f.write("this is a fresh token")
-
-        mock_list_of_agent_containers.return_value = containers
-
-        pat_refresh = agt_mgr.refresh_token()
-        assert pat_refresh is True
-        assert pathlib.Path(agt_mgr.PAT_FILE_PATH).exists() is False
-
-        n_started, n_updated, n_removed, n_pruned = agt_mgr.respawn(pat_refresh)
-        assert n_started == agt_mgr.config['agent']['count'] - (n_running + n_old_and_busy)
-        assert n_updated == n_idle + n_old_and_idle
-        assert n_removed == n_idle + n_old_and_idle + n_unhealthy
-        # the extra ones got pruned during the removal process
-        assert n_pruned == 0 
 
 if __name__ == '__main__':
     unittest.main()

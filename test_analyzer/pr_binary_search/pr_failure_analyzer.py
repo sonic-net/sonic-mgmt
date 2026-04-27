@@ -44,10 +44,10 @@ TOTAL_COUNT_THRESHOLD = os.environ.get("TOTAL_TEST_COUNT_THRESHOLD", 10)
 PREVIOUS_SUCCESS_THRESHOLD = os.environ.get("PREVIOUS_SUCCESS_THRESHOLD", 0.7)
 PR_LOW_SUCCESS_THRESHOLD = os.environ.get("PR_LOW_SUCCESS_THRESHOLD", 0.5)
 BASELINE_LOW_SUCCESS_THRESHOLD = os.environ.get("BASELINE_LOW_SUCCESS_THRESHOLD", 0.5)
-QUERY_DAYS_RANGE = int(os.environ.get("QUERY_DAYS_RANGE", 7))
+QUERY_DAYS_RANGE = int(os.environ.get("QUERY_DAYS_RANGE", 1))
 FAILURE_WINDOW_BUFFER_HOURS = int(os.environ.get("FAILURE_WINDOW_BUFFER_HOURS", 6))
 FAILURE_WINDOW_FALLBACK_HOURS = int(os.environ.get("FAILURE_WINDOW_FALLBACK_HOURS", 24))
-LAST_GOOD_MAX_LOOKBACK_DAYS = int(os.environ.get("LAST_GOOD_MAX_LOOKBACK_DAYS", 90))
+LAST_GOOD_MAX_LOOKBACK_DAYS = int(os.environ.get("LAST_GOOD_MAX_LOOKBACK_DAYS", 14))
 LAST_GOOD_SEARCH_STEP_DAYS = int(os.environ.get("LAST_GOOD_SEARCH_STEP_DAYS", 30))
 INCLUDE_NEXT_COMMIT_AFTER_WINDOW = os.environ.get("INCLUDE_NEXT_COMMIT_AFTER_WINDOW", "true").lower() in (
     "1", "true", "yes", "on"
@@ -359,12 +359,13 @@ def is_likely_unskipped_by_issue_close(kusto, row, trigger_type, first_bad_time)
     return likely, {"prev_day": prev, "bad_day": bad}
 
 
-def find_last_good_time_before_first_bad(kusto, row, trigger_type, first_bad_time):
+def find_last_good_time_before_first_bad(kusto, row, trigger_type, first_bad_time,
+                                         max_lookback_days=None):
     """
     Find the nearest historical healthy point before first_bad_time with expanded lookback.
     """
     end = first_bad_time
-    remaining_days = max(0, LAST_GOOD_MAX_LOOKBACK_DAYS)
+    remaining_days = max(0, max_lookback_days if max_lookback_days is not None else LAST_GOOD_MAX_LOOKBACK_DAYS)
     step_days = max(1, LAST_GOOD_SEARCH_STEP_DAYS)
 
     while remaining_days > 0:
@@ -398,7 +399,8 @@ def find_last_good_time_before_first_bad(kusto, row, trigger_type, first_bad_tim
     return None
 
 
-def get_failure_details(kusto, failure_details, all_failure_entries, failures, trigger_type, query_start, query_end):
+def get_failure_details(kusto, failure_details, all_failure_entries, failures, trigger_type,
+                        query_start, query_end, max_search_range_days=None):
     for row in failures:
         query_time_range = f'''
         {PR_SUMMARY_TABLE}
@@ -518,7 +520,9 @@ def get_failure_details(kusto, failure_details, all_failure_entries, failures, t
                 last_good_time = run_time
 
         if not last_good_time:
-            last_good_time = find_last_good_time_before_first_bad(kusto, row, trigger_type, first_bad_time)
+            last_good_time = find_last_good_time_before_first_bad(
+                kusto, row, trigger_type, first_bad_time,
+                max_lookback_days=max_search_range_days)
             if last_good_time:
                 logger.info(
                     f"Found historical last_good_time outside current lookback for {row['TestCase']}: {last_good_time}"
@@ -639,9 +643,15 @@ def deduplicate_failure_entries(entries):
     return list(unique.values())
 
 
-def analyze_candidates(kusto, lookback_days, failure_info_file, allowed_branches=None):
+def analyze_candidates(kusto, lookback_days, failure_info_file, allowed_branches=None,
+                       max_search_range_days=None):
     now = dt.datetime.now(tz=timezone.utc)
-    start = now - timedelta(days=lookback_days)
+    # Truncate to the start of today (00:00 UTC) so that lookback_days=1
+    # always includes yesterday's full day.  PRTestCaseResultSummary.RunDate
+    # is midnight-aligned, so "1 day ago" from e.g. 10:16 UTC must reach
+    # yesterday's 00:00, not just 24 hours back.
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = today_start - timedelta(days=lookback_days)
     end = now
 
     failure_details = []
@@ -654,12 +664,14 @@ def analyze_candidates(kusto, lookback_days, failure_info_file, allowed_branches
     if len(baseline_failures) > 0:
         logger.info(f"Total BaselineTest failures found: {baseline_failures}")
         failure_details, all_failure_entries = get_failure_details(
-            kusto, failure_details, all_failure_entries, baseline_failures, "BaselineTest", start, end
+            kusto, failure_details, all_failure_entries, baseline_failures, "BaselineTest", start, end,
+            max_search_range_days=max_search_range_days
         )
     if len(pr_failures) > 0:
         logger.info(f"Total PRTest failures found: {pr_failures}")
         failure_details, all_failure_entries = get_failure_details(
-            kusto, failure_details, all_failure_entries, pr_failures, "PRTest", start, end
+            kusto, failure_details, all_failure_entries, pr_failures, "PRTest", start, end,
+            max_search_range_days=max_search_range_days
         )
 
     failure_details = remove_duplicates_failures(failure_details)
@@ -689,6 +701,9 @@ def main():
     p.add_argument("--lookback_days", type=int, default=QUERY_DAYS_RANGE, help="Lookback days")
     p.add_argument("--failure_info_file", type=str, default=DEFAULT_FAILURE_INFO_FILE, help="Output failure info file")
     p.add_argument("--upload_kusto", type=parse_bool_arg, default=False, help="Upload generated failure info to Kusto")
+    p.add_argument("--max_search_range_days", type=int, default=LAST_GOOD_MAX_LOOKBACK_DAYS,
+                   help="Max days to search back for commit range (default: %(default)s). "
+                        "Controls how far back to look for the last healthy test run.")
     args = p.parse_args()
 
     if not cluster:
@@ -706,11 +721,13 @@ def main():
         f"BASELINE_LOW_SUCCESS_THRESHOLD={BASELINE_LOW_SUCCESS_THRESHOLD}")
     logger.info(f"Include next commit after window: {INCLUDE_NEXT_COMMIT_AFTER_WINDOW}")
     logger.info(f"Supported public repos: {SUPPORTED_PUBLIC_REPOS}")
+    logger.info(f"Max search range: {args.max_search_range_days} days")
     _, kusto_records = analyze_candidates(
         kusto_client,
         args.lookback_days,
         args.failure_info_file,
         allowed_branches=set(ALLOWED_BRANCHES),
+        max_search_range_days=args.max_search_range_days,
     )
     if args.upload_kusto:
         ingest_records_from_env(

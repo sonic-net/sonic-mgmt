@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+"""Pull the docker image referenced in agent-manager.conf and restart
+the agent-manager service.
+
+Run periodically (e.g. weekly) by agent-manager-upgrade.timer so the
+in-use image stays current with the configured tag (default ``latest``)
+without operator action. The agent-manager process picks up the new
+image on its next reconcile cycle: old-image agents are drained when
+they next become idle, then replaced on the new image.
+
+Reads /etc/agent-manager.conf to discover ``image.name`` and
+``image.tag``; the conf remains the single source of truth for the
+image reference.
+"""
+
+import subprocess
+import sys
+
+import yaml
+
+CONF_PATH = '/etc/agent-manager.conf'
+SERVICE = 'agent-manager.service'
+
+
+def main():
+    with open(CONF_PATH) as f:
+        cfg = yaml.safe_load(f)
+    img = cfg.get('image') or {}
+    name = img.get('name')
+    tag = img.get('tag', 'latest')
+    if not name:
+        print('error: image.name missing from {}'.format(CONF_PATH),
+              file=sys.stderr)
+        return 2
+    ref = '{}:{}'.format(name, tag)
+    print('Pulling {}'.format(ref))
+    subprocess.run(['docker', 'pull', ref], check=True)
+    print('Restarting {}'.format(SERVICE))
+    subprocess.run(['systemctl', 'restart', SERVICE], check=True)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

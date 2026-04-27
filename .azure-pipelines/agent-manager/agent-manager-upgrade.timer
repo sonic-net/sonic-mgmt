@@ -1,0 +1,14 @@
+[Unit]
+Description=Weekly agent-manager image refresh
+
+[Timer]
+# Fire at 00:00 every Monday, with up to 2h jitter so that hosts in
+# the same lab don't all hit the registry at once.
+OnCalendar=weekly
+RandomizedDelaySec=2h
+# Catch up on the next boot if the host was down when the timer fired.
+Persistent=true
+Unit=agent-manager-upgrade.service
+
+[Install]
+WantedBy=timers.target
