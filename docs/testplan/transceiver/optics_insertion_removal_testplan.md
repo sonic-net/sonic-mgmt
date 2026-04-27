@@ -119,12 +119,12 @@ A class named `PhysicalOIR` is defined under `tests.common.physical_oir` module.
 3. **insert_sfps**
     - Description: Inserts SFPs on the ports specified by the ports_under_test attribute.
     - Parameters: None
-    - Returns: True if insertion is successful, False otherwise.
+    - Returns: None when the operation is complete.
 
 4. **remove_sfps**
     - Description: Removes SFPs from the ports specified by the ports_under_test attribute.
     - Parameters: None
-    - Returns: True if removal is successful, False otherwise.
+    - Returns: None when the operation is complete.
 
 5. **cleanup**
     - Description: Cleans up resources used by the PhysicalOIR class.
@@ -144,15 +144,15 @@ class PhysicalOir:
         # Check if physical OIR is supported in the testbed
         pass
 
-    def insert_sfps(self) -> bool:
+    def insert_sfps(self) -> None:
         # Insert SFPs on the ports specified by ports_under_test attribute
         pass
 
-    def remove_sfps(self) -> bool:
+    def remove_sfps(self) -> None:
         # Remove SFPs from the ports specified by ports_under_test attribute
         pass
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         # Cleanup resources used by the PhysicalOIR class
         pass  
 ```
