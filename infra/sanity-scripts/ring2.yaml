@@ -289,9 +289,19 @@ L2: #Venkata Gouri Rajesh Etla / Bidipta Das
   t0-64:
     mth64:
       sim:
-        - fdb/test_fdb.py
-        - fdb/test_fdb_flush.py
+        - arp/test_arp_extended.py
+        - arp/test_neighbor_mac_noptf.py
+        - arp/test_arp_update.py
         - arp/test_neighbor_mac.py
+        - generic_config_updater/test_portchannel_interface.py
+        - generic_config_updater/test_vlan_interface.py
+        - l2/test_l2_configure.py
+        - lldp/test_lldp.py
+        - lldp/test_lldp_syncd.py
+        - pc/test_lag_2.py
+        - pc/test_lag_member_forwarding.py
+        - pc/test_po_update.py
+        - vlan/test_vlan.py
   t2-min:
     sfd:
       sim:
