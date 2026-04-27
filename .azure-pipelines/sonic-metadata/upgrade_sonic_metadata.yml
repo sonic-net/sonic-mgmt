@@ -173,7 +173,9 @@ steps:
         fi
 
         if [[ ${{ parameters.VM_TYPE }} == "ceos" ]]; then
-            if [[ "${{ parameters.TESTBED_NAME }}" == *"7060"* || "${{ parameters.TESTBED_NAME }}" == *"2700"* ]]; then
+            if [[ "${{ parameters.TESTBED_NAME }}" == *"7060"* ]]; then
+                ceos_lacp_multiplier_option="--ceos_neighbor_lacp_multiplier=6"
+            elif [[ "${{ parameters.TESTBED_NAME }}" == *"2700"* ]]; then
                 ceos_lacp_multiplier_option="--ceos_neighbor_lacp_multiplier=5"
             elif [[ "${{ parameters.TESTBED_NAME }}" == *"7050"* ]]; then
                 dut_without_ssd_found=false
