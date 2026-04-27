@@ -543,11 +543,12 @@ qos/test_qos_masic.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-qos/test_qos_probe.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't1-8-lag' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
+# [TEST ONLY - DO NOT MERGE] Temporarily removed to validate KVM multi-ASIC T1 probe test
+# qos/test_qos_probe.py:
+#   skip:
+#     conditions:
+#     - asic_type in ['vs'] and 't1-8-lag' in topo_name
+#     reason: This test case either cannot pass or should be skipped on virtual chassis
 qos/test_qos_sai.py:
   skip:
     conditions:
