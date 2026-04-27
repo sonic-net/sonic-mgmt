@@ -1,4 +1,5 @@
 """SAI thrift-based buffer threshold probing tests for SONiC.
+# [TEST ONLY - DO NOT MERGE] Trigger CI to validate KVM VS probe tests.
 
 This module contains probe-based tests for buffer threshold detection, including:
 - testQosPfcXoffProbe: PFC XOFF threshold probing

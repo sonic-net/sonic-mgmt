@@ -4400,8 +4400,8 @@ qos/test_qos_probe.py:
     reason: "Buffer threshold probing tests need platform-specific validation. Tracked by per-ASIC GitHub issues."
     conditions_logical_operator: or
     conditions:
-      # Virtual Switch support
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/22599"
+      # Virtual Switch support — [TEST ONLY] Commented out to validate KVM probe tests
+      # - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/22599"
       # Cisco-8000 GB series (8102/8101 GB SKUs)
       - "hwsku in ['Cisco-8102-C64', 'Cisco-8101-O8C48', 'Cisco-8102-28FH-DPU-O'] and https://github.com/sonic-net/sonic-mgmt/issues/22601"
       # Cisco-8000 GR/GR2 series (8101 GR/GR2 SKUs)
