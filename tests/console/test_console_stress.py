@@ -188,6 +188,12 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
     reader_thread = None
     try:
         client = create_ssh_client(dutip, ressh_user, dutpass)
+        # pexpect.spawn defaults: delaybeforesend=0.05, delayafterread=0.0001.
+        # Per-call delays dominate at small chunk_size: e.g. 50ms * (10 MiB / 128 B)
+        # ~= 4096s of pure idling, throttling effective throughput to ~22% of
+        # line rate at 115200/128. Disable both to let the wire be the only cap.
+        client.delaybeforesend = None
+        client.delayafterread = None
         ensure_console_session_up(client, target_line)
 
         recv_buf = bytearray()
@@ -226,7 +232,7 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
                 if reader_exc:
                     raise reader_exc[0]
                 try:
-                    written = client.send(view.tobytes().decode('latin-1'))
+                    written = client.send(view.tobytes())
                 except (pexpect.TIMEOUT, pexpect.EOF, OSError) as e:
                     pytest.fail("Failed to write to console session: {}".format(e))
                 if not written:
@@ -255,10 +261,13 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
         _send_all(end_marker)
 
         # Wait for END to arrive on the receive side, with both a wire-time
-        # budget and a forward-progress watchdog.
+        # budget and a forward-progress watchdog. Anchor the deadline to the
+        # moment send completed (not send_start) so the receive phase gets its
+        # full budget regardless of any send-side overhead.
+        send_done = time.time()
         wire_budget = (total_bytes + len(start_marker) + len(end_marker)) * _BITS_PER_BYTE / float(baud_rate)
-        absolute_deadline = send_start + wire_budget * 2.0 + 60.0
-        recv_wait_start = time.time()
+        absolute_deadline = send_done + wire_budget * 2.0 + 60.0
+        recv_wait_start = send_done
         next_recv_log = recv_wait_start + _RECV_PROGRESS_LOG_INTERVAL
         while True:
             if reader_exc:
@@ -277,8 +286,9 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
                 next_recv_log = now + _RECV_PROGRESS_LOG_INTERVAL
             if now > absolute_deadline:
                 pytest.fail(
-                    "Did not see end sentinel within {:.0f}s (total_bytes={}, baud={}, captured={} bytes)".format(
-                        absolute_deadline - send_start, total_bytes, baud_rate, recv_len))
+                    "Did not see end sentinel within {:.0f}s after send completed "
+                    "(total_bytes={}, baud={}, captured={} bytes)".format(
+                        absolute_deadline - recv_wait_start, total_bytes, baud_rate, recv_len))
             if now - last_progress_ts[0] > _NO_PROGRESS_TIMEOUT:
                 pytest.fail(
                     "No new bytes received for {:.0f}s; line appears stalled "
