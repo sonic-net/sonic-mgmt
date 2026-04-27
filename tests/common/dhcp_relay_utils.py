@@ -113,7 +113,7 @@ def validate_dhcpmon_counters(dhcp_relay, duthost, expected_uplink_counter,
     """Validate the dhcpmon counters against the expected counters."""
     logger.info("Expected uplink counters: {}, expected downlink counters: {}, error in percentage: {}%".format(
         expected_uplink_counter, expected_downlink_counter, error_in_percentage))
-    downlink_vlan_iface = dhcp_relay['downlink_vlan_iface']['name']
+    downlink_iface = dhcp_relay["downlink_iface"]["name"]
     # it can be portchannel or interface, it depends on the topology
     uplink_portchannels_or_interfaces = dhcp_relay['uplink_interfaces']
     client_iface = dhcp_relay['client_iface']['name']
@@ -132,11 +132,11 @@ def validate_dhcpmon_counters(dhcp_relay, duthost, expected_uplink_counter,
         if portchannel_name in portchannels.keys():
             uplink_interfaces.extend(portchannels[portchannel_name]['members'])
             portchannel_counters = query_and_sum_dhcpmon_counters(duthost,
-                                                                  downlink_vlan_iface,
+                                                                  downlink_iface,
                                                                   [portchannel_name],
                                                                   is_v6)
             members_counters = query_and_sum_dhcpmon_counters(duthost,
-                                                              downlink_vlan_iface,
+                                                              downlink_iface,
                                                               portchannels[portchannel_name]['members'],
                                                               is_v6)
 
@@ -149,23 +149,31 @@ def validate_dhcpmon_counters(dhcp_relay, duthost, expected_uplink_counter,
         else:
             uplink_interfaces.append(portchannel_name)
 
-    vlan_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_vlan_iface, [], is_v6)
-    client_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_vlan_iface, [client_iface], is_v6)
+    downlink_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_iface, [], is_v6)
+    client_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_iface, [client_iface], is_v6)
     uplink_portchannels_interfaces_counter = query_and_sum_dhcpmon_counters(
-        duthost, downlink_vlan_iface, uplink_portchannels_or_interfaces, is_v6
+        duthost, downlink_iface, uplink_portchannels_or_interfaces, is_v6
     )
-    uplink_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_vlan_iface, uplink_interfaces, is_v6)
-    compare_dhcp_counters_with_warning(
-        vlan_interface_counter, client_interface_counter,
-        compare_warning_msg.format(downlink_vlan_iface, client_iface, duthost.hostname),
-        error_in_percentage, is_v6)
+    uplink_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_iface, uplink_interfaces, is_v6)
+    # For routed interfaces, client_iface and downlink_iface are the same, so skip this comparison
+    if client_iface != downlink_iface:
+        compare_dhcp_counters_with_warning(
+            downlink_interface_counter, client_interface_counter,
+            compare_warning_msg.format(downlink_iface, client_iface, duthost.hostname),
+            error_in_percentage, is_v6)
     compare_dhcp_counters_with_warning(
         uplink_portchannels_interfaces_counter, uplink_interface_counter,
         compare_warning_msg.format(uplink_portchannels_or_interfaces, uplink_interfaces, duthost.hostname),
         error_in_percentage, is_v6)
+
+    # For routed interfaces, use downlink_interface_counter (which is the routed interface counter)
+    # For VLANs, use client_interface_counter (which is the physical member interface counter)
+    downlink_counter = downlink_interface_counter if client_iface == downlink_iface else client_interface_counter
     compare_dhcp_counters_with_warning(
-        client_interface_counter, expected_downlink_counter,
-        compare_warning_msg.format(client_iface, "expected_downlink_counter", duthost.hostname),
+        downlink_counter, expected_downlink_counter,
+        compare_warning_msg.format(
+            downlink_iface if client_iface == downlink_iface else client_iface,
+            "expected_downlink_counter", duthost.hostname),
         error_in_percentage, is_v6)
     compare_dhcp_counters_with_warning(
         uplink_interface_counter, expected_uplink_counter,
@@ -231,7 +239,7 @@ def calculate_counters_per_pkts(pkts, is_v6=False):
 def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_name_index_mapping,
                                            error_in_percentage=0.0, is_v6=False):
     """Validate the dhcpmon counters and packets consistence"""
-    downlink_vlan_iface = dhcp_relay['downlink_vlan_iface']['name']
+    downlink_iface = dhcp_relay["downlink_iface"]["name"]
     # it can be portchannel or interface, it depends on the topology
     uplink_portchannels_or_interfaces = dhcp_relay['uplink_interfaces']
     portchannels = dhcp_relay['portchannels']
@@ -250,11 +258,11 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
         if portchannel_name in portchannels.keys():
             uplink_interfaces.extend(portchannels[portchannel_name]['members'])
             portchannel_counters = query_and_sum_dhcpmon_counters(duthost,
-                                                                  downlink_vlan_iface,
+                                                                  downlink_iface,
                                                                   [portchannel_name],
                                                                   is_v6)
             members_counters = query_and_sum_dhcpmon_counters(duthost,
-                                                              downlink_vlan_iface,
+                                                              downlink_iface,
                                                               portchannels[portchannel_name]['members'],
                                                               is_v6)
 
@@ -296,7 +304,7 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
         else:
             uplink_interfaces.append(portchannel_name)
 
-    vlan_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_vlan_iface, [], is_v6)
+    downlink_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_iface, [], is_v6)
 
     # uplink_portchannels_interfaces means the item can be the portchannel or the interface
     # Example:
@@ -305,7 +313,7 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
     #   If there is no portchannel, the uplink_portchannels_or_interfaces will be
     #   ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
     uplink_portchannels_interfaces_counter = query_and_sum_dhcpmon_counters(
-        duthost, downlink_vlan_iface, uplink_portchannels_or_interfaces, is_v6
+        duthost, downlink_iface, uplink_portchannels_or_interfaces, is_v6
     )
 
     """
@@ -318,9 +326,9 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
     """
     # Query the counters for uplink portchannels interfaces such as:
     # ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
-    uplink_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_vlan_iface, uplink_interfaces, is_v6)
+    uplink_interface_counter = query_and_sum_dhcpmon_counters(duthost, downlink_iface, uplink_interfaces, is_v6)
 
-    vlan_interface_counter_from_pkts = all_pkt_counters.get(interface_name_index_mapping[downlink_vlan_iface],
+    downlink_interface_counter_from_pkts = all_pkt_counters.get(interface_name_index_mapping[downlink_iface],
                                                             {"RX": {}, "TX": {}})
 
     # calculate the sum of uplink portchannels interfaces counters from pkts
@@ -343,8 +351,8 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
 
     # Compare the vlan interface counters from dhcp relay counter and pkts
     compare_dhcp_counters_with_warning(
-        vlan_interface_counter, vlan_interface_counter_from_pkts,
-        compare_warning_msg.format(downlink_vlan_iface, downlink_vlan_iface + " from pkts", duthost.hostname),
+        downlink_interface_counter, downlink_interface_counter_from_pkts,
+        compare_warning_msg.format(downlink_iface, downlink_iface + " from pkts", duthost.hostname),
         error_in_percentage, is_v6)
 
     # Compare the sum of uplink portchannels counters from dhcp relay counter and pkts
@@ -368,7 +376,7 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
 
     # Compare the vlan interface counters from dhcp relay counter and pkts
     for vlan_member in vlan_members:
-        vlan_member_counter = query_and_sum_dhcpmon_counters(duthost, downlink_vlan_iface, [vlan_member], is_v6)
+        vlan_member_counter = query_and_sum_dhcpmon_counters(duthost, downlink_iface, [vlan_member], is_v6)
         vlan_member_counter_from_pkts = all_pkt_counters.get(interface_name_index_mapping[vlan_member],
                                                              {"RX": {}, "TX": {}})
         compare_dhcp_counters_with_warning(
@@ -404,6 +412,7 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 def enable_sonic_dhcpv4_relay_agent(duthost, request):
     """
     Fixture to enable the DHCP relay feature flag and restart the service.
+    Automatically detects and uses interface_type parameter if available, defaults to 'vlan'.
     """
     if "skip_config_dhcpv4_relay_agent" in request.keywords:
         yield
@@ -414,23 +423,33 @@ def enable_sonic_dhcpv4_relay_agent(duthost, request):
     else:
         dut_dhcp_relay_data = None
 
+    # Extract interface_type if it's a parameter in the test, default to 'vlan'
+    interface_type = 'vlan'
+    if "interface_type" in request.fixturenames:
+        interface_type = request.getfixturevalue("interface_type")
+
     try:
-        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+        if "sonic-relay-agent" in request.getfixturevalue("relay_agent"):
             sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
-            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
+            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True, interface_type)
         yield
     finally:
         # Cleanup: disable the feature flag
-        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+        if "sonic-relay-agent" in request.getfixturevalue("relay_agent"):
             sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
-            sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+            sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data, interface_type)
 
 
-def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None):
+def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None, interface_type='vlan'):
     """
-    Check if the DHCP relay agent is running and listening on expected sockets.
+    Check if the DHCP relay agent is running and listening on expected sockets for a specific interface type.
     Works for dhcp4relay.
 
+    Args:
+        duthost: DUT host object
+        dut_dhcp_relay_data: DHCP relay data dictionary
+        process_and_socket_check: Process and socket check parameter
+        interface_type: Interface type ('vlan' or 'routed')
     """
     # If checking for socket bindings
     cmd = "docker exec -t dhcp_relay ss -nlp | grep dhcp4relay"
@@ -448,40 +467,68 @@ def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_so
             logger.error("Missing expected socket match: %s", pattern)
             return False
 
-    # Validate presence of DHCPv4 socket for each downlink VLAN interface from test data
+    # Validate presence of DHCPv4 socket for each downlink interface from test data
     if dut_dhcp_relay_data is None:
-        logger.error("Missing dut_dhcp_relay_data for VLAN check")
+        logger.error("Missing dut_dhcp_relay_data for interface check")
         return False
 
-    for dhcp_relay in dut_dhcp_relay_data:
-        vlan_iface_name = dhcp_relay['downlink_vlan_iface']['name']
-        vlan_pattern = r"%{}:67.*dhcp4relay".format(re.escape(vlan_iface_name))
-        if not re.search(vlan_pattern, output):
-            logger.error("Missing expected DHCPv4 VLAN socket for %s:67", vlan_iface_name)
+    for dhcp_relay in dut_dhcp_relay_data.get(interface_type, []):
+        iface_name = dhcp_relay['downlink_iface']['name']
+        iface_pattern = r"%{}:67.*dhcp4relay".format(re.escape(iface_name))
+        if not re.search(iface_pattern, output):
+            logger.error("Missing expected DHCPv4 socket for %s:67", iface_name)
             return False
 
     return True
 
 
-def sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, socket_check=True):
+def check_dhcp4relay_raw_socket_status(duthost):
+    """Check dhcp4relay p_raw socket only works for VRF mode where udp 0.0.0.0:67 is absent."""
+    result = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp4relay",
+                           module_ignore_errors=True)
+    output = result.get("stdout", "")
+    if not re.search(r"p_raw\s+UNCONN.*dhcp4relay", output):
+        logger.error("Missing p_raw socket for dhcp4relay")
+        return False
+    return True
 
+
+def sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, socket_check=True, interface_type='vlan'):
+    """
+    Configure DHCP relay on the DUT for a specific interface type.
+
+    Args:
+        duthost: DUT host object
+        dut_dhcp_relay_data: DHCP relay data dictionary
+        socket_check: Whether to check socket status after configuration
+        interface_type: Interface type ('vlan' or 'routed')
+    """
     if dut_dhcp_relay_data:
-        for dhcp_relay in dut_dhcp_relay_data:
-            vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
-            dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
-            duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers} {vlan}')
+        for dhcp_relay in dut_dhcp_relay_data.get(interface_type, []):
+            iface = str(dhcp_relay['downlink_iface']['name'])
+            dhcp_servers = ",".join(dhcp_relay['downlink_iface']['dhcp_server_addrs'])
+            duthost.shell(f'config dhcpv4_relay del {iface}', module_ignore_errors=True)
+            duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers} '
+                          f'{iface}')
 
         if socket_check:
             pytest_assert(wait_until(40, 5, 0, check_dhcpv4_socket_status, duthost, dut_dhcp_relay_data,
-                          "sonic_dhcpv4_socket_check"))
+                          "sonic_dhcpv4_socket_check", interface_type))
 
 
-def sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data):
+def sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data, interface_type='vlan'):
+    """
+    Remove DHCP relay configuration from the DUT for a specific interface type.
 
+    Args:
+        duthost: DUT host object
+        dut_dhcp_relay_data: DHCP relay data dictionary
+        interface_type: Interface type ('vlan' or 'routed')
+    """
     if dut_dhcp_relay_data:
-        for dhcp_relay in dut_dhcp_relay_data:
-            vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
-            duthost.shell(f'config dhcpv4_relay del {vlan}', module_ignore_errors=True)
+        for dhcp_relay in dut_dhcp_relay_data.get(interface_type, []):
+            iface = str(dhcp_relay['downlink_iface']['name'])
+            duthost.shell(f'config dhcpv4_relay del {iface}', module_ignore_errors=True)
 
 
 def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
@@ -494,7 +541,7 @@ def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
     default_gw_ip = dut_dhcp_relay_data[0]['default_gw_ip']
     dhcp_servers = set()
     for dhcp_relay in dut_dhcp_relay_data:
-        dhcp_servers |= set(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+        dhcp_servers |= set(dhcp_relay['downlink_iface']['dhcp_server_addrs'])
 
     for dhcp_server in dhcp_servers:
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
