@@ -130,12 +130,9 @@ def _get_remote_ip(ip_intf):
     """
     Return the other host address within the interface network.
     """
-    try:
-        for candidate in ip_intf.network.hosts():
-            if candidate != ip_intf.ip:
-                return candidate
-    except StopIteration:
-        return None
+    for candidate in ip_intf.network.hosts():
+        if candidate != ip_intf.ip:
+            return candidate
 
     return None
 
@@ -227,12 +224,9 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
     interface, nexthop = _find_static_route_anchor(duthost)
     checkpoint_name = "set_src_bloat_cp"
     prefixes = []
-    checkpoint_created = False
-
-    create_checkpoint(duthost, checkpoint_name)
-    checkpoint_created = True
 
     try:
+        create_checkpoint(duthost, checkpoint_name)
         prefixes = _add_static_routes_for_bloat(duthost, interface, nexthop)
         logger.info("Injected %d static routes via interface %s", len(prefixes), interface)
 
@@ -245,7 +239,6 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
         if prefixes:
             _remove_static_routes_for_bloat(duthost, prefixes)
 
-        if checkpoint_created:
-            rollback_or_reload(duthost, checkpoint_name)
-            delete_checkpoint(duthost, checkpoint_name)
-            duthost.shell("sudo config save -y")
+        rollback_or_reload(duthost, checkpoint_name)
+        delete_checkpoint(duthost, checkpoint_name)
+        duthost.shell("sudo config save -y")
