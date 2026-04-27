@@ -1,4 +1,5 @@
 """Test cases to support the Everflow IPv6 Mirroring feature in SONiC."""
+import logging
 import threading
 import time
 import pytest
@@ -8,6 +9,8 @@ from ptf.mask import Mask
 import ptf.packet as scapy
 from . import everflow_test_utilities as everflow_utils
 from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM, erspan_ip_ver              # noqa: F401
+from tests.common.utilities import wait_until
+from common.helpers.assertions import pytest_assert
 import random
 # Module-level fixtures
 from .everflow_test_utilities import setup_info, skip_ipv6_everflow_tests                                 # noqa: F401
@@ -53,19 +56,26 @@ class EverflowIPv6Tests(BaseEverflowTest):
         ip = "ipv4" if erspan_ip_ver == 4 else "ipv6"
         # On T0 testbed, the collector IP is routed to T1
         namespace = setup_info[dest_port_type]['remote_namespace']
-        tx_port = setup_info[dest_port_type]["dest_port"][0]
-        dest_port_ptf_id_list = [setup_info[dest_port_type]["dest_port_ptf_id"][0]]
         remote_dut = setup_info[dest_port_type]['remote_dut']
         rx_port_id = setup_info[dest_port_type]["src_port_ptf_id"]
         remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
             f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"redistribute static\"", namespace))
-        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
         session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
             else setup_mirror_session["session_prefixes_ipv6"]
-        everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip, namespace)
-        EverflowIPv6Tests.tx_port_ids = BaseEverflowTest._get_tx_port_id_list(dest_port_ptf_id_list)
+        _, dest_port_ptf_id_list, peer_ip = self._select_route_ready_tx_port(
+            remote_dut,
+            setup_info[dest_port_type],
+            tbinfo,
+            session_prefixes[0],
+            namespace,
+            erspan_ip_ver,
+            route_timeout=60,
+            route_interval=10
+        )
+        pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
+                                 remote_dut, setup_mirror_session["session_name"]))
+        EverflowIPv6Tests.tx_port_ids = dest_port_ptf_id_list
         EverflowIPv6Tests.rx_port_ptf_id = rx_port_id
-        time.sleep(5)
 
         yield
 
@@ -852,8 +862,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
                            dscp=None,
                            sport=2020,
                            dport=8080,
-                           flags=0x10):
+                           flags=0x10,
+                           pktlen=100):
         pkt = testutils.simple_tcpv6_packet(
+            pktlen=pktlen,
             eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=setup[direction]["ingress_router_mac"],
             ipv6_src=src_ip,
@@ -908,8 +920,187 @@ class TestIngressEverflowIPv6(EverflowIPv6Tests):
 
 class TestEgressEverflowIPv6(EverflowIPv6Tests):
     """Parameters for Egress Everflow IPv6 testing. (Egress ACLs/Egress Mirror)"""
+    MTU_DROP_PACKET_LEN = 1600
+    MTU_DROP_CONTROL_PACKET_LEN = 256
+    MTU_DROP_DEFAULT_DST_IP = "2002:0225:7c6b:a982:d48b:230e:f271:0011"
+    MTU_DROP_PACKET_QUALIFIERS = [
+        ("src_ipv6", {"src_ip": "2002:0225:7c6b:a982:d48b:230e:f271:0002"}),
+        ("dst_ipv6", {"dst_ip": "2002:0225:7c6b:a982:d48b:230e:f271:0003"}),
+        ("next_header", {"next_header": 0x7E}),
+        ("l4_src_port", {"sport": 9000}),
+        ("l4_dst_port", {"dport": 9001}),
+        ("l4_src_port_range", {"sport": 10200}),
+        ("l4_dst_port_range", {"dport": 10700}),
+        ("tcp_flags", {"flags": 0x1B}),
+        ("dscp", {"dscp": 37}),
+    ]
+    MTU_DROP_RULES_BY_QUALIFIER = {
+        "src_ipv6": "RULE_1",
+        "dst_ipv6": "RULE_2",
+        "next_header": "RULE_3",
+        "l4_src_port": "RULE_4",
+        "l4_dst_port": "RULE_5",
+        "l4_src_port_range": "RULE_6",
+        "l4_dst_port_range": "RULE_7",
+        "tcp_flags": "RULE_8",
+        "dscp": "RULE_9",
+    }
+
     def acl_stage(self):
         return "egress"
 
     def mirror_type(self):
         return "egress"
+
+    def test_everflow_egress_mirror_mtu_drop_ipv6(
+        self,
+        setup_info,
+        setup_mirror_session,
+        ptfadapter,
+        everflow_dut,
+        tbinfo,
+        everflow_direction,
+        erspan_ip_ver
+    ):
+        """Verify IPv6 egress mirroring still occurs when original packet is dropped by MTU."""
+        if not self.egress_mirror_payload_unchanged(everflow_dut):
+            pytest.skip("MTU-drop mirror validation only applies to platforms with unchanged egress mirror payload.")
+        if erspan_ip_ver != 4:
+            pytest.skip("IPv6 MTU-drop mirror validation only runs with IPv4 ERSPAN.")
+
+        if len(setup_info[everflow_direction]["dest_port"]) <= 1:
+            pytest.skip("Skip test as there are not enough ports to separate mirror and default traffic.")
+
+        remote_dut = setup_info[everflow_direction]["remote_dut"]
+        default_traffic_port_type = DOWN_STREAM if everflow_direction == UP_STREAM else UP_STREAM
+        excluded_ptf_ids = set(EverflowIPv6Tests.tx_port_ids)
+        excluded_ptf_ids.update(self._get_tx_port_id_list([EverflowIPv6Tests.rx_port_ptf_id]))
+        default_traffic_tx_port, default_traffic_tx_port_ptf_id = self._select_tx_port_not_in(
+            setup_info[default_traffic_port_type],
+            excluded_ptf_ids,
+            "default traffic"
+        )
+        default_traffic_peer_ip = everflow_utils.get_neighbor_info(
+            everflow_dut, default_traffic_tx_port, tbinfo, ip_version=6)
+        default_traffic_namespace = setup_info[default_traffic_port_type]["remote_namespace"]
+        original_mtu = self._get_interface_mtu(everflow_dut, default_traffic_tx_port)
+        default_traffic_routes = set()
+        session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
+            else setup_mirror_session["session_prefixes_ipv6"]
+
+        try:
+            pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0]))
+            pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
+                                     remote_dut, setup_mirror_session["session_name"]))
+            pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, everflow_dut))
+            self._set_interface_mtu(everflow_dut, default_traffic_tx_port, 1500)
+
+            for packet_qualifier, packet_kwargs in self.MTU_DROP_PACKET_QUALIFIERS:
+                logging.info("Verify IPv6 MTU-drop egress mirroring for %s packet qualifier", packet_qualifier)
+                rule_name = self.MTU_DROP_RULES_BY_QUALIFIER[packet_qualifier]
+                packet_kwargs_with_default_dst = {"dst_ip": self.MTU_DROP_DEFAULT_DST_IP}
+                packet_kwargs_with_default_dst.update(packet_kwargs)
+                control_pkt = self._base_tcpv6_packet(
+                    everflow_direction,
+                    ptfadapter,
+                    setup_info,
+                    pktlen=self.MTU_DROP_CONTROL_PACKET_LEN,
+                    **packet_kwargs_with_default_dst
+                )
+                oversized_pkt = self._base_tcpv6_packet(
+                    everflow_direction,
+                    ptfadapter,
+                    setup_info,
+                    pktlen=self.MTU_DROP_PACKET_LEN,
+                    **packet_kwargs_with_default_dst
+                )
+                default_traffic_route = oversized_pkt[packet.IPv6].dst + "/128"
+                if default_traffic_route not in default_traffic_routes:
+                    everflow_utils.add_route(
+                        everflow_dut,
+                        default_traffic_route,
+                        default_traffic_peer_ip,
+                        default_traffic_namespace
+                    )
+                    default_traffic_routes.add(default_traffic_route)
+                    pytest_assert(wait_until(30, 5, 0, everflow_utils.validate_asic_route,
+                                             everflow_dut, default_traffic_route))
+
+                control_counter_before = self._get_acl_packets_count(
+                    everflow_dut, "EVERFLOW_EGRESSV6", rule_name
+                )
+                logging.info(
+                    "IPv6 MTU-drop control probe for %s uses %s, counter_before=%s",
+                    packet_qualifier,
+                    rule_name,
+                    control_counter_before
+                )
+
+                self.send_and_check_mirror_packets(
+                    setup_info,
+                    setup_mirror_session,
+                    ptfadapter,
+                    everflow_dut,
+                    control_pkt,
+                    everflow_direction,
+                    src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                    dest_ports=EverflowIPv6Tests.tx_port_ids,
+                    erspan_ip_ver=erspan_ip_ver
+                )
+
+                control_counter_updated = wait_until(
+                    10,
+                    1,
+                    0,
+                    lambda: self._get_acl_packets_count(everflow_dut, "EVERFLOW_EGRESSV6", rule_name) >
+                    control_counter_before
+                )
+                if not control_counter_updated:
+                    pytest.fail(
+                        f"IPv6 control probe for {packet_qualifier} did not increment {rule_name}. "
+                        "The normal packet path did not hit EVERFLOW_EGRESSV6, so the MTU-drop result "
+                        "is not conclusive."
+                    )
+
+                control_counter_after = self._get_acl_packets_count(
+                    everflow_dut, "EVERFLOW_EGRESSV6", rule_name
+                )
+                logging.info(
+                    "IPv6 MTU-drop control probe for %s incremented %s from %s to %s",
+                    packet_qualifier,
+                    rule_name,
+                    control_counter_before,
+                    control_counter_after
+                )
+
+                self.send_and_check_mirror_packets(
+                    setup_info,
+                    setup_mirror_session,
+                    ptfadapter,
+                    everflow_dut,
+                    oversized_pkt,
+                    everflow_direction,
+                    src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                    dest_ports=EverflowIPv6Tests.tx_port_ids,
+                    erspan_ip_ver=erspan_ip_ver
+                )
+
+                expected_packet = Mask(oversized_pkt.copy())
+                expected_packet.set_do_not_care_scapy(packet.Ether, "dst")
+                expected_packet.set_do_not_care_scapy(packet.Ether, "src")
+                expected_packet.set_do_not_care_scapy(packet.IPv6, "hlim")
+
+                testutils.verify_no_packet_any(
+                    ptfadapter,
+                    expected_packet,
+                    ports=default_traffic_tx_port_ptf_id
+                )
+        finally:
+            self._set_interface_mtu(everflow_dut, default_traffic_tx_port, original_mtu)
+            for default_traffic_route in default_traffic_routes:
+                everflow_utils.remove_route(
+                    everflow_dut,
+                    default_traffic_route,
+                    default_traffic_peer_ip,
+                    default_traffic_namespace
+                )

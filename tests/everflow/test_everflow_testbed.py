@@ -1233,9 +1233,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
         dscp=None,
         sport=0x1234,
         dport=0x50,
-        flags=0x10
+        flags=0x10,
+        pktlen=100,
+        ip_flags=0
     ):
         pkt = testutils.simple_tcp_packet(
+            pktlen=pktlen,
             eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=router_mac,
             ip_src=src_ip,
@@ -1246,6 +1249,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tcp_dport=dport,
             tcp_flags=flags
         )
+
+        if ip_flags:
+            pkt["IP"].flags = ip_flags
 
         if ip_protocol:
             pkt["IP"].proto = ip_protocol
@@ -1281,8 +1287,187 @@ class TestEverflowV4EgressAclIngressMirror(EverflowIPv4Tests):
 
 
 class TestEverflowV4EgressAclEgressMirror(EverflowIPv4Tests):
+    MTU_DROP_PACKET_LEN = 1600
+    MTU_DROP_CONTROL_PACKET_LEN = 256
+    MTU_DROP_PACKET_QUALIFIERS = [
+        ("src_ip", {"src_ip": "20.0.0.10"}),
+        ("dst_ip", {"dst_ip": "30.0.0.10"}),
+        ("ip_protocol", {"ip_protocol": 0x7E}),
+        ("l4_src_port", {"sport": 9000}),
+        ("l4_dst_port", {"dport": 9001}),
+        ("l4_src_port_range", {"sport": 10200}),
+        ("l4_dst_port_range", {"dport": 10700}),
+        ("tcp_flags", {"flags": 0x1B}),
+        ("dscp", {"dscp": 37}),
+    ]
+    MTU_DROP_RULES_BY_QUALIFIER = {
+        "src_ip": "RULE_1",
+        "dst_ip": "RULE_2",
+        "ip_protocol": "RULE_3",
+        "l4_src_port": "RULE_4",
+        "l4_dst_port": "RULE_5",
+        "l4_src_port_range": "RULE_6",
+        "l4_dst_port_range": "RULE_7",
+        "tcp_flags": "RULE_8",
+        "dscp": "RULE_9",
+    }
+
     def acl_stage(self):
         return "egress"
 
     def mirror_type(self):
         return "egress"
+
+    def test_everflow_egress_mirror_mtu_drop(self, setup_info, setup_mirror_session,        # noqa F811
+                                                  dest_port_type, ptfadapter, tbinfo, mux_config,  # noqa F811
+                                                  toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+                                                  setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
+                                                  erspan_ip_ver):  # noqa F811
+        """Verify egress mirroring still occurs when the original packet is dropped by MTU on Spectrum-6."""
+        everflow_dut = setup_info[dest_port_type]['everflow_dut']
+        if not self.egress_mirror_payload_unchanged(everflow_dut):
+            pytest.skip("MTU-drop mirror validation only applies to Spectrum-6 egress mirroring.")
+        if erspan_ip_ver != 4:
+            pytest.skip("IPv4 MTU-drop mirror validation only runs with IPv4 ERSPAN.")
+
+        remote_dut = setup_info[dest_port_type]['remote_dut']
+        if len(setup_info[dest_port_type]["dest_port"]) <= 1:
+            pytest.skip("Skip test as there are not enough ports to separate mirror and default traffic.")
+
+        default_traffic_port_type = DOWN_STREAM if dest_port_type == UP_STREAM else UP_STREAM
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
+            else setup_mirror_session["session_prefixes_ipv6"]
+        _, tx_port_ptf_id, _ = self._select_route_ready_tx_port(
+            remote_dut,
+            setup_info[dest_port_type],
+            tbinfo,
+            session_prefixes[0],
+            setup_info[dest_port_type]["remote_namespace"],
+            erspan_ip_ver,
+            route_timeout=60,
+            route_interval=10
+        )
+        excluded_ptf_ids = set(self._get_tx_port_id_list([rx_port_ptf_id]))
+        excluded_ptf_ids.update(tx_port_ptf_id)
+        default_traffic_tx_port, default_traffic_tx_port_ptf_id = self._select_tx_port_not_in(
+            setup_info[default_traffic_port_type],
+            excluded_ptf_ids,
+            "default traffic"
+        )
+
+        default_traffic_peer_ip = everflow_utils.get_neighbor_info(everflow_dut, default_traffic_tx_port, tbinfo)
+        default_traffic_namespace = setup_info[default_traffic_port_type]["remote_namespace"]
+        original_mtu = self._get_interface_mtu(everflow_dut, default_traffic_tx_port)
+        default_traffic_routes = set()
+
+        try:
+            pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0]))
+            pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_mirror_session_up,
+                                     remote_dut, setup_mirror_session["session_name"]))
+            pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, everflow_dut))
+
+            self._set_interface_mtu(everflow_dut, default_traffic_tx_port, 1500)
+
+            for packet_qualifier, packet_kwargs in self.MTU_DROP_PACKET_QUALIFIERS:
+                logging.info("Verify MTU-drop egress mirroring for %s packet qualifier", packet_qualifier)
+                rule_name = self.MTU_DROP_RULES_BY_QUALIFIER[packet_qualifier]
+                control_pkt = self._base_tcp_packet(
+                    ptfadapter,
+                    setup_info[dest_port_type],
+                    setup_info[dest_port_type]["ingress_router_mac"],
+                    pktlen=self.MTU_DROP_CONTROL_PACKET_LEN,
+                    ip_flags=0x2,
+                    **packet_kwargs
+                )
+                oversized_pkt = self._base_tcp_packet(
+                    ptfadapter,
+                    setup_info[dest_port_type],
+                    setup_info[dest_port_type]["ingress_router_mac"],
+                    pktlen=self.MTU_DROP_PACKET_LEN,
+                    ip_flags=0x2,
+                    **packet_kwargs
+                )
+                default_traffic_route = oversized_pkt[packet.IP].dst + "/32"
+                if default_traffic_route not in default_traffic_routes:
+                    everflow_utils.add_route(everflow_dut, default_traffic_route, default_traffic_peer_ip,
+                                             default_traffic_namespace)
+                    default_traffic_routes.add(default_traffic_route)
+                    pytest_assert(wait_until(30, 5, 0, everflow_utils.validate_asic_route,
+                                             everflow_dut, default_traffic_route))
+
+                control_counter_before = self._get_acl_packets_count(
+                    everflow_dut, "EVERFLOW_EGRESS", rule_name
+                )
+                logging.info(
+                    "IPv4 MTU-drop control probe for %s uses %s, counter_before=%s",
+                    packet_qualifier,
+                    rule_name,
+                    control_counter_before
+                )
+
+                self.send_and_check_mirror_packets(
+                    setup_info,
+                    setup_mirror_session,
+                    ptfadapter,
+                    everflow_dut,
+                    control_pkt,
+                    dest_port_type,
+                    src_port=rx_port_ptf_id,
+                    dest_ports=tx_port_ptf_id,
+                    erspan_ip_ver=erspan_ip_ver
+                )
+
+                control_counter_updated = wait_until(
+                    10,
+                    1,
+                    0,
+                    lambda: self._get_acl_packets_count(everflow_dut, "EVERFLOW_EGRESS", rule_name) >
+                    control_counter_before
+                )
+                if not control_counter_updated:
+                    pytest.fail(
+                        f"IPv4 control probe for {packet_qualifier} did not increment {rule_name}. "
+                        "The normal packet path did not hit EVERFLOW_EGRESS, so the MTU-drop result "
+                        "is not conclusive."
+                    )
+
+                control_counter_after = self._get_acl_packets_count(
+                    everflow_dut, "EVERFLOW_EGRESS", rule_name
+                )
+                logging.info(
+                    "IPv4 MTU-drop control probe for %s incremented %s from %s to %s",
+                    packet_qualifier,
+                    rule_name,
+                    control_counter_before,
+                    control_counter_after
+                )
+
+                self.send_and_check_mirror_packets(
+                    setup_info,
+                    setup_mirror_session,
+                    ptfadapter,
+                    everflow_dut,
+                    oversized_pkt,
+                    dest_port_type,
+                    src_port=rx_port_ptf_id,
+                    dest_ports=tx_port_ptf_id,
+                    erspan_ip_ver=erspan_ip_ver
+                )
+
+                expected_packet = Mask(oversized_pkt.copy())
+                expected_packet.set_do_not_care_scapy(packet.Ether, "dst")
+                expected_packet.set_do_not_care_scapy(packet.Ether, "src")
+                expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
+                expected_packet.set_do_not_care_scapy(packet.IP, "ttl")
+
+                testutils.verify_no_packet_any(
+                    ptfadapter,
+                    expected_packet,
+                    ports=default_traffic_tx_port_ptf_id
+                )
+        finally:
+            self._set_interface_mtu(everflow_dut, default_traffic_tx_port, original_mtu)
+            for default_traffic_route in default_traffic_routes:
+                everflow_utils.remove_route(everflow_dut, default_traffic_route, default_traffic_peer_ip,
+                                            default_traffic_namespace)
