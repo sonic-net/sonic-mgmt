@@ -224,6 +224,16 @@ def config_facts(duthost):
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
 
+@pytest.fixture(scope="module")
+def primary_vdpu_key(dpuhosts):
+    return f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
+
+
+@pytest.fixture(scope="module")
+def standby_vdpu_key(dpuhosts):
+    return f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
+
+
 def get_intf_from_ip(local_ip, config_facts):
     for intf, config in list(config_facts["INTERFACE"].items()):
         for ip in config:
@@ -595,7 +605,7 @@ def remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, 
             name = primary_vdpu_key
         elif name == "vdpu1_0:haset0_0":
             name = standby_vdpu_key
-    ha_scope_per_dut_modified.append((name, data))
+        ha_scope_per_dut_modified.append((name, data))
 
     for index, (name, data) in enumerate(ha_scope_per_dut_modified):
         # Update the 'owner' key in the dictionary

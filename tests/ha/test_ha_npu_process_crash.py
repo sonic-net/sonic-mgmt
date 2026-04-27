@@ -202,16 +202,6 @@ def standby_dut(duthosts):
     return duthosts[1]
 
 
-@pytest.fixture(scope="module")
-def primary_vdpu_key(dpuhosts):
-    return f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
-
-
-@pytest.fixture(scope="module")
-def standby_vdpu_key(dpuhosts):
-    return f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
-
-
 class TestNpuProcessCrash:
 
     def _run(
@@ -469,6 +459,8 @@ class TestNpuProcessCrash:
         ptfadapter, dash_pl_config,
         localhost, ptfhost,
         activate_dash_ha_from_json,
+        primary_vdpu_key,
+        standby_vdpu_key
     ):
         self._run(
             process_name=process_name, container=container,

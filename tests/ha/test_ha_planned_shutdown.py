@@ -93,15 +93,14 @@ def test_ha_planned_shutdown(
     ptfhost,
     activate_dash_ha_from_json,
     ha_owner,
-    dash_pl_config
+    dash_pl_config,
+    primary_vdpu_key,
+    standby_vdpu_key
 ):
     encap_proto = "vxlan"
     rate_pps = 10  # packets per second
     initial_send_count = 10
     delay = 1.0 / rate_pps
-
-    primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
-    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
 
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
     rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
