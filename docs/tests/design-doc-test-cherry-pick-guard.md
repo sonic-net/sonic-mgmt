@@ -1,6 +1,6 @@
 # Design Doc: Test Cherry-pick Guard for sonic-net/sonic-mgmt
 
-**Author:** (your alias)  
+**Author:** xwjiang-ms  
 **Status:** Draft  
 **Reviewers:** Nightly Guard Team, Platform Owners  
 
@@ -83,7 +83,7 @@ contributor adds a brand-new test to `master` and it gets approved for a release
 │  Job 1: detect-and-tag                                               │
 │  ├─ Fetch PR file diff via GitHub API                                │
 │  ├─ Match against test file patterns                                 │
-│  ├─ Output: has_new_tests, new_test_files, target_branch             │
+│  ├─ Output: has_new_tests (bool), new_test_files (list), target_branch│
 │  └─ If new tests found → add label "contains-new-tests"              │
 │                                                                      │
 │  Job 2: enforce-policy  (skipped if master or no new tests)          │
