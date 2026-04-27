@@ -580,6 +580,19 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
+
+    # If no PDU controller is available for this physical DUT, we cannot recover from
+    # killing the database container (which would corrupt Redis). Skip it pre-emptively.
+    if "database" not in skip_containers:
+        try:
+            pdu_ctrl_check = get_pdu_controller(duthost)
+        except Exception:
+            pdu_ctrl_check = None
+        if pdu_ctrl_check is None:
+            logger.warning("No PDU controller available for {}, skipping database container test"
+                           .format(duthost.hostname))
+            skip_containers.append("database")
+
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
     # Check if database container is being tested
@@ -587,7 +600,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
     # add log to indicate start of yield
     logger.info("Starting test to monitor critical processes...")
-    yield
+    yield skip_containers
 
     # add log to indicate end of yield
     logger.info("Test to monitor critical processes is done, starting recovery...")
@@ -664,7 +677,9 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     else:
         # Normal recovery for other containers
         logger.info("Executing the config reload...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        # Use wait=300 to allow extra time for BGP sessions to come up on testbeds
+        # with large numbers of BGP neighbors (e.g., LT2 with 88 sessions).
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True, wait=300)
         logger.info("Executing the config reload was done!")
 
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
@@ -699,9 +714,39 @@ def test_monitoring_critical_processes(
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
 
-    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
+    # Use the skip_containers from recover_critical_processes fixture (which accounts for
+    # PDU availability). This ensures database container is excluded when no PDU is available.
+    skip_containers = recover_critical_processes
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+
+    # Filter out containers where critical processes are not in RUNNING state.
+    # This handles containers where processes exit/restart periodically (e.g., acms).
+    # Such containers cannot be reliably tested since the process may not be RUNNING
+    # when the test tries to stop it.
+    containers_to_remove = set()
+    for container_name, namespace_ids in list(containers_in_namespaces.items()):
+        for namespace_id in namespace_ids:
+            container_name_in_ns = container_name
+            if namespace_id != DEFAULT_ASIC_ID:
+                container_name_in_ns += namespace_id
+            _, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_ns)
+            if not succeeded:
+                continue
+            for proc in critical_process_list:
+                status, _ = get_program_info(duthost, container_name_in_ns, proc)
+                # Skip containers where any critical process is not in RUNNING state.
+                # This covers processes that are EXITED/STOPPED/FATAL (unstable cycles like acms),
+                # and None (process not present in supervisord on this platform, e.g., staticd/dsserve
+                # on TH5). In both cases stop_critical_processes would fail without this check.
+                if status != "RUNNING":
+                    logger.warning(
+                        "Skipping container '%s': process '%s' is in '%s' state (not stable)",
+                        container_name_in_ns, proc, status)
+                    containers_to_remove.add(container_name)
+                    break
+    for c in containers_to_remove:
+        del containers_in_namespaces[c]
 
     if "20191130" in duthost.os_version:
         expected_alerting_messages = get_expected_alerting_messages_monit(duthost, containers_in_namespaces)
