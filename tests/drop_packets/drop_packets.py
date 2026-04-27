@@ -785,6 +785,7 @@ def test_not_expected_vlan_tag_drop(do_test, duthosts, enum_rand_one_per_hwsku_f
 
     group = "L2"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+            # VPP drops the packet but does not increment the drop counter
             skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
 
 

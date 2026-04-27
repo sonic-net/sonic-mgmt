@@ -472,6 +472,7 @@ def test_ip_pkt_with_exceeded_mtu(do_test, duthosts, enum_rand_one_per_hwsku_fro
     L2_COL_KEY = RX_ERR
     try:
         do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+                # VPP drops the packet but does not increment the drop counter
                 skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
     finally:
         L2_COL_KEY = RX_DRP
