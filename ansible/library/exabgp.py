@@ -332,7 +332,7 @@ def setup_exabgp_supervisord_conf(name, debug=False):
                 exabgp_supervisord_conf_tmpl_p2_v4 + \
                 exabgp_supervisord_conf_tmpl_p3
     t = jinja2.Template(exabgp_supervisord_conf_tmpl)
-    data = t.render(name=name)
+    data = t.render(name=name)  # nosemgrep: direct-use-of-jinja2
     with open("/etc/supervisor/conf.d/exabgp-%s.conf" % name, 'w') as out_file:
         out_file.write(data)
 

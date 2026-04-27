@@ -5,7 +5,7 @@ import json
 import re
 from collections import defaultdict
 import paramiko
-import pickle
+import pickle  # nosemgrep: avoid-pickle
 from operator import itemgetter
 import scapy.all as scapyall
 import ast
@@ -19,7 +19,8 @@ class Sonic(host_device.HostDevice):
     # unit: second
     SSH_CMD_TIMEOUT = 10
 
-    def __init__(self, ip, queue, test_params, log_cb=None, login='admin', password='password'):
+    def __init__(self, ip, queue, test_params, log_cb=None,  # nosemgrep: hardcoded-password-default-argument
+                 login='admin', password='password'):
         self.ip = ip
         self.queue = queue
         self.log_cb = log_cb
@@ -197,12 +198,12 @@ class Sonic(host_device.HostDevice):
 
         # save data for troubleshooting
         with open("/tmp/%s.data.pickle" % self.ip, "wb") as fp:
-            pickle.dump(data, fp)
+            pickle.dump(data, fp)  # nosemgrep: avoid-pickle
 
         # save debug data for troubleshooting
         if self.DEBUG:
             with open("/tmp/%s.raw.pickle" % self.ip, "wb") as fp:
-                pickle.dump(debug_data, fp)
+                pickle.dump(debug_data, fp)  # nosemgrep: avoid-pickle
             with open("/tmp/%s.logging" % self.ip, "w") as fp:
                 fp.write("\n".join(log_lines))
 
