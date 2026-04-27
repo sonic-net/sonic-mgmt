@@ -74,6 +74,8 @@ def configure():
         "D4T1P1": vars.D4T1P1,
         "D4T1P2": vars.D4T1P2,
         "D2D1P1": vars.D2D1P1,
+        "D2D1P2": vars.D2D1P2,
+        "D2D1P3": vars.D2D1P3,
     }
     dut.wait(15)
     yield test_data

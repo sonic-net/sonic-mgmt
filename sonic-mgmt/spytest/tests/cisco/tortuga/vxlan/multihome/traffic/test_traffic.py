@@ -28,6 +28,66 @@ from multihome.traffic_generator import (
 from multihome.vtysh import show_evpn_es
 from multihome.vtysh import configure_cmd as vtysh_configure_cmd
 import apis.system.interface as intf_obj
+from spytest import st
+
+
+def _count_route_paths(output, vtep_ip):
+    """Count active ECMP next-hop paths for a VTEP prefix in 'show ipv6 route' output.
+    Paths marked 'inactive' by FRR are excluded from the count."""
+    lines = output.split("\n")
+    count = 0
+    tracking = False
+    for line in lines:
+        if vtep_ip in line and "B>" in line:
+            if "inactive" not in line:
+                count = 1
+            tracking = True
+        elif tracking:
+            stripped = line.strip()
+            if stripped.startswith("*") and "via" in stripped:
+                if "inactive" not in stripped:
+                    count += 1
+            else:
+                tracking = False
+    return count
+
+
+def verify_route_path_count(node, expected_count):
+    """
+    Verify ECMP path count for remote VTEP routes on the given node.
+    Returns (True, "") on success, or (False, error_msg) on failure.
+    """
+    output = st.show(node, "show ipv6 route", skip_tmpl=True)
+    vtep_prefixes = {
+        "LEAF1": const.LEAF1_VXLAN_IP,
+        "LEAF2": const.LEAF2_VXLAN_IP,
+    }
+    errors = []
+    for name, vtep_ip in vtep_prefixes.items():
+        actual = _count_route_paths(output, vtep_ip)
+        banner("Route path count for {} ({}): actual={}, expected={}".format(
+            name, vtep_ip, actual, expected_count))
+        if actual != expected_count:
+            errors.append("{} route {}/128 has {} paths, expected {}".format(
+                name, vtep_ip, actual, expected_count))
+    if errors:
+        return False, "; ".join(errors)
+    return True, ""
+
+
+def _spine_leaf0_paths_match(spine_node, expected_count):
+    """Return True when the spine has exactly expected_count active paths
+    to the leaf0 VTEP.  Used as the predicate for poll_wait2."""
+    output = st.show(spine_node, "show ipv6 route", skip_tmpl=True)
+    actual = _count_route_paths(output, const.LEAF0_VXLAN_IP)
+    st.log("Spine route paths to leaf0 ({}): actual={}, expected={}".format(
+        const.LEAF0_VXLAN_IP, actual, expected_count))
+    return actual == expected_count
+
+
+SPINE_CONVERGE_POLL = 5
+SPINE_CONVERGE_TIMEOUT = 180
+SPINE_CONVERGE_EXTRA_WAIT = 5
 
 
 def test_local_bias(traffic_setup):
@@ -1029,37 +1089,123 @@ def test_portchannel_flap(traffic_setup):
 
 def test_interface_to_spine_flap(traffic_setup):
     """
-    Spine facing interface shutdown and startup to See everything is working fine
+    Progressively shut down leaf0's spine-facing uplinks and verify
+    DF/NDF election and BUM traffic forwarding at each stage:
+      Phase 1: All 3 uplinks up (baseline)
+      Phase 2: Shut D2D1P2 (2 uplinks remain)
+      Phase 3: Shut D2D1P3 (only D2D1P1 remains)
+      Phase 4: Flap D2D1P1 (leaf0 fully isolated, then 1 uplink restored)
+      Phase 5: Cleanup - restore D2D1P2 and D2D1P3
     """
     nodes = traffic_setup["duts"]
     lag_handle = traffic_setup["lag_handle"]
+
     test_case_id = "test_interface_to_spine_flap"
 
     result_str = ""
-
-    # Shutdown interface on leaf0
     dut = nodes["leaf0"]
-    intf = traffic_setup["D2D1P1"]
+    spine = nodes["spine0"]
+    intf_p1 = traffic_setup["D2D1P1"]
+    intf_p2 = traffic_setup["D2D1P2"]
+    intf_p3 = traffic_setup["D2D1P3"]
 
-    intf_obj.interface_shutdown("leaf0", intf)
-    if not intf_obj.verify_interface_status(dut, intf, "admin", "down"):
-        log = "Shutdown {} {} ports failed".format(dut, intf)
-        banner(log)
-        result_str += "{}\n".format(log)
+    try:
+        # Phase 1: Baseline - all 3 uplinks up
+        banner("Phase 1: Baseline - all 3 uplinks up")
+        result, msg = verify_df_ndf_traffic(nodes, lag_handle, traffic_setup)
+        if not result:
+            banner(msg)
+            result_str += "Phase 1 (baseline): {}\n".format(msg)
 
-    # Start interface on leaf0
-    intf_obj.interface_noshutdown("leaf0", intf)
-    if not intf_obj.verify_interface_status(dut, intf, "admin", "up"):
-        log = "Start {} {} ports failed".format(dut, intf)
-        banner(log)
-        result_str += "{}\n".format(log)
+        result, msg = verify_route_path_count(dut, expected_count=3)
+        if not result:
+            banner(msg)
+            result_str += "Phase 1 route paths: {}\n".format(msg)
 
-    wait(10)
+        # Phase 2: Shut D2D1P2, 2 uplinks remain
+        banner("Phase 2: Shut D2D1P2, 2 uplinks remain")
+        intf_obj.interface_shutdown("leaf0", intf_p2)
+        if not intf_obj.verify_interface_status(dut, intf_p2, "admin", "down"):
+            msg = "Shutdown {} {} failed".format(dut, intf_p2)
+            banner(msg)
+            result_str += "{}\n".format(msg)
 
-    result, msg = verify_df_ndf_traffic(nodes, lag_handle, traffic_setup)
-    if not result:
-        banner(msg)
-        result_str += "{}\n".format(msg)
+        if not st.poll_wait2(SPINE_CONVERGE_POLL, SPINE_CONVERGE_TIMEOUT,
+                             _spine_leaf0_paths_match, spine, 2):
+            banner("Spine did not converge to 2 paths for leaf0 VTEP")
+            result_str += "Phase 2: spine route convergence timeout\n"
+        wait(SPINE_CONVERGE_EXTRA_WAIT)
+
+        result, msg = verify_df_ndf_traffic(nodes, lag_handle, traffic_setup)
+        if not result:
+            banner(msg)
+            result_str += "Phase 2 (1 uplink down): {}\n".format(msg)
+
+        result, msg = verify_route_path_count(dut, expected_count=2)
+        if not result:
+            banner(msg)
+            result_str += "Phase 2 route paths: {}\n".format(msg)
+
+        # Phase 3: Shut D2D1P3, only D2D1P1 remains
+        banner("Phase 3: Shut D2D1P3, only D2D1P1 remains")
+        intf_obj.interface_shutdown("leaf0", intf_p3)
+        if not intf_obj.verify_interface_status(dut, intf_p3, "admin", "down"):
+            msg = "Shutdown {} {} failed".format(dut, intf_p3)
+            banner(msg)
+            result_str += "{}\n".format(msg)
+
+        if not st.poll_wait2(SPINE_CONVERGE_POLL, SPINE_CONVERGE_TIMEOUT,
+                             _spine_leaf0_paths_match, spine, 1):
+            banner("Spine did not converge to 1 path for leaf0 VTEP")
+            result_str += "Phase 3: spine route convergence timeout\n"
+        wait(SPINE_CONVERGE_EXTRA_WAIT)
+
+        result, msg = verify_df_ndf_traffic(nodes, lag_handle, traffic_setup)
+        if not result:
+            banner(msg)
+            result_str += "Phase 3 (2 uplinks down): {}\n".format(msg)
+
+        result, msg = verify_route_path_count(dut, expected_count=1)
+        if not result:
+            banner(msg)
+            result_str += "Phase 3 route paths: {}\n".format(msg)
+
+        # Phase 4: Flap last uplink D2D1P1 (leaf0 fully isolated then restored)
+        banner("Phase 4: Flap D2D1P1 - leaf0 fully isolated then 1 uplink restored")
+        intf_obj.interface_shutdown("leaf0", intf_p1)
+        if not intf_obj.verify_interface_status(dut, intf_p1, "admin", "down"):
+            msg = "Shutdown {} {} failed".format(dut, intf_p1)
+            banner(msg)
+            result_str += "{}\n".format(msg)
+
+        intf_obj.interface_noshutdown("leaf0", intf_p1)
+        if not intf_obj.verify_interface_status(dut, intf_p1, "admin", "up"):
+            msg = "Start {} {} failed".format(dut, intf_p1)
+            banner(msg)
+            result_str += "{}\n".format(msg)
+
+        if not st.poll_wait2(SPINE_CONVERGE_POLL, SPINE_CONVERGE_TIMEOUT,
+                             _spine_leaf0_paths_match, spine, 1):
+            banner("Spine did not converge to 1 path for leaf0 VTEP")
+            result_str += "Phase 4: spine route convergence timeout\n"
+        wait(SPINE_CONVERGE_EXTRA_WAIT)
+
+        result, msg = verify_df_ndf_traffic(nodes, lag_handle, traffic_setup)
+        if not result:
+            banner(msg)
+            result_str += "Phase 4 (flap last uplink): {}\n".format(msg)
+
+        result, msg = verify_route_path_count(dut, expected_count=1)
+        if not result:
+            banner(msg)
+            result_str += "Phase 4 route paths: {}\n".format(msg)
+
+    finally:
+        # Phase 5: Cleanup - restore all 3 uplinks
+        banner("Phase 5: Cleanup - restoring D2D1P1, D2D1P2 and D2D1P3")
+        intf_obj.interface_noshutdown("leaf0", intf_p1)
+        intf_obj.interface_noshutdown("leaf0", intf_p2)
+        intf_obj.interface_noshutdown("leaf0", intf_p3)
 
     if result_str:
         report_fail(nodes["leaf0"], result_str)

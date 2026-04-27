@@ -48,6 +48,8 @@ topology:
             Ethernet1_4: {EndDevice: leaf1, EndPort: Ethernet1_4, params: def_link}
             Ethernet1_5: {EndDevice: leaf2, EndPort: Ethernet1_5, params: def_link}
             Ethernet1_6: {EndDevice: leaf2, EndPort: Ethernet1_6, params: def_link}
+            Ethernet1_7: {EndDevice: leaf0, EndPort: Ethernet1_11, params: def_link}
+            Ethernet1_8: {EndDevice: leaf2, EndPort: Ethernet1_9, params: def_link}
 
     leaf0:
         interfaces:

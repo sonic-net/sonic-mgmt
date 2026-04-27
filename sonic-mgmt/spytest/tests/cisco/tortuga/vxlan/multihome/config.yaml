@@ -17,9 +17,13 @@ leaf0:
         swssloglevel -l INFO -c orchagent
         swssloglevel -l INFO -c fdbsyncd
         sudo config interface startup D2D1P1
+        sudo config interface startup D2D1P2
+        sudo config interface startup D2D1P3
         sudo config interface startup D2T1P1
         sudo config interface startup D2T1P2
         sudo config interface ipv6 enable use-link-local-only D2D1P1
+        sudo config interface ipv6 enable use-link-local-only D2D1P2
+        sudo config interface ipv6 enable use-link-local-only D2D1P3
         sudo config interface ip add Loopback0 fd27::233:d0c6:fefb/128
         sudo config vlan add 10
         sudo config vlan member add -u 10 D2T1P1
@@ -58,6 +62,8 @@ leaf0:
         sudo config vxlan del VXLAN
         sudo config interface ip rem Loopback0 fd27::233:d0c6:fefb/128
         sudo config interface ipv6 disable use-link-local-only D2D1P1
+        sudo config interface ipv6 disable use-link-local-only D2D1P2
+        sudo config interface ipv6 disable use-link-local-only D2D1P3
         sudo config vrf del Vrf01
         sudo config vlan del 10
         sudo config vlan del 30
@@ -97,6 +103,8 @@ leaf0:
         neighbor fd27::2dc:c1c9:e17c peer-group OVERLAY
         neighbor fd27::2d9:76fd:4c43 peer-group OVERLAY
         neighbor D2D1P1 interface peer-group TRANSIT
+        neighbor D2D1P2 interface peer-group TRANSIT
+        neighbor D2D1P3 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -161,9 +169,11 @@ leaf1:
         swssloglevel -l INFO -c orchagent
         swssloglevel -l INFO -c fdbsyncd
         sudo config interface startup D3D1P1
+        sudo config interface startup D3D1P2
         sudo config interface startup D3T1P1
         sudo config interface startup D3T1P2
         sudo config interface ipv6 enable use-link-local-only D3D1P1
+        sudo config interface ipv6 enable use-link-local-only D3D1P2
         sudo config interface ip add Loopback0 fd27::2dc:c1c9:e17c/128
         sudo config vlan add 10
         sudo config portchannel add PortChannel2
@@ -202,6 +212,7 @@ leaf1:
         sudo config vxlan del VXLAN
         sudo config interface ip rem Loopback0 fd27::2dc:c1c9:e17c/128
         sudo config interface ipv6 disable use-link-local-only D3D1P1
+        sudo config interface ipv6 disable use-link-local-only D3D1P2
         sudo config vrf del Vrf01
         sudo config vlan del 10
         sudo config vlan del 30
@@ -241,6 +252,7 @@ leaf1:
         neighbor fd27::233:d0c6:fefb peer-group OVERLAY
         neighbor fd27::2d9:76fd:4c43 peer-group OVERLAY
         neighbor D3D1P1 interface peer-group TRANSIT
+        neighbor D3D1P2 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -305,9 +317,13 @@ leaf2:
         swssloglevel -l INFO -c orchagent
         swssloglevel -l INFO -c fdbsyncd
         sudo config interface startup D4D1P1
+        sudo config interface startup D4D1P2
+        sudo config interface startup D4D1P3
         sudo config interface startup D4T1P1
         sudo config interface startup D4T1P2
         sudo config interface ipv6 enable use-link-local-only D4D1P1
+        sudo config interface ipv6 enable use-link-local-only D4D1P2
+        sudo config interface ipv6 enable use-link-local-only D4D1P3
         sudo config interface ip add Loopback0 fd27::2d9:76fd:4c43/128
         sudo config vlan add 10
         sudo config vlan member add -u 10 D4T1P1
@@ -346,6 +362,8 @@ leaf2:
         sudo config vxlan del VXLAN
         sudo config interface ip rem Loopback0 fd27::2d9:76fd:4c43/128
         sudo config interface ipv6 disable use-link-local-only D4D1P1
+        sudo config interface ipv6 disable use-link-local-only D4D1P2
+        sudo config interface ipv6 disable use-link-local-only D4D1P3
         sudo config vrf del Vrf01
         sudo config static-anycast-gateway mac_address del
         sudo config vlan del 10
@@ -385,6 +403,8 @@ leaf2:
         neighbor fd27::233:d0c6:fefb peer-group OVERLAY
         neighbor fd27::2dc:c1c9:e17c peer-group OVERLAY
         neighbor D4D1P1 interface peer-group TRANSIT
+        neighbor D4D1P2 interface peer-group TRANSIT
+        neighbor D4D1P3 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -446,15 +466,30 @@ spine0:
         swssloglevel -l INFO -c orchagent
         swssloglevel -l INFO -c fdbsyncd
         sudo config interface startup D1D2P1
+        sudo config interface startup D1D2P2
+        sudo config interface startup D1D2P3
         sudo config interface startup D1D3P1
+        sudo config interface startup D1D3P2
         sudo config interface startup D1D4P1
+        sudo config interface startup D1D4P2
+        sudo config interface startup D1D4P3
         sudo config interface ipv6 enable use-link-local-only D1D2P1
+        sudo config interface ipv6 enable use-link-local-only D1D2P2
+        sudo config interface ipv6 enable use-link-local-only D1D2P3
         sudo config interface ipv6 enable use-link-local-only D1D3P1
+        sudo config interface ipv6 enable use-link-local-only D1D3P2
         sudo config interface ipv6 enable use-link-local-only D1D4P1
+        sudo config interface ipv6 enable use-link-local-only D1D4P2
+        sudo config interface ipv6 enable use-link-local-only D1D4P3
       deconfig: |
         sudo config interface ipv6 disable use-link-local-only D1D2P1
+        sudo config interface ipv6 disable use-link-local-only D1D2P2
+        sudo config interface ipv6 disable use-link-local-only D1D2P3
         sudo config interface ipv6 disable use-link-local-only D1D3P1
+        sudo config interface ipv6 disable use-link-local-only D1D3P2
         sudo config interface ipv6 disable use-link-local-only D1D4P1
+        sudo config interface ipv6 disable use-link-local-only D1D4P2
+        sudo config interface ipv6 disable use-link-local-only D1D4P3
         sudo sonic-clear fdb all
     bgp:
       config: |
@@ -482,8 +517,13 @@ spine0:
         neighbor TRANSIT remote-as external
         neighbor TRANSIT ebgp-multihop 1
         neighbor D1D2P1 interface peer-group TRANSIT
+        neighbor D1D2P2 interface peer-group TRANSIT
+        neighbor D1D2P3 interface peer-group TRANSIT
         neighbor D1D3P1 interface peer-group TRANSIT
+        neighbor D1D3P2 interface peer-group TRANSIT
         neighbor D1D4P1 interface peer-group TRANSIT
+        neighbor D1D4P2 interface peer-group TRANSIT
+        neighbor D1D4P3 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate

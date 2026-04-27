@@ -89,3 +89,9 @@ connections:
     hub5_1:
       - SD4.Ethernet31/[0..1]
       - ixia.data[6..7]
+    hub6_0:
+      - SD1.Ethernet31/[0..1]
+      - SD2.Ethernet32/[0..1]
+    hub6_1:
+      - SD1.Ethernet32/[0..1]
+      - SD4.Ethernet32/[0..1]

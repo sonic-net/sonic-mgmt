@@ -50,6 +50,10 @@ topology:
             Ethernet1_30_2: {EndDevice: leaf1, EndPort: Ethernet1_29_2, params: def_link}
             Ethernet1_31_1: {EndDevice: leaf2, EndPort: Ethernet1_31_1, params: def_link}
             Ethernet1_31_2: {EndDevice: leaf2, EndPort: Ethernet1_31_2, params: def_link}
+            Ethernet1_32_1: {EndDevice: leaf0, EndPort: Ethernet1_33_1, params: def_link}
+            Ethernet1_32_2: {EndDevice: leaf0, EndPort: Ethernet1_33_2, params: def_link}
+            Ethernet1_33_1: {EndDevice: leaf2, EndPort: Ethernet1_33_1, params: def_link}
+            Ethernet1_33_2: {EndDevice: leaf2, EndPort: Ethernet1_33_2, params: def_link}
 
     leaf0:
         interfaces:
