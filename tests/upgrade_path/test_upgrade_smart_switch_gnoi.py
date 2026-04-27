@@ -2,7 +2,7 @@ import logging
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
-    gnmi_tls, ptf_grpc, ptf_gnoi, setup_gnoi_tls_server
+    gnmi_tls, ptf_grpc, ptf_gnoi, setup_gnoi_tls_server, reprovision_gnoi_tls
 )
 from tests.common.helpers.upgrade_helpers import (
     GnoiUpgradeConfig,
@@ -203,13 +203,12 @@ def smartswitch_full_upgrade_lists(request, duthost):
         dpu_indices = list(range(len(names)))
     else:
         ss_target_indices = request.config.getoption("ss_target_indices")
-        if ss_target_indices:
-            dpu_indices = [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
-        else:
+        if not ss_target_indices:
             pytest.fail(
                 "Could not determine DPU indices: CONFIG_DB DPU table is empty and "
                 "--ss_target_indices was not provided. Pass e.g. --ss_target_indices=0,1,2,3"
             )
+        dpu_indices = [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
 
     return (upgrade_type, dpu_to_image, dpu_to_version, npu_to_image, npu_to_version,
             dpu_indices, ss_reboot_ready_timeout)
@@ -285,10 +284,6 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
     # ------------------------------------------------------------------
     logger.info("Phase 2: Upgrading NPU (will also reboot all DPUs)")
 
-    # Save TLS config to disk before the NPU reboot so it persists through it.
-    # The NPU reboot restores CONFIG_DB from disk, wiping the gnmi_tls fixture's config.
-    duthost.shell("sudo config save -y")
-
     npu_cfg = GnoiUpgradeConfig(
         to_image=npu_to_image,
         dut_image_path=dut_image_path,
@@ -307,6 +302,10 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
         duthosts=duthosts,
     )
     logger.info("Phase 2 complete: NPU is back up")
+
+    # NPU rebooted into a new image — its gNMI is no longer using our certs.
+    # Re-provision before talking to the NPU/DPU gNOI in Phase 3.
+    reprovision_gnoi_tls(duthost, ptfhost)
 
     # ------------------------------------------------------------------
     # Phase 3: Wait for each DPU to come back up.
