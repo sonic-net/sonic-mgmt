@@ -25,6 +25,8 @@ BCM_CINT_FILENAME = "get_shaper.c"
 DEST_DIR = "/tmp"
 CMD_GET_SHAPER = "bcmcmd 'cint {}'".format(BCM_CINT_FILENAME)
 EXPECTED_COS_QUEUES = {0, 7}
+EXPECTED_PPS = 600
+PPS_TOLERANCE = 0.05  # Allow 5% tolerance in PPS values
 
 
 def get_cpu_queue_shaper(dut):
@@ -70,6 +72,12 @@ def test_cpu_queue_shaper(duthosts, localhost, enum_rand_one_per_hwsku_frontend_
             "CPU queue shaper missing for cos queues {} before reboot. Got: {}".format(missing, before_pps)
         assert all(before_pps[cos] > 0 for cos in EXPECTED_COS_QUEUES), \
             "CPU queue shaper has zero PPS before reboot: {}".format(before_pps)
+        # Validate shaper values are close to original 600 PPS (allowing 5% tolerance)
+        pps_low, pps_high = int(EXPECTED_PPS * (1 - PPS_TOLERANCE)), int(EXPECTED_PPS * (1 + PPS_TOLERANCE))
+        for cos in EXPECTED_COS_QUEUES:
+            assert pps_low <= before_pps[cos] <= pps_high, \
+                "CPU queue {} shaper PPS {} is outside {}% tolerance of {} PPS".format(
+                    cos, before_pps[cos], int(PPS_TOLERANCE * 100), EXPECTED_PPS)
 
         # Perform reboot
         logger.info("Do {} reboot".format(reboot_type))
