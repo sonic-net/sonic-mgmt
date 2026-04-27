@@ -30,9 +30,13 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
 
     if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
         # Limit listening to the mgmt interface, to prevent socket allocation
-        # exhaustion
-        ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
-        ptfhost.lineinfile(path=ntp_conf_path, line="interface listen mgmt")
+        # exhaustion. Only applies when the PTF has a 'mgmt' interface (e.g.
+        # cEOSLab containers); standard PTF containers use 'eth0' and do not
+        # need this restriction.
+        mgmt_intf_exists = ptfhost.shell("ip link show mgmt", module_ignore_errors=True)['rc'] == 0
+        if mgmt_intf_exists:
+            ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
+            ptfhost.lineinfile(path=ntp_conf_path, line="interface listen mgmt")
 
     ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
