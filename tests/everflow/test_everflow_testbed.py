@@ -1233,9 +1233,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
         dscp=None,
         sport=0x1234,
         dport=0x50,
-        flags=0x10
+        flags=0x10,
+        pktlen=100,
+        ip_flags=0
     ):
         pkt = testutils.simple_tcp_packet(
+            pktlen=pktlen,
             eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=router_mac,
             ip_src=src_ip,
@@ -1246,6 +1249,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
             tcp_dport=dport,
             tcp_flags=flags
         )
+
+        if ip_flags:
+            pkt["IP"].flags = ip_flags
 
         if ip_protocol:
             pkt["IP"].proto = ip_protocol
