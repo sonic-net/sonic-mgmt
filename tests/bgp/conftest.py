@@ -247,6 +247,25 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         pytest.fail("not all bgp sessions are up after disable graceful restart")
 
 
+def _setup_arp_responder(duthost, ptfhost, tbinfo, is_v6_topo):
+    """Setup arp_responder on PTF with per-port server IP config for dualtor."""
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    minigraph_ptf_indices = mg_facts['minigraph_ptf_indices']
+    mux_config = mux_cable_server_ip(duthost)
+    ip_type = "server_ipv6" if is_v6_topo else "server_ipv4"
+    arp_responder_conf = {
+        "eth%s" % minigraph_ptf_indices[port]: [config[ip_type].split("/")[0]]
+        for port, config in list(mux_config.items())
+    }
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest="/tmp/from_t1.json")
+    ptfhost.copy(src="scripts/arp_responder.py", dest="/opt")
+    ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
+    ptfhost.template(src="templates/arp_responder.conf.j2",
+                     dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.shell("supervisorctl reread && supervisorctl update")
+    ptfhost.shell("supervisorctl start arp_responder")
+
+
 @pytest.fixture(scope="module")
 def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, request, tbinfo, topo_scenario):
     """Setup interfaces for the new BGP peers on PTF."""
@@ -328,6 +347,20 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
     @contextlib.contextmanager
     def _setup_interfaces_dualtor(mg_facts, peer_count):
+        # Each server IP is assigned to its own correct PTF port (matching the
+        # MUX_CABLE Ethernet port) so that the dualtor forwarding works naturally:
+        # active ports use the direct path, standby ports use the IPinIP tunnel.
+        # Source-based policy routing on PTF ensures responses egress via the
+        # correct port despite all IPs sharing the same VLAN subnet.
+
+        # Pick a policy route table base that doesn't conflict with existing tables.
+        # Resolved before try/finally so cleanup never touches tables we didn't create.
+        used_tables = ptfhost.shell("ip rule show | grep -oP 'lookup \\K[0-9]+'",
+                                    module_ignore_errors=True)['stdout'].splitlines()
+        used_table_ids = {int(t) for t in used_tables if t.isdigit()}
+        POLICY_ROUTE_TABLE_BASE = 100
+        while any((POLICY_ROUTE_TABLE_BASE + i) in used_table_ids for i in range(peer_count)):
+            POLICY_ROUTE_TABLE_BASE += peer_count
         try:
             connections = []
             vlan_intf = _find_vlan_intferface(mg_facts)
@@ -345,47 +378,46 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                     {
                         "local_intf": loopback_intf["name"],
                         "local_addr": "%s/%s" % (loopback_intf_addr, loopback_intf_prefixlen),
-                        # Note: Config same subnets on PTF will generate two connect routes on PTF.
-                        # This may lead different IPs has same FDB entry on DUT even they are on different
-                        # interface and cause layer3 packet drop on PTF, so here same interface for different
-                        # neighbor.
-                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interfaces[0]],
+                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interface],
                         "neighbor_addr": "%s/%s" % (mux_configs[local_interface][server_ip_key].split("/")[0],
                                                     vlan_intf_prefixlen)
                     }
                 )
 
             ptfhost.remove_ip_addresses()
-            # let's stop arp_responder and garp_service as they could pollute
-            # devices' arp tables.
-            ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
-            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+            _setup_arp_responder(duthost, ptfhost, tbinfo, is_v6_topo)
 
-            first_neighbor_port = None
             for conn in connections:
                 ptfhost.shell("ip address add %s dev %s" % (conn["neighbor_addr"], conn["neighbor_intf"]))
-                if not first_neighbor_port:
-                    first_neighbor_port = conn["neighbor_intf"]
-                # NOTE: this enables the standby ToR to passively learn
-                # all the neighbors configured on the ptf interfaces.
-                # As the ptf is a multihomed environment, the packets to the
-                # vlan gateway will always egress the first ptf port that has
-                # vlan subnet address assigned, so let's use the first
-                # ptf port to announce the neigbors.
-                ptfhost.shell(
-                    "arping %s -S %s -i %s -C 5" % (
-                        vlan_intf_addr, conn["neighbor_addr"].split("/")[0], first_neighbor_port
-                    ),
-                    module_ignore_errors=True
-                )
+
+            # Source-based policy routing: ensure each ExaBGP peer's responses
+            # egress via its own PTF port. Without this, duplicate connected
+            # routes from the same VLAN subnet cause all responses to egress
+            # one port, breaking peers on other ports.
+            for i, conn in enumerate(connections):
+                table_id = POLICY_ROUTE_TABLE_BASE + i
+                neighbor_ip = conn["neighbor_addr"].split("/")[0]
+                ptfhost.shell("ip rule add from %s table %d" % (neighbor_ip, table_id))
+                ptfhost.shell("ip route add default via %s dev %s table %d" % (
+                    vlan_intf_addr, conn["neighbor_intf"], table_id
+                ))
+
             ptfhost.shell("ip route add {}{} via {}".format(
                 loopback_intf_addr, "/128" if is_v6_topo else "/32", vlan_intf_addr
             ))
             yield connections
 
         finally:
-            ptfhost.shell("ip route delete {}{}".format(loopback_intf_addr, "/128" if is_v6_topo else "/32"))
-            for conn in connections:
+            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+            ptfhost.shell("ip route delete {}{}".format(loopback_intf_addr, "/128" if is_v6_topo else "/32"),
+                          module_ignore_errors=True)
+            for i, conn in enumerate(connections):
+                table_id = POLICY_ROUTE_TABLE_BASE + i
+                neighbor_ip = conn["neighbor_addr"].split("/")[0]
+                ptfhost.shell("ip rule del from %s table %d" % (neighbor_ip, table_id),
+                              module_ignore_errors=True)
+                ptfhost.shell("ip route flush table %d" % table_id,
+                              module_ignore_errors=True)
                 ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
