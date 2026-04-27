@@ -194,10 +194,14 @@ def smartswitch_full_upgrade_lists(request, duthost):
     dpu_to_version = request.config.getoption("target_version")
     npu_to_image = request.config.getoption("ss_npu_target_image")
     npu_to_version = request.config.getoption("ss_npu_target_version")
+    # Full upgrade involves NPU reboot + all DPUs coming back; 600s should be
+    # sufficient per-DPU since Phase 2 already waited for the NPU.  Increase if
+    # larger platforms need more time for PCIe rescan + DPU boot.
     ss_reboot_ready_timeout = 600
 
     # Try to get DPU indices from CONFIG_DB first.
     # If that returns empty (DPU table not populated), fall back to --ss_target_indices.
+    dpu_indices = []
     names = get_configured_dpu_names(duthost)
     if names:
         dpu_indices = list(range(len(names)))
@@ -276,6 +280,9 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
         max_workers=len(dpu_indices),
     )
     logger.info("Phase 1 complete: image staged on all DPUs")
+    # NOTE: Staging verification (confirming the next-boot image matches
+    # dpu_to_version) requires a gNOI equivalent of `sonic-installer list`
+    # which is not yet available. Track in sonic-buildimage issue.
 
     # ------------------------------------------------------------------
     # Phase 2: Upgrade the NPU.
@@ -321,4 +328,34 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
         pytest_assert(ok, "DPU {} did not come back up within {}s after NPU reboot".format(idx, reboot_ready_timeout))
         logger.info("DPU %d is back up", idx)
 
+        # Verify DPU is running the expected version after upgrade.
+        # Requires OS.Verify to be in the DPU proxy forwardable methods
+        # (see sonic-net/sonic-gnmi#660).
+        try:
+            verify_resp = gnmi_tls.gnoi.os_verify(metadata=_build_dpu_metadata(idx))
+            dpu_running_version = verify_resp.get("version", "")
+            logger.info("DPU %d running version: %s (expected: %s)", idx, dpu_running_version, dpu_to_version)
+            if dpu_to_version:
+                pytest_assert(
+                    dpu_to_version in dpu_running_version,
+                    "DPU {} version mismatch: running '{}', expected '{}'".format(
+                        idx, dpu_running_version, dpu_to_version)
+                )
+        except Exception as e:
+            logger.warning("DPU %d OS.Verify failed (may not be supported yet): %s", idx, e)
+
     logger.info("Phase 3 complete: all %d DPUs are back up", len(dpu_indices))
+
+    # Verify NPU is running the expected version after upgrade.
+    try:
+        npu_verify_resp = gnmi_tls.gnoi.os_verify()
+        npu_running_version = npu_verify_resp.get("version", "")
+        logger.info("NPU running version: %s (expected: %s)", npu_running_version, npu_to_version)
+        if npu_to_version:
+            pytest_assert(
+                npu_to_version in npu_running_version,
+                "NPU version mismatch: running '{}', expected '{}'".format(
+                    npu_running_version, npu_to_version)
+            )
+    except Exception as e:
+        logger.warning("NPU OS.Verify failed (may not be supported yet): %s", e)

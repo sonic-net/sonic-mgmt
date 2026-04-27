@@ -250,8 +250,11 @@ class PtfGnoi:
             "remote_download": remote_download,
         }
 
+        saved_max_time = getattr(self.grpc_client, '_max_time', None)
         self.grpc_client.configure_max_time(3600)   # image download can take a long time
         response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request, metadata=metadata)
+        if saved_max_time is not None:
+            self.grpc_client.configure_max_time(saved_max_time)
         logger.info("TransferToRemote completed: %s -> %s", url, local_path)
         return response
 
@@ -287,6 +290,7 @@ class PtfGnoi:
             "SetPackage via gNOI System.SetPackage (streaming): filename=%s version=%s activate=%s",
             local_path, version, activate,
         )
+        saved_max_time = getattr(self.grpc_client, '_max_time', None)
         self.grpc_client.configure_max_time(3600)        # allow long SetPackage
         self.grpc_client.configure_keepalive_time(300)   # 5 min keepalive (less aggressive
 
@@ -305,6 +309,8 @@ class PtfGnoi:
         )
 
         logger.info("SetPackage completed: %s", local_path)
+        if saved_max_time is not None:
+            self.grpc_client.configure_max_time(saved_max_time)
         return response
 
     def system_reboot(
@@ -364,9 +370,12 @@ class PtfGnoi:
         logger.info("Reboot request sent: method=%s delay=%s force=%s", method, delay, force)
         return response
 
-    def os_verify(self) -> Dict:
+    def os_verify(self, metadata=None) -> Dict:
         """
         Verify the current OS version on the device.
+
+        Args:
+            metadata: Optional gRPC metadata for DPU routing headers.
 
         Returns:
             Dictionary containing:
@@ -378,7 +387,7 @@ class PtfGnoi:
             GrpcTimeoutError: If the call times out
         """
         try:
-            response = self.grpc_client.call_unary("gnoi.os.OS", "Verify")
+            response = self.grpc_client.call_unary("gnoi.os.OS", "Verify", metadata=metadata)
             return response
 
         except Exception as e:
