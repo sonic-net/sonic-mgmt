@@ -36,8 +36,6 @@ COUNT = 10
 # Wait for static route / FIB to converge (orchagent → kernel → ASIC) instead of fixed sleep.
 STATIC_ROUTE_KERNEL_TIMEOUT_S = 90
 STATIC_ROUTE_KERNEL_POLL_S = 3
-NEXTHOP_PING_TIMEOUT_S = 45
-NEXTHOP_PING_POLL_S = 2
 ROUTE_GET_READY_TIMEOUT_S = 60
 ROUTE_GET_READY_POLL_S = 2
 # PTF verify default is often ~2s; allow slower dataplane on loaded setups.
@@ -224,14 +222,6 @@ def _route_get_resolves_via_expected_nexthop(duthost, ip_dst, nexthop_addrs, ipv
     return any(nh in out for nh in nexthop_addrs)
 
 
-def _all_nexthops_ping_succeed(duthost, nexthop_addrs, ipv6):
-    for nh in nexthop_addrs:
-        ping_cmd = "ping6 -c 1 -W 1 {}".format(nh) if ipv6 else "ping -c 1 -W 1 {}".format(nh)
-        if duthost.shell(ping_cmd, module_ignore_errors=True)["rc"] != 0:
-            return False
-    return True
-
-
 def check_mux_status(duthost, expected_status):
     show_mux_status_ret = show_muxcable_status(duthost)
     status_values = set([intf_status['status'] for intf_status in show_mux_status_ret.values()])
@@ -315,21 +305,8 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
 
         # Verify traffic forwarding
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
-
-        pytest_assert(
-            wait_until(
-                NEXTHOP_PING_TIMEOUT_S,
-                NEXTHOP_PING_POLL_S,
-                0,
-                _all_nexthops_ping_succeed,
-                duthost,
-                nexthop_addrs,
-                ipv6,
-            ),
-            "Nexthop(s) {} not reachable from DUT (ARP/NDP) within {}s".format(
-                ",".join(nexthop_addrs), NEXTHOP_PING_TIMEOUT_S
-            ),
-        )
+        # No mandatory ICMP: nexthop readiness is covered by `ip route get` below and
+        # `generate_and_verify_traffic` (echo to PTF may fail while routing is correct).
 
         pytest_assert(
             wait_until(
@@ -389,21 +366,7 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
         # Wait for BGP convergence
         wait_all_bgp_up(duthost)
 
-        # Refresh ARP/NDP entries
-        pytest_assert(
-            wait_until(
-                NEXTHOP_PING_TIMEOUT_S,
-                NEXTHOP_PING_POLL_S,
-                0,
-                _all_nexthops_ping_succeed,
-                duthost,
-                nexthop_addrs,
-                ipv6,
-            ),
-            "Nexthop(s) {} not reachable from DUT (ARP/NDP) within {}s (post-op)".format(
-                ",".join(nexthop_addrs), NEXTHOP_PING_TIMEOUT_S
-            ),
-        )
+        # No mandatory ICMP for neighbor refresh; dataplane verify below is authoritative.
 
         # Verify traffic forwarding after operation
         with RouteFlowCounterTestContext(
@@ -476,21 +439,8 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
 
         # Check traffic get forwarded to the nexthop
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
-
-        pytest_assert(
-            wait_until(
-                NEXTHOP_PING_TIMEOUT_S,
-                NEXTHOP_PING_POLL_S,
-                0,
-                _all_nexthops_ping_succeed,
-                duthost,
-                nexthop_addrs,
-                ipv6,
-            ),
-            "Nexthop(s) {} not reachable from DUT (ARP/NDP) within {}s".format(
-                ",".join(nexthop_addrs), NEXTHOP_PING_TIMEOUT_S
-            ),
-        )
+        # No mandatory ICMP: nexthop reachability is covered by `ip route get` below and
+        # `generate_and_verify_traffic` (echo to PTF may fail while ARP/forwarding is fine).
 
         pytest_assert(
             wait_until(
