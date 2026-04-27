@@ -9,14 +9,14 @@
 
 ## Overview
 
-The goal of this test is to verify that the BGP Unnumbered feature works as expected.  It tests both peer group and individual neighbor configurations.
+The goal of this test is to verify that the BGP Unnumbered feature works as expected.
 
 ### Scope
 
-The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to test BGP Unnumbered feature, which includes peer group and individual neighbor implementation.
+The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to test BGP Unnumbered feature, which includes individual neighbor implementation.
 
 ### Testbed
-The test could run on T0,T1 and T2 testbed.
+Applicable to T0, T1, and T2 topologies.
 
 ### Related DUT CLI commands
 
@@ -25,14 +25,12 @@ The test could run on T0,T1 and T2 testbed.
 |Configuration commands|
 | router bgp <ASN> | Enter BGP config mode |
 | neighbor <interface_name> interface remote-as <remote_as>| neighbor level |
-| neighbor <group_name> peer-group| specify group |
-| neighbor <interface_name> peer-group <group_name>| binding interface neighbor to peer group |
 |Show commands|
 | show run bgp | Display the current running BGP configuration |
 | show ip bgp summary | Dispaly current neighbor relationships, can be done with ipv6 too |
 
 ### Sample DUT configuration files
-Neighbor level configs:
+BGP Unnumbered configs:
 
   router bgp 65100
    bgp router-id 10.1.0.1
@@ -43,11 +41,11 @@ Neighbor level configs:
    neighbor Ethernet48 capability extended-nexthop
 
    address-family ipv4 unicast
-   neighbor Ethernet48 activate
+    neighbor Ethernet48 activate
    exit-address-family
 
    address-family ipv6 unicast
-   neighbor Ethernet48 activate
+    neighbor Ethernet48 activate
    exit-address-family
   
 
@@ -141,11 +139,11 @@ Expected Result:
 
 #### Test objective
 
-Verify BGP unnumbered session stability with MD5 authentication enabled.
+Verify BGP unnumbered session stability with authentication enabled.
 
 Steps:
 1. Configure BGP unnumbered on DUT and peer
-2. Enable MD5 password on both sides
+2. Enable password on both sides
 3. Verify BGP session establishes successfully
 4. Change password on DUT only
 5. Observe session behavior
@@ -308,7 +306,7 @@ Expected Result:
 
 #### Test objective
 
-Verify BGP Unnumbered behavior during Cold reboot
+Verify BGP Unnumbered behavior during cold reboot
 
 Steps:
 1. Establish BGP session and traffic flow
@@ -324,7 +322,7 @@ Expected Result:
 
 #### Test objective
 
-Verify BGP Unnumbered behavior during Cold reboot
+Verify BGP Unnumbered behavior during warm reboot
 
 Steps:
 1. Establish BGP session and confirm stable traffic flow
@@ -340,7 +338,7 @@ Expected Result:
 
 #### Test objective
 
-Verify BGP Unnumbered behavior during Fast reboot
+Verify BGP Unnumbered behavior during fast reboot
 
 Steps:
 1. Establish BGP session and confirm stable traffic flow
