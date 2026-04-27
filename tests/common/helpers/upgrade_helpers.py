@@ -49,6 +49,7 @@ class GnoiUpgradeConfig:
     metadata: Optional[GrpcMetadata] = None
     ss_reboot_ready_timeout: int = 1200
     ss_reboot_message: str = "Rebooting DPU for maintenance"
+    skip_reboot: bool = False  # If True, only stage the image, do NOT reboot (reboot happens later via NPU)
 
 
 def pytest_runtest_setup(item):
@@ -434,13 +435,29 @@ def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=No
 
 
 def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+    """
+    Upgrade a single DPU via gNOI.
+
+    Steps:
+      1. Verify the DPU is reachable (gNOI System.Time)
+      2. Transfer the image to the DPU (File.TransferToRemote)
+      3. Stage the image as the next boot image (System.SetPackage)
+      4. Reboot the DPU (System.Reboot)  -- skipped if cfg.skip_reboot=True
+      5. Wait for DPU to come back up (gNOI System.Time)  -- skipped if cfg.skip_reboot=True
+
+    When cfg.skip_reboot=True, only steps 1-3 are performed.
+    This is used when you want to stage the image on the DPU but trigger the
+    actual reboot later (e.g. via an NPU reboot that also reboots all DPUs).
+    """
     if cfg.metadata is None:
         raise ValueError("cfg.metadata must be provided for SmartSwitch DPU upgrade")
 
     md = cfg.metadata
 
+    # Step 1: Verify DPU is reachable before we start
     ptf_gnoi.system_time(metadata=md)
 
+    # Step 2: Download the image onto the DPU
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
         url=cfg.to_image,
         local_path=cfg.dut_image_path,
@@ -448,6 +465,7 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
         metadata=md,
     )
 
+    # Step 3: Mark the downloaded image as the next boot image
     setpkg_resp = ptf_gnoi.system_set_package(
         local_path=cfg.dut_image_path,
         version=cfg.to_version,
@@ -455,6 +473,12 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
         metadata=md,
     )
 
+    # Steps 4 & 5 are skipped when skip_reboot=True (caller will trigger reboot separately)
+    if cfg.skip_reboot:
+        logger.info("skip_reboot=True: image staged on DPU, skipping reboot")
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": None}
+
+    # Step 4: Reboot the DPU
     method = str(cfg.upgrade_type).upper()
     try:
         reboot_resp = ptf_gnoi.system_reboot(
@@ -464,14 +488,15 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
             metadata=md,
         )
     except Exception as e:
-        logger.info("Reboot raised (often expected): %s", e)
+        logger.info("Reboot raised (often expected after DPU disconnect): %s", e)
         reboot_resp = None
 
     if cfg.allow_fail:
         return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
 
+    # Step 5: Wait for DPU to come back up
     ok = _wait_gnoi_time_ready(ptf_gnoi, md, cfg)
-    pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
+    pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after DPU reboot")
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
 
