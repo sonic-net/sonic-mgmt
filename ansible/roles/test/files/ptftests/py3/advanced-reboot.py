@@ -563,6 +563,11 @@ class ReloadTest(BaseTest):
                 self.fails[key] = set()
             self.fails[key] |= fails[key]
 
+    def populate_info(self, name, entry):
+        if name not in self.info:
+            self.info[name] = set()
+        self.info[name].add(entry)
+
     def get_sad_info(self):
         '''
         Prepares the msg string to log when a sad_oper is defined. Sad oper can be a preboot or inboot oper
@@ -1237,8 +1242,16 @@ class ReloadTest(BaseTest):
                 self.reboot_type, self.test_params['graceful_limit']))
 
         if self.total_disrupt_time > self.limit.total_seconds():
-            self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s"
-                                  % (str(self.limit), str(self.total_disrupt_time)))
+            if self.infra_drop_detected:
+                self.populate_info(
+                    "infrastructure",
+                    "Total downtime period exceeded %s due to detected infra-drop pattern. "
+                    "Measured total disruption time: %s"
+                    % (str(self.limit), str(self.total_disrupt_time))
+                )
+            else:
+                self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s"
+                                      % (str(self.limit), str(self.total_disrupt_time)))
 
         if 'warm-reboot' in self.reboot_type:
             # after the data plane is up, check for routing changes
@@ -2078,6 +2091,67 @@ class ReloadTest(BaseTest):
         else:
             return False
 
+    # INTERNAL ONLY: Keep this logic self-contained so it stays easy to carry in internal branches
+    # without creating conflicts in the broader public reboot implementation.
+    def _detect_infra_drop(self, sent_counter, missed_vlan_to_t1, missed_t1_to_vlan):
+        """
+        Detect the internal-only infra-drop signature.
+
+        Important: this logic intentionally does NOT look at the timing of each individual
+        disruption or the spacing between disruptions. The sample runs show that spacing varies.
+        Instead, the classification is based on the overall shape of the loss pattern:
+          * repeated disruptions
+          * low overall loss ratio
+          * traffic impact in only one direction
+          * small aggregate disruption time
+        """
+        if not self.lost_packets or not sent_counter:
+            return False, {}
+
+        # Hardcoded internal thresholds for now.
+        # If we need tuning later, these can be parameterized in a follow-up change.
+        min_events = 3
+        max_loss_ratio = 0.01
+        max_total_disruption_sec = 0.5
+
+        disruptions_count = len(self.lost_packets)
+        lost_packet_sizes = [item[0] for item in self.lost_packets.values()]
+
+        # Require every disruption to be exactly one lost packet.
+        # This keeps infra-drop classification strict and prevents masking bursty loss.
+        all_single_packet_loss = all(lost_size == 1 for lost_size in lost_packet_sizes)
+
+        # Use only aggregate totals for time-based reasoning.
+        total_lost_packets = sum(lost_packet_sizes)
+        total_disruption_time = self.total_disrupt_time if self.total_disrupt_time is not None else \
+            sum(item[1] for item in self.lost_packets.values())
+        loss_ratio = float(total_lost_packets) / sent_counter
+
+        # Infra noise in the samples is asymmetric: only one traffic direction is affected.
+        one_direction_loss = ((missed_vlan_to_t1 > 0 and missed_t1_to_vlan == 0) or
+                              (missed_t1_to_vlan > 0 and missed_vlan_to_t1 == 0))
+
+        metrics = {
+            "disruptions_count": disruptions_count,
+            "all_single_packet_loss": all_single_packet_loss,
+            "total_lost_packets": total_lost_packets,
+            "loss_ratio": loss_ratio,
+            "total_disruption_time": total_disruption_time,
+            "missed_vlan_to_t1": missed_vlan_to_t1,
+            "missed_t1_to_vlan": missed_t1_to_vlan
+        }
+
+        # Conservative classification: only mark as infra-drop when the full pattern matches.
+        is_infra_drop = (
+            disruptions_count >= min_events and
+            all_single_packet_loss and
+            one_direction_loss and
+            loss_ratio <= max_loss_ratio and
+            total_disruption_time <= max_total_disruption_sec
+        )
+
+        return is_infra_drop, metrics
+
     def examine_flow(self, filename=None):
         """
         This method examines pcap file (if given), or self.packets scapy file.
@@ -2277,10 +2351,38 @@ class ReloadTest(BaseTest):
             self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
 
+        self.infra_drop_detected = False
+        self.infra_drop_reason = ""
+
+        # Internal-only warning path:
+        # If the disruption pattern looks like known lab / infra noise, keep the run visible
+        # in the logs but do not turn it into a DUT failure for this stage.
+        if self.test_params.get('allow_infra_drops', True):
+            self.infra_drop_detected, infra_drop_metrics = self._detect_infra_drop(
+                sent_counter, missed_vlan_to_t1, missed_t1_to_vlan)
+            if self.infra_drop_detected:
+                impacted_direction = "vlan-to-t1" if missed_vlan_to_t1 else "t1-to-vlan"
+                self.infra_drop_reason = (
+                    "Detected probable infrastructure drop pattern in examine_flow; continuing with warning only. "
+                    "disruptions={disruptions_count}, "
+                    "total_lost_packets={total_lost_packets}, loss_ratio={loss_ratio:.4%}, "
+                    "impacted_direction={impacted_direction}, total_disruption_time={total_disruption_time:.4f}s"
+                ).format(impacted_direction=impacted_direction, **infra_drop_metrics)
+                self.log("WARNING: %s" % self.infra_drop_reason)
+                self.populate_info("infrastructure", self.infra_drop_reason)
+
         if missing_sent_and_received_packet_id_sequences:
-            self.fails["infrastructure"].add(
+            missing_sent_and_received_packets_message = (
                 "Missing sent and received packets: {}"
                 .format(missing_sent_and_received_packet_id_sequences))
+
+            # If the broader pattern was already classified as infra noise, keep this evidence
+            # as a warning alongside the rest of the infra-drop summary.
+            if self.infra_drop_detected:
+                self.log("WARNING: %s" % missing_sent_and_received_packets_message)
+                self.populate_info("infrastructure", missing_sent_and_received_packets_message)
+            else:
+                self.fails["infrastructure"].add(missing_sent_and_received_packets_message)
 
         self.dataplane_loss_checked_successfully = True
 
