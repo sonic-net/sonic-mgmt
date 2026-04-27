@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +257,33 @@ def create_gnmi_certs(duthost, localhost, ptfhost):
     copy_certificate_to_ptf(ptfhost)
 
 
+def _openssl_not_before_arg(localhost, days_back=1):
+    """
+    Build an OpenSSL ``-not_before`` argument that backdates the certificate
+    by ``days_back`` days, when the local OpenSSL version supports it
+    (OpenSSL >= 3.2). When the flag is not supported, return an empty string
+    so the caller falls back to the default behavior (notBefore = "now").
+
+    Backdating ``notBefore`` makes freshly-minted test certificates tolerant
+    of small clock skew between the cert generator (sonic-mgmt host), the
+    DUT (gNMI server) and the PTF (gNMI client). Without it, a PTF whose
+    clock trails the sonic-mgmt host by even a few seconds rejects the
+    server cert with ``CERTIFICATE_VERIFY_FAILED: certificate is not yet
+    valid`` during the TLS handshake.
+    """
+    try:
+        help_out = localhost.shell("openssl x509 -help 2>&1", module_ignore_errors=True)
+        combined = (help_out.get("stdout", "") or "") + (help_out.get("stderr", "") or "")
+        if "-not_before" not in combined:
+            return ""
+    except Exception as e:
+        logger.warning("Failed to probe openssl for -not_before support: %s", e)
+        return ""
+
+    backdated = datetime.now(timezone.utc) - timedelta(days=days_back)
+    return "-not_before {}".format(backdated.strftime("%Y%m%d%H%M%SZ"))
+
+
 def prepare_root_cert(localhost, days="1825"):
     create_root_key(localhost)
     create_root_cert(localhost, days)
@@ -267,6 +295,7 @@ def create_root_key(localhost):
 
 
 def create_root_cert(localhost, days):
+    not_before = _openssl_not_before_arg(localhost)
     local_command = "openssl req \
                             -x509 \
                             -new \
@@ -274,8 +303,9 @@ def create_root_cert(localhost, days):
                             -key gnmiCA.key \
                             -sha256 \
                             -days {} \
+                            {} \
                             -subj '/CN=test.gnmi.sonic' \
-                            -out gnmiCA.pem".format(days)
+                            -out gnmiCA.pem".format(days, not_before)
     localhost.shell(local_command)
 
 
@@ -301,6 +331,7 @@ def create_server_csr(localhost):
 
 def sign_server_certificate(duthost, localhost, days):
     create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    not_before = _openssl_not_before_arg(localhost)
     local_command = "openssl x509 \
                             -req \
                             -in gnmiserver.csr \
@@ -309,9 +340,10 @@ def sign_server_certificate(duthost, localhost, days):
                             -CAcreateserial \
                             -out gnmiserver.crt \
                             -days {} \
+                            {} \
                             -sha256 \
                             -extensions req_ext \
-                            -extfile extfile.cnf".format(days)
+                            -extfile extfile.cnf".format(days, not_before)
     localhost.shell(local_command)
 
 
@@ -341,6 +373,7 @@ def create_client_csr(localhost, revoke=False):
 def sign_client_certificate(localhost, days="825", revoke=False, extension_file=None):
     revoke_suffix = "revoked." if revoke else ""
     extensions = "-extensions req_ext -extfile {}".format(extension_file) if extension_file else ""
+    not_before = _openssl_not_before_arg(localhost)
     local_command = "openssl x509 \
                             -req \
                             -in gnmiclient.{}csr \
@@ -349,7 +382,8 @@ def sign_client_certificate(localhost, days="825", revoke=False, extension_file=
                             -CAcreateserial \
                             -out gnmiclient.{}crt \
                             -days {} \
-                            -sha256 {}".format(revoke_suffix, revoke_suffix, days, extensions)
+                            {} \
+                            -sha256 {}".format(revoke_suffix, revoke_suffix, days, not_before, extensions)
     localhost.shell(local_command)
 
 

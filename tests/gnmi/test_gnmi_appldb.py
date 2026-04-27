@@ -31,19 +31,25 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
     path_list1 = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1/vni"]
     path_list2 = ["/sonic-db:APPL_DB/localhost/_DASH_VNET_TABLE/Vnet1/vni"]
     output = None
+    path1_err = None
+    path2_err = None
     try:
         msg_list1 = gnmi_get(duthost, ptfhost, path_list1)
     except Exception as e:
-        logger.info("Failed to read path1: " + str(e))
+        path1_err = str(e)
+        logger.info("Failed to read path1: " + path1_err)
     else:
         output = msg_list1[0]
     try:
         msg_list2 = gnmi_get(duthost, ptfhost, path_list2)
     except Exception as e:
-        logger.info("Failed to read path2: " + str(e))
+        path2_err = str(e)
+        logger.info("Failed to read path2: " + path2_err)
     else:
         output = msg_list2[0]
-    assert output == "\"1000\"", "Unexpected output: '{}'".format(output)
+    assert output == "\"1000\"", (
+        "Unexpected output: '{}'. path1_err={}, path2_err={}".format(output, path1_err, path2_err)
+    )
 
     # Remove DASH_VNET_TABLE
     delete_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1"]
