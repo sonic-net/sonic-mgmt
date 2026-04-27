@@ -34,29 +34,23 @@ The test could run on T0,T1 and T2 testbed.
 ### Sample DUT configuration files
 Neighbor level configs:
 
-    router bgp 65001
-     neighbor Ethernet0 interface remote-as 65000
+  router bgp 65100
+   bgp router-id 10.1.0.1
+   no bgp ebgp-requires-policy
 
-Peer group level configs:
+   neighbor Ethernet48 interface remote-as 65200
+   neighbor Ethernet48 description ARISTA-Et1-UNNUMBERED
+   neighbor Ethernet48 capability extended-nexthop
 
-    router bgp 65001
-     bgp router-id 1.1.1.1
-    
-     neighbor SPINE peer-group
-     neighbor SPINE remote-as 65000
-     neighbor SPINE capability extended-nexthop
-    
-     neighbor Ethernet0 interface
-     neighbor Ethernet0 peer-group SPINE
-    
-     address-family ipv4 unicast
-      neighbor SPINE activate
-     exit-address-family
-    
-     address-family ipv6 unicast
-      neighbor SPINE activate
-     exit-address-family
- 
+   address-family ipv4 unicast
+   neighbor Ethernet48 activate
+   exit-address-family
+
+   address-family ipv6 unicast
+   neighbor Ethernet48 activate
+   exit-address-family
+  
+
 ## Setup configuration
 
 This test requires configuring BGP unnumbered on both DUT and peer devices. Interfaces must be enabled for IPv6, as BGP unnumbered relies on IPv6 link-local addressing. Ensure neighbor relationships are established using interface-based configuration.
@@ -310,89 +304,48 @@ Expected Result:
    * Session re-establishes
    * Routes reinstalled
 
-### Test case #13 - Warm Reboot/Fast Reboot/Cold Reboot
+### Test case #13 - Cold Reboot
 
 #### Test objective
 
-Verify BGP Unnumbered behavior during warm reboot
+Verify BGP Unnumbered behavior during Cold reboot
 
 Steps:
 1. Establish BGP session and traffic flow
-2. Perform warm/Fast/Cold reboot on DUT
+2. Perform cold-reboot on DUT
 
 Expected Result:
 1. Session recovers automatically
 2. Minimal traffic disruption
 3. Routes preserved or quickly relearned
 
-### Test case #6 - Peer-Group Neighbor Establishment
+### Test case #14 - Warm Reboot
 
 #### Test objective
 
-Verify BGP Unnumbered sessions form using peer-group configuration
-
-Steps:
-1. Configure peer-group on DUT and peer
-2. Associate interface neighbors with peer-group
-3. Activate address-family
-
-Expected Result:
-1. All sessions are Established
-2. Peer-group applied correctly
-
-### Test case #7 - Route Exchange via Peer-Group
-
-#### Test objective
-
-Verify route exchange works correctly with peer-group
-
-Steps:
-1. Advertise routes from DUT
-2. Advertise routes from peers
-
-Expected Result:
-1. Routes learned from all peers and installed in routing table
-
-### Test case #8 - Link Flap with Peer-Group
-
-#### Test objective
-
-Verify only affected sessions reset within a peer-group
-
-Steps:
-1. Establish multiple peer-group sessions
-2. Flap one interface
-
-Expected Result:
-1. Only that neighbor resets
-2. Other sessions remain stable
-3. Routes reconverge correctly
-
-### Test case #9 - Traffic Forwarding with Peer-Group
-
-#### Test objective
-
-Verify traffic forwarding across multiple peer-group neighbors
-
-Steps:
-1. Establish sessions and exchange routes
-2. Send traffic
-
-Expected Result:
-1. Traffic successfully reaches destination
-2. No packet loss after convergence
-
-### Test case #10 - Warm Reboot/Fast Reboot/Cold Reboot
-
-#### Test objective
-
-Verify BGP Unnumbered peer-group behavior during warm reboot
+Verify BGP Unnumbered behavior during Cold reboot
 
 Steps:
 1. Establish BGP session and traffic flow
-2. Perform warm/Fast/Cold reboot on DUT
+2. Perform warm-reboot on DUT
 
 Expected Result:
 1. Session recovers automatically
 2. Minimal traffic disruption
 3. Routes preserved or quickly relearned
+
+### Test case #15 - Fast Reboot
+
+#### Test objective
+
+Verify BGP Unnumbered behavior during Fast reboot
+
+Steps:
+1. Establish BGP session and traffic flow
+2. Perform fast-reboot on DUT
+
+Expected Result:
+1. Session recovers automatically
+2. Minimal traffic disruption
+3. Routes preserved or quickly relearned
+
