@@ -33,6 +33,13 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
+SUPERVISOR_PROC_EXIT_LISTENER = "supervisor-proc-exit-listener"
+# Keep the test's feature-status enumeration aligned with SonicHost's
+# NetworkBmc critical-service model.
+BMC_UNSUPPORTED_CRITICAL_CONTAINERS = ["bgp", "swss", "syncd", "teamd"]
+# On LAG topologies, killing teamd programs turns this listener-alert test into
+# a PortChannel/BGP recovery test and can leave teardown with teamsyncd cores.
+LAG_UNSAFE_CRITICAL_CONTAINERS = ["teamd"]
 
 # Critical processes that are listed in the image's per-container critical_processes
 # file but are not actually runnable on BMC topology (BMC image runs a reduced set
@@ -405,6 +412,49 @@ def get_containers_namespace_ids(duthost, skip_containers):
     return containers_in_namespaces
 
 
+def get_container_names_in_namespaces(containers_in_namespaces):
+    container_names = []
+    for container_name in list(containers_in_namespaces.keys()):
+        for namespace_id in containers_in_namespaces[container_name]:
+            container_name_in_namespace = container_name
+            if namespace_id != DEFAULT_ASIC_ID:
+                container_name_in_namespace += namespace_id
+            if container_name_in_namespace not in container_names:
+                container_names.append(container_name_in_namespace)
+    return container_names
+
+
+def is_supervisor_proc_exit_listener_running(duthost, container_name):
+    command_output = duthost.shell(
+        "docker exec {} supervisorctl status {}".format(container_name, SUPERVISOR_PROC_EXIT_LISTENER),
+        module_ignore_errors=True
+    )
+    logger.info("Status of '{}' in container '{}': {}".format(
+        SUPERVISOR_PROC_EXIT_LISTENER, container_name, command_output))
+    return command_output["rc"] == 0 and "RUNNING" in command_output["stdout"]
+
+
+def restart_supervisor_proc_exit_listeners(duthost, containers_in_namespaces):
+    """Restart supervisor listener before injecting failures so it can emit alerts reliably."""
+    for container_name in get_container_names_in_namespaces(containers_in_namespaces):
+        logger.info("Restarting '{}' in container '{}'...".format(
+            SUPERVISOR_PROC_EXIT_LISTENER, container_name))
+        command_output = duthost.shell(
+            "docker exec {} supervisorctl restart {}".format(container_name, SUPERVISOR_PROC_EXIT_LISTENER),
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            command_output["rc"] == 0,
+            "Failed to restart '{}' in container '{}': {}".format(
+                SUPERVISOR_PROC_EXIT_LISTENER, container_name, command_output)
+        )
+        pytest_assert(
+            wait_until(30, 1, 0, is_supervisor_proc_exit_listener_running, duthost, container_name),
+            "'{}' in container '{}' is not running after restart".format(
+                SUPERVISOR_PROC_EXIT_LISTENER, container_name)
+        )
+
+
 def check_and_kill_process(duthost, container_name, program_name, program_status, program_pid):
     """Checks the running status of a critical process. If it is running, kill it. Otherwise,
        fail this test.
@@ -568,8 +618,16 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
+    if "lag" in tbinfo.get("topo", {}).get("name", ""):
+        logger.info("Skipping containers unsafe to kill on LAG topology: {}".format(
+            LAG_UNSAFE_CRITICAL_CONTAINERS))
+        skip_containers += LAG_UNSAFE_CRITICAL_CONTAINERS
     if "202412" in duthost.os_version:
         skip_containers.append("gnmi")
+    if duthost.is_bmc():
+        logger.info("Skipping containers unsupported on NetworkBmc: {}".format(
+            BMC_UNSUPPORTED_CRITICAL_CONTAINERS))
+        skip_containers += BMC_UNSUPPORTED_CRITICAL_CONTAINERS
     skip_containers = skip_containers + skip_vendor_specific_container
     return skip_containers
 
@@ -708,6 +766,9 @@ def test_monitoring_critical_processes(
     else:
         expected_alerting_messages = get_expected_alerting_messages_supervisor(
             duthost, containers_in_namespaces)
+        # Set the log marker only after each listener is verified running, so
+        # the test validates alerts from a known-good listener state.
+        restart_supervisor_proc_exit_listeners(duthost, containers_in_namespaces)
 
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
