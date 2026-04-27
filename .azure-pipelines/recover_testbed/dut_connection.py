@@ -70,7 +70,7 @@ def creds_on_dut(sonichost):
 
     for cred_var in cred_vars:
         if cred_var in creds:
-            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)  # nosemgrep: direct-use-of-jinja2
 
     creds["console_login_options"] = hostvars.get("console_login_options", {})
 
