@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "0 3 * * *"
   workflow_dispatch:
+    inputs:
+      no_op:
+        description: "Run in no-op mode (log decisions without mutating GitHub issues)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -33,8 +39,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SKIP_EXPIRY_BOT_LOGIN: github-actions[bot]
+          NO_OP_FLAG: ${{ github.event.inputs.no_op == 'true' && '--no-op' || '' }}
         run: |
           python tools/skip_expiry/run_skip_issue_expiry.py \
             --repo-root . \
             --config .github/SKIP_EXPIRY_CONFIG.yaml \
-            --conditional-mark-dir tests/common/plugins/conditional_mark
+            --conditional-mark-dir tests/common/plugins/conditional_mark \
+            ${NO_OP_FLAG}

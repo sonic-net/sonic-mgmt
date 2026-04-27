@@ -31,6 +31,11 @@ def _parse_args() -> argparse.Namespace:
         default="DEBUG",
         help="Logging level (DEBUG, INFO, WARNING, ERROR)",
     )
+    parser.add_argument(
+        "--no-op",
+        action="store_true",
+        help="Evaluate issues and log planned actions without mutating GitHub state",
+    )
     return parser.parse_args()
 
 
@@ -74,9 +79,16 @@ def run() -> int:
 
     issues = sorted(collect_github_issues_from_conditional_marks(conditional_mark_dir))
     logging.getLogger(__name__).info("Evaluating %d referenced issue(s)", len(issues))
+    if args.no_op:
+        logging.getLogger(__name__).info("NO-OP mode enabled: no labels/comments will be changed")
 
     api_client = GitHubApiClient(token=token)
-    manager = SkipExpiryManager(api_client=api_client, config=config, bot_login=bot_login)
+    manager = SkipExpiryManager(
+        api_client=api_client,
+        config=config,
+        bot_login=bot_login,
+        no_op=args.no_op,
+    )
 
     had_errors = False
     for issue_ref in issues:

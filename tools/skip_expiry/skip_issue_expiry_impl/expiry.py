@@ -23,15 +23,32 @@ class ManagedState:
 class SkipExpiryManager:
     """Handles issue expiry transition logic for skip/xfail tracked issues."""
 
-    def __init__(self, api_client: GitHubApiClient, config: SkipExpiryConfig, bot_login: str) -> None:
+    def __init__(
+        self,
+        api_client: GitHubApiClient,
+        config: SkipExpiryConfig,
+        bot_login: str,
+        no_op: bool = False,
+    ) -> None:
         self.api_client = api_client
         self.config = config
         self.bot_login = bot_login
+        self.no_op = no_op
 
     def process_issue(self, issue_ref: IssueRef) -> None:
         issue = self.api_client.get_issue(issue_ref)
 
         if issue.get("state") != "open":
+            if self.no_op:
+                created_at = self._parse_github_timestamp(issue.get("created_at"))
+                created_text = created_at.isoformat() if created_at else "unknown"
+                logger.info(
+                    "NO-OP issue %s created=%s expired_now=n/a action=skip_closed",
+                    issue_ref.html_url,
+                    created_text,
+                )
+                return
+
             logger.info("Skipping closed issue %s", issue_ref.html_url)
             return
 
@@ -44,13 +61,25 @@ class SkipExpiryManager:
         expired_now = self._is_expired(created_at)
         managed_state = self._resolve_managed_state(timeline, self.api_client.get_issue_comments(issue_ref))
         labels = {label.get("name") for label in issue.get("labels", []) if isinstance(label, dict)}
+        action = self._determine_action(expired_now, labels, managed_state)
+
+        if self.no_op:
+            logger.info(
+                "NO-OP issue %s created=%s expired_now=%s action=%s",
+                issue_ref.html_url,
+                created_at.isoformat(),
+                expired_now,
+                action,
+            )
+            return
 
         logger.info(
-            "Issue %s created %s, expired_now=%s, managed_state=%s",
+            "Issue %s created %s, expired_now=%s, managed_state=%s, action=%s",
             issue_ref.html_url,
             created_at.isoformat(),
             expired_now,
             managed_state.value,
+            action,
         )
 
         if expired_now:
@@ -163,6 +192,27 @@ class SkipExpiryManager:
             f"Maintainers: {mentions}\n"
             "The workflow removed its expired status for this issue."
         )
+
+    @staticmethod
+    def _determine_action(expired_now: bool, labels: set, managed_state: ManagedState) -> str:
+        if expired_now:
+            if managed_state.value == "expired":
+                return "no_action_already_expired"
+
+            planned = []
+            if EXPIRED_LABEL not in labels:
+                planned.append(f"add_label:{EXPIRED_LABEL}")
+            planned.append("create_comment:expired")
+            return ",".join(planned)
+
+        if managed_state.value != "expired":
+            return "no_action_already_active"
+
+        planned = []
+        if EXPIRED_LABEL in labels:
+            planned.append(f"remove_label:{EXPIRED_LABEL}")
+        planned.append("create_comment:active")
+        return ",".join(planned)
 
     @staticmethod
     def _parse_github_timestamp(raw_ts: object) -> Optional[datetime]:
