@@ -15,7 +15,7 @@ CONDITIONAL_MARK_GLOB_PATTERNS = (
 )
 
 ISSUE_URL_PATTERN = re.compile(
-    r"https?://github\\.com/(?P<owner>[^/\\s]+)/(?P<repo>[^/\\s]+)/issues/(?P<number>\\d+)",
+    r"https?://github\.com/(?P<owner>[^/\s]+)/(?P<repo>[^/\s]+)/issues/(?P<number>\d+)",
     flags=re.IGNORECASE,
 )
 
