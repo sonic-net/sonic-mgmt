@@ -1,0 +1,56 @@
+[
+  {
+    "repo": "sonic-net/sonic-buildimage",
+    "branch": "master",
+    "test_scripts": {"t1-multi-asic_checker": ["dns/static_dns/test_static_dns.py"]},
+    "commits": [
+  {"sha":"2341a244ddf835f670138805f2cc8f3a19fec94d","message":"[submodule] Update submodule sonic-swss to the latest HEAD automatically (#26478)","author":"mssonicbld","date":"2026-03-31T09:43:12.0000000Z"},
+  {"sha":"a4a463dcea423b948d6ad3a5413ea88111d340d4","message":"[platform/broadcom]: Remove static warmboot mount from docker-syncd-brcm-legacy-th.mk (#26292)","author":"Liping Xu","date":"2026-03-31T10:00:27.0000000Z"},
+  {"sha":"02104d9290ce94817e6d17873526057f87129b59","message":"[submodule] Update submodule sonic-sairedis to the latest HEAD automatically (#26477)","author":"mssonicbld","date":"2026-03-31T10:19:07.0000000Z"},
+  {"sha":"9a62417626b4d5a2e5d3137045f255b40cff6c54","message":"Move the pending_config files from /tmp/ to /etc/sonic/ (#25215)","author":"arista-nwolfe","date":"2026-03-31T16:25:45.0000000Z"},
+  {"sha":"b85427a66daaf336719aaf21271f32b5b4f164c9","message":"Add additional temp sensors in arista 7280r4 SKUs (#25338)","author":"HP","date":"2026-03-31T16:28:40.0000000Z"},
+  {"sha":"ca058d1b1cc2f1aaae4ea65b306b7599f1fea3cf","message":"[Arista SKUs] Tweak DMAMEM values for CW2 LC variants (#25860)","author":"Mohan Yelugoti","date":"2026-03-31T16:29:57.0000000Z"},
+  {"sha":"b00fe0a9b1bd6ece0ff40b5693beac3709c70f51","message":"Update the Arista SKUs gearbox files for 7060DX5 and 7060PX5 (#25446)","author":"HP","date":"2026-03-31T16:30:39.0000000Z"},
+  {"sha":"173b86c753f8508da4a9265d7c49893065ab5756","message":"Database startup: Improve logging of platform calls (#25731)","author":"arista-nwolfe","date":"2026-03-31T16:34:42.0000000Z"},
+  {"sha":"6ed26e75b0951ee84255655486d596f356ab7af4","message":"fixes #23757 : Added multi-asic support for dhcp_dos_logger service (#25268)","author":"Anirudh-nokia","date":"2026-03-31T17:21:06.0000000Z"},
+  {"sha":"d2eae8427ea4652d0268b8016679614fa105815d","message":"[snmpd]: Trixie snmpd upgrade changes (#26357)","author":"Ravi Minnikanti(Marvell)","date":"2026-03-31T18:02:46.0000000Z"},
+  {"sha":"df7e6162ee0b3133e9347b0634d04cbfc3004bd7","message":"[Yang] Add Yang Model and tests for VNET_ROUTE table (#25312)","author":"alawing","date":"2026-03-31T18:03:11.0000000Z"},
+  {"sha":"b9d726a3710da24b605353359fa891b3b6375e1e","message":"FRR build workflow improvement: persistent patched mode. (#24624)","author":"Mike Dubrovsky","date":"2026-03-31T20:27:42.0000000Z"},
+  {"sha":"c383b04ccc7698e0ad27709408b164f39ae05f0e","message":"fix: tornato and natsever security (#26459)","author":"Austin (Thang Pham)","date":"2026-03-31T23:45:45.0000000Z"},
+  {"sha":"9bbf9cafce40b01224937b7bbb2d9a006fbf9c5d","message":"Disable routeCheck, dualtorNeighborCheck and vnetRouteCheck in monit on DPU platforms (#26214)","author":"Vasundhara Volam","date":"2026-04-01T00:08:52.0000000Z"}
+],
+    "analyzer_run_id": "291f3833-eedf-4fcd-8daf-67dce198f70d",
+    "trigger_type": "Agency",
+    "checker": "t1-multi-asic_checker",
+    "file_path": "dns/static_dns/test_static_dns.py",
+    "module_path": "dns.static_dns.test_static_dns",
+    "testcase": "test_static_dns_basic"
+  },
+  {
+    "repo": "sonic-net/sonic-buildimage",
+    "branch": "master",
+    "test_scripts": {"t1-multi-asic_checker": ["platform_tests/test_reboot.py"]},
+    "commits": [
+  {"sha":"2341a244ddf835f670138805f2cc8f3a19fec94d","message":"[submodule] Update submodule sonic-swss to the latest HEAD automatically (#26478)","author":"mssonicbld","date":"2026-03-31T09:43:12.0000000Z"},
+  {"sha":"a4a463dcea423b948d6ad3a5413ea88111d340d4","message":"[platform/broadcom]: Remove static warmboot mount from docker-syncd-brcm-legacy-th.mk (#26292)","author":"Liping Xu","date":"2026-03-31T10:00:27.0000000Z"},
+  {"sha":"02104d9290ce94817e6d17873526057f87129b59","message":"[submodule] Update submodule sonic-sairedis to the latest HEAD automatically (#26477)","author":"mssonicbld","date":"2026-03-31T10:19:07.0000000Z"},
+  {"sha":"9a62417626b4d5a2e5d3137045f255b40cff6c54","message":"Move the pending_config files from /tmp/ to /etc/sonic/ (#25215)","author":"arista-nwolfe","date":"2026-03-31T16:25:45.0000000Z"},
+  {"sha":"b85427a66daaf336719aaf21271f32b5b4f164c9","message":"Add additional temp sensors in arista 7280r4 SKUs (#25338)","author":"HP","date":"2026-03-31T16:28:40.0000000Z"},
+  {"sha":"ca058d1b1cc2f1aaae4ea65b306b7599f1fea3cf","message":"[Arista SKUs] Tweak DMAMEM values for CW2 LC variants (#25860)","author":"Mohan Yelugoti","date":"2026-03-31T16:29:57.0000000Z"},
+  {"sha":"b00fe0a9b1bd6ece0ff40b5693beac3709c70f51","message":"Update the Arista SKUs gearbox files for 7060DX5 and 7060PX5 (#25446)","author":"HP","date":"2026-03-31T16:30:39.0000000Z"},
+  {"sha":"173b86c753f8508da4a9265d7c49893065ab5756","message":"Database startup: Improve logging of platform calls (#25731)","author":"arista-nwolfe","date":"2026-03-31T16:34:42.0000000Z"},
+  {"sha":"6ed26e75b0951ee84255655486d596f356ab7af4","message":"fixes #23757 : Added multi-asic support for dhcp_dos_logger service (#25268)","author":"Anirudh-nokia","date":"2026-03-31T17:21:06.0000000Z"},
+  {"sha":"d2eae8427ea4652d0268b8016679614fa105815d","message":"[snmpd]: Trixie snmpd upgrade changes (#26357)","author":"Ravi Minnikanti(Marvell)","date":"2026-03-31T18:02:46.0000000Z"},
+  {"sha":"df7e6162ee0b3133e9347b0634d04cbfc3004bd7","message":"[Yang] Add Yang Model and tests for VNET_ROUTE table (#25312)","author":"alawing","date":"2026-03-31T18:03:11.0000000Z"},
+  {"sha":"b9d726a3710da24b605353359fa891b3b6375e1e","message":"FRR build workflow improvement: persistent patched mode. (#24624)","author":"Mike Dubrovsky","date":"2026-03-31T20:27:42.0000000Z"},
+  {"sha":"c383b04ccc7698e0ad27709408b164f39ae05f0e","message":"fix: tornato and natsever security (#26459)","author":"Austin (Thang Pham)","date":"2026-03-31T23:45:45.0000000Z"},
+  {"sha":"9bbf9cafce40b01224937b7bbb2d9a006fbf9c5d","message":"Disable routeCheck, dualtorNeighborCheck and vnetRouteCheck in monit on DPU platforms (#26214)","author":"Vasundhara Volam","date":"2026-04-01T00:08:52.0000000Z"}
+],
+    "analyzer_run_id": "291f3833-eedf-4fcd-8daf-67dce198f70d",
+    "trigger_type": "Agency",
+    "checker": "t1-multi-asic_checker",
+    "file_path": "platform_tests/test_reboot.py",
+    "module_path": "platform_tests.test_reboot",
+    "testcase": "test_cold_reboot"
+  }
+]

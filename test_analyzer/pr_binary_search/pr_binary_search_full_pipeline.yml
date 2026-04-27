@@ -19,7 +19,7 @@ schedules:
 parameters:
   - name: LOOKBACK_DAYS
     type: number
-    default: 7
+    default: 1
     displayName: "Lookback Days"
 
   - name: FAILURE_INFO_FILE
@@ -52,6 +52,11 @@ parameters:
     default: 8
     displayName: "Max simultaneous binary search pipeline runs to queue"
 
+  - name: MAX_SEARCH_RANGE_DAYS
+    type: number
+    default: 14
+    displayName: "Max days to search back for commit range"
+
 stages:
   - stage: PRFailureAnalyzerAndBinarySearch
     jobs:
@@ -70,6 +75,7 @@ stages:
               LOOKBACK_DAYS: ${{ parameters.LOOKBACK_DAYS }}
               FAILURE_INFO_FILE: ${{ parameters.FAILURE_INFO_FILE }}
               UPLOAD_KUSTO: ${{ parameters.UPLOAD_KUSTO }}
+              MAX_SEARCH_RANGE_DAYS: ${{ parameters.MAX_SEARCH_RANGE_DAYS }}
 
           - task: AzureCLI@2
             retryCountOnTaskFailure: 0

@@ -4,13 +4,16 @@
 parameters:
   - name: LOOKBACK_DAYS
     type: number
-    default: 7
+    default: 1
   - name: FAILURE_INFO_FILE
     type: string
     default: "failure_info.json"
   - name: UPLOAD_KUSTO
     type: boolean
     default: true
+  - name: MAX_SEARCH_RANGE_DAYS
+    type: number
+    default: 14
 
 steps:
   - template: ../../.azure-pipelines/templates/install-azure-cli.yml
@@ -32,7 +35,8 @@ steps:
         python pr_failure_analyzer.py \
           --lookback_days ${{ parameters.LOOKBACK_DAYS }} \
           --failure_info_file ${{ parameters.FAILURE_INFO_FILE }} \
-          --upload_kusto ${{ parameters.UPLOAD_KUSTO }}
+          --upload_kusto ${{ parameters.UPLOAD_KUSTO }} \
+          --max_search_range_days ${{ parameters.MAX_SEARCH_RANGE_DAYS }}
     env:
       KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
       GIT_API_TOKEN: $(GIT_API_TOKEN)
