@@ -102,7 +102,7 @@ class CiscoHost(AnsibleHostBase):
             }
         else:
             raise Exception("Does not have module: {}".format(module_name))
-        self.host.options['variable_manager'].extra_vars.update(evars)
+        self._update_host_variables(evars)
         return super(CiscoHost, self).__getattr__(module_name)
 
     def __str__(self):

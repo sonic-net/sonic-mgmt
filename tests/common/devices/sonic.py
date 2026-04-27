@@ -58,18 +58,35 @@ class SonicHost(AnsibleHostBase):
     """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
-                 ssh_user=None, ssh_passwd=None):
-        AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+                 ssh_user=None, ssh_passwd=None,
+                 ansible_connection=None):
+        def _is_template_value(value):
+            return isinstance(value, str) and "{{" in value and "}}" in value
+
+        init_kwargs = {}
+        if ansible_connection:
+            init_kwargs["connection"] = ansible_connection
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, **init_kwargs)
 
         self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
+
+        if ansible_connection:
+            self._set_host_variable('ansible_connection', ansible_connection)
+
+        visible_vars = None
+        if any(_is_template_value(value) for value in (shell_user, shell_passwd, ssh_user, ssh_passwd)):
+            im = self.host.options['inventory_manager']
+            visible_vars = get_host_visible_vars(im._sources, self.hostname) or {}
 
         if shell_user and shell_passwd:
             im = self.host.options['inventory_manager']
             vm = self.host.options['variable_manager']
-            sonic_conn = vm.get_vars(
+            sonic_conn = ansible_connection or vm.get_vars(
                 host=im.get_hosts(pattern='sonic')[0]
             )['ansible_connection']
             hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
+            resolved_shell_user = visible_vars.get('ansible_ssh_user', shell_user) if visible_vars else shell_user
+            resolved_shell_passwd = visible_vars.get('ansible_ssh_pass', shell_passwd) if visible_vars else shell_passwd
             # parse connection options and reset those options with
             # passed credentials
             connection_loader.get(sonic_conn, class_only=True)
@@ -81,17 +98,19 @@ class SonicHost(AnsibleHostBase):
             )
             for user_var in (_['name'] for _ in user_def['vars']):
                 if user_var in hostvars:
-                    vm.extra_vars.update({user_var: shell_user})
+                    self._set_host_variable(user_var, resolved_shell_user)
             for pass_var in (_['name'] for _ in pass_def['vars']):
                 if pass_var in hostvars:
-                    vm.extra_vars.update({pass_var: shell_passwd})
+                    self._set_host_variable(pass_var, resolved_shell_passwd)
 
         if ssh_user and ssh_passwd:
+            resolved_ssh_user = visible_vars.get('ansible_ssh_user', ssh_user) if visible_vars else ssh_user
+            resolved_ssh_passwd = visible_vars.get('ansible_ssh_pass', ssh_passwd) if visible_vars else ssh_passwd
             evars = {
-                'ansible_ssh_user': ssh_user,
-                'ansible_ssh_pass': ssh_passwd,
+                'ansible_ssh_user': resolved_ssh_user,
+                'ansible_ssh_pass': resolved_ssh_passwd,
             }
-            self.host.options['variable_manager'].extra_vars.update(evars)
+            self._update_host_variables(evars)
 
         _gathered_facts = self._gather_facts()
 

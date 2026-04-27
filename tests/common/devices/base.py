@@ -109,6 +109,25 @@ class AnsibleHostBase(object):
                 self.mgmt_ipv6 = ansible_hostv6
         self.hostname = hostname
 
+    def _get_inventory_host(self):
+        return self.host.options["inventory_manager"].get_host(self.hostname)
+
+    def _set_host_variable(self, name, value):
+        vm = self.host.options["variable_manager"]
+        inventory_host = self._get_inventory_host()
+
+        if hasattr(vm, "set_host_variable"):
+            vm.set_host_variable(inventory_host, name, value)
+            return
+
+        inventory_host.vars[name] = value
+        if hasattr(vm, "_hostvars"):
+            vm._hostvars.setdefault(self.hostname, {})[name] = value
+
+    def _update_host_variables(self, variables):
+        for name, value in variables.items():
+            self._set_host_variable(name, value)
+
     def __getattr__(self, module_name):
         if self.host.has_module(module_name):
             def _run_wrapper(*module_args, **kwargs):
