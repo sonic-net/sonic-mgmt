@@ -5,7 +5,6 @@ all:
         sonic:
         fanout:
         server:
-        self_hosted_azure_agents:
         mgmt:
     ptf:
       vars:
@@ -1116,13 +1115,6 @@ server:
     bjw-can-serv-16:
       ansible_host: 10.150.22.237
       ansible_hostv6: 2404:f801:10:2200::a96:16ed
-
-# designated self hosted azure agents for nightly
-self_hosted_azure_agents:
-  hosts:
-    bjw-can-serv-5:
-      ansible_host: 10.150.22.226
-      ansible_hostv6: 2404:f801:10:2200::a96:16e2
 
 mgmt:
   hosts:
