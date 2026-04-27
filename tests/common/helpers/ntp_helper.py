@@ -105,7 +105,10 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
 
     # reset ntp client configuration
-    duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
+    # The NTP server may have already been removed (e.g., if the DUT's NTP config was modified
+    # externally). Ignore errors here so that the original servers can still be restored below.
+    duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip),
+                    module_ignore_errors=True)
     for ntp_server in ntp_servers:
         duthost.command("config ntp add %s %s" % ("--iburst" if ntp_add_iburst_present else "", ntp_server))
     # The time jump leads to exception in lldp_syncd. The exception has been handled by lldp_syncd,
