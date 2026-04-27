@@ -542,3 +542,17 @@ def _delete_gnoi_certs(cert_dir):
     # Remove the entire certificate directory
     if os.path.exists(cert_dir):
         shutil.rmtree(cert_dir, ignore_errors=True)
+
+
+def reprovision_gnoi_tls(duthost, ptfhost, cert_dir="/tmp/gnoi_certs"):
+    """Re-run cert + CONFIG_DB + gNMI restart steps after a DUT reboot.
+
+    Use this between phases of an upgrade test where the NPU rebooted into a
+    new image and its gNMI server is no longer using the test-provisioned certs.
+    """
+    logger.info("Re-provisioning gNOI TLS after DUT reboot")
+    _create_gnoi_certs(duthost, ptfhost, cert_dir)
+    _configure_gnoi_tls_server(duthost)
+    _restart_gnoi_server(duthost)
+    _verify_gnoi_tls_connectivity(duthost, ptfhost)
+    logger.info("gNOI TLS re-provisioning complete")
