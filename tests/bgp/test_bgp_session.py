@@ -6,6 +6,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.dut_utils import is_virtual_platform
 from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
@@ -295,8 +296,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         pytest.skip("Warm Reboot is not supported on isolated topology or smartswitch")
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
-    asic_type = duthost.facts['asic_type']
-    if (asic_type == "vs" or asic_type == "vpp") and (failure_type == "interface" or test_type == "reboot"):
+    if is_virtual_platform(duthost) and (failure_type == "interface" or test_type == "reboot"):
         pytest.skip("BGP session test is not supported on Virtual Switch")
 
     # Skip the test if BGP or SWSS autorestart is disabled
