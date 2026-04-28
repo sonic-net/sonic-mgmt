@@ -298,9 +298,17 @@ def syslog_server_tc1_remove(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
+def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts, loganalyzer):
     """ Test syslog server config from clean config
     """
+    # Adding/removing syslog servers may cause rsyslog omrelp to attempt connections to
+    # unreachable peers, which logs ERR messages that are expected and harmless here.
+    if loganalyzer:
+        ignoreRegex = [
+            r".*omrelp\[.*\]: error 'error opening connection to remote peer'.*",
+        ]
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(ignoreRegex)
+
     syslog_config_cleanup(rand_selected_dut, cfg_facts)
     syslog_server_tc1_add_init(rand_selected_dut)
     syslog_server_tc1_add_duplicate(rand_selected_dut)
