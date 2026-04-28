@@ -298,6 +298,7 @@ def get_loganalyzer_additional_files(service_name):
         return {STP_LOG_FILE: ''}
     return {}
 
+
 def get_host_rsyslogd_pid(duthost):
     cmd = 'systemctl show --property MainPID --value rsyslog'
     return int(duthost.command(cmd)['stdout'].strip())
