@@ -23,6 +23,8 @@ from tests.common.helpers.console_helper import (
     check_target_line_status,
     create_ssh_client,
     ensure_console_session_up,
+    get_dut_console_lines,
+    get_host_ip_and_creds,
 )
 from tests.common.utilities import wait_until
 
@@ -54,15 +56,6 @@ _NO_PROGRESS_TIMEOUT = 60.0
 # Emit a "still receiving" log line at this interval while waiting for the
 # end sentinel to arrive on the receive side.
 _RECV_PROGRESS_LOG_INTERVAL = 30.0
-
-
-def _dut_console_lines(conn_graph_facts, duthost):  # noqa: F811
-    """Return the DUT's console line numbers (as strings) sorted ascending,
-    sourced from the ``*_serial_links.csv`` inventory exposed via
-    ``conn_graph_facts['device_serial_link']``.
-    """
-    dut_serial_links = conn_graph_facts.get('device_serial_link', {}).get(duthost.hostname, {})
-    return sorted(dut_serial_links.keys(), key=int)
 
 
 def _bit_error_summary(expected, actual, max_report=10):
@@ -134,7 +127,7 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
     # console_fanout to configure.
     duthost, _ = setup_c0
 
-    lines = _dut_console_lines(conn_graph_facts, duthost)
+    lines = get_dut_console_lines(conn_graph_facts, duthost)
     pytest_assert(
         len(lines) >= 1,
         "Stress test requires at least 1 console line; got none in *_serial_links.csv")
@@ -172,9 +165,7 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
         check_target_line_status(duthost, target_line, "IDLE"),
         "Target line {} is busy before stress test starts".format(target_line))
 
-    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    dutuser = creds['sonicadmin_user']
-    dutpass = creds['sonicadmin_password']
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
     ressh_user = "{}:{}".format(dutuser, target_line)
 
     # Unique per-run sentinels so that ambient console output (banners, prompts,
