@@ -3,7 +3,7 @@ import pexpect
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.console_helper import get_dut_ip_and_creds
+from tests.common.helpers.console_helper import get_host_ip_and_creds
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -17,7 +17,7 @@ def test_console_availability(duthost, creds, target_line):
     Test console are well functional.
     Verify console access is available after connecting from DUT
     """
-    dutip, dutuser, dutpass = get_dut_ip_and_creds(duthost, creds)
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
     hostip, hostuser = "172.17.0.1", getpass.getuser()
 
     res = duthost.shell("which socat", module_ignore_errors=True)

@@ -77,12 +77,13 @@ def check_target_line_status(duthost, line, expect_status):
     return console_facts['lines'][line]['state'] == expect_status
 
 
-def get_dut_ip_and_creds(duthost, creds):
-    """Return ``(ip, user, password)`` for ``duthost`` using the inventory and
-    the ``creds`` fixture. Centralizes the inventory dance every console test
-    used to repeat verbatim.
+def get_host_ip_and_creds(host, creds):
+    """Return ``(ip, user, password)`` for ``host`` using the inventory and
+    the ``creds`` fixture. Works for any host registered in the inventory
+    (DUT, console fanout, etc.); centralizes the inventory dance every
+    console test used to repeat verbatim.
     """
-    ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    ip = host.host.options['inventory_manager'].get_host(host.hostname).vars['ansible_host']
     return ip, creds['sonicadmin_user'], creds['sonicadmin_password']
 
 
@@ -95,15 +96,18 @@ def get_dut_console_lines(conn_graph_facts, duthost):
     return sorted(dut_serial_links.keys(), key=int)
 
 
-def disconnect_picocom_client(client):
-    """Send the picocom escape sequence (``Ctrl-A`` ``Ctrl-X``) to release the
-    console line. Safe to call with ``None`` and swallows teardown errors so
-    the caller's ``finally`` block can chain other cleanup work.
+def disconnect_console_client(client, escape_char='a'):
+    """Send the escape sequence (``Ctrl-<escape_char>`` then ``Ctrl-X``) to
+    release the console line. Defaults to ``'a'`` to match the ``picocom``
+    default; pass a different ``escape_char`` if the test changed the line's
+    default escape character. Safe to call with ``None`` and swallows
+    teardown errors so the caller's ``finally`` block can chain other
+    cleanup work.
     """
     if client is None:
         return
     try:
-        client.sendcontrol('a')
+        client.sendcontrol(escape_char)
         client.sendcontrol('x')
     except Exception:
         # Best-effort during teardown; the line-IDLE check that typically

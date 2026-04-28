@@ -6,11 +6,11 @@ from tests.common.helpers.console_helper import (
     assert_expect_text,
     configure_console_line,
     create_ssh_client,
-    disconnect_picocom_client,
+    disconnect_console_client,
     ensure_console_session_up,
     generate_random_string,
     get_dut_console_lines,
-    get_dut_ip_and_creds,
+    get_host_ip_and_creds,
     wait_for_line_idle,
 )
 
@@ -50,7 +50,7 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
     if duthost.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
         delay_factor *= 25.0
 
-    dutip, dutuser, dutpass = get_dut_ip_and_creds(duthost, creds)
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     packet_size = 64
 
@@ -70,7 +70,7 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
     except Exception as e:
         pytest.fail("Not able to communicate DUT via reverse SSH: {}".format(e))
     finally:
-        disconnect_picocom_client(client)
+        disconnect_console_client(client)
         wait_for_line_idle(
             duthost, target_line,
             error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
@@ -107,7 +107,7 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
     configure_console_line(duthost, dst_line, baud_rate, flow_control)
     console_fanout.bridge(src_line, dst_line, baud_rate, flow_control_bool)
 
-    dutip, dutuser, dutpass = get_dut_ip_and_creds(duthost, creds)
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     sender = None
     receiver = None
@@ -126,8 +126,8 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
     except Exception:
         pytest.fail("Not able to communicate DUT via reverse SSH")
     finally:
-        disconnect_picocom_client(sender)
-        disconnect_picocom_client(receiver)
+        disconnect_console_client(sender)
+        disconnect_console_client(receiver)
         wait_for_line_idle(
             duthost, src_line,
             error_msg="Target line {} of dut is busy after exited reverse SSH session".format(src_line))

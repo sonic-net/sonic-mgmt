@@ -24,7 +24,7 @@ from tests.common.helpers.console_helper import (
     create_ssh_client,
     ensure_console_session_up,
     get_dut_console_lines,
-    get_dut_ip_and_creds,
+    get_host_ip_and_creds,
 )
 from tests.common.utilities import wait_until
 
@@ -165,7 +165,7 @@ def test_console_load(setup_c0, creds, conn_graph_facts, baud_rate, flow_control
         check_target_line_status(duthost, target_line, "IDLE"),
         "Target line {} is busy before stress test starts".format(target_line))
 
-    dutip, dutuser, dutpass = get_dut_ip_and_creds(duthost, creds)
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
     ressh_user = "{}:{}".format(dutuser, target_line)
 
     # Unique per-run sentinels so that ambient console output (banners, prompts,

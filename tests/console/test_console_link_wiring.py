@@ -5,10 +5,10 @@ from tests.common.helpers.console_helper import (
     check_target_line_status,
     configure_console_line,
     create_ssh_client,
-    disconnect_picocom_client,
+    disconnect_console_client,
     ensure_console_session_up,
     generate_random_string,
-    get_dut_ip_and_creds,
+    get_host_ip_and_creds,
 )
 
 pytestmark = [
@@ -38,10 +38,10 @@ def test_console_link_wiring(setup_c0, creds, target_line):
     if not same_host:
         configure_console_line(console_fanout, target_line, baud_rate, "disable")
 
-    dutip, dutuser, dutpass = get_dut_ip_and_creds(duthost, creds)
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     if not same_host:
-        fanoutip, fanoutuser, fanoutpass = get_dut_ip_and_creds(console_fanout, creds)
+        fanoutip, fanoutuser, fanoutpass = get_host_ip_and_creds(console_fanout, creds)
 
     packet_size = 64
     delay_factor = 3.2
@@ -78,9 +78,9 @@ def test_console_link_wiring(setup_c0, creds, target_line):
     except Exception as e:
         pytest.fail("Not able to communicate DUT via reverse SSH: {}".format(e))
     finally:
-        disconnect_picocom_client(dut_client)
+        disconnect_console_client(dut_client)
         if not same_host:
-            disconnect_picocom_client(fanout_client)
+            disconnect_console_client(fanout_client)
         pytest_assert(
             check_target_line_status(duthost, target_line, "IDLE"),
             "Target line {} of dut is busy after exited reverse SSH session".format(target_line))

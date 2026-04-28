@@ -5,9 +5,9 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa: F40
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import (
     check_target_line_status,
-    disconnect_picocom_client,
+    disconnect_console_client,
     get_dut_console_lines,
-    get_dut_ip_and_creds,
+    get_host_ip_and_creds,
     wait_for_line_idle,
 )
 
@@ -58,7 +58,7 @@ def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts):  # n
     ``*_serial_links.csv`` is used.
     """
     target_line = _dut_lowest_console_line(conn_graph_facts, duthost)
-    dutip, dutuser, dutpass = get_dut_ip_and_creds(duthost, creds)
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     pytest_assert(
         check_target_line_status(duthost, target_line, "IDLE"),
@@ -80,7 +80,7 @@ def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts):  # n
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
     finally:
         # Send escape sequence to exit reverse SSH session
-        disconnect_picocom_client(client)
+        disconnect_console_client(client)
 
     wait_for_line_idle(
         duthost, target_line,
@@ -95,7 +95,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  
     ``*_serial_links.csv`` is used.
     """
     target_line = _dut_lowest_console_line(conn_graph_facts, duthost)
-    dutip, dutuser, dutpass = get_dut_ip_and_creds(duthost, creds)
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     pytest_assert(
         check_target_line_status(duthost, target_line, "IDLE"),
@@ -142,7 +142,7 @@ def test_console_reversessh_custom_default_escape_character(duthost, creds, conn
     recorded for the DUT in ``*_serial_links.csv`` is used.
     """
     target_line = _dut_lowest_console_line(conn_graph_facts, duthost)
-    dutip, dutuser, dutpass = get_dut_ip_and_creds(duthost, creds)
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     pytest_assert(
         check_target_line_status(duthost, target_line, "IDLE"),
