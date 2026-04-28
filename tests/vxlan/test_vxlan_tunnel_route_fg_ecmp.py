@@ -86,13 +86,37 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed, exclude_ports=N
     pytest.fail(f"Could not find a VLAN with {num_ports_needed} up port(s) (excluding {excluded})")
 
 
-def set_route_tunnel(duthost, endpoints, vnet_name=VNET_NAME, vni=VNI, prefix=PREFIX):
-    logger.info(f"Programming route {vnet_name}|{prefix} -> {','.join(endpoints)}")
-    vni_str = ",".join([str(vni)] * len(endpoints))
+def set_route_tunnel_regular(duthost, endpoints):
+    """Program a regular ECMP route (no consistent hashing)."""
+    logger.info(f"Programming regular ECMP route {PREFIX} -> {','.join(endpoints)}")
+    vni_str = ",".join([str(VNI)] * len(endpoints))
     apply_chunk(
         duthost,
         {"VNET_ROUTE_TUNNEL": {
-            f"{vnet_name}|{prefix}": {
+            f"{VNET_NAME}|{PREFIX}": {
+                "endpoint": ",".join(endpoints),
+                "vni": vni_str,
+            }
+        }},
+        "route_tunnel",
+    )
+    # sonic-cfggen merges fields, so explicitly remove the FG ECMP field
+    # in case it was set previously
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB hdel "
+        f"'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' "
+        f"consistent_hashing_buckets"
+    )
+    time.sleep(3)
+
+
+def set_route_tunnel(duthost, endpoints):
+    logger.info(f"Programming route {PREFIX} -> {','.join(endpoints)}")
+    vni_str = ",".join([str(VNI)] * len(endpoints))
+    apply_chunk(
+        duthost,
+        {"VNET_ROUTE_TUNNEL": {
+            f"{VNET_NAME}|{PREFIX}": {
                 "endpoint": ",".join(endpoints),
                 "vni": vni_str,
                 "consistent_hashing_buckets": str(BUCKET_SIZE),
@@ -258,6 +282,32 @@ def common_setup_teardown(
             ptfhost.shell(f"ip addr flush dev {vnet2_ptf_port_name}")
 
 
+def run_regular_ecmp_ptf_test(ptfhost, endpoints, params, num_packets):
+    """Run the regular ECMP PTF test (all endpoints hit, no loss)."""
+    logger.info(f"Regular ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
+    endpoints_file = "/tmp/ptf_endpoints.json"
+    ptfhost.copy(content=json.dumps(endpoints), dest=endpoints_file)
+
+    ptf_params = params.copy()
+    ptf_params.update({
+        "endpoints_file": endpoints_file,
+        "num_packets": num_packets,
+    })
+    params_path = "/tmp/ptf_regular_ecmp_params.json"
+    ptfhost.copy(content=json.dumps(ptf_params), dest=params_path)
+
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "vxlan_ecmp_ptftest.VxlanEcmpTest",
+        platform_dir="ptftests",
+        params={"params_file": params_path},
+        log_file="/tmp/vxlan_regular_ecmp_test.log",
+        qlen=1000,
+        is_python3=True,
+    )
+
+
 def run_vxlan_ptf_test(ptfhost, endpoints, params, test_case, num_packets, **kwargs):
     logger.info(f"PTF test: test_case={test_case}, endpoints={len(endpoints)}, flows={num_packets}")
 
@@ -328,3 +378,61 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
         ptf_ingress_port_vnet2=vnet2["ptf_ingress_port"],
         ptf_src_ip_vnet2=vnet2["ptf_src_ip"],
     )
+
+
+def test_transition_regular_to_fg_ecmp(ptfhost, common_setup_teardown):
+    """Verify that a regular ECMP route can transition to FG ECMP."""
+    logger.info("Running test_transition_regular_to_fg_ecmp")
+    setup, duthost, _ = common_setup_teardown
+    endpoints = generate_endpoint_list()
+
+    # Phase 1: Downgrade to regular ECMP (remove consistent_hashing_buckets)
+    set_route_tunnel_regular(duthost, endpoints)
+
+    # Phase 2: Verify regular ECMP — all endpoints hit, no loss
+    run_regular_ecmp_ptf_test(ptfhost, endpoints, setup, num_packets=NUM_FLOWS)
+
+    # Phase 3: Upgrade to FG ECMP (add consistent_hashing_buckets)
+    set_route_tunnel(duthost, endpoints)
+
+    # Phase 4: Verify FG ECMP — create flows, check even distribution
+    run_vxlan_ptf_test(ptfhost, endpoints, setup, "create_flows", num_packets=NUM_FLOWS)
+
+    # Phase 5: Verify consistent hashing — replay flows, all hit same endpoint
+    run_vxlan_ptf_test(ptfhost, endpoints, setup, "verify_consistent_hash", num_packets=NUM_FLOWS)
+
+    # Phase 6: Verify bounded disruption — withdraw one endpoint
+    withdrawn = endpoints[-1]
+    remaining = endpoints[:-1]
+    set_route_tunnel(duthost, remaining)
+    run_vxlan_ptf_test(
+        ptfhost, remaining, setup, "withdraw_endpoint",
+        num_packets=NUM_FLOWS, withdraw_endpoint=withdrawn,
+    )
+
+
+def test_transition_fg_to_regular_ecmp(ptfhost, common_setup_teardown):
+    """Verify that an FG ECMP route can transition to regular ECMP."""
+    logger.info("Running test_transition_fg_to_regular_ecmp")
+    setup, duthost, _ = common_setup_teardown
+    endpoints = generate_endpoint_list()
+
+    # Phase 1: Ensure FG ECMP is active (defensive — fixture may have been modified by prior test)
+    set_route_tunnel(duthost, endpoints)
+
+    # Phase 2: Verify FG ECMP works — create flows, check distribution
+    run_vxlan_ptf_test(ptfhost, endpoints, setup, "create_flows", num_packets=NUM_FLOWS)
+
+    # Phase 3: Verify consistent hashing
+    run_vxlan_ptf_test(ptfhost, endpoints, setup, "verify_consistent_hash", num_packets=NUM_FLOWS)
+
+    # Phase 4: Transition to regular ECMP (remove consistent_hashing_buckets)
+    set_route_tunnel_regular(duthost, endpoints)
+
+    # Phase 5: Verify regular ECMP — all endpoints hit, no loss
+    run_regular_ecmp_ptf_test(ptfhost, endpoints, setup, num_packets=NUM_FLOWS)
+
+    # Phase 6: Verify regular ECMP works with changed endpoints
+    changed_endpoints = [f"{ENDPOINT_BASE_IP}{i}" for i in range(5, 5 + NUM_INITIAL_ENDPOINTS)]
+    set_route_tunnel_regular(duthost, changed_endpoints)
+    run_regular_ecmp_ptf_test(ptfhost, changed_endpoints, setup, num_packets=NUM_FLOWS)
