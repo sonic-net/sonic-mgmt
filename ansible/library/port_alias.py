@@ -13,7 +13,6 @@ except ImportError:
 try:
     from portconfig import parse_platform_json_file
 except ImportError:
-    print("Failed to import parse_platform_json_file")
     parse_platform_json_file = None
 
 DOCUMENTATION = '''
