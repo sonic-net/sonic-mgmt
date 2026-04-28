@@ -89,10 +89,13 @@ def test_ha_planned_shutdown(
     ptfadapter,
     localhost,
     duthosts,
+    dpuhosts,
     ptfhost,
     activate_dash_ha_from_json,
     ha_owner,
-    dash_pl_config
+    dash_pl_config,
+    primary_vdpu_key,
+    standby_vdpu_key
 ):
     encap_proto = "vxlan"
     rate_pps = 10  # packets per second
@@ -109,7 +112,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set primary to dead")
-        set_dead_dash_ha_scope(localhost, duthosts[0], ptfhost, "vdpu0_0:haset0_0")
+        set_dead_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key)
 
     t = threading.Thread(target=primary_ha_action, name="primary_ha_action_thread")
     t.start()
@@ -136,16 +139,15 @@ def test_ha_planned_shutdown(
     t.join()
     time.sleep(2)
 
-    pytest_assert(verify_ha_state(duthosts[0], "vdpu0_0:haset0_0", "dead"),
+    pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "dead"),
                   "Primary HA state is not dead")
-    pytest_assert(verify_ha_state(duthosts[1], "vdpu1_0:haset0_0", "standalone"),
-                  "Secondary HA state is not standalone")
+    pytest_assert(verify_ha_state(duthosts[1], standby_vdpu_key, "standalone"),
+                  "Standby HA state is not standalone")
 
     logging.info("Primary shutdown all {} packets received".format(send_count))
 
     # Re-activate primary
-    pytest_assert(activate_primary_dash_ha(localhost, duthosts[0], ptfhost, "vdpu0_0:haset0_0", "activate_role",
-                                           owner=ha_owner),
+    pytest_assert(activate_primary_dash_ha(localhost, duthosts[0], ptfhost, primary_vdpu_key, "activate_role"),
                   "Failed to re-activate HA on primary")
 
     packet_sending_flag = queue.Queue(1)
@@ -155,7 +157,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set standby to dead")
-        set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, "vdpu1_0:haset0_0")
+        set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key)
 
     t = threading.Thread(target=standby_ha_action, name="standby_ha_action_thread")
     t.start()
@@ -181,14 +183,13 @@ def test_ha_planned_shutdown(
     t.join()
     time.sleep(2)
 
-    pytest_assert(verify_ha_state(duthosts[1], "vdpu1_0:haset0_0", "dead"),
-                  "Secondary HA state is not dead")
-    pytest_assert(verify_ha_state(duthosts[0], "vdpu0_0:haset0_0", "standalone"),
+    pytest_assert(verify_ha_state(duthosts[1], standby_vdpu_key, "dead"),
+                  "Standby HA state is not dead")
+    pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "standalone"),
                   "Primary HA state is not standalone")
 
     logging.info("standby shutdown all {} packets received".format(send_count))
 
     # Re-activate standby
-    pytest_assert(activate_secondary_dash_ha(localhost, duthosts[1], ptfhost, "vdpu1_0:haset0_0", "activate_role",
-                                             owner=ha_owner),
-                  "Failed to re-activate HA on standby")
+    pytest_assert(activate_secondary_dash_ha(localhost, duthosts[1], ptfhost, standby_vdpu_key, "activate_role",
+                                             owner=ha_owner), "Failed to re-activate HA on standby")
