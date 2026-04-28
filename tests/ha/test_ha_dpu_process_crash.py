@@ -42,9 +42,6 @@ HA_CHECK_INTERVAL = 5
 TRAFFIC_SEND_INTERVAL = 0.1
 PL_VERIFY_TIMEOUT = 10
 
-ACTIVE_SCOPE_KEY = "vdpu0_0:haset0_0"
-STANDBY_SCOPE_KEY = "vdpu1_0:haset0_0"
-
 MAX_TRAFFIC_LOSS_PCT = 5.0
 
 DPU_CRITICAL_PROCESSES = [
@@ -221,14 +218,16 @@ class TestDpuProcessCrash:
         setup_ha_config, setup_gnmi_server, setup_dash_ha_from_json_func_scope, setup_dash_pl_pipeline,
         ptfadapter, dash_pl_config,
         activate_dash_ha_from_json,
+        primary_vdpu_key,
+        standby_vdpu_key
     ):
         self._run(
             process_name=process_name, container=container,
             crash_dpuhost=primary_dpuhost, crash_duthost=primary_dut,
-            crash_scope_key=ACTIVE_SCOPE_KEY,
+            crash_scope_key=primary_vdpu_key,
             expected_ha_state_after_crash="active",
             verify_duthost=standby_dut,
-            verify_scope_key=STANDBY_SCOPE_KEY,
+            verify_scope_key=standby_vdpu_key,
             expected_ha_state_verify="active",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=0,
@@ -237,7 +236,7 @@ class TestDpuProcessCrash:
     @pytest.mark.parametrize("process_name,container", DPU_CRITICAL_PROCESSES)
     def test_crash_active_dpu_traffic_on_standby(
         self, process_name, container,
-        primary_dut, standby_dut, primary_dpuhost,
+        primary_dut, standby_dut, primary_dpuhost, primary_vdpu_key, standby_vdpu_key,
         setup_ha_config, setup_gnmi_server, setup_dash_ha_from_json_func_scope, setup_dash_pl_pipeline,
         ptfadapter, dash_pl_config,
         activate_dash_ha_from_json,
@@ -245,10 +244,10 @@ class TestDpuProcessCrash:
         self._run(
             process_name=process_name, container=container,
             crash_dpuhost=primary_dpuhost, crash_duthost=primary_dut,
-            crash_scope_key=ACTIVE_SCOPE_KEY,
+            crash_scope_key=primary_vdpu_key,
             expected_ha_state_after_crash="active",
             verify_duthost=standby_dut,
-            verify_scope_key=STANDBY_SCOPE_KEY,
+            verify_scope_key=standby_vdpu_key,
             expected_ha_state_verify="active",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=1,
@@ -257,7 +256,7 @@ class TestDpuProcessCrash:
     @pytest.mark.parametrize("process_name,container", DPU_CRITICAL_PROCESSES)
     def test_crash_standby_dpu_traffic_on_active(
         self, process_name, container,
-        primary_dut, standby_dut, standby_dpuhost,
+        primary_dut, standby_dut, standby_dpuhost, primary_vdpu_key, standby_vdpu_key,
         setup_ha_config, setup_gnmi_server, setup_dash_ha_from_json_func_scope, setup_dash_pl_pipeline,
         ptfadapter, dash_pl_config,
         activate_dash_ha_from_json,
@@ -265,10 +264,10 @@ class TestDpuProcessCrash:
         self._run(
             process_name=process_name, container=container,
             crash_dpuhost=standby_dpuhost, crash_duthost=standby_dut,
-            crash_scope_key=STANDBY_SCOPE_KEY,
+            crash_scope_key=standby_vdpu_key,
             expected_ha_state_after_crash="active",
             verify_duthost=primary_dut,
-            verify_scope_key=ACTIVE_SCOPE_KEY,
+            verify_scope_key=primary_vdpu_key,
             expected_ha_state_verify="active",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=0,
@@ -277,7 +276,7 @@ class TestDpuProcessCrash:
     @pytest.mark.parametrize("process_name,container", DPU_CRITICAL_PROCESSES)
     def test_crash_standby_dpu_traffic_on_standby(
         self, process_name, container,
-        primary_dut, standby_dut, standby_dpuhost,
+        primary_dut, standby_dut, standby_dpuhost, primary_vdpu_key, standby_vdpu_key,
         setup_ha_config, setup_gnmi_server, setup_dash_ha_from_json_func_scope, setup_dash_pl_pipeline,
         ptfadapter, dash_pl_config,
         activate_dash_ha_from_json,
@@ -285,10 +284,10 @@ class TestDpuProcessCrash:
         self._run(
             process_name=process_name, container=container,
             crash_dpuhost=standby_dpuhost, crash_duthost=standby_dut,
-            crash_scope_key=STANDBY_SCOPE_KEY,
+            crash_scope_key=standby_vdpu_key,
             expected_ha_state_after_crash="active",
             verify_duthost=primary_dut,
-            verify_scope_key=ACTIVE_SCOPE_KEY,
+            verify_scope_key=primary_vdpu_key,
             expected_ha_state_verify="active",
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=1,

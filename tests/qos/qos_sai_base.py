@@ -60,7 +60,7 @@ class QosBase:
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
                            "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
@@ -2603,35 +2603,21 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts.frontend_nodes[0]
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll watermark {} enable".format(namespace_arg))
-                    duthost.command("sudo counterpoll queue {} enable".format(namespace_arg))
-        else:
-            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
-                dut_asic.command("counterpoll watermark enable")
-                dut_asic.command("counterpoll queue enable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for asic in duthost.asics:
+                ConterpollHelper.enable_counterpoll(asic, ['watermark', 'queue'])
 
         time.sleep(70)
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll watermark {} disable".format(namespace_arg))
-                    duthost.command("sudo counterpoll queue {} disable".format(namespace_arg))
-        else:
-            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-                dut_asic.command("counterpoll watermark disable")
-                dut_asic.command("counterpoll queue disable")
+
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for asic in duthost.asics:
+                ConterpollHelper.disable_counterpoll(asic, ['watermark', 'queue'])
 
         yield
 
-        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-            dut_asic.command("counterpoll watermark enable")
-            dut_asic.command("counterpoll queue enable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for asic in duthost.asics:
+                ConterpollHelper.enable_counterpoll(asic, ['watermark', 'queue'])
 
     @pytest.fixture
     def blockGrpcTraffic(self, tbinfo, lower_tor_host, nic_simulator_info):   # noqa F811
