@@ -77,24 +77,24 @@ HASH_FIELD_CONFIG = {
 
 
 def pytest_addoption(parser):
-    parser.addoption('--static_config', action='store_true', default=False,
+    parser.addoption('--static_config', action='store_true', default=True,
                      help="Test configurations done before the test - static config")
 
 
-def pytest_collection_modifyitems(config, items):
-    if config.getoption("--static_config"):
-        # --static_config given in cli: skip test with dynamic config
-        skip_dynamic_config = pytest.mark.skip(reason="need to remove '--static_config'"
-                                                      " option to run the dynamic config tests")
-        for item in items:
-            if "dynamic_config" in item.keywords:
-                item.add_marker(skip_dynamic_config)
-    else:
-        skip_static_config = pytest.mark.skip(reason="need '--static_config'"
-                                                     " option to run the static config tests")
-        for item in items:
-            if "static_config" in item.keywords:
-                item.add_marker(skip_static_config)
+# def pytest_collection_modifyitems(config, items):
+#     if config.getoption("--static_config"):
+#         # --static_config given in cli: skip test with dynamic config
+#         skip_dynamic_config = pytest.mark.skip(reason="need to remove '--static_config'"
+#                                                       " option to run the dynamic config tests")
+#         for item in items:
+#             if "dynamic_config" in item.keywords:
+#                 item.add_marker(skip_dynamic_config)
+#     else:
+#         skip_static_config = pytest.mark.skip(reason="need '--static_config'"
+#                                                      " option to run the static config tests")
+#         for item in items:
+#             if "static_config" in item.keywords:
+#                 item.add_marker(skip_static_config)
 
 
 @pytest.fixture(scope='module')
