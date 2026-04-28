@@ -505,7 +505,8 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
             )
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 <-> L3 after removing/adding vlan interface") 
-    
+    common_obj.traffic_cleanup(handles)
+
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
     
@@ -525,7 +526,8 @@ def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification',"for L2 traffic")
-      
+    common_obj.traffic_cleanup(handles)
+
     #leaf0 (100.0:1::1) -----> leaf1(11:1:1::2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_l3, "T1D3P1", "T1D4P2", 'unicast',False)
@@ -544,7 +546,8 @@ def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
         st.log("RIF counters verified successfully for Vlan10 intf for v6 traffic")
     else:
         st.report_fail('msg', "RIF counters verification failed for Vlan10 intf for v6 traffic")
-    
+    common_obj.traffic_cleanup(handles)
+
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
 
@@ -588,7 +591,8 @@ def test_bvi_multicast(setup_teardown_bvi_bd):
             )
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 traffic with multicast mac")
-        
+    common_obj.traffic_cleanup(handles)
+
     #This is the last TC with current preconfig, setting function_unconfig to False to allow cleanup
     data_glob.function_unconfig = False
     st.report_pass('test_case_passed')
@@ -617,20 +621,24 @@ def test_bvi_v4_pc_member_add_remove_with_new_mac_advertisement(setup_teardown_b
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles, mode="burst")
+    #Check mac table before collecting Ixia stats (stats collection can be slow
+    #and MACs may age out during that time)
+    if not mac_obj.verify_mac_address_table(data_glob.spine0, data_vid_10.t1d3_mac_addr, vlan=data_glob.vlan[0], port=data_glob.portchannel_name):
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
+    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
+    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
+
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
         st.log("Traffic verification for L2 traffic Passed")
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 traffic ")
-        
-    #Check mac table
-    if not mac_obj.verify_mac_address_table(data_glob.spine0, data_vid_10.t1d3_mac_addr, vlan=data_glob.vlan[0], port=data_glob.portchannel_name):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
-    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
-    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
-    common_obj.traffic_cleanup(handles) 
+    common_obj.traffic_cleanup(handles)
         
     #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     temp_mac = data_vid_10.t1d3_mac_addr
@@ -749,7 +757,8 @@ def test_bvi_v6_pc_member_add_remove(setup_teardown_bvi_pc):
     #Add back member to portchannel
     common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=True)
     common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=True)
-    
+    common_obj.traffic_cleanup(handles)
+
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
 
@@ -772,7 +781,8 @@ def test_bvi_inter_vlan_pc_ipv4(setup_teardown_bvi_pc):
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for Inter VLAN routing")
-    
+    common_obj.traffic_cleanup(handles)
+
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
 
@@ -794,7 +804,8 @@ def test_bvi_inter_vlan_pc_ipv6(setup_teardown_bvi_pc):
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for Inter VLAN routing v6")
-    
+    common_obj.traffic_cleanup(handles)
+
     #This is the last TC with current preconfig, setting function_unconfig to False to allow cleanup
     data_glob.function_unconfig = False
     st.report_pass('test_case_passed')
