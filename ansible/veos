@@ -23342,29 +23342,29 @@ vms_96:
     VM96516:
       ansible_host: 172.16.151.14
     VM96517:
-      ansible_host: 172.16.160.107
+      ansible_host: 172.16.151.15
     VM96518:
-      ansible_host: 172.16.160.108
+      ansible_host: 172.16.151.16
     VM96519:
-      ansible_host: 172.16.160.109
+      ansible_host: 172.16.151.17
     VM96520:
-      ansible_host: 172.16.160.110
+      ansible_host: 172.16.151.18
     VM96521:
-      ansible_host: 172.16.160.111
+      ansible_host: 172.16.151.19
     VM96522:
-      ansible_host: 172.16.160.112
+      ansible_host: 172.16.151.20
     VM96523:
-      ansible_host: 172.16.160.113
+      ansible_host: 172.16.151.21
     VM96524:
-      ansible_host: 172.16.160.114
+      ansible_host: 172.16.151.22
     VM96525:
-      ansible_host: 172.16.160.115
+      ansible_host: 172.16.151.23
     VM96526:
-      ansible_host: 172.16.160.116
+      ansible_host: 172.16.151.24
     VM96527:
-      ansible_host: 172.16.160.117
+      ansible_host: 172.16.151.25
     VM96528:
-      ansible_host: 172.16.160.118
+      ansible_host: 172.16.151.26
 vms_97:
   hosts:
     VM97000:
