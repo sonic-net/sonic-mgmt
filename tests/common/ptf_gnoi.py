@@ -250,6 +250,7 @@ class PtfGnoi:
             "remote_download": remote_download,
         }
 
+        self.grpc_client.configure_max_time(3600)   # image download can take a long time
         response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request, metadata=metadata)
         logger.info("TransferToRemote completed: %s -> %s", url, local_path)
         return response

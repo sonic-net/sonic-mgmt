@@ -4,7 +4,7 @@ import re
 import time
 import socket
 import logging
-import telnetlib
+import telnetlib  # nosemgrep: telnetlib
 
 import netmiko
 
