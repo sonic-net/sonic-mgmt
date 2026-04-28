@@ -1500,7 +1500,6 @@
             "scp_ip": "4.164.1.220",
             "docker_prompt":"@sonic-ucs-m6-28",
             "sonic_mgmt_container_202405": "cicd_prod_202405",
-            "sonic_mgmt_container_202405c": "cicd_prod_202405",
             "sonic_mgmt_container_202411": "cicd_prod_202411",
             "sonic_mgmt_container_202501": "cicd_prod_202411",
             "sonic_mgmt_container_202505": "cicd_prod_202505",
