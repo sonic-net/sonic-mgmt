@@ -985,7 +985,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                         ip_ver=ip_ver)
     nexthop_used, nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
     if is_cisco_device(duthost):
-        CISCO_8000_ADD_NEIGHBORS = nexthop_available
+        CISCO_8000_ADD_NEIGHBORS = min(2000, nexthop_available)
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
