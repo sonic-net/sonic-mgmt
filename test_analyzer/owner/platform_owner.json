@@ -248,6 +248,14 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Cisco-8101C01-V64",
+        "topo": "dualtor",
+        "owner": "Longxiang Lyu",
+        "email": "lolv@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
         "hwsku": "Cisco-8102-C64",
         "topo": "t0",
         "owner": "Shiyang Wang",
