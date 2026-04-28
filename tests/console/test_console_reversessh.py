@@ -3,8 +3,13 @@ import pexpect
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.console_helper import check_target_line_status
-from tests.common.utilities import wait_until
+from tests.common.helpers.console_helper import (
+    check_target_line_status,
+    disconnect_console_client,
+    get_dut_console_lines,
+    get_host_ip_and_creds,
+    wait_for_line_idle,
+)
 
 pytestmark = [
     pytest.mark.topology('c0', 'c0-lo')
@@ -15,13 +20,12 @@ def _dut_lowest_console_line(conn_graph_facts, duthost):  # noqa: F811
     """Return the lowest console line number recorded for ``duthost`` in
     ``ansible/files/*_serial_links.csv`` (exposed via ``conn_graph_facts``).
     """
-    serial_links = conn_graph_facts.get("device_serial_link", {}).get(duthost.hostname, {})
+    lines = get_dut_console_lines(conn_graph_facts, duthost)
     pytest_assert(
-        serial_links,
+        lines,
         "No serial-link entry found for DUT '{}' in conn_graph_facts; check *_serial_links.csv".format(
             duthost.hostname))
-    lines = sorted(int(line) for line in serial_links.keys())
-    return str(lines[0])
+    return lines[0]
 
 
 @pytest.fixture(scope="function")
@@ -54,9 +58,7 @@ def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts):  # n
     ``*_serial_links.csv`` is used.
     """
     target_line = _dut_lowest_console_line(conn_graph_facts, duthost)
-    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    dutuser = creds['sonicadmin_user']
-    dutpass = creds['sonicadmin_password']
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     pytest_assert(
         check_target_line_status(duthost, target_line, "IDLE"),
@@ -78,13 +80,11 @@ def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts):  # n
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
     finally:
         # Send escape sequence to exit reverse SSH session
-        if client is not None:
-            client.sendcontrol('a')
-            client.sendcontrol('x')
+        disconnect_console_client(client)
 
-    pytest_assert(
-        wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
-        "Target line {} is busy after exited reverse SSH session".format(target_line))
+    wait_for_line_idle(
+        duthost, target_line,
+        error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
 
 
 def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  # noqa: F811
@@ -95,9 +95,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  
     ``*_serial_links.csv`` is used.
     """
     target_line = _dut_lowest_console_line(conn_graph_facts, duthost)
-    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    dutuser = creds['sonicadmin_user']
-    dutpass = creds['sonicadmin_password']
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     pytest_assert(
         check_target_line_status(duthost, target_line, "IDLE"),
@@ -125,9 +123,9 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  
         pytest.fail("Not able to do clear line for DUT: {}".format(e))
 
     # Check the session ended within 5s and the line state is idle
-    pytest_assert(
-        wait_until(5, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
-        "Target line {} not toggle to IDLE state after force clear command sent".format(target_line))
+    wait_for_line_idle(
+        duthost, target_line, timeout_sec=5,
+        error_msg="Target line {} not toggle to IDLE state after force clear command sent".format(target_line))
 
     try:
         client.expect("Picocom was killed")
@@ -144,9 +142,7 @@ def test_console_reversessh_custom_default_escape_character(duthost, creds, conn
     recorded for the DUT in ``*_serial_links.csv`` is used.
     """
     target_line = _dut_lowest_console_line(conn_graph_facts, duthost)
-    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    dutuser = creds['sonicadmin_user']
-    dutpass = creds['sonicadmin_password']
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     pytest_assert(
         check_target_line_status(duthost, target_line, "IDLE"),
@@ -180,6 +176,7 @@ def test_console_reversessh_custom_default_escape_character(duthost, creds, conn
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
 
     # Check the session ended and the line state is idle
-    pytest_assert(
-        wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
-        "Target line {} is busy after exited reverse SSH session with custom escape keys".format(target_line))
+    wait_for_line_idle(
+        duthost, target_line,
+        error_msg="Target line {} is busy after exited reverse SSH session with custom escape keys".format(
+            target_line))

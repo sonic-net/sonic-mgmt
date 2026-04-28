@@ -1,7 +1,15 @@
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
-from tests.common.helpers.console_helper import generate_random_string, check_target_line_status
+from tests.common.helpers.console_helper import (
+    assert_expect_text,
+    check_target_line_status,
+    configure_console_line,
+    create_ssh_client,
+    disconnect_console_client,
+    ensure_console_session_up,
+    generate_random_string,
+    get_host_ip_and_creds,
+)
 
 pytestmark = [
     pytest.mark.topology('c0')
@@ -26,21 +34,14 @@ def test_console_link_wiring(setup_c0, creds, target_line):
     same_host = duthost is console_fanout
 
     baud_rate = 9600  # The default baud rate for console lines, we will set it explicitly just in case
-    duthost.command("config console baud {} {}".format(target_line, baud_rate))
-    duthost.command("config console flow_control disable {}".format(target_line))
+    configure_console_line(duthost, target_line, baud_rate, "disable")
     if not same_host:
-        console_fanout.command("config console baud {} {}".format(target_line, baud_rate))
-        console_fanout.command("config console flow_control disable {}".format(target_line))
+        configure_console_line(console_fanout, target_line, baud_rate, "disable")
 
-    dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
-    dutuser = creds['sonicadmin_user']
-    dutpass = creds['sonicadmin_password']
+    dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
     if not same_host:
-        fanoutip = console_fanout.host.options['inventory_manager'].get_host(
-            console_fanout.hostname).vars['ansible_host']
-        fanoutuser = creds['sonicadmin_user']
-        fanoutpass = creds['sonicadmin_password']
+        fanoutip, fanoutuser, fanoutpass = get_host_ip_and_creds(console_fanout, creds)
 
     packet_size = 64
     delay_factor = 3.2
@@ -77,12 +78,9 @@ def test_console_link_wiring(setup_c0, creds, target_line):
     except Exception as e:
         pytest.fail("Not able to communicate DUT via reverse SSH: {}".format(e))
     finally:
-        if dut_client is not None:
-            dut_client.sendcontrol('a')
-            dut_client.sendcontrol('x')
-        if fanout_client is not None and not same_host:
-            fanout_client.sendcontrol('a')
-            fanout_client.sendcontrol('x')
+        disconnect_console_client(dut_client)
+        if not same_host:
+            disconnect_console_client(fanout_client)
         pytest_assert(
             check_target_line_status(duthost, target_line, "IDLE"),
             "Target line {} of dut is busy after exited reverse SSH session".format(target_line))
