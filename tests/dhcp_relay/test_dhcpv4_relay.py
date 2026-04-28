@@ -83,6 +83,93 @@ CONFIG_HOP_COUNT = 2
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture
+def frr_recovery_after_vrf_unbind(duthosts, rand_one_dut_hostname, loganalyzer):
+    """Workaround for an upstream FRR bug exposed by `config vrf del` (which
+    implicitly unbinds every member interface from the VRF).
+
+    Failure surface without this fixture
+    ------------------------------------
+    The implicit unbind sequences `RTM_DELLINK`(VRF) -> `RTM_NEWLINK`(default).
+    Zebra reacts to NEWLINK by re-issuing `RTM_NEWROUTE` for BGP-learned
+    routes via that interface, but the kernel VRF metadata isn't fully
+    resynced yet -> kernel returns ENODEV -> zebra sets ROUTE_ENTRY_FAILED
+    (FAILED_INSTALL) on the affected routes in `kernel_route_rib_update_done`
+    (zebra/zebra_rib.c ~L2125) with no retry path.
+
+    Two concrete failures result, both seen in CI:
+      1. monit's `routeCheck` job (~150 s cycle) runs route_check.py, which
+         exits non-zero with "Some routes have failed state in FRR". monit
+         logs `ERR monit ... 'routeCheck' status failed (255)`. THIS test's
+         loganalyzer scan matches the ERR -> teardown ERROR on this test.
+      2. The next pytest module's pre-sanity `check_monit`
+         (tests/common/plugins/sanity_check/checks.py) reads `monit summary`,
+         sees `routeCheck` Status failed -> pytest ERRORs the next test
+         before its body runs.
+
+    Why a full BGP shutdown/startup (and not a soft reset)
+    ------------------------------------------------------
+    A BGP "soft reset" (`sonic-clear ip[v6] bgp *`, equivalent to vtysh
+    `clear ip bgp * soft`) does NOT clear FAILED_INSTALL. A soft reset
+    keeps the BGP sessions up and only re-applies route-policies / re-runs
+    best-path selection over routes already in the BGP RIB; zebra still
+    holds the same RIB entries and considers a FAILED_INSTALL route
+    already-processed, so it does not re-attempt the kernel install.
+    Empirically routes stayed in FAILED_INSTALL > 120s after a soft reset.
+
+    `config bgp shutdown all` tears down every BGP session, which makes FRR
+    flush all BGP-learned RIB entries -- the FAILED_INSTALL flag goes away
+    along with the routes. `config bgp startup all` brings the sessions
+    back up; peers re-advertise, FRR re-learns the routes and re-installs
+    them via dplane against a now-stable kernel state. We then poll
+    route_check.py until rc == 0 so we do not return while FRR is still
+    reconverging.
+
+    Prior art
+    ---------
+    `tests/vrf/test_vrf.py` (e.g. `TestVrfCapacity`, `TestVrfWarmRebootBase`)
+    falls back to a full `reboot(duthost, localhost)` as its escape hatch
+    for VRF teardown leaving the DUT in a bad state. A BGP shutdown/startup
+    is the minimum needed to clear FAILED_INSTALL (~30 s vs. several minutes
+    for a reboot) and avoids breaking cross-test state assumptions.
+
+    TODO: file an upstream FRR bug for the FAILED_INSTALL no-retry behavior;
+    remove this fixture and its usages once that lands.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    la = loganalyzer.get(duthost.hostname) if loganalyzer else None
+
+    transient_ignores = [
+        r".*ERR monit.*'routeCheck'.*",
+        r".*ERR route_check.*Some routes have failed state in FRR.*",
+        r".*ERR route_check.*Some routes are not set offloaded in FRR.*",
+    ]
+
+    saved_ignore = None
+    if la is not None:
+        saved_ignore = list(la.ignore_regex)
+        la.ignore_regex.extend(transient_ignores)
+
+    yield
+
+    try:
+        duthost.shell("sudo config bgp shutdown all", module_ignore_errors=True)
+        duthost.shell("sudo config bgp startup all", module_ignore_errors=True)
+
+        def _route_check_ok():
+            return duthost.shell(
+                "sudo /usr/local/bin/route_check.py",
+                module_ignore_errors=True)["rc"] == 0
+
+        if not wait_until(180, 5, 0, _route_check_ok):
+            logger.warning(
+                "route_check did not converge within 180s after VRF unbind "
+                "BGP shutdown/startup; continuing teardown anyway")
+    finally:
+        if la is not None and saved_ignore is not None:
+            la.ignore_regex[:] = saved_ignore
+
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(
         rand_one_dut_hostname,
@@ -356,7 +443,8 @@ def test_dhcp_relay_with_non_default_vrf(
         rand_unselected_dut,
         toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
         testcase,
-        relay_agent
+        relay_agent,
+        frr_recovery_after_vrf_unbind
 ):
 
     """
@@ -564,7 +652,8 @@ def test_dhcp_relay_with_different_non_default_vrf(
         setup_standby_ports_on_rand_unselected_tor,
         rand_unselected_dut,
         toggle_all_simulator_ports_to_rand_selected_tor_m,   # noqa: F811
-        relay_agent
+        relay_agent,
+        frr_recovery_after_vrf_unbind
 ):
     """
     Test Case: test_dhcp_relay_with_different_non_default_vrf
