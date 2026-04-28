@@ -1,14 +1,7 @@
-from skip_issue_expiry_impl.cli import _filter_same_repo_issues, _normalize_repo_name
-from skip_issue_expiry_impl.models import IssueRef
-
-from pathlib import Path
-import sys
-
 import pytest
 
-
-# Allow importing skip_issue_expiry_impl when tests are run from repository root.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.skip_expiry.skip_issue_expiry_impl.cli import _filter_same_repo_issues, _normalize_repo_name
+from tools.skip_expiry.skip_issue_expiry_impl.models import IssueRef
 
 
 def test_filter_same_repo_issues_excludes_cross_repo_entries() -> None:

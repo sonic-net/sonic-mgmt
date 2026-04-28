@@ -1,14 +1,10 @@
-from skip_issue_expiry_impl.config import SkipExpiryConfig
-from skip_issue_expiry_impl.expiry import ACTIVE_MARKER, EXPIRED_LABEL, EXPIRED_MARKER, SkipExpiryManager
-from skip_issue_expiry_impl.models import IssueRef
-
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-import sys
 from typing import Dict, List, Optional
 
-# Allow importing skip_issue_expiry_impl when tests are run from repository root.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.skip_expiry.skip_issue_expiry_impl.config import SkipExpiryConfig
+from tools.skip_expiry.skip_issue_expiry_impl.expiry import ACTIVE_MARKER, EXPIRED_LABEL
+from tools.skip_expiry.skip_issue_expiry_impl.expiry import EXPIRED_MARKER, SkipExpiryManager
+from tools.skip_expiry.skip_issue_expiry_impl.models import IssueRef
 
 
 class FakeApiClient:
