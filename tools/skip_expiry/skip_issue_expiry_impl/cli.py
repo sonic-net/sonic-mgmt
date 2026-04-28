@@ -122,7 +122,7 @@ def run() -> int:
     )
     if skipped_issues:
         logging.getLogger(__name__).warning(
-            "Skipping %d cross-repo issue(s); workflow token may not have write access outside %s",
+            "Skipping %d cross-repo issue(s); workflow account may not have write access outside %s",
             len(skipped_issues),
             args.target_repo,
         )
