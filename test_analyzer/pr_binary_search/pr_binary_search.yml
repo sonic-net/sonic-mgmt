@@ -46,7 +46,6 @@ stages:
           - group: KUSTO_SECRETS
           - group: GIT_SECRETS
           - group: PR Regression
-          - group: sonicbld
           - name: skipComponentGovernanceDetection
             value: true
         steps:
