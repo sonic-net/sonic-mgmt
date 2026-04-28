@@ -275,7 +275,7 @@ def _lossless_profile_name(dut, port_name, pgs='2-4'):
 def qos_config(rand_selected_dut, tbinfo, dut_config):
     duthost = rand_selected_dut
     SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2",
-                           "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+                           "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2", "q3d"]
 
     qos_configs = {}
     with open(r"qos/files/qos.yml") as file:
