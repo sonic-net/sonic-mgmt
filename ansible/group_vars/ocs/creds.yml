@@ -1,0 +1,3 @@
+vm_host_user: user_own_value
+vm_host_password: user_own_value
+vm_host_become_password: user_own_value
