@@ -305,8 +305,18 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
 
         # Verify traffic forwarding
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
-        # No mandatory ICMP: nexthop readiness is covered by `ip route get` below and
-        # `generate_and_verify_traffic` (echo to PTF may fail while routing is correct).
+
+        # try to refresh neighbor cache before traffic testing to improve stability
+        for nexthop_addr in nexthop_addrs:
+            ping_cmd = (
+                "timeout 1 ping6 -c 1 -W 1 {}".format(nexthop_addr)
+                if ipv6
+                else "timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr)
+            )
+            duthost.shell(ping_cmd, module_ignore_errors=True)
+
+        # No mandatory ICMP success: nexthop readiness covered by `ip route get` below and
+        # `generate_and_verify_traffic` (echo to PTF may fail while dataplane is fine).
 
         pytest_assert(
             wait_until(
@@ -439,8 +449,18 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
 
         # Check traffic get forwarded to the nexthop
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
-        # No mandatory ICMP: nexthop reachability is covered by `ip route get` below and
-        # `generate_and_verify_traffic` (echo to PTF may fail while ARP/forwarding is fine).
+
+        # try to refresh neighbor cache before traffic testing to improve stability
+        for nexthop_addr in nexthop_addrs:
+            ping_cmd = (
+                "timeout 1 ping6 -c 1 -W 1 {}".format(nexthop_addr)
+                if ipv6
+                else "timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr)
+            )
+            duthost.shell(ping_cmd, module_ignore_errors=True)
+
+        # No mandatory ICMP success: nexthop validity covered by `ip route get` below and
+        # `generate_and_verify_traffic` (echo to PTF may fail while dataplane is fine).
 
         pytest_assert(
             wait_until(
@@ -494,7 +514,12 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
             for nexthop_addr in nexthop_addrs:
-                duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
+                ping_cmd = (
+                    "timeout 1 ping6 -c 1 -W 1 {}".format(nexthop_addr)
+                    if ipv6
+                    else "timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr)
+                )
+                duthost.shell(ping_cmd, module_ignore_errors=True)
             with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost,
                                              [prefix], {prefix: {'packets': COUNT}}):
                 generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
