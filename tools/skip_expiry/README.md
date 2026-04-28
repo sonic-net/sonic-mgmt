@@ -27,3 +27,13 @@ Required environment variables:
 
 - `GITHUB_TOKEN`
 - Optional: `SKIP_EXPIRY_BOT_LOGIN` (defaults to `github-actions[bot]`)
+- Optional: `GITHUB_REPOSITORY` (used as default for `--target-repo`)
+
+## Cross-repository issue references
+
+Conditional mark files may contain GitHub issue URLs from multiple repositories.
+This workflow only mutates issues from a single target repository (`owner/repo`),
+which defaults to `GITHUB_REPOSITORY` (or `sonic-net/sonic-mgmt` when unset).
+
+Cross-repo references are detected but skipped to avoid `403` failures when the
+workflow token does not have write access outside the target repository.

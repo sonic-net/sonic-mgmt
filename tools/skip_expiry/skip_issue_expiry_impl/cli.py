@@ -2,11 +2,15 @@ import argparse
 import logging
 import os
 from pathlib import Path
+from typing import List, Tuple
 
 from .conditional_marks import collect_github_issues_from_conditional_marks
 from .config import load_skip_expiry_config
 from .expiry import SkipExpiryManager
 from .github_api import GitHubApiClient
+from .models import IssueRef
+
+DEFAULT_TARGET_REPO = "sonic-net/sonic-mgmt"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -36,6 +40,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Evaluate issues and log planned actions without mutating GitHub state",
     )
+    parser.add_argument(
+        "--target-repo",
+        default=os.getenv("GITHUB_REPOSITORY", DEFAULT_TARGET_REPO),
+        help="Only manage issues from this repository (owner/repo), defaults to GITHUB_REPOSITORY",
+    )
     return parser.parse_args()
 
 
@@ -44,6 +53,26 @@ def _resolve_path(repo_root: Path, candidate: str) -> Path:
     if raw.is_absolute():
         return raw
     return repo_root / raw
+
+
+def _normalize_repo_name(raw_repo: str) -> Tuple[str, str]:
+    candidate = (raw_repo or "").strip().lower()
+    owner, separator, repo = candidate.partition("/")
+    if separator != "/" or not owner or not repo:
+        raise ValueError("Repository must be in 'owner/repo' format")
+    return owner, repo
+
+
+def _filter_same_repo_issues(issues: List[IssueRef], target_repo: str) -> Tuple[List[IssueRef], List[IssueRef]]:
+    owner, repo = _normalize_repo_name(target_repo)
+    included: List[IssueRef] = []
+    skipped: List[IssueRef] = []
+    for issue in issues:
+        if issue.owner.lower() == owner and issue.repo.lower() == repo:
+            included.append(issue)
+        else:
+            skipped.append(issue)
+    return included, skipped
 
 
 def run() -> int:
@@ -77,8 +106,26 @@ def run() -> int:
         logging.getLogger(__name__).fatal("Conditional mark directory not found: %s", conditional_mark_dir)
         return 2
 
-    issues = sorted(collect_github_issues_from_conditional_marks(conditional_mark_dir))
-    logging.getLogger(__name__).info("Evaluating %d referenced issue(s)", len(issues))
+    try:
+        _normalize_repo_name(args.target_repo)
+    except ValueError:
+        logging.getLogger(__name__).fatal("Invalid --target-repo value: %s", args.target_repo)
+        return 2
+
+    all_issues = sorted(collect_github_issues_from_conditional_marks(conditional_mark_dir))
+    issues, skipped_issues = _filter_same_repo_issues(all_issues, args.target_repo)
+    logging.getLogger(__name__).info(
+        "Evaluating %d same-repo issue(s) from %d total reference(s) for target %s",
+        len(issues),
+        len(all_issues),
+        args.target_repo,
+    )
+    if skipped_issues:
+        logging.getLogger(__name__).warning(
+            "Skipping %d cross-repo issue(s); workflow token may not have write access outside %s",
+            len(skipped_issues),
+            args.target_repo,
+        )
     if args.no_op:
         logging.getLogger(__name__).info("NO-OP mode enabled: no labels/comments will be changed")
 
