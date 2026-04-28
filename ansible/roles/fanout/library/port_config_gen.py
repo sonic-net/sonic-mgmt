@@ -17,7 +17,6 @@ from ansible.module_utils.basic import AnsibleModule
 try:
     from portconfig import parse_platform_json_file
 except ImportError:
-    print("Failed to import parse_platform_json_file")
     parse_platform_json_file = None
 
 
