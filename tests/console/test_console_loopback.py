@@ -19,6 +19,26 @@ pytestmark = [
 ]
 
 
+def _read_orig_console_port(host, line):
+    """Return ``(baud_rate, flow_control)`` from CONFIG_DB ``CONSOLE_PORT|<line>``,
+    falling back to SONiC defaults (9600, disable) on any error or empty value.
+    Used to capture pre-test state so the test can restore it during teardown
+    and avoid tripping ``core_dump_and_config_check``.
+    """
+    def _hget(field, default):
+        try:
+            res = host.command(
+                "sonic-db-cli CONFIG_DB hget 'CONSOLE_PORT|{}' {}".format(line, field),
+                module_ignore_errors=True)
+            val = (res.get('stdout') or '').strip()
+            return val if val else default
+        except Exception:
+            return default
+    orig_baud = _hget("baud_rate", "9600")
+    orig_fc_int = _hget("flow_control", "0")
+    return orig_baud, ("enable" if orig_fc_int == "1" else "disable")
+
+
 @pytest.mark.parametrize("baud_rate", ["9600", "115200"])
 @pytest.mark.parametrize("flow_control", ["enable", "disable"])
 def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flow_control,  # noqa: F811
@@ -39,6 +59,11 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
     )
     target_line = lines[0]
     flow_control_bool = (flow_control == "enable")
+
+    # Capture pre-test CONFIG_DB state so we can restore it in the finally
+    # block; otherwise core_dump_and_config_check flags the drift as an
+    # ERROR after the parametrized sweep.
+    orig_baud, orig_flow_control = _read_orig_console_port(duthost, target_line)
 
     configure_console_line(duthost, target_line, baud_rate, flow_control)
     if same_host:
@@ -76,6 +101,8 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
             error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
         if not same_host:
             console_fanout.unset_loopback(target_line)
+        # Restore pre-test CONFIG_DB state for this line.
+        configure_console_line(duthost, target_line, orig_baud, orig_flow_control)
 
 
 @pytest.mark.topology('c0')
@@ -102,6 +129,11 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
             duthost.hostname, len(lines)))
     src_line, dst_line = lines[0], lines[1]
     flow_control_bool = (flow_control == "enable")
+
+    # Capture pre-test CONFIG_DB state for both lines so we can restore on
+    # teardown; otherwise core_dump_and_config_check flags the drift.
+    orig_src_baud, orig_src_flow_control = _read_orig_console_port(duthost, src_line)
+    orig_dst_baud, orig_dst_flow_control = _read_orig_console_port(duthost, dst_line)
 
     configure_console_line(duthost, src_line, baud_rate, flow_control)
     configure_console_line(duthost, dst_line, baud_rate, flow_control)
@@ -135,3 +167,6 @@ def test_console_loopback_pingpong(setup_c0, creds, conn_graph_facts, baud_rate,
             console_fanout, dst_line,
             error_msg="Target line {} of fanout is busy after exited reverse SSH session".format(dst_line))
         console_fanout.unbridge(src_line, dst_line)
+        # Restore pre-test CONFIG_DB state for both lines.
+        configure_console_line(duthost, src_line, orig_src_baud, orig_src_flow_control)
+        configure_console_line(duthost, dst_line, orig_dst_baud, orig_dst_flow_control)
