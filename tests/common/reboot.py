@@ -441,6 +441,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # function will return sooner.
 
         # Update critical service list after rebooting in case critical services changed after rebooting
+        pytest_assert(wait_until(300, 10, 0, duthost.is_host_service_running, "docker"),
+                      "Docker service failed to start on {}".format(hostname))
         pytest_assert(wait_until(200, 10, 0, duthost.is_critical_processes_running_per_asic_or_host, "database"),
                       "Database not start.")
         pytest_assert(wait_until(20, 5, 0, duthost.is_service_running, "redis", "database"), "Redis DB not start")

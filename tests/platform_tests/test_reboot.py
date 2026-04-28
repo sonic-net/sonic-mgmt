@@ -26,6 +26,7 @@ from tests.common.platform.reboot_utils import reboot_and_check as _reboot_and_c
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_memory_utilization,
     pytest.mark.topology('any')
 ]
 

@@ -432,7 +432,8 @@ class MemoryMonitor:
                     'name': name,
                     'cmd': command,
                     'memory_params': memory_params,
-                    'memory_check_fn': memory_check_fn
+                    'memory_check_fn': memory_check_fn,
+                    'order': item.get('order', 0)
                 }
 
         with open(MEMORY_UTILIZATION_DEPENDENCE_JSON_FILE, 'r') as file:
@@ -447,7 +448,8 @@ class MemoryMonitor:
                     'name': name,
                     'cmd': command,
                     'memory_params': memory_params,
-                    'memory_check_fn': memory_check_fn
+                    'memory_check_fn': memory_check_fn,
+                    'order': item.get('order', parameter_dict.get(name, {}).get('order', 0))
                 }
 
             if hwsku:
@@ -479,10 +481,11 @@ class MemoryMonitor:
                                         'name': name,
                                         'cmd': command,
                                         'memory_params': memory_params,
-                                        'memory_check_fn': memory_check_fn
+                                        'memory_check_fn': memory_check_fn,
+                                        'order': item.get('order', 0)
                                     }
 
-        for param in parameter_dict.values():
+        for param in sorted(parameter_dict.values(), key=lambda x: x.get('order', 0)):
             # Normalize thresholds in memory_params to ensure consistent behavior
             for mem_item, thresholds in param['memory_params'].items():
                 param['memory_params'][mem_item] = self._normalize_thresholds(thresholds)

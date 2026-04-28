@@ -454,7 +454,7 @@ jobs:
             ${{ param.key }}: ${{ param.value }}
 
   - job: t1_lag_vpp_elastictest
-    displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
+    displayName: "kvmtest-t1-lag-vpp by Elastictest"
     dependsOn:
     - get_impacted_area
     - cancel_previous_test_plan_for_same_pr
@@ -462,7 +462,7 @@ jobs:
       RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't1_lag_vpp_job')) }}
     condition: and(not(canceled()), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
-    continueOnError: true
+    continueOnError: false
     pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - template: run-test-elastictest-template.yml

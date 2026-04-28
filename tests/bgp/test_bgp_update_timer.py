@@ -338,6 +338,11 @@ def test_bgp_update_timer_single_route(
     try:
         n0.start_session()
         n1.start_session()
+        bgp_neighbor_cmd_tmpl = (
+            "show bgp ipv6 neighbors {} received-routes"
+            if is_v6_topo
+            else "show ip bgp neighbors {} received-routes"
+        )
 
         # ensure new sessions are ready
         if not wait_until(
@@ -357,17 +362,17 @@ def test_bgp_update_timer_single_route(
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
                 res = asichost.run_vtysh(
-                    " -c \'show ip bgp neighbors {} received-routes\'".format(n0.ip))
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n0.ip)))
                 check_routes_presence(res, route["prefix"])
                 res = asichost.run_vtysh(
-                    " -c \'show ip bgp neighbors {} received-routes\'".format(n1.ip))
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n1.ip)))
                 check_routes_presence(res, route["prefix"])
                 n0.withdraw_route(route)
                 res = asichost.run_vtysh(
-                    " -c \'show ip bgp neighbors {} received-routes\'".format(n0.ip))
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n0.ip)))
                 check_routes_presence(res, route["prefix"])
                 res = asichost.run_vtysh(
-                    " -c \'show ip bgp neighbors {} received-routes\'".format(n1.ip))
+                    " -c '{}'".format(bgp_neighbor_cmd_tmpl.format(n1.ip)))
                 check_routes_presence(res, route["prefix"])
                 time.sleep(constants.sleep_interval)
 

@@ -121,6 +121,8 @@ The following tests from the [Transceiver Onboarding Test Infrastructure and Fra
 - Link up verification
 - LLDP verification (if enabled)
 
+> **Note:** Each prerequisite check is itself a test case. If a prerequisite test case fails, the dependent system test case will also be declared as failed.
+
 **Assumptions for the Below Tests:**
 
 - All the below tests will be executed for all the transceivers connected to the DUT (the port list is derived from the `port_attributes_dict`) unless specified otherwise.
