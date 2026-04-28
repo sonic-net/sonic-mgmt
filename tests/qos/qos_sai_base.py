@@ -3170,6 +3170,9 @@ class QosSaiBase(QosBase):
             src_dut.command("docker exec {} supervisorctl stop lacpd".format(teamd_docker),
                             module_ignore_errors=True)
             lacpd_stopped = True
+            # Brief wait for any in-flight LACP PDU to be processed before proceeding
+            import time
+            time.sleep(2)
 
             # Step 2: Set EOS neighbor LACP timer multiplier to 600
             lag_facts = src_dut.lag_facts(host=src_dut.hostname)['ansible_facts']['lag_facts']
@@ -3260,8 +3263,14 @@ class QosSaiBase(QosBase):
         if lacpd_stopped:
             teamd_docker = src_asic.get_docker_name("teamd")
             logger.info("permit_only_test_traffic_on_fanout: restarting lacpd in %s", teamd_docker)
-            src_dut.command("docker exec {} supervisorctl start lacpd".format(teamd_docker),
-                            module_ignore_errors=True)
+            result = src_dut.command(
+                "docker exec {} supervisorctl start lacpd".format(teamd_docker),
+                module_ignore_errors=True)
+            if result.get('failed', False) or result.get('rc', 0) != 0:
+                logger.error(
+                    "permit_only_test_traffic_on_fanout: lacpd restart FAILED — "
+                    "DUT may be left without LACP. Output: %s",
+                    result.get('stdout', result.get('stderr', 'unknown')))
 
         # Step 2 reverse: restore EOS LACP timer (safe now, DUT is sending LACP)
         for vm_host, neighbor_port in eos_restore_list:
