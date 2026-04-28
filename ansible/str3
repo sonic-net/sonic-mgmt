@@ -2860,52 +2860,52 @@ sonic_arista_7280r4_400G:
         wait: 60
   hosts:
     str3-7280r4-ut2-1:
-      hwsku:
-      sonic_hwsku: Arista-7280R4K-32QF-32DF
-      sonic_hw_platform: Arista-7280R4K-32QF-32DF
-      mgmt_subnet_mask_length: 25
+      hwsku: Arista-7280R4K-32QF-32DF-64O
+      sonic_hwsku: Arista-7280R4K-32QF-32DF-64O
+      sonic_hw_platform: Arista-7280R4K-32QF-32DF-64O
+      mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 121
       switchids: [0]
-      serial:
-      base_mac:
+      serial: SSN25462003
+      base_mac: b8:a1:b8:a4:30:1d
       ansible_host: 10.3.152.69
       ansible_hostv6:
-      model: 'Arista-7280R4K-32QF-32DF'
+      model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
-        "0x21": "Arista-7280R4K-32QF-32DF"
-        "0x22": ""
-        "0x23": ""
-        "0x24": ""
+        "0x21": "DCS-7280R4K-32QF-32DF"
+        "0x22": "ASY094550112"
+        "0x23": "SSN25462003"
+        "0x24": "b8:a1:b8:a4:30:1d"
         "0x26": ""
-        "0x28": ""
-        "0x2B": ""
-        "0x2D": ""
-        "0x2F": ""
+        "0x28": "x86_64-arista_7280r4k_32qf_32df"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
+        "0x2F": "SSN25462003"
         "0xFD": ""
         "0xFE": ""
 
     str3-7280r4-ut2-2:
-      hwsku: Arista-7280R4K-32QF-32DF
-      sonic_hwsku: Arista-7280R4K-32QF-32DF
-      sonic_hw_platform: Arista-7280R4K-32QF-32DF
+      hwsku: Arista-7280R4K-32QF-32DF-64O
+      sonic_hwsku: Arista-7280R4K-32QF-32DF-64O
+      sonic_hw_platform: Arista-7280R4K-32QF-32DF-64O
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       switchids: [0]
-      serial:
-      base_mac:
+      serial: SSN25462004
+      base_mac: b8:a1:b8:a4:31:9e
       ansible_host: 10.3.152.70
       ansible_hostv6:
-      model: 'Arista-7280R4K-32QF-32DF'
+      model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
-        "0x21": "Arista-7280R4K-32QF-32DF"
-        "0x22": ""
-        "0x23": ""
-        "0x24": ""
+        "0x21": "DCS-7280R4K-32QF-32DF"
+        "0x22": "ASY094550112"
+        "0x23": "SSN25462004"
+        "0x24": "b8:a1:b8:a4:31:9e"
         "0x26": ""
-        "0x28": ""
-        "0x2B": ""
-        "0x2D": ""
-        "0x2F": ""
+        "0x28": "x86_64-arista_7280r4k_32qf_32df"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
+        "0x2F": "SSN25462004"
         "0xFD": ""
         "0xFE": ""
 server:
