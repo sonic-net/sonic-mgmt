@@ -399,6 +399,9 @@ def open_leaf0_log_file(directory_path, topology):
                                 if match: 
                                     release = match.group(1)
 
+                                if release == "": 
+                                    release = stream.split('.', 1)[0] # to look for the correct release in streams like 'c-master.tortuga.....'
+
                                 print("About to be done with function!")
                                 return int(image_id), stream, release 
 
@@ -489,7 +492,7 @@ def collect_result(curr_server, logs_path, topology, platform, run_label, run_de
         contains_pns = False
 
     try:
-        image_id, stream, release = open_leaf0_log_file(f"./spytest_result_{test_start_time}", topology) # ADD THIS FUNCTIONALITY
+        image_id, stream, release = open_leaf0_log_file(f"./spytest_result_{test_start_time}", topology) 
 
         time_log_file = open(f"./spytest_result_{test_start_time}/results_{test_start_time}_time.log", 'r')
         lines = time_log_file.readlines()

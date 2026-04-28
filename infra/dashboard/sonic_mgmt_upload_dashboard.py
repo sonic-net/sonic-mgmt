@@ -510,10 +510,7 @@ def parse_test_result(roots, build_id, log_link, metadata, sanity_type, image_id
     release =  ".".join(result[0].split('.')[1:-1])
     
     if release == "": 
-        match = re.search(r'-(.*?)\.', stream) # to look for the correct release in streams like 'c-master.ztp'
-        if match:
-            release = match.group(1)
-
+        release = stream.split('.', 1)[0] # to look for the correct release in streams like 'c-master.ztp.....'
 
     #populate p2 sanity table
     key_data = {

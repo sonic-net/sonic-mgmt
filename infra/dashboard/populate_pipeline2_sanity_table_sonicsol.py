@@ -12,7 +12,7 @@ import time
 from datetime import datetime
 from db_tool_sonicsol import PostgresDBConnectionSonicSol
 import soltest_upload_dashboard
-from scale_upload_dashboard import add_scale_params, write_scale_test_case_params_into_db, write_scale_test_comments
+from scale_upload_dashboard import add_scale_params, write_scale_test_case_params_into_db, write_scale_run_urls
 from populate_test_case_table_sonicsol import populate_test_case_table
 
 """ 
@@ -176,12 +176,10 @@ if __name__ == '__main__':
 
         if contains_pns: 
             print("Adding Scale test parameters!")
-            test_cases, test_cases_comments = add_scale_params(build_id, directory_name)
-            print(test_cases)
-            print("TEST CASE COMMENTS:")
-            print(test_cases_comments)
+            test_cases, run_urls = add_scale_params(build_id, directory_name, platform, p2build_job_id, image_created, npu)
+            # print(test_cases)
             ret1 = write_scale_test_case_params_into_db(test_cases)
-            ret2 = write_scale_test_comments(test_cases_comments)
+            ret2 = write_scale_run_urls(run_urls)
             sys.exit(ret1)
             sys.exit(ret2)
      

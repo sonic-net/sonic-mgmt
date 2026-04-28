@@ -12,7 +12,7 @@ from db_tool_sonicsol import PostgresDBConnectionSonicSol
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/..")
 
 
-def add_scale_params(build_id, directory_name): 
+def add_scale_params(build_id, directory_name, platform, p2build_job_id, image_created, npu): 
 
     scale_json_file = "/var/www/html/logs/solution_test/"+directory_name+"/perf_and_scale.json"
 
@@ -28,6 +28,15 @@ def add_scale_params(build_id, directory_name):
 
         project = data.pop('project', None)
 
+        run_urls = []
+        run_dict = {}
+        run_dict["build_id"] = build_id
+        run_dict["result_url_array"] = {}
+        run_dict["result_url_array"]["append"] = []
+        run_dict["result_url_array"]["append"].append(f"https://sonic-grafana.cisco.com/d/ef43a9bf-9a9e-4437-946c-3c00a651bf77/perf-and-scale-dashboard?orgId=1&from=now-30d&to=now&timezone=browser&var-platform={platform}&var-image_id={p2build_job_id}&var-project={project}")
+        run_dict["result_url_array"]["append"].append(f"https://sonic-grafana.cisco.com/d/02fc6a49-ba76-4132-a329-ace5a46aedc7/solution-test-results?var-project={npu}&var-build_job_date={image_created}&var-platform=$__all")    
+        run_urls.append(run_dict)
+
         for tc in test_cases: 
             tc_old = tc
             tc_new = tc.replace("::", ".")
@@ -36,7 +45,6 @@ def add_scale_params(build_id, directory_name):
             scenario_name = data[tc_old]["scenario_name"]
             scenario_type = data[tc_old]["scenario_type"]
             scenario_desc = data[tc_old]["scenario_desc"]
-
 
             for test_type in data[tc_old].keys():
                 if test_type == "scale" or test_type == "performance": 
@@ -56,6 +64,9 @@ def add_scale_params(build_id, directory_name):
                             "project": project
                         } 
 
+                        if test_case_info["actual"] is None: 
+                            test_case_info["actual"] = 0
+
                         if data[tc_old][test_type][feature]["traffic_result"] == "Pass": 
                             test_case_info["feat_traffic_result"] = True
                         else:
@@ -70,7 +81,7 @@ def add_scale_params(build_id, directory_name):
                         test_cases_data.append(test_case_info)
     
         db.close_connection() 
-        return test_cases_data
+        return test_cases_data, run_urls
 
     except FileNotFoundError:
         print(f"Error: The file {scale_json_file} was not found.")
@@ -120,9 +131,6 @@ def write_scale_test_case_params_into_db(test_cases):
             )
         )
 
-    print("ABOUT TO ADD VALUES")
-    print(values)
-
     ret = db.execute_values(sql, values)
 
     db.close_connection()
@@ -130,11 +138,11 @@ def write_scale_test_case_params_into_db(test_cases):
     return ret
 
 
-def write_scale_test_comments(test_cases_comments):
+def write_scale_run_urls(run_urls):
 
     db = PostgresDBConnectionSonicSol(False)
 
-    ret = db.update_many("test_case", test_cases_comments)
+    ret = db.update_many_varchar_array_ops("management_full_run_test", run_urls, key_column="build_id")
 
     db.close_connection()
 
