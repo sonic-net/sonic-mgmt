@@ -4,6 +4,9 @@ import re
 import string
 import random
 
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
+
 
 def assert_expect_text(client, text, target_line, timeout_sec=0.1):
     index = client.expect_exact([text, pexpect.EOF, pexpect.TIMEOUT], timeout=timeout_sec)
@@ -72,3 +75,61 @@ def generate_random_string(length):
 def check_target_line_status(duthost, line, expect_status):
     console_facts = duthost.console_facts()['ansible_facts']['console_facts']
     return console_facts['lines'][line]['state'] == expect_status
+
+
+def get_host_ip_and_creds(host, creds):
+    """Return ``(ip, user, password)`` for ``host`` using the inventory and
+    the ``creds`` fixture. Works for any host registered in the inventory
+    (DUT, console fanout, etc.); centralizes the inventory dance every
+    console test used to repeat verbatim.
+    """
+    ip = host.host.options['inventory_manager'].get_host(host.hostname).vars['ansible_host']
+    return ip, creds['sonicadmin_user'], creds['sonicadmin_password']
+
+
+def get_dut_console_lines(conn_graph_facts, duthost):
+    """Return the DUT's console line numbers (as strings) sorted ascending by
+    numeric value, sourced from the ``*_serial_links.csv`` inventory exposed
+    via ``conn_graph_facts['device_serial_link']``.
+    """
+    dut_serial_links = conn_graph_facts.get('device_serial_link', {}).get(duthost.hostname, {})
+    return sorted(dut_serial_links.keys(), key=int)
+
+
+def disconnect_console_client(client, escape_char='a'):
+    """Send the escape sequence (``Ctrl-<escape_char>`` then ``Ctrl-X``) to
+    release the console line. Defaults to ``'a'`` to match the ``picocom``
+    default; pass a different ``escape_char`` if the test changed the line's
+    default escape character. Safe to call with ``None`` and swallows
+    teardown errors so the caller's ``finally`` block can chain other
+    cleanup work.
+    """
+    if client is None:
+        return
+    try:
+        client.sendcontrol(escape_char)
+        client.sendcontrol('x')
+    except Exception:
+        # Best-effort during teardown; the line-IDLE check that typically
+        # follows will surface any session that did not actually release.
+        pass
+
+
+def wait_for_line_idle(host, target_line, timeout_sec=10, error_msg=None):
+    """Wait up to ``timeout_sec`` seconds for ``target_line`` on ``host`` to
+    return to the ``IDLE`` state, asserting via ``pytest_assert`` if not.
+    """
+    if error_msg is None:
+        error_msg = "Target line {} is busy after waiting {}s for IDLE".format(target_line, timeout_sec)
+    pytest_assert(
+        wait_until(timeout_sec, 1, 0, check_target_line_status, host, target_line, "IDLE"),
+        error_msg)
+
+
+def configure_console_line(host, line, baud_rate, flow_control=None):
+    """Apply the standard ``config console`` knobs to a single line. If
+    ``flow_control`` is ``None`` only the baud rate is set.
+    """
+    host.command("config console baud {} {}".format(line, baud_rate))
+    if flow_control is not None:
+        host.command("config console flow_control {} {}".format(flow_control, line))
