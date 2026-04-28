@@ -275,7 +275,7 @@ def __gen_traffic(testbed_config,
     warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
     warm_up_traffic_delay_sec = 0
     warm_up_traffic_prio_list = test_flow_prio_list
-    warm_up_traffic_rate_percent = test_flow_rate_percent
+    warm_up_traffic_rate_percent = 1.0
 
     """ Generate warm-up traffic """
     __gen_data_flows(testbed_config=testbed_config,

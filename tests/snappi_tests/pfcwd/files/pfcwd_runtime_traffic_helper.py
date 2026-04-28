@@ -20,6 +20,7 @@ PFCWD_START_DELAY_SEC = 3 + WARM_UP_TRAFFIC_DUR
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 UDP_PORT_START = 5000
+WARM_UP_TRAFFIC_RATE_PERCENT = 1.0
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ def __gen_traffic(testbed_config,
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = int((100-WARM_UP_TRAFFIC_RATE_PERCENT) / len(prio_list))
     """ For each data flow """
     for i in range(len(data_flow_name_list)):
         """ For each priority """
@@ -185,7 +186,10 @@ def __gen_traffic(testbed_config,
                 ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
             data_flow.size.fixed = data_pkt_size
-            data_flow.rate.percentage = data_flow_rate_percent
+            if data_flow_name_list[i] == WARM_UP_TRAFFIC_NAME:
+                data_flow.rate.percentage = WARM_UP_TRAFFIC_RATE_PERCENT
+            else:
+                data_flow.rate.percentage = data_flow_rate_percent
             data_flow.duration.fixed_seconds.seconds = (
                 data_flow_dur_sec_list[i])
             data_flow.duration.fixed_seconds.delay.nanoseconds = int(

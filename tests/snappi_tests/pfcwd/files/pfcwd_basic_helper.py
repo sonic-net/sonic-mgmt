@@ -26,6 +26,7 @@ DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
 UDP_PORT_START = 5000
+WARM_UP_TRAFFIC_RATE_PERCENT = 1.0
 
 
 def run_pfcwd_basic_test(api,
@@ -149,7 +150,7 @@ def run_pfcwd_basic_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
-                  traffic_rate=49.99 if cisco_platform else 100.0,
+                  traffic_rate=49.99 if cisco_platform else (100.0-WARM_UP_TRAFFIC_RATE_PERCENT),
                   number_of_streams=number_of_streams)
 
     flows = testbed_config.flows
@@ -342,7 +343,10 @@ def __gen_traffic(testbed_config,
                 ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
             data_flow.size.fixed = data_pkt_size
-            data_flow.rate.percentage = data_flow_rate_percent
+            if data_flow_name_list[i] == WARM_UP_TRAFFIC_NAME:
+                data_flow.rate.percentage = WARM_UP_TRAFFIC_RATE_PERCENT
+            else:
+                data_flow.rate.percentage = data_flow_rate_percent
             data_flow.duration.fixed_seconds.seconds = (
                 data_flow_dur_sec_list[i])
             data_flow.duration.fixed_seconds.delay.nanoseconds = int(
