@@ -118,6 +118,10 @@ def setup_teardown_l2_vlan_test():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
+    global platform_str
+    platform_str = common_obj.find_platform_str(vars.D1)
+    st.log("Detected platform: {}".format(platform_str))
+
     dir_path = os.path.dirname(os.path.realpath(__file__))
     updated_path = common_obj.modify_config_file(dir_path + '/' + CONFIGS_FILE,vars)
 
@@ -218,6 +222,10 @@ def traffic_test_ping(host1, host2, vlan_id = None):
 
 
     st.log(" 10 Ping TG1(D3) <-> TG2(D4) success? : {} ping_res1_result: {} ping_res2_result: {} (passed: True, failed: False) ".format(ret, ping_res1_result, ping_res2_result))
+
+    tg1.tg_interface_config(port_handle=tg_ph_1, handle=handle1, mode='destroy')
+    tg2.tg_interface_config(port_handle=tg_ph_2, handle=handle2, mode='destroy')
+
     return ret
 
 
@@ -444,8 +452,36 @@ def test_l2_vlan_mac_learning_and_mac_aging(setup_teardown_l2_vlan_test):
     #time_value = mac_obj.get_mac_agetime(vars.D1)#currently not supported can use this once this helper API is fixed
 
     st.log("Aging time for switch: "+ str(mac_aging_time_new)+ " seconds")
-    time.sleep(mac_aging_time_new)
-    st.log("Finished sleeping for "+str(mac_aging_time_new)+" seconds")
+
+    target_mac_address_d3 = str(data.hosts_data["T1D3P1"]["mac_addr"])
+    target_mac_address_d4 = str(data.hosts_data["T1D4P1"]["mac_addr"])
+    macs_aged_out = False
+
+    if common_obj.is_gamut(platform_str):
+        # On gamut (cisco-8000), ASIC MAC aging uses a multi-pass sweep;
+        # actual aging can take up to 2x the configured value. Poll
+        # periodically instead of sleeping for exactly mac_aging_time_new.
+        poll_interval = 30
+        max_wait = mac_aging_time_new * 3
+        elapsed = 0
+
+        while elapsed < max_wait:
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+            st.log("Polling MAC table after {} seconds (max wait: {} seconds)".format(elapsed, max_wait))
+            target_mac_address_found_d3 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d3)
+            target_mac_address_found_d4 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d4)
+            if not target_mac_address_found_d3 and not target_mac_address_found_d4:
+                macs_aged_out = True
+                st.log("MACs successfully aged out after {} seconds".format(elapsed))
+                break
+    else:
+        st.log("Waiting for MAC AGING timer: {} seconds".format(mac_aging_time_new))
+        time.sleep(mac_aging_time_new)
+        target_mac_address_found_d3 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d3)
+        target_mac_address_found_d4 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d4)
+        if not target_mac_address_found_d3 and not target_mac_address_found_d4:
+            macs_aged_out = True
 
     cmd = "show mac"
     cmd_output_mac = st.config(nodes['spine0'],cmd)
@@ -453,16 +489,11 @@ def test_l2_vlan_mac_learning_and_mac_aging(setup_teardown_l2_vlan_test):
     st.log("****** Show mac logging spine0 after MAC AGING timer expiry ******")
     st.log(parsed_output)
     st.log("****** End Show mac logging******")
-    target_mac_address_d3 = str(data.hosts_data["T1D3P1"]["mac_addr"])
-    target_mac_address_d4 = str(data.hosts_data["T1D4P1"]["mac_addr"])
-    target_mac_address_found_d3, target_mac_address_found_d3 = False, False
-    target_mac_address_found_d3 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d3)
-    target_mac_address_found_d4 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d4)
 
     for dut in dut_list:
         common_obj.update_mac_aging(dut, mac_aging_time_orig, verify=True)
 
-    if target_mac_address_found_d3 or target_mac_address_found_d4:
+    if not macs_aged_out:
         st.log("FAIL: MAC Address still found after MAC AGING Timer")
         st.report_fail('msg', "FAIL: Testcase#9 The target MAC address d3:{} d4:{} is found in VLAN 10 in the cmd_output after MAC AGING timer".format(target_mac_address_d3, target_mac_address_d4))
     else:

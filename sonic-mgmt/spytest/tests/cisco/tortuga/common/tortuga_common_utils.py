@@ -18,7 +18,7 @@ platform_dict = {
     'carib'  : ['x86_64-hf6100_32d-r0'],
     'siren'  : ['x86_64-hf6100_60l4d-r0'],
     'laguna' : ['x86_64-hf6100_64ed-r0'],
-    'gamut' :  ['x86_64-n9164e_ns4_o-r0']
+    'gamut'  : ['x86_64-n9164e_ns4_o-r0']
 }
 
 # Hierarchical Port Naming
