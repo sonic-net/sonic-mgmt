@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # Safety multiplier applied to the measured baseline.
 # Must be generous enough to absorb per-move overhead beyond loadData
 # (JSON diff, patch simulation, move generation, config serialization).
-SAFETY_MULTIPLIER = 7
+SAFETY_MULTIPLIER = 5
 
 # Absolute ceiling for the timeout (seconds).
 MAX_TIMEOUT = 3600
@@ -72,11 +72,26 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
     """
     duthost = duthosts[rand_one_dut_front_end_hostname]
 
-    # Discover admin-up ports
+    # Discover admin-up ports, excluding PortChannel members
+    # (binding ACL tables to LAG member ports causes orchagent ERR logs
+    # which trigger loganalyzer failures)
     output = duthost.shell("sonic-cfggen -d --var-json PORT")
     ports = json.loads(output['stdout'])
+
+    pc_output = duthost.shell("sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
+                              module_ignore_errors=True)
+    lag_members = set()
+    for key in pc_output.get('stdout_lines', []):
+        parts = key.split('|')
+        if len(parts) == 3:
+            lag_members.add(parts[2])
+    if lag_members:
+        logger.info("Excluding {} LAG member ports: {}".format(
+            len(lag_members), sorted(lag_members)))
+
     up_ports = sorted(
-        [name for name, cfg in ports.items() if cfg.get('admin_status', 'down') == 'up'],
+        [name for name, cfg in ports.items()
+         if cfg.get('admin_status', 'down') == 'up' and name not in lag_members],
         key=lambda p: int(''.join(filter(str.isdigit, p)) or 0)
     )
 
