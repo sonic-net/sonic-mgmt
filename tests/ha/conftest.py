@@ -759,7 +759,8 @@ def deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, se
 
 
 @pytest.fixture(scope="function")
-def activate_dash_ha_from_json(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+def activate_dash_ha_from_json(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server,
+                               setup_dash_ha_from_json_func_scope, ha_owner):
     activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
     deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server)
