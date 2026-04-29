@@ -3141,7 +3141,7 @@ class QosSaiBase(QosBase):
                           for idx in sorted(dutConfig.get('dutInterfaces', {}).keys())]
 
         logger.debug("permit_only_test_traffic_on_fanout: testPorts = %s",
-                      dutConfig.get('testPorts', {}))
+                     dutConfig.get('testPorts', {}))
         logger.info(
             "permit_only_test_traffic_on_fanout: protecting %d ports: %s",
             len(src_interfaces), src_interfaces)
