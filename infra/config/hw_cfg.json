@@ -1657,6 +1657,7 @@
             "sonic_mgmt_container_202311": "cicd_prod_master_ixia_v10_0",
             "sonic_mgmt_container_202411": "cicd_prod_master_ixia_v10_0",
             "sonic_mgmt_container_202505": "cicd_prod_master_ixia_v10_0",
+	    "sonic_mgmt_container_202511": "cicd_prod_master_ixia_v10_0", 
             "sonic_mgmt_container_202501": "cicd_prod_master_ixia_v10_0",
             "sonic_mgmt_container_master": "cicd_prod_master_ixia_v10_0",
             "skip_tests": "",
