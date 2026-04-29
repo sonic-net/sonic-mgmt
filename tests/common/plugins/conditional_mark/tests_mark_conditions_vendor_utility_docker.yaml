@@ -4,6 +4,8 @@
 
 tests/vendor_utility_docker/test_utility_docker.py:
   skip:
-    reason: "Vendor utility docker tests are for Cisco 8000 platforms only (asic_type=cisco-8000)"
+    reason: "Vendor utility docker tests are for Cisco 8000 only (skip VS/KVM and other asic_type)"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['cisco-8000']"
+      - "asic_type in ['vs']"
