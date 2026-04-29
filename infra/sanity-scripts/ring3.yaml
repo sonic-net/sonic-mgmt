@@ -449,6 +449,35 @@ MGMT: #Anukul Verma / Gourav Sharma
 
   t0:
     churchill-mono:
+      sim:
+        - console/test_console_availability.py
+        - console/test_console_driver.py
+        - dns/test_dns_resolv_conf.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_ntp.py
+        - gnmi/openconfig/test_openconfig_bgpglobal.py
+        - gnmi/openconfig/test_openconfig_interfaces.py
+        - gnmi/openconfig/test_openconfig_lldp.py
+        - gnmi/openconfig/test_openconfig_loopback.py
+        - gnmi/openconfig/test_openconfig_static_routes.py
+        - gnmi/test_gnmi.py
+        - gnmi/test_gnmi_configdb.py
+        - gnmi/test_gnmi_smartswitch.py
+        - gnmi/test_gnoi_os.py
+        - memory_checker/test_memory_checker.py
+        - restapi/test_restapi_vxlan_ecmp.py
+        - snmp/test_snmp_cpu.py
+        - snmp/test_snmp_default_route.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_lldp.py
+        - snmp/test_snmp_pfc_counters.py
+        - snmp/test_snmp_queue_counters.py
+        - ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
+        - tacacs/test_authorization.py
+        - tacacs/test_rw_user.py::test_rw_user #commenting out IPV6 test
+        - telemetry/test_telemetry.py
+
       hw:
         - generic_config_updater/test_aaa.py
         - generic_config_updater/test_ip_bgp.py
@@ -466,12 +495,15 @@ MGMT: #Anukul Verma / Gourav Sharma
         - gnmi/test_gnmi_countersdb.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
-        #- gnmi/test_gnmi_stress.py
-        #- gnmi/test_gnoi_killprocess.py
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_gnoi_system_reboot.py
+        - gnmi/openconfig/test_openconfig_bgpglobal.py
+        - gnmi/openconfig/test_openconfig_interfaces.py
+        - gnmi/openconfig/test_openconfig_lldp.py
+        - gnmi/openconfig/test_openconfig_loopback.py
+        - gnmi/openconfig/test_openconfig_static_routes.py
         - console/test_console_availability.py
         - console/test_console_driver.py
         - console/test_console_loopback.py
@@ -485,6 +517,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - tacacs/test_authorization.py
         - restapi/test_restapi.py
         - restapi/test_restapi_vxlan_ecmp.py
+        - telemetry/test_telemetry.py
 
   t0-64:
     mth64:
