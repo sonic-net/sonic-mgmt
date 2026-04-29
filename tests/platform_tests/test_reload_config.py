@@ -197,19 +197,6 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     # check if redis-db is reachable before attempting to run any command.
     wait_until(360, 1, 0, check_redis_db_status, duthost)
 
-    # Log container states at the moment Redis became reachable.
-    # Root cause context: after reboot, the SSH banner appears early but authenticated
-    # SSH sessions may take up to ~145s longer to establish. By that time SwSS may
-    # already be fully started, causing config reload to succeed instead of "Retry later".
-    def _log_container_states(label):
-        cs_out = duthost.shell(
-            "for c in swss syncd bgp database; do printf '%s: %s\n' \"$c\" \"$(systemctl is-active $c)\"; done",
-            module_ignore_errors=True
-        )
-        logging.info("[reload_check] %s -- container states:\n%s", label, cs_out["stdout"])
-
-    _log_container_states("Redis just became reachable")
-
     logging.info("Reload configuration check")
 
     # Retry loop: handles two cases:
@@ -227,21 +214,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
                 break
 
             # SwSS was already fully started -- we missed the timing window.
-            # Log detailed status to explain why a retry is needed.
-            swss_active = duthost.shell("systemctl is-active swss", module_ignore_errors=True)
-            logging.warning(
-                "[reload_check] Attempt %d/%d: config reload did NOT return 'Retry later'. "
-                "SwSS status: '%s'. "
-                "Likely cause: SSH authentication took too long after reboot banner, "
-                "so both Redis and SwSS were fully started before the first command ran. "
-                "stdout: %s",
-                attempt + 1, MAX_RELOAD_CHECK_RETRIES,
-                swss_active["stdout"].strip(),
-                out["stdout"][:300]
-            )
-            _log_container_states("after missed timing window (attempt {}/{})".format(
-                attempt + 1, MAX_RELOAD_CHECK_RETRIES))
-
+            logging.warning("[reload_check] Attempt %d/%d: config reload did NOT return Retry later. stdout: %s",
+                            attempt + 1, MAX_RELOAD_CHECK_RETRIES, out["stdout"][:300])
             if attempt < MAX_RELOAD_CHECK_RETRIES - 1:
                 logging.info("[reload_check] Restarting SwSS to re-create 'not ready' timing window")
                 duthost.shell("sudo systemctl restart swss")
