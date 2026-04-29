@@ -159,7 +159,8 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, ptf
     logging.info("System is back up after reboot")
 
     # Wait for critical processes before ending
-    wait_critical_processes(duthost)
+    # Warm reboot takes longer for containers to restart; use an extended timeout
+    wait_critical_processes(duthost, timeout=360)
 
     setup_ntp_client(duthost, ptfhost)
 
