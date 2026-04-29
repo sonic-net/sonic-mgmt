@@ -15,7 +15,7 @@
   shell: |
     set -o pipefail
     jq '{ {{ tables_to_keep | join(',') }} }' /tmp/config_db_old.json \
-      | sed 's/\\bnull\\b/{}/' > /tmp/config_db_keep.json
+      | jq 'with_entries(if .value == null then .value = {} else . end)' > /tmp/config_db_keep.json
   args:
     executable: /bin/bash
   vars:
