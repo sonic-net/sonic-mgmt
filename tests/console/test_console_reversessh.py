@@ -12,7 +12,7 @@ from tests.common.helpers.console_helper import (
 )
 
 pytestmark = [
-    pytest.mark.topology('c0', 'c0-lo')
+    pytest.mark.topology('c0', 'c0-lo', 'bmc')
 ]
 
 
@@ -29,11 +29,23 @@ def _dut_lowest_console_line(conn_graph_facts, duthost):  # noqa: F811
 
 
 @pytest.fixture(scope="function")
-def custom_default_escape_char(duthost):
+def custom_default_escape_char(duthost, escape_char):
     """
-    Fixture to set custom escape character and clear it after test
+    Fixture that sets ``escape_char`` (supplied by ``@pytest.mark.parametrize``)
+    as the DUT-side default console escape character and restores the
+    pre-test value on teardown so ``core_dump_and_config_check`` doesn't
+    flag drift on ``CONSOLE_SWITCH|console_mgmt.default_escape_char``.
     """
-    escape_char = "b"
+    # Capture pre-test default_escape_char so we can restore it; empty
+    # string means the field is absent from CONFIG_DB and we should
+    # ``clear`` instead of setting a value back.
+    try:
+        res = duthost.command(
+            "sonic-db-cli CONFIG_DB hget 'CONSOLE_SWITCH|console_mgmt' default_escape_char",
+            module_ignore_errors=True)
+        orig_escape_char = (res.get('stdout') or '').strip()
+    except Exception:
+        orig_escape_char = ""
 
     # Set escape character for all lines
     try:
@@ -43,9 +55,12 @@ def custom_default_escape_char(duthost):
 
     yield escape_char
 
-    # Clear escape character (restore to default)
+    # Restore pre-test state.
     try:
-        duthost.shell('sudo config console default_escape clear')
+        if orig_escape_char:
+            duthost.shell('sudo config console default_escape {}'.format(orig_escape_char))
+        else:
+            duthost.shell('sudo config console default_escape clear')
     except Exception as e:
         pytest.fail("Not able to restore custom default escape character: {}".format(e))
 
@@ -133,8 +148,22 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  
         pytest.fail("Console session not exit correctly: {}".format(e))
 
 
+# Custom default-escape characters to exercise. Each letter is sent as
+# Ctrl-<letter> when triggering the picocom escape sequence, so the choice
+# avoids:
+#   - 'a' (picocom default; this test verifies a *different* char overrides it)
+#   - 'x' (picocom's exit-command char; escape sequence is Ctrl-<escape> Ctrl-x)
+#   - 'c'/'z'/'d'/'s'/'q'/'\\' (SIGINT/SIGTSTP/EOF/XOFF/XON/SIGQUIT — eaten by
+#     signal or TTY layer before reaching picocom)
+#   - 'r'/'l'/'u'/'w'/'t' (common readline / shell hotkeys)
+# Selected chars map to readline editing actions (back-char, bell,
+# next-history, prev-history, yank) that picocom sees cleanly.
+CUSTOM_ESCAPE_CHARS = ["b", "g", "n", "p", "y"]
+
+
+@pytest.mark.parametrize("escape_char", CUSTOM_ESCAPE_CHARS)
 def test_console_reversessh_custom_default_escape_character(duthost, creds, conn_graph_facts,  # noqa: F811
-                                                            custom_default_escape_char):
+                                                            escape_char, custom_default_escape_char):
     """
     Test reverse SSH with custom escape character.
     Verify that default escape keys don't work when escape character is changed,
@@ -169,8 +198,8 @@ def test_console_reversessh_custom_default_escape_character(duthost, creds, conn
             check_target_line_status(duthost, target_line, "BUSY"),
             "Target line {} exited with default escape keys when custom escape char is set".format(target_line))
 
-        # Send custom escape sequence (ctrl-B + ctrl-X) - should exit
-        client.sendcontrol(custom_default_escape_char.lower())
+        # Send custom escape sequence (Ctrl-<escape_char> + Ctrl-X) - should exit
+        client.sendcontrol(custom_default_escape_char)
         client.sendcontrol('x')
     except Exception as e:
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
