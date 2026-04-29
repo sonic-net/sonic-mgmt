@@ -4,10 +4,12 @@ ceos_image: ceosimage:4.32.5M-1
 # Please update ceos_image_url to the actual URL of the cEOS image file in your environment. If the cEOS image file
 # is not available on test server, the cEOS image file will be downloaded from this URL.
 # The ceos_image_url can be a string as single URL or a list of strings as multiple URLs. If it is a list, the code
-# logic will automatically try each URL in the list
-ceos_image_url:
-  - "http://10.201.148.43/cEOS64-lab-4.32.5M.tar"
-  - "http://10.150.22.222/cEOS64-lab-4.32.5M.tar"
+# logic will automatically try each URL in the list.
+# Leave it as an empty list (the default below) if you rely on ceos_registry for image distribution; this keeps the
+# fallback download path well-defined and produces a friendly error if the registry path also fails.
+ceos_image_url: []
+#   - "http://10.201.148.43/cEOS64-lab-4.32.5M.tar"
+#   - "http://10.150.22.222/cEOS64-lab-4.32.5M.tar"
 skip_ceos_image_downloading: false
 
 # Registry settings for pulling ceos docker image. If ceos_registry is defined, the code will first
@@ -19,6 +21,6 @@ skip_ceos_image_downloading: false
 # ceos_registry_password. If the registry is publicly accessible without authentication, leave the
 # username and password commented out.
 #
-# ceos_registry: "your-registry.example.com"
-# ceos_registry_username: "your-username"
-# ceos_registry_password: "your-password"
+ceos_registry: "{{ secret_vars['docker_registry']['docker_registry_host']}}"
+ceos_registry_username: "{{ secret_vars['docker_registry']['docker_registry_username']}}"
+ceos_registry_password: "{{ secret_vars['docker_registry']['docker_registry_password']}}"
