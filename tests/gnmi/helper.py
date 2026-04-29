@@ -156,6 +156,9 @@ def check_ntp_sync_status(duthost):
         ntp_status_cmd = "ntpstat"
 
     ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
+    if ntp_status["failed"]:
+        logger.info("DUT %s NTP daemon not responding: %s", duthost, ntp_status["stdout"])
+        return False
     if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
             (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
         logger.info("DUT %s is synchronized with NTP server.", duthost)
