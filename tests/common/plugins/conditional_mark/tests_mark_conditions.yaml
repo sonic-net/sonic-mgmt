@@ -629,9 +629,12 @@ bgp/test_bgp_update_replication.py:
 
 bgp/test_bgp_vnet.py:
   skip:
-    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
+    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms on t0-28 and t0-32 topologies. Doesn't support in internal branch due to template difference"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+      - "'internal' in branch"
+      - "(topo_name not in ['t0-28', 't0-32'])"
 
 bgp/test_bgpmon.py:
   skip:
@@ -1637,6 +1640,12 @@ dut_console/test_console_stress.py:
 #######################################
 #####             ecmp            #####
 #######################################
+ecmp/:
+  skip:
+    reason: 'ECMP tests require data-plane forwarding, not available on BMC'
+    conditions:
+      - "'bmc' in topo_type"
+
 ecmp/inner_hashing/test_fgnhg_inner_hashing_internal.py:
   xfail:
     reason: "case failed waiting for fix"
@@ -1647,12 +1656,6 @@ ecmp/inner_hashing/test_fgnhg_inner_hashing_internal.py:
     reason: "The test case only runs on Mellanox SN3800/SN4600 T0"
     conditions:
       - "topo_type not in ['t0'] or platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
-
-ecmp/:
-  skip:
-    reason: 'ECMP tests require data-plane forwarding, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
 
 ecmp/inner_hashing/test_inner_hashing.py:
   skip:
@@ -5089,17 +5092,17 @@ session_monitor/test_link_state_tracker.py:
 #######################################
 #####            scripts         #####
 #######################################
-sflow/test_sflow.py:
-  skip:
-    reason: "The testcase is skipped due to github issue #21701"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21701"
-
 sflow/:
   skip:
     reason: 'sFlow tests require ASIC sampling, not available on BMC'
     conditions:
       - "'bmc' in topo_type"
+
+sflow/test_sflow.py:
+  skip:
+    reason: "The testcase is skipped due to github issue #21701"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21701"
 
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
