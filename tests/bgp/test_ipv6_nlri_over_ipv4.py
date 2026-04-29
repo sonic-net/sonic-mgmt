@@ -97,6 +97,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     logger.debug(duthost.shell('show ipv6 bgp summary')['stdout'])
 
     dut_namespace = " -n " + namespace if duthost.is_multi_asic else ""
+    vtysh_ns = " -n {}".format(asic_index) if duthost.is_multi_asic else ""
     cmd = "show ipv6 bgp neighbor {} received-routes {}".format(neigh_ip_v6, dut_namespace)
     dut_received_routes = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     dut_nlri_routes = parse_dut_received_routes(dut_received_routes)
@@ -105,7 +106,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     neigh_host = nbrhosts[neigh_name]["host"]
     if is_sonic_neigh:
-        logger.debug(neigh_host.shell('vtysh -n {} vtysh -c "clear bgp * soft"'.format(neigh_namespace)))
+        logger.debug(neigh_host.shell('vtysh -n {} -c "clear bgp * soft"'.format(vtysh_ns)))
         cmd = "show ipv6 bgp neighbor {} received-routes".format(dut_ip_v6)
         neigh_nlri_routes = neigh_host.shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
         pytest_assert(len(neigh_nlri_routes) >= 3, "Neighbor didn't receive enough routes")
@@ -136,6 +137,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
         'neigh_nlri_route': neigh_nlri_route,
         'neigh_namespace': neigh_namespace,
         'dut_namespace': dut_namespace,
+        'vtysh_ns': vtysh_ns,
         'asic_index': asic_index,
         'neigh_asic_index': neigh_asic_index,
         'is_sonic_neigh': is_sonic_neigh,
@@ -177,7 +179,7 @@ def test_nlri(setup):
     # remove current neighbor adjacency
     cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" \
         -c "no neighbor {} peer-group {}"'\
-        .format(setup['dut_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], setup['peer_group_v4'],
+        .format(setup['vtysh_ns'], setup['dut_asn'], setup['neigh_ip_v4'], setup['peer_group_v4'],
                 setup['neigh_ip_v6'], setup['peer_group_v6'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
     logger.debug("DUT BGP Config After Neighbor Removal: {}".format(setup['duthost'].shell('show run bgp')['stdout']))
@@ -186,7 +188,7 @@ def test_nlri(setup):
         cmd = (
             'vtysh {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" '
             '-c "no neighbor {} peer-group {}"'.format(
-                setup['dut_namespace'],
+                setup['vtysh_ns'],
                 setup['neigh_asn'],
                 setup['dut_ip_v4'],
                 setup['peer_group_v4'],
@@ -224,7 +226,7 @@ def test_nlri(setup):
     )
 
     # clear BGP table
-    cmd = 'vtysh  {} -c "clear ip bgp * soft"'.format(setup['dut_namespace'])
+    cmd = 'vtysh {} -c "clear ip bgp * soft"'.format(setup['vtysh_ns'])
     setup['duthost'].shell(cmd)
     if setup['is_sonic_neigh']:
         cmd = 'vtysh -c "clear ip bgp * soft"'
@@ -254,13 +256,13 @@ def test_nlri(setup):
         -c "neighbor NLRI allowas-in" -c "neighbor NLRI send-community both" \
         -c "neighbor NLRI soft-reconfiguration inbound" -c "exit-address-family" -c "address-family ipv6 unicast" \
         -c "neighbor NLRI allowas-in" -c "neighbor NLRI send-community both" \
-            -c "neighbor NLRI soft-reconfiguration inbound"'.format(setup['dut_namespace'], setup['dut_asn'])
+            -c "neighbor NLRI soft-reconfiguration inbound"'.format(setup['vtysh_ns'], setup['dut_asn'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "neighbor {} peer-group NLRI" -c "neighbor {} remote-as {}"\
         -c "address-family ipv4 unicast" -c "neighbor NLRI activate" -c "exit-address-family" \
         -c "address-family ipv6 unicast" -c "neighbor NLRI activate"'\
-            .format(setup['dut_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], setup['neigh_ip_v4'],
+            .format(setup['vtysh_ns'], setup['dut_asn'], setup['neigh_ip_v4'], setup['neigh_ip_v4'],
                     setup['neigh_asn'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
     logger.debug("DUT BGP Config After Peer Config: {}".format(setup['duthost'].shell('show run bgp')['stdout']))
