@@ -46,6 +46,15 @@ r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListAttrCapabilities: Fail
 r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters_acc.*Get Port Phy Control FEC Symbol Error Count.*failed with error Operation disabled \(0xfffffff4\).*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*port info data get failed with error -2.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_attribute_cmn.*Fec Alignment lock status failed.*with error -8.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_port_get_fec_alignment_lock_status.*FEC AM is not supported.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_attribute_cmn.*Fec Alignment lock status failed.*with error -327680.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*Get Port Phy Control FEC RS Bit Error Count failed - port:.*rc: -16.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*Get Port Phy Control FEC Uncorrected Block Count failed - port:.*rc: -16.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*Get Port Phy Control FEC Corrected Block Count failed - port:.*rc: -16.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*Get Port Phy Control FEC Symbol Error Count failed - port:.*rc: -16.*"
 
 # Errors for config reload on broadcom platform on 202511
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed - port: \d+, rc: -16.*"
