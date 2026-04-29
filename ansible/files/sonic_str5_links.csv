@@ -4325,3 +4325,7 @@ str43-dcs-7050cx3-32s-f-d04-u01,Ethernet56,str5-7060x6-moby-512-4,Ethernet512,10
 str43-dcs-7050cx3-32s-f-d04-u01,Ethernet60,str5-7060x6-moby-512-4,Ethernet513,10000,,Access,off
 str5-7060x6-moby-512-4,Ethernet512,str43-dcs-7050cx3-32s-f-d04-u01,Ethernet56,10000,,Access,off
 str5-7060x6-moby-512-4,Ethernet513,str43-dcs-7050cx3-32s-f-d04-u01,Ethernet60,10000,,Access,off
+str43-dcs-7050cx3-32s-f-d04-u01,Ethernet64,str5-7060x6-moby-512-5,Ethernet512,10000,,Access,off
+str43-dcs-7050cx3-32s-f-d04-u01,Ethernet68,str5-7060x6-moby-512-5,Ethernet513,10000,,Access,off
+str5-7060x6-moby-512-5,Ethernet512,str43-dcs-7050cx3-32s-f-d04-u01,Ethernet64,10000,,Access,off
+str5-7060x6-moby-512-5,Ethernet513,str43-dcs-7050cx3-32s-f-d04-u01,Ethernet68,10000,,Access,off

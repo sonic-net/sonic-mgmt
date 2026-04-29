@@ -482,20 +482,20 @@ sonic_arista_7060x6_512:
       mgmt_subnet_v6_mask_length: 122
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
       model: DCS-7060X6-16PE-384C-B
-      serial: SSN25202318
-      base_mac: b8:a1:b8:a2:33:47
+      serial: SSN25202372
+      base_mac: b8:a1:b8:a2:ba:d9
       syseeprom_info:
         "0x21": "DCS-7060X6-16PE-384C"
         "0x22": "ASY088971103"
-        "0x23": "SSN25202318"
-        "0x24": "b8:a1:b8:a2:33:47"
-        "0x25": "2025/06/13 22:51:27"
+        "0x23": "SSN25202372"
+        "0x24": "b8:a1:b8:a2:ba:d9"
+        "0x25": "2025/07/10 00:29:04"
         "0x26": "10.11"
         "0x27": "03.00"
         "0x28": "x86_64-arista_7060x6_16pe_384c_b"
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
-        "0x2F": "SSN25202318"
+        "0x2F": "SSN25202372"
 
 sonic_arista_7280dr3_400G:
   vars:
