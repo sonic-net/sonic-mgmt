@@ -202,14 +202,6 @@ drop_packets/test_configurable_drop_counters.py:
     conditions:
       - "asic_type in ['vpp']"
 
-drop_packets/test_drop_counters.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 #######################################
 #####          DUT Console        #####
 #######################################
