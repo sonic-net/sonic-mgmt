@@ -151,7 +151,7 @@ def __gen_traffic(testbed_config,
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int((100-WARM_UP_TRAFFIC_RATE_PERCENT) / len(prio_list))
+    data_flow_rate_percent = (100 - len(prio_list) * WARM_UP_TRAFFIC_RATE_PERCENT) / len(prio_list)
     """ For each data flow """
     for i in range(len(data_flow_name_list)):
         """ For each priority """

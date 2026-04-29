@@ -150,7 +150,7 @@ def run_pfcwd_basic_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
-                  traffic_rate=49.99 if cisco_platform else (100.0-WARM_UP_TRAFFIC_RATE_PERCENT),
+                  traffic_rate=49.99 if cisco_platform else (100.0 - len(prio_list) * WARM_UP_TRAFFIC_RATE_PERCENT) / 2,
                   number_of_streams=number_of_streams)
 
     flows = testbed_config.flows
@@ -307,7 +307,7 @@ def __gen_traffic(testbed_config,
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int(traffic_rate / len(prio_list))
+    data_flow_rate_percent = traffic_rate / len(prio_list)
 
     """ For each data flow """
     for i in range(len(data_flow_name_list)):
