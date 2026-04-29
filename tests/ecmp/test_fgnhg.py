@@ -654,6 +654,10 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
 def cleanup(duthost, ptfhost):
     logger.info("Start cleanup")
     ptfhost.command('rm -f /tmp/fg_ecmp_persist_map.json')
+    # Stop arp_responder and remove the rendered config so a stale invocation
+    # in a later test cannot inherit our IP/MAC mapping for /tmp/from_t1.json.
+    ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
+    ptfhost.command('rm -f /tmp/from_t1.json')
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
