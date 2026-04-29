@@ -110,14 +110,19 @@ def recover_cert_config(duthost):
     # Recover all stopped program
     dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
     output = duthost.shell(dut_command, module_ignore_errors=True)
-    for line in output['stdout_lines']:
+    logger.debug("recover_cert_config: supervisorctl status output: %s", output["stdout"])
+    for line in output["stdout_lines"]:
         res = line.split()
         if len(res) < 3:
             continue
         program = res[0]
-        if program in ["gnmi-native", "telemetry"]:
+        status = res[1]
+        logger.debug("recover_cert_config: program=%s status=%s", program, status)
+        if status == "STOPPED":
+            logger.info("recover_cert_config: starting stopped program %s in container %s", program, env.gnmi_container)
             dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, program)
-            duthost.shell(dut_command, module_ignore_errors=True)
+            start_output = duthost.shell(dut_command, module_ignore_errors=True)
+            logger.debug("recover_cert_config: start %s result: %s", program, start_output["stdout"])
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
