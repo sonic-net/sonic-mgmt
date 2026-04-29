@@ -41,6 +41,17 @@ existing_systemd_services = [
 ]
 
 
+def find_systemd_service(container_name):
+    """Check if a container corresponds to a systemd-managed service.
+
+    Returns the service name if found, None otherwise.
+    """
+    for service in existing_systemd_services:
+        if service in container_name:
+            return service
+    return None
+
+
 def parse_containers(container_string):
     containers = []
     container_versions = []
@@ -187,12 +198,11 @@ def pull_run_dockers(duthost, creds, env):
         duthost.shell(f"docker tag {docker_image} {container}:latest")
         if "IS_V1_ENABLED=true" in optional_parameters \
                 and "watchdog" not in name and "sidecar" not in name:
-            # For k8s containers, derive the V1 service name
-            # via substring match against existing_systemd_services
-            v1_service = next((svc for svc in existing_systemd_services if svc in name), None)
-            if v1_service:
-                # Migrate V1 systemd service instead of docker-running k8s container
-                migrate_container_systemd(duthost, v1_service, parameters)
+            systemd_service = find_systemd_service(name)
+            if systemd_service:
+                # This service is managed by systemd, so restart it through systemd
+                # instead of running a standalone docker container
+                migrate_container_systemd(duthost, systemd_service, parameters)
                 continue
         else:
             if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
