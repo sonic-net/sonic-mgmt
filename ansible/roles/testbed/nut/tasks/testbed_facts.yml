@@ -17,8 +17,13 @@
   debug:
     var: testbed_facts
 
+- name: override group_file to use testbed specific group file
+  set_fact:
+    conn_graph_group: "{{ testbed_facts['inv_name'] }}"
+
 - name: get connection graph if defined for dut
   conn_graph_facts:
     hosts: "{{ (testbed_facts.duts | default([])) + (testbed_facts.tgs | default([])) + (testbed_facts.l1s | default([])) }}"
+    group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
     forced_mgmt_routes: "{{ forced_mgmt_routes | default([]) }}"
   delegate_to: localhost
