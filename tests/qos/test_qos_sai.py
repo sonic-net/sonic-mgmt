@@ -782,7 +782,8 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLosslessProfile, iptables_drop_ipv6_tx, change_lag_lacp_timer):                # noqa: F811
+            ingressLosslessProfile, iptables_drop_ipv6_tx, change_lag_lacp_timer,  # noqa: F811
+            permit_only_test_traffic_on_fanout):
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS SAI Headroom pool size
@@ -996,7 +997,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiHeadroomPoolWatermark(
         self, duthosts, get_src_dst_asic_and_duts,  ptfhost, dutTestParams,
         dutConfig, dutQosConfig, ingressLosslessProfile, sharedHeadroomPoolSize,
-        resetWatermark
+        resetWatermark, permit_only_test_traffic_on_fanout
     ):
         # NOTE: cisco 8800 will skip this test since there is no headroom pool
         """
