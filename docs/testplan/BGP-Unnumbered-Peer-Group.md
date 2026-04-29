@@ -1,4 +1,4 @@
-# BGP Unnumbered with peer group Test Plan
+# BGP Unnumbered using peer group Test Plan
 
 - [Overview](#overview)
     - [Scope](#scope)
@@ -9,7 +9,7 @@
 
 ## Overview
 
-The goal of this test is to verify that the BGP Unnumbered feature with peer group works as expected.
+The goal of this test is to verify that the BGP Unnumbered feature using peer group works as expected.
 
 ### Scope
 
@@ -31,7 +31,7 @@ Applicable to T0, T1, and T2 topologies.
 | show ip bgp summary | Dispaly current neighbor relationships, can be done with ipv6 too |
 
 ### Sample DUT configuration files
-BGP Unnumbered with peer group:
+BGP Unnumbered using peer group:
 
   router bgp 65100
    bgp router-id 10.1.0.1
@@ -55,7 +55,7 @@ BGP Unnumbered with peer group:
 
 ## Setup configuration
 
-This test requires configuring BGP unnumbered with peer group on both DUT and peer devices. Interfaces must be enabled for IPv6, as BGP unnumbered relies on IPv6 link-local addressing. Ensure neighbor relationships are established using interface-based configuration.
+This test requires configuring BGP unnumbered using peer group on both DUT and peer devices. Interfaces must be enabled for IPv6, as BGP unnumbered relies on IPv6 link-local addressing. Ensure neighbor relationships are established using interface-based configuration.
 
 ## Test cases
 ### Test case #1 - BGP Unnumbered using peer-group
