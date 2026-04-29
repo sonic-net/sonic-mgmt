@@ -6,6 +6,7 @@ import pytest
 import time
 import threading
 import queue
+import concurrent.futures
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from gnmi_utils import apply_messages
@@ -81,7 +82,12 @@ def common_setup_teardown(
 
     yield
 
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    def _reload(host):
+        logger.info(f"config reload on {host.hostname}")
+        config_reload(host, safe_reload=True, yang_validate=False)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
+        list(executor.map(_reload, dpuhosts))
 
 
 def _planned_swo_phase(

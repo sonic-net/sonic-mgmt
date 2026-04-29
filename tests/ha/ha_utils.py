@@ -256,6 +256,14 @@ def activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op
         approved_pending_operation_ids=[pending_id],
     )
 
+    # skipping state verification.
+    if expected_state is None:
+        logger.info(
+            f"Skipping HA state verification for {scope_key} "
+            f"(expected_state=None)"
+        )
+        return True
+
     if verify_ha_state(
         duthost,
         scope_key,
