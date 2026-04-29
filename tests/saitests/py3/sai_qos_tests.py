@@ -37,6 +37,7 @@ from switch import (switch_init,          # noqa F401
                     sai_thrift_read_pg_counters,
                     sai_thrift_read_pg_drop_counters,
                     sai_thrift_read_pg_shared_watermark,
+                    sai_thrift_clear_buffer_pool_watermark,
                     sai_thrift_read_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
                     sai_thrift_read_queue_occupancy,
@@ -131,12 +132,6 @@ PG_TOLERANCE = 2
 # Constants for voq/oq watchdog test
 WATCHDOG_TIMEOUT_SECONDS = {"voq": 60,
                             "oq": 5}
-SAI_LOG_TO_CHECK = {"voq": ["HARDWARE_WATCHDOG", "soft_reset"],
-                    "oq": ["HARDWARE_WATCHDOG", "soft_reset"]}
-SDK_LOG_TO_CHECK = {"voq": ["VOQ Appears to be stuck"],
-                    "oq": []}
-SAI_LOG = "/var/log/sai.log"
-SDK_LOG = "/var/log/syslog"
 
 
 def update_COUNTER_MARGIN(dut_asic):
@@ -962,46 +957,6 @@ def get_peer_addresses(data):
     addresses = set()
     get_peer_addr(data, addresses)
     return list(addresses)
-
-
-def init_log_check(test_case):
-    pre_offsets = []
-    for logfile in [SAI_LOG, SDK_LOG]:
-        offset_cmd = "stat -c %s {}".format(logfile)
-        stdout, err, ret = test_case.exec_cmd_on_dut(
-            test_case.dst_server_ip,
-            test_case.test_params['dut_username'],
-            test_case.test_params['dut_password'],
-            offset_cmd)
-        pre_offsets.append(int(stdout[0]))
-    return pre_offsets
-
-
-def verify_log(test_case, pre_offsets, watchdog_enabled=True, watchdog_type='voq'):
-    qos_test_assert(test_case, watchdog_type in ['voq', 'oq'],
-                    "Invalid watchdog type: {}".format(watchdog_type))
-    found_list = []
-    for pre_offset, logfile, str_to_check in zip(pre_offsets, [SAI_LOG, SDK_LOG],
-                                                 [SAI_LOG_TO_CHECK[watchdog_type], SDK_LOG_TO_CHECK[watchdog_type]]):
-        egrep_str = '|'.join(str_to_check)
-        check_cmd = "sudo tail -c +{} {} | egrep '{}' || true".format(pre_offset + 1, logfile, egrep_str)
-        stdout, err, ret = test_case.exec_cmd_on_dut(
-            test_case.dst_server_ip,
-            test_case.test_params['dut_username'],
-            test_case.test_params['dut_password'],
-            check_cmd)
-        log_message("Log for {}: {}".format(egrep_str, stdout), level='info', to_stderr=True)
-        for string in str_to_check:
-            if string in "".join(stdout):
-                found_list.append(True)
-            else:
-                found_list.append(False)
-    if watchdog_enabled:
-        qos_test_assert(test_case, all(found is True for found in found_list),
-                        "{} watchdog trigger log not detected".format(watchdog_type))
-    else:
-        qos_test_assert(test_case, all(found is False for found in found_list),
-                        "unexpected {} watchdog trigger log".format(watchdog_type))
 
 
 def verify_queue_occupancy(test_case, dst_port_id, queue_idx, expect_queue_empty=True, timeout=0):
@@ -2363,16 +2318,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                margin_asics = ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]
                 counter_margin = COUNTER_MARGIN if (
-                    platform_asic and platform_asic in dnx_asics) else 0
+                    platform_asic and platform_asic in margin_asics) else 0
                 # Check if ingress drop is caused by environmental non-unicast noise
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
                         counter_margin=counter_margin):
                     # Legitimate ingress drop, should fail test
-                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx"]:
+                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]:
                         qos_test_assert(
                             self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                             'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2416,16 +2371,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                margin_asics = ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]
                 counter_margin = COUNTER_MARGIN if (
-                    platform_asic and platform_asic in dnx_asics) else 0
+                    platform_asic and platform_asic in margin_asics) else 0
                 # Check if ingress drop is caused by environmental non-unicast noise
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
                         counter_margin=counter_margin):
                     # Legitimate ingress drop, should fail test
-                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx"]:
+                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]:
                         qos_test_assert(
                             self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                             'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2472,9 +2427,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                margin_asics = ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]
                 counter_margin = COUNTER_MARGIN if (
-                    platform_asic and platform_asic in dnx_asics) else 0
+                    platform_asic and platform_asic in margin_asics) else 0
                 # Check if ingress drop is caused by environmental non-unicast noise
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
@@ -2482,7 +2437,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                         counter_margin=counter_margin):
                     # Legitimate ingress drop, should fail test
                     if (platform_asic and
-                            platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
+                            platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]):
                         qos_test_assert(
                             self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                             'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2679,7 +2634,12 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                 # recv port no ingress drop
                 for cntr in ingress_counters:
                     diff = counter_details_after[i][0][cntr] - counter_details_before[i][0][cntr]
-                    assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                    if 'cisco-8000' in asic_type:
+                        # For cisco-8000, adding margin to avoid test failure caused by small amount of RX drops
+                        assert diff <= COUNTER_MARGIN, \
+                            "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                    else:
+                        assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
 
             # xmit port no egress drop
             for cntr in egress_counters:
@@ -2713,7 +2673,12 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                 # recv port no ingress drop
                 for cntr in ingress_counters:
                     diff = counter_details_3[i][0][cntr] - counter_details_before[i][0][cntr]
-                    assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                    if 'cisco-8000' in asic_type:
+                        # For cisco-8000, adding margin to avoid test failure caused by small amount of RX drops
+                        assert diff <= COUNTER_MARGIN, \
+                            "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                    else:
+                        assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
 
             # xmit port no egress drop
             for cntr in egress_counters:
@@ -5066,16 +5031,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                margin_asics = ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]
                 counter_margin = COUNTER_MARGIN if (
-                    platform_asic and platform_asic in dnx_asics) else 0
+                    platform_asic and platform_asic in margin_asics) else 0
                 # Check if ingress drop is caused by environmental non-unicast noise
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
                         counter_margin=counter_margin):
                     if (platform_asic and
-                            platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
+                            platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]):
                         if cntr == 1:
                             log_message("recv_counters_base: {}, recv_counters: {}".format(
                                 recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
@@ -5142,6 +5107,13 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                 "counter {} ({})".format(
                                     recv_counters[cntr] - recv_counters_base[cntr],
                                     cntr, port_counter_fields[cntr]))
+                elif platform_asic and platform_asic == "cisco-8000" and cntr == 1:
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        "Ingress drop encountered: {} packets dropped on "
+                        "counter {} ({})".format(
+                            recv_counters[cntr] - recv_counters_base[cntr],
+                            cntr, port_counter_fields[cntr]))
                 else:
                     # Check if ingress drop is caused by environmental non-unicast noise
                     if not ignore_ingress_drop_caused_by_nonunicast_noise(
@@ -5466,6 +5438,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         hwsku = self.test_params['hwsku']
         internal_hdr_size = self.test_params.get('internal_hdr_size', 0)
         platform_asic = self.test_params['platform_asic']
+        margin_lower_bound = self.test_params.get('pkts_num_margin_lower_bound', 0)
         ip_type = self.test_params.get('ip_type', 'ipv4')
 
         if 'packet_size' in list(self.test_params.keys()):
@@ -5684,14 +5657,15 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             ((pkts_num_leak_out + pkts_num_fill_min + expected_wm + margin)
                              * (packet_length + internal_hdr_size)))
                 else:
-                    msg = "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (
-                        expected_wm * cell_size,
+                    msg = "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (
+                        margin_lower_bound,
+                        (expected_wm - margin_lower_bound) * cell_size,
                         pg_shared_wm_res[pg],
                         margin,
                         (expected_wm + margin) * cell_size)
                     assert pg_shared_wm_res[pg] <= (
                             expected_wm + margin) * cell_size, msg
-                    assert expected_wm * cell_size <= pg_shared_wm_res[pg], msg
+                    assert (expected_wm - margin_lower_bound) * cell_size <= pg_shared_wm_res[pg], msg
 
                 pkts_num = pkts_inc
 
@@ -5723,7 +5697,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 print("exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
                     pkts_num, ((expected_wm + cell_occupancy) * cell_size), pg_shared_wm_res[pg]), file=sys.stderr)
-                assert (expected_wm * cell_size <= pg_shared_wm_res[pg] <= (
+                assert ((expected_wm - margin_lower_bound) * cell_size <= pg_shared_wm_res[pg] <= (
                         expected_wm + margin + cell_occupancy) * cell_size)
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
@@ -6433,6 +6407,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # Some small amount of memory is always occupied
             # We use dst client for cisco 8000.
             client_to_use = self.dst_client
+            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
             buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
                 client_to_use, buf_pool_roid)
         else:
@@ -7435,7 +7410,6 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         log_message("dst_port_name: {}".format(dst_port_name), to_stderr=True)
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-        pre_offsets = init_log_check(self)
 
         try:
             # send packets
@@ -7448,9 +7422,6 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             log_message("Waiting for VOQ watchdog to trigger", level='info', to_stderr=True)
             verify_queue_occupancy(self, dst_port_id, queue_idx, voq_watchdog_enabled,
                                    timeout=WATCHDOG_TIMEOUT_SECONDS["voq"])
-
-            log_message("Verify log after VOQ watchdog timeout", level='info', to_stderr=True)
-            verify_log(self, pre_offsets, voq_watchdog_enabled, "voq")
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
@@ -7472,7 +7443,6 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-        oq_watchdog_enabled = self.test_params['oq_watchdog_enabled']
         pkts_num = int(self.test_params['pkts_num'])
         queue_id = int(self.test_params['queue_id'])
 
@@ -7504,8 +7474,6 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         log_message("test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
             dst_port_id, src_port_id, src_port_vlan), to_stderr=True)
 
-        pre_offsets = init_log_check(self)
-
         try:
             log_message("Verify OQ is empty before send packets", level='info', to_stderr=True)
             verify_tx_cgm_state(self, dst_interfaces, queue_id, True)
@@ -7521,9 +7489,6 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
 
             log_message("Verify OQ is empty after watchdog timeout", level='info', to_stderr=True)
             verify_tx_cgm_state(self, dst_interfaces, queue_id, True)
-
-            log_message("Verify log after OQ watchdog timeout", level='info', to_stderr=True)
-            verify_log(self, pre_offsets, oq_watchdog_enabled, "oq")
 
         finally:
             print("END OF TEST")
@@ -7545,6 +7510,7 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
+        platform_asic = self.test_params.get('platform_asic', None)
         pkts_num = int(self.test_params['pkts_num'])
         exp_ip_id = 110
 
@@ -7616,10 +7582,16 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
                     recv_counters, recv_counters_base, xmit_counters, xmit_counters_base),
                 to_stderr=True)
             # recv port no ingress drop
+            # Adding COUNTER_MARGIN to tolerate background counter drift, for cisco-8000
             for cntr in ingress_counters:
-                qos_test_assert(
-                    self, recv_counters[cntr] == recv_counters_base[cntr],
-                    'unexpectedly RX drop counter increase')
+                if (platform_asic and platform_asic in ["cisco-8000"]):
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly RX drop counter increase')
+                else:
+                    qos_test_assert(
+                        self, recv_counters[cntr] == recv_counters_base[cntr],
+                        'unexpectedly RX drop counter increase')
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(

@@ -67,22 +67,35 @@ def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(scope='module')
 def snappi_api(snappi_api_serv_ip,
-               snappi_api_serv_port):
+               snappi_api_serv_port,
+               tbinfo):
     """
     Fixture for session handle,
     for creating snappi objects and making API calls.
     Args:
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
-        snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture.
+        snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture
+        tbinfo (pytest fixture): fixture provides information about testbed.
     """
-    location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
-    # TODO: Currently extension is defaulted to ixnetwork.
-    # Going forward, we should be able to specify extension
-    # from command line while running pytest.
-    api = snappi.api(location=location, ext="ixnetwork")
-    # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
-    # api._username = "<please mention the username if other than default username>"
-    # api._password = "<please mention the password if other than default password>"
+
+    ptf_image_name = tbinfo.get("ptf_image_name", "")
+    if not ptf_image_name:
+        logger.warning('Cannot get ptf_image_name in tbinfo {}, defaulting to ixnetwork'.format(tbinfo))
+
+    if "docker-stc-api-server" in ptf_image_name:
+        logger.info("for docker-stc-api-server")
+        location = snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
+        api = snappi.api(location=location, transport="grpc")
+        api.request_timeout = 300
+    else:
+        logger.info("for docker-keysight-api-server")
+        location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
+        api = snappi.api(location=location, ext="ixnetwork")
+
+        # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
+        # api._username = "<please mention the username if other than default username>"
+        # api._password = "<please mention the password if other than default password>"
+
     yield api
 
     if getattr(api, 'assistant', None) is not None:
@@ -606,8 +619,171 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     return config, port_config_list
 
 
+def _normalize_sonic_config_asn(asn_field):
+    if asn_field is None:
+        return None
+    if isinstance(asn_field, bytes):
+        return int(asn_field.decode('utf-8'))
+    return int(asn_field)
+
+
+def _merged_bgp_neighbor_table(config_facts):
+    nbrs = {}
+    nbrs.update(config_facts.get('BGP_NEIGHBOR') or {})
+    nbrs.update(config_facts.get('BGP_INTERNAL_NEIGHBOR') or {})
+    nbrs.update(config_facts.get('BGP_VOQ_CHASSIS_NEIGHBOR') or {})
+    return nbrs
+
+
+def _peer_asn_from_bgp_neighbor_table(bgp_table, neighbor_ip):
+    if not neighbor_ip:
+        return None
+    ent = bgp_table.get(str(neighbor_ip))
+    if not ent:
+        return None
+    return _normalize_sonic_config_asn(ent.get('asn'))
+
+
+def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, config_facts):       # noqa: F811
+    """
+    Build tgen_ports list from config_db PORTCHANNEL and PORTCHANNEL_INTERFACE.
+    Used when --bgp_pc_config is set (port-channels preconfigured on testbed).
+    Returns same format as tgen_ports (INTERFACE path).
+    """
+    speed_type = {
+        '10000': 'speed_10_gbps',
+        '25000': 'speed_25_gbps',
+        '40000': 'speed_40_gbps',
+        '50000': 'speed_50_gbps',
+        '100000': 'speed_100_gbps',
+        '200000': 'speed_200_gbps',
+        '400000': 'speed_400_gbps',
+        '800000': 'speed_800_gbps',
+    }
+    pc_interface = config_facts.get('PORTCHANNEL_INTERFACE') or {}
+    pc_member = config_facts.get('PORTCHANNEL_MEMBER') or {}
+    if not pc_interface or not pc_member:
+        return None
+    # Normalize PORTCHANNEL_INTERFACE: keys may be "PortChannel1" or "PortChannel1|1.1.1.1/24"
+    pc_ips = {}
+    for key, val in list(pc_interface.items()):
+        if '|' in key:
+            pc_name, addr = key.split('|', 1)
+            pc_ips.setdefault(pc_name, []).append(addr)
+        else:
+            addrs = list(val.keys()) if isinstance(val, dict) else list(val)
+            pc_ips[key] = addrs
+    # PortChannel names in stable order (PortChannel1, PortChannel2, ...)
+    pc_names = sorted(
+        pc_ips.keys(),
+        key=lambda x: (
+            int(x.replace('PortChannel', ''))
+            if x.replace('PortChannel', '').isdigit()
+            else 0
+        )
+    )
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts, dut_hostname=duthost.hostname)
+    if snappi_fanouts is None:
+        return None
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        break
+    else:
+        return None
+    port_speeds = {int(p['speed']) for p in snappi_ports}
+    if len(port_speeds) != 1:
+        return None
+    port_speed = port_speeds.pop()
+    peer_port_to_snappi = {p['peer_port']: p for p in snappi_ports}
+    # BGP_NEIGHBOR: key = neighbor (TGEN) IP, value has 'local_addr' = DUT IP
+    # Map local_addr -> neighbor_ip to get TGEN IP from DUT IP on the port-channel
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR') or {}
+    local_to_neighbor = {}
+    for neighbor_ip, props in list(bgp_neighbors.items()):
+        local_addr = props.get('local_addr')
+        # Changing IP addresses esp IPv6 to lower case.
+        if local_addr:
+            local_to_neighbor[local_addr.lower()] = neighbor_ip.lower()
+    bgp_merged = _merged_bgp_neighbor_table(config_facts)
+    dm_local = (config_facts.get('DEVICE_METADATA') or {}).get('localhost') or {}
+    dut_asn_global = _normalize_sonic_config_asn(dm_local.get('bgp_asn'))
+    pytest_assert(
+        dut_asn_global is not None,
+        'DEVICE_METADATA localhost bgp_asn missing; cannot attach ASN fields to tgen_ports')
+    result = []
+    for port_id, pc_name in enumerate(pc_names):
+        members = pc_member.get(pc_name)
+        if members is None:
+            members = [m.split('|', 1)[1] for m in list(pc_member.keys()) if m.startswith(pc_name + '|')]
+        else:
+            members = list(members.keys()) if isinstance(members, dict) else members
+        # Skip portchannel if it has no ports or has more than 2 ports as members.
+        if (not members) or (len(members) >= 2):
+            continue
+        pc_port_member = members[0]
+        sp = peer_port_to_snappi.get(pc_port_member)
+        if sp is None:
+            continue
+        addrs = pc_ips.get(pc_name, [])
+        peer_ip = peer_ipv6 = prefix = ipv6_prefix = None
+        for a in addrs:
+            if ':' in a:
+                peer_ipv6, ipv6_prefix = a.split('/')
+            else:
+                peer_ip, prefix = a.split('/')
+        if peer_ip is None and peer_ipv6 is None:
+            continue
+        entry = {
+            'card_id': sp.get('card_id', '1'),
+            'location': sp['location'],
+            'peer_device': duthost.hostname,
+            'peer_port': pc_name,
+            'port_id': str(port_id),
+            'speed': speed_type.get(str(port_speed), sp.get('speed', 'speed_400_gbps')),
+        }
+        if peer_ip:
+            entry['peer_ip'] = peer_ip
+            entry['prefix'] = prefix
+            # Prefer BGP_NEIGHBOR (neighbor IP = TGEN side) when local_addr matches DUT IP
+            entry['ip'] = local_to_neighbor.get(peer_ip) or get_addrs_in_subnet(
+                peer_ip + '/' + prefix, 1, exclude_ips=[peer_ip])[0]
+        else:
+            entry['peer_ip'] = ''
+            entry['prefix'] = '24'
+            entry['ip'] = ''
+        if peer_ipv6:
+            entry['peer_ipv6'] = peer_ipv6.lower()
+            entry['ipv6_prefix'] = ipv6_prefix
+            # Prefer BGP_NEIGHBOR (neighbor IP = TGEN side) when local_addr matches DUT IPv6
+            entry['ipv6'] = local_to_neighbor.get(peer_ipv6.lower()) or get_addrs_in_subnet(
+                peer_ipv6 + '/' + ipv6_prefix, 1, exclude_ips=[peer_ipv6])[0]
+        else:
+            entry['peer_ipv6'] = ''
+            entry['ipv6_prefix'] = '64'
+            entry['ipv6'] = ''
+        asn4 = _peer_asn_from_bgp_neighbor_table(bgp_merged, entry.get('ip') or '')
+        asn6 = _peer_asn_from_bgp_neighbor_table(bgp_merged, entry.get('ipv6') or '')
+        if asn4 is not None and asn6 is not None:
+            pytest_assert(
+                asn4 == asn6,
+                'BGP neighbor ASN mismatch for {}: IPv4 TGEN {} asn {} vs IPv6 TGEN {} asn {}'.format(
+                    pc_name, entry.get('ip'), asn4, entry.get('ipv6'), asn6))
+        peer_asn = asn4 if asn4 is not None else asn6
+        pytest_assert(
+            peer_asn is not None,
+            'No BGP neighbor asn for {} (TGEN ip={}, ipv6={})'.format(
+                pc_name, entry.get('ip'), entry.get('ipv6')))
+        entry['dut_asn'] = dut_asn_global
+        entry['peer_asn'] = peer_asn
+        result.append(entry)
+    return result if result else None
+
+
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
+def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts, request):      # noqa: F811
     """
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
@@ -640,6 +816,18 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         'prefix': u'24',
         'speed': 'speed_400_gbps'}]
     """
+    use_bgp_pc_config = request.config.getoption("--bgp_pc_config", default=False)
+    config_facts = duthost.config_facts(host=duthost.hostname,
+                                        source="running")['ansible_facts']
+
+    if use_bgp_pc_config:
+        tgen_ports_list = _tgen_ports_from_portchannel(
+            duthost, conn_graph_facts, fanout_graph_facts, config_facts
+        )
+        pytest_assert(tgen_ports_list is not None,
+                      'Failed to build tgen_ports from port-channel (PORTCHANNEL_INTERFACE / PORTCHANNEL_MEMBER)')
+        return tgen_ports_list
+
     speed_type = {
                   '10000': 'speed_10_gbps',
                   '25000': 'speed_25_gbps',
@@ -649,8 +837,6 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
                   '200000': 'speed_200_gbps',
                   '400000': 'speed_400_gbps',
                   '800000': 'speed_800_gbps'}
-    config_facts = duthost.config_facts(host=duthost.hostname,
-                                        source="running")['ansible_facts']
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                              dut_hostname=duthost.hostname)
     pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')

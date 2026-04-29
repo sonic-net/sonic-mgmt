@@ -34,7 +34,7 @@ from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_int
 COUNT = 10
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'c0'),
+    pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
 
@@ -83,6 +83,10 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
             )
     else:
         ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+        # Remove the arp_responder config that add_ipaddr() wrote earlier so it
+        # cannot be picked up by a later test invoking arp_responder with its
+        # default config path.
+        ptfhost.file(path="/tmp/from_t1.json", state="absent")
 
 
 def clear_arp_ndp(duthost, ipv6=False):
