@@ -38,6 +38,7 @@ container_name_mapping = {
     "docker-sonic-restapi": "restapi",
     "docker-restapi-watchdog": "restapi_watchdog",
     "docker-restapi-sidecar": "restapi_sidecar",
+    "device-ops-agent": "device-ops-agent",
 }
 
 existing_systemd_services = [

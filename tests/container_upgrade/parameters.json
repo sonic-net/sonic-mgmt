@@ -184,5 +184,15 @@
             "-v /:/hostroot:ro",
             "-e DOCKER_BIN=/usr/bin/docker"
         ]
+    },
+    "device-ops-agent": {
+        "parameters": [
+            "--net=host",
+            "--user 0",
+            "-v /var/run/gnmi:/var/run/gnmi:ro",
+            "-v /var/run/redis:/var/run/redis:ro",
+            "-v /etc/localtime:/etc/localtime:ro",
+            "-v /etc/sonic:/etc/sonic:ro"
+        ]
     }
 }
