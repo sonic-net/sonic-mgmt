@@ -353,6 +353,18 @@ def pytest_addoption(parser):
         default=4,
         help="Max parallel workers for SmartSwitch gNOI upgrade tests (default: 4)",
     )
+    parser.addoption(
+        "--ss_npu_target_image",
+        action="store",
+        default="",
+        help="SmartSwitch NPU image URL used in the full upgrade test (DPUs staged first, then NPU rebooted)",
+    )
+    parser.addoption(
+        "--ss_npu_target_version",
+        action="store",
+        default="",
+        help="SmartSwitch NPU version string used in the full upgrade test (e.g. SONiC-OS-internal-202511.xxx)",
+    )
     ##################################
     #   Container Upgrade options    #
     ##################################
