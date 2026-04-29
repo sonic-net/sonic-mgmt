@@ -81,7 +81,7 @@ def test_secret_removed_from_show_techsupport(
         Radius key
         snmp community string
         /etc/shadow, which includes the hash of local/domain users' password
-        Certificate files: *.cer *.crt *.pem *.key
+        Certificate files: *.cer *.crt *.pem *.key *.pfx
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -128,8 +128,9 @@ def test_secret_removed_from_show_techsupport(
     check_no_result(duthost, test_command)
 
     # check *.cer *.crt *.pem *.key not exist in dump files
-    find_command = r"find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key -o -iname \*.pfx \)"\
-        .format(dump_extract_path)
+    find_pattern = r"\( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key -o -iname \*.pfx \)"
+    find_command = r"find {0}/ -type f " + find_pattern
+    find_command = find_command.format(dump_extract_path)
     check_no_result(duthost, find_command)
 
 
