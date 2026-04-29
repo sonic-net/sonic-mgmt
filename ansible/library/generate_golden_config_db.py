@@ -566,7 +566,7 @@ class GenerateGoldenConfigDBModule(object):
                         return Template(template_file.read())
 
                 # Render the template using the profile
-                rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
+                rendered_json = json.loads(safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile))
 
         if self.num_asics > 1:
             if "localhost" not in rendered_json:
@@ -740,7 +740,7 @@ class GenerateGoldenConfigDBModule(object):
                         return Template(template_file.read())
 
                 # Render the template using the profile
-                rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
+                rendered_json = json.loads(safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile))
 
         return json.dumps(rendered_json, indent=4)
 
