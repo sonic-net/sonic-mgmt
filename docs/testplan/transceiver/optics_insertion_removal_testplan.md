@@ -35,7 +35,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
 | ports_under_test | List | [] | No | None | A list under `dut.dut_name` containing the ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. | 
-| remote_reseat_timeout_min | Int | 10 | No | transceivers | The timeout value in seconds to wait for the remote reseat process to complete. |
+| remote_reseat_timeout_min | Int | 10 | No | transceivers | The timeout value in minutes to wait for the remote reseat process to complete. |
 | remote_reseat_stress_iteration | Int | 5 | No | dut | The number of iterations to stress test the remote reseat process. |
 | monitor_kernel_errors | Bool | False | No | transceivers | A flag indicating whether to monitor kernel errors during the test. |
 | link_flap_monitor_timeout_sec | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after remote reseat. |
@@ -51,8 +51,8 @@ This section outlines the test cases for validating the insertion and removal of
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | Optics removal validation| 1. Physically remove the optical module under test.|1. Transceiver presence command should return "Not present" with exit code 0.<br>2. Transceiver eeprom command should return "SFP EEPROM not detected" with exit code 0.<br>3. DOM, VDM and PM (if applicable) values are returned as empty from the CLI.<br>4. Transceiver related db tables are not deleted.<br>5. Interface should go oper down.<br>6. Other interfaces on the device should stay up.<br>7. Peer port should go oper down.<br>8. Link flap count of the local port and the peer port should increase by 1.<br>9. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly for the peer  port.<br>10. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>11. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-| 2 | Optics insertion validation| 1. Insert the optical module under test.|1. Transceiver presence command should return "Present" with exit code 0.<br>2. Transceiver eeprom show command should show the values as per the configuration file and with the exit code as 0.<br>3. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>4. Interface should go oper up after `port_startup_wait_sec` seconds.<br>5. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds.<br>6. Check that optics SI settings and media settings are as expected.<br>7. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>8. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly for the local and the peer port.<br>9. Peer port should become oper up.<br>10. Link flap count of the peer port should increase by 1.<br>11. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>12. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-| 3 | Simultaneous Physical OIR | 1. Physically remove all optical modules under test simultaneously.<br>2. Physically insert all optical modules under test simultaneously.| 1. All the expected results from TC#1 for all ports under test.<br>2. All the expected results from TC#2 for all ports under test.|
+| 2 | Optics insertion validation| 1. Insert the optical module under test.|1. Transceiver presence command should return "Present" with exit code 0.<br>2. Transceiver eeprom show command should show the values as per the configuration file and with the exit code as 0.<br>3. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>4. Interface should go oper up after `port_startup_wait_sec` seconds.<br>5. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds.<br>6. Check that optics SI settings and media settings are as expected.<br>7. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>8. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly for the local and the peer port.<br>9. Peer port should become oper up.<br>10. Link flap count of the peer port should increase by 1.<br>11. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>12. Critical process such as `xcvrd`, `syncd`, `orchagent` does not crash/restart. |
+| 3 | Simultaneous Physical OIR | 1. Physically remove all optical modules under test simultaneously if `simultaneous_oir` attribute is `True`.<br>2. Physically insert all optical modules under test simultaneously.| 1. All the expected results from TC#1 for all ports under test.<br>2. All the expected results from TC#2 for all ports under test.|
 | 4 | Physical OIR stress test| 1. Perform the physical OIR process `physical_oir_stress_iteration` times in quick succession.| 1. All the expected results from TC#2 after last insertion.|
 
 > Note: List of transceiver related DB tables can be found at [transceiver related DB tables](https://github.com/sonic-net/sonic-platform-daemons/blob/master/sonic-xcvrd/xcvrd/xcvrd_utilities/xcvr_table_helper.py#L11C1-L46C40).
@@ -97,10 +97,10 @@ This table lists the transceiver flag change count DB tables that should be moni
 
 The Physical OIR API provides a set of functions for performing physical optical insertion and removal tests on the device under test (DUT). This API allows users to check OIR support status, perform optics insertion/removal operations, and clean up OIR resources.
 
-A class named `PhysicalOIR` is defined under `tests.common.physical_oir` module. If the class can not be imported, the physical OIR tests are skipped. The class has following methods:
+A class named `PhysicalOir` is defined under `tests.common.physical_oir` module. If the class can not be imported, the physical OIR tests are skipped. The class has following methods:
 
 1. **Constructor Method**
-   - Description: Initializes the PhysicalOIR class.
+   - Description: Initializes the PhysicalOir class.
    - Parameters:
         - `duthost` : AnsibleHost object of the dut. Following attributes are fetched from the `duthost` object for further processing:
             - `ports_under_test`: List of ports to be tested.
@@ -127,11 +127,11 @@ A class named `PhysicalOIR` is defined under `tests.common.physical_oir` module.
     - Returns: None when the operation is complete.
 
 5. **cleanup**
-    - Description: Cleans up resources used by the PhysicalOIR class.
+    - Description: Cleans up resources used by the PhysicalOir class.
     - Parameters: None
     - Returns: None
 
-The `PhysicalOIR` class should look like below:
+The `PhysicalOir` class should look like below:
 
 ```python
 # File tests/common/physical_oir.py
@@ -153,7 +153,7 @@ class PhysicalOir:
         pass
 
     def cleanup(self) -> None:
-        # Cleanup resources used by the PhysicalOIR class
+        # Cleanup resources used by the PhysicalOir class
         pass  
 ```
 
