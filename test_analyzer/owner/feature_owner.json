@@ -1429,15 +1429,15 @@
     },
     {
         "feature": "restapi",
-        "owner": "Qi Luo",
-        "email": "qiluo@microsoft.com",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "restapi.test_restapi"
                 ],
-                "owner": "Qi Luo",
-                "email": "qiluo@microsoft.com"
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
             },
             {
                 "scripts": [
