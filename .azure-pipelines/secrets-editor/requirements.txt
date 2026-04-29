@@ -1,0 +1,3 @@
+azure-identity>=1.15
+azure-keyvault-secrets>=4.7
+cryptography>=41
