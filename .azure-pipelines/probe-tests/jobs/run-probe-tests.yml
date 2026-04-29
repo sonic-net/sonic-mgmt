@@ -1,0 +1,20 @@
+parameters:
+  - name: dependsOn
+    type: object
+    default: []
+    displayName: 'Depends On'
+  - name: condition
+    type: string
+    default: succeeded()
+    displayName: 'Condition'
+
+jobs:
+  - job: run_probe_tests
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: ${{ parameters.condition }}
+    displayName: 'Run Probe UT/IT'
+    timeoutInMinutes: 15
+    pool: sonic-ubuntu-1c
+    steps:
+      - checkout: self
+      - template: /.azure-pipelines/probe-tests/steps/run-probe-tests.yml

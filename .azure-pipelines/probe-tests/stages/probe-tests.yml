@@ -1,0 +1,45 @@
+# Probe UT/IT pipeline stage — runs MMU probe unit + integration tests
+# whenever a PR touches probe-relevant files:
+#   - tests/saitests/probe/
+#   - tests/saitests/mock/
+#   - tests/qos/test_qos_probe.py
+#
+# Mirrors the analyze-code.yml stage pattern (check changes -> conditional job).
+
+parameters:
+  - name: dependsOn
+    type: object
+    default: []
+    displayName: 'Depends On'
+
+stages:
+  - stage: probe_tests
+    displayName: 'Probe UT/IT'
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: succeededOrFailed()
+    jobs:
+      - job: check_probe_changes
+        displayName: 'Check if changes affect MMU probe code'
+        timeoutInMinutes: 5
+        pool: sonic-ubuntu-1c
+        steps:
+          - checkout: self
+          - script: |
+              git fetch origin
+              echo "Fetching changes from origin rc = $?"
+              CHANGED_FILES=$(git diff --name-only origin/master)
+              echo "Changed files:"
+              echo "$CHANGED_FILES"
+              if echo "$CHANGED_FILES" | grep -qE '^(tests/saitests/probe/|tests/saitests/mock/|tests/qos/test_qos_probe\.py)'; then
+                echo "Changes detected in probe-relevant paths"
+                echo "##vso[task.setvariable variable=probe_changes;isOutput=true]true"
+              else
+                echo "No changes detected in probe-relevant paths"
+                echo "##vso[task.setvariable variable=probe_changes;isOutput=true]false"
+              fi
+            name: set_var
+
+      - template: /.azure-pipelines/probe-tests/jobs/run-probe-tests.yml
+        parameters:
+          dependsOn: [check_probe_changes]
+          condition: eq(dependencies.check_probe_changes.outputs['set_var.probe_changes'], 'true')
