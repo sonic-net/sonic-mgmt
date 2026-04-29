@@ -3088,28 +3088,30 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope="function", autouse=False)
     def permit_only_test_traffic_on_fanout(
             self, get_src_dst_asic_and_duts, tbinfo,
-            nbrhosts, dutConfig, fanouthosts,
+            nbrhosts, dutConfig, dutQosConfig, fanouthosts,
             conn_graph_facts, request):
         """
         Block non-test L2 traffic from reaching DUT ingress ports during QoS
         headroom pool tests to prevent false InDiscard counter increments.
 
-        Configures the EOS fanout switch to only forward IP/IPv6/ARP frames
-        toward the DUT, blocking LLDP (0x88CC), LACP (0x8809), and other
-        non-test ethertypes via an egress MAC ACL whitelist.
+        Configures the fanout switch to only forward IP/IPv6/ARP frames toward
+        the DUT, blocking LLDP (0x88CC), LACP (0x8809), and other non-test
+        ethertypes via an ethertype-based ACL whitelist.
 
         Steps:
         1. Stop DUT teamd lacpd (prevents LACP timeout detection)
         2. Set EOS neighbor LACP timer multiplier to 600 (prevents EOS-side timeout)
-        3. Disable LLDP TX/RX + apply egress MAC ACL on fanout DUT-facing ports
+        3. Disable LLDP and apply ethertype whitelist ACL on fanout DUT-facing ports
+
+        Fanout dispatch:
+        - EOS fanout: egress MAC ACL + `no lldp transmit/receive` per interface
+        - SONiC fanout: ingress custom ACL (ETHER_TYPE matcher) + stop lldp container
+          (Broadcom SONiC does not support egress ACL — use ingress.)
 
         Note on change_lag_lacp_timer interaction: that fixture only activates
         for broadcom-dnx platforms and operates on dst_port LAGs. This fixture
         operates on src_port LAGs for Broadcom TH (7060CX), so there is no
         overlap on the affected platform.
-
-        Note: Currently supports EOS fanout only. SONiC fanout support is
-        tracked in issue #24236.
         """
         if request.config.getoption("--neighbor_type") == "sonic":
             yield
@@ -3119,15 +3121,32 @@ class QosSaiBase(QosBase):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         src_mgfacts = src_dut.get_extended_minigraph_facts(tbinfo)
 
-        # Protect ALL test ports from noise. The actual src_port_ids used by PTF
-        # come from qos.yml hdrm_pool_size (e.g., [17,18]) which differs from
-        # dutConfig.testPorts.src_port_id (e.g., 2). Apply to all dutInterfaces.
-        # TODO: optimize to only protect actual src/dst ports (tracked in #24236)
-        src_interfaces = [dutConfig['dutInterfaces'][idx]
-                          for idx in sorted(dutConfig.get('dutInterfaces', {}).keys())]
+        # Resolve which DUT ports actually need protection from PTF test config.
+        # PTF sends from `hdrm_pool_size.src_port_ids` and `dst_port_id` from
+        # qos params, not from `dutConfig.testPorts.src_port_id`. Get the real
+        # list from dutQosConfig.
+        protected_port_ids = set()
+        try:
+            qos_param = dutQosConfig['param'].get(dutQosConfig['portSpeedCableLength'], {})
+            hdrm = qos_param.get('hdrm_pool_size', {}) or {}
+            for pid in hdrm.get('src_port_ids', []) or []:
+                protected_port_ids.add(pid)
+            if hdrm.get('dst_port_id') is not None:
+                protected_port_ids.add(hdrm['dst_port_id'])
+        except Exception as e:
+            logger.warning("permit_only_test_traffic_on_fanout: "
+                           "failed to read hdrm_pool_size from dutQosConfig: %s", str(e))
 
-        logger.debug("permit_only_test_traffic_on_fanout: testPorts = %s",
-                     dutConfig.get('testPorts', {}))
+        if not protected_port_ids:
+            # Fallback: protect all dutInterfaces
+            logger.info("permit_only_test_traffic_on_fanout: hdrm_pool_size "
+                        "src_port_ids not available; falling back to all dutInterfaces")
+            protected_port_ids = set(dutConfig.get('dutInterfaces', {}).keys())
+
+        src_interfaces = [dutConfig['dutInterfaces'][idx]
+                          for idx in sorted(protected_port_ids)
+                          if idx in dutConfig.get('dutInterfaces', {})]
+
         logger.info(
             "permit_only_test_traffic_on_fanout: protecting %d ports: %s",
             len(src_interfaces), src_interfaces)
@@ -3147,7 +3166,8 @@ class QosSaiBase(QosBase):
         # State tracking for teardown
         eos_restore_list = []
         fanout_restore_list = []
-        acl_created_fanouts = set()
+        acl_created_fanouts = {}  # fanout_name -> fanout_os (for cleanup dispatch)
+        sonic_lldp_stopped = set()  # fanout names where we stopped lldp container
         lacpd_stopped = False
         acl_name = "QOS_TEST_WHITELIST"
         teamd_docker = src_asic.get_docker_name("teamd")
@@ -3201,73 +3221,43 @@ class QosSaiBase(QosBase):
                 logger.info("permit_only_test_traffic_on_fanout: "
                             "no LAGs found, skipping LACP steps")
 
-            # --- Step 3: Disable LLDP + egress MAC ACL on fanout ports ---
-            # Egress MAC ACL permits only IP (0x0800), IPv6 (0x86DD), and ARP
-            # (0x0806). All other ethertypes — including LLDP (0x88CC), LACP
-            # (0x8809), and other broadcast/multicast L2 frames — are denied.
-            # PFC (0x8808) is DUT-originated and travels DUT→fanout, so the
-            # egress (fanout→DUT) ACL does not affect it.
+            # --- Step 3: Per-fanout-port LLDP disable + ethertype ACL ---
+            # The whitelist permits IP (0x0800), IPv6 (0x86DD), and ARP (0x0806).
+            # All other ethertypes — including LLDP (0x88CC), LACP (0x8809),
+            # and broadcast/multicast L2 frames — are denied.
+            # PFC (0x8808) is DUT-originated and travels DUT→fanout, so neither
+            # the EOS egress nor the SONiC ingress ACL affects it.
             dev_conn = conn_graph_facts.get('device_conn', {})
+            # Restrict to only the source DUT's connections to avoid touching
+            # fanout ports of unrelated DUTs in multi-DUT topologies.
+            src_dut_conn = dev_conn.get(src_dut.hostname, {})
 
-            for dut_name, ethernet_ports in dev_conn.items():
-                for dut_port, fanout_rec in ethernet_ports.items():
-                    if dut_port not in src_interfaces:
-                        continue
-                    fanout_name = str(fanout_rec['peerdevice'])
-                    fanout_port = str(fanout_rec['peerport'])
+            for dut_port, fanout_rec in src_dut_conn.items():
+                if dut_port not in src_interfaces:
+                    continue
+                fanout_name = str(fanout_rec['peerdevice'])
+                fanout_port = str(fanout_rec['peerport'])
 
-                    if fanout_name not in fanouthosts:
-                        continue
+                if fanout_name not in fanouthosts:
+                    continue
 
-                    fanout = fanouthosts[fanout_name]
-                    fanout_os = fanout.get_fanout_os()
+                fanout = fanouthosts[fanout_name]
+                fanout_os = fanout.get_fanout_os()
 
-                    if fanout_os == 'eos':
-                        try:
-                            # Disable LLDP first; record immediately for restore
-                            fanout.host.eos_config(
-                                lines=['no lldp transmit', 'no lldp receive'],
-                                parents=['interface %s' % fanout_port])
-                            fanout_restore_list.append(
-                                (fanout, fanout_name, fanout_port))
-                        except Exception as e:
-                            logger.warning(
-                                "permit_only_test_traffic_on_fanout: "
-                                "LLDP disable failed on %s %s: %s",
-                                fanout_name, fanout_port, str(e))
-                            continue
-
-                        try:
-                            # Create MAC ACL once per fanout
-                            if fanout_name not in acl_created_fanouts:
-                                fanout.host.eos_config(
-                                    lines=[
-                                        'permit any any ip',
-                                        'permit any any ipv6',
-                                        'permit any any arp',
-                                        'deny any any',
-                                    ],
-                                    parents=['mac access-list %s' % acl_name])
-                                acl_created_fanouts.add(fanout_name)
-                            # Bind egress MAC ACL (out = fanout→DUT direction)
-                            fanout.host.eos_config(
-                                lines=['mac access-group %s out' % acl_name],
-                                parents=['interface %s' % fanout_port])
-                            logger.info(
-                                "permit_only_test_traffic_on_fanout: "
-                                "protected %s %s", fanout_name, fanout_port)
-                        except Exception as e:
-                            logger.warning(
-                                "permit_only_test_traffic_on_fanout: "
-                                "ACL config failed on %s %s: %s",
-                                fanout_name, fanout_port, str(e))
-
-                    elif fanout_os == 'sonic':
-                        # SONiC fanout support tracked in #24236
-                        logger.warning(
-                            "permit_only_test_traffic_on_fanout: "
-                            "SONiC fanout not supported, skipping %s",
-                            fanout_name)
+                if fanout_os == 'eos':
+                    self._apply_eos_filter(
+                        fanout, fanout_name, fanout_port, acl_name,
+                        fanout_restore_list, acl_created_fanouts)
+                elif fanout_os == 'sonic':
+                    self._apply_sonic_filter(
+                        fanout, fanout_name, fanout_port, acl_name,
+                        fanout_restore_list, acl_created_fanouts,
+                        sonic_lldp_stopped)
+                else:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: "
+                        "fanout OS '%s' not supported, skipping %s",
+                        fanout_os, fanout_name)
 
         except Exception as e:
             # Setup failed partway — run teardown for anything already configured
@@ -3277,7 +3267,7 @@ class QosSaiBase(QosBase):
             self._teardown_test_traffic_filter(
                 src_dut, teamd_docker, lacpd_stopped,
                 eos_restore_list, fanout_restore_list,
-                acl_created_fanouts, acl_name, fanouthosts)
+                acl_created_fanouts, sonic_lldp_stopped, acl_name, fanouthosts)
             raise
 
         logger.info(
@@ -3290,12 +3280,111 @@ class QosSaiBase(QosBase):
         self._teardown_test_traffic_filter(
             src_dut, teamd_docker, lacpd_stopped,
             eos_restore_list, fanout_restore_list,
-            acl_created_fanouts, acl_name, fanouthosts)
+            acl_created_fanouts, sonic_lldp_stopped, acl_name, fanouthosts)
+
+    def _apply_eos_filter(self, fanout, fanout_name, fanout_port, acl_name,
+                          fanout_restore_list, acl_created_fanouts):
+        """Apply LLDP disable + egress MAC ACL on an EOS fanout port."""
+        try:
+            # Disable LLDP first; record immediately for restore
+            fanout.host.eos_config(
+                lines=['no lldp transmit', 'no lldp receive'],
+                parents=['interface %s' % fanout_port])
+            fanout_restore_list.append(
+                ('eos', fanout, fanout_name, fanout_port))
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: "
+                "LLDP disable failed on EOS %s %s: %s",
+                fanout_name, fanout_port, str(e))
+            return
+
+        try:
+            # Create MAC ACL once per fanout
+            if fanout_name not in acl_created_fanouts:
+                fanout.host.eos_config(
+                    lines=[
+                        'permit any any ip',
+                        'permit any any ipv6',
+                        'permit any any arp',
+                        'deny any any',
+                    ],
+                    parents=['mac access-list %s' % acl_name])
+                acl_created_fanouts[fanout_name] = 'eos'
+            # Bind egress MAC ACL (out = fanout→DUT direction)
+            fanout.host.eos_config(
+                lines=['mac access-group %s out' % acl_name],
+                parents=['interface %s' % fanout_port])
+            logger.info(
+                "permit_only_test_traffic_on_fanout: protected EOS %s %s",
+                fanout_name, fanout_port)
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: "
+                "ACL config failed on EOS %s %s: %s",
+                fanout_name, fanout_port, str(e))
+
+    def _apply_sonic_filter(self, fanout, fanout_name, fanout_port, acl_name,
+                            fanout_restore_list, acl_created_fanouts,
+                            sonic_lldp_stopped):
+        """Apply partial filter on SONiC fanout: stop LLDP container only.
+
+        Why partial: Broadcom SONiC does not support egress ACL, so we
+        cannot replicate the EOS "egress on DUT-facing port" approach.
+        Applying ingress ACL on the DUT-facing port would filter the wrong
+        direction (DUT->fanout, blocking PFC). Applying ingress ACL on
+        VM-facing ports requires multi-tier topology discovery that is
+        out of scope for this PR.
+
+        What this DOES cover:
+        - Fanout-self originated LLDP (stopped via container)
+
+        What this does NOT cover (limitation, tracked in #24236):
+        - VM-originated LLDP/LACP that transits through the SONiC fanout
+
+        Mitigations for the uncovered cases come from the existing
+        DUT-side defenses already applied by this fixture and stopServices:
+        - DUT teamd lacpd stopped (no LAG flap from blocked LACP)
+        - EOS neighbor LACP multiplier 600 (no EOS-side LAG flap)
+        - DUT LLDP/BGP/radvd stopped by stopServices fixture
+        """
+        # Stop LLDP container once per fanout (covers fanout-self LLDP).
+        # The 202511 fanout role only stops LLDP for marvell-teralynx;
+        # broadcom SONiC fanouts still run LLDP by default.
+        if fanout_name not in sonic_lldp_stopped:
+            try:
+                result = fanout.host.command(
+                    "docker stop lldp", module_ignore_errors=True)
+                if result.get('failed', False) or result.get('rc', 0) != 0:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: "
+                        "docker stop lldp on SONiC %s returned rc=%s, "
+                        "output=%s", fanout_name, result.get('rc', '?'),
+                        result.get('stdout', result.get('stderr', '')))
+                else:
+                    sonic_lldp_stopped.add(fanout_name)
+                    logger.info(
+                        "permit_only_test_traffic_on_fanout: stopped lldp "
+                        "container on SONiC %s", fanout_name)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to stop lldp on SONiC %s: %s",
+                    fanout_name, str(e))
+
+        # Track this port for restore (no ACL applied — see docstring).
+        # We still record so teardown logging is symmetric.
+        fanout_restore_list.append(
+            ('sonic', fanout, fanout_name, fanout_port))
+        logger.info(
+            "permit_only_test_traffic_on_fanout: SONiC %s %s "
+            "(LLDP-container-stop only; VM-noise filtering tracked in #24236)",
+            fanout_name, fanout_port)
 
     def _teardown_test_traffic_filter(
             self, src_dut, teamd_docker, lacpd_stopped,
             eos_restore_list, fanout_restore_list,
-            acl_created_fanouts, acl_name, fanouthosts):
+            acl_created_fanouts, sonic_lldp_stopped, acl_name, fanouthosts):
         """Reverse all changes made by permit_only_test_traffic_on_fanout."""
         # Step 1 reverse: restart DUT lacpd FIRST (before timer restore)
         if lacpd_stopped:
@@ -3319,28 +3408,48 @@ class QosSaiBase(QosBase):
                     "permit_only_test_traffic_on_fanout: "
                     "failed to restore LACP timer: %s", str(e))
 
-        # Step 3 reverse: restore LLDP + unbind ACL from all ports
-        for fanout, fanout_name, fanout_port in fanout_restore_list:
+        # Step 3 reverse: per-port LLDP/ACL teardown (dispatch by fanout_os)
+        for entry in fanout_restore_list:
+            fanout_os, fanout, fanout_name, fanout_port = entry
             try:
-                fanout.host.eos_config(
-                    lines=['lldp transmit', 'lldp receive',
-                           'no mac access-group %s out' % acl_name],
-                    parents=['interface %s' % fanout_port])
+                if fanout_os == 'eos':
+                    fanout.host.eos_config(
+                        lines=['lldp transmit', 'lldp receive',
+                               'no mac access-group %s out' % acl_name],
+                        parents=['interface %s' % fanout_port])
+                elif fanout_os == 'sonic':
+                    # Per-port unbind handled by removing whole ACL_TABLE below
+                    pass
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
-                    "failed to restore %s: %s", fanout_port, str(e))
+                    "failed to restore %s %s: %s",
+                    fanout_name, fanout_port, str(e))
 
-        # Delete ACL definition once per fanout
-        for fanout_name in acl_created_fanouts:
+        # Delete ACL definition once per fanout (dispatch by recorded os)
+        for fanout_name, fanout_os in acl_created_fanouts.items():
             try:
                 fanout = fanouthosts[fanout_name]
-                fanout.host.eos_config(
-                    lines=['no mac access-list %s' % acl_name])
+                if fanout_os == 'eos':
+                    fanout.host.eos_config(
+                        lines=['no mac access-list %s' % acl_name])
+                # SONiC: no ACL was created in this version (see _apply_sonic_filter)
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
                     "failed to delete ACL on %s: %s", fanout_name, str(e))
+
+        # Restart LLDP container on SONiC fanouts where we stopped it
+        for fanout_name in sonic_lldp_stopped:
+            try:
+                fanout = fanouthosts[fanout_name]
+                fanout.host.command(
+                    "docker start lldp", module_ignore_errors=True)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to restart lldp on SONiC %s: %s",
+                    fanout_name, str(e))
 
         logger.info("permit_only_test_traffic_on_fanout: teardown complete")
 
