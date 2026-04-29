@@ -187,11 +187,6 @@ def setup(duthost, tbinfo, request, enable_wred_counters, create_blocking_schedu
     return test_params
 
 
-def clear_queue_wred_counters(duthost):
-    logger.info("Clearing WRED counters on the DUT.")
-    duthost.shell("sonic-clear queue wredcounters")
-
-
 def get_test_packet(dest_mac, ip_version, dest_ip, ect_enabled, dscp):
     ecn = 0b10 if ect_enabled else 0b00
     if ip_version == "ipv4":
@@ -264,7 +259,7 @@ def get_expected_packet_mask(pkt, ip_version):
         return get_expected_packet_mask_ipv6(pkt)
 
 
-def check_wred_counters(duthost, egress_ports, expect_drop):
+def check_wred_counters(duthost, egress_ports, expect_drop, expect_zero=False):
     action = "drop" if expect_drop else "ECN"
     count = 0
     if expect_drop:
@@ -279,9 +274,19 @@ def check_wred_counters(duthost, egress_ports, expect_drop):
         pytest_assert(queue_count_str.isdigit(),
                       f"Could not get the WRED {action} counter for queue {port}|{QUEUE}.")
         count += int(queue_count_str)
-    pytest_assert(count >= PACKET_COUNT,
-                  f"Sum of WRED {action} counters ({count}) is less than {PACKET_COUNT}.")
+    if expect_zero:
+        pytest_assert(count == 0,
+                      f"Sum of WRED {action} counters ({count}) is not zero after clearing counters.")
+    else:
+        pytest_assert(count >= PACKET_COUNT,
+                      f"Sum of WRED {action} counters ({count}) is less than {PACKET_COUNT}.")
     logger.info(f"Sum of WRED {action} counters across egress ports {egress_ports} is {count}.")
+
+
+def clear_queue_wred_counters(duthost, egress_ports, expect_drop):
+    logger.info("Clearing WRED counters on the DUT.")
+    duthost.shell("sonic-clear queue wredcounters")
+    check_wred_counters(duthost, egress_ports, expect_drop, expect_zero=True)
 
 
 def create_congestion(ptfadapter, router_mac, ip_version, dest_ip, dscp, ingress_port_index, egress_port_count):
@@ -310,12 +315,13 @@ def restore_original_schedulers(duthost, prev_schedulers):
 @pytest.mark.parametrize("ect_enabled", [False, True], ids=["ect_disabled", "ect_enabled"])
 def test_wred_counters(duthost, ptfadapter, setup, ect_enabled):
     test_params = setup
+    expect_ecn = ect_enabled and test_params["policy"] == "ecn"
     router_mac = duthost.facts["router_mac"]
     pkt = get_test_packet(router_mac, test_params["ip_version"], test_params["dest_ip"],
                           ect_enabled, test_params["dscp"])
     logger.info(f"Test packet: {pkt}")
     exp_pkt_mask = get_expected_packet_mask(pkt, test_params["ip_version"])
-    clear_queue_wred_counters(duthost)
+    clear_queue_wred_counters(duthost, list(test_params["egress_ports"].keys()), expect_drop=not expect_ecn)
 
     create_congestion(ptfadapter, router_mac, test_params["ip_version"], test_params["dest_ip"],
                       test_params["dscp"], test_params["ingress_port_index"], len(test_params["egress_ports"]))
@@ -325,11 +331,10 @@ def test_wred_counters(duthost, ptfadapter, setup, ect_enabled):
     testutils.send(ptfadapter, test_params["ingress_port_index"], pkt, count=PACKET_COUNT)
 
     restore_original_schedulers(duthost, test_params["prev_scheduler"])
-    expect_ecn = ect_enabled and test_params["policy"] == "ecn"
     if expect_ecn:
         _, received_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt_mask,
                                                            ports=list(test_params["egress_ports"].values()))
         logger.info(f"Received packet: {packet.Ether(received_pkt)}")
     else:
         testutils.verify_no_packet_any(ptfadapter, exp_pkt_mask, ports=list(test_params["egress_ports"].values()))
-    check_wred_counters(duthost, test_params["egress_ports"], expect_drop=not expect_ecn)
+    check_wred_counters(duthost, list(test_params["egress_ports"].keys()), expect_drop=not expect_ecn)
