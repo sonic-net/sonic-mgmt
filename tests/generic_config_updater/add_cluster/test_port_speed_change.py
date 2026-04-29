@@ -26,30 +26,29 @@ logger = logging.getLogger(__name__)
 allure.logger = logger
 
 
-# -----------------------------
-# Attributes used by test for acl config
-# -----------------------------
-ACL_TABLE_NAME = "L3_TRANSPORT_TEST"
-ACL_TABLE_STAGE_EGRESS = "egress"
-ACL_TABLE_TYPE_L3 = "L3"
-ACL_RULE_FILE_PATH = "generic_config_updater/add_cluster/acl/acl_rule_src_dst_port.json"
-ACL_RULE_DST_FILE = "/tmp/test_add_cluster_acl_rule.json"
-ACL_RULE_SKIP_VERIFICATION_LIST = [""]
+def _pick_traffic_source(duthosts, test_dut_hostname, original_upstream):
+    """Return the hostname of the DUT to use as the secondary ("upstream") traffic source.
+
+    Prefer the original upstream DUT when it is not the test DUT. If the test DUT is
+    the original upstream, pick the first frontend node whose hostname differs from
+    the test DUT. Returns None when no such DUT exists.
+    """
+    if test_dut_hostname != original_upstream:
+        return original_upstream
+    for n in duthosts.frontend_nodes:
+        if n.hostname != test_dut_hostname:
+            return n.hostname
+    return None
 
 
-# -----------------------------
-# Fixtures
-# -----------------------------
-@pytest.fixture(scope="module")
-def selected_random_port(config_facts):
-    """Fixture that selects a random port"""
+def pick_active_front_panel_port(config_facts):
+    """Pick one active front-panel port that is not a portchannel member."""
     active_ports = get_active_interfaces(config_facts)
     port_name = ""
     port_channel_members = []
     if 'PORTCHANNEL_MEMBER' not in config_facts:
         if len(active_ports) > 0:
-            port_name = active_ports[0]
-        logging.info(f"Selected random active port {port_name} to use for testing.")
+            return active_ports[0]
         return port_name
     port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
     for port_channel in list(port_channel_member_facts.keys()):
@@ -66,9 +65,44 @@ def selected_random_port(config_facts):
     return str(port_name)
 
 
-@pytest.fixture(scope="module")
-def selected_random_port_alias(mg_facts, selected_random_port):
-    return mg_facts['minigraph_port_name_to_alias_map'].get(selected_random_port, selected_random_port)
+def _build_dut_context(duthost, tbinfo, asic_index):
+    """Compute per-DUT asic namespace and facts for a given asic index."""
+    if asic_index is None or asic_index == DEFAULT_ASIC_ID:
+        asic_namespace = None
+        cli_ns_prefix = ''
+        ip_netns_prefix = ''
+    else:
+        asic_namespace = f'{NAMESPACE_PREFIX}{asic_index}'
+        cli_ns_prefix = f'-n {asic_namespace}'
+        ip_netns_prefix = f'sudo ip netns exec {asic_namespace}'
+
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace=asic_namespace)
+    config_facts = duthost.config_facts(
+        host=duthost.hostname, source="running", namespace=asic_namespace
+    )['ansible_facts']
+    config_facts_localhost = duthost.config_facts(
+        host=duthost.hostname, source="running", namespace=None
+    )['ansible_facts']
+    return {
+        "asic_index": asic_index if asic_index is not None else DEFAULT_ASIC_ID,
+        "asic_namespace": asic_namespace,
+        "cli_namespace_prefix": cli_ns_prefix,
+        "ip_netns_namespace_prefix": ip_netns_prefix,
+        "mg_facts": mg_facts,
+        "config_facts": config_facts,
+        "config_facts_localhost": config_facts_localhost,
+    }
+
+
+# -----------------------------
+# Attributes used by test for acl config
+# -----------------------------
+ACL_TABLE_NAME = "L3_TRANSPORT_TEST"
+ACL_TABLE_STAGE_EGRESS = "egress"
+ACL_TABLE_TYPE_L3 = "L3"
+ACL_RULE_FILE_PATH = "generic_config_updater/add_cluster/acl/acl_rule_src_dst_port.json"
+ACL_RULE_DST_FILE = "/tmp/test_add_cluster_acl_rule.json"
+ACL_RULE_SKIP_VERIFICATION_LIST = [""]
 
 
 @pytest.fixture(autouse=True)
@@ -144,6 +178,33 @@ def get_target_speed(duthost, cli_namespace_prefix, selected_random_port):
     pytest_assert(target_speed, "Failed to find any speed to change to.")
 
     return target_speed
+
+
+def get_target_speed_by_direction(duthost, cli_namespace_prefix, selected_random_port, direction, skip_unavailable=True):
+    """
+    Pick speed B based on required direction from current speed A.
+    downgrade: choose nearest lower speed.
+    upgrade: choose nearest higher speed.
+    """
+    current_speed = int(get_port_speed(duthost, cli_namespace_prefix, selected_random_port))
+    supported_test_speeds = [int(s) for s in (get_test_speeds(duthost) or [])]
+    other_speeds = sorted([s for s in supported_test_speeds if s != current_speed])
+    pytest_assert(other_speeds, f"No alternative speed available for port {selected_random_port}")
+
+    lower = [s for s in other_speeds if s < current_speed]
+    higher = [s for s in other_speeds if s > current_speed]
+    target = None
+
+    if direction == "downgrade":
+        target = max(lower) if lower else None
+    elif direction == "upgrade":
+        target = min(higher) if higher else None
+    else:
+        pytest.fail(f"Unsupported direction: {direction}")
+
+    if target is None and skip_unavailable:
+        pytest.skip(f"Skip {direction}: no valid target speed from current {current_speed}")
+    return None if target is None else str(target)
 
 
 def get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_speed):
@@ -293,6 +354,10 @@ def apply_patch_change_port_cluster(config_facts,
     # Patch Operation No.1
     ##############
     json_patch = []
+    # When operation == 'remove' we split port-change ('add') ops into a separate patch
+    # so cluster removal and port speed change are applied in distinct patches.
+    json_patch_port_change = []
+    port_change_list = json_patch if operation == "add" else json_patch_port_change
 
     # ACL
     json_patch_acl = []
@@ -317,39 +382,6 @@ def apply_patch_change_port_cluster(config_facts,
     # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
     bgp_neigh_name, bgp_neigh_intfs, bgp_neigh_ipv4, bgp_neigh_ipv6 = get_interface_neighbor_and_intfs(
         mg_facts, selected_random_port)
-    for bgp_neigh_intf in bgp_neigh_intfs:
-        bgp_neigh_intf = bgp_neigh_intf.lower()
-        if operation == "add":
-            json_patch.append({
-                "op": "add",
-                "path": "/localhost/BGP_NEIGHBOR/{}".format(bgp_neigh_intf),
-                "value": config_facts_localhost["BGP_NEIGHBOR"][bgp_neigh_intf]
-            })
-        elif operation == "remove":
-            json_patch.append({
-                "op": "remove",
-                "path": "/localhost/BGP_NEIGHBOR/{}".format(bgp_neigh_intf)
-            })
-    if operation == "add":
-        json_patch.append({
-            "op": "add",
-            "path": "/localhost/DEVICE_NEIGHBOR/{}".format(selected_random_port_alias.replace("/", "~1")),
-            "value": config_facts_localhost["DEVICE_NEIGHBOR"][selected_random_port_alias]
-        })
-        json_patch.append({
-            "op": "add",
-            "path": "/localhost/DEVICE_NEIGHBOR_METADATA/{}".format(bgp_neigh_name),
-            "value": config_facts_localhost["DEVICE_NEIGHBOR_METADATA"][bgp_neigh_name]
-        })
-    elif operation == "remove":
-        json_patch.append({
-            "op": "remove",
-            "path": "/localhost/DEVICE_NEIGHBOR_METADATA/{}".format(bgp_neigh_name)
-        })
-        json_patch.append({
-            "op": "remove",
-            "path": "/localhost/DEVICE_NEIGHBOR/{}".format(selected_random_port_alias.replace("/", "~1"))
-        })
     for bgp_neigh_intf in bgp_neigh_intfs:
         bgp_neigh_intf = bgp_neigh_intf.lower()
         if operation == "add":
@@ -415,9 +447,6 @@ def apply_patch_change_port_cluster(config_facts,
     for key, value in interface_dict.items():
         intf_paths_list.append(f"{json_namespace}/INTERFACE/{key}")
         intf_values_list.append(value)
-    for key, value in localhost_interface_dict.items():
-        intf_paths_list.append(f"/localhost/INTERFACE/{key}")
-        intf_values_list.append(value)
     for path, value in zip(intf_paths_list, intf_values_list):
         if operation == "add":
             json_patch.append({
@@ -437,13 +466,13 @@ def apply_patch_change_port_cluster(config_facts,
     highest = max(cable_length_values)
     lowest = min(cable_length_values)
     if operation == "add":
-        json_patch.append({
+        port_change_list.append({
             "op": "add",
             "path": "{}/CABLE_LENGTH/AZURE/{}".format(json_namespace, selected_random_port),
             "value": f"{highest}m"
         })
     elif operation == "remove":
-        json_patch.append({
+        port_change_list.append({
             "op": "add",
             "path": "{}/CABLE_LENGTH/AZURE/{}".format(json_namespace, selected_random_port),
             "value": f"{lowest}m"
@@ -476,22 +505,24 @@ def apply_patch_change_port_cluster(config_facts,
         })
 
     # PORT
-    json_patch.append({
+    admin_status_down_op = {
         "op": "add",
         "path": f"{json_namespace}/PORT/{selected_random_port}/admin_status",
         "value": "down"
-    })
+    }
+    if operation == "add":
+        port_change_list.append(admin_status_down_op)
     current_lanes = get_port_lanes(duthost, cli_namespace_prefix, selected_random_port)
     start_lane = int(current_lanes[0])
     target_num_lanes = get_num_lanes_per_speed(duthost, target_speed)
     pytest_assert(target_num_lanes is not None, f"Could not determine num lanes for speed {target_speed}")
     new_lanes = ",".join(str(i) for i in range(start_lane, start_lane + target_num_lanes))
-    json_patch.append({
+    port_change_list.append({
         "op": "add",
         "path": f"{json_namespace}/PORT/{selected_random_port}/lanes",
         "value": new_lanes
     })
-    json_patch.append({
+    port_change_list.append({
         "op": "add",
         "path": f"{json_namespace}/PORT/{selected_random_port}/speed",
         "value": target_speed
@@ -507,12 +538,12 @@ def apply_patch_change_port_cluster(config_facts,
             target_fec = random.choice(get_fec_for_speed(duthost, target_speed))
     if target_fec == "N/A":
         if current_fec:
-            json_patch.append({
+            port_change_list.append({
                 "op": "remove",
                 "path": f"{json_namespace}/PORT/{selected_random_port}/fec"
             })
     elif target_fec:
-        json_patch.append({
+        port_change_list.append({
             "op": "add",
             "path": f"{json_namespace}/PORT/{selected_random_port}/fec",
             "value": target_fec
@@ -558,7 +589,7 @@ def apply_patch_change_port_cluster(config_facts,
             "value": "up"
             })
     elif operation == "remove":
-        json_patch = json_patch_acl + json_patch
+        json_patch = json_patch_acl + [admin_status_down_op] + json_patch
 
     # APPLY PATCH NO.1
     tmpfile = generate_tmpfile(duthost)
@@ -570,6 +601,22 @@ def apply_patch_change_port_cluster(config_facts,
             expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
+
+    ##############
+    # Patch Operation No.1b: PORT speed change (only for 'remove' operation)
+    # When removing cluster info, the port speed/lanes/fec and CABLE_LENGTH changes are
+    # applied as a separate patch after the cluster removal patch (admin down is in patch1).
+    ##############
+    if operation == "remove" and json_patch_port_change:
+        tmpfile = generate_tmpfile(duthost)
+        try:
+            logger.info(f"Applying patch to change port speed/lanes info. Dry-run {dry_run}")
+            logger.info(f"Patch content: {json_patch_port_change}")
+            if not dry_run:
+                output = apply_patch(duthost, json_data=json_patch_port_change, dest_file=tmpfile)
+                expect_op_success(duthost, output)
+        finally:
+            delete_tmpfile(duthost, tmpfile)
 
     ##############
     # Patch Operation No.2: QUEUE
@@ -620,12 +667,9 @@ def initialize_random_variables(enum_downstream_dut_hostname,
                                 enum_rand_one_frontend_asic_index,
                                 enum_rand_one_asic_namespace,
                                 ip_netns_namespace_prefix,
-                                cli_namespace_prefix,
-                                selected_random_port,
-                                selected_random_port_alias):
+                                cli_namespace_prefix):
     return enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
-        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, \
-        selected_random_port, selected_random_port_alias
+        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix
 
 
 @pytest.fixture(scope="function")
@@ -637,30 +681,110 @@ def initialize_facts(mg_facts,
 
 @pytest.fixture(scope="function")
 def setup_port_speed_change(duthosts,
+                            tbinfo,
                             loganalyzer,
                             initialize_random_variables,
-                            initialize_facts):
+                            request):
     """
     Setup fixture to change port speed
     """
 
     # initial test env
-    enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
-        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, \
-        selected_random_port, selected_random_port_alias = initialize_random_variables
-    mg_facts, config_facts, config_facts_localhost = initialize_facts
+    enum_downstream_dut_hostname, enum_upstream_dut_hostname, _asic_index, \
+        _asic_namespace, _ip_netns_prefix, _cli_ns_prefix = initialize_random_variables
 
-    duthost = duthosts[enum_downstream_dut_hostname]
+    direction = request.param
+    # Candidate order: downstream first, then any other frontend (excluding upstream),
+    # finally fall back to the upstream DUT so both downgrade/upgrade directions can
+    # find a port that supports them in topologies where the downstream/other frontends
+    # do not have a compatible port.
+    other_frontends = [
+        n for n in duthosts.frontend_nodes
+        if n.hostname not in (enum_downstream_dut_hostname, enum_upstream_dut_hostname)
+    ]
+    upstream_node = duthosts[enum_upstream_dut_hostname] if enum_upstream_dut_hostname else None
+    candidates = [duthosts[enum_downstream_dut_hostname]] + other_frontends
+    if upstream_node is not None:
+        candidates.append(upstream_node)
+    selected_context = None
 
-    speed_a = get_port_speed(duthost, cli_namespace_prefix, selected_random_port)
-    speed_b = get_target_speed(duthost, cli_namespace_prefix, selected_random_port)
+    for candidate in candidates:
+        if candidate.is_multi_asic:
+            asic_indices = [a.asic_index for a in candidate.frontend_asics]
+        else:
+            asic_indices = [DEFAULT_ASIC_ID]
 
-    if int(speed_b) < int(speed_a):
-        logger.warning(f"Intermediate Speed B is {speed_b}. \
-                       Main scenario will do speed upgrade ({speed_b} -> {speed_a})")
-    else:
-        logger.info(f"Intermediate Speed B is {speed_b}. \
-                    Main scenario will do speed downgrade ({speed_b} -> {speed_a})")
+        for asic_index in asic_indices:
+            ctx = _build_dut_context(candidate, tbinfo, asic_index)
+            port = pick_active_front_panel_port(ctx["config_facts"])
+            if not port:
+                continue
+
+            speed_a = get_port_speed(candidate, ctx["cli_namespace_prefix"], port)
+            speed_b = get_target_speed_by_direction(
+                candidate, ctx["cli_namespace_prefix"], port, direction, skip_unavailable=False
+            )
+            if speed_b is None:
+                continue
+
+            traffic_source = _pick_traffic_source(
+                duthosts, candidate.hostname, enum_upstream_dut_hostname
+            )
+            if traffic_source is None:
+                logging.info(
+                    f"Skipping candidate {candidate.hostname}: no other frontend node "
+                    f"available as traffic source"
+                )
+                continue
+
+            port_alias = ctx["mg_facts"]['minigraph_port_name_to_alias_map'].get(port, port)
+            selected_context = {
+                "enum_downstream_dut_hostname": candidate.hostname,
+                "enum_upstream_dut_hostname": enum_upstream_dut_hostname,
+                "traffic_source_dut_hostname": traffic_source,
+                "enum_rand_one_frontend_asic_index": ctx["asic_index"],
+                "enum_rand_one_asic_namespace": ctx["asic_namespace"],
+                "ip_netns_namespace_prefix": ctx["ip_netns_namespace_prefix"],
+                "cli_namespace_prefix": ctx["cli_namespace_prefix"],
+                "selected_random_port": port,
+                "selected_random_port_alias": port_alias,
+                "mg_facts": ctx["mg_facts"],
+                "config_facts": ctx["config_facts"],
+                "config_facts_localhost": ctx["config_facts_localhost"],
+                "speed_a": speed_a,
+                "speed_b": speed_b,
+                "direction": direction,
+            }
+            logging.info(
+                f"Selected DUT={candidate.hostname} asic={ctx['asic_namespace']} "
+                f"port={port} ({port_alias}) for direction={direction}; "
+                f"traffic_source_dut={traffic_source} "
+                f"(original upstream={enum_upstream_dut_hostname})"
+            )
+            break
+
+        if selected_context is not None:
+            break
+
+    if selected_context is None:
+        pytest.skip(
+            f"No frontend DUT/port supports scenario direction={direction} "
+            f"(or no usable secondary traffic-source DUT was available)"
+        )
+
+    duthost = duthosts[selected_context["enum_downstream_dut_hostname"]]
+    enum_rand_one_frontend_asic_index = selected_context["enum_rand_one_frontend_asic_index"]
+    enum_rand_one_asic_namespace = selected_context["enum_rand_one_asic_namespace"]
+    cli_namespace_prefix = selected_context["cli_namespace_prefix"]
+    selected_random_port = selected_context["selected_random_port"]
+    selected_random_port_alias = selected_context["selected_random_port_alias"]
+    mg_facts = selected_context["mg_facts"]
+    config_facts = selected_context["config_facts"]
+    config_facts_localhost = selected_context["config_facts_localhost"]
+    speed_a = selected_context["speed_a"]
+    speed_b = selected_context["speed_b"]
+
+    logger.info(f"Main scenario={direction}: remove current speed A={speed_a}, set temporary B={speed_b}, then restore A")
 
     with allure.step("Disabling loganalyzer before removing cluster - changing speeds."):
         if loganalyzer and loganalyzer[duthost.hostname]:
@@ -701,7 +825,7 @@ def setup_port_speed_change(duthosts,
         current_status_speed = get_port_speed(duthost, cli_namespace_prefix, selected_random_port)
         pytest_assert(current_status_speed == speed_b,
                       "Failed to properly configure interface speed to requested value {}".format(speed_b))
-    yield
+    yield selected_context
 
     # revert the config via minigraph as we have previously performed config save with invalid speed
     config_reload(duthost, config_source="minigraph", safe_reload=True)
@@ -710,10 +834,14 @@ def setup_port_speed_change(duthosts,
 # -----------------------------
 # Test Definitions
 # -----------------------------
+@pytest.mark.parametrize(
+    "setup_port_speed_change",
+    ["downgrade", "upgrade"],
+    indirect=True,
+    ids=["main_downgrade", "main_upgrade"]
+)
 def test_port_speed_change(tbinfo,
                            duthosts,
-                           initialize_random_variables,
-                           initialize_facts,
                            ptfadapter,
                            setup_port_speed_change, ptfhost, gnxi_path, localhost):
     """
@@ -725,14 +853,28 @@ def test_port_speed_change(tbinfo,
     """
 
     # initial test env
-    enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
-        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, \
-        selected_random_port, selected_random_port_alias = initialize_random_variables
-    mg_facts, config_facts, config_facts_localhost = initialize_facts
+    runtime = setup_port_speed_change
+    enum_downstream_dut_hostname = runtime["enum_downstream_dut_hostname"]
+    enum_upstream_dut_hostname = runtime["enum_upstream_dut_hostname"]
+    traffic_source_dut_hostname = runtime["traffic_source_dut_hostname"]
+    enum_rand_one_frontend_asic_index = runtime["enum_rand_one_frontend_asic_index"]
+    enum_rand_one_asic_namespace = runtime["enum_rand_one_asic_namespace"]
+    ip_netns_namespace_prefix = runtime["ip_netns_namespace_prefix"]
+    cli_namespace_prefix = runtime["cli_namespace_prefix"]
+    selected_random_port = runtime["selected_random_port"]
+    selected_random_port_alias = runtime["selected_random_port_alias"]
+    mg_facts = runtime["mg_facts"]
+    config_facts = runtime["config_facts"]
+    config_facts_localhost = runtime["config_facts_localhost"]
     bgp_neigh_name, bgp_neigh_intfs, bgp_neigh_ipv4, bgp_neigh_ipv6 = get_interface_neighbor_and_intfs(
         mg_facts, selected_random_port)
     duthost = duthosts[enum_downstream_dut_hostname]
-    duthost_up = duthosts[enum_upstream_dut_hostname]
+    duthost_up = duthosts[traffic_source_dut_hostname]
+    logger.info(
+        f"test_port_speed_change running on test_dut={enum_downstream_dut_hostname} "
+        f"traffic_source_dut={traffic_source_dut_hostname} "
+        f"(original upstream={enum_upstream_dut_hostname}) direction={runtime['direction']}"
+    )
     asic_id = enum_rand_one_frontend_asic_index
     asic_id_src = None
     asic_id_src_up = None
@@ -758,7 +900,7 @@ def test_port_speed_change(tbinfo,
         )
     )
 
-    initial_speed = config_facts["PORT"][selected_random_port]["speed"]
+    initial_speed = runtime["speed_a"]
     initial_cable_length = config_facts["CABLE_LENGTH"]["AZURE"][selected_random_port]
     initial_pg_lossless_profile_name = 'pg_lossless_{}_{}_profile'.format(initial_speed, initial_cable_length)
 
