@@ -1836,11 +1836,26 @@ Provide a brief explanation for your decision.
                         if kusto_data_list:
                             logger.info(f"Successfully calculated history statistics for "
                                         f"{len(kusto_data_list)} AI-analyzed cases")
+
+                            # Deduplicate against active IcMs by title/subject matching.
+                            # This catches cases where the same test failure already has an
+                            # active IcM created by the consistent analysis path, which uses
+                            # different matching criteria (title-based vs flaky_category-based).
+                            new_icm_list, active_icm_duplicated_list, analyzer.icm_count_dict = (
+                                analyzer.deduper.deduplicate_limit_with_active_icm(
+                                    kusto_data_list, analyzer.icm_count_dict, analyzer.active_icm_df))
+                            if active_icm_duplicated_list:
+                                logger.info(f"Filtered out {len(active_icm_duplicated_list)} AI flaky "
+                                            f"cases that match active IcMs by title")
+                            kusto_data_list = new_icm_list
+
                             # Convert list of dicts to DataFrame
-                            ai_kusto_df = pd.DataFrame(kusto_data_list)
+                            ai_kusto_df = pd.DataFrame(kusto_data_list) if kusto_data_list else pd.DataFrame()
                             ai_kusto_df.to_csv(AI_FLAKY_AFTER_DEDUPLICATION_CSV, index=True)
 
-                            return kusto_data_list, duplicated_df.to_dict(orient='records')
+                            duplicated_records = duplicated_df.to_dict(orient="records")
+                            duplicated_records.extend(active_icm_duplicated_list)
+                            return kusto_data_list, duplicated_records
                         else:
                             logger.warning("No kusto data generated for AI-analyzed cases")
                             return kusto_data_list, duplicated_df.to_dict(orient='records')
