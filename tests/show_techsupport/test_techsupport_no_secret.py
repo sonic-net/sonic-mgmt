@@ -128,7 +128,7 @@ def test_secret_removed_from_show_techsupport(
     check_no_result(duthost, test_command)
 
     # check *.cer *.crt *.pem *.key not exist in dump files
-    find_command = r"find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key \)"\
+    find_command = r"find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key -o -iname \*.pfx \)"\
         .format(dump_extract_path)
     check_no_result(duthost, find_command)
 
@@ -140,8 +140,11 @@ def setup_credentials_dir(duthosts, enum_rand_one_per_hwsku_hostname):
     test_file = "{}/test_secret.dat".format(cred_dir)
     duthost.shell("sudo mkdir -p {}".format(cred_dir))
     duthost.shell("echo 'FAKE_SECRET_CONTENT' | sudo tee {}".format(test_file))
+    pfx_file = "{}/test_cert.pfx".format(cred_dir)
+    duthost.shell("echo 'FAKE_PFX_CONTENT' | sudo tee {}".format(pfx_file))
     yield test_file
     duthost.shell("sudo rm -f {}".format(test_file))
+    duthost.shell("sudo rm -f {}".format(pfx_file))
 
 
 def test_credentials_dir_removed_from_show_techsupport(
