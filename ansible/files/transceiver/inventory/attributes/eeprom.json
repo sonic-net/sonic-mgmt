@@ -10,6 +10,9 @@
             "8x100G_DR8": {
                 "vdm_supported": true,
                 "dual_bank_supported": true
+            },
+            "100G_DR": {
+                "dual_bank_supported": false
             }
         },
         "vendors": {
@@ -26,6 +29,13 @@
                                 "sfputil_eeprom_dump_time": 2
                             }
                         }
+                    }
+                }
+            },
+            "FINISAR CORP": {
+                "part_numbers": {
+                    "FCBR425QE2C02-MS": {
+                        "sff8024_identifier": 25
                     }
                 }
             }

@@ -1,0 +1,17 @@
+{
+    "Ethernet32:92:4": {
+        "vendor_name": "FINISAR CORP",
+        "vendor_pn": "FCBR425QE2C02-MS",
+        "vendor_oui": "00-90-65",
+        "vendor_rev": "A0",
+        "transceiver_configuration": "DR-100-QSFP28-100G_DR-0x1-0x1"
+    },
+    "Ethernet32": {"vendor_sn": "U63ALJ2", "vendor_date": "2021-07-14"},
+    "Ethernet40": {"vendor_sn": "U63ALJ2", "vendor_date": "2021-07-14"},
+    "Ethernet48": {"vendor_sn": "U5FB4Y3", "vendor_date": "2021-04-11"},
+    "Ethernet56": {"vendor_sn": "U5FB4Y3", "vendor_date": "2021-04-11"},
+    "Ethernet64": {"vendor_sn": "U5FB4YD", "vendor_date": "2021-04-11"},
+    "Ethernet72": {"vendor_sn": "U5FB4YD", "vendor_date": "2021-04-11"},
+    "Ethernet80": {"vendor_sn": "W2JAMRG", "vendor_date": "2019-11-07"},
+    "Ethernet88": {"vendor_sn": "W2JAMRG", "vendor_date": "2019-11-07"}
+}
