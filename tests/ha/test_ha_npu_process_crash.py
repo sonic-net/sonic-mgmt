@@ -454,7 +454,7 @@ class TestNpuProcessCrash:
     def test_crash_active_npu_traffic_on_active(
         self, process_name, container,
         primary_dut, standby_dut, duthosts,
-        setup_ha_config, setup_dash_ha_from_json,
+        setup_ha_config,
         setup_gnmi_server, setup_dash_pl_pipeline_module_scope,
         ptfadapter, dash_pl_config,
         localhost, ptfhost,
@@ -479,7 +479,7 @@ class TestNpuProcessCrash:
     def test_crash_active_npu_traffic_on_standby(
         self, process_name, container,
         primary_dut, standby_dut, primary_vdpu_key, standby_vdpu_key, duthosts,
-        setup_ha_config, setup_dash_ha_from_json,
+        setup_ha_config,
         setup_gnmi_server, setup_dash_pl_pipeline_module_scope,
         ptfadapter, dash_pl_config,
         localhost, ptfhost,
@@ -502,7 +502,7 @@ class TestNpuProcessCrash:
     def test_crash_standby_npu_traffic_on_active(
         self, process_name, container,
         primary_dut, standby_dut, primary_vdpu_key, standby_vdpu_key, duthosts,
-        setup_ha_config, setup_dash_ha_from_json,
+        setup_ha_config,
         setup_gnmi_server, setup_dash_pl_pipeline_module_scope,
         ptfadapter, dash_pl_config,
         localhost, ptfhost,
@@ -525,7 +525,7 @@ class TestNpuProcessCrash:
     def test_crash_standby_npu_traffic_on_standby(
         self, process_name, container,
         primary_dut, standby_dut, primary_vdpu_key, standby_vdpu_key, duthosts,
-        setup_ha_config, setup_dash_ha_from_json,
+        setup_ha_config,
         setup_gnmi_server, setup_dash_pl_pipeline_module_scope,
         ptfadapter, dash_pl_config,
         localhost, ptfhost,
