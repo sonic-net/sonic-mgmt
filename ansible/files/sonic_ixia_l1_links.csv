@@ -289,3 +289,15 @@ str-msn2700-22,Ethernet108,str-ocs-dlx64-acs-07,37|38|39|40
 STR-SN2700-C19-U38,Ethernet0,str-ocs-dlx64-acs-07,53|54|55|56
 STR-SN2700-C19-U38,Ethernet4,str-ocs-dlx64-acs-07,57|58|59|60
 STR-SN2700-C19-U38,Ethernet8,str-ocs-dlx64-acs-07,61|62|63|64
+msr-ixia-aresone-800ge-8,Card1/Port1.1,str-ocs-dlx64-acs-14,1|2
+msr-ixia-aresone-800ge-8,Card1/Port2.1,str-ocs-dlx64-acs-14,3|4
+msr-ixia-aresone-800ge-8,Card1/Port3.1,str-ocs-dlx64-acs-14,5|6
+msr-ixia-aresone-800ge-8,Card1/Port4.1,str-ocs-dlx64-acs-14,7|8
+STR-7060x6-RDMA-1,Ethernet0,str-ocs-dlx64-acs-14,9|10
+STR-7060x6-RDMA-1,Ethernet8,str-ocs-dlx64-acs-14,11|12
+STR-7060x6-RDMA-1,Ethernet16,str-ocs-dlx64-acs-14,13|14
+STR-7060x6-RDMA-1,Ethernet24,str-ocs-dlx64-acs-14,15|16
+STR-SN5640-RDMA-1,Ethernet0,str-ocs-dlx64-acs-14,17|18
+STR-SN5640-RDMA-1,Ethernet8,str-ocs-dlx64-acs-14,19|20
+STR-SN5640-RDMA-1,Ethernet16,str-ocs-dlx64-acs-14,21|22
+STR-SN5640-RDMA-1,Ethernet24,str-ocs-dlx64-acs-14,23|24
