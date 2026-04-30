@@ -2,12 +2,15 @@ import logging
 import concurrent.futures
 
 import pytest
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import (
     setup_dash_ha_from_json_util,
     remove_setup_dash_ha_from_json_util,
-    activate_dash_ha_from_json_util
+    activate_dash_ha_from_json_util,
+    deactivate_dash_ha_from_json_util
 )
+from ha_utils import verify_ha_state
 
 logger = logging.getLogger(__name__)
 
@@ -21,28 +24,6 @@ def reload_config_for_host(dpuhost):
     config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
-@pytest.fixture(autouse=True, scope="function")
-def common_setup_teardown(
-    localhost,
-    duthosts,
-    ptfhost,
-    dpu_index,
-    skip_config,
-    dpuhosts,
-    setup_ha_config,
-    set_vxlan_udp_sport_range,
-    setup_npu_dpu,  # noqa: F811
-    setup_dash_pl_pipeline
-):
-    if skip_config:
-        return
-
-    yield
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        # Map the reload_config_for_host function to the dpuhosts list
-        executor.map(reload_config_for_host, dpuhosts)
-
-
 def test_ha_eni_out_of_order(
     ptfadapter,
     localhost,
@@ -50,33 +31,47 @@ def test_ha_eni_out_of_order(
     dpuhosts,
     ptfhost,
     setup_gnmi_server,
-    ha_owner
+    setup_dash_pl_pipeline_module_scope,
+    ha_owner,
+    primary_vdpu_key,
+    standby_vdpu_key
 ):
     try:
-        setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
-        ha_setup_ok = True
-    except Exception as e:
-        logger.info(f"HA: setup failed with exception: {e}")
-
-    if ha_setup_ok:
         try:
-            activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
-            ha_activate_ok = True
+            setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+            ha_setup_ok = True
         except Exception as e:
-            logger.info(f"HA: activation failed with exception: {e}")
+            ha_setup_ok = False
+            logger.info(f"HA: setup failed with exception: {e}")
 
-    if ha_setup_ok and ha_activate_ok:
-        pytest.fail("HA: setup and activation succeeded - failure expected")
-    else:
-        logger.info("HA: setup or activation failed with exception as expected due to out of order ENI, test passed")
+        if ha_setup_ok:
+            try:
+                activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+                ha_activate_ok = True
+            except Exception as e:
+                ha_activate_ok = False
+                logger.info(f"HA: activation failed with exception: {e}")
 
-    if ha_setup_ok:
+        if ha_setup_ok and ha_activate_ok:
+            pytest.fail("HA: setup and activation succeeded - failure expected")
+        else:
+            logger.info("HA: activation failed due to out of order ENI, test passed")
+
+        if ha_setup_ok:
+            remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+            logger.info("HA: removed HA config to allow successful setup and activation on next attempt")
+        # Remove the ENI config to allow the HA setup and activation to complete successfully
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
+            # Map the reload_config_for_host function to the dpuhosts list
+            executor.map(reload_config_for_host, dpuhosts)
+
+        setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+        activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+
+        pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "active"),
+                      "Primary HA state is not active")
+        pytest_assert(verify_ha_state(duthosts[1], standby_vdpu_key, "active"),
+                      "Standby HA state is not active")
+    finally:
+        deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server)
         remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
-        logger.info("HA: removed HA config to allow successful setup and activation on next attempt")
-    # Remove the ENI config to allow the HA setup and activation to complete successfully
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        # Map the reload_config_for_host function to the dpuhosts list
-        executor.map(reload_config_for_host, dpuhosts)
-
-    setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
-    activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)

@@ -1,8 +1,14 @@
+import os
+import json
 import pytest
 import logging
-from tests.ha.conftest import setup_gnmi_server
-from conftest import activate_scope_per_dut
-from ha_utils import verify_ha_state, wait_for_pending_operation_id, ha_scope_config, apply_ha_messages
+from conftest import (
+    activate_scope_per_dut,
+    deactivate_dash_ha_from_json_util,
+    ha_scope_per_dut,
+    remove_setup_dash_ha_from_json_util
+)
+from ha_utils import verify_ha_state, wait_for_pending_operation_id, ha_scope_config, ha_set_config, apply_ha_messages
 from tests.common.helpers.assertions import pytest_assert
 
 
@@ -17,140 +23,131 @@ The assumption for the test is that duthosts has primary and secondary in this o
 """
 
 
-def activate_dash_ha_primary(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
-    primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
-    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
+def setup_dash_ha(duthost, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index):
+    dpuhost = dpuhosts[role_index]
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
 
-    activate_scope_per_dut_modified = []
-    for index, (name, data) in enumerate(activate_scope_per_dut):
-        if name == "vdpu0_0:haset0_0":
-            name = primary_vdpu_key
-        if name == "vdpu1_0:haset0_0":
-            name = standby_vdpu_key
-        activate_scope_per_dut_modified.append((name, data))
+    template_key = f"vdpu{role_index}_0:haset0_0"
+    actual_key = f"vdpu{role_index}_{dpuhost.dpu_index}:haset0_0"
 
-    for index, (name, data) in enumerate(activate_scope_per_dut_modified):
-        activate_scope_per_dut_modified[index][1]['owner'] = ha_owner
+    _, scope_fields = next(
+        (name, data) for name, data in ha_scope_per_dut
+        if name == template_key
+    )
+    scope_fields = dict(scope_fields)
+    scope_fields['owner'] = ha_owner
 
-    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut_modified):
-        vdpu_id, ha_set_id = key.split(":", 1)
-        ha_scope_messages = ha_scope_config(
-            vdpu_id=vdpu_id,
-            ha_set_id=ha_set_id,
-            **fields,
-        )
+    # Workaround for the neigh resolve issue
+    '''
+    ip_part = 200 + role_index
+    ip_last = dpuhost.dpu_index + 1
+    logger.info(f"Sending ping to DPU{dpuhost.dpu_index} for {duthost.hostname}")
+    ping_result = duthost.shell(f"ping -c 3 20.0.{ip_part}.{ip_last}", module_ignore_errors=True)["stdout"]
+    logger.info(f"{duthost.hostname} ping_result [{ping_result}]")
+    '''
+
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    ha_set_entry = ha_set_data.get("haset0_0", {})
+    ha_set_entry["vdpu_ids"] = [f"vdpu0_{dpuhosts[0].dpu_index}", f"vdpu1_{dpuhosts[1].dpu_index}"]
+    ha_set_entry["preferred_vdpu_id"] = f"vdpu0_{dpuhosts[0].dpu_index}"
+    ha_set_data["haset0_0"] = ha_set_entry
+
+    # Step 1: Program HA SET on this DUT
+    for key, set_fields in ha_set_data.items():
+        ha_set_messages = ha_set_config(ha_set_id=key, **set_fields)
         apply_ha_messages(
             localhost=localhost,
             duthost=duthost,
             ptfhost=ptfhost,
-            messages=ha_scope_messages,
+            messages=ha_set_messages,
         )
 
-    for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut_modified)):
-        if duthost != duthosts[0]:
-            continue
-        pending_id = wait_for_pending_operation_id(
-            duthost,
-            scope_key=key,
-            expected_op_type="activate_role",
-            timeout=300,
-            interval=2
-        )
-        assert pending_id, (
-            f"Timed out waiting for active pending_operation_id "
-            f"for {duthost.hostname} scope {key}"
-        )
-
-        logger.info(f"HA: {duthost.hostname} found pending id {pending_id}")
-        vdpu_id, ha_set_id = key.split(":", 1)
-        ha_scope_messages = ha_scope_config(
-            vdpu_id=vdpu_id,
-            ha_set_id=ha_set_id,
-            approved_pending_operation_ids=[pending_id],
-            **fields,
-        )
-        apply_ha_messages(
-            localhost=localhost,
-            duthost=duthost,
-            ptfhost=ptfhost,
-            messages=ha_scope_messages,
-        )
-        logger.info(f"HA: Activate completed for {duthost.hostname}")
+    # Step 2: Program HA SCOPE for this DUT
+    vdpu_id, ha_set_id = actual_key.split(":", 1)
+    ha_scope_messages = ha_scope_config(
+        vdpu_id=vdpu_id,
+        ha_set_id=ha_set_id,
+        **scope_fields,
+    )
+    apply_ha_messages(
+        localhost=localhost,
+        duthost=duthost,
+        ptfhost=ptfhost,
+        messages=ha_scope_messages,
+    )
+    logger.info(f"HA: Setup completed for {duthost.hostname}")
 
 
-def activate_dash_ha_standby(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
-    primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
-    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
+def activate_dash_ha(duthost, dpuhost, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index):
+    template_key = f"vdpu{role_index}_0:haset0_0"
+    actual_key = f"vdpu{role_index}_{dpuhost.dpu_index}:haset0_0"
 
-    activate_scope_per_dut_modified = []
-    for index, (name, data) in enumerate(activate_scope_per_dut):
-        if name == "vdpu0_0:haset0_0":
-            name = primary_vdpu_key
-        if name == "vdpu1_0:haset0_0":
-            name = standby_vdpu_key
-        activate_scope_per_dut_modified.append((name, data))
+    _, fields = next(
+        (name, data) for name, data in activate_scope_per_dut
+        if name == template_key
+    )
+    fields = dict(fields)
+    fields['owner'] = ha_owner
 
-    for index, (name, data) in enumerate(activate_scope_per_dut_modified):
-        activate_scope_per_dut_modified[index][1]['owner'] = ha_owner
+    vdpu_id, ha_set_id = actual_key.split(":", 1)
+    ha_scope_messages = ha_scope_config(
+        vdpu_id=vdpu_id,
+        ha_set_id=ha_set_id,
+        **fields,
+    )
+    apply_ha_messages(
+        localhost=localhost,
+        duthost=duthost,
+        ptfhost=ptfhost,
+        messages=ha_scope_messages,
+    )
 
-    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut_modified):
-        vdpu_id, ha_set_id = key.split(":", 1)
-        ha_scope_messages = ha_scope_config(
-            vdpu_id=vdpu_id,
-            ha_set_id=ha_set_id,
-            **fields,
-        )
-        apply_ha_messages(
-            localhost=localhost,
-            duthost=duthost,
-            ptfhost=ptfhost,
-            messages=ha_scope_messages,
-        )
+    pending_id = wait_for_pending_operation_id(
+        duthost,
+        scope_key=actual_key,
+        expected_op_type="activate_role",
+        timeout=300,
+        interval=2
+    )
+    assert pending_id, (
+        f"Timed out waiting for active pending_operation_id "
+        f"for {duthost.hostname} scope {actual_key}"
+    )
 
-    for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut_modified)):
-        if duthost != duthosts[1]:
-            continue
-        pending_id = wait_for_pending_operation_id(
-            duthost,
-            scope_key=key,
-            expected_op_type="activate_role",
-            timeout=300,
-            interval=2
-        )
-        assert pending_id, (
-            f"Timed out waiting for active pending_operation_id "
-            f"for {duthost.hostname} scope {key}"
-        )
-
-        logger.info(f"HA: {duthost.hostname} found pending id {pending_id}")
-        vdpu_id, ha_set_id = key.split(":", 1)
-        ha_scope_messages = ha_scope_config(
-            vdpu_id=vdpu_id,
-            ha_set_id=ha_set_id,
-            approved_pending_operation_ids=[pending_id],
-            **fields,
-        )
-        apply_ha_messages(
-            localhost=localhost,
-            duthost=duthost,
-            ptfhost=ptfhost,
-            messages=ha_scope_messages,
-        )
-        logger.info(f"HA: Activate completed for {duthost.hostname}")
+    logger.info(f"HA: {duthost.hostname} found pending id {pending_id}")
+    ha_scope_messages = ha_scope_config(
+        vdpu_id=vdpu_id,
+        ha_set_id=ha_set_id,
+        approved_pending_operation_ids=[pending_id],
+        **fields,
+    )
+    apply_ha_messages(
+        localhost=localhost,
+        duthost=duthost,
+        ptfhost=ptfhost,
+        messages=ha_scope_messages,
+    )
+    logger.info(f"HA: Activate completed for {duthost.hostname}")
 
 
-def test_ha_launch_with_no_peer(request, duthosts, localhost, dpuhosts, ptfhost, setup_ha_config,
-                                setup_dash_ha_from_json, ha_owner):
+def test_ha_launch_with_no_peer(request, duthosts, dpuhosts, localhost, ptfhost, setup_ha_config,
+                                ha_owner, setup_gnmi_server, primary_vdpu_key, standby_vdpu_key):
 
     logger.info("HA: activate only primary")
-    activate_dash_ha_primary(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+    setup_dash_ha(duthosts[0], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=0)
+    activate_dash_ha(duthosts[0], dpuhosts[0], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=0)
 
-    primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
     pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="standalone"),
-                  "Primary HA state is not standalone")
+                  "HA: Primary state is not standalone")
 
     logger.info("HA: activate standby without primary")
-    activate_dash_ha_standby(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
-    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
+    setup_dash_ha(duthosts[1], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
+    activate_dash_ha(duthosts[1], dpuhosts[1], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
     pytest_assert(verify_ha_state(duthosts[1], scope_key=standby_vdpu_key, expected_state="standalone"),
-                  "Standby HA state is not standalone")
+                  "HA: Standby state is not standalone")
+    deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server)
+    remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
