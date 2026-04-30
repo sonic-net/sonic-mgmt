@@ -3250,12 +3250,15 @@ class QosSaiBase(QosBase):
                 logger.info("permit_only_test_traffic_on_fanout: "
                             "no LAGs found, skipping LACP steps")
 
-            # --- Step 3: Per-fanout-port LLDP disable + ethertype ACL ---
-            # The whitelist permits IP (0x0800), IPv6 (0x86DD), and ARP (0x0806).
-            # All other ethertypes — including LLDP (0x88CC), LACP (0x8809),
-            # and broadcast/multicast L2 frames — are denied.
-            # PFC (0x8808) is DUT-originated and travels DUT→fanout, so neither
-            # the EOS egress nor the SONiC ingress ACL affects it.
+            # --- Step 3: Per-fanout dispatch (LLDP suppression + ACL where supported) ---
+            # EOS path: egress MAC ACL whitelist (permit IP 0x0800 / IPv6 0x86DD /
+            # ARP 0x0806; deny all others including LLDP 0x88CC, LACP 0x8809) plus
+            # `no lldp transmit/receive` per interface.
+            # SONiC path: stop LLDP container only — see _apply_sonic_filter for
+            # limitations and tracked issue #24236.
+            # PFC (0x8808) is DUT-originated and travels DUT→fanout; the EOS
+            # egress ACL does not affect it. SONiC has no port-side filtering
+            # applied here, so PFC is naturally unaffected.
             dev_conn = conn_graph_facts.get('device_conn', {})
             # Restrict to only the source DUT's connections to avoid touching
             # fanout ports of unrelated DUTs in multi-DUT topologies.
