@@ -424,9 +424,6 @@ def getImageUCS(testbed):
 def create_allure_id(build_id, image_id, testbed="none"):
     return f'{PIPELINE_TYPE}-{build_id}-{image_id}-{testbed}'
 
-def checkProdImage(stream):
-    return "release" in stream
-
 def checkTortugaImage(stream):
     return "tortuga" in stream
 

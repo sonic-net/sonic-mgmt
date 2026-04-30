@@ -12,7 +12,7 @@ import posixpath
 import shlex
 from collections import namedtuple
 from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, extractFromImageName, getImageUCS, \
-    cleanUpImageFolder, removeImageDir, checkSpace, getTestbedInfoDict, checkProdImage, telnetConnection, telnetLoginUtil, checklldpCount, \
+    cleanUpImageFolder, removeImageDir, checkSpace, getTestbedInfoDict, telnetConnection, telnetLoginUtil, checklldpCount, \
     login_prompt, passwd_prompt, cisco_prompt, pre_sonic_prompt, sonic_login_prompt, admin_prompt, pre_admin_prompt, first_login, onie_prompt, \
     DUT_PASSWORD, DUT_USERNAME, BIN_FILE, telnet_escape_prompt, grub_selection, KEY_DOWN, newline_prompt, KEY_UP, checkForDockers, \
     scpUtil, sonic_prompt, getDockerExecCommand, copyDockerFileToDut, getSonicMgmtContainterName, get_container_local_mount_dir, \
@@ -113,39 +113,6 @@ def add_user(child, username, password, prompt):
     except pexpect.exceptions.TIMEOUT:
         log.error("Operation timed out. Check your inputs or system load.")
     return child
-
-
-def configure_user_on_prod_images(stream, testbed_info_dict):
-    log.debug("configure cisco user on prod images")
-    local_ucs = testbed_info_dict['ucs_host_name']
-    for ssh in testbed_info_dict['dut_ssh']:
-        p1 = sshUtil(testbed_info_dict['ucs_username'], testbed_info_dict['ucs_host'], testbed_info_dict['ucs_password'], None)
-        p1.expect(local_ucs)
-        log.debug(f"configure_user_on_prod_images on dut: {ssh}")
-        [p2, prompt] = sshDUTUtil(p1, ssh, True)
-        p2.expect(prompt)
-        try:
-            commands = [
-                "adduser cisco",
-                "usermod -aG sudo cisco",
-                "usermod -aG docker cisco",
-                "config save -y"
-            ]
-            for command in commands:
-                p2.sendline(f"sudo {command}")
-                if "adduser" in command:
-                    p2 = add_user(p2, DUT_USERNAME, DUT_PASSWORD, prompt)
-                p2.expect(prompt)
-            time.sleep(120)
-            log.info("User and permissions successfully configured.")
-            p2.close()
-            p1.close()
-        except Exception as e:
-            log.error(f"An error occurred while configuring the user: {e}")
-            p2.close()
-            p1.close()
-            return -1
-    return 0
             
 
 def fetch_image_pipeline(args):
@@ -271,13 +238,6 @@ def image_install(args):
         return -1
     
     time.sleep(180)
-    prod_image = checkProdImage(stream)
-    if prod_image==True:
-        log.debug("Release image detected, change user creds")
-        rc = configure_user_on_prod_images(stream, testbed_info_dict)
-        if rc != 0:
-            log.error("User cisco was not configured successfully")
-            return -1
     if 'extra_onie_check' in testbed_info_dict and install_mode == "onie":
         log.debug("Image installed, check for lldp count")
         for telnet in testbed_info_dict['telnet_details']:
@@ -413,11 +373,9 @@ def onie_install(args, index):
     ]
 
     # # login or sudo or onie install
-    prod_image = checkProdImage(stream)
     username = DUT_USERNAME
     password = DUT_PASSWORD
     prompt = admin_prompt
-    log.debug(f"prod_image: {prod_image}")
     skip_onie = False
     retry_count = 0
     while True:
