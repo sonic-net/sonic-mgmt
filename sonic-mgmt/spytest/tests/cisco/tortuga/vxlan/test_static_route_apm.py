@@ -895,7 +895,7 @@ def test_apm_override_route_config():
         if "172.16.255.1/32" not in str(route_output_apm_down):
             st.log("SUCCESS: Route is NOT present in routing table (APM is DOWN)")
         else:
-            st.log("WARNING: Route is still present in routing table even though APM is DOWN")
+            st.report_fail('test_case_failed', "Route is still present in routing table even though APM is DOWN")
         
         # Step 8: Delete the route
         st.banner("Step 8: Deleting the route")
