@@ -54,6 +54,24 @@ FALLBACK_LOADDATA_TIME = 1.0
 
 
 @pytest.fixture(scope="module", autouse=True)
+def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_front_end_hostname,
+                                       loganalyzer):
+    """Suppress known harmless syslog ERR messages triggered by GCU config changes."""
+    if loganalyzer:
+        ignore_regexes = [
+            # ACL table re-creation during config apply can hit existing MIRROR tables
+            r".*ERR swss#orchagent.*addAclTable.*has already been created.*",
+            # Binding ACL to LAG member port (shouldn't happen with LAG filter,
+            # but suppress defensively)
+            r".*ERR swss#orchagent.*processAclTablePorts.*Failed to get port.*bind port ID.*",
+            r".*ERR swss#orchagent.*doAclTableTask.*Failed to process ACL table.*ports.*",
+        ]
+        hostname = duthosts[rand_one_dut_front_end_hostname].hostname
+        if loganalyzer.get(hostname):
+            loganalyzer[hostname].ignore_regex.extend(ignore_regexes)
+
+
+@pytest.fixture(scope="module", autouse=True)
 def setup_teardown(duthosts, rand_one_dut_front_end_hostname):
     """Create checkpoint before test module, rollback after."""
     duthost = duthosts[rand_one_dut_front_end_hostname]
