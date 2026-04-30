@@ -12,7 +12,6 @@
 import argparse
 import logging
 import os
-import re
 import sys
 import json
 import yaml
@@ -29,7 +28,7 @@ if ansible_path not in sys.path:
 
 from devutil.devices.factory import init_host, init_localhost, init_sonichosts  # noqa: E402
 from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa: E402
-from devutil.devices.sonic import (  # noqa: E402
+from devutil.devices.dpu_utils import (  # noqa: E402
     is_nat_enabled_for_dpu,
     enable_nat_for_dpuhosts as _enable_nat_for_dpuhosts,
 )

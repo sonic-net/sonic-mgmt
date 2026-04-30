@@ -93,6 +93,12 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
                 "vxlan_security": "false"
             },
             "OP": "SET"
+        },
+        {
+            "SWITCH_TABLE:switch": {
+                "vxlan_security": "false"
+            },
+            "OP": "SET"
         }
     ]
 

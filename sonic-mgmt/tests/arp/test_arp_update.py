@@ -21,15 +21,87 @@ pytestmark = [
 
 
 @pytest.fixture
-def setup(rand_selected_dut):
+def pause_arp_update(rand_selected_dut):
     cmds = [
         "docker exec swss supervisorctl stop arp_update",
         "ip neigh flush all"
     ]
-    rand_selected_dut.shell_cmds(cmds)
+    rand_selected_dut.shell_cmds(cmds=cmds)
     yield
     cmds[0] = "docker exec swss supervisorctl start arp_update"
-    # rand_selected_dut.shell_cmds(cmds)
+    rand_selected_dut.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture
+def ptf_interface_info(ip_and_intf_info, ptfadapter):
+    """
+    Get PTF interface information
+    """
+    ptf_intf_ipv4_addr, _, _, _, ptf_intf_index = ip_and_intf_info
+    ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
+    if isinstance(ptf_intf_mac, (bytes, bytearray)):
+        ptf_intf_mac = ptf_intf_mac.decode()
+
+    ptf_iface = f"eth{ptf_intf_index}"
+    ptf_ip = str(ptf_intf_ipv4_addr)
+
+    return {
+        'ip': ptf_ip,
+        'ipv4_addr': ptf_intf_ipv4_addr,
+        'mac': ptf_intf_mac,
+        'index': ptf_intf_index,
+        'interface': ptf_iface
+    }
+
+
+@pytest.fixture
+def dut_interface_info(rand_selected_dut, config_facts, tbinfo):
+    """
+    Get DUT interface information
+    """
+    duthost = rand_selected_dut
+    dut_mac = get_dut_mac(duthost, config_facts, tbinfo)
+    vlan_name, dut_ipv4 = get_vlan_last_ipv4(config_facts)
+
+    return {
+        'host': duthost,
+        'mac': dut_mac,
+        'vlan_name': vlan_name,
+        'ipv4': dut_ipv4
+    }
+
+
+@pytest.fixture
+def clean_environment(rand_selected_dut, ptfadapter):
+    """
+    Cleanup FDB and DUT ARP cache before and after test run
+    """
+    duthost = rand_selected_dut
+
+    logger.info("Setting up clean environment: clearing FDB and ARP cache")
+    fdb_cleanup(duthost)
+    clear_dut_arp_cache(duthost)
+    ptfadapter.dataplane.flush()
+
+    yield
+
+    logger.info("Test completed, environment cleanup done")
+
+
+@pytest.fixture
+def ptf_with_ip_config(ptf_interface_info, ptfhost):
+    """
+    Configure IP on PTF interface and cleanup afterwards
+    """
+    ptf_info = ptf_interface_info
+
+    # Configure IP on PTF interface
+    ptfhost.shell(f"ip addr add {ptf_info['ip']}/21 dev {ptf_info['interface']}", module_ignore_errors=True)
+
+    yield ptf_info
+
+    # Cleanup: remove IP from PTF interface
+    ptfhost.shell(f"ip addr del {ptf_info['ip']}/21 dev {ptf_info['interface']}", module_ignore_errors=True)
 
 
 @pytest.fixture
@@ -122,6 +194,7 @@ def ip_version_string(version):
 
 @pytest.mark.parametrize("ip_version", [4, 6], ids=ip_version_string)
 def test_kernel_asic_mac_mismatch(
+    pause_arp_update,
     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
     rand_selected_dut, ip_version, setup_vlan_arp_responder,  # noqa: F811
@@ -159,7 +232,9 @@ def test_kernel_asic_mac_mismatch(
     asic_db_mac = rand_selected_dut.shell(
         f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"
     )['stdout']
-    pt_assert(neighbor_info[4].lower() != asic_db_mac.lower())
+    pt_assert(neighbor_info[4].lower() != asic_db_mac.lower(),
+              f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "
+              "Ensure arp_update is stopped before modifying APPL_DB.")
     logger.info("APPL_DB and kernel are out of sync (expected)")
 
     rand_selected_dut.shell("docker exec swss supervisorctl start arp_update")
