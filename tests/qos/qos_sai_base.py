@@ -3094,25 +3094,39 @@ class QosSaiBase(QosBase):
         Block non-test L2 traffic from reaching DUT ingress ports during QoS
         headroom pool tests to prevent false InDiscard counter increments.
 
-        Configures the fanout switch to only forward IP/IPv6/ARP frames toward
-        the DUT, blocking LLDP (0x88CC), LACP (0x8809), and other non-test
-        ethertypes via an ethertype-based ACL whitelist.
+        Configures the fanout switch to suppress noise reaching the DUT:
+        - on EOS via an egress MAC ACL whitelist (permit IP/IPv6/ARP, deny
+          all other ethertypes incl. LLDP 0x88CC, LACP 0x8809) plus
+          ``no lldp transmit/receive`` per interface;
+        - on SONiC via stopping the LLDP container only (partial coverage —
+          full L2 ACL filtering is tracked in #24236, see
+          ``_apply_sonic_filter`` for limitations).
 
         Steps:
         1. Stop DUT teamd lacpd (prevents LACP timeout detection)
         2. Set EOS neighbor LACP timer multiplier to 600 (prevents EOS-side timeout)
-        3. Disable LLDP and apply ethertype whitelist ACL on fanout DUT-facing ports
+        3. Per-fanout: dispatch by fanout OS to apply the appropriate filter
 
         Fanout dispatch:
-        - EOS fanout: egress MAC ACL + `no lldp transmit/receive` per interface
-        - SONiC fanout: ingress custom ACL (ETHER_TYPE matcher) + stop lldp container
-          (Broadcom SONiC does not support egress ACL — use ingress.)
+        - EOS fanout: egress MAC ACL + ``no lldp transmit/receive`` per interface
+        - SONiC fanout: stop LLDP container only (LLDP-stop-only, partial
+          coverage — see ``_apply_sonic_filter`` for limitations and
+          tracked issue #24236)
 
         Note on change_lag_lacp_timer interaction: that fixture only activates
         for broadcom-dnx platforms and operates on dst_port LAGs. This fixture
         operates on src_port LAGs for Broadcom TH (7060CX), so there is no
         overlap on the affected platform.
+
+        Note on broadcom-dnx port mismatch: ``testQosSaiHeadroomPoolSize`` /
+        ``testQosSaiHeadroomPoolWatermark`` override ``hdrm_pool_size`` at
+        runtime on broadcom-dnx (non-q3d) platforms with a slice of
+        ``testPortIds``. We pre-emptively include the ``testPortIds`` candidate
+        pool below to cover that case. See issue #24236.
         """
+        # Skip when neighbors are SONiC: this fixture's LACP-multiplier path is
+        # EOS-only, and physical fanout config does not apply to KVM/virtual
+        # topologies which are the typical --neighbor_type=sonic scenario.
         if request.config.getoption("--neighbor_type") == "sonic":
             yield
             return
@@ -3130,12 +3144,27 @@ class QosSaiBase(QosBase):
             qos_param = dutQosConfig['param'].get(dutQosConfig['portSpeedCableLength'], {})
             hdrm = qos_param.get('hdrm_pool_size', {}) or {}
             for pid in hdrm.get('src_port_ids', []) or []:
-                protected_port_ids.add(pid)
+                protected_port_ids.add(int(pid))
             if hdrm.get('dst_port_id') is not None:
-                protected_port_ids.add(hdrm['dst_port_id'])
-        except Exception as e:
+                protected_port_ids.add(int(hdrm['dst_port_id']))
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
             logger.warning("permit_only_test_traffic_on_fanout: "
                            "failed to read hdrm_pool_size from dutQosConfig: %s", str(e))
+
+        # On broadcom-dnx (non-q3d), the test method overrides hdrm_pool_size
+        # at runtime with a slice of testPortIds. Pre-include the candidate
+        # pool so the optimization covers that path too.
+        try:
+            src_dut_index = get_src_dst_asic_and_duts.get('src_dut_index', 0)
+            src_asic_index = get_src_dst_asic_and_duts.get('src_asic_index', 0)
+            test_port_ids = dutConfig.get('testPortIds', {}) or {}
+            runtime_candidates = (
+                test_port_ids.get(src_dut_index, {}).get(src_asic_index, []) or [])
+            for pid in runtime_candidates:
+                protected_port_ids.add(int(pid))
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("permit_only_test_traffic_on_fanout: "
+                         "could not augment with testPortIds: %s", str(e))
 
         if not protected_port_ids:
             # Fallback: protect all dutInterfaces
@@ -3250,9 +3279,8 @@ class QosSaiBase(QosBase):
                         fanout_restore_list, acl_created_fanouts)
                 elif fanout_os == 'sonic':
                     self._apply_sonic_filter(
-                        fanout, fanout_name, fanout_port, acl_name,
-                        fanout_restore_list, acl_created_fanouts,
-                        sonic_lldp_stopped)
+                        fanout, fanout_name, fanout_port,
+                        fanout_restore_list, sonic_lldp_stopped)
                 else:
                     logger.warning(
                         "permit_only_test_traffic_on_fanout: "
@@ -3270,10 +3298,14 @@ class QosSaiBase(QosBase):
                 acl_created_fanouts, sonic_lldp_stopped, acl_name, fanouthosts)
             raise
 
+        eos_count = sum(1 for e in fanout_restore_list if e[0] == 'eos')
+        sonic_count = sum(1 for e in fanout_restore_list if e[0] == 'sonic')
         logger.info(
             "permit_only_test_traffic_on_fanout: setup complete — "
-            "%d ports protected, %d LACP timers set",
-            len(fanout_restore_list), len(eos_restore_list))
+            "EOS=%d ports (egress MAC ACL), SONiC=%d ports "
+            "(LLDP-stop on %d fanouts), %d LACP timers set",
+            eos_count, sonic_count, len(sonic_lldp_stopped),
+            len(eos_restore_list))
 
         yield
 
@@ -3324,9 +3356,8 @@ class QosSaiBase(QosBase):
                 "ACL config failed on EOS %s %s: %s",
                 fanout_name, fanout_port, str(e))
 
-    def _apply_sonic_filter(self, fanout, fanout_name, fanout_port, acl_name,
-                            fanout_restore_list, acl_created_fanouts,
-                            sonic_lldp_stopped):
+    def _apply_sonic_filter(self, fanout, fanout_name, fanout_port,
+                            fanout_restore_list, sonic_lldp_stopped):
         """Apply partial filter on SONiC fanout: stop LLDP container only.
 
         Why partial: Broadcom SONiC does not support egress ACL, so we
@@ -3351,6 +3382,11 @@ class QosSaiBase(QosBase):
         # Stop LLDP container once per fanout (covers fanout-self LLDP).
         # The 202511 fanout role only stops LLDP for marvell-teralynx;
         # broadcom SONiC fanouts still run LLDP by default.
+        # Assumption: LLDP is running before the test; "docker stop" rc=0 does
+        # not distinguish "stopped now" from "was already stopped", so the
+        # teardown's symmetric "docker start" will start LLDP even on fanouts
+        # where it was previously off. This is acceptable for the testbeds
+        # in scope (#24236) where LLDP runs by default on Broadcom SONiC.
         if fanout_name not in sonic_lldp_stopped:
             try:
                 result = fanout.host.command(
@@ -3372,13 +3408,14 @@ class QosSaiBase(QosBase):
                     "failed to stop lldp on SONiC %s: %s",
                     fanout_name, str(e))
 
-        # Track this port for restore (no ACL applied — see docstring).
-        # We still record so teardown logging is symmetric.
+        # Track this port for restore symmetry. The actual SONiC defense is
+        # one-shot per fanout (LLDP container stop above); this per-port
+        # entry is bookkeeping for log-symmetry with the EOS path.
         fanout_restore_list.append(
             ('sonic', fanout, fanout_name, fanout_port))
-        logger.info(
-            "permit_only_test_traffic_on_fanout: SONiC %s %s "
-            "(LLDP-container-stop only; VM-noise filtering tracked in #24236)",
+        logger.debug(
+            "permit_only_test_traffic_on_fanout: SONiC fanout %s associated "
+            "DUT port %s recorded; LLDP-stop already applied at fanout level",
             fanout_name, fanout_port)
 
     def _teardown_test_traffic_filter(
@@ -3418,7 +3455,9 @@ class QosSaiBase(QosBase):
                                'no mac access-group %s out' % acl_name],
                         parents=['interface %s' % fanout_port])
                 elif fanout_os == 'sonic':
-                    # Per-port unbind handled by removing whole ACL_TABLE below
+                    # No per-port action: SONiC path only stops LLDP container
+                    # (see _apply_sonic_filter); LLDP container restart is
+                    # handled below per fanout, not per port.
                     pass
             except Exception as e:
                 logger.warning(
