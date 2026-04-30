@@ -2965,6 +2965,12 @@ gnmi/test_gnmi_smartswitch.py:
     conditions:
       - "'bmc' in topo_type"
 
+gnmi/test_gnmic.py:
+  skip:
+    reason: "gnmic binary is being removed from docker-ptf to reduce attack surface"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/24328"
+
 gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
