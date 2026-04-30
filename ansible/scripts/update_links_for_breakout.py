@@ -6,6 +6,8 @@ This script remaps DUT port entries in links.csv from the current port layout
 to a new breakout layout. It maps groups of ports from the source breakout
 to the target breakout based on physical cage assignments.
 
+Optionally updates the HwSku column in devices.csv when --hwsku is provided.
+
 Supports uniform breakout (all cages same) and mixed breakout (different
 breakout per port range).
 
@@ -51,11 +53,19 @@ Examples:
         --hostname str4-7060x6-64pe-11 \\
         --target-breakout "1x800G:0-255,2x400G:256-504" \\
         --dry-run
+
+    # Update both links.csv and devices.csv HwSku in one step
+    python3 update_links_for_breakout.py \\
+        --links-csv ansible/files/sonic_str4_links.csv \\
+        --hostname str4-7060x6-64pe-11 \\
+        --target-breakout 2x400G \\
+        --hwsku Arista-7060X6-64PE-O128S2
 """
 
 import argparse
 import csv
 import io
+import os
 import re
 import sys
 
@@ -152,6 +162,7 @@ def parse_vlan_field(vlan_str):
             try:
                 vlans.add(int(part))
             except ValueError:
+                # Non-numeric VLAN fields (e.g. empty strings) are silently skipped
                 pass
     return vlans
 
@@ -177,6 +188,76 @@ def format_vlan_range(vlans):
     return ','.join(ranges)
 
 
+def derive_devices_csv_path(links_csv_path):
+    """Auto-derive devices.csv path from links.csv path.
+
+    Only works for the main lab pattern: sonic_<lab>_links.csv -> sonic_<lab>_devices.csv.
+    Returns None if the pattern doesn't match.
+    """
+    base = os.path.basename(links_csv_path)
+    if re.match(r'^sonic_\w+_links\.csv$', base):
+        devices_base = base.replace('_links.csv', '_devices.csv')
+        devices_path = os.path.join(os.path.dirname(links_csv_path), devices_base)
+        if os.path.isfile(devices_path):
+            return devices_path
+    return None
+
+
+def preflight_devices_csv(csv_path, hostname):
+    """Validate devices.csv before writing. Returns (rows, fieldnames) or raises SystemExit."""
+    if not os.path.isfile(csv_path):
+        print(f"Error: devices CSV not found: {csv_path}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(csv_path, newline='') as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
+        if not fieldnames or 'Hostname' not in fieldnames or 'HwSku' not in fieldnames:
+            print(f"Error: devices CSV missing required columns 'Hostname' and/or 'HwSku': {csv_path}",
+                  file=sys.stderr)
+            sys.exit(1)
+        rows = list(reader)
+
+    matches = [r for r in rows if r['Hostname'] == hostname]
+    if len(matches) == 0:
+        print(f"Error: hostname '{hostname}' not found in {csv_path}", file=sys.stderr)
+        sys.exit(1)
+    if len(matches) > 1:
+        print(f"Error: hostname '{hostname}' appears {len(matches)} times in {csv_path} (expected exactly 1)",
+              file=sys.stderr)
+        sys.exit(1)
+
+    return rows, fieldnames
+
+
+def update_devices_csv(csv_path, hostname, new_hwsku, dry_run=False):
+    """Update the HwSku column for hostname in devices.csv."""
+    rows, fieldnames = preflight_devices_csv(csv_path, hostname)
+
+    old_hwsku = None
+    for row in rows:
+        if row['Hostname'] == hostname:
+            old_hwsku = row['HwSku']
+            row['HwSku'] = new_hwsku
+            break
+
+    if old_hwsku == new_hwsku:
+        print(f"\nDevices CSV: HwSku already '{new_hwsku}' for {hostname} — no change needed.")
+        return
+
+    print(f"\nDevices CSV update ({os.path.basename(csv_path)}):")
+    print(f"  {hostname}: HwSku '{old_hwsku}' -> '{new_hwsku}'")
+
+    if dry_run:
+        print("  [DRY RUN] No changes written to devices CSV.")
+    else:
+        with open(csv_path, 'w', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"  Written to {csv_path}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Update links.csv for generic HwSku breakout change',
@@ -189,8 +270,23 @@ def main():
     parser.add_argument('--lanes-per-cage', type=int, default=8, help='Lanes per physical cage (default: 8)')
     parser.add_argument('--mgmt-ports', default='512,513',
                         help='Comma-separated management port numbers (default: 512,513)')
+    parser.add_argument('--hwsku', default=None,
+                        help='New HwSku name to set in devices.csv (e.g., Arista-7060X6-64PE-O128S2)')
+    parser.add_argument('--devices-csv', default=None,
+                        help='Path to sonic_<lab>_devices.csv (auto-derived from --links-csv if omitted)')
     parser.add_argument('--dry-run', action='store_true', help='Preview changes without writing')
     args = parser.parse_args()
+
+    # Resolve devices.csv path and preflight if --hwsku is provided
+    devices_csv_path = None
+    if args.hwsku:
+        devices_csv_path = args.devices_csv or derive_devices_csv_path(args.links_csv)
+        if not devices_csv_path:
+            print("Error: --hwsku requires --devices-csv (could not auto-derive from --links-csv path)",
+                  file=sys.stderr)
+            sys.exit(1)
+        # Preflight before doing any work — fail early if devices.csv is invalid
+        preflight_devices_csv(devices_csv_path, args.hostname)
 
     breakout_ranges = parse_breakout_spec(args.target_breakout)
     mgmt_ports = set(int(p) for p in args.mgmt_ports.split(','))
@@ -395,14 +491,16 @@ def main():
 
     # Summary
     total_non_mgmt = dut_lines_new - mgmt_kept
+    removed = dut_lines_original - (dut_lines_new - len(expansion_entries)) - mgmt_kept + mgmt_kept
     print(f"Results:")
     print(f"  Original DUT entries: {dut_lines_original}")
     print(f"  New DUT entries: {dut_lines_new} ({total_non_mgmt} ports + {mgmt_kept} mgmt)")
-    print(f"  Skipped duplicates: {skipped}")
+    print(f"  Removed (unmapped to target): {skipped}")
     if expansion_entries:
         vlan_start = next_vlan - len(expansion_entries)
         print(f"  Expansion: {len(expansion_entries)} new entries added "
               f"(VLANs {vlan_start}-{next_vlan - 1})")
+
     if trunk_updated:
         print(f"  Trunk VLAN range updated for root fanout")
     print()
@@ -422,6 +520,10 @@ def main():
         with open(args.links_csv, 'w') as f:
             f.writelines(new_lines)
         print(f"\nWritten to {args.links_csv}")
+
+    # Update devices.csv if --hwsku was provided
+    if args.hwsku and devices_csv_path:
+        update_devices_csv(devices_csv_path, args.hostname, args.hwsku, dry_run=args.dry_run)
 
 
 if __name__ == '__main__':

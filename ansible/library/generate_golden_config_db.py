@@ -784,10 +784,8 @@ class GenerateGoldenConfigDBModule(object):
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2/LT2 topologies.
-
-        Rebuilds the PORT table from platform.json to get correct lanes, aliases,
-        and indices for the current breakout mode. Falls back to minigraph PORT
-        with FEC added if platform.json is not available.
+        Enables FEC for high-speed ports. PORT table rebuild from platform.json
+        is handled separately by override_port_table_from_platform().
         """
         SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128"]
         if self.topo_name not in SUPPORTED_TOPO:
@@ -796,28 +794,36 @@ class GenerateGoldenConfigDBModule(object):
         ori_config = json.loads(self.get_config_from_minigraph())
         minigraph_ports = ori_config.get("PORT", {})
 
-        # Try to rebuild PORT from platform.json for correct lanes/aliases.
-        # Prefer links.csv port speeds (self.port_speeds) over minigraph ports,
-        # because links.csv reflects the desired breakout layout after an HWSKU
-        # change, while minigraph may still have the old port count/speeds.
-        platform_json_path = os.path.join(
-            '/usr/share/sonic/device', self.platform, 'platform.json')
-        if self.port_speeds:
-            port_speeds = {name: str(speed) for name, speed in self.port_speeds.items()}
-        else:
-            port_speeds = {name: cfg.get("speed", "0") for name, cfg in minigraph_ports.items()}
-
-        port_table = generate_port_table_from_platform(port_speeds, platform_json_path)
-        if port_table:
-            return json.dumps({"PORT": port_table}, indent=4)
-
-        # Fallback: use minigraph PORT with FEC added for high-speed ports
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
         for name, config in minigraph_ports.items():
             if config["speed"] in SUPPORTED_PORT_SPEED and "fec" not in config:
                 config["fec"] = "rs"
 
         return json.dumps({"PORT": minigraph_ports}, indent=4)
+
+    def override_port_table_from_platform(self, config):
+        """
+        Rebuild the PORT table from port_speeds + platform.json.
+
+        Runs as a post-processing step in generate(), independent of topology.
+        When port_speeds is provided (from links.csv), rebuilds the PORT table
+        with correct lanes, aliases, indices, speed, and FEC from platform.json.
+        Falls back to the existing config if platform.json is unavailable.
+        """
+        if not self.port_speeds:
+            return config
+
+        platform_json_path = os.path.join(
+            '/usr/share/sonic/device', self.platform, 'platform.json')
+        port_speeds = {name: str(speed) for name, speed in self.port_speeds.items()}
+
+        port_table = generate_port_table_from_platform(port_speeds, platform_json_path)
+        if not port_table:
+            return config
+
+        config_dict = json.loads(config)
+        config_dict["PORT"] = port_table
+        return json.dumps(config_dict, indent=4)
 
     def generate_t0_f2_golden_config_db(self):
         """
@@ -875,6 +881,9 @@ class GenerateGoldenConfigDBModule(object):
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
 
+        # Rebuild PORT table from port_speeds + platform.json when provided
+        config = self.override_port_table_from_platform(config)
+
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
@@ -900,14 +909,18 @@ class GenerateGoldenConfigDBModule(object):
             })
 
         # Ensure DEVICE_METADATA always includes hwsku — config override-config-table
-        # replaces the entire table, so missing fields (like hwsku) get wiped on the DUT
+        # replaces the entire table, so missing fields (like hwsku) get wiped on the DUT.
+        # When port_speeds is provided, always overwrite hwsku with the value from
+        # devices.csv since the breakout layout has changed.
         config_dict = json.loads(config)
         if "DEVICE_METADATA" not in config_dict:
             config_dict["DEVICE_METADATA"] = {}
         if "localhost" not in config_dict["DEVICE_METADATA"]:
             config_dict["DEVICE_METADATA"]["localhost"] = {}
         dm = config_dict["DEVICE_METADATA"]["localhost"]
-        if not dm.get("hwsku"):
+        if self.port_speeds and self.hwsku:
+            dm["hwsku"] = self.hwsku
+        elif not dm.get("hwsku"):
             hwsku = self.hwsku
             if not hwsku:
                 rc, out, _ = self.module.run_command(

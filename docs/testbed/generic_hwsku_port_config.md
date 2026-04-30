@@ -1,118 +1,147 @@
-# Generic HwSKU PORT Table Generation
+# Generic HwSKU PORT Table Generation — Without port_config.ini
 
 ## Problem
 
-Each HwSKU variant (e.g., `Arista-7060X6-64PE-O128S2`, `-C256S2`, `-C224O8`) requires
-its own `port_config.ini` file in `sonic-buildimage`. Changing the breakout layout
+Each HwSKU variant (e.g., `Arista-7060X6-64PE-O128S2`, `-C256S2`, `-C224O8`) traditionally
+requires its own `port_config.ini` file in `sonic-buildimage`. Changing the breakout layout
 means creating a new HwSKU name, a new directory, a new `port_config.ini`, and a new
 `sonic-buildimage` PR. This doesn't scale.
 
 ## Solution
 
-Generate the PORT table dynamically from two data sources:
+Generate the PORT table dynamically at deploy time using the existing Ansible playbook
+(`config_sonic_basedon_testbed.yml`) and the `generate_golden_config_db` module — no
+`port_config.ini`, `hwsku.json`, or manual file copies needed.
+
+The playbook uses two data sources already available in every testbed:
 
 - **`links.csv`** — the lab topology file on the sonic-mgmt server. Provides port names
   and speeds (the "what").
-- **`platform.json`** — the hardware description on the DUT (or in a `sonic-buildimage`
-  checkout). Provides physical lanes, aliases, indices, and valid breakout modes
-  (the "how").
-
-No `port_config.ini` or `hwsku.json` is needed. No HwSKU name parsing.
+- **`platform.json`** — the hardware description already present on the DUT at
+  `/usr/share/sonic/device/<platform>/platform.json`. Provides physical lanes, aliases,
+  indices, and valid breakout modes (the "how").
 
 ## Architecture
 
 ```
- ┌────────────┐     ┌──────────────┐
- │ links.csv  │     │ devices.csv  │
- │ (mgmt srv) │     │ (mgmt srv)   │
- │            │     │              │
- │ port names │     │ hostname →   │
- │ + speeds   │     │ hwsku        │
- └─────┬──────┘     └──────┬───────┘
-       │                   │
-       │    ┌──────────────┘
-       │    │    ┌───────────────┐
-       │    │    │ platform.json │
-       │    │    │ (on DUT or    │
-       │    │    │  buildimage)  │
-       │    │    │               │
-       │    │    │ lanes, index, │
-       │    │    │ aliases,      │
-       │    │    │ breakout_modes│
-       ▼    ▼    └───────┬───────┘
- ┌───────────────────────┴──────────────┐
- │       generate_port_config.py        │
- │                                      │
- │  1. read_links_csv()  → port:speed   │
- │  2. validate()        → warnings     │
- │  3. generate_port_table()            │
- │     for each cage in platform.json:  │
- │       • find ports in cage range     │
- │       • match breakout mode          │
- │       • split lanes evenly           │
- │       • assign alias from platform   │
- │  4. output JSON                      │
- └──────────────┬───────────────────────┘
-                │
-                ▼
-     PORT table JSON → scp to DUT → sonic-cfggen --write-to-db
+ sonic-mgmt server                              DUT
+ ┌──────────────────────────────────┐           ┌──────────────────────┐
+ │  ansible/files/                  │           │  /usr/share/sonic/   │
+ │    sonic_<lab>_links.csv         │           │  device/<platform>/  │
+ │    sonic_<lab>_devices.csv       │           │    platform.json     │
+ └───────────┬──────────────────────┘           └──────────┬───────────┘
+             │                                             │
+             ▼                                             │
+ ┌───────────────────────────────────┐                     │
+ │ config_sonic_basedon_testbed.yml  │                     │
+ │                                   │                     │
+ │  1. Extract port_speeds + hwsku   │                     │
+ │     from links.csv & devices.csv  │                     │
+ │     (delegated to localhost)      │                     │
+ │                                   │                     │
+ │  2. Call generate_golden_config_db│                     │
+ │     on DUT with port_speeds       │─────────────────────┤
+ └───────────┬───────────────────────┘                     │
+             │                                             │
+             ▼                                             ▼
+ ┌──────────────────────────────────────────────────────────────────┐
+ │  generate_golden_config_db (Ansible module, runs on DUT)        │
+ │                                                                 │
+ │  generate_port_table_from_platform(port_speeds, platform.json): │
+ │    for each cage in platform.json:                              │
+ │      • find ports from port_speeds in cage's address range      │
+ │      • match port count + speed against breakout_modes          │
+ │      • split lanes evenly among ports                           │
+ │      • assign aliases from matched breakout mode                │
+ │      • add FEC=rs for speeds ≥ 200G                             │
+ │                                                                 │
+ │  Output: golden_config_db.json with PORT table                  │
+ └──────────────────────────────────┬──────────────────────────────┘
+                                    │
+                                    ▼
+                 config load_minigraph --override_config -y
+                   ├── minigraph → all tables (BGP, VLAN, etc.)
+                   └── golden_config_db.json → PORT table override
 ```
 
 ## How It Works
 
-### Physical Switch Layout
+### Step 1: Playbook extracts port speeds from links.csv
 
-A switch like the Arista 7060X6-64PE has 64 physical cages (QSFP-DD), each with
-8 SerDes lanes. `platform.json` describes all cages and their valid breakout modes:
+When `port_override_from_links=true` is passed to the playbook, a task
+delegated to `localhost` reads `links.csv` and `devices.csv` to extract:
 
-```json
-{
-  "interfaces": {
-    "Ethernet0": {
-      "lanes": "17,18,19,20,21,22,23,24",
-      "index": "1,1,1,1,1,1,1,1",
-      "breakout_modes": {
-        "1x800G[400G]": ["etp1"],
-        "2x400G": ["etp1a", "etp1b"],
-        "4x200G": ["etp1a", "etp1b", "etp1c", "etp1d"],
-        "8x100G": ["etp1a", "etp1b", "etp1c", "etp1d", "etp1e", "etp1f", "etp1g", "etp1h"]
-      }
-    }
-  }
-}
-```
+- **port_speeds** — `{port_name: speed}` for the target DUT hostname
+- **hwsku** — the HwSKU string from `devices.csv`
 
-### The Matching Algorithm
+These are passed to the `generate_golden_config_db` Ansible module as parameters.
 
-For each cage in `platform.json`, the script:
+### Step 2: Module rebuilds PORT table from platform.json on the DUT
 
-1. **Collects** which `links.csv` ports fall into this cage's address range
-2. **Matches** the port count + speed against `breakout_modes` to find the right mode
-3. **Splits** the cage's lanes evenly among the ports
-4. **Assigns** aliases from the matched breakout mode
+The `generate_golden_config_db` module (in `ansible/library/`) runs on the DUT.
+For FT2/LT2 topologies, it calls `generate_port_table_from_platform()` which:
 
-Example for cage `Ethernet0` with 8 lanes `[17,18,19,20,21,22,23,24]`:
+1. Opens `/usr/share/sonic/device/<platform>/platform.json` (already on the DUT)
+2. For each physical cage defined in `platform.json`:
+   - Collects which ports from `port_speeds` fall into this cage's lane range
+   - Matches the port count + speed against the cage's `breakout_modes`
+   - Splits the cage's SerDes lanes evenly among the matched ports
+   - Assigns aliases from the matched breakout mode entry
+   - Adds `fec: rs` for port speeds ≥ 200G
+3. Writes the result as `golden_config_db.json`
 
-| links.csv ports in cage | Breakout matched | Lane assignment |
-|-------------------------|-----------------|-----------------|
-| 1 port × 800G | `1x800G` | Ethernet0 → lanes=17,18,19,20,21,22,23,24 |
-| 2 ports × 400G | `2x400G` | Ethernet0 → 17,18,19,20; Ethernet4 → 21,22,23,24 |
-| 4 ports × 200G | `4x200G` | Ethernet0 → 17,18; Ethernet2 → 19,20; ... |
-| 8 ports × 100G | `8x100G` | Ethernet0 → 17; Ethernet1 → 18; ... |
+If `port_speeds` is provided from `links.csv`, those speeds are used (they
+reflect the desired breakout layout). Otherwise, the module falls back to the
+minigraph PORT table speeds.
 
-### Mixed Breakout
+### Step 3: Minigraph + golden config applied together
 
-Each cage is processed independently, so mixed breakout is supported:
+The playbook runs `config load_minigraph --override_config -y`, which:
 
-```
-Cage 1: 1 port at 800G  → 1x800G (all 8 lanes)
-Cage 2: 2 ports at 400G → 2x400G (4 lanes each)
-Cage 3: 8 ports at 100G → 8x100G (1 lane each)
-```
+- Loads all config_db tables from minigraph (BGP, VLAN, LOOPBACK, etc.)
+- Overrides the PORT table with the one from `golden_config_db.json`
+
+The result is a PORT table with correct lanes, aliases, indices, speeds, and
+FEC — derived entirely from `links.csv` + `platform.json`, with no
+`port_config.ini` involved.
+
+
+### Fallback Behavior
+
+If `platform.json` is missing or has no `interfaces` section, the module falls
+back to using the minigraph PORT table directly, adding `fec: rs` for ports
+with speeds ≥ 200G. This preserves backward compatibility with DUTs that lack
+`platform.json`.
 
 ## Usage
 
-### Step 1: Generate PORT table JSON (on mgmt server)
+### Deploy with PORT override (recommended)
+
+```bash
+# Deploy minigraph + golden config with PORT table generated from links.csv
+./testbed-cli.sh deploy-mg <testbed-name> <inventory> <password> \
+    -e port_override_from_links=true -e lab_name=<lab>
+```
+
+This single command:
+1. Reads port speeds from `ansible/files/sonic_<lab>_links.csv` on the mgmt server
+2. Reads the DUT's HwSKU from `ansible/files/sonic_<lab>_devices.csv`
+3. On the DUT, rebuilds the PORT table from the local `platform.json` using those speeds
+4. Applies minigraph + PORT override with `config load_minigraph --override_config -y`
+
+### Deploy without PORT override (default behavior)
+
+Without `port_override_from_links`, the module uses minigraph PORT speeds and
+adds FEC. This is the existing behavior and requires no extra flags:
+
+```bash
+./testbed-cli.sh deploy-mg <testbed-name> <inventory> <password>
+```
+
+### Standalone generation (optional)
+
+For debugging or offline use, the standalone script `generate_port_config.py`
+can generate the same PORT table JSON on the mgmt server:
 
 ```bash
 python3 ansible/scripts/generate_port_config.py \
@@ -124,30 +153,27 @@ python3 ansible/scripts/generate_port_config.py \
     -o /tmp/port_config_override.json
 ```
 
-Or auto-detect `platform.json` from a `sonic-buildimage` checkout:
-
-```bash
-python3 ansible/scripts/generate_port_config.py \
-    --links-csv ansible/files/sonic_str4_links.csv \
-    --devices-csv ansible/files/sonic_str4_devices.csv \
-    --hostname str4-7060x6-64pe-11 \
-    --buildimage-root ~/sonic-buildimage \
-    -o /tmp/port_config_override.json
-```
-
-### Step 2: Apply to DUT (after load_minigraph)
-
-```bash
-# Copy override to DUT
-scp /tmp/port_config_override.json dut:/etc/sonic/
-
-# Apply (overwrites PORT table in config_db)
-ssh dut "sudo sonic-cfggen -j /etc/sonic/port_config_override.json --write-to-db && sudo config save -y"
-```
-
 ### Changing Breakout (update links.csv)
 
-To remap `links.csv` for a new breakout layout:
+To remap `links.csv` for a new breakout layout, use the `update-breakout`
+command in `testbed-cli.sh`, which wraps `update_links_for_breakout.py` and
+automatically resolves the DUT hostname from the testbed definition:
+
+```bash
+# From the ansible/ directory
+
+# Uniform breakout — all cages get the same mode
+./testbed-cli.sh update-breakout str4-t1-lag \
+    files/sonic_str4_links.csv 2x400G --dry-run
+
+# Mixed breakout — different modes per port range
+./testbed-cli.sh update-breakout str4-t1-lag \
+    files/sonic_str4_links.csv "1x800G:0-255,2x400G:256-504" --dry-run
+
+# Remove --dry-run to apply
+```
+
+Alternatively, call the script directly with an explicit hostname:
 
 ```bash
 python3 ansible/scripts/update_links_for_breakout.py \
@@ -155,30 +181,35 @@ python3 ansible/scripts/update_links_for_breakout.py \
     --hostname str4-7060x6-64pe-11 \
     --target-breakout 2x400G \
     --dry-run
-
-# Remove --dry-run to apply
 ```
 
-## Integration with Existing Flow
+The port range in mixed breakout refers to Ethernet port numbers. Each range
+gets its own breakout mode. Cages are determined by `--lanes-per-cage` (default: 8).
 
-All other config_db tables (DEVICE_NEIGHBOR, VLAN, BGP_NEIGHBOR, LOOPBACK, etc.)
-continue to come from minigraph via `config load_minigraph`. This script only
-overrides the PORT table:
+#### What the Script Does
 
+The script groups DUT ports by physical cage, maps existing source ports to
+target ports in the new breakout, removes entries that don't exist in the new
+layout, and generates expansion entries for any target ports that lack a source
+mapping. This ensures the CSV is always complete for the new port layout. VLAN
+assignments are updated sequentially and trunk VLAN ranges are adjusted.
+
+#### Updating HwSku
+
+Use `--hwsku` to update both `links.csv` and `devices.csv` in one command:
+
+```bash
+python3 ansible/scripts/update_links_for_breakout.py \
+    --links-csv ansible/files/sonic_str4_links.csv \
+    --hostname str4-7060x6-64pe-11 \
+    --target-breakout 2x400G \
+    --hwsku Arista-7060X6-64PE-O128S2
 ```
-config load_minigraph -y         ← all tables from minigraph
-generate_port_config.py          ← PORT override from links.csv + platform.json
-sonic-cfggen -j ... --write-to-db  ← overwrite just PORT
-```
 
-## Validation
+The script auto-detects the companion `devices.csv` from the `links.csv` path
+and updates the HwSku column for the specified hostname.
 
-The script validates the `links.csv` ports against `platform.json`:
 
-- **Orphan ports** — ports not mapping to any physical cage
-- **Mixed speeds** — different speeds within the same cage
-- **Invalid breakout** — port count + speed not in `breakout_modes`
-- **HwSKU pattern checks** — copper (C*) and split (P*) pattern validation
 
 ## End-to-End HWSKU Conversion (C256 → O128 Example)
 
@@ -229,16 +260,18 @@ Apply when satisfied:
 
 ### Step 3: Update devices.csv — change HwSKU
 
-Edit `ansible/files/sonic_str4_devices.csv` and change the DUT's HwSKU:
+Use `--hwsku` during Step 2 to handle this automatically, or edit
+`ansible/files/sonic_str4_devices.csv` manually:
 
-```
-# Before:
-str4-7060x6-64pe-11,...,Arista-7060X6-64PE-C256S2,...
-# After:
-str4-7060x6-64pe-11,...,Arista-7060X6-64PE-O128S2,...
+```bash
+python3 ansible/scripts/update_links_for_breakout.py \
+    --links-csv ansible/files/sonic_str4_links.csv \
+    --hostname str4-7060x6-64pe-11 \
+    --target-breakout 2x400G \
+    --hwsku Arista-7060X6-64PE-O128S2
 ```
 
-### Step 4: Redeploy leaf fanout
+### Step 4: Update the devices.csv and Redeploy leaf fanout(Uses another change in port_config_gen.py by PR:https://github.com/sonic-net/sonic-mgmt/pull/23536/changes)
 
 The leaf fanout needs to be reconfigured for the new breakout and VLANs:
 
@@ -259,20 +292,23 @@ ansible-playbook -i str4-inventory fanout_connect.yml \
     -e dut=str4-7060x6-64pe-11
 ```
 
-### Step 6: Deploy minigraph with golden config
+### Step 6: Deploy minigraph with PORT override
 
 This generates minigraph with the new port layout, builds the golden config
-(which replaces the PORT table using platform.json), and applies both:
+(which rebuilds the PORT table from `platform.json`), and applies both:
 
 ```bash
-./testbed-cli.sh deploy-mg str4-t1-lag str4-inventory ~/.password
+./testbed-cli.sh deploy-mg str4-t1-lag str4-inventory ~/.password \
+    -e port_override_from_links=true -e lab_name=str4
 ```
 
 What happens under the hood:
-1. Minigraph is generated with the new 128-port layout
-2. `generate_golden_config_db` rebuilds the PORT table from `platform.json`
-   with correct lanes, aliases, indices, speed, and FEC
-3. `config load_minigraph --override_config -y` applies minigraph + PORT override
+1. Playbook reads `links.csv` on the mgmt server → extracts `port_speeds` for 128 ports
+2. `generate_golden_config_db` runs on the DUT, reads local `platform.json`
+3. PORT table is rebuilt with correct lanes, aliases, indices, speed=400000, fec=rs
+4. `config load_minigraph --override_config -y` applies minigraph + PORT override
+
+No `port_config.ini` is read or needed at any step.
 
 ### Step 7: Verify port status
 
@@ -308,39 +344,4 @@ ssh dut "show bgp summary | grep -v Established | grep -v 'Neighbor\|entries'"
 ssh dut "show bgp summary | grep -c Established"
 ```
 
-### Step 9: Verify LLDP neighbors
 
-```bash
-# LLDP confirms physical connectivity matches links.csv
-ssh dut "show lldp table"
-ssh dut "show lldp table | wc -l"
-```
-
-### Step 10: Run sanity tests
-
-```bash
-cd tests
-
-# Run pretest checks (interfaces, BGP, basic connectivity)
-pytest test_pretest.py \
-    --testbed=str4-t1-lag \
-    --inventory=../ansible/str4-inventory \
-    -v
-
-# Run link flap test to verify all links recover
-pytest platform_tests/test_link_flap.py \
-    --testbed=str4-t1-lag \
-    --inventory=../ansible/str4-inventory \
-    -v
-```
-
-### Troubleshooting
-
-| Symptom | Check | Fix |
-|---------|-------|-----|
-| Ports admin up but oper down | `show interfaces status` | Verify fanout is configured for new breakout; check cable/transceiver |
-| Wrong port count | `sonic-cfggen -d --var-json PORT \| python3 -c "import json,sys; print(len(json.load(sys.stdin)))"` | Re-run `deploy-mg`; verify links.csv has correct entries |
-| BGP sessions not established | `show bgp summary` | Wait longer (up to 180s); check `show ip interface` for correct IPs |
-| VLANs not trunked | Check root fanout: `show vlan` | Re-run `fanout_connect.yml` |
-| Wrong lanes/aliases in PORT | `sonic-cfggen -d --var-json PORT` | Verify `platform.json` exists on DUT at `/usr/share/sonic/device/<platform>/` |
-| Golden config not applied | `cat /etc/sonic/golden_config_db.json` | Check that topo is `ft2-64`, `lt2-p32o64`, or `lt2-o128` |

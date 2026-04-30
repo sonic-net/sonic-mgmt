@@ -88,6 +88,8 @@ function usage
   echo "        -e output_path=<user-specified-path>"
   echo "To update links.csv for a breakout/HWSKU change: $0 update-breakout 'testbed-name' 'links-csv' '2x400G'"
   echo "    update-breakout supports additional options passed through to the script:"
+  echo "        --hwsku HWSKU         New HwSku name to set in devices.csv"
+  echo "        --devices-csv PATH    Path to devices.csv (auto-derived from links-csv if omitted)"
   echo "        --lanes-per-cage N    Lanes per physical cage (default: 8)"
   echo "        --mgmt-ports M        Comma-separated management port numbers (default: 512,513)"
   echo "        --dry-run             Preview changes without writing"
@@ -803,7 +805,14 @@ function deploy_minigraph
     fi
   done
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag "${filtered_args[@]}"
+  # Derive lab_name from inventory path if not explicitly provided via -e lab_name=...
+  lab_name_flag=""
+  if ! printf '%s\n' "${filtered_args[@]}" | grep -q 'lab_name='; then
+    lab_basename=$(basename "$inventory" | sed 's/-inventory$//')
+    lab_name_flag="-e lab_name=$lab_basename"
+  fi
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag $lab_name_flag "${filtered_args[@]}"
 
   echo Done
 }
