@@ -181,7 +181,8 @@ def ignore_expected_loganalyzer_exceptions(
         ignoreRegex = [
             r".*ERR snmp#snmp-subagent.*",
             r".*ERR rsyslogd: omfwd: socket (\d+): error (\d+) sending via udp: Network is (unreachable|down).*",
-            r".*ERR rsyslogd: omfwd/udp: socket (\d+): sendto\(\) error: Network is (unreachable|down).*"
+            r".*ERR rsyslogd: omfwd/udp: socket (\d+): sendto\(\) error: Network is (unreachable|down).*",
+            r".*ERR kernel.*e1000.*Reset adapter.*"
         ]
         loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
