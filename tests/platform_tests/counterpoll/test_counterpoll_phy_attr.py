@@ -477,13 +477,13 @@ def verify_counters_db_data(duthost, sample_ports):
                               "rx_snr has {} lanes, expected {} for {} ({})".format(
                                   len(rx_snr_data), expected_lanes, port_oid, interface_name))
 
-                # Verify all lane numbers are present and values are integers
+                # Verify all lane numbers are present and values are float (dB)
                 for lane in range(expected_lanes):
                     lane_key = str(lane)
                     pytest_assert(lane_key in rx_snr_data,
                                   "Lane {} missing in rx_snr for {} ({})".format(lane, port_oid, interface_name))
-                    pytest_assert(isinstance(rx_snr_data[lane_key], int),
-                                  "rx_snr lane {} value is not an integer for {}".format(lane, port_oid))
+                    pytest_assert(isinstance(rx_snr_data[lane_key], float),
+                                  "rx_snr lane {} value is not a float for {}".format(lane, port_oid))
 
                 logging.info("rx_snr verified for {}: {} lanes".format(interface_name, expected_lanes))
 
