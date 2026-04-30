@@ -25,9 +25,17 @@ def restart_dhcp_service(duthost):
     duthost.shell('systemctl restart dhcp_relay')
     duthost.shell('systemctl reset-failed dhcp_relay')
 
+    # In SONiC dhcp relay agent mode, dhcprelayd stops dhcpmon by design,
+    # so exclude it from the readiness check (dhcprelayd.py refresh_dhcrelay TODO).
+    has_sonic_relay = duthost.shell(
+        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"',
+        module_ignore_errors=True)['stdout'].strip() == 'True'
+
     def _is_dhcp_relay_ready():
-        output = duthost.shell('docker exec dhcp_relay supervisorctl status | grep dhc | awk \'{print $2}\'',
-                               module_ignore_errors=True)
+        filter_cmd = 'grep dhc | grep -v dhcpmon' if has_sonic_relay else 'grep dhc'
+        output = duthost.shell(
+            "docker exec dhcp_relay supervisorctl status | {} | awk '{{print $2}}'".format(filter_cmd),
+            module_ignore_errors=True)
         return (not output['rc'] and output['stderr'] == '' and len(output['stdout_lines']) != 0 and
                 all(element == 'RUNNING' for element in output['stdout_lines']))
 
@@ -193,9 +201,13 @@ def calculate_counters_per_pkts(pkts, is_v6=False):
                 elif scapy.DHCP6_RelayReply in pkt:
                     message_type_int = pkt[scapy.DHCP6_RelayReply].msgtype  # Relay-Reply
             else:
-                for opt, val in pkt[scapy.DHCP].options:
-                    if opt == "message-type":
-                        message_type_int = val
+                for message_type_value in pkt[scapy.DHCP].options:
+                    if message_type_value[0] == 'message-type':
+                        message_type_int = message_type_value[1]
+                        # Get the message type value and convert it to an integer
+                        break
+                else:
+                    continue
             message_type_str = (SUPPORTED_DHCPV6_TYPE if is_v6 else SUPPORTED_DHCPV4_TYPE)[message_type_int - 1] \
                 if message_type_int is not None and message_type_int > 0 else "Unknown"
             sport = pkt[scapy.UDP].sport if pkt.haslayer(scapy.UDP) else None

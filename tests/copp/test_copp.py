@@ -625,7 +625,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
-        config_reload(dut, safe_reload=True, check_intf_up_ports=True)
+        config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):

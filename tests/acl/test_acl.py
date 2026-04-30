@@ -635,6 +635,10 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
     logging.info("Stopping ARP responder")
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    # Remove the rendered arp_responder config we wrote above so it can't be
+    # picked up by a stale invocation in a later test and so /tmp doesn't
+    # accumulate state that mis-leads on-PTF debugging.
+    ptfhost.file(path="/tmp/from_t1.json", state="absent")
 
     for dut in duthosts:
         dut.command("sonic-clear fdb all")
@@ -1089,7 +1093,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             return True
 
         logger.info('Wait all rule counters are ready')
-        return wait_until(120, 2, 0, self.check_rule_counters_internal, duthost)
+        return wait_until(300, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():

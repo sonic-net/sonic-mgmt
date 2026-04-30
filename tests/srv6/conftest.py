@@ -119,14 +119,14 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
         verify_srv6_counterpoll_status(rand_selected_dut, 'disable')
 
     with allure.step('Delete SRv6 Locators and SIDs'):
-        for locator_param in MyLocators.my_locator_list:
-            locator_name = locator_param[0]
-            del_srv6_locator(rand_selected_dut, locator_name)
-
         for sid_param in MySIDs.MY_SID_LIST:
             locator_name = sid_param[0]
             ip_addr = sid_param[1]
             del_srv6_sid(rand_selected_dut, locator_name, ip_addr)
+
+        for locator_param in MyLocators.my_locator_list:
+            locator_name = locator_param[0]
+            del_srv6_locator(rand_selected_dut, locator_name)
 
     with allure.step('Verify the CRM usage of SRv6 SID after the test'):
         used_mysid_num = 0

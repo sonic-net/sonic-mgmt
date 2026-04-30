@@ -39,6 +39,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint
+from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.util.generate_patch import generate_config_patch, is_front_panel_port
 
@@ -67,17 +68,10 @@ ADDCLUSTER_FILE = os.path.join(TEMPLATES_DIR, "addcluster.json")
 #
 # See also: https://github.com/sonic-net/sonic-buildimage/issues/24577
 #
-# These errors occur during a brief race window when GCU patches transition ports from
-# admin_status='down' to 'up'. Orchagent attempts to apply speed/PFC config before the
-# admin_status change fully propagates, causing temporary failures:
-#   - "Unsupported port speed" - speed config rejected on admin-down port
-#   - "Failed to start PFC Watchdog" - PFC can't start on admin-down port
-#   - "Unable to find key NPU_SI_SETTINGS" - xcvrd can't query admin-down port
-#
-# Why these are safe to ignore:
-#   1. verify_oper_status_after_patches() waits up to 300s for ports to become oper 'up'
-#   2. CONFIG_DB verification (Steps 9-12) confirms all entries are correctly applied
-#   3. If config permanently failed, ports wouldn't reach oper='up' and test would fail
+# These errors occur during a brief race window when GCU patches transition
+# ports from admin_status='down' to 'up'. Orchagent attempts to apply
+# speed/PFC config before the admin_status change fully propagates.
+# These are transient and resolve once the transition completes.
 LOGANALYZER_IGNORE_REGEX = [
     ".*doPortTask: Unsupported port .* speed.*",
     ".*createEntry: Failed to start PFC Watchdog on port.*",
@@ -85,18 +79,47 @@ LOGANALYZER_IGNORE_REGEX = [
 ]
 
 
+@support_ignore_loganalyzer
+def apply_patch_with_log_ignore(duthost, json_data, dest_file):
+    """Apply GCU patch with loganalyzer temporarily muted.
+
+    YANG validation errors during GCU patch sorting are expected - GCU tries
+    multiple orderings and intermediate states may fail validation (e.g., PORT
+    without 'lanes', references to ports not yet created). These are transient
+    and resolve when a valid ordering is found.
+
+    This wrapper mutes the loganalyzer during the GCU apply window so these
+    expected errors don't cause test failures. The decorator adds start/end
+    ignore markers that tell loganalyzer to skip all messages in this window.
+
+    Reference PRs:
+    - Decorator definition: https://github.com/sonic-net/sonic-mgmt/pull/16624
+    - Usage pattern: https://github.com/sonic-net/sonic-mgmt/pull/16625
+
+    Usage:
+        apply_patch_with_log_ignore(
+            duthost, json_data=patch, dest_file=tmpfile,
+            ignore_loganalyzer=loganalyzer
+        )
+
+    Args:
+        duthost: Device Under Test (DUT)
+        json_data: Source json patch to apply
+        dest_file: Destination file on duthost
+
+    Keyword Args (via decorator):
+        ignore_loganalyzer: Dict mapping hostname to loganalyzer instance.
+                            When provided, loganalyzer is muted during apply.
+
+    Returns:
+        dict: Result from apply_patch (shell output with rc, stdout, stderr)
+    """
+    return apply_patch(duthost, json_data=json_data, dest_file=dest_file)
+
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_errors(duthosts, loganalyzer):
     """Ignore expected transient errors during port reconfiguration.
-
-    When GCU patches transition ports from admin_status='down' to 'up', there's a
-    brief race where orchagent tries to configure speed/PFC before admin_status
-    propagates. These errors resolve once the transition completes.
-
-    The test validates this by:
-    - verify_oper_status_after_patches(): confirms ports reach oper='up' (would fail
-      if speed config permanently failed)
-    - CONFIG_DB verification: confirms PFC_WD and other entries exist
 
     Args:
         duthosts: DUT hosts fixture
@@ -105,7 +128,8 @@ def ignore_expected_loganalyzer_errors(duthosts, loganalyzer):
     if loganalyzer:
         for duthost in duthosts:
             if duthost.hostname in loganalyzer:
-                loganalyzer[duthost.hostname].ignore_regex.extend(LOGANALYZER_IGNORE_REGEX)
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    LOGANALYZER_IGNORE_REGEX)
     yield
 
 
@@ -1198,7 +1222,7 @@ def setup_env(duthosts, enum_downstream_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
+def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer):
     """Test adding a downstream T1 neighbor cluster via GCU.
 
     This test validates that a T1 neighbor can be added to a multi-ASIC
@@ -1460,9 +1484,14 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
             config_entries_to_check['PFC_WD'].add(f"PFC_WD|{entry}")
 
     # Apply Phase 1 patch (core configuration)
+    # Use apply_patch_with_log_ignore to mute loganalyzer during GCU apply window.
+    # This ignores expected YANG validation errors that occur during patch sorting.
     tmpfile = generate_tmpfile(duthost)
     try:
-        apply_patch_result = apply_patch(duthost, json_data=phase1_patch, dest_file=tmpfile)
+        apply_patch_result = apply_patch_with_log_ignore(
+            duthost, json_data=phase1_patch, dest_file=tmpfile,
+            ignore_loganalyzer=loganalyzer
+        )
         if apply_patch_result['rc'] != 0 or "Patch applied successfully" not in apply_patch_result['stdout']:
             pytest.fail(f"Failed to apply Phase 1 patch: {apply_patch_result['stdout']}")
         logger.info("Phase 1 patch applied successfully")
@@ -1493,7 +1522,10 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
     if phase2_patch:
         tmpfile = generate_tmpfile(duthost)
         try:
-            apply_patch_result = apply_patch(duthost, json_data=phase2_patch, dest_file=tmpfile)
+            apply_patch_result = apply_patch_with_log_ignore(
+                duthost, json_data=phase2_patch, dest_file=tmpfile,
+                ignore_loganalyzer=loganalyzer
+            )
             if apply_patch_result['rc'] != 0 or "Patch applied successfully" not in apply_patch_result['stdout']:
                 pytest.fail(f"Failed to apply Phase 2 patch: {apply_patch_result['stdout']}")
             logger.info("Phase 2 patch applied successfully")

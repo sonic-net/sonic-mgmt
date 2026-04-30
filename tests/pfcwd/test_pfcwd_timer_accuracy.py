@@ -7,6 +7,7 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
+from tests.common.helpers.pfcwd_helper import calculate_pfcwd_default_timers
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 from tests.common.helpers.pfcwd_helper import send_background_traffic
@@ -72,6 +73,9 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']
     eth0_ip = setup_info['eth0_ip']
+    dynamic_timers = calculate_pfcwd_default_timers(duthost)
+    logger.info(f"Updating timers: original={timers}, dynamic={dynamic_timers}")
+    timers.update(dynamic_timers)
     # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
     # So that convert to list explicitly.
     pfc_wd_test_port = list(test_ports.keys())[0]
@@ -81,7 +85,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     fanout = fanouthosts
     peer_params = populate_peer_info(asic_type, neighbors, fanout_info, pfc_wd_test_port)
     storm_handle = set_storm_params(dut, fanout_info, fanout, peer_params)
-    timers['pfc_wd_restore_time'] = 400
+    dut.command("pfcwd interval {}".format(timers['pfc_wd_poll_time']))
     start_wd_on_ports(dut, pfc_wd_test_port, timers['pfc_wd_restore_time'],
                       timers['pfc_wd_detect_time'])
     # enable routing from mgmt interface to localhost

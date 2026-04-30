@@ -28,5 +28,7 @@ mux_simulator_http_port:
     # For vs setup
     vms-kvm-dual-t0: 8080
     vms-kvm-dual-mixed: 8082
+    vms-kvm-dual-vpp-t0-1: 8084
+    vms-kvm-dual-vpp-t0-2: 8086
 
     #### Add your own port assignment after here ###

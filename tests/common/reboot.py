@@ -13,7 +13,7 @@ from .helpers.parallel_utils import synchronized_reboot
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
-from .utilities import wait_until, get_plt_reboot_ctrl
+from .utilities import wait_until, get_plt_reboot_ctrl, is_ipv6_address
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
 
@@ -441,6 +441,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # function will return sooner.
 
         # Update critical service list after rebooting in case critical services changed after rebooting
+        pytest_assert(wait_until(300, 10, 0, duthost.is_host_service_running, "docker"),
+                      "Docker service failed to start on {}".format(hostname))
         pytest_assert(wait_until(200, 10, 0, duthost.is_critical_processes_running_per_asic_or_host, "database"),
                       "Database not start.")
         pytest_assert(wait_until(20, 5, 0, duthost.is_service_running, "redis", "database"), "Redis DB not start")
@@ -806,7 +808,9 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
 
 def collect_mgmt_config_by_console(duthost, localhost):
     logger.info("check if dut is pingable")
-    localhost.shell(f"ping -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
+    # Use ping -6 for IPv6 so the check works on newer distros where ping6 may not exist.
+    ping_cmd = "ping -6" if is_ipv6_address(str(duthost.mgmt_ip)) else "ping"
+    localhost.shell(f"{ping_cmd} -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
 
     logger.info("Start: collect mgmt config by console")
     creds = creds_on_dut(duthost)
