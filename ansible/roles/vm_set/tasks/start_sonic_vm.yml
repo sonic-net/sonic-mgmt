@@ -10,6 +10,8 @@
 
 - set_fact:
     disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
+    efi_vars: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}_vars.fd"
+    use_uefi: true
     mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
     serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
@@ -20,6 +22,7 @@
 
 - set_fact:
     src_disk_image: "{{ sonic_vm_storage_location }}/images/sonic-{{ 'vpp' if 'vpp' == asic_type else 'vs' }}.img"
+    src_disk_efi_vars: "{{ sonic_vm_storage_location }}/images/sonic-{{ 'vpp' if 'vpp' == asic_type else 'vs' }}_vars.fd"
 
 - name: Remove arp entry for {{ dut_name }}
   shell: arp -d {{ mgmt_ip_address }}
@@ -36,6 +39,10 @@
 - name: Copy sonic disk image for {{ dut_name }}
   copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
   when: not file_stat.stat.exists
+
+- name: Copy sonic EFI vars for {{ dut_name }}
+  copy: src={{ src_disk_efi_vars }} dest={{ efi_vars }} remote_src=True
+  when: not file_stat.stat.exists and use_uefi
 
 - name: determine whether to include internal ports
   set_fact:
