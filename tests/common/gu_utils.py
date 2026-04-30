@@ -2,7 +2,6 @@ import json
 import logging
 import pytest
 import os
-import time
 import re
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
@@ -127,13 +126,30 @@ def apply_patch(duthost, json_data, dest_file):
     cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
-    start_time = time.time()
-    output = duthost.shell(cmds, module_ignore_errors=True)
-    elapsed_time = time.time() - start_time
     gcu_timeout = get_gcu_timeout(duthost)
-    if elapsed_time > gcu_timeout:
-        logger.error("Command took too long: {} seconds".format(elapsed_time))
-        raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
+
+    # Run the command asynchronously so we can poll for completion and
+    # time out without blocking the test runner indefinitely.  This
+    # uses wait_until (the standard polling helper used across the repo)
+    # instead of an ad-hoc bash 'timeout' wrapper, giving us periodic
+    # logging and Python-level control over the thread.
+    pool, async_result = duthost.shell(cmds, module_ignore_errors=True,
+                                       module_async=True)
+    try:
+        completed = wait_until(gcu_timeout, 10, 0,
+                               lambda: async_result.ready())
+        if not completed:
+            logger.error("apply-patch did not complete within {} seconds, "
+                         "terminating".format(gcu_timeout))
+            raise TimeoutError(
+                "Command execution timeout: {} seconds".format(gcu_timeout))
+
+        # .get() returns the result on success or re-raises the
+        # original exception from the worker thread on failure.
+        output = async_result.get()
+    finally:
+        pool.terminate()
+        pool.join()
 
     return output
 
@@ -649,4 +665,9 @@ def get_bgp_speaker_runningconfig(duthost):
 
 
 def get_gcu_timeout(duthost):
+    """Return the GCU apply-patch timeout (in seconds) for this platform.
+
+    Platforms listed in GCUTIMEOUT_MAP get a custom value; everything
+    else defaults to 600 s.
+    """
     return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 600)
