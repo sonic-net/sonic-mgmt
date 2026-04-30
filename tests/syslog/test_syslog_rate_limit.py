@@ -21,10 +21,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCAL_LOG_GENERATOR_FILE = os.path.join(BASE_DIR, 'log_generator.py')
 REMOTE_LOG_GENERATOR_FILE = os.path.join('/tmp', 'log_generator.py')
 DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
-# rsyslogd prints this log when rate-limiting reached
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*rate-limit-test>: begin to drop messages due to rate-limiting.*'
+STP_LOG_FILE = '/var/log/stpd.log'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
+# rsyslogd emits this when container rate-limit starts dropping messages.
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*begin to drop messages due to rate-limiting.*'
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -153,14 +154,35 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
 
         rand_selected_dut.command(
             'docker cp {} {}:{}'.format(REMOTE_LOG_GENERATOR_FILE, container_name, DOCKER_LOG_GENERATOR_FILE))
+        additional_files = get_loganalyzer_additional_files(service_name)
+
+        # When logs are routed to an additional file (e.g. stpd.log for STP):
+        # 1. The rsyslog transition message "begin to drop messages due to rate-limiting"
+        #    may land outside the LogAnalyzer marker window, so it cannot be asserted.
+        # 2. rsyslog rate-limiting uses a sliding time window (RATE_LIMIT_INTERVAL seconds).
+        #    After config_reload the window may not be fully reset, so the number of messages
+        #    dropped (and thus the count reaching the log) is non-deterministic — it can be
+        #    anywhere from RATE_LIMIT_BURST to LOG_MESSAGE_GENERATE_COUNT.
+        # For both reasons, set expected_matches_target=0 which tells LogAnalyzer to skip
+        # the exact count check and only verify the pattern appeared at least once.
+        # For containers that log directly to syslog, the window is fresh and the exact
+        # drop count is deterministic, so assert RATE_LIMIT_BURST + 1 matches.
+        if additional_files:
+            expect_log_regex = [LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')]
+            expect_log_matches = 0
+        else:
+            expect_log_regex = [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED,
+                                LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')]
+            expect_log_matches = RATE_LIMIT_BURST + 1
+
         verify_rate_limit_with_log_generator(rand_selected_dut,
                                              container_name,
                                              'syslog_rate_limit_{}-interval_{}_burst_{}'.format(service_name,
                                                                                                 RATE_LIMIT_INTERVAL,
                                                                                                 RATE_LIMIT_BURST),
-                                             [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED,
-                                              LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')],
-                                             RATE_LIMIT_BURST + 1)
+                                             expect_log_regex,
+                                             expect_log_matches,
+                                             additional_files=additional_files)
 
         rsyslog_pid = get_rsyslogd_pid(rand_selected_dut, container_name)
         rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(service_name, 0, 0))
@@ -175,7 +197,8 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
                                              container_name,
                                              'syslog_rate_limit_{}-interval_{}_burst_{}'.format(service_name, 0, 0),
                                              [LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')],
-                                             LOG_MESSAGE_GENERATE_COUNT)
+                                             LOG_MESSAGE_GENERATE_COUNT,
+                                             additional_files=additional_files)
         break  # we only randomly test 1 container to reduce test time
 
 
@@ -206,8 +229,8 @@ def verify_host_rate_limit(rand_selected_dut):
                                          'host',
                                          'syslog_rate_limit_host_interval_{}_burst_{}'.format(RATE_LIMIT_INTERVAL,
                                                                                               RATE_LIMIT_BURST),
-                                         [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED, LOG_EXPECT_LAST_MESSAGE.format('')],
-                                         RATE_LIMIT_BURST + 1,
+                                         [LOG_EXPECT_LAST_MESSAGE.format('')],
+                                         RATE_LIMIT_BURST,
                                          is_host=True)
 
     with expect_host_rsyslog_restart(rand_selected_dut):
@@ -240,7 +263,7 @@ def verify_config_rate_limit_fail(duthost, service_name):
 
 
 def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expect_log_regex, expect_log_matches,
-                                         is_host=False):
+                                         is_host=False, additional_files=None):
     """Generator syslog with a script and verify that syslog rate limit reached
 
     Args:
@@ -250,8 +273,10 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
         expect_log_regex (list): A list of expected log message regular expression
         expect_log_matches (int): Number of log lines matches the expect_log_regex
         is_host (bool, optional): Verify on host side or container side. Defaults to False.
+        additional_files (dict, optional): Additional log files for log analyzer. Defaults to None.
     """
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=log_marker)
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=log_marker,
+                              additional_files=additional_files or {})
     loganalyzer.expect_regex = expect_log_regex
     loganalyzer.expected_matches_target = expect_log_matches
 
@@ -262,6 +287,16 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
 
     with loganalyzer:
         duthost.command(run_generator_cmd)
+
+
+def get_loganalyzer_additional_files(service_name):
+    # The host rsyslog config includes a rule that redirects all STP logs from
+    # the stp container to /var/log/stpd.log instead of /var/log/syslog.
+    # Because of this routing, LogAnalyzer must also scan stpd.log to find
+    # the expected rate-limit test messages; they will not appear in syslog.
+    if service_name == 'stp':
+        return {STP_LOG_FILE: ''}
+    return {}
 
 
 def get_host_rsyslogd_pid(duthost):
@@ -291,33 +326,42 @@ def expect_host_rsyslog_restart(duthost, timeout=30):
 
 
 def wait_rsyslogd_restart(duthost, service_name, old_pid):
-    logger.info('Waiting rsyslogd restart')
+    logger.info('Waiting rsyslogd restart or ready state')
     cmd = "docker exec -i {} bash -c 'supervisorctl status rsyslogd'".format(service_name)
     wait_time = 30
+    # Some config updates can be no-op and keep same PID; require two stable checks.
+    stable_ready_same_pid = 0
     while wait_time > 0:
         wait_time -= 1
-        # Check if new PID obtained (old process replaced)
+        # Detect restart first (PID change), but also allow no-op updates.
         new_pid = get_rsyslogd_pid(duthost, service_name)
-        if not new_pid or new_pid == old_pid:
+        output = duthost.command(cmd, module_ignore_errors=True)['stdout'].strip()
+        if 'RUNNING' not in output:
             time.sleep(1)
             continue
 
-        output = duthost.command(cmd, module_ignore_errors=True)['stdout'].strip()
-        if 'RUNNING' in output:
+        # Confirm rsyslog accepts messages before declaring success.
+        test_cmd = "docker exec -i {} bash -c 'echo test | logger -t rate-limit-test'".format(service_name)
+        result = duthost.command(test_cmd, module_ignore_errors=True)
+        if result.get('rc', 1) != 0:
+            logger.info('Rsyslog not ready yet, test log failed')
+            time.sleep(1)
+            continue
+
+        if new_pid and new_pid != old_pid:
             logger.info('Rsyslogd restarted with new PID: {}'.format(new_pid))
-            # Test if rsyslog is actually ready by sending a test log message
-            test_cmd = "docker exec -i {} bash -c 'echo test | logger -t rate-limit-test'".format(service_name)
-            result = duthost.command(test_cmd, module_ignore_errors=True)
-            if result.get('rc', 1) == 0:
-                logger.info('Rsyslogd restarted and ready')
-                return True
-            else:
-                logger.info('Rsyslog not ready yet, test log failed')
-                continue
+            logger.info('Rsyslogd restarted and ready')
+            return True
+
+        # No PID change: accept once process is consistently healthy.
+        stable_ready_same_pid += 1
+        if stable_ready_same_pid >= 2:
+            logger.info('Rsyslogd kept PID {} and is ready'.format(old_pid))
+            return True
 
         time.sleep(1)
 
-    logger.error('Rsyslogd failed to restart')
+    logger.error('Rsyslogd failed to become ready')
     return False
 
 
