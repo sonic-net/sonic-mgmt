@@ -59,8 +59,6 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_front_end_hostname
     """Suppress known harmless syslog ERR messages triggered by GCU config changes."""
     if loganalyzer:
         ignore_regexes = [
-            # ACL table re-creation during config apply can hit existing MIRROR tables
-            r".*ERR swss#orchagent.*addAclTable.*has already been created.*",
             # Binding ACL to LAG member port (shouldn't happen with LAG filter,
             # but suppress defensively)
             r".*ERR swss#orchagent.*processAclTablePorts.*Failed to get port.*bind port ID.*",
@@ -459,7 +457,7 @@ def test_perf_multi_operation(perf_ctx):
             "op": "add",
             "path": "/ACL_TABLE/{}".format(table_b),
             "value": {
-                "type": "MIRROR",
+                "type": "L3",
                 "policy_desc": "Multi test B - to be removed",
                 "ports": up_ports[:4],
                 "stage": "ingress"
