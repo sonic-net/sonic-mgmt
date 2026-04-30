@@ -823,6 +823,21 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
+    def generate_drh_golden_config_db(self):
+        """
+        Generate golden_config for disaggregated Regional Hub (LRH/URH) topologies.
+        Only sets BGP confederation config.
+        """
+        ori_config = json.loads(self.get_config_from_minigraph())
+        golden_config = ori_config
+
+        if self.bgp_confd_asn and self.bgp_confd_peers:
+            golden_config["BGP_DEVICE_GLOBAL"] = ori_config.get("BGP_DEVICE_GLOBAL", {})
+            golden_config["BGP_DEVICE_GLOBAL"]["CONFED"] = \
+                {"asn": str(self.bgp_confd_asn), "peers": str(self.bgp_confd_peers).replace(' ', ';')}
+
+        return json.dumps(golden_config, indent=4)
+
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC and set BGP confed.
@@ -913,6 +928,9 @@ class GenerateGoldenConfigDBModule(object):
         elif "t0-f2" in self.topo_name:
             config = self.generate_t0_f2_golden_config_db()
             module_msg = module_msg + " for t0-f2"
+        elif "lrh" in self.topo_name or "urh" in self.topo_name:
+            config = self.generate_drh_golden_config_db()
+            module_msg = module_msg + " for drh"
         elif "ft2" in self.topo_name or "lt2" in self.topo_name:
             config = self.generate_lt2_ft2_golden_config_db()
         elif "t2" in self.topo_name and self.macsec_profile:
