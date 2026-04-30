@@ -11,6 +11,7 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
+from ha_dash_flow_utils import compare_flow_tables_pdsctl
 from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
          verify_ha_state, set_dead_dash_ha_scope
 
@@ -126,7 +127,9 @@ def test_ha_planned_shutdown(
         testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
         if send_count == 0:
-            logger.info("First outbound packet received")
+            logger.info("First outbound packet received - compare flows")
+            flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+            pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         send_count += 1
         # After we send initial_send_count packets, awake perform_ha_action thread
         if send_count == initial_send_count:
@@ -171,7 +174,9 @@ def test_ha_planned_shutdown(
         testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
         if send_count == 0:
-            logger.info("First outbound packet received")
+            logger.info("First outbound packet received - compare flows")
+            flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+            pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         send_count += 1
         # After we send initial_send_count packets, awake perform_ha_action thread
         if send_count == initial_send_count:

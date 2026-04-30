@@ -15,6 +15,8 @@ from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
+from ha_dash_flow_utils import compare_flow_tables_pdsctl
 from tests.common.reboot import reboot_smartswitch, wait_for_startup
 from tests.ha.ha_dpu_utils import CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, check_dpu_up_state
 
@@ -182,14 +184,19 @@ def test_ha_npu_reboot(
                 testutils.send(ptfadapter, dash_pl_config[1][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
-                    logger.info("First packet to standby received")
+                    logger.info("First packet to standby received - compare flows")
+                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+
             else:
                 if send_count == 0:
                     logger.info("Send first packet to primary")
                 testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
-                    logger.info("First packet to primary received")
+                    logger.info("First packet to primary received - compare flows")
+                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
                 if send_count == 0:

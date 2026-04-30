@@ -14,6 +14,8 @@ from constants import (
 )
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
+from tests.common.helpers.assertions import pytest_assert
+from ha_dash_flow_utils import compare_flow_tables_pdsctl
 from ha_utils import set_dead_dash_ha_scope, activate_secondary_dash_ha
 from ha_link_utils import add_acl_link_drop, remove_acl_link_drop
 
@@ -191,7 +193,10 @@ def test_ha_link_failure(
                         logger.info(f"inbound pkt dropped: {e}")
                     failed_count += 1
                 if send_count == 0:
-                    logger.info("First packets verified to standby")
+                    logger.info("First packets verified to standby - compare flows")
+                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+
             else:
                 if send_count == 0:
                     logger.info("Send first outbound packet to primary")
