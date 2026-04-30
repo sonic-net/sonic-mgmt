@@ -2,6 +2,7 @@ from tabulate import tabulate
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot
+from tests.common.snappi_tests.snappi_helpers import is_traffic_converged
 from threading import Thread
 import json
 import ipaddr
@@ -569,7 +570,7 @@ def get_convergence_for_reboot_test(duthost,
         if reboot_type == "warm":
             request.flow.flow_names = [i]
             flow = snappi_api.get_metrics(request).flow_metrics
-            if flow[0].frames_tx_rate != flow[0].frames_tx_rate:
+            if flow[0].frames_tx_rate != flow[0].frames_rx_rate:
                 logger.info("Some Loss Observed in Traffic Item {}".format(i))
                 dp.append(metrics.data_plane_convergence_us / 1000)
                 logger.info(
@@ -584,8 +585,8 @@ def get_convergence_for_reboot_test(duthost,
             flow = snappi_api.get_metrics(request).flow_metrics
             assert int(flow[0].frames_tx_rate) != 0, \
                 "No Frames sent for traffic item: {}".format(i)
-            assert flow[0].frames_tx_rate == flow[0].frames_tx_rate, \
-                "Loss observed for Traffic Item: {}".format(i)
+            assert is_traffic_converged(snappi_api), \
+                "Loss observed for Traffic Item"
             logger.info("No Loss Observed in Traffic Item {}".format(i))
             dp.append(metrics.data_plane_convergence_us / 1000)
             logger.info('DP/DP Convergence Time (ms) of {} : {}'.
