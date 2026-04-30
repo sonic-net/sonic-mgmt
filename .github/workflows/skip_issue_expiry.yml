@@ -8,7 +8,7 @@ on:
       no_op:
         description: "Run in no-op mode (log decisions without mutating GitHub issues)"
         required: false
-        default: false
+        default: true
         type: boolean
 
 permissions:
