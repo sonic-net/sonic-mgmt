@@ -18,7 +18,7 @@ The fixture parameters will configure HA and test will start by doing a deconfig
 
 
 def test_ha_reconfigure(request, duthosts, localhost, dpuhosts, ptfhost, setup_ha_config,
-                        setup_dash_ha_from_json, activate_dash_ha_from_json, ha_owner):
+                        activate_dash_ha_from_json, ha_owner):
 
     for i in range(NUM_RECONFIGS):
         iter = i + 1
