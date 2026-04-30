@@ -41,6 +41,8 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost):
     duthost = duthosts[rand_one_dut_hostname]
     if duthost.is_supervisor_node():
         pytest.skip("gnmi test relies on port data not present on supervisor card '%s'" % rand_one_dut_hostname)
+    if duthost.is_bmc():
+        pytest.skip("gnmi test requires a PORT table which is absent on BMC '%s'" % rand_one_dut_hostname)
     interface = get_first_interface(duthost)
     if interface is None:
         pytest.skip("No valid interface found on DUT '%s'" % rand_one_dut_hostname)
