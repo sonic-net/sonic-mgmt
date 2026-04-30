@@ -37,6 +37,17 @@ def is_supervisor_subprocess_running(duthost, container_name, app_name):
     return "RUNNING" in duthost.shell(f"docker exec {container_name} supervisorctl status {app_name}")["stdout"]
 
 
+def is_dhcrelay_forwarder_running(duthost):
+    # In internal_only mode, dhcprelayd transitions from N per-vlan external-mode
+    # dhcrelay forwarders (`-iu Ethernet*` to upstream BGP IPs) into a single
+    # process pointing at the kea-dhcp4 server via the docker bridge:
+    # `-iu docker0 <kea_ip>`. The kea IP isn't stable across restarts, so we
+    # use the `-iu docker0` marker which is unique to internal mode.
+    res = duthost.shell(f"docker exec {DHCP_RELAY_CONTAINER_NAME} pgrep -af /usr/sbin/dhcrelay")
+    procs = [line for line in res["stdout"].splitlines() if line.strip()]
+    return len(procs) == 1 and "-iu docker0" in procs[0]
+
+
 @pytest.fixture(scope="module", autouse=True)
 def dhcp_server_setup_teardown(duthost):
     features_state, _ = duthost.get_feature_status()
@@ -96,7 +107,7 @@ def test_dhcp_server_ip_assignment(
     loganalyzer
 ):
     loganalyzer[duthost.hostname].ignore_regex.append(".*processFlexCounterEvent: port VID oid:.*, " +
-                                                      "was not found \(probably port was removed\/splitted\).*")
+                                                      r"was not found \(probably port was removed\/splitted\).*")
     dhcp_server_config = json.load(open(MX_VLAN_AND_DHCP_SERVER_CONF_PATH, "r")).get(vlan_count, [])
     loganalyzer[duthost.hostname].add_start_ignore_mark()
     if config_tool == DHCP_SERVER_CONFIG_TOOL_GCU:
@@ -136,6 +147,10 @@ def test_dhcp_server_ip_assignment(
                 "dhcp-relay:dhcprelayd"
             ),
             'dhcprelayd in container dhcp_relay is not running'
+        )
+        pytest_assert(
+            wait_until(180, 1, 1, is_dhcrelay_forwarder_running, duthost),
+            'dhcrelay forwarder in container dhcp_relay did not come up after dhcprelayd reported RUNNING'
         )
     else:
         pytest.fail("Invalid config tool %s" % config_tool)
