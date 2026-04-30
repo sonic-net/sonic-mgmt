@@ -4,6 +4,7 @@ SONiC Dataplane Qos tests
 import re
 import time
 import logging
+import functools
 import ptf.packet as scapy
 from scapy.all import Ether, IP, IPv6
 import socket
@@ -306,102 +307,193 @@ def summarize_diag_counter(ptftest, changed_counter=-1, base_counter=0):
             collector.compare_counter(changed_counter, base_counter)
 
 
+# ---------------------------------------------------------------------------
+# Non-unicast noise handling infrastructure (two-tier: ignore + retry)
+# ---------------------------------------------------------------------------
+
+
+class NonUnicastNoiseRetry(Exception):
+    """Raised when noise is detected but cannot fully explain a checkpoint failure.
+
+    Caught by the @noise_retry decorator to trigger a test-level retry.
+    """
+    pass
+
+
+# HwSku patterns where non-unicast noise has been empirically confirmed.
+# Only activate noise handling for listed patterns. Unlisted platforms
+# let the test fail normally so new noise patterns are investigated.
+NOISE_ALLOWLIST = [
+    "Arista-7060CX-32S",     # PR #22871 - broadcom, confirmed on t1-lag
+    "Arista-7260CX3",        # PR #23378 - broadcom, confirmed on t1-64-lag
+    "Arista-7050CX3",        # PR #23340 - broadcom td3, dualtor-aa
+    "Arista-7060X6",         # PR #23859 - TH5, watermark overshoot
+    "Cisco-8101",            # PR #22871 - Silicon One chassis
+    "Cisco-8102",            # PR #22871 - Silicon One chassis
+]
+
+# Max counter delta beyond noise that we still attribute to noise (Tier 1)
+NOISE_DELTA_MARGIN = 2
+
+# For watermark: max cells of overshoot per noise packet
+NOISE_WATERMARK_CELLS_PER_PKT = 50
+
+
+def _is_noise_allowlisted(hwsku):
+    """Check if hwsku is in the noise allowlist (substring match).
+
+    Fail-closed: missing/empty hwsku means noise filter is OFF.
+    """
+    if not hwsku:
+        return False  # fail-closed ? must explicitly opt in via NOISE_ALLOWLIST
+    for pattern in NOISE_ALLOWLIST:
+        if pattern in hwsku:
+            return True
+    return False
+
+
+def noise_retry(max_retries=1, cleanup_wait=10):
+    """Decorator: wraps PTF runTest to catch NonUnicastNoiseRetry and retry.
+
+    On first NonUnicastNoiseRetry, the existing try/finally cleanup runs
+    (re-enabling TX ports, etc.), then the decorator waits cleanup_wait
+    seconds for DUT buffers to drain, and calls runTest again from scratch.
+    Counter baselines are re-captured on retry, so residual noise is cleared.
+    """
+    def decorator(run_test_method):
+        @functools.wraps(run_test_method)
+        def wrapper(self, *args, **kwargs):
+            for attempt in range(max_retries + 1):
+                try:
+                    return run_test_method(self, *args, **kwargs)
+                except NonUnicastNoiseRetry as e:
+                    if attempt < max_retries:
+                        log_message(
+                            '*** NOISE RETRY {}/{}: {} ***\n'
+                            '>>> Cleaning up and restarting test...\n'
+                            .format(attempt + 1, max_retries, e),
+                            to_stderr=True)
+                        time.sleep(cleanup_wait)
+                        continue
+                    log_message(
+                        '*** NOISE RETRY EXHAUSTED ({}/{}): '
+                        'test still fails after retry ***\n'
+                        .format(attempt + 1, max_retries),
+                        to_stderr=True)
+                    raise
+        return wrapper
+    return decorator
+
+
+class NonUnicastNoiseChecker:
+    """Two-tier noise handler for QoS SAI checkpoint assertions.
+
+    Tier 1 (Ignore): failure_delta <= noise_delta + NOISE_DELTA_MARGIN
+        => noise fully explains the failure, safe to ignore.
+    Tier 2 (Retry): noise detected but failure_delta too large
+        => raise NonUnicastNoiseRetry for @noise_retry decorator to handle.
+
+    If hwsku is not in NOISE_ALLOWLIST, all check methods are no-ops
+    (return False), and the test asserts normally.
+    """
+
+    def __init__(self, recv_counters, recv_counters_base, hwsku=None):
+        self.recv = recv_counters
+        self.base = recv_counters_base
+        self.hwsku = hwsku or ""
+        self.enabled = _is_noise_allowlisted(self.hwsku)
+        self.noise_delta = max(
+            0,
+            recv_counters[RECEIVED_NON_UC_PKTS]
+            - recv_counters_base[RECEIVED_NON_UC_PKTS])
+
+    @property
+    def has_noise(self):
+        return self.noise_delta > 0
+
+    def check_ingress_drop(self, counter_idx, counter_margin=0):
+        """Check ingress drop counter against noise.
+
+        Returns:
+            False - no failure, or checker disabled (not allowlisted)
+            True  - Tier 1: noise fully explains the drop (IGNORE)
+        Raises:
+            NonUnicastNoiseRetry - Tier 2: noise present but can't explain
+        """
+        if not self.enabled:
+            return False
+
+        failure_delta = self.recv[counter_idx] - self.base[counter_idx]
+        if failure_delta <= counter_margin:
+            return False  # within platform margin, no failure
+
+        if not self.has_noise:
+            return False  # no noise, genuine failure
+
+        if failure_delta <= self.noise_delta + NOISE_DELTA_MARGIN:
+            log_message(
+                '*** NOISE TIER-1: IGNORED (delta match) ***\n'
+                'hwsku={}, counter[{}]: failure_delta={}, '
+                'noise_delta={}, margin={}\n'
+                .format(self.hwsku, counter_idx, failure_delta,
+                        self.noise_delta, NOISE_DELTA_MARGIN),
+                to_stderr=True)
+            return True
+
+        raise NonUnicastNoiseRetry(
+            'ingress_drop: hwsku={}, counter[{}]: failure_delta={}, '
+            'noise_delta={}, margin={}'
+            .format(self.hwsku, counter_idx, failure_delta,
+                    self.noise_delta, NOISE_DELTA_MARGIN))
+
+    def check_watermark(self, actual_wm, upper_bound, cell_size):
+        """Check watermark overshoot against noise.
+
+        Returns:
+            False - no overshoot, or checker disabled
+            True  - Tier 1: overshoot within noise-proportional cap (IGNORE)
+        Raises:
+            NonUnicastNoiseRetry - Tier 2: overshoot exceeds noise cap
+        """
+        if not self.enabled:
+            return False
+
+        if actual_wm <= upper_bound:
+            return False
+
+        if not self.has_noise:
+            return False
+
+        overshoot_cells = (actual_wm - upper_bound + cell_size - 1) // cell_size
+        noise_cap_cells = self.noise_delta * NOISE_WATERMARK_CELLS_PER_PKT
+
+        if overshoot_cells <= noise_cap_cells:
+            log_message(
+                '*** NOISE TIER-1: IGNORED (watermark within cap) ***\n'
+                'hwsku={}, overshoot={}cells, cap={}cells '
+                '({}pkts x {}cells/pkt)\n'
+                .format(self.hwsku, overshoot_cells, noise_cap_cells,
+                        self.noise_delta, NOISE_WATERMARK_CELLS_PER_PKT),
+                to_stderr=True)
+            return True
+
+        raise NonUnicastNoiseRetry(
+            'watermark: hwsku={}, overshoot={}cells > cap={}cells '
+            '({}pkts x {}cells/pkt)'
+            .format(self.hwsku, overshoot_cells, noise_cap_cells,
+                    self.noise_delta, NOISE_WATERMARK_CELLS_PER_PKT))
+
+
+# Keep old function name as a thin wrapper for backward compatibility
+# with existing call sites. New code should use NonUnicastNoiseChecker.
 def ignore_ingress_drop_caused_by_nonunicast_noise(
         client, sai_port_id,
         recv_counters, recv_counters_base, ingress_counter_idx,
-        counter_margin=0):
-    """
-    Ignore ingress drops caused by environmental non-unicast (broadcast/multicast) noise.
-
-    Problem Analysis:
-    During testing, we discovered that environmental broadcast/multicast traffic from the network
-    can cause InDiscard counter increases that are unrelated to the test traffic. These false positives
-    lead to incorrect test failures. The root cause is that the test infrastructure cannot distinguish
-    between drops caused by:
-    1. Actual test traffic exceeding buffer capacity (legitimate failures)
-    2. Environmental broadcast/multicast packets arriving simultaneously (false failures/noise)
-
-    Solution Approach:
-    By monitoring the InNonUcPkt (Received Non-Unicast Packets) counter, we can detect when broadcast/
-    multicast traffic arrives. If InNonUcPkt increases along with InDiscard, we classify the ingress
-    drop as environmental noise and ignore it, allowing the test to continue.
-
-    Why Other Metrics Cannot Be Used for Decision:
-    - PG Headroom Watermark (pg_headroom_wm): Watermark values behave differently across test stages.
-      Previous test runs may leave the watermark at a high value, or the current test stage may produce
-      varying watermark values depending on traffic patterns. Using watermarks would require complex
-      decision logic to handle these variations, making the code fragile and unreliable.
-
-    - PTF TX Counter: During certain test stages, PTF legitimately sends packets as part of the test.
-      When environmental non-unicast packets arrive simultaneously, we cannot distinguish whether the
-      counter change is from test traffic or noise. The PTF TX counter changing doesn't tell us if the
-      ingress drop was caused by PTF packets or by broadcast/multicast noise mixed in with PTF traffic.
-
-    Note: PG Headroom Watermark, PG Drop Counters, and PTF counters are already logged by the test
-    framework's diagnostic counter system (CounterCollector class), so this function does not print
-    them again. We only use InNonUcPkt counter for the decision logic.
-
-    Args:
-        client: SAI thrift client (unused but kept for API compatibility)
-        sai_port_id: SAI port ID (unused but kept for API compatibility)
-        recv_counters: Current port counters
-        recv_counters_base: Baseline port counters
-        ingress_counter_idx: Index of ingress drop counter (INGRESS_DROP or INGRESS_PORT_BUFFER_DROP)
-        counter_margin: Tolerance margin for platform-specific background traffic (e.g., IPv6 NS/RA on broadcom-dnx)
-                       If margin > 0, only drops exceeding this margin will be checked for noise
-
-    Returns:
-        True if ingress drop should be ignored (caused by broadcast/multicast noise)
-        False if ingress drop is legitimate and should fail the test
-    """
-    # Check if ingress drop exceeds the platform-specific margin
-    # For platforms with background traffic (e.g., broadcom-dnx), small drops within margin are ignored
-    ingress_drop_detected = (
-        recv_counters[ingress_counter_idx]
-        > recv_counters_base[ingress_counter_idx] + counter_margin)
-
-    if not ingress_drop_detected:
-        return False  # No ingress drop, normal case
-
-    # IngressDrop detected, check if caused by environmental broadcast/multicast noise
-    non_uc_pkt_increase = (
-        recv_counters[RECEIVED_NON_UC_PKTS]
-        > recv_counters_base[RECEIVED_NON_UC_PKTS])
-
-    # Check if this is environmental broadcast/multicast noise
-    if non_uc_pkt_increase:
-        # This is environmental broadcast/multicast noise
-        log_message(
-            '*** NOISE DETECTION: IngressDrop caused by environmental broadcast/multicast noise ***\n'
-            'InDiscard: {} -> {} (Delta={})\n'
-            'InNonUcPkt: {} -> {} (Delta={})\n'
-            '>>> IGNORING this IngressDrop and continuing test\n'.format(
-                recv_counters_base[ingress_counter_idx],
-                recv_counters[ingress_counter_idx],
-                recv_counters[ingress_counter_idx] - recv_counters_base[ingress_counter_idx],
-                recv_counters_base[RECEIVED_NON_UC_PKTS],
-                recv_counters[RECEIVED_NON_UC_PKTS],
-                recv_counters[RECEIVED_NON_UC_PKTS] - recv_counters_base[RECEIVED_NON_UC_PKTS]
-            ),
-            to_stderr=True
-        )
-        return True  # Ignore this ingress drop from broadcast/multicast noise
-
-    # This is legitimate ingress drop from test traffic
-    log_message(
-        '*** VALID IngressDrop detected (NOT noise) ***\n'
-        'InDiscard: {} -> {} (Delta={})\n'
-        'InNonUcPkt: {} -> {} (Delta={}, no increase - not broadcast/multicast)\n'.format(
-            recv_counters_base[ingress_counter_idx],
-            recv_counters[ingress_counter_idx],
-            recv_counters[ingress_counter_idx] - recv_counters_base[ingress_counter_idx],
-            recv_counters_base[RECEIVED_NON_UC_PKTS],
-            recv_counters[RECEIVED_NON_UC_PKTS],
-            recv_counters[RECEIVED_NON_UC_PKTS] - recv_counters_base[RECEIVED_NON_UC_PKTS]
-        ),
-        to_stderr=True
-    )
-    return False  # This is legitimate ingress drop, should fail test
+        counter_margin=0, hwsku=None):
+    """Backward-compatible wrapper around NonUnicastNoiseChecker."""
+    checker = NonUnicastNoiseChecker(recv_counters, recv_counters_base,
+                                     hwsku=hwsku)
+    return checker.check_ingress_drop(ingress_counter_idx, counter_margin)
 
 
 def qos_test_assert(ptftest, condition, message=None):
@@ -2139,6 +2231,7 @@ class Dot1pToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
 
 class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
+    @noise_retry(max_retries=1)
     def runTest(self):
         time.sleep(5)
         switch_init(self.clients)
@@ -2325,7 +2418,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
-                        counter_margin=counter_margin):
+                        counter_margin=counter_margin, hwsku=hwsku):
                     # Legitimate ingress drop, should fail test
                     if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]:
                         qos_test_assert(
@@ -2378,7 +2471,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
-                        counter_margin=counter_margin):
+                        counter_margin=counter_margin, hwsku=hwsku):
                     # Legitimate ingress drop, should fail test
                     if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]:
                         qos_test_assert(
@@ -2434,7 +2527,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
-                        counter_margin=counter_margin):
+                        counter_margin=counter_margin, hwsku=hwsku):
                     # Legitimate ingress drop, should fail test
                     if (platform_asic and
                             platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]):
@@ -2877,6 +2970,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
         return dst_port_id
 
+    @noise_retry(max_retries=1)
     def runTest(self):
         time.sleep(5)
         switch_init(self.clients)
@@ -3271,7 +3365,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
-                        counter_margin=counter_margin):
+                        counter_margin=counter_margin, hwsku=hwsku):
                     # Legitimate ingress drop, should fail test
                     if (platform_asic and
                             platform_asic in ["broadcom-dnx", "cisco-8000", "marvell-teralynx"]):
@@ -3330,7 +3424,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
-                        counter_margin=counter_margin):
+                        counter_margin=counter_margin, hwsku=hwsku):
                     # Legitimate ingress drop, should fail test
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
@@ -3397,7 +3491,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
-                        counter_margin=counter_margin):
+                        counter_margin=counter_margin, hwsku=hwsku):
                     # Legitimate ingress drop, should fail test
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
@@ -3868,6 +3962,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                  [tx_curr[fieldIdx] for fieldIdx in port_counter_indexes])
         sys.stderr.write('{}\n{}\n'.format(banner, port_cnt_tbl))
 
+    @noise_retry(max_retries=1)
     def runTest(self):
         margin = self.test_params.get('margin')
         if not margin:
@@ -4080,16 +4175,17 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
                 # assert no ingress drop
+                # assert no ingress drop
+                recv_base = recv_counters_bases[sidx_dscp_pg_tuples[i][0]]
+                noise_checker = NonUnicastNoiseChecker(
+                    recv_counters, recv_base, hwsku=self.test_params['hwsku'])
                 for cntr in self.ingress_counters:
-                    # corner case: in previous step in which trigger PFC, a few packets were dropped,
-                    #     and dropping don't keep increasing constantaly.
-                    # workaround: tolerates a few packet drop here,
-                    #     and output relevant information for offline analysis, to know if it's an issue
-                    if recv_counters[cntr] != recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr]:
-                        sys.stderr.write('There are some unexpected {} packet drop\n'.format(
-                            recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr]))
-                    assert (
-                        recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr] <= margin)
+                    if recv_counters[cntr] != recv_base[cntr]:
+                        sys.stderr.write(
+                            'Observed {} packet(s) on counter {}, evaluating against noise filter\n'
+                            .format(recv_counters[cntr] - recv_base[cntr], cntr))
+                    if not noise_checker.check_ingress_drop(cntr, margin):
+                        assert (recv_counters[cntr] - recv_base[cntr] <= margin)
 
                 if self.wm_multiplier:
                     wm_pkt_num += (self.pkts_num_hdrm_full if i !=
@@ -4852,6 +4948,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
 
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
+    @noise_retry(max_retries=1)
     def runTest(self):
         switch_init(self.clients)
         initialize_diag_counter(self)
@@ -5038,7 +5135,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 if not ignore_ingress_drop_caused_by_nonunicast_noise(
                         self.src_client, port_list['src'][src_port_id],
                         recv_counters, recv_counters_base, cntr,
-                        counter_margin=counter_margin):
+                        counter_margin=counter_margin, hwsku=hwsku):
                     if (platform_asic and
                             platform_asic in ["broadcom-dnx", "marvell-teralynx", "cisco-8000"]):
                         if cntr == 1:
@@ -5118,7 +5215,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     # Check if ingress drop is caused by environmental non-unicast noise
                     if not ignore_ingress_drop_caused_by_nonunicast_noise(
                             self.src_client, port_list['src'][src_port_id],
-                            recv_counters, recv_counters_base, cntr):
+                            recv_counters, recv_counters_base, cntr, hwsku=hwsku):
                         qos_test_assert(
                             self, recv_counters[cntr] == recv_counters_base[cntr],
                             "Ingress drop encountered: {} packets dropped on "
@@ -6066,6 +6163,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                           + [dport_que_share_wm[que]])
         sys.stderr.write('{}\n{}\n'.format(banner, stats_tbl))
 
+    @noise_retry(max_retries=1)
     def runTest(self):
         time.sleep(5)
         switch_init(self.clients)
@@ -6312,8 +6410,14 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     logging.info("On J2C+ don't support SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES " +
                                  "stat - so ignoring this step for now")
                 else:
-                    assert (q_wm_res[queue] <= (
-                        expected_wm + margin) * cell_size)
+                    upper_bound_wm = (expected_wm + margin) * cell_size
+                    xmit_counters_now, _ = sai_thrift_read_port_counters(
+                        self.dst_client, asic_type, port_list['dst'][dst_port_id])
+                    wm_checker = NonUnicastNoiseChecker(
+                        xmit_counters_now, xmit_counters_base, hwsku=hwsku)
+                    if not wm_checker.check_watermark(
+                            q_wm_res[queue], upper_bound_wm, cell_size):
+                        assert (q_wm_res[queue] <= upper_bound_wm)
                     assert ((expected_wm - margin) *
                             cell_size <= q_wm_res[queue])
 
@@ -6358,7 +6462,14 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                              "stat - so ignoring this step for now")
             else:
                 assert ((expected_wm - margin) * cell_size <= q_wm_res[queue])
-                assert (q_wm_res[queue] <= (expected_wm + margin) * cell_size)
+                upper_bound_wm = (expected_wm + margin) * cell_size
+                xmit_counters_now, _ = sai_thrift_read_port_counters(
+                    self.dst_client, asic_type, port_list['dst'][dst_port_id])
+                wm_checker = NonUnicastNoiseChecker(
+                    xmit_counters_now, xmit_counters_base, hwsku=hwsku)
+                if not wm_checker.check_watermark(
+                        q_wm_res[queue], upper_bound_wm, cell_size):
+                    assert (q_wm_res[queue] <= upper_bound_wm)
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
