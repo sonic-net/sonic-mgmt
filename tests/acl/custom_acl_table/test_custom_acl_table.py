@@ -273,6 +273,7 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
     6. Verify the counter of expected rule increases as expected
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    mg_facts_unselected_dut = None
     asic_type = rand_selected_dut.facts['asic_type']
     if "dualtor" in tbinfo["topo"]["name"]:
         mg_facts_unselected_dut = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
@@ -291,7 +292,7 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
         for _, v in mg_facts['minigraph_portchannels'].items():
             for member in v['members']:
                 dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
-                if "dualtor-aa" in tbinfo["topo"]["name"]:
+                if "dualtor-aa" in tbinfo["topo"]["name"] and mg_facts_unselected_dut is not None:
                     dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
     else:
         topo = tbinfo["topo"]["type"]
@@ -482,6 +483,7 @@ def test_custom_acl_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadap
     6. Verify the counter of expected rule increases as expected
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    mg_facts_unselected_dut = None
     asic_type = rand_selected_dut.facts['asic_type']
     if "dualtor" in tbinfo["topo"]["name"]:
         mg_facts_unselected_dut = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
@@ -501,7 +503,7 @@ def test_custom_acl_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadap
         for _, v in mg_facts['minigraph_portchannels'].items():
             for member in v['members']:
                 dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
-                if "dualtor-aa" in tbinfo["topo"]["name"]:
+                if "dualtor-aa" in tbinfo["topo"]["name"] and mg_facts_unselected_dut is not None:
                     dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
     else:
         topo = tbinfo["topo"]["type"]
