@@ -449,6 +449,48 @@ def test_bypass_authorization(
     check_ssh_output_any_of(stdout, ['authorize failed by TACACS+ with given arguments, not executing'])
 
 
+def test_exec_bypass_authorization(
+        duthosts, enum_rand_one_per_hwsku_hostname,
+        setup_authorization_tacacs, check_tacacs, remote_user_client):  # noqa: F811
+    """
+    Verify that the 'exec' shell builtin cannot be used to bypass TACACS+
+    per-command authorization.
+
+    The bash TACACS+ plugin (on_shell_execve) is not called for the exec
+    builtin because bash replaces the current process without going through
+    normal command dispatch.  A profile.d guard installed by the
+    bash-tacplus package overrides the exec builtin for remote TACACS+
+    users to close this bypass.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    exp_outputs = [
+        'not authorized by TACACS+ with given arguments, not executing',
+        'authorize failed by TACACS+ with given arguments, not executing',
+        'exec: not authorized by TACACS+',
+    ]
+
+    # Verify exec builtin is blocked for a TACACS+ remote user (via symlink path).
+    exit_code, stdout, stderr = ssh_run_command(
+        remote_user_client,
+        'exec /usr/bin/python3 -c "print(\'BYPASSED\')"',
+        expect_exit_code=1,
+        verify=True
+    )
+    check_ssh_output_any_of(stdout, exp_outputs)
+
+    # Verify exec is also blocked via the resolved binary path (e.g. python3.13).
+    # This ensures the deny rule covers the real binary regardless of Debian version.
+    python3_real = duthost.shell("readlink -f /usr/bin/python3")['stdout'].strip()
+    exit_code, stdout, stderr = ssh_run_command(
+        remote_user_client,
+        'exec {} -c "print(\'BYPASSED\')"'.format(python3_real),
+        expect_exit_code=1,
+        verify=True
+    )
+    check_ssh_output_any_of(stdout, exp_outputs)
+
+
 def test_backward_compatibility_disable_authorization(
         duthosts, enum_rand_one_per_hwsku_hostname,
         tacacs_creds, ptfhost, check_tacacs,  # noqa: F811

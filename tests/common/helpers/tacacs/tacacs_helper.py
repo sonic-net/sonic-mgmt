@@ -104,7 +104,11 @@ def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path, path_to_be
         link_path_regex = re.escape(path_to_be_fix)
 
     target_path_regex = re.escape(target_path)
-    ptfhost.shell("sed -i 's|{0}|{1}|g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
+    # Append a space to the match pattern to avoid partial path matches,
+    # e.g. avoid replacing /usr/bin/python inside /usr/bin/python3.
+    # In tac_plus.conf, command paths are always followed by ' {'.
+    ptfhost.shell("sed -i 's|{0} |{1} |g' /etc/tacacs+/tac_plus.conf".format(
+        link_path_regex, target_path_regex))
 
 
 def get_ld_path(duthost):
@@ -148,7 +152,8 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
                   'tacacs_jit_user_passwd': crypt.crypt(tacacs_creds['tacacs_jit_user_passwd'], 'abc'),
                   'tacacs_jit_user_membership': tacacs_creds['tacacs_jit_user_membership'],
                   'tacacs_ro_authorization_user': tacacs_creds['tacacs_ro_authorization_user'],
-                  'tacacs_ro_authorization_user_passwd': crypt.crypt(tacacs_creds['tacacs_ro_authorization_user_passwd'], 'abc'),
+                  'tacacs_ro_authorization_user_passwd': crypt.crypt(
+                      tacacs_creds['tacacs_ro_authorization_user_passwd'], 'abc'),
                   'tacacs_ro_authorization_rules': generate_tacplus_config_from_commandset_config()}
 
     dut_options = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
@@ -191,6 +196,10 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
 
     # Find 'python' command symbolic link target, and fix the tac_plus config file
     fix_symbolic_link_in_config(duthost, ptfhost, "/usr/bin/python")
+
+    # Find 'python3' command symbolic link target (e.g. python3 -> python3.13),
+    # and fix the tac_plus config file so the deny rule matches the resolved path
+    fix_symbolic_link_in_config(duthost, ptfhost, "/usr/bin/python3")
 
     # Find ld lib symbolic link target, and fix the tac_plus config file
     fix_ld_path_in_config(duthost, ptfhost)
@@ -426,7 +435,7 @@ def generate_commands_from_commandset_config():
         # Ignore denined commands
         allow = ro_command_regex["Allow"]
         if not allow:
-            continue;
+            continue
 
         # remove regex start
         if command_name.startswith("^"):
@@ -436,9 +445,9 @@ def generate_commands_from_commandset_config():
         #   tail -F
         #   /usr/bin/systemctl list-units --type=service --no-legend
         if "tail -F" in command_arguments:
-            continue;
+            continue
         if "list-units --type=service --no-legend" in command_arguments:
-            continue;
+            continue
 
         # remove regex end
         if command_arguments.endswith("$"):
@@ -459,7 +468,6 @@ def generate_commands_from_commandset_config():
         command_arguments = command_arguments.replace("[0-9]", "0")
         command_arguments = command_arguments.replace("[46]", "4")
         command_arguments = command_arguments.replace("[a-zA-Z0-9.]+", "0")
-
 
         command = "{} {}".format(command_name, command_arguments)
         commands.append(command)
@@ -483,7 +491,7 @@ def generate_tacplus_config_from_commandset_config():
         # Ignore denined commands
         allow = ro_command_regex["Allow"]
         if not allow:
-            continue;
+            continue
 
         # remove regex start
         if command_name.startswith("^"):
@@ -509,8 +517,8 @@ def generate_tacplus_config_from_commandset_config():
         # tacplus config not support following:
         #   space, need replace with \s
         #   =, need replace with \W
-        command_arguments = command_arguments.replace(" ","\s")
-        command_arguments = command_arguments.replace("=","\W")
+        command_arguments = command_arguments.replace(" ", "\\s")
+        command_arguments = command_arguments.replace("=", "\\W")
 
         if command_name not in rules_dict:
             rules_dict[command_name] = []
