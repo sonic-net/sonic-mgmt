@@ -2884,7 +2884,7 @@ sonic_cisco_8101_tornado_C32:
 
 sonic_cisco_8223:
   vars:
-    hwsku: Cisco-8223-C64
+    hwsku: Cisco-8223-C64S2
     iface_speed: 100000
   hosts:
     str2-8223-azd-t0-01:
