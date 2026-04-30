@@ -105,7 +105,7 @@ parameters:
   - name: SPECIFIC_PARAM
     type: string
     default: '[
-      {"name": "metadata-scripts", "param": "--metadata_process --upgrade_type=warm --base_image_list=$(BJW_IMAGE_MLNX_202505) --target_image_list=$(BJW_IMAGE_MLNX_202511) -k \"not test_double_upgrade_path and not test_warm_upgrade_sad_path\" --ceos_neighbor_lacp_multiplier=5"},
+      {"name": "metadata-scripts", "param": "--upgrade_type=warm --base_image_list=$(BJW_IMAGE_MLNX_202505) --target_image_list=$(BJW_IMAGE_MLNX_202511) -k \"not test_double_upgrade_path and not test_warm_upgrade_sad_path\" --ceos_neighbor_lacp_multiplier=5"},
       {"name": "upgrade_path", "param": "--upgrade_type=warm --base_image_list=$(BJW_IMAGE_MLNX_202505) --target_image_list=$(BJW_IMAGE_MLNX_202511) -k \"not test_double_upgrade_path and not test_warm_upgrade_sad_path\" --ceos_neighbor_lacp_multiplier=5"},
       {"name": "platform_tests", "param": "--ceos_neighbor_lacp_multiplier=5"}
     ]'
