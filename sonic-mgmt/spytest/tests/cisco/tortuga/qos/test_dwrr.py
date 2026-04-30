@@ -84,14 +84,13 @@ lossless = [3, 4]
 BOTH_LOSSY = 0
 BOTH_LOSSLESS = 1
 MIXED = 2
-def check_tc_pair(tc_pair):
-    if tc_pair[0] in lossy and tc_pair[1] in lossy:
-        return BOTH_LOSSY
-    if tc_pair[0] in lossless and tc_pair[1] in lossless:
-        return BOTH_LOSSLESS
-    return MIXED
 
-def run_traffic_test(gbps_pair, tc_pair):
+def pair_to_int(pair):
+    return [int(pair[0]), int(pair[1])]
+
+def run_traffic_test(gbps_pair, tc_pair, wt_pair):
+    tc_pair = pair_to_int(tc_pair)
+    wt_pair = pair_to_int(wt_pair)
     str1 = str2 = None
     for i in range(2):
         s = stream_api.create_traffic_stream(tb_dict, test_info['src'][i],
@@ -152,22 +151,23 @@ def run_traffic_test(gbps_pair, tc_pair):
                                             tc_pair[0]) - pre_test_cnt1
     pfc_cnt2 = common_util.get_pfc_tx_count(test_info['dut'], vars.if2,
                                             tc_pair[1]) - pre_test_cnt2
-    s_info = (f'TC Pair {tc_pair} Loss {loss1:.2f} {loss2:.2f} Rx Gbps {rx_gbps1:.2f} {rx_gbps2:.2f}'
+    s_info = (f'TC Pair {tc_pair} Weight Pair {wt_pair} Loss {loss1:.2f} {loss2:.2f} Rx Gbps {rx_gbps1:.2f} {rx_gbps2:.2f}'
               f'\n{vars.if1}: TC{tc_pair[0]} PFC Tx Cnt={pfc_cnt1} '
               f'{vars.if2}: TC{tc_pair[1]} PFC Tx Cnt={pfc_cnt2}')
 
-    rv = check_tc_pair(tc_pair)
-    if rv == BOTH_LOSSY:
-        # Assuming weights are equal, it should be 1:1 roughly
-        ratio = (rx_bits1 / rx_bits2) if (rx_bits1 and rx_bits2) else 0
-        passed = (ratio >= 0.75 and ratio <= 1.25)
-    elif rv == BOTH_LOSSLESS:
-        # Allow upto 1% loss in both
-        passed = (loss1 <= 1 and loss2 <= 1)
-    elif tc_pair[0] in lossy:
-        passed = (loss2 <= 1)
-    else:
-        passed = (loss1 <= 1)
+    # First validate the traffic rate with the weight ratio
+    rx_bits_ratio = (rx_bits1 / rx_bits2) if (rx_bits1 and rx_bits2) else 0
+    wt_ratio = wt_pair[0] / wt_pair[1]
+    passed = qos_test_utils.validate_value(rx_bits_ratio, wt_ratio, 1)
+
+    # Now check if other traffic requirements like lossless nature are satisfied
+    if tc_pair[0] in lossless and tc_pair[1] in lossless:
+        passed = (passed and loss1 <= 0.5 and loss2 <= 0.5)
+    elif tc_pair[0] in lossless and tc_pair[1] in lossy:
+        passed = (passed and loss1 <= 0.5)
+    elif tc_pair[0] in lossy and tc_pair[1] in lossless:
+        passed = (passed and loss2 <= 0.5)
+
     if passed:
         st.log(f'PASS: {s_info}')
         test_info['pass_ctr'] += 1
@@ -178,22 +178,20 @@ def run_traffic_test(gbps_pair, tc_pair):
     stream_api.delete_traffic_stream(str1)
     stream_api.delete_traffic_stream(str2)
 
-def get_scheduler_cfg(tc):
+def get_scheduler_cfg(tc, wt):
     new_name = f"{test_info['dst']}_dwrr{tc}"
     orig_name = f'scheduler.{tc}'
     dut_if = test_info['dut_if']
-    wt = test_info['dwrr_wt']
     test_info['cfg'] += f'''config scheduler add --type DWRR --weight {wt} {new_name}\n
         config queue queue-list update --scheduler {new_name} {dut_if} {tc}\n'''
     test_info['undo_cfg'] += f'''config queue queue-list update --scheduler {orig_name} {dut_if} {tc}\n
         config scheduler del {new_name}\n'''
 
-def apply_dwrr(tc_pair):
+def apply_dwrr(tc_pair, wt_pair):
     test_info['cfg'] = ''
     test_info['undo_cfg'] = ''
-    get_scheduler_cfg(tc_pair[0])
-    if tc_pair[0] != tc_pair[1]:
-        get_scheduler_cfg(tc_pair[1])
+    get_scheduler_cfg(tc_pair[0], wt_pair[0])
+    get_scheduler_cfg(tc_pair[1], wt_pair[1])
     st.config(test_info['dut'], test_info['cfg'], skip_tmpl=True)
 
 def clear_dwrr():
@@ -205,15 +203,13 @@ def test_deficit_weighted_round_robin():
 
     test_info['pass_ctr'] = test_info['fail_ctr'] = 0
     for tc_pair in test_info['tc_pair']:
-        tc_pair[0] = int(tc_pair[0])
-        tc_pair[1] = int(tc_pair[1])
-        apply_dwrr(tc_pair)
-        for gbps_pair in test_info['gbps_table']:
-            for frame_size in test_info['frame_sizes']:
-                test_info['frame_size'] = int(frame_size)
-                run_traffic_test(gbps_pair, tc_pair)
-        clear_dwrr()
-
+        for wt_pair in test_info['dwrr_wt']:
+            apply_dwrr(tc_pair, wt_pair)
+            for gbps_pair in test_info['gbps_table']:
+                for frame_size in test_info['frame_sizes']:
+                    test_info['frame_size'] = int(frame_size)
+                    run_traffic_test(gbps_pair, tc_pair, wt_pair)
+            clear_dwrr()
 
     # Print the final disposition of the test execution
     final_msg = f"Test Cases: Passed={test_info['pass_ctr']} Failed={test_info['fail_ctr']}"

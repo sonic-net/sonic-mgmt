@@ -34,11 +34,144 @@ Functions:
         get_link_speeds()                    - Query actual interface speeds from DUTs
 """
 
-from spytest import st
+import re
+import time
+
+from spytest import st, tgapi
 from tests.cisco.tortuga.common import tortuga_common_utils as common_util
+
+# PFC TC table - EXACTLY same as test_pfc_stream.py which works
+PFC_TC_TABLE = [
+    '0101 0001 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0002 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0004 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0008 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0010 0000 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0020 0000 0000 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0040 0000 0000 0000 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0080 0000 0000 0000 0000 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+]
 
 # Module-level cache for nodes dict
 _nodes_cache = None
+
+
+def create_pfc_xoff_stream(tg_unused, tgen_port, src_mac, rate_fps, tc=3):
+    """
+    Create a continuous PFC XOFF stream for specified TC.
+    Creates raw L2 traffic and directly configures L2 header via IxNetwork API
+    to work around HLTAPI limitations with raw traffic.
+
+    Args:
+        tg_unused: TGEN handle (IGNORED - we get fresh handle)
+        tgen_port: TGEN port name (e.g., 'T1D4P1')
+        src_mac: Source MAC address in format 'xx:xx:xx:xx:xx:xx'
+        rate_fps: Frame rate in frames per second
+        tc: Traffic class (0-7), default 3
+
+    Returns:
+        str: Stream ID
+    """
+    from spytest.tgen.tg import get_ixnet
+
+    PFC_DST_MAC = '01:80:C2:00:00:01'
+    PFC_ETHERTYPE = '8808'
+
+    # Get tg_handle from the target port
+    tg_handle, port_handle = tgapi.get_handle_byname(tgen_port)
+
+    st.log(f"create_pfc_xoff_stream: port={tgen_port}, port_handle={port_handle}")
+    st.log(f"  src_mac: {src_mac}, rate_fps: {rate_fps}, tc: {tc}")
+
+    # Reset/clear any existing traffic items on this port
+    st.banner("Resetting port to clear existing traffic items")
+    tg_handle.tg_traffic_control(action='reset', port_handle=port_handle)
+
+    st.banner("Creating raw L2 PFC stream")
+    result = tg_handle.tg_traffic_config(
+        mode='create',
+        port_handle=port_handle,
+        l2_encap='ethernet_ii',
+        mac_src=src_mac,
+        mac_dst=PFC_DST_MAC,
+        ether_type=PFC_ETHERTYPE,
+        data_pattern=PFC_TC_TABLE[tc],
+        data_pattern_mode='fixed',
+        rate_pps=rate_fps,
+        transmit_mode='continuous',
+        high_speed_result_analysis=1
+    )
+
+    stream_id = result.get('stream_id')
+    st.log(f"Created PFC stream: {stream_id}")
+
+    # WORKAROUND: HLTAPI doesn't properly set L2 fields for raw traffic.
+    # We must directly configure via IxNetwork API.
+    st.banner("Fixing L2 header via IxNetwork API")
+    try:
+        ixnet = get_ixnet()
+
+        # Find the traffic item we just created
+        traffic_items = ixnet.getList('/traffic', 'trafficItem')
+        if not traffic_items:
+            st.error("No traffic items found!")
+            return stream_id
+
+        # Get the last traffic item (the one we just created)
+        ti = traffic_items[-1]
+        st.log(f"Configuring traffic item: {ti}")
+
+        # Get config element and ethernet stack
+        ce = ixnet.getList(ti, 'configElement')[0]
+        stacks = ixnet.getList(ce, 'stack')
+        eth_stack = stacks[0]  # First stack is ethernet
+        fields = ixnet.getList(eth_stack, 'field')
+
+        # Find and set L2 fields
+        # Check field path (not -name attribute) as it contains the field identifier
+        for f in fields:
+            st.log(f"Processing field: {f}")
+            if 'destinationAddress' in f:
+                ixnet.setAttribute(f, '-singleValue', PFC_DST_MAC)
+                st.log(f"Set dst_mac: {PFC_DST_MAC}")
+            elif 'sourceAddress' in f:
+                ixnet.setAttribute(f, '-singleValue', src_mac)
+                st.log(f"Set src_mac: {src_mac}")
+            elif 'etherType' in f:
+                # Must disable 'auto' mode for etherType first, then set value
+                ixnet.setAttribute(f, '-auto', 'false')
+                ixnet.setAttribute(f, '-singleValue', PFC_ETHERTYPE)
+                st.log(f"Set etherType: {PFC_ETHERTYPE} (auto=false)")
+
+        ixnet.commit()
+        st.log("IxNetwork L2 header configuration committed")
+
+        # CRITICAL: After modifying traffic config via low-level API, must regenerate
+        # This is equivalent to "Generate" in the IxNetwork GUI
+        # Must call 'generate' on each traffic item individually, then 'apply' on /traffic
+        st.log("Regenerating all traffic items...")
+        for traffic_item in traffic_items:
+            ti_name = ixnet.getAttribute(traffic_item, '-name')
+            st.log(f"  Generating: {ti_name}")
+            ixnet.execute('generate', traffic_item)
+        st.log("All traffic items regenerated")
+
+        # Apply traffic to push to hardware (equivalent to "Apply" in the GUI)
+        st.log("Applying traffic to hardware...")
+        ixnet.execute('apply', '/traffic')
+        st.log("Traffic applied to hardware")
+
+        # Wait for IxNetwork to fully push to hardware
+        st.wait(3)
+        st.log("Generate/apply complete")
+
+    except Exception as e:
+        st.error(f"Failed to configure L2 header via IxNetwork API: {e}")
+        import traceback
+        st.log(traceback.format_exc())
+
+    return stream_id
+
 
 def get_nodes():
     """
@@ -58,6 +191,65 @@ def get_nodes():
             'leaf1': vars.D4
         }
     return _nodes_cache
+
+
+# ---------------------------------------------------------------------------
+# Per-DUT ConfigDb cache
+# ---------------------------------------------------------------------------
+_config_db_cache = {}
+
+def load_config_db(dut):
+    """Load (or reload) ConfigDb for a DUT. Call after 'config qos reload'."""
+    from config_db import ConfigDb
+    _config_db_cache[dut] = ConfigDb(dut)
+    st.log(f"ConfigDb loaded for {dut}")
+
+def get_config_db(dut):
+    """Get cached ConfigDb for a DUT. Loads on first access if not cached."""
+    if dut not in _config_db_cache:
+        load_config_db(dut)
+    return _config_db_cache[dut]
+
+
+def get_dut_platform(dut):
+    """
+    Query and return the DUT platform string (e.g. 'x86_64-n9164e_ns4_o-r0').
+
+    Args:
+        dut: DUT object
+
+    Returns:
+        Platform string if found, None otherwise.
+    """
+    try:
+        output = st.show(dut, "show platform summary", skip_tmpl=True, skip_error_check=True)
+        for line in (output or "").splitlines():
+            if line.startswith("Platform:"):
+                return line.split(":", 1)[1].strip()
+    except Exception as e:
+        st.log(f"Failed to query platform on {dut}: {e}")
+    return None
+
+
+# ---------------------------------------------------------------------------
+# DSCP / TC mapping
+# ---------------------------------------------------------------------------
+
+def convert_tc_to_dscp(dut, tc):
+    """Return the first DSCP value that maps to the given TC on *dut*.
+
+    Uses the cached ConfigDb instance to read DSCP_TO_TC_MAP.
+    Call load_config_db(dut) after 'config qos reload' to pick up changes.
+    """
+    config = get_config_db(dut)
+    dscp_map = config["DSCP_TO_TC_MAP"]
+    map_name = next(iter(dscp_map))
+    mapping = dscp_map[map_name]
+    tc_str = str(tc)
+    for dscp_val, mapped_tc in mapping.items():
+        if mapped_tc == tc_str:
+            return dscp_val
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -540,25 +732,34 @@ def format_speed(gbps):
     return f"{gbps}G"
 
 
-def dump_mid_traffic_debug(dut, interfaces, tc):
+def dump_counters(dut, interfaces, msg=""):
     """
     Dump debug info while traffic is running.
     Shows PFC counters, queue counters, PG watermarks, and buffer PG config.
-    All output goes to the log as-is — no parsing.
+    All output goes to the log as-is -- no parsing.
 
     Args:
         dut: DUT handle (the leaf under test)
         interfaces: list of interface names to check (e.g. ingress + egress ports)
-        tc: traffic class (e.g. 3)
     """
-    st.banner(f"MID-TRAFFIC DEBUG DUMP (TC {tc})")
+    st.log("=== Interface counters ===")
+    st.show(dut, "show interface counters", skip_tmpl=True)
 
-    st.log("=== Counterpoll status ===")
-    st.show(dut, "counterpoll show", skip_tmpl=True)
+    st.log(f"=== Queue counters: {interfaces} ===")
+    if 'all' in interfaces:
+        st.show(dut, "show queue counters", skip_tmpl=True)
+    else:
+        for intf in interfaces:
+            st.show(dut, f"show queue counters {intf}", skip_tmpl=True)
+
+    st.log("=== Queue watermarks ===")
+    st.show(dut, "show queue watermark unicast", skip_tmpl=True)
+
+    st.log("=== Drop counters ===")
+    st.show(dut, "show dropcounters count", skip_tmpl=True)
 
     st.log("=== PFC counters ===")
     st.show(dut, "show pfc counters", skip_tmpl=True)
-    st.show(dut, "show pfc priority", skip_tmpl=True)
 
     st.log("=== Priority-group watermark (shared) ===")
     st.show(dut, "show priority-group watermark shared", skip_tmpl=True)
@@ -569,39 +770,3091 @@ def dump_mid_traffic_debug(dut, interfaces, tc):
     st.log("=== Priority-group drop counters ===")
     st.show(dut, "show priority-group drop counters", skip_tmpl=True)
 
-    for intf in interfaces:
-        st.log(f"=== Queue counters: {intf} ===")
-        st.show(dut, f"show queue counters {intf}", skip_tmpl=True)
-
-    st.log("=== TC_TO_PRIORITY_GROUP_MAP|AZURE ===")
-    st.config(dut, "redis-cli -n 4 hgetall 'TC_TO_PRIORITY_GROUP_MAP|AZURE'",
-              skip_error_check=True)
-
-    st.log("=== Buffer PG config (CONFIG_DB) ===")
-    for intf in interfaces:
-        st.config(dut, f"redis-cli -n 4 hgetall 'BUFFER_PG|{intf}|3-4'",
-                  skip_error_check=True)
-
-    st.log("=== WRED profile on queues (CONFIG_DB) ===")
-    for intf in interfaces:
-        st.config(dut,
-                  f"redis-cli -n 4 keys 'QUEUE|{intf}|*'",
-                  skip_error_check=True)
-    st.config(dut, "redis-cli -n 4 keys 'WRED_PROFILE|*'",
-              skip_error_check=True)
-
-    st.log("=== Scheduler config (CONFIG_DB) ===")
-    st.config(dut, "redis-cli -n 4 keys 'SCHEDULER|*'",
-              skip_error_check=True)
-
     st.log("=== Buffer pool usage ===")
     st.show(dut, "show buffer_pool watermark", skip_tmpl=True,
             skip_error_check=True)
 
-    st.log("=== PFC enable on ports (CONFIG_DB) ===")
-    for intf in interfaces:
-        st.config(dut, f"redis-cli -n 4 hgetall 'PORT_QOS_MAP|{intf}'",
+    # TODO when enabled add queue wredcounters
+
+# ===========================================================================
+# ECN / WRED Test Utilities (merged from ecn_test_utils.py)
+# ===========================================================================
+
+# ECN/ECT bit values (lower 2 bits of TOS/Traffic Class byte)
+ECN_NOT_ECT = 0b00  # Not-ECT: packet not participating in ECN
+ECN_ECT_1 = 0b01    # ECT(1): ECN-Capable Transport
+ECN_ECT_0 = 0b10    # ECT(0): ECN-Capable Transport (default for ECN-capable)
+ECN_CE = 0b11       # Congestion Experienced
+
+# Platform detection cache: {dut_id: 'hf6100' | 'n9164e' | 'generic'}
+_platform_cache = {}
+
+
+# ---------------------------------------------------------------------------
+# IP TOS / Traffic Class utilities
+# ---------------------------------------------------------------------------
+
+def compute_ip_tos(dscp, ect=ECN_ECT_0):
+    """
+    Combine DSCP and ECT values into a single ip_tos byte.
+
+    The TOS byte (IPv4) / Traffic Class byte (IPv6) format:
+        Bits 7-2 (6 bits): DSCP (Differentiated Services Code Point)
+        Bits 1-0 (2 bits): ECN (Explicit Congestion Notification)
+
+    Args:
+        dscp: DSCP value (0-63)
+        ect: ECN codepoint (ECN_NOT_ECT, ECN_ECT_1, ECN_ECT_0, or ECN_CE)
+
+    Returns:
+        int: Combined ip_tos value (0-255)
+
+    Example:
+        DSCP 24 (TC 3) with ECT(0): compute_ip_tos(24, ECN_ECT_0) = 98 (0x62)
+    """
+    if not 0 <= dscp <= 63:
+        raise ValueError(f"DSCP must be 0-63, got {dscp}")
+    if not 0 <= ect <= 3:
+        raise ValueError(f"ECT must be 0-3, got {ect}")
+    return (dscp << 2) | ect
+
+
+def extract_ecn_from_tos(ip_tos):
+    """
+    Extract ECN bits from ip_tos byte.
+
+    Args:
+        ip_tos: Full TOS/Traffic Class byte value
+
+    Returns:
+        int: ECN value (0-3)
+    """
+    return ip_tos & 0x03
+
+
+def is_ecn_ce_marked(ip_tos):
+    """
+    Check if a packet's TOS byte indicates CE (Congestion Experienced).
+
+    Args:
+        ip_tos: Full TOS/Traffic Class byte value
+
+    Returns:
+        bool: True if ECN bits are 11 (CE)
+    """
+    return (ip_tos & 0x03) == ECN_CE
+
+
+# ---------------------------------------------------------------------------
+# Topology Validation
+# ---------------------------------------------------------------------------
+
+def validate_ecn_testbed_topology():
+    """
+    Pre-flight check that MUST pass before ECN test proceeds.
+
+    Validates:
+        1. Required port counts (XOFF-based congestion methodology):
+           - Ingress leaf (D3): 1 TGEN connection (D3T1P1)
+           - Egress leaf (D4): 1 TGEN connection (D4T1P1)
+           - Ingress leaf to spine0: 1 uplink (D3D1P1)
+           - Egress leaf to spine0: 1 uplink (D4D1P1)
+           - Optional: spine1 links (D3D2P1, D4D2P1)
+
+        2. Leaf-to-TGEN links must have the same speed
+
+    Returns:
+        dict: {
+            'valid': bool,
+            'ingress_tgen_ports': [D3T1P1],
+            'egress_tgen_ports': [D4T1P1],
+            'ingress_uplinks': [D3D1P1, D3D2P1],
+            'egress_uplinks': [D4D1P1, D4D2P1],
+            'tgen_port_speed': int (in Gbps),
+            'error': str (if validation fails)
+        }
+    """
+    st.banner("PRE-FLIGHT: Validating ECN testbed topology")
+    vars = st.get_testbed_vars()
+    nodes = get_nodes()
+
+    result = {
+        'valid': False,
+        'ingress_tgen_ports': [],
+        'egress_tgen_ports': [],
+        'ingress_uplinks': [],
+        'egress_uplinks': [],
+        'tgen_port_speed': 0,
+        'error': None
+    }
+
+    # Check required ports exist (1 TGEN per leaf + 1 uplink per leaf to spine0)
+    required_ports = {
+        'ingress_tgen': ['D3T1P1'],
+        'egress_tgen': ['D4T1P1'],
+        'ingress_uplinks': ['D3D1P1'],
+        'egress_uplinks': ['D4D1P1']
+    }
+
+    # Optional spine1 links
+    optional_ports = {
+        'ingress_uplinks': ['D3D2P1'],
+        'egress_uplinks': ['D4D2P1']
+    }
+
+    missing_ports = []
+    for category, port_names in required_ports.items():
+        for port_name in port_names:
+            if not hasattr(vars, port_name):
+                missing_ports.append(port_name)
+
+    if missing_ports:
+        result['error'] = f"Missing required ports: {', '.join(missing_ports)}"
+        st.error(f"PRE-FLIGHT FAILED: {result['error']}")
+        return result
+
+    # Collect port interface names
+    result['ingress_tgen_ports'] = [getattr(vars, p) for p in required_ports['ingress_tgen']]
+    result['egress_tgen_ports'] = [getattr(vars, p) for p in required_ports['egress_tgen']]
+    result['ingress_uplinks'] = [getattr(vars, p) for p in required_ports['ingress_uplinks']]
+    result['egress_uplinks'] = [getattr(vars, p) for p in required_ports['egress_uplinks']]
+
+    # Add optional spine1 links if available
+    for category, port_names in optional_ports.items():
+        for port_name in port_names:
+            if hasattr(vars, port_name):
+                result[category].append(getattr(vars, port_name))
+
+    # Check leaf-to-TGEN link speeds match
+    tgen_ports_to_check = [
+        (nodes['leaf0'], result['ingress_tgen_ports'][0], 'D3T1P1'),
+        (nodes['leaf1'], result['egress_tgen_ports'][0], 'D4T1P1'),
+    ]
+
+    st.log("Querying TGEN port speeds...")
+    tgen_speeds = {}
+    for dut, intf, desc in tgen_ports_to_check:
+        speed = common_util.get_if_speed(dut, intf)
+        tgen_speeds[desc] = speed
+        st.log(f"  {desc} ({intf}): {speed}G")
+
+    tgen_speed_values = list(tgen_speeds.values())
+    if len(set(tgen_speed_values)) > 1:
+        result['error'] = f"TGEN port speed mismatch - leaf-to-TGEN links must have same speed. Found: {tgen_speeds}"
+        st.error(f"PRE-FLIGHT FAILED: {result['error']}")
+        return result
+
+    result['tgen_port_speed'] = tgen_speed_values[0]
+    result['valid'] = True
+
+    st.log(f"PRE-FLIGHT PASSED: TGEN ports at {result['tgen_port_speed']}G")
+    st.log(f"  Ingress TGEN: {result['ingress_tgen_ports']}")
+    st.log(f"  Egress TGEN: {result['egress_tgen_ports']}")
+    st.log(f"  Ingress uplinks: {result['ingress_uplinks']}")
+    st.log(f"  Egress uplinks: {result['egress_uplinks']}")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# PFC Control
+# ---------------------------------------------------------------------------
+
+def get_pfc_enabled_tcs(dut):
+    """
+    Get list of traffic classes with PFC enabled on a DUT.
+
+    Parses 'show pfc priority' output to find lossless priorities.
+
+    Args:
+        dut: DUT object
+
+    Returns:
+        list: List of TC numbers with PFC enabled (e.g., [3, 4])
+    """
+    output = st.show(dut, "show pfc priority", skip_tmpl=True)
+    tcs = set()
+
+    for line in output.splitlines():
+        # Skip header lines
+        if 'Interface' in line or '----' in line or not line.strip():
+            continue
+
+        parts = line.split()
+        if len(parts) >= 2:
+            # Second column is comma-separated TC list like "3,4"
+            tc_str = parts[1]
+            for tc in tc_str.split(','):
+                tc = tc.strip()
+                if tc.isdigit():
+                    tcs.add(int(tc))
+
+    return sorted(list(tcs))
+
+
+def disable_pfc_on_interface(dut, interface, tcs):
+    """
+    Disable PFC on specific TCs for an interface.
+
+    Args:
+        dut: DUT object
+        interface: Interface name (e.g., 'Ethernet1_1')
+        tcs: List of traffic classes to disable PFC for
+    """
+    for tc in tcs:
+        cmd = f"pfc config priority off {interface} {tc}"
+        st.log(f"Disabling PFC: {cmd}")
+        st.config(dut, cmd, skip_error_check=True)
+
+
+def enable_pfc_on_interface(dut, interface, tcs):
+    """
+    Enable PFC on specific TCs for an interface.
+
+    Args:
+        dut: DUT object
+        interface: Interface name (e.g., 'Ethernet1_1')
+        tcs: List of traffic classes to enable PFC for
+    """
+    for tc in tcs:
+        cmd = f"pfc config priority on {interface} {tc}"
+        st.log(f"Enabling PFC: {cmd}")
+        st.config(dut, cmd, skip_error_check=True)
+
+
+def disable_pfc_on_fabric(nodes, tcs=None):
+    """
+    Disable PFC on all leaf<->spine links for all PFC-enabled TCs.
+
+    This prevents PFC XOFF from propagating congestion when testing ECN marking
+    at a specific point. Without this, PFC would pause upstream traffic before
+    ECN marking can occur.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        tcs: List of TCs to disable PFC for. If None, auto-detect from 'show pfc priority'.
+
+    Returns:
+        dict: State info for later restoration {node: {interface: [tcs]}}
+    """
+    st.banner("Disabling PFC on all leaf - spine links to isolate ECN marking")
+    vars = st.get_testbed_vars()
+
+    # Auto-detect TCs if not provided
+    if tcs is None:
+        tcs = get_pfc_enabled_tcs(nodes['leaf0'])
+        if not tcs:
+            st.log("No PFC-enabled TCs found, skipping PFC disable")
+            return {}
+        st.log(f"Auto-detected PFC-enabled TCs: {tcs}")
+
+    # Interfaces to disable PFC on (leaf<->spine links + TGEN-facing ports)
+    interfaces_map = {
+        'leaf0': [vars.D3D1P1, vars.D3D1P2],
+        'leaf1': [vars.D4D1P1, vars.D4D1P2],
+        'spine0': [vars.D1D3P1, vars.D1D3P2, vars.D1D4P1, vars.D1D4P2],
+    }
+
+    # Add Spine1 interfaces if they exist and are used
+    if hasattr(vars, 'D3D2P1'):
+        interfaces_map['leaf0'].append(vars.D3D2P1)
+    if hasattr(vars, 'D3D2P2'):
+        interfaces_map['leaf0'].append(vars.D3D2P2)
+    if hasattr(vars, 'D4D2P1'):
+        interfaces_map['leaf1'].append(vars.D4D2P1)
+    if hasattr(vars, 'D4D2P2'):
+        interfaces_map['leaf1'].append(vars.D4D2P2)
+    if 'spine1' in nodes:
+        spine1_intfs = []
+        for attr in ['D2D3P1', 'D2D3P2', 'D2D4P1', 'D2D4P2']:
+            if hasattr(vars, attr):
+                spine1_intfs.append(getattr(vars, attr))
+        if spine1_intfs:
+            interfaces_map['spine1'] = spine1_intfs
+
+    # Add TGEN-facing ports on both leaves to prevent PFC XOFF toward TGEN
+    for attr in ['D3T1P1', 'D3T1P2', 'D3T1P3']:
+        if hasattr(vars, attr):
+            interfaces_map['leaf0'].append(getattr(vars, attr))
+    for attr in ['D4T1P1', 'D4T1P2']:
+        if hasattr(vars, attr):
+            interfaces_map['leaf1'].append(getattr(vars, attr))
+
+    # Save state and disable PFC
+    saved_state = {}
+    for node_name, interfaces in interfaces_map.items():
+        if node_name not in nodes:
+            continue
+        saved_state[node_name] = {}
+        for intf in interfaces:
+            disable_pfc_on_interface(nodes[node_name], intf, tcs)
+            saved_state[node_name][intf] = tcs
+
+    st.wait(2)  # Allow config to take effect
+    st.log("PFC disabled on fabric links")
+
+    # Show PFC priority after disabling to confirm
+    for node_name in saved_state:
+        if node_name in nodes:
+            st.log(f"=== PFC priority on {node_name} after disable ===")
+            st.show(nodes[node_name], "show pfc priority", skip_tmpl=True)
+
+    return saved_state
+
+
+def enable_pfc_on_fabric(nodes, saved_state):
+    """
+    Restore PFC on all leaf<->spine links.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        saved_state: State dict from disable_pfc_on_fabric()
+    """
+    st.banner("Restoring PFC on leaf<->spine links")
+
+    if not saved_state:
+        st.log("No saved PFC state to restore")
+        return
+
+    for node_name, interfaces in saved_state.items():
+        if node_name not in nodes:
+            continue
+        for intf, tcs in interfaces.items():
+            enable_pfc_on_interface(nodes[node_name], intf, tcs)
+
+    st.wait(2)
+    st.log("PFC restored on fabric links")
+
+    # Show PFC priority after restoring to confirm
+    for node_name in saved_state:
+        if node_name in nodes:
+            st.log(f"=== PFC priority on {node_name} after restore ===")
+            st.show(nodes[node_name], "show pfc priority", skip_tmpl=True)
+
+
+# ---------------------------------------------------------------------------
+# ECN Configuration Verification
+# ---------------------------------------------------------------------------
+
+def verify_ecn_config(nodes, node_names=None):
+    """
+    Pre-flight check: verify ECN is enabled on the DUTs.
+
+    Runs 'ecnconfig -l' on specified nodes and logs the output.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        node_names: List of node names to check. If None, checks all nodes.
+
+    Returns:
+        bool: True if ECN appears to be configured on all nodes
+    """
+    if node_names is None:
+        node_names = list(nodes.keys())
+
+    all_ok = True
+    for name in node_names:
+        if name not in nodes:
+            continue
+        dut = nodes[name]
+        st.log(f"=== {name.upper()} ECN Configuration ===")
+        output = st.show(dut, "ecnconfig -l", skip_tmpl=True)
+        st.log(output)
+
+        # Check for common ECN profile names
+        if 'AZURE_LOSSLESS' in output or 'wredprofile' in output.lower() or 'ecn' in output.lower():
+            st.log(f"  {name}: ECN configuration found")
+        else:
+            st.log(f"  {name}: WARNING - ECN configuration may not be present")
+            # Don't fail, just warn - some configs use different naming
+
+    return all_ok
+
+
+# ---------------------------------------------------------------------------
+# ECN Sandboxing -- disable/restore ECN on non-target nodes
+# ---------------------------------------------------------------------------
+
+def disable_ecn_on_nodes(nodes, node_names, enabled_nodes=None):
+    """
+    Disable ECN marking on specified nodes by setting ecn=ecn_none on all WRED profiles.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        node_names: List of node names to disable ECN on
+        enabled_nodes: Optional list of congestion point nodes (for logging only)
+
+    Returns:
+        dict: {node_name: [profile_names]} for restore
+    """
+    st.banner(f"Disabling ECN marking on: {node_names}")
+    saved_state = {}
+
+    for name in node_names:
+        if name not in nodes:
+            continue
+        dut = nodes[name]
+        config = get_config_db(dut)
+
+        if "WRED_PROFILE" not in config:
+            continue
+
+        profiles_disabled = []
+        for profile_name, profile in config["WRED_PROFILE"].items():
+            if profile.get("ecn", "ecn_none") != "ecn_none":
+                config["WRED_PROFILE"][profile_name]["ecn"] = "ecn_none"
+                profiles_disabled.append(profile_name)
+
+        if profiles_disabled:
+            saved_state[name] = profiles_disabled
+            st.log(f"  {name}: ECN disabled on {profiles_disabled}")
+
+    # Dump ecnconfig on all nodes after disabling
+    for name in nodes:
+        st.log(f"  {name}: ecnconfig -l")
+        st.show(nodes[name], "ecnconfig -l", skip_tmpl=True)
+
+    # Also show ecnconfig on enabled/congestion point nodes
+    if enabled_nodes:
+        st.log(f"ECN remains ENABLED on congestion point nodes: {enabled_nodes}")
+        for name in enabled_nodes:
+            if name in nodes and name not in node_names:
+                st.log(f"  {name}: ecnconfig -l (ECN enabled - congestion point)")
+                st.show(nodes[name], "ecnconfig -l", skip_tmpl=True)
+
+    return saved_state
+
+
+def restore_ecn_on_nodes(nodes, saved_ecn_state):
+    """
+    Restore ECN marking (ecn=ecn_green) on nodes disabled by disable_ecn_on_nodes().
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        saved_ecn_state: Dict from disable_ecn_on_nodes()
+    """
+    if not saved_ecn_state:
+        return
+
+    st.banner(f"Restoring ECN marking on: {list(saved_ecn_state.keys())}")
+
+    for name, profile_names in saved_ecn_state.items():
+        if name not in nodes:
+            continue
+        dut = nodes[name]
+        config = get_config_db(dut)
+
+        for profile_name in profile_names:
+            if "WRED_PROFILE" in config and profile_name in config["WRED_PROFILE"]:
+                config["WRED_PROFILE"][profile_name]["ecn"] = "ecn_green"
+
+        st.log(f"  {name}: ECN restored to ecn_green on {profile_names}")
+
+    # Dump ecnconfig on all nodes after restoring
+    for name in nodes:
+        st.log(f"  {name}: ecnconfig -l")
+        st.show(nodes[name], "ecnconfig -l", skip_tmpl=True)
+
+
+# Map each congestion scenario to the nodes where ECN should be DISABLED
+# (i.e., the non-target congestion points)
+# Both spines are included since traffic can traverse either spine in a 2x2 CLOS
+ECN_DISABLE_MAP = {
+    'ingress_leaf_egress': ['spine0', 'spine1', 'leaf1'],   # A: disable B and C (both spines + egress leaf)
+    'spine_egress':        ['leaf0', 'leaf1'],               # B: disable A and C (both leaves)
+    'egress_leaf_tgen':    ['leaf0', 'spine0', 'spine1'],    # C: disable A and B (ingress leaf + both spines)
+}
+
+
+# ---------------------------------------------------------------------------
+# ECN Counter Utilities (Platform-specific)
+# ---------------------------------------------------------------------------
+
+def get_ecn_counters_on_port(dut, port, tc, clear=False):
+    """
+    Get ECN counters for a specific port and traffic class using platform NPU command.
+
+    Uses: show platform npu voq queue_counters -i <interface> -t <tc>
+
+    Sample output:
+        Port Ethernet1_57_1 port oid 0x80000000000054 queue oid 0xa80000005400003
+            SAI_QUEUE_STAT_PACKETS :  0
+            SAI_QUEUE_STAT_DROPPED_PACKETS :  0
+            SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES :  0
+            SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS :  0
+            SAI_QUEUE_STAT_WRED_DROPPED_PACKETS :  0
+            SAI_QUEUE_STAT_WATERMARK_BYTES :  0
+            SAI_QUEUE_STAT_DELAY_WATERMARK :  0
+
+    Args:
+        dut: DUT object (node name like nodes['leaf0'] or direct DUT)
+        port: Interface name (e.g., 'Ethernet1_57_1')
+        tc: Traffic class number (0-7, typically 3 for lossless)
+        clear: If True, clear the counters after reading (-c flag)
+
+    Returns:
+        dict: Parsed counter values:
+            {
+                'packets': int,
+                'dropped_packets': int,
+                'curr_occupancy_bytes': int,
+                'ecn_marked_packets': int,
+                'wred_dropped_packets': int,
+                'watermark_bytes': int,
+                'delay_watermark': int
+            }
+            Returns empty dict if command fails.
+    """
+    clear_flag = " -c" if clear else ""
+    cmd = f"show platform npu voq queue_counters -i {port} -t {tc}{clear_flag}"
+
+    st.log(f"Getting ECN counters: {cmd}")
+    # Must use st.config() not st.show() -- this command needs sudo to access
+    # the NPU debug shell socket ("cannot connect to debug shell socket asic 0")
+    output = st.config(dut, cmd, skip_error_check=True)
+
+    counters = {
+        'packets': 0,
+        'dropped_packets': 0,
+        'curr_occupancy_bytes': 0,
+        'ecn_marked_packets': 0,
+        'wred_dropped_packets': 0,
+        'watermark_bytes': 0,
+        'delay_watermark': 0
+    }
+
+    # Mapping from SAI names to our dict keys
+    mapping = {
+        'SAI_QUEUE_STAT_PACKETS': 'packets',
+        'SAI_QUEUE_STAT_DROPPED_PACKETS': 'dropped_packets',
+        'SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES': 'curr_occupancy_bytes',
+        'SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS': 'ecn_marked_packets',
+        'SAI_QUEUE_STAT_WRED_DROPPED_PACKETS': 'wred_dropped_packets',
+        'SAI_QUEUE_STAT_WATERMARK_BYTES': 'watermark_bytes',
+        'SAI_QUEUE_STAT_DELAY_WATERMARK': 'delay_watermark'
+    }
+
+    for line in output.splitlines():
+        line = line.strip()
+        for sai_name, key in mapping.items():
+            if sai_name in line:
+                # Parse "SAI_QUEUE_STAT_xxx :  <value>"
+                parts = line.split(':')
+                if len(parts) >= 2:
+                    try:
+                        counters[key] = int(parts[1].strip())
+                    except ValueError:
+                        counters[key] = 0
+                break
+
+    st.log(f"  Port {port} TC {tc}: ECN_marked={counters['ecn_marked_packets']}, "
+           f"WRED_dropped={counters['wred_dropped_packets']}, "
+           f"packets={counters['packets']}")
+
+    return counters
+
+
+def clear_ecn_counters_on_port(dut, port, tc):
+    """
+    Clear ECN counters for a specific port and traffic class.
+
+    Uses: show platform npu voq queue_counters -i <interface> -t <tc> -c
+
+    Args:
+        dut: DUT object
+        port: Interface name (e.g., 'Ethernet1_57_1')
+        tc: Traffic class number (0-7)
+    """
+    cmd = f"show platform npu voq queue_counters -i {port} -t {tc} -c"
+    st.log(f"Clearing ECN counters: {cmd}")
+    st.config(dut, cmd, skip_error_check=True)
+
+
+def clear_all_ecn_counters(nodes, interfaces_map, tc=3):
+    """
+    Clear ECN counters on all specified interfaces.
+
+    Args:
+        nodes: Dictionary mapping node names to DUT objects
+        interfaces_map: Dict mapping node names to list of interfaces
+        tc: Traffic class to clear (default 3)
+    """
+    st.banner(f"Clearing ECN counters (TC {tc}) on all interfaces")
+    for node_name, interfaces in interfaces_map.items():
+        if node_name not in nodes:
+            continue
+        dut = nodes[node_name]
+        for intf in interfaces:
+            clear_ecn_counters_on_port(dut, intf, tc)
+
+
+def print_ecn_counter_deltas(before, after, label="ECN Counter Deltas"):
+    """
+    Calculate and print ECN counter deltas between before and after snapshots.
+
+    Args:
+        before: Counters dict from capture_ecn_counters()
+        after: Counters dict from capture_ecn_counters()
+        label: Banner label for output
+
+    Returns:
+        dict: Summary of ECN marked packet counts by node/interface
+    """
+    st.banner(label)
+    summary = {}
+
+    for node_name in after.keys():
+        if node_name not in before:
+            continue
+        summary[node_name] = {}
+
+        for intf in after[node_name].keys():
+            if intf not in before[node_name]:
+                continue
+
+            before_c = before[node_name].get(intf, {})
+            after_c = after[node_name].get(intf, {})
+
+            ecn_delta = after_c.get('ecn_marked_packets', 0) - before_c.get('ecn_marked_packets', 0)
+            wred_delta = after_c.get('wred_dropped_packets', 0) - before_c.get('wred_dropped_packets', 0)
+            pkt_delta = after_c.get('packets', 0) - before_c.get('packets', 0)
+            drop_delta = after_c.get('dropped_packets', 0) - before_c.get('dropped_packets', 0)
+
+            st.log(f"  {node_name} {intf}: "
+                   f"ECN_marked={ecn_delta}, WRED_drop={wred_delta}, "
+                   f"Q_pkts={pkt_delta}, Q_drop={drop_delta}")
+            summary[node_name][intf] = {
+                'ecn_marked_packets': ecn_delta,
+                'wred_dropped_packets': wred_delta,
+                'packets': pkt_delta,
+                'dropped_packets': drop_delta
+            }
+
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Platform Detection
+# ---------------------------------------------------------------------------
+
+def detect_platform(dut):
+    """
+    Detect DUT platform type by running 'show version' and caching the result.
+
+    Returns:
+        str: 'hf6100' if Platform contains 'x86_64-hf6100',
+             'n9164e' if Platform contains 'x86_64-n9164e',
+             else 'generic'
+    """
+    dut_key = str(dut)
+    if dut_key in _platform_cache:
+        return _platform_cache[dut_key]
+
+    output = st.show(dut, "show version", skip_tmpl=True, skip_error_check=True)
+    platform = 'generic'
+    for line in (output or '').splitlines():
+        if 'Platform:' in line:
+            if 'x86_64-hf6100' in line:
+                platform = 'hf6100'
+                break
+            elif 'x86_64-n9164e' in line:
+                platform = 'n9164e'
+                break
+
+    _platform_cache[dut_key] = platform
+    st.log(f"Detected platform for {dut_key}: {platform}")
+    return platform
+
+
+# ---------------------------------------------------------------------------
+# WRED/ECN Counter Utilities (auto-selects legacy or NPU based on platform)
+# ---------------------------------------------------------------------------
+
+def clear_wred_counters(dut, interfaces=None, tc=3):
+    """
+    Clear WRED/ECN counters on a DUT.
+
+    Uses 'sonic-clear queue wredcounters' for all platforms.
+
+    Note: On Gamut (N9164E), WRED queue counters may not update properly
+    even after clearing. Use interface TX_DROPS as a workaround.
+
+    Args:
+        dut: DUT object
+        interfaces: Unused (kept for API compatibility)
+        tc: Unused (kept for API compatibility)
+    """
+    st.log("Clearing WRED counters")
+    st.config(dut, "sonic-clear queue wredcounters", skip_error_check=True)
+
+
+def clear_all_wred_counters(nodes, interfaces_map=None, tc=3):
+    """
+    Clear WRED/ECN counters on all nodes.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        interfaces_map: Optional dict mapping node names to list of interfaces
+                        (needed for HF6100 per-port clear)
+        tc: Traffic class (default 3)
+    """
+    for name, dut in nodes.items():
+        intfs = (interfaces_map or {}).get(name)
+        clear_wred_counters(dut, interfaces=intfs, tc=tc)
+
+
+def parse_queue_counters(raw_output, interfaces):
+    """
+    Parse 'show queue counters <interface>' output.
+
+    Output format:
+        Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes
+        -----  -----  --------------  ---------------  -----------  ------------
+        Ethernet1_59_1    UC0         181,821      245,458,350       18,179           N/A
+        Ethernet1_59_1    UC3               0                0      100,000           N/A
+
+    Args:
+        raw_output: Raw string output from 'show queue counters <interface>'
+        interfaces: List of interface names to parse
+
+    Returns:
+        dict: {interface: {queue: {'counter_pkts': int, 'counter_bytes': int,
+                                   'drop_pkts': int, 'drop_bytes': int}}}
+    """
+    counters = {intf: {} for intf in interfaces}
+    interfaces_set = set(interfaces)
+
+    def parse_value(val):
+        if val == 'N/A':
+            return 0
+        try:
+            return int(val.replace(',', ''))
+        except ValueError:
+            return 0
+
+    for line in raw_output.splitlines():
+        # Skip header lines and empty lines
+        if 'Port' in line or '----' in line or not line.strip():
+            continue
+        # Skip "Last cached time" lines
+        if 'cached' in line.lower():
+            continue
+
+        parts = line.split()
+        if len(parts) < 5:
+            continue
+
+        intf_name = parts[0]
+        if intf_name not in interfaces_set:
+            continue
+
+        queue = parts[1]  # e.g., UC0, UC3
+
+        counters[intf_name][queue] = {
+            'counter_pkts': parse_value(parts[2]),
+            'counter_bytes': parse_value(parts[3]),
+            'drop_pkts': parse_value(parts[4]),
+            'drop_bytes': parse_value(parts[5]) if len(parts) > 5 else 0
+        }
+
+    return counters
+
+
+def parse_wred_counters(raw_output, interfaces):
+    """
+    Parse 'show queue wredcounters <interface>' output.
+
+    Output format:
+        Port    TxQ    WredDrp/pkts    WredDrp/bytes    EcnMarked/pkts    EcnMarked/bytes
+        -----  -----  --------------  ---------------  ----------------  -----------------
+        Ethernet1_66    UC0             N/A              N/A               N/A                N/A
+        Ethernet1_66    UC3             100              1000              500                5000
+
+    Args:
+        raw_output: Raw string output from 'show queue wredcounters'
+        interfaces: List of interface names to parse
+
+    Returns:
+        dict: {interface: {queue: {'wred_drop_pkts': int, 'wred_drop_bytes': int,
+                                   'ecn_marked_pkts': int, 'ecn_marked_bytes': int}}}
+    """
+    counters = {intf: {} for intf in interfaces}
+    interfaces_set = set(interfaces)
+
+    def parse_value(val):
+        if val == 'N/A':
+            return 0
+        try:
+            return int(val.replace(',', ''))
+        except ValueError:
+            return 0
+
+    for line in raw_output.splitlines():
+        # Skip header lines
+        if 'Port' in line or '----' in line or not line.strip():
+            continue
+
+        parts = line.split()
+        if len(parts) < 6:
+            continue
+
+        intf_name = parts[0]
+        if intf_name not in interfaces_set:
+            continue
+
+        queue = parts[1]  # e.g., UC3
+
+        counters[intf_name][queue] = {
+            'wred_drop_pkts': parse_value(parts[2]),
+            'wred_drop_bytes': parse_value(parts[3]),
+            'ecn_marked_pkts': parse_value(parts[4]),
+            'ecn_marked_bytes': parse_value(parts[5]) if len(parts) > 5 else 0
+        }
+
+    return counters
+
+
+def capture_wred_counters(nodes, interfaces_map, tc=3):
+    """
+    Capture WRED/ECN counters for specified interfaces on each node.
+
+    Auto-detects platform:
+      - HF6100: uses 'show platform npu voq queue_counters -t <tc> -i <intf>'
+      - N9164E (Gamut) and Generic: uses 'show queue wredcounters <intf>'
+        for ECN marked counters, and BOTH 'show queue counters <intf>' and
+        'show queue wredcounters <intf>' for WRED drops.
+
+    IMPORTANT: For WRED drops, we check BOTH:
+      - 'show queue counters' Drop/pkts
+      - 'show queue wredcounters' WredDrp/pkts
+    And use the GREATER of the two values. This ensures we get accurate
+    drop counts regardless of which counter works on the platform.
+    (e.g., Gamut shows 0 for WredDrp but accurate Drop/pkts)
+
+    Both paths return data in the same format so callers don't need to change.
+
+    Args:
+        nodes: Dictionary mapping node names to DUT objects
+        interfaces_map: Dict mapping node names to list of interfaces
+        tc: Traffic class (default 3, used for HF6100 NPU command and
+            legacy queue name UC<tc>)
+
+    Returns:
+        dict: Nested dict {node: {interface: {queue: {...}}}}
+              where queue dict contains keys:
+                'ecn_marked_pkts'   - ECN marked packets (from wredcounters)
+                'wred_drop_pkts'    - Max of queue counters Drop/pkts and wredcounters WredDrp/pkts
+                'ecn_marked_bytes'  - ECN marked bytes (0 for most platforms)
+                'wred_drop_bytes'   - Drop bytes (0 for most platforms)
+                'packets'           - Transmitted packets (from queue counters Counter/pkts)
+                'dropped_packets'   - Same as wred_drop_pkts for compatibility
+    """
+    counters = {}
+    queue_name = f"UC{tc}"
+
+    for node_name, interfaces in interfaces_map.items():
+        if node_name not in nodes:
+            continue
+        dut = nodes[node_name]
+        node_counters = {}
+        platform = detect_platform(dut)
+
+        for intf in interfaces:
+            if platform == 'hf6100':
+                npu = get_ecn_counters_on_port(dut, intf, tc)
+                # Wrap in queue-keyed dict matching legacy format
+                node_counters[intf] = {
+                    queue_name: {
+                        'ecn_marked_pkts': npu.get('ecn_marked_packets', 0),
+                        'wred_drop_pkts': npu.get('wred_dropped_packets', 0),
+                        'ecn_marked_bytes': 0,
+                        'wred_drop_bytes': 0,
+                        'packets': npu.get('packets', 0),
+                        'dropped_packets': npu.get('dropped_packets', 0),
+                    }
+                }
+            else:
+                # All other platforms (n9164e, generic):
+                # 1. Get ECN marked and WredDrp from 'show queue wredcounters'
+                wred_output = st.show(dut, f"show queue wredcounters {intf}",
+                                      skip_tmpl=True, skip_error_check=True)
+                wred_parsed = parse_wred_counters(wred_output, [intf])
+
+                # 2. Get queue counters for drops and transmitted packets
+                q_output = st.show(dut, f"show queue counters {intf}",
+                                   skip_tmpl=True, skip_error_check=True)
+                q_parsed = parse_queue_counters(q_output, [intf])
+
+                # 3. Merge: ECN from wredcounters, drops = max(queue drops, wred drops)
+                if intf not in node_counters:
+                    node_counters[intf] = {}
+
+                # Get all queues from both sources
+                all_queues = set()
+                if intf in wred_parsed:
+                    all_queues.update(wred_parsed[intf].keys())
+                if intf in q_parsed:
+                    all_queues.update(q_parsed[intf].keys())
+
+                for queue in all_queues:
+                    wred_data = wred_parsed.get(intf, {}).get(queue, {})
+                    q_data = q_parsed.get(intf, {}).get(queue, {})
+
+                    # Get drops from both sources
+                    queue_drop_pkts = q_data.get('drop_pkts', 0)
+                    wred_drop_pkts = wred_data.get('wred_drop_pkts', 0)
+
+                    # Use the GREATER of the two drop counters
+                    # This ensures we get accurate drops regardless of which
+                    # counter works on the platform
+                    drop_pkts = max(queue_drop_pkts, wred_drop_pkts)
+
+                    counter_pkts = q_data.get('counter_pkts', 0)
+
+                    node_counters[intf][queue] = {
+                        'ecn_marked_pkts': wred_data.get('ecn_marked_pkts', 0),
+                        'ecn_marked_bytes': wred_data.get('ecn_marked_bytes', 0),
+                        'wred_drop_pkts': drop_pkts,  # Max of both counters
+                        'wred_drop_bytes': max(q_data.get('drop_bytes', 0),
+                                               wred_data.get('wred_drop_bytes', 0)),
+                        'packets': counter_pkts,  # Transmitted packets
+                        'dropped_packets': drop_pkts,  # Alias for compatibility
+                    }
+
+        counters[node_name] = node_counters
+
+    return counters
+
+
+def print_wred_counter_deltas(before, after, tc=3, label="WRED/ECN Counter Deltas",
+                              watermarks=None, pfc_info=None):
+    """
+    Calculate and print WRED/ECN counter deltas between before and after snapshots.
+    Focuses on the specified TC queue.
+
+    Args:
+        before: Counters dict from capture_wred_counters()
+        after: Counters dict from capture_wred_counters()
+        tc: Traffic class (queue number) to report
+        label: Banner label for output
+        watermarks: Optional dict from capture_queue_watermark_values()
+                    {node_name: {interface: watermark_bytes}}
+        pfc_info: Optional dict or list of dicts with PFC RX counter info:
+                  Single: {'node': str, 'interface': str, 'before': int, 'after': int}
+                  Multi: {node_name: {interface: {'before': int, 'after': int}}}
+
+    Returns:
+        dict: Summary of ECN marked packet counts by node/interface
+    """
+    st.banner(label)
+    queue_name = f"UC{tc}"
+    summary = {}
+
+    for node_name in after.keys():
+        if node_name not in before:
+            continue
+        summary[node_name] = {}
+
+        for intf in after[node_name].keys():
+            if intf not in before[node_name]:
+                continue
+
+            before_q = before[node_name].get(intf, {}).get(queue_name, {})
+            after_q = after[node_name].get(intf, {}).get(queue_name, {})
+
+            ecn_delta = after_q.get('ecn_marked_pkts', 0) - before_q.get('ecn_marked_pkts', 0)
+            wred_delta = after_q.get('wred_drop_pkts', 0) - before_q.get('wred_drop_pkts', 0)
+            pkt_delta = after_q.get('packets', 0) - before_q.get('packets', 0)
+            drop_delta = after_q.get('dropped_packets', 0) - before_q.get('dropped_packets', 0)
+            watermark = 0
+            if watermarks and node_name in watermarks:
+                watermark = watermarks[node_name].get(intf, 0)
+
+            # Get PFC RX delta for this interface if available
+            pfc_delta = 0
+            if pfc_info and isinstance(pfc_info, dict):
+                if node_name in pfc_info and intf in pfc_info[node_name]:
+                    pfc_entry = pfc_info[node_name][intf]
+                    pfc_delta = pfc_entry.get('after', 0) - pfc_entry.get('before', 0)
+
+            st.log(f"  {node_name} {intf} {queue_name}: "
+                   f"ECN_marked={ecn_delta}, WRED_drop={wred_delta}, "
+                   f"Q_pkts={pkt_delta}, Q_drop={drop_delta}, "
+                   f"Q_wm={watermark}B, PFC_RX={pfc_delta}")
+            summary[node_name][intf] = {
+                'ecn_marked_pkts': ecn_delta,
+                'wred_drop_pkts': wred_delta,
+                'packets': pkt_delta,
+                'dropped_packets': drop_delta,
+                'watermark_bytes': watermark,
+                'pfc_rx_delta': pfc_delta
+            }
+
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# TGEN UDS (User Defined Statistics) - ECN CE Packet Counter
+# ---------------------------------------------------------------------------
+
+def setup_ecn_uds_counters(tg, port_handle):
+    """
+    Configure IXIA capture filters to count ECN CE-marked IPv6 packets.
+
+    Uses the capture pipeline with pattern filters which are proven to work
+    in the existing tg_custom_filter_config implementation.
+
+    Sets up capture to count:
+      - Filtered: ECN CE-marked packets (ECN field = 0b11 in IPv6 Traffic Class)
+      - Total: All received packets
+
+    Must be called BEFORE starting traffic. Counters accumulate while
+    traffic runs and are read after traffic stops via get_ecn_uds_counters().
+
+    IPv6 header layout (after 14-byte Ethernet header):
+      byte14: version(4) | TC[7:4]   -> 0x6X
+      byte15: TC[3:0] | FL[19:16]    -> 0xYZ
+      TC = (byte14 & 0x0F) << 4 | (byte15 >> 4)
+      ECN = TC[1:0] -> byte15 bits [5:4]
+      ECN CE (0b11) -> byte15 & 0x30 == 0x30
+
+    For pattern filter, we need 16-bit (2-byte) patterns:
+      pattern1 @ offset 14: 0x6030 with mask 0xF030
+        - Checks IPv6 version (6) AND ECN CE bits (0x30)
+      pattern2 @ offset 12: 0x86DD with mask 0xFFFF  
+        - Checks IPv6 EtherType
+
+    Args:
+        tg: TGEN handle object (TGIxia instance)
+        port_handle: IXIA port handle string (e.g. '1/1/4')
+    """
+    # Use tg_custom_filter_config which sets up the full capture pipeline
+    # Pattern must be 16-bit (4 hex chars) per the API requirement
+    # 
+    # Pattern1: ECN CE detection - bytes 14-15 of IPv6 header
+    #   0x6030 = Version 6 (0x6X) + ECN CE (bits 5:4 = 0b11 = 0x30)
+    #   Mask 0xF030 = check version nibble + ECN bits
+    #
+    # Pattern2: IPv6 EtherType at bytes 12-13
+    #   0x86DD = IPv6 EtherType
+    #   Mask 0xFFFF = exact match
+    #
+    result = tg.tg_custom_filter_config(
+        mode='create',
+        port_handle=port_handle,
+        pattern_offset1='14',
+        pattern1='6030',        # IPv6 version + ECN CE
+        pattern_offset2='12', 
+        pattern2='86DD',        # IPv6 EtherType
+    )
+
+    if result.get('status') != '1':
+        st.error(f"Failed to configure ECN UDS counters on {port_handle}")
+    else:
+        st.log(f"ECN capture filter configured on {port_handle}: "
+               f"pattern1=0x6030 (ECN CE) @ offset 14, pattern2=0x86DD (IPv6) @ offset 12")
+
+
+def get_ecn_uds_counters(tg, port_handle):
+    """
+    Read ECN filtered packet counts from TGEN port after traffic has stopped.
+
+    Requires setup_ecn_uds_counters() to have been called before traffic.
+
+    Uses tg_custom_filter_config(mode='getstats') which internally calls
+    tg_packet_stats() and extracts uds4_frame_count (filtered) and 
+    uds3_frame_count (total).
+
+    Args:
+        tg: TGEN handle object (TGIxia instance)
+        port_handle: IXIA port handle string
+
+    Returns:
+        dict: {
+            'ecn_ce_marked': int,   # packets matching ECN CE filter
+            'total_ipv6': int,      # total packets received  
+            'marking_rate': float,  # CE / total as percentage
+        }
+    """
+    result = tg.tg_custom_filter_config(
+        mode='getstats',
+        port_handle=port_handle,
+    )
+
+    ecn_ce = 0
+    total = 0
+
+    if result.get('status') == '1':
+        custom_filter = result.get(port_handle, {}).get('custom_filter', {})
+        ecn_ce = int(custom_filter.get('filtered_frame_count', 0))
+        total = int(custom_filter.get('total_rx_count', 0))
+        st.log(f"DEBUG: custom_filter result: {custom_filter}")
+
+    rate = (ecn_ce / total * 100.0) if total > 0 else 0.0
+
+    st.log(f"UDS ECN counters on {port_handle}: "
+           f"CE_marked={ecn_ce}, total_IPv6={total}, marking_rate={rate:.2f}%")
+
+    return {
+        'ecn_ce_marked': ecn_ce,
+        'total_ipv6': total,
+        'marking_rate': rate,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Packet Capture
+# ---------------------------------------------------------------------------
+
+def start_packet_capture(tg, port_handle, port_name='egress', capture_mode='continuous'):
+    """
+    Start unfiltered packet capture on a TGEN port.
+
+    Uses the SpyTest wrapper's tg_packet_control(action='start') which
+    internally calls traffic_control(action='apply') to push config to
+    hardware, then enables data plane capture.  The wrapper does NOT
+    override capture_mode  --  it only adds apply + enable steps.
+
+    Args:
+        tg: TGEN handle object
+        port_handle: IXIA port handle for capture
+        port_name: Port name for logging (default 'egress')
+        capture_mode: 'continuous' (rolling buffer) or 'trigger' (first N)
+
+    Returns:
+        bool: True if capture started successfully, False otherwise
+    """
+    try:
+        st.banner(f"Starting packet capture on {port_name}")
+
+        # Reset any existing capture state
+        tg.tg_packet_control(port_handle=port_handle, action='reset')
+
+        # Configure capture buffers with desired mode
+        # Only enable data plane capture  --  control plane capture is not needed
+        # and causes "Control capture is not selected" errors when the wrapper's
+        # get_capture_stats_state checks -controlCaptureState on repeated iterations.
+        tg.tg_packet_config_buffers(
+            port_handle=port_handle,
+            capture_mode=capture_mode,
+            control_plane_capture_enable=0,
+            data_plane_capture_enable=1
+        )
+
+        # Start capture via wrapper  --  its pre_proc does:
+        #   1. traffic_control(action='apply')  --  pushes config to HW
+        #   2. packet_config_buffers(data_plane_capture_enable='1')
+        #      (no capture_mode  --  doesn't override our setting)
+        #   3. packet_control(action='start')
+        tg.tg_packet_control(port_handle=port_handle, action='start')
+
+        st.log(f"Packet capture started on {port_name} (mode={capture_mode}, no filter)")
+        return True
+
+    except Exception as e:
+        st.log(f"WARNING: Failed to start packet capture on {port_name}: {e}")
+        import traceback
+        st.log(traceback.format_exc())
+        return False
+
+
+def stop_packet_capture(tg, port_handle, port_name='egress', max_frames=10000):
+    """
+    Stop packet capture and return the raw capture dictionary.
+
+    The caller is responsible for analyzing the captured packets
+    (e.g. via extract_ecn_from_capture() or custom analysis).
+
+    Args:
+        tg: TGEN handle object
+        port_handle: IXIA port handle for capture
+        port_name: Port name for logging (default 'egress')
+        max_frames: Maximum frames to retrieve
+
+    Returns:
+        dict: Raw capture dictionary from tg_packet_stats(), or None on failure
+    """
+    try:
+        st.banner(f"Stopping packet capture on {port_name} port")
+        tg.tg_packet_control(port_handle=port_handle, action='stop')
+        st.wait(5)
+
+        st.banner(f"Retrieving captured packets from {port_name}")
+        pkt_dict = tg.tg_packet_stats(
+            port_handle=port_handle,
+            format='var',
+            output_type='hex',
+            var_num_frames=max_frames
+        )
+        return pkt_dict
+
+    except Exception as e:
+        st.log(f"WARNING: Failed to stop/retrieve capture on {port_name}: {e}")
+        import traceback
+        st.log(traceback.format_exc())
+        return None
+
+
+def start_ecn_ce_capture(tg, port_handle, port_name='egress', capture_mode='continuous', protocol='ipv6'):
+    """
+    Start packet capture, optionally with filter for ECN CE (11) marked packets.
+
+    For IPv6: Configures IXIA capture to filter only packets with ECN=11 (CE)
+    in the Traffic Class field. This is useful for verifying ECN marking at
+    congestion points.
+
+    For IPv4: Captures all packets without filtering (ECN extraction is done
+    post-capture in extract_ecn_from_capture()).
+
+    IPv6 Traffic Class Layout:
+        Byte 0: Version (4 bits) + TC high (4 bits)
+        Byte 1: TC low (4 bits) + Flow Label high (4 bits)
+        TC = DSCP (6 bits) + ECN (2 bits)
+        ECN bits are at positions 5-4 of byte 1
+
+    For ECN=11 (CE):
+        pattern='30' (0b0011_0000) - ECN=11 in bits 5-4
+        mask='CF' (0b1100_1111) - only check bits 5-4 (mask bit 0 = check)
+
+    Frame structure (untagged IPv6):
+        Ethernet header: 14 bytes
+        IPv6 byte 1: offset 14 + 1 = 15
+
+    Args:
+        tg: TGEN handle object
+        port_handle: IXIA port handle for capture
+        port_name: Port name for logging (default 'egress')
+        capture_mode: 'continuous' (last N packets) or 'trigger' (first N packets)
+        protocol: 'ipv6' to filter ECN CE packets, 'ipv4' to capture all packets
+
+    Returns:
+        bool: True if capture started successfully, False otherwise
+    """
+    try:
+        st.banner(f"Starting ECN CE packet capture on {port_name} port (protocol={protocol})")
+
+        # Reset any existing capture state
+        tg.tg_packet_control(port_handle=port_handle, action='reset')
+
+        # Configure capture filter for ECN CE (11) packets - IPv6 only
+        # For IPv4, we capture all packets and analyze ECN post-capture
+        if protocol == 'ipv6':
+            # Using 'startOfFrame' instead of 'startOfIp' because IXIA's
+            # startOfIp doesn't reliably work with IPv6 (designed for IPv4).
+            st.log("Configuring capture filter for ECN CE (11) packets (IPv6)")
+            tg.tg_packet_config_filter(
+                port_handle=port_handle,
+                mode='create',
+                pattern1='30',                      # ECN=11 at bits 5-4 of byte 1
+                pattern_mask1='CF',                 # Mask=0 at bits 5-4 means check those bits
+                pattern_offset1=15,                 # Byte 15 = IPv6 byte 1 (after Eth header)
+                pattern_offset_type1='startOfFrame' # Absolute offset from frame start
+            )
+
+            # Enable the capture filter using pattern1
+            tg.tg_packet_config_triggers(
+                port_handle=port_handle,
+                capture_filter=1,
+                capture_filter_pattern='pattern1'
+            )
+        else:
+            # IPv4 or other: capture all packets without filtering
+            st.log(f"Capture without filter (protocol={protocol})")
+
+        # Configure capture buffers
+        # capture_mode='continuous' - captures the last N packets (rolling buffer)
+        # capture_mode='trigger' - captures first N packets then stops
+        tg.tg_packet_config_buffers(
+            port_handle=port_handle,
+            capture_mode=capture_mode,
+            control_plane_capture_enable=1,
+            data_plane_capture_enable=1
+        )
+
+        # Start capture using low-level IXIA API directly to avoid SpyTest wrapper
+        # interference. The wrapper's tg_packet_control(action='start') calls
+        # packet_config_buffers internally WITHOUT capture_mode, resetting to
+        # 'trigger' mode. Using ixia_eval bypasses this.
+        tg.ixia_eval('packet_control', port_handle=port_handle, action='start')
+
+        st.log(f"ECN CE capture started on {port_name} (mode={capture_mode}, protocol={protocol})")
+        return True
+
+    except Exception as e:
+        st.log(f"WARNING: Failed to start ECN CE capture on {port_name}: {e}")
+        import traceback
+        st.log(traceback.format_exc())
+        return False
+
+
+def extract_ecn_from_capture(pkt_dict, port_handle, max_frames=20):
+    """
+    Extract ECN bits from captured packets on an egress TGEN port.
+
+    For IPv6 packets (EtherType 0x86DD), the Traffic Class field spans
+    bytes 14-15 of the Ethernet frame:
+      byte[14] = 0x6T  (version=6, T=high nibble of TC)
+      byte[15] = 0xTF  (T=low nibble of TC, F=high nibble of flow label)
+      Traffic Class = (byte[14] & 0x0F) << 4 | (byte[15] >> 4)
+      ECN = TC & 0x03
+
+    For VLAN-tagged frames (EtherType 0x8100 at offset 12-13), the IPv6
+    header starts at byte 18 instead of 14.
+
+    Returns:
+        dict with keys:
+            'total_frames': int - number of frames examined
+            'ecn_counts': dict - {ecn_value: count}  e.g. {0: 5, 2: 10, 3: 85}
+            'ecn_labels': dict - {ecn_value: label}
+            'frames': list of dicts with per-frame details (first max_frames)
+    """
+    ecn_labels = {0: 'Not-ECT', 1: 'ECT(1)', 2: 'ECT(0)', 3: 'CE'}
+    result = {
+        'total_frames': 0,
+        'analyzed_frames': 0,
+        'ecn_counts': {0: 0, 1: 0, 2: 0, 3: 0},
+        'ecn_labels': ecn_labels,
+        'frames': []
+    }
+
+    if not pkt_dict or port_handle not in pkt_dict:
+        st.log("No capture data for port_handle")
+        return result
+
+    port_data = pkt_dict[port_handle]
+    num_frames = int(port_data.get('aggregate', {}).get('num_frames', 0))
+    if num_frames == 0:
+        st.log("No frames captured")
+        return result
+
+    examine_count = min(num_frames, max_frames)
+    result['total_frames'] = num_frames
+    result['analyzed_frames'] = examine_count
+
+    for i in range(examine_count):
+        frame_data = port_data.get('frame', {}).get(str(i), {})
+        pylist = frame_data.get('frame_pylist', [])
+        if len(pylist) < 16:
+            continue
+
+        # Detect VLAN tag: EtherType at offset 12-13
+        ethertype_hi = int(pylist[12], 16)
+        ethertype_lo = int(pylist[13], 16)
+        ethertype = (ethertype_hi << 8) | ethertype_lo
+
+        ip_offset = 14
+        if ethertype == 0x8100:
+            # VLAN-tagged: real EtherType at offset 16-17
+            if len(pylist) < 20:
+                continue
+            ethertype = (int(pylist[16], 16) << 8) | int(pylist[17], 16)
+            ip_offset = 18
+
+        if ethertype == 0x86DD:
+            # IPv6: Traffic Class in bytes 0-1 of IPv6 header
+            if len(pylist) < ip_offset + 2:
+                continue
+            byte0 = int(pylist[ip_offset], 16)
+            byte1 = int(pylist[ip_offset + 1], 16)
+            tc = ((byte0 & 0x0F) << 4) | (byte1 >> 4)
+        elif ethertype == 0x0800:
+            # IPv4: TOS byte is byte 1 of IPv4 header
+            if len(pylist) < ip_offset + 2:
+                continue
+            tc = int(pylist[ip_offset + 1], 16)
+        else:
+            # Not IP -- skip
+            continue
+
+        dscp = tc >> 2
+        ecn = tc & 0x03
+
+        result['ecn_counts'][ecn] += 1
+        if i < 10:
+            result['frames'].append({
+                'frame': i, 'tc': tc, 'dscp': dscp,
+                'ecn': ecn, 'ecn_label': ecn_labels[ecn]
+            })
+
+    return result
+
+
+def print_capture_ecn_summary(capture_results, label="Packet Capture ECN Summary"):
+    """
+    Print a summary of ECN bits extracted from packet capture.
+
+    Args:
+        capture_results: dict mapping port_alias to extract_ecn_from_capture() result
+        label: Banner label
+    """
+    st.banner(label)
+    ecn_labels = {0: 'Not-ECT', 1: 'ECT(1)', 2: 'ECT(0)', 3: 'CE'}
+
+    for port_alias, res in capture_results.items():
+        total = res['total_frames']
+        analyzed = res.get('analyzed_frames', 0)
+        counts = res['ecn_counts']
+        st.log(f"  {port_alias}: captured={total}, analyzed={analyzed}  "
+               f"Not-ECT={counts[0]}, ECT(1)={counts[1]}, "
+               f"ECT(0)={counts[2]}, CE={counts[3]}")
+        # Show first few frame details
+        for f in res.get('frames', []):
+            st.log(f"    frame[{f['frame']}]: DSCP={f['dscp']}, "
+                   f"ECN={f['ecn']}({f['ecn_label']})")
+
+
+def find_first_ce_packet(pkt_dict, port_handle):
+    """
+    Walk captured packets and return the 0-based index of the first packet
+    whose ECN bits are 11 (CE).  Only IPv6 (EtherType 0x86DD) frames are
+    examined; VLAN-tagged frames are handled transparently.
+
+    Args:
+        pkt_dict: Raw capture dict from stop_packet_capture()
+        port_handle: IXIA port handle key in pkt_dict
+
+    Returns:
+        int or None: 0-based packet index of first CE packet, or None if
+                     no CE packet was found.
+    """
+    if not pkt_dict or port_handle not in pkt_dict:
+        return None
+
+    port_data = pkt_dict[port_handle]
+    num_frames = int(port_data.get('aggregate', {}).get('num_frames', 0))
+    st.log(f"find_first_ce_packet: analyzing {num_frames} captured frames")
+    for i in range(num_frames):
+        frame_data = port_data.get('frame', {}).get(str(i), {})
+        pylist = frame_data.get('frame_pylist', [])
+        if len(pylist) < 16:
+            continue
+
+        # Detect VLAN tag
+        ethertype = (int(pylist[12], 16) << 8) | int(pylist[13], 16)
+        ip_offset = 14
+        if ethertype == 0x8100:
+            if len(pylist) < 20:
+                continue
+            ethertype = (int(pylist[16], 16) << 8) | int(pylist[17], 16)
+            ip_offset = 18
+
+        if ethertype != 0x86DD:
+            continue
+        if len(pylist) < ip_offset + 2:
+            continue
+
+        byte0 = int(pylist[ip_offset], 16)
+        byte1 = int(pylist[ip_offset + 1], 16)
+        tc = ((byte0 & 0x0F) << 4) | (byte1 >> 4)
+        ecn = tc & 0x03
+
+        if ecn == 3:  # CE
+            return i
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Queue Watermark Utilities
+# ---------------------------------------------------------------------------
+
+def parse_queue_watermark_unicast(output, interfaces, tc=3):
+    """
+    Parse 'show queue watermark unicast' output and extract the watermark
+    value for the given interfaces and TC queue.
+
+    Expected output format:
+        Egress shared pool occupancy per unicast queue:
+                  Port    UC0    UC1    UC2        UC3    UC4  ...
+        --------------  -----  -----  -----  ---------  -----  ...
+        Ethernet1_57_1   1024      0      0  209640960      0  ...
+        Ethernet1_57_2   1024      0      0  208926720      0  ...
+
+    Args:
+        output: Raw text from 'show queue watermark unicast'
+        interfaces: List of interface names to extract
+        tc: Traffic class (0-9), used to pick UC<tc> column
+
+    Returns:
+        dict: {interface_name: watermark_bytes} e.g.
+              {'Ethernet1_57_1': 209640960, 'Ethernet1_57_2': 208926720}
+    """
+    result = {intf: 0 for intf in interfaces}
+    if not output:
+        return result
+
+    for line in output.splitlines():
+        line = line.strip()
+        if not line or line.startswith('---') or line.startswith('Port') or line.startswith('Egress'):
+            continue
+        parts = line.split()
+        if len(parts) < tc + 2:
+            continue
+        port_name = parts[0]
+        if port_name in interfaces:
+            try:
+                result[port_name] = int(parts[tc + 1])
+            except ValueError:
+                result[port_name] = 0
+
+    return result
+
+
+DEFAULT_QUEUE_WATERMARK_INTERVAL_MS = 60000
+
+
+def set_queue_watermark_poll_interval(dut, interval_ms):
+    """
+    Set the queue watermark counterpoll interval on a DUT.
+
+    Uses 'counterpoll queue watermark interval <ms>' CLI, which updates
+    FLEX_COUNTER_TABLE|QUEUE_WATERMARK POLL_INTERVAL in CONFIG_DB.
+
+    Args:
+        dut: DUT object
+        interval_ms: Poll interval in milliseconds (e.g. 1000 for 1s)
+
+    Returns:
+        None
+    """
+    st.log(f"Setting queue watermark counterpoll interval to {interval_ms}ms")
+    st.config(dut, f"sudo counterpoll watermark interval {interval_ms}",
+              skip_error_check=True)
+
+
+def restore_queue_watermark_poll_interval(dut):
+    """
+    Restore queue watermark counterpoll interval to the default (60s).
+
+    Args:
+        dut: DUT object
+    """
+    set_queue_watermark_poll_interval(dut, DEFAULT_QUEUE_WATERMARK_INTERVAL_MS)
+
+
+def capture_queue_watermark_values(nodes, interfaces_map, tc=3):
+    """
+    Capture queue watermark values for specific interfaces on each node.
+
+    Runs 'show queue watermark unicast' and parses the UC<tc> column.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        interfaces_map: Dict mapping node names to list of interfaces
+        tc: Traffic class (default 3)
+
+    Returns:
+        dict: {node_name: {interface: watermark_bytes}}
+    """
+    watermarks = {}
+    for node_name, interfaces in interfaces_map.items():
+        if node_name not in nodes:
+            continue
+        dut = nodes[node_name]
+        output = st.show(dut, "show queue watermark unicast", skip_tmpl=True)
+        watermarks[node_name] = parse_queue_watermark_unicast(output, interfaces, tc)
+    return watermarks
+
+
+def capture_queue_watermarks(dut, label=""):
+    """
+    Capture queue watermarks on a DUT.
+
+    Args:
+        dut: DUT object
+        label: Optional label for logging
+
+    Returns:
+        str: Raw output from 'show queue watermark unicast'
+    """
+    st.log(f"Capturing queue watermarks{' - ' + label if label else ''}")
+    output = st.show(dut, "show queue watermark unicast", skip_tmpl=True)
+    return output
+
+
+def capture_all_queue_watermarks(nodes, label=""):
+    """
+    Capture queue watermarks on all nodes.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        label: Optional label for logging
+
+    Returns:
+        dict: {node_name: raw_output}
+    """
+    st.banner(f"Queue Watermarks{' - ' + label if label else ''}")
+    watermarks = {}
+    for name, dut in nodes.items():
+        watermarks[name] = capture_queue_watermarks(dut, f"{name}")
+        st.log(f"=== {name.upper()} ===")
+        st.log(watermarks[name])
+    return watermarks
+
+
+# ---------------------------------------------------------------------------
+# ECN Result Analysis
+# ---------------------------------------------------------------------------
+
+def _parse_redis_key(line, table_prefix):
+    """Parse a redis-cli key line, stripping numbering and quotes.
+
+    Returns the portion after the table prefix, split by '|', or None
+    if the line does not match.
+    """
+    line = line.strip()
+    if not line or table_prefix not in line:
+        return None
+    if ')' in line:
+        line = line.split(')', 1)[1].strip()
+    line = line.strip('"')
+    return line.replace(table_prefix, '').split('|')
+
+
+def _cleanup_static_routes(dut):
+    """Remove all static routes from CONFIG_DB.
+
+    Must run before removing interface IPs so the nexthops are still
+    reachable during deletion.
+    """
+    result = st.show(dut, "redis-cli -n 4 keys 'STATIC_ROUTE|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'STATIC_ROUTE|')
+        if parts is None or len(parts) != 2:
+            continue
+        vrf, prefix = parts
+        if vrf == 'default':
+            st.config(dut, "sudo config route del prefix {}".format(prefix),
+                     skip_tmpl=True, skip_error_check=True)
+        else:
+            st.config(dut, "sudo config route del prefix {} vrf {}".format(prefix, vrf),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_l3_interfaces(dut):
+    """Remove IPs and VRF bindings from physical L3 interfaces (INTERFACE table)."""
+    skip_interfaces = ['eth0', 'lo', 'docker0', 'Loopback', 'Management']
+    result = st.show(dut, "redis-cli -n 4 keys 'INTERFACE|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'INTERFACE|')
+        if parts is None:
+            continue
+        intf = parts[0]
+        if any(skip in intf for skip in skip_interfaces):
+            continue
+        if len(parts) > 1:
+            st.config(dut, "sudo config interface ip remove {} {}".format(intf, parts[1]),
+                     skip_tmpl=True, skip_error_check=True)
+        else:
+            st.config(dut, "sudo config interface vrf unbind {}".format(intf),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_vlan_interfaces(dut):
+    """Remove IPs and VRF bindings from VLAN SVIs (VLAN_INTERFACE table)."""
+    result = st.show(dut, "redis-cli -n 4 keys 'VLAN_INTERFACE|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VLAN_INTERFACE|')
+        if parts is None:
+            continue
+        intf = parts[0]
+        if len(parts) > 1:
+            st.config(dut, "sudo config interface ip remove {} {}".format(intf, parts[1]),
+                     skip_tmpl=True, skip_error_check=True)
+        else:
+            st.config(dut, "sudo config interface vrf unbind {}".format(intf),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_vxlan_mappings(dut):
+    """Remove all VxLAN tunnel mappings.
+
+    Must run before removing VLANs, since VxLAN maps reference VLANs.
+    Key format: VXLAN_TUNNEL_MAP|<tunnel>|map_<vni>_Vlan<vid>
+    CLI syntax: config vxlan map del <tunnel> <vid> <vni>
+    """
+    result = st.show(dut, "redis-cli -n 4 keys 'VXLAN_TUNNEL_MAP|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VXLAN_TUNNEL_MAP|')
+        if parts is None or len(parts) != 2:
+            continue
+        tunnel_name, map_name = parts
+        # Parse map_name like "map_5502_Vlan502" -> vni=5502, vid=502
+        m = re.match(r'map_(\d+)_Vlan(\d+)', map_name)
+        if not m:
+            st.log("Skipping unrecognized vxlan map: {}".format(map_name))
+            continue
+        vni, vid = m.group(1), m.group(2)
+        st.config(dut, "sudo config vxlan map del {} {} {}".format(tunnel_name, vid, vni),
+                 skip_tmpl=True, skip_error_check=True)
+
+    # Remove EVPN NVO entries (must happen before tunnel deletion)
+    result = st.show(dut, "redis-cli -n 4 keys 'VXLAN_EVPN_NVO|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VXLAN_EVPN_NVO|')
+        if parts is None or len(parts) != 1:
+            continue
+        nvo_name = parts[0]
+        st.config(dut, "sudo config vxlan evpn_nvo del {}".format(nvo_name),
+                 skip_tmpl=True, skip_error_check=True)
+
+    # Remove the tunnel itself
+    result = st.show(dut, "redis-cli -n 4 keys 'VXLAN_TUNNEL|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VXLAN_TUNNEL|')
+        if parts is None or len(parts) != 1:
+            continue
+        tunnel_name = parts[0]
+        st.config(dut, "sudo config vxlan del {}".format(tunnel_name),
+                 skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_vlans(dut):
+    """Remove all VLAN members and then the VLANs themselves."""
+    # Members first
+    result = st.show(dut, "redis-cli -n 4 keys 'VLAN_MEMBER|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VLAN_MEMBER|')
+        if parts is None or len(parts) != 2:
+            continue
+        vlan_name, member_intf = parts
+        vlan_id = vlan_name.replace('Vlan', '')
+        if vlan_id.isdigit():
+            st.config(dut, "sudo config vlan member del {} {}".format(vlan_id, member_intf),
+                     skip_tmpl=True, skip_error_check=True)
+
+    # VLANs
+    result = st.show(dut, "redis-cli -n 4 keys 'VLAN|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VLAN|')
+        if parts is None or len(parts) != 1:
+            continue
+        vlan_id = parts[0].replace('Vlan', '')
+        if vlan_id.isdigit():
+            st.config(dut, "sudo config vlan del {}".format(vlan_id),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_portchannels(dut):
+    """Remove all PortChannel members and then the PortChannels themselves."""
+    # Members first
+    result = st.show(dut, "redis-cli -n 4 keys 'PORTCHANNEL_MEMBER|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'PORTCHANNEL_MEMBER|')
+        if parts is None or len(parts) != 2:
+            continue
+        pc_name, member_intf = parts
+        st.config(dut, "sudo config portchannel member del {} {}".format(pc_name, member_intf),
+                 skip_tmpl=True, skip_error_check=True)
+
+    # PortChannels
+    result = st.show(dut, "redis-cli -n 4 keys 'PORTCHANNEL|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        line = line.strip()
+        if not line or 'PORTCHANNEL|' not in line or 'PORTCHANNEL_MEMBER|' in line:
+            continue
+        if ')' in line:
+            line = line.split(')', 1)[1].strip()
+        line = line.strip('"')
+        pc_name = line.replace('PORTCHANNEL|', '')
+        if pc_name.startswith('PortChannel'):
+            st.config(dut, "sudo config portchannel del {}".format(pc_name),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_vrfs(dut):
+    """Remove all non-default VRFs from CONFIG_DB.
+
+    Must run after interfaces are unbound and VxLAN mappings are removed.
+    BGP VRF instances are removed first since SONiC refuses to delete a VRF
+    that is still referenced by 'router bgp <ASN> vrf <name>'.
+    """
+    result = st.show(dut, "redis-cli -n 4 keys 'VRF|*'", skip_tmpl=True)
+    vrfs_to_delete = []
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VRF|')
+        if parts is None or len(parts) != 1:
+            continue
+        vrf_name = parts[0]
+        if vrf_name in ('default', 'mgmt'):
+            continue
+        vrfs_to_delete.append(vrf_name)
+
+    if not vrfs_to_delete:
+        return
+
+    # Remove BGP VRF instances first (look up ASN from CONFIG_DB)
+    for vrf_name in vrfs_to_delete:
+        asn_result = st.show(dut,
+            "redis-cli -n 4 hget 'BGP_GLOBALS|{}' local_asn".format(vrf_name),
+            skip_tmpl=True)
+        asn = None
+        for aline in asn_result.splitlines():
+            aline = aline.strip()
+            if aline.isdigit():
+                asn = aline
+                break
+        if asn:
+            st.config(dut,
+                "vtysh -c 'configure terminal' -c 'no router bgp {} vrf {}'".format(asn, vrf_name),
+                skip_tmpl=True, skip_error_check=True)
+
+    # Now delete the VRFs
+    for vrf_name in vrfs_to_delete:
+        st.config(dut, "sudo config vrf del {}".format(vrf_name),
+                 skip_tmpl=True, skip_error_check=True)
+
+
+
+def cleanup_config(dut):
+    """Clean up IP interfaces and memberships.
+
+    Removes static routes, L3 config, VLAN members, PortChannel members,
+    VLANs, and PortChannels from CONFIG_DB.  Also clears hardware counters.
+    """
+    _cleanup_static_routes(dut)
+    _cleanup_l3_interfaces(dut)
+    _cleanup_vlan_interfaces(dut)
+    _cleanup_vxlan_mappings(dut)
+    _cleanup_vrfs(dut)
+    _cleanup_vlans(dut)
+    _cleanup_portchannels(dut)
+
+
+def get_if_speed(dut, if_str):
+    # First few tokens in sample output of show int status <if_name> 
+    # Ethernet1_48_1  3080,3081,3082,3083     400G   9100
+    result = st.show(dut, "show int status {}".format(if_str), skip_tmpl=True)
+    for line in result.splitlines():
+        if if_str in line:
+            # Trim the trailing G and return integer value
+            speed_str = line.split()[2]
+            return int(speed_str[:-1])
+    return 10
+
+def get_pfc_tx_count(dut, if_name, qnum):
+    result = st.show(dut, "show pfc counters | grep {}".format(if_name), 
+                     skip_tmpl=True)
+    # The output will have 3 lines : one for Rx, one for Tx and third would
+    # be DUT prompt line
+    lines = result.splitlines()
+    # lines[0] would be for Rx and lines[1] for Tx
+    tokens = lines[1].split()
+    return int(tokens[qnum + 1].replace(',', ''))
+
+
+def cleanup_leftover_vrf_bgp(nodes):
+    """Remove any leftover VRF BGP instances and VXLAN config so test can configure cleanly."""
+    for leaf in ['leaf0', 'leaf1']:
+        if leaf not in nodes:
+            continue
+        dut = nodes[leaf]
+
+        # Step 1: Remove L3VNI binding from VRF context (must be done before BGP VRF removal)
+        output = st.config(dut, "vtysh -c 'show running-config' | grep -A5 'vrf '",
+                           skip_error_check=True)
+        for line in output.splitlines():
+            m = re.match(r'\s*vni\s+(\d+)', line.strip())
+            if m:
+                vni = m.group(1)
+                vrf_output = st.config(dut, "vtysh -c 'show running-config' | grep -B3 'vni " + vni + "'",
+                                       skip_error_check=True)
+                for vrf_line in vrf_output.splitlines():
+                    vm = re.match(r'vrf\s+(\S+)', vrf_line.strip())
+                    if vm:
+                        vrf_name = vm.group(1)
+                        st.log(f"{leaf}: Removing vni {vni} from vrf {vrf_name}")
+                        st.config(dut,
+                                  f"vtysh -c 'configure terminal' -c 'vrf {vrf_name}' -c 'no vni {vni}' -c 'exit-vrf'",
+                                  skip_error_check=True)
+
+        # Step 2: Remove VRF BGP instances
+        output = st.config(dut, "vtysh -c 'show running-config' | grep 'router bgp.*vrf'",
+                           skip_error_check=True)
+        for line in output.splitlines():
+            m = re.match(r'(router bgp \d+ vrf \S+)', line.strip())
+            if m:
+                vrf_bgp = m.group(1)
+                st.log(f"{leaf}: Removing leftover {vrf_bgp}")
+                st.config(dut, f"vtysh -c 'configure terminal' -c 'no {vrf_bgp}'",
+                          skip_error_check=True)
+
+        # Step 3: Remove leftover vni blocks from global/EVPN context
+        output2 = st.config(dut, "vtysh -c 'show running-config' | grep '^ *vni '",
+                            skip_error_check=True)
+        for line in output2.splitlines():
+            m = re.match(r'\s*vni\s+(\d+)', line.strip())
+            if m:
+                st.log(f"{leaf}: Removing leftover vni {m.group(1)} binding (global)")
+                st.config(dut, f"vtysh -c 'configure terminal' -c 'no vni {m.group(1)}'",
+                          skip_error_check=True)
+
+        # Step 4: Remove SONiC VRF config
+        for vrf in ['Vrf01', 'Vrf02', 'Vrf03', 'Vrf04']:
+            st.config(dut, f"sudo config vrf del_vrf_vni_map {vrf} || true", skip_error_check=True)
+            st.config(dut, f"sudo config vrf del {vrf} || true", skip_error_check=True)
+
+        # Step 5: Remove any leftover VXLAN tunnel from other tests
+        vxlan_output = st.config(dut, "show vxlan tunnel", skip_error_check=True)
+        has_vtep = 'Vtep' in vxlan_output
+        has_vxlan = 'VXLAN' in vxlan_output and '2001:db8' in vxlan_output
+        if has_vtep or has_vxlan:
+            st.log(f"{leaf}: Removing leftover VXLAN tunnel config (Vtep={has_vtep}, VXLAN={has_vxlan})")
+            # Parse mapped VLANs from the output (e.g. "1000 -> Vlan2", "10100 -> Vlan100")
+            mapped_vlans = set()
+            for line in vxlan_output.splitlines():
+                vm = re.search(r'-> Vlan(\d+)', line)
+                if vm:
+                    mapped_vlans.add(vm.group(1))
+            st.log(f"{leaf}: Found mapped VLANs: {mapped_vlans}")
+            # Must delete ALL maps on ALL tunnels before NVO can be deleted
+            st.config(dut, "sudo config vrf del_vrf_vni_map Vrf01 || true", skip_error_check=True)
+            if has_vtep:
+                st.config(dut, "sudo config vxlan map del Vtep 100 2727 || true", skip_error_check=True)
+            if has_vxlan:
+                for vlan_vni in [('2', '1000'), ('3', '1000'), ('100', '10100')]:
+                    st.config(dut, f"sudo config vxlan map del VXLAN {vlan_vni[0]} {vlan_vni[1]} || true",
+                              skip_error_check=True)
+            st.config(dut, "sudo config vxlan evpn_nvo del NVO || true", skip_error_check=True)
+            if has_vtep:
+                st.config(dut, "sudo config vxlan del Vtep || true", skip_error_check=True)
+            if has_vxlan:
+                st.config(dut, "sudo config vxlan del VXLAN || true", skip_error_check=True)
+            # Clean up leftover VLANs - must remove members, VRF binding before deletion
+            for vlan_id in mapped_vlans:
+                # Query CONFIG_DB for VLAN members
+                member_output = st.config(dut,
+                    f"redis-cli -n 4 KEYS 'VLAN_MEMBER|Vlan{vlan_id}|*'",
+                    skip_error_check=True)
+                for mline in member_output.splitlines():
+                    mm = re.search(r'VLAN_MEMBER\|Vlan\d+\|([^"\s]+)', mline)
+                    if mm:
+                        member = mm.group(1)
+                        st.log(f"{leaf}: Removing Vlan{vlan_id} member {member}")
+                        st.config(dut, f"sudo config vlan member del {vlan_id} {member} || true",
+                                  skip_error_check=True)
+                # Remove VRF binding
+                st.config(dut, f"sudo config interface vrf unbind Vlan{vlan_id} || true",
+                          skip_error_check=True)
+                st.config(dut, f"sudo config vlan del {vlan_id} || true", skip_error_check=True)
+            if has_vxlan:
+                for ip in ['2001:db8:1::2/128', '2001:db8:1::3/128']:
+                    st.config(dut, f"sudo config interface ip rem Loopback27 {ip} || true",
+                              skip_error_check=True)
+            # Also remove L2VNI loopback IPs
+            if has_vtep:
+                for ip in ['fd27::280:10f1:25f/128', 'fd27::22d:b87f:214b/128']:
+                    st.config(dut, f"sudo config interface ip rem Loopback27 {ip} || true",
+                              skip_error_check=True)
+
+        # Step 6: Unconditionally remove leftover VLANs from L2VNI (Vlan100) and L3VNI (Vlan2, Vlan3)
+        # These can survive even after the VXLAN tunnels are gone.
+        # A port can only be untagged in ONE VLAN -- leftover VLAN memberships
+        # prevent new VLAN member adds from working.
+        for vlan_id in ['2', '3', '100']:
+            member_output = st.config(dut,
+                f"redis-cli -n 4 KEYS 'VLAN_MEMBER|Vlan{vlan_id}|*'",
+                skip_error_check=True)
+            for mline in member_output.splitlines():
+                mm = re.search(r'VLAN_MEMBER\|Vlan\d+\|([^"\s]+)', mline)
+                if mm:
+                    member = mm.group(1)
+                    st.log(f"{leaf}: Removing leftover Vlan{vlan_id} member {member}")
+                    st.config(dut, f"sudo config vlan member del {vlan_id} {member} || true",
+                              skip_error_check=True)
+            st.config(dut, f"sudo config interface vrf unbind Vlan{vlan_id} || true",
+                      skip_error_check=True)
+            st.config(dut, f"sudo config vlan del {vlan_id} || true", skip_error_check=True)
+        # Also remove loopback IPs unconditionally
+        for ip in ['2001:db8:1::2/128', '2001:db8:1::3/128',
+                    'fd27::280:10f1:25f/128', 'fd27::22d:b87f:214b/128']:
+            st.config(dut, f"sudo config interface ip rem Loopback27 {ip} || true",
+                      skip_error_check=True)
+
+        # Step 7: Flush stale VXLAN entries from ALL databases
+        # Prior tests (L2VNI uses 'Vtep', L3VNI uses 'VXLAN') leave entries
+        # in CONFIG_DB, APP_DB, and STATE_DB.  vxlanmgrd watches CONFIG_DB and
+        # gets stuck in an infinite retry loop if it sees tunnels it can't
+        # delete (e.g. "Vtep" with NVO still referencing it).  This blocks
+        # processing of the new tunnel.
+        st.log(f"{leaf}: Flushing stale VXLAN entries from CONFIG_DB/APP_DB/STATE_DB")
+        # CONFIG_DB (db 4): Remove stale VXLAN_TUNNEL, VXLAN_TUNNEL_MAP, VXLAN_EVPN_NVO
+        for pattern in ['VXLAN_TUNNEL|*', 'VXLAN_TUNNEL_MAP|*', 'VXLAN_EVPN_NVO|*']:
+            st.config(dut,
+                f"redis-cli -n 4 EVAL \"local k=redis.call('keys',ARGV[1]); if #k>0 then return redis.call('del',unpack(k)) else return 0 end\" 0 '{pattern}'",
+                skip_error_check=True)
+        # APP_DB (db 0): Remove stale tunnel/map/remote-vni entries
+        for pattern in ['VXLAN_TUNNEL_TABLE:*', 'VXLAN_TUNNEL_MAP_TABLE:*',
+                        'VXLAN_REMOTE_VNI_TABLE:*', 'VXLAN_FDB_TABLE:*']:
+            st.config(dut,
+                f"redis-cli -n 0 EVAL \"local k=redis.call('keys',ARGV[1]); if #k>0 then return redis.call('del',unpack(k)) else return 0 end\" 0 '{pattern}'",
+                skip_error_check=True)
+        # STATE_DB (db 6): Remove stale tunnel state
+        st.config(dut,
+            "redis-cli -n 6 EVAL \"local k=redis.call('keys',ARGV[1]); if #k>0 then return redis.call('del',unpack(k)) else return 0 end\" 0 'VXLAN_TUNNEL_TABLE|*'",
+            skip_error_check=True)
+
+        # Step 8: Restart vxlanmgrd to clear stuck in-memory delete tasks
+        # Even after flushing all DBs, vxlanmgrd may have a pending delete
+        # task for a tunnel (e.g. "Vtep") stuck in its internal retry loop.
+        # The retry fires every second and blocks processing of new tunnels.
+        # Restarting vxlanmgrd is lightweight (no cascade to orchagent/syncd)
+        # and forces it to re-read the current (clean) CONFIG_DB state.
+        st.log(f"{leaf}: Restarting vxlanmgrd to clear stuck delete tasks")
+        st.config(dut, "sudo docker exec swss supervisorctl restart vxlanmgrd",
                   skip_error_check=True)
+        time.sleep(2)  # Give vxlanmgrd time to re-initialize
+
+
+def ensure_bgp_container_running(dut, node_name, max_wait=240):
+    """Wait for the bgp container AND FRR daemons to be ready before issuing vtysh commands."""
+    inspect_cmd = 'sudo docker inspect -f "{{.State.Running}}" bgp'
+    status_cmd = 'sudo docker ps -a --filter name=bgp --format "{{.Names}} {{.Status}}"'
+    # Use bash-level vtysh check (not spytest vtysh mode) to avoid prompt detection crash
+    frr_check_cmd = "sudo vtysh -c 'show version' 2>&1 | head -5"
+
+    # Phase 1: Wait for container to be running
+    container_up = False
+    for attempt in range(max(1, max_wait // 5)):
+        output = st.config(dut, inspect_cmd, skip_error_check=True, timeout=30)
+        if 'true' in output.lower():
+            st.log(f"{node_name}: BGP container is running")
+            container_up = True
+            break
+        st.log(f"{node_name}: BGP container not running yet... attempt {attempt + 1}")
+        st.config(dut, 'sudo docker start bgp', skip_error_check=True, timeout=120)
+        st.wait(5)
+
+    if not container_up:
+        st.log(f"ERROR: {node_name}: BGP container failed to reach running state")
+        st.log(st.config(dut, status_cmd, skip_error_check=True, timeout=30))
+        st.log(st.config(dut, 'sudo docker logs --tail 50 bgp', skip_error_check=True, timeout=60))
+        return False
+
+    # Phase 2: Wait for FRR daemons inside the container to be responsive
+    st.log(f"{node_name}: Waiting for FRR daemons to accept connections...")
+    for attempt in range(24):  # 24 x 5s = 120s max
+        output = st.config(dut, frr_check_cmd, skip_error_check=True, timeout=30)
+        if 'FRRouting' in output or 'frr' in output.lower():
+            st.log(f"{node_name}: FRR daemons are ready after {(attempt + 1) * 5}s")
+            return True
+        if 'failed to connect' in output.lower():
+            st.log(f"{node_name}: FRR daemons not ready yet... attempt {attempt + 1}/24")
+        else:
+            st.log(f"{node_name}: vtysh check output: {output[:200]}")
+        st.wait(5)
+
+    st.log(f"ERROR: {node_name}: FRR daemons never became responsive")
+    st.log(st.config(dut, 'sudo docker logs --tail 50 bgp', skip_error_check=True, timeout=60))
+    return False
+
+
+def dump_vxlan_debug_info(nodes, context=""):
+    """
+    Dump comprehensive debug info for BGP and VXLAN troubleshooting.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        context: Description of when this debug dump is being called
+    """
+    st.banner(f"DEBUG DUMP: {context}")
+
+    debug_commands = [
+        # BGP neighbor status
+        ("show ipv6 bgp summary", "BGP IPv6 Summary"),
+        ("show ip bgp summary", "BGP IPv4 Summary"),
+        ("vtysh -c 'show run'", "FRR Running Config"),
+        ("vtysh -c 'show bgp summary'", "BGP Summary"),
+        # EVPN/L2VPN status - use vtysh for FRR commands
+        ("vtysh -c 'show bgp l2vpn evpn summary'", "BGP L2VPN EVPN Summary"),
+        ("vtysh -c 'show bgp l2vpn evpn'", "BGP L2VPN EVPN Routes"),
+        ("vtysh -c 'show evpn vni'", "EVPN VNI Status"),
+        # VXLAN status
+        ("show vxlan remotevtep", "VXLAN Remote VTEPs"),
+        ("show vxlan tunnel", "VXLAN Tunnels"),
+        ("show vxlan interface", "VXLAN Interface"),
+        ("show vxlan vlanvnimap", "VXLAN VLAN-VNI Map"),
+        # Interface and IP status - both IPv4 and IPv6
+        ("show ip interface", "IP Interfaces (IPv4)"),
+        ("show ipv6 interface", "IP Interfaces (IPv6)"),
+        ("show interface status", "Interface Status"),
+        # VLAN membership for debugging
+        ("show vlan brief", "VLAN Brief"),
+    ]
+
+    # Kernel-level and APP_DB/ASIC_DB diagnostics
+    kernel_commands = [
+        ("ip -d link show type vxlan", "Kernel VXLAN devices"),
+        ("bridge fdb show | grep 00:00:00:00:00:00 | head -20", "Kernel BUM FDB entries"),
+        ("bridge fdb show dev VXLAN-100 2>/dev/null || echo 'no VXLAN-100 device'", "Kernel FDB on VXLAN-100"),
+        ("redis-cli -n 0 keys '*REMOTE*' 2>/dev/null || echo 'redis not accessible'", "APP_DB REMOTE keys"),
+        ("redis-cli -n 0 keys '*VXLAN_TUNNEL*' 2>/dev/null || echo 'redis not accessible'", "APP_DB VXLAN_TUNNEL keys"),
+        ("redis-cli -n 0 HGETALL 'VXLAN_TUNNEL_TABLE:VXLAN' 2>/dev/null || echo 'no entry'", "APP_DB VXLAN_TUNNEL_TABLE:VXLAN"),
+        ("redis-cli -n 0 HGETALL 'VXLAN_TUNNEL_TABLE:Vtep' 2>/dev/null || echo 'no entry'", "APP_DB VXLAN_TUNNEL_TABLE:Vtep"),
+        ("redis-cli -n 0 keys '*VNI*' 2>/dev/null || echo 'redis not accessible'", "APP_DB VNI keys"),
+        ("redis-cli -n 4 keys '*VXLAN*' 2>/dev/null || echo 'redis not accessible'", "CONFIG_DB VXLAN keys"),
+        ("redis-cli -n 6 keys '*TUNNEL*' 2>/dev/null || echo 'redis not accessible'", "STATE_DB TUNNEL keys"),
+        ("redis-cli -n 6 keys '*VXLAN*' 2>/dev/null || echo 'no keys'", "STATE_DB VXLAN keys"),
+        ("redis-cli -n 1 keys '*SAI_OBJECT_TYPE_TUNNEL*' 2>/dev/null | head -20 || echo 'no tunnel SAI objects'", "ASIC_DB Tunnel SAI objects"),
+        ("redis-cli -n 1 keys '*SAI_OBJECT_TYPE_TUNNEL_MAP*' 2>/dev/null | head -20 || echo 'no tunnel map SAI objects'", "ASIC_DB Tunnel Map SAI objects"),
+        ("redis-cli -n 1 keys '*SAI_OBJECT_TYPE_TUNNEL_TERM*' 2>/dev/null | head -20 || echo 'no tunnel term SAI objects'", "ASIC_DB Tunnel Term SAI objects"),
+        ("sudo docker exec swss supervisorctl status 2>/dev/null || echo 'swss not running'", "SWSS service status"),
+        ("sudo grep -i 'vxlan\\|tunnel' /var/log/syslog 2>/dev/null | grep -i 'err\\|fail\\|warn' | tail -20 || echo 'no vxlan errors'", "Syslog VXLAN errors"),
+        ("vtysh -c 'show evpn vni 2727'", "EVPN VNI 2727 Detail"),
+        ("vtysh -c 'show evpn vni 10100'", "EVPN VNI 10100 Detail"),
+        ("vtysh -c 'show evpn vni 1000'", "EVPN VNI 1000 Detail"),
+    ]
+
+    for leaf in ['leaf0', 'leaf1']:
+        if leaf not in nodes:
+            continue
+        st.banner(f"DEBUG: {leaf.upper()}")
+        remote_vtep_ip = None
+
+        for cmd, desc in debug_commands:
+            st.log(f"=== {desc} ===")
+            output = st.show(nodes[leaf], cmd, skip_tmpl=True, skip_error_check=True)
+            # Truncate very long output
+            if output and len(output) > 2000:
+                st.log(f"{output[:2000]}... [truncated]")
+            else:
+                st.log(output if output else "(no output)")
+
+            # Parse remote VTEP IP from 'show vxlan remotevtep' output
+            if cmd == "show vxlan remotevtep" and output:
+                match = re.search(r'\|\s*([0-9a-f:]+)\s*\|\s*([0-9a-f:.]+)\s*\|\s*EVPN\s*\|', output, re.IGNORECASE)
+                if match:
+                    remote_vtep_ip = match.group(2).strip()
+                    st.log(f"Parsed remote VTEP IP: {remote_vtep_ip}")
+
+        # Query remote MAC table if we have remote VTEP
+        if remote_vtep_ip:
+            st.log(f"=== VXLAN Remote MACs for {remote_vtep_ip} ===")
+            remotemac_output = st.show(nodes[leaf], f"show vxlan remotemac {remote_vtep_ip}",
+                                       skip_tmpl=True, skip_error_check=True)
+            if remotemac_output and len(remotemac_output) > 2000:
+                st.log(f"{remotemac_output[:2000]}... [truncated]")
+            else:
+                st.log(remotemac_output if remotemac_output else "(no output)")
+
+        # Run kernel/APP_DB/ASIC_DB diagnostics
+        st.banner(f"DEBUG: {leaf.upper()} - Kernel/APP_DB/ASIC_DB diagnostics")
+        for cmd, desc in kernel_commands:
+            st.log(f"=== {desc} ===")
+            output = st.config(nodes[leaf], cmd, skip_error_check=True)
+            st.log(f"{desc}: {output}" if output else f"{desc}: (no output)")
+
+
+# =============================================================================
+# Watermark Collection Utilities
+# =============================================================================
+
+def clear_queue_watermark(dut):
+    """Clear queue watermark unicast on specified DUT.
+    
+    On some platforms (like HF6100), watermarks may not be cleared immediately.
+    This function clears and then does a read to ensure the clear takes effect.
+    """
+    st.log(f"Clearing queue watermark unicast on DUT={dut}")
+    st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True)
+    st.wait(2)
+    # Read watermarks to ensure clear takes effect on hardware
+    st.show(dut, 'show queue watermark unicast', skip_tmpl=True)
+    st.wait(1)
+
+
+def clear_all_queue_watermarks(nodes, wait_after=3):
+    """
+    Clear queue watermarks on all nodes with robust verification.
+    
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        wait_after: Additional wait time after all clears (seconds)
+    """
+    st.log("Clearing queue watermarks on all nodes...")
+    
+    # Clear watermarks on all nodes
+    for node_name, dut in nodes.items():
+        st.log(f"  Clearing queue watermark unicast on {node_name}")
+        st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True)
+    
+    st.wait(2)
+    
+    # Do a verification read on all nodes to ensure clear took effect
+    for node_name, dut in nodes.items():
+        st.log(f"  Verifying watermark clear on {node_name}")
+        st.show(dut, 'show queue watermark unicast', skip_tmpl=True)
+    
+    st.wait(wait_after)
+    st.log("Queue watermarks cleared on all nodes")
+
+
+def get_queue_watermark(dut, port):
+    """
+    Get queue watermark unicast for a specific port.
+    
+    Args:
+        dut: DUT handle
+        port: Interface name (e.g., 'Ethernet296')
+        
+    Returns:
+        Queue watermark output string
+    """
+    cmd = f"show queue watermark unicast | grep -A 20 '{port}'"
+    st.log(f"Getting queue watermark: DUT={dut}, port={port}")
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        st.log(f"Queue watermark output for {port}:\n{output}")
+        return output
+    except Exception as e:
+        st.log(f"Error getting queue watermark: {e}")
+        return None
+
+
+def clear_buffer_pool_watermark(dut):
+    """Clear buffer pool watermark on specified DUT."""
+    st.log(f"Clearing buffer pool watermark on DUT={dut}")
+    st.config(dut, 'watermarkstat -t buffer_pool -c', skip_tmpl=True)
+    st.wait(1)
+
+
+def get_buffer_pool_watermark(dut):
+    """
+    Get buffer pool watermark.
+    
+    Args:
+        dut: DUT handle
+        
+    Returns:
+        Buffer pool watermark output string
+    """
+    cmd = "show buffer_pool watermark"
+    st.log(f"Getting buffer pool watermark: DUT={dut}")
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        st.log(f"Buffer pool watermark output:\n{output}")
+        return output
+    except Exception as e:
+        st.log(f"Error getting buffer pool watermark: {e}")
+        return None
+
+
+def clear_priority_group_watermark(dut):
+    """Clear priority group watermark shared on specified DUT."""
+    st.log(f"Clearing priority group watermark shared on DUT={dut}")
+    st.config(dut, 'sonic-clear priority-group watermark shared', skip_tmpl=True)
+    st.wait(1)
+
+
+def get_priority_group_watermark(dut, port):
+    """
+    Get priority group watermark shared for a specific port.
+    
+    Args:
+        dut: DUT handle
+        port: Interface name (e.g., 'Ethernet292')
+        
+    Returns:
+        Priority group watermark output string
+    """
+    cmd = f"show priority-group watermark shared | grep -A 10 '{port}'"
+    st.log(f"Getting priority group watermark: DUT={dut}, port={port}")
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        st.log(f"Priority group watermark output for {port}:\n{output}")
+        return output
+    except Exception as e:
+        st.log(f"Error getting priority group watermark: {e}")
+        return None
+
+
+def parse_queue_watermark(raw_output, interface=None):
+    """
+    Parse queue watermark CLI output to extract UC0 and UC1 values.
+    
+    Supports two formats:
+    1. Grep output (no header): Ethernet292  88089600  14688768  0  0  0  0  0  512
+       Columns: Interface UC0 UC1 UC2 UC3 UC4 UC5 UC6 UC7
+       
+    2. Full output with header:
+       Egress shared pool occupancy per unicast queue:
+              Port        UC0      UC1    UC2    UC3    UC4    UC5    UC6    UC7
+       -----------  ---------  -------  -----  -----  -----  -----  -----  -----
+         Ethernet0          0        0      0      0      0      0      0      0
+    
+    Args:
+        raw_output: Raw CLI output string from 'show queue watermark unicast'
+        interface: Optional interface name to find in the output
+        
+    Returns:
+        dict with UC0 and UC1 values, e.g. {'UC0': '12345', 'UC1': '67890'}
+    """
+    if not raw_output or not isinstance(raw_output, str):
+        return {'UC0': 'N/A', 'UC1': 'N/A'}
+    
+    result = {'UC0': 'N/A', 'UC1': 'N/A'}
+    
+    try:
+        lines = raw_output.strip().split('\n')
+        
+        # First, try to find a line starting with "Ethernet" (grep output format)
+        # Format: Ethernet292  88089600  14688768  0  0  0  0  0  512
+        # Columns: Interface UC0 UC1 UC2 UC3 UC4 UC5 UC6 UC7
+        for line in lines:
+            line = line.strip()
+            if line.startswith('Ethernet'):
+                parts = line.split()
+                if len(parts) >= 3:
+                    # If interface specified, match it; otherwise use first Ethernet line
+                    if interface is None or parts[0] == interface:
+                        result['UC0'] = parts[1]
+                        result['UC1'] = parts[2]
+                        return result
+        
+        # If no Ethernet line found, try the header-based format
+        # Find the header line with UC0, UC1, etc.
+        header_idx = -1
+        for i, line in enumerate(lines):
+            if 'UC0' in line and 'UC1' in line:
+                header_idx = i
+                break
+        
+        if header_idx == -1:
+            return result
+        
+        # Parse header to get column positions
+        header_line = lines[header_idx]
+        
+        # Find the data line (usually 2 lines after header - skip the dashes)
+        data_idx = header_idx + 2
+        if data_idx >= len(lines):
+            return result
+        
+        data_line = lines[data_idx]
+        
+        # Split both lines by whitespace and extract values
+        header_parts = header_line.split()
+        data_parts = data_line.split()
+        
+        # Find UC0 and UC1 positions in header
+        for i, part in enumerate(header_parts):
+            if part == 'UC0' and i < len(data_parts):
+                result['UC0'] = data_parts[i]
+            elif part == 'UC1' and i < len(data_parts):
+                result['UC1'] = data_parts[i]
+        
+        # Handle case where data line starts with "Mem:" or similar label
+        if data_parts and data_parts[0].endswith(':'):
+            # Shift indices by 1
+            for i, part in enumerate(header_parts):
+                if part == 'UC0' and (i + 1) < len(data_parts):
+                    result['UC0'] = data_parts[i + 1]
+                elif part == 'UC1' and (i + 1) < len(data_parts):
+                    result['UC1'] = data_parts[i + 1]
+                    
+    except Exception as e:
+        st.log(f"Error parsing queue watermark: {e}")
+    
+    return result
+
+
+def parse_buffer_pool_watermark(raw_output):
+    """
+    Parse buffer pool watermark CLI output to extract pool names and bytes.
+    
+    The CLI output format is typically:
+    Shared pool maximum occupancy:
+                Pool      Bytes
+    --------------------  --------
+    ingress_lossless_pool  1234567
+    egress_lossless_pool   2345678
+    egress_lossy_pool      3456789
+    
+    Args:
+        raw_output: Raw CLI output string from 'show buffer_pool watermark'
+        
+    Returns:
+        dict with pool names and bytes, e.g. {'ing_lossless': '1234567', 'egr_lossless': '2345678', 'egr_lossy': '3456789'}
+    """
+    if not raw_output or not isinstance(raw_output, str):
+        return {}
+    
+    result = {}
+    
+    try:
+        lines = raw_output.strip().split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            # Skip header lines and dashes
+            if not line or line.startswith('-') or 'Pool' in line or 'occupancy' in line.lower():
+                continue
+            
+            parts = line.split()
+            if len(parts) >= 2:
+                pool_name = parts[0]
+                bytes_val = parts[-1]  # Last value is typically the bytes
+                
+                # Shorten pool names for display
+                if 'ingress_lossless' in pool_name:
+                    result['ing_lossless'] = bytes_val
+                elif 'egress_lossless' in pool_name:
+                    result['egr_lossless'] = bytes_val
+                elif 'egress_lossy' in pool_name:
+                    result['egr_lossy'] = bytes_val
+                else:
+                    # Use shortened name
+                    short_name = pool_name[:15] if len(pool_name) > 15 else pool_name
+                    result[short_name] = bytes_val
+                    
+    except Exception as e:
+        st.log(f"Error parsing buffer pool watermark: {e}")
+    
+    return result
+
+
+# only sonic commands to be used across all platforms
+def clear_all_counters(dut, wait_time=3):
+    """
+    Clear all QoS-related counters and watermarks on a DUT
+    
+    - Interface counters (sonic-clear counters)
+    - Queue counters (sonic-clear queuecounters)
+    - PFC counters (sonic-clear pfccounters)
+    - Queue watermark unicast (sonic-clear queue watermark unicast)
+    - Priority group watermark shared (sonic-clear priority-group watermark shared)
+    - Buffer pool watermark (watermarkstat -t buffer_pool -c)
+    - Drop counters
+    - TODO likely to fail: WRED counters (sonic-clear queue wredcounters)
+    - TODO NO: oq-debug and npu counters
+    
+    Args:
+        dut: DUT handle
+        wait_time: Seconds to wait after clearing all counters (default: 2)
+    """
+    st.log("="*60)
+    st.log(f"CLEARING ALL COUNTERS AND WATERMARKS ON DUT={dut}")
+    st.log("="*60)
+    
+    st.log("Clearing interface counters...")
+    st.config(dut, 'sonic-clear counters', skip_tmpl=True)
+    
+    st.log("Clearing queue counters...")
+    st.config(dut, 'sonic-clear queuecounters', skip_tmpl=True)
+    
+    st.log("Clearing PFC counters...")
+    st.config(dut, 'sonic-clear pfccounters', skip_tmpl=True)
+    
+    st.log("Clearing queue watermark unicast...")
+    st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True)
+    
+    st.log("Clearing priority-group watermark shared...")
+    st.config(dut, 'sonic-clear priority-group watermark shared', skip_tmpl=True)
+    
+    st.log("Clearing buffer pool watermark...")
+    st.config(dut, 'watermarkstat -t buffer_pool -c', skip_tmpl=True)
+
+    st.log("Clearing dropcounters ...")
+    st.config(dut, 'sonic-clear dropcounters', skip_tmpl=True)
+   
+    st.log("Clearing queue ECN/WRED counters...")
+    st.config(dut, 'sonic-clear queue wredcounters', skip_tmpl=True, skip_error_check=True)
+    
+    #st.log("Clearing npu counters ...")
+    #get_npu_counters(dut)
+
+    #st.log("Clearing oq-debug counters ...")
+    #get_npu_oq_debug(dut)
+
+    st.wait(wait_time, "Waiting for counters to clear")
+    st.log(f"All counters cleared on DUT={dut}")
+
+
+# =============================================================================
+# PFC Counter Utilities
+# =============================================================================
+
+def get_pfc_tx_count(dut, port, priority):
+    """
+    Get PFC Tx frame count for given port and priority.
+    
+    Args:
+        dut: DUT handle
+        port: Interface name (e.g., 'Ethernet16')
+        priority: Priority/TC value (0-7)
+        
+    Returns:
+        Integer count of PFC frames transmitted
+    """
+    priority = int(priority)  # Ensure priority is an integer
+    cmd = f"show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {port}"
+    st.log(f"Reading PFC Tx counters: DUT={dut}, port={port}, priority={priority}")
+    st.log(f"Command: {cmd}")
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        st.log(f"Raw PFC Tx output: {output}")
+        # Output can be a string or list; normalize to get the line with port data
+        if isinstance(output, list):
+            # Find the line containing the port name
+            line = next((l for l in output if port in l), None)
+        else:
+            # String output - find the line with port name
+            lines = output.strip().split('\n')
+            line = next((l for l in lines if port in l), None)
+        
+        if line:
+            parts = line.split()
+            st.log(f"Parsed parts: {parts}")
+            # Format: PortName  PFC0  PFC1  PFC2  PFC3  PFC4  PFC5  PFC6  PFC7
+            if len(parts) > priority + 1:
+                count = int(parts[priority + 1].replace(',', ''))
+                st.log(f"PFC Tx count for port={port}, priority={priority}: {count}")
+                return count
+    except Exception as e:
+        st.log(f"Error reading PFC Tx counters: {e}")
+    st.log(f"PFC Tx count for port={port}, priority={priority}: 0 (default)")
+    return 0
+
+
+def get_pfc_rx_count(dut, port, priority):
+    """
+    Get PFC Rx frame count for given port and priority.
+    
+    Args:
+        dut: DUT handle
+        port: Interface name
+        priority: Priority/TC value (0-7)
+        
+    Returns:
+        Integer count of PFC frames received
+    """
+    priority = int(priority)  # Ensure priority is an integer
+    cmd = f"show pfc counters | sed -n '/Port Rx/,/^$/p' | grep {port}"
+    st.log(f"Reading PFC Rx counters: DUT={dut}, port={port}, priority={priority}")
+    st.log(f"Command: {cmd}")
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        st.log(f"Raw PFC Rx output: {output}")
+        # Output can be a string or list; normalize to get the line with port data
+        if isinstance(output, list):
+            # Find the line containing the port name
+            line = next((l for l in output if port in l), None)
+        else:
+            # String output - find the line with port name
+            lines = output.strip().split('\n')
+            line = next((l for l in lines if port in l), None)
+        
+        if line:
+            parts = line.split()
+            st.log(f"Parsed parts: {parts}")
+            # Format: PortName  PFC0  PFC1  PFC2  PFC3  PFC4  PFC5  PFC6  PFC7
+            if len(parts) > priority + 1:
+                count = int(parts[priority + 1].replace(',', ''))
+                st.log(f"PFC Rx count for port={port}, priority={priority}: {count}")
+                return count
+    except Exception as e:
+        st.log(f"Error reading PFC Rx counters: {e}")
+    st.log(f"PFC Rx count for port={port}, priority={priority}: 0 (default)")
+    return 0
+
+
+def get_pfc_counters(dut):
+    """
+    Get the full PFC counters output for a DUT.
+    
+    Args:
+        dut: DUT handle
+        
+    Returns:
+        PFC counters output string
+    """
+    cmd = "show pfc counters"
+    st.log(f"Getting PFC counters: DUT={dut}")
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        st.log(f"PFC counters output:\n{output}")
+        return output
+    except Exception as e:
+        st.log(f"Error getting PFC counters: {e}")
+        return None
+
+
+# =============================================================================
+# Traffic Statistics Utilities
+# =============================================================================
+
+def calculate_loss_percent(tx_pkts, rx_pkts):
+    """
+    Calculate packet loss percentage.
+    
+    Args:
+        tx_pkts: Number of transmitted packets
+        rx_pkts: Number of received packets
+        
+    Returns:
+        Loss percentage as float
+    """
+    if tx_pkts == 0:
+        return 0.0
+    return 100.0 * (tx_pkts - rx_pkts) / tx_pkts
+
+
+def get_pfc_tx_counters_all_tc(dut, port):
+    """
+    Get PFC Tx counters for all Traffic Classes (0-7) on a port.
+    
+    Args:
+        dut: DUT handle
+        port: Interface name (e.g., 'Ethernet1_1')
+        
+    Returns:
+        Dictionary mapping TC (int) -> PFC Tx count (int)
+        e.g., {0: 100, 1: 0, 2: 50, 3: 0, 4: 0, 5: 0, 6: 0, 7: 200}
+    """
+    # Use awk to match exact port name (as first field) in Port Tx section
+    cmd = f"show pfc counters | awk '/Port Tx/,/^$/{{if($1==\"{port}\")print}}'"
+    st.log(f"Reading PFC Tx counters for all TCs: DUT={dut}, port={port}")
+    st.log(f"Command: {cmd}")
+    
+    result = {tc: 0 for tc in range(8)}  # Initialize all TCs to 0
+    
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        st.log(f"Raw PFC Tx output: {output}")
+        
+        # Output can be a string or list; normalize to get the line with port data
+        if isinstance(output, list):
+            line = next((l for l in output if l.split() and l.split()[0] == port), None)
+        else:
+            lines = output.strip().split('\n')
+            line = next((l for l in lines if l.split() and l.split()[0] == port), None)
+        
+        if line:
+            parts = line.split()
+            st.log(f"Parsed parts: {parts}")
+            # Format: PortName  PFC0  PFC1  PFC2  PFC3  PFC4  PFC5  PFC6  PFC7
+            for tc in range(8):
+                if len(parts) > tc + 1:
+                    result[tc] = int(parts[tc + 1].replace(',', ''))
+    except Exception as e:
+        st.log(f"Error reading PFC Tx counters: {e}")
+    
+    st.log(f"PFC Tx counters for port={port}: {result}")
+    return result
+
+
+def print_pfc_tx_counter_deltas(before, after):
+    """
+    Print non-zero deltas between two sets of PFC Tx counters.
+    
+    Args:
+        before: Dictionary mapping TC (int) -> PFC Tx count (int) - baseline counters
+        after: Dictionary mapping TC (int) -> PFC Tx count (int) - counters after traffic
+        
+    Returns:
+        Dictionary of non-zero deltas mapping TC (int) -> delta (int)
+    """
+    st.log("Calculating PFC Tx counter deltas...")
+    
+    non_zero_deltas = {}
+    
+    for tc in range(8):
+        before_count = before.get(tc, 0)
+        after_count = after.get(tc, 0)
+        delta = after_count - before_count
+        
+        if delta != 0:
+            non_zero_deltas[tc] = delta
+            st.log(f"  TC{tc}: delta={delta} (after={after_count} - before={before_count})")
+    
+    if non_zero_deltas:
+        st.log(f"Non-zero PFC Tx deltas: {non_zero_deltas}")
+    else:
+        st.log("No non-zero PFC Tx deltas detected")
+    
+    return non_zero_deltas
+    
+def get_stream_loss_percent(stats, stream_handle):
+    """
+    Extract loss percentage for a specific stream from stats.
+    
+    Args:
+        stats: Statistics dictionary from get_stream_stats()
+        stream_handle: Stream handle returned by create_stream()
+        
+    Returns:
+        Tuple of (tx_pkts, rx_pkts, loss_percent)
+    """
+    st.log(f"Extracting stats for stream handle: {stream_handle}")
+    stream_stats = stats.get(stream_handle, {})
+    st.log(f"Raw stream stats for {stream_handle}:\n{json.dumps(stream_stats, indent=2)}")
+    tx_pkts = int(stream_stats.get('tx', {}).get('total_pkts', 0))
+    rx_pkts = int(stream_stats.get('rx', {}).get('total_pkts', 0))
+    loss_pct = calculate_loss_percent(tx_pkts, rx_pkts)
+    st.log(f"Stream {stream_handle}: tx_pkts={tx_pkts}, rx_pkts={rx_pkts}, loss_pct={loss_pct:.4f}%")
+    return tx_pkts, rx_pkts, loss_pct
+
+
+# =============================================================================
+# Additional Debug Utilities
+# =============================================================================
+
+def get_mac_table(dut):
+    """
+    Get MAC address table (FDB) from a DUT.
+    
+    Args:
+        dut: DUT handle
+        
+    Returns:
+        MAC table output string
+    """
+    cmd = "show mac"
+    st.log(f"Getting MAC table: DUT={dut}")
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        st.log(f"MAC table on {dut}:\n{output}")
+        return output
+    except Exception as e:
+        st.log(f"Error getting MAC table: {e}")
+        return None
+
+
+def get_interface_link_status(dut, interfaces=None):
+    """
+    Get interface link status from a DUT.
+    
+    Args:
+        dut: DUT handle
+        interfaces: Optional list of interfaces to check
+        
+    Returns:
+        Interface status output string
+    """
+    cmd = "show interfaces status"
+    st.log(f"Getting interface status: DUT={dut}")
+    try:
+        output = st.show(dut, cmd, skip_tmpl=True)
+        if interfaces:
+            # Filter output to show only requested interfaces
+            lines = output.split('\n')
+            filtered = [l for l in lines if any(iface in l for iface in interfaces) or 'Interface' in l or '---' in l]
+            output = '\n'.join(filtered)
+        st.log(f"Interface status on {dut}:\n{output}")
+        return output
+    except Exception as e:
+        st.log(f"Error getting interface status: {e}")
+        return None
+
+
+def collect_pre_traffic_debug(api, iteration_info=""):
+    """
+    Collect comprehensive debug information before starting traffic.
+    
+    This function collects:
+    - Interface link status on leaves
+    - MAC table on leaves
+    - BGP summary on leaves
+    - IPv6 routes on leaves
+    - TGEN port statistics (via api.get_port_stats())
+    - TGEN protocol session status (via api.get_protocol_session_status())
+    
+    Args:
+        api: IxiaIPv6Api instance with dut_d mapping
+        iteration_info: Optional string describing the iteration (e.g., "Q0=0, Q1=-2")
+    """
+    st.banner(f"PRE-TRAFFIC DEBUG COLLECTION {iteration_info}")
+    
+    # Get leaf DUTs
+    leaf_devices = {
+        'D3': ('Leaf0', ['Ethernet292', 'Ethernet296']),  # L1P1, L1P2
+        'D4': ('Leaf1', ['Ethernet292', 'Ethernet300']),  # L2P1, L2P2
+    }
+    
+    for device_id, (role, interfaces) in leaf_devices.items():
+        dut = api.dut_d.get(device_id)
+        if not dut:
+            st.log(f"Device {device_id} ({role}) not found, skipping")
+            continue
+        
+        st.log(f"{'='*60}")
+        st.log(f"DEBUG: {device_id} ({role})")
+        st.log(f"{'='*60}")
+        
+        # Interface link status
+        st.log(f"--- {device_id}: Interface Link Status ---")
+        get_interface_link_status(dut, interfaces)
+        
+        # MAC table
+        st.log(f"--- {device_id}: MAC Table (FDB) ---")
+        get_mac_table(dut)
+        
+        # BGP summary
+        st.log(f"--- {device_id}: BGP IPv6 Summary ---")
+        get_ipv6_bgp_summary(dut)
+        
+        # IPv6 routes (brief - just show key routes)
+        st.log(f"--- {device_id}: IPv6 Routes ---")
+        st.show(dut, "show ipv6 route summary", skip_tmpl=True)
+    
+    # Note: TGEN traffic_stats calls are intentionally omitted here.
+    # Calling tg_traffic_stats before traffic is started/applied causes
+    # a fatal TGenFail abort in IxNetwork ("matched_str" / "unapplied" errors).
+    
+    st.log(f"{'='*60}")
+    st.log("PRE-TRAFFIC DEBUG COLLECTION COMPLETE")
+    st.log(f"{'='*60}")
+
+
+def wait_for_bgp_evpn_established(nodes, max_wait=180):
+    """
+    Wait for BGP sessions to establish between leaves.
+
+    Polls 'show ipv6 bgp summary' on leaves until OVERLAY neighbors
+    show Established state.
+
+    Args:
+        nodes: Dict mapping node names to DUT objects
+        max_wait: Maximum seconds to wait (default 180)
+
+    Returns:
+        bool: True if sessions established, False if timeout
+    """
+    start_time = time.time()
+    poll_interval = 10
+
+    st.log(f"Waiting for BGP sessions to establish (max {max_wait}s)...")
+
+    while time.time() - start_time < max_wait:
+        # Check both leaves
+        all_established = True
+
+        for leaf in ['leaf0', 'leaf1']:
+            if leaf not in nodes:
+                continue
+            # Use 'show ipv6 bgp summary' for IPv6 underlay
+            output = st.show(nodes[leaf], "show ipv6 bgp summary", skip_tmpl=True, skip_error_check=True)
+            st.log(f"{leaf} BGP summary: {output[:500] if output else 'empty'}...")
+
+            # Check for NOT established states - FRR shows prefix count when established
+            # NOT established states: Connect, Active, Idle, OpenSent, OpenConfirm
+            # Established: shows numeric prefix count like "1", "2", "7" etc.
+            not_established_states = ['Connect', 'Active', 'Idle', 'OpenSent', 'OpenConfirm', 'NoNeg']
+            if output and not any(state in output for state in not_established_states):
+                # Also verify there's at least one neighbor with data
+                if 'Total number of neighbors' in output and 'neighbors 0' not in output:
+                    st.log(f"{leaf}: BGP sessions established")
+                else:
+                    all_established = False
+            else:
+                all_established = False
+
+        if all_established:
+            elapsed = time.time() - start_time
+            st.log(f"BGP sessions established after {elapsed:.1f}s")
+            st.wait(5)
+            return True
+
+        #st.log(f"BGP EVPN not yet established, waiting {poll_interval}s...")
+        st.log(f"BGP underlay is not yet established, waiting {poll_interval}s...")
+        st.wait(poll_interval)
+
+    st.log(f"BGP underlay sessions did not establish within {max_wait}s")
+    # Dump debug info on failure
+    dump_vxlan_debug_info(nodes, "BGP underlay establishment timeout")
+    return False
+
+
+def discover_ecn_queue_config(dut, egress_intf):
+    """
+    Walk CONFIG_DB to discover ECN/WRED configuration for *egress_intf*.
+
+    Lookup chain:
+        PORT_QOS_MAP[egress_intf].pfc_enable -> first lossless TC
+        DSCP_TO_TC_MAP -> first DSCP that maps to that TC
+        TC_TO_QUEUE_MAP -> queue number
+        QUEUE[intf|queue].wred_profile -> WRED_PROFILE.ecn
+
+    Returns:
+        dict with keys: tc, dscp, queue, wred_profile, port_speed
+    Raises RuntimeError on misconfiguration.
+    """
+    config = get_config_db(dut)
+
+    # --- lossless TC ---
+    port_qos = config["PORT_QOS_MAP"].get(egress_intf)
+    if not port_qos:
+        raise RuntimeError(f"PORT_QOS_MAP has no entry for {egress_intf}")
+    pfc_enable = port_qos.get("pfc_enable", "")
+    tc_list = [int(x) for x in pfc_enable.split(",") if x.strip()]
+    if not tc_list:
+        raise RuntimeError(f"No PFC-enabled TCs on {egress_intf}")
+    tc = tc_list[0]
+    st.log(f"discover: egress_intf={egress_intf} pfc_enable={pfc_enable} -> TC {tc}")
+
+    # --- DSCP ---
+    dscp_map_ref = port_qos.get("dscp_to_tc_map")
+    if not dscp_map_ref:
+        raise RuntimeError(f"PORT_QOS_MAP[{egress_intf}] missing dscp_to_tc_map")
+    map_name = dscp_map_ref.split("|")[-1].rstrip("]") if "|" in dscp_map_ref else dscp_map_ref
+    dscp_table = config["DSCP_TO_TC_MAP"].get(map_name, {})
+    dscp = None
+    tc_str = str(tc)
+    for dscp_val, mapped_tc in dscp_table.items():
+        if str(mapped_tc) == tc_str:
+            dscp = int(dscp_val)
+            break
+    if dscp is None:
+        raise RuntimeError(f"No DSCP maps to TC {tc} in DSCP_TO_TC_MAP[{map_name}]")
+    st.log(f"discover: DSCP_TO_TC_MAP[{map_name}] -> DSCP {dscp} for TC {tc}")
+
+    # --- Queue ---
+    tc_q_map_ref = port_qos.get("tc_to_queue_map")
+    if not tc_q_map_ref:
+        raise RuntimeError(f"PORT_QOS_MAP[{egress_intf}] missing tc_to_queue_map")
+    q_map_name = tc_q_map_ref.split("|")[-1].rstrip("]") if "|" in tc_q_map_ref else tc_q_map_ref
+    q_table = config["TC_TO_QUEUE_MAP"].get(q_map_name, {})
+    queue = q_table.get(tc_str)
+    if queue is None:
+        raise RuntimeError(f"TC_TO_QUEUE_MAP[{q_map_name}] has no entry for TC {tc}")
+    queue = int(queue)
+    st.log(f"discover: TC_TO_QUEUE_MAP[{q_map_name}] -> queue {queue}")
+
+    # --- WRED profile ---
+    queue_key = f"{egress_intf}|{queue}"
+    queue_entry = config["QUEUE"].get(queue_key, {})
+    wred_profile_ref = queue_entry.get("wred_profile")
+    if not wred_profile_ref:
+        raise RuntimeError(f"QUEUE[{queue_key}] has no wred_profile")
+    profile_name = wred_profile_ref.split("|")[-1].rstrip("]") if "|" in wred_profile_ref else wred_profile_ref
+    profile = config["WRED_PROFILE"].get(profile_name, {})
+    ecn_mode = profile.get("ecn", "ecn_none")
+    if ecn_mode == "ecn_none":
+        raise RuntimeError(f"WRED_PROFILE[{profile_name}].ecn is '{ecn_mode}'  --  ECN not enabled")
+    st.log(f"discover: WRED_PROFILE[{profile_name}] ecn={ecn_mode}")
+
+    speed = common_util.get_if_speed(dut, egress_intf)
+
+    result = {
+        'tc': tc,
+        'dscp': dscp,
+        'queue': queue,
+        'wred_profile': profile_name,
+        'port_speed': speed,
+    }
+    st.banner(f"ECN Queue Config Discovery: {result}")
+    return result
+
+
+def discover_lossy_wred_queue_config(dut, egress_intf):
+    """
+    Walk CONFIG_DB to discover a lossy queue with WRED drop (ecn=ecn_none)
+    on *egress_intf*.
+
+    Lookup chain:
+        PORT_QOS_MAP[egress_intf].pfc_enable -> set of lossless TCs to avoid
+        QUEUE[egress_intf|*] -> find entries with wred_profile
+        WRED_PROFILE[name].ecn == 'ecn_none' -> pure WRED drop profile
+        TC_TO_QUEUE_MAP -> reverse-map queue number to TC
+        DSCP_TO_TC_MAP -> first DSCP that maps to that TC
+
+    Returns:
+        dict with keys: tc, dscp, queue, wred_profile, port_speed
+    Raises RuntimeError on misconfiguration.
+    """
+    config = get_config_db(dut)
+
+    # --- lossless TCs to avoid ---
+    port_qos = config["PORT_QOS_MAP"].get(egress_intf)
+    if not port_qos:
+        raise RuntimeError(f"PORT_QOS_MAP has no entry for {egress_intf}")
+    pfc_enable = port_qos.get("pfc_enable", "")
+    lossless_tcs = set(int(x) for x in pfc_enable.split(",") if x.strip())
+    st.log(f"discover: egress_intf={egress_intf} lossless TCs={lossless_tcs}")
+
+    # --- TC_TO_QUEUE_MAP (for reverse lookup) ---
+    tc_q_map_ref = port_qos.get("tc_to_queue_map")
+    if not tc_q_map_ref:
+        raise RuntimeError(f"PORT_QOS_MAP[{egress_intf}] missing tc_to_queue_map")
+    q_map_name = tc_q_map_ref.split("|")[-1].rstrip("]") if "|" in tc_q_map_ref else tc_q_map_ref
+    tc_to_q = config["TC_TO_QUEUE_MAP"].get(q_map_name, {})
+
+    # Build reverse map: queue_number -> TC
+    q_to_tc = {}
+    for tc_str, q_str in tc_to_q.items():
+        q_to_tc[int(q_str)] = int(tc_str)
+
+    # --- Walk QUEUE entries for egress_intf, find lossy + WRED ---
+    queue_table = config["QUEUE"]
+    found_queue = None
+    found_profile_name = None
+
+    for queue_key, queue_entry in queue_table.items():
+        if not queue_key.startswith(f"{egress_intf}|"):
+            continue
+        wred_ref = queue_entry.get("wred_profile")
+        if not wred_ref:
+            continue
+
+        queue_num = int(queue_key.split("|")[1])
+        profile_name = wred_ref.split("|")[-1].rstrip("]") if "|" in wred_ref else wred_ref
+        profile = config["WRED_PROFILE"].get(profile_name, {})
+        ecn_mode = profile.get("ecn", "ecn_none")
+
+        # We want ecn_none (pure WRED drop) on a lossy (non-PFC) queue
+        if ecn_mode != "ecn_none":
+            st.log(f"  skip queue {queue_num}: profile={profile_name} ecn={ecn_mode} (not lossy drop)")
+            continue
+
+        tc_for_queue = q_to_tc.get(queue_num)
+        if tc_for_queue is None:
+            st.log(f"  skip queue {queue_num}: no TC mapping found")
+            continue
+
+        if tc_for_queue in lossless_tcs:
+            st.log(f"  skip queue {queue_num}: TC {tc_for_queue} is lossless (PFC-enabled)")
+            continue
+
+        found_queue = queue_num
+        found_profile_name = profile_name
+        st.log(f"  found lossy WRED queue {queue_num}: TC={tc_for_queue} profile={profile_name}")
+        break
+
+    if found_queue is None:
+        st.log(f"No lossy queue with WRED drop profile found on {egress_intf} "
+               f"(queues use tail-drop). Returning None.")
+        return None
+
+    tc = q_to_tc[found_queue]
+
+    # --- DSCP for this TC ---
+    dscp_map_ref = port_qos.get("dscp_to_tc_map")
+    if not dscp_map_ref:
+        raise RuntimeError(f"PORT_QOS_MAP[{egress_intf}] missing dscp_to_tc_map")
+    map_name = dscp_map_ref.split("|")[-1].rstrip("]") if "|" in dscp_map_ref else dscp_map_ref
+    dscp_table = config["DSCP_TO_TC_MAP"].get(map_name, {})
+    dscp = None
+    tc_str = str(tc)
+    for dscp_val, mapped_tc in dscp_table.items():
+        if str(mapped_tc) == tc_str:
+            dscp = int(dscp_val)
+            break
+    if dscp is None:
+        raise RuntimeError(f"No DSCP maps to TC {tc} in DSCP_TO_TC_MAP[{map_name}]")
+    st.log(f"discover: DSCP_TO_TC_MAP[{map_name}] -> DSCP {dscp} for TC {tc}")
+
+    speed = common_util.get_if_speed(dut, egress_intf)
+
+    result = {
+        'tc': tc,
+        'dscp': dscp,
+        'queue': found_queue,
+        'wred_profile': found_profile_name,
+        'port_speed': speed,
+    }
+    st.banner(f"Lossy WRED Queue Config Discovery: {result}")
+    return result
+    
 
 _qos_reloaded = set()
 
@@ -616,8 +3869,22 @@ def perform_qos_reload(dut, force=False):
         st.config(dut,
           'redis-cli -n 4 hset "DEVICE_METADATA|localhost" cfg_profile hyperfabric',
           skip_tmpl=True, skip_error_check=True)
-    st.config(dut,
-      'config qos clear\nconfig qos reload --no-dynamic-buffer',
-      skip_tmpl=True, skip_error_check=True)
+        st.config(dut,
+          'config qos clear',
+          skip_tmpl=True, skip_error_check=True)
+        st.wait(10)
+        st.config(dut,
+          'config qos reload --no-dynamic-buffer',
+          skip_tmpl=True, skip_error_check=True)
+        st.wait(30)
+    else:
+        st.config(dut, 'config qos reload', skip_error_check=True)
     if not force:
         _qos_reloaded.add(dut)
+
+def validate_value(actual, expected, tolerance_percent):
+    """Check if actual is within tolerance_percent of expected."""
+    if expected == 0:
+        return actual <= tolerance_percent
+    delta = abs(actual - expected) * 100.0 / expected
+    return delta <= tolerance_percent

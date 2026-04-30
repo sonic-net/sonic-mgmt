@@ -5,9 +5,9 @@
     "DWRR_TEST" : {
 	    "tgen_port_cnt" : "4",
 	    "leaf" : "D3",
-	    "tc_pair" : [["3", "4"], ["4", "1"], ["0", "0"]],
+	    "tc_pair" : [["0", "3"], ["0", "1"], ["3", "4"]],
 	    # DWRR weight for each stream
-	    "dwrr_wt" : "40",
+	    "dwrr_wt" : [["20", "40"], ["40", "20"]],
 	    # Stream speeds are percent of line rate
 	    "stream_rates" : [["75", "75"]],
 	    "frame_sizes" : ["8192"]

@@ -419,7 +419,7 @@ def config_tgen_interface(int_dict, addr_family='ipv4'):
     return handles
 
 
-def config_traffic_item(stream_list, handles, int_dict, data, ping=True, dscp=None, bidirectional=1):
+def config_traffic_item(stream_list, handles, int_dict, data, ping=True, dscp=None, bidirectional=1, ect=None):
     '''
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
 
@@ -432,6 +432,9 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True, dscp=No
      'T1D3P1<-->T1D4P1': {'stream_id': 'TI0-HLTAPI_TRAFFICITEM_540', 'port_handle': '1/1/1', 'tg_handle': <spytest.tgen.tg.TGIxia object at 0x7f1f54d5ef10>}, 
      'T1D3P2<-->T1D4P2': {'stream_id': 'TI3-HLTAPI_TRAFFICITEM_540', 'port_handle': '1/1/2', 'tg_handle': <spytest.tgen.tg.TGIxia object at 0x7f1f54d5ef10>}, 
      'T1D3P1<-->T1D3P2': {'stream_id': 'TI1-HLTAPI_TRAFFICITEM_540', 'port_handle': '1/1/1', 'tg_handle': <spytest.tgen.tg.TGIxia object at 0x7f1f54d5ef10>}}
+      Args:
+          ect: ECN codepoint (0-3) to set in TOS/Traffic-Class field. Default None means no ECT bits.
+               0=Not-ECT, 1=ECT(1), 2=ECT(0), 3=CE
     '''
     traffic_item_dict = {}
     for item in stream_list:
@@ -443,10 +446,16 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True, dscp=No
                     frame_size=data.frame_size, emulation_src_handle=handles[item[0]]["int_handle"], 
                     emulation_dst_handle=handles[item[1]]["int_handle"])
         if dscp is not None:
+            # Compute combined TOS/Traffic-Class value including ECT bits
+            ect_bits = ect if ect is not None else 0
             if getattr(data, 'addr_family', 'ipv4') == 'ipv6':
-                tg_kwargs['ipv6_traffic_class'] = dscp << 2
+                tg_kwargs['ipv6_traffic_class'] = (dscp << 2) | ect_bits
             else:
                 tg_kwargs['ip_dscp'] = dscp
+                if ect is not None:
+                    # For IPv4, set full ip_tos instead of ip_dscp for ECT bits
+                    del tg_kwargs['ip_dscp']
+                    tg_kwargs['ip_tos'] = (dscp << 2) | ect_bits
         receive = handles[item[0]]["tg_handle"].tg_traffic_config(**tg_kwargs)
         stream_id = receive["stream_id"]
         traffic_item_dict[item[0]+"<-->"+item[1]] = {"stream_id":stream_id, "port_handle": handles[item[0]]["port_handle"] , "tg_handle": handles[item[0]]["tg_handle"], "traffic_result": receive}

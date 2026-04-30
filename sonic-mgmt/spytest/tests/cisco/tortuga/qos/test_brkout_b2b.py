@@ -120,22 +120,25 @@ def mode_to_speed(mode):
 
 def perform_qos_cli(dut, port_list, op):
     # Perform a qos clear or reload on the given port list
-    cmd = 'config qos {} --ports '.format(op)
-    for if_name in port_list:
-        cmd += '{},'.format(if_name)
-    st.config(dut, cmd[:-1], skip_tmpl=True)
+    if op == 'reload':
+        cmd = f"config qos reload --ports {','.join(port_list)} --no-dynamic-buffer"
+    else:
+        cmd = f"config qos clear --ports {','.join(port_list)}" 
+    st.config(dut, cmd, skip_tmpl=True)
 
 def collect_if_list(dut, if_name):
     # Collect all interfaces that are part of the breakout of the given if_name
     if_list = []
-    result = st.show(dut,
-                "show int status | egrep '{} |{}_' | awk '{{print $1}}'"
-                .format(if_name, if_name), skip_tmpl=True)
+    result = st.show(dut, f"show int status | grep {if_name}", skip_tmpl=True)
     lines = result.splitlines()
     for line in lines:
         # Guard against extraneous content in the output
-        if line.startswith('Ethernet'):
-            if_list.append(line)
+        if 'Ethernet' not in line:
+            continue
+        port = line.split()[0]
+        # Match exact parent interface or breakout ports (parent_N)
+        if port == if_name or port.startswith(f"{if_name}_"):
+            if_list.append(port)
     return if_list
 
 def config_b2b_link_pair(if1, if2, ctr):
@@ -153,13 +156,14 @@ def collect_lldp_neighor_info(intf_cnt):
     # This is always done on DUT1 side
     ctr = 0
     vars.if_map = []
-    link = vars.b2b_link[0]
     st.wait(32)
+    # Build precise grep pattern from actual breakout port names
+    grep_pattern = '|'.join(vars.actual_if_list[0])
     result = st.show(vars.b2b_dut[0],
-                     f"show lldp table | egrep '{link} |{link}_'",
+                     f"show lldp table | egrep '{grep_pattern}'",
                      skip_tmpl=True)
     lines = result.splitlines()
-    list1 = list2 = []
+    list1, list2 = [], []
     for line in lines:
         if 'Ethernet' not in line:
             continue
@@ -338,6 +342,7 @@ def perform_one_breakout(mode):
             return -1
 
     # Now get actual interface list after breakout and verify count
+    vars.actual_if_list = []
     for dut, org_if_name in zip(vars.b2b_dut, vars.b2b_link):
         port_list = collect_if_list(dut, org_if_name)
         if len(port_list) != intf_cnt:
@@ -345,6 +350,7 @@ def perform_one_breakout(mode):
             return -1
         # Perform qos reload on the new interfaces
         perform_qos_cli(dut, port_list, 'reload')
+        vars.actual_if_list.append(port_list)
 
     # Startup all the newly created interfaces
     for dut, if_list in zip(vars.b2b_dut, vars.exp_if_list):
@@ -357,17 +363,17 @@ def perform_one_breakout(mode):
     # We can simply check this on one DUT because if they are up/up on one side
     # they should be in same state on the other DUT
     wait_time = 0
+    grep_pattern = '|'.join(vars.actual_if_list[0])
     while wait_time < vars.wait_time:
         st.wait(10)
         wait_time += 10
         result1 = st.show(vars.b2b_dut[0],
-                          "show int status | egrep '{} |{}_'"
-                          .format(vars.b2b_link[0], vars.b2b_link[0]),
+                          f"show int status | egrep '{grep_pattern}'",
                           skip_tmpl=True)
         lines = result1.splitlines()
         down_ctr = 0
         for line in lines:
-            if vars.b2b_link[0] not in line:
+            if 'Ethernet' not in line:
                 continue
             tokens = line.split()
             if tokens[7] != 'up':

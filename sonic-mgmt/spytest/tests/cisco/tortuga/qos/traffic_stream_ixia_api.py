@@ -876,3 +876,35 @@ def delete_traffic_stream(stream_info):
         handle=stream_info['src_handle'])
     tgen_handle.tg_interface_config(mode='destroy',
         handle=stream_info['dst_handle'])
+
+# ---------------------------------------------------------------------------
+# ECN Traffic Stream Utilities
+# ---------------------------------------------------------------------------
+
+# ECN/ECT bit values (lower 2 bits of TOS/Traffic Class byte)
+ECN_NOT_ECT = 0b00  # Not-ECT: packet not participating in ECN
+ECN_ECT_1 = 0b01    # ECT(1): ECN-Capable Transport
+ECN_ECT_0 = 0b10    # ECT(0): ECN-Capable Transport (default)
+ECN_CE = 0b11       # Congestion Experienced
+
+
+def compute_ip_tos(dscp, ect=ECN_ECT_0):
+    """
+    Combine DSCP and ECT values into a single ip_tos byte.
+    The TOS byte (IPv4) / Traffic Class byte (IPv6) format:
+        Bits 7-2 (6 bits): DSCP (Differentiated Services Code Point)
+        Bits 1-0 (2 bits): ECN (Explicit Congestion Notification)
+    Args:
+        dscp: DSCP value (0-63)
+        ect: ECN codepoint (ECN_NOT_ECT, ECN_ECT_1, ECN_ECT_0, or ECN_CE)
+    Returns:
+        int: Combined ip_tos value (0-255)
+    Example:
+        DSCP 24 (TC 3) with ECT(0): compute_ip_tos(24, ECN_ECT_0) = 98 (0x62)
+    """
+    if not 0 <= dscp <= 63:
+        raise ValueError(f"DSCP must be 0-63, got {dscp}")
+    if not 0 <= ect <= 3:
+        raise ValueError(f"ECT must be 0-3, got {ect}")
+    return (dscp << 2) | ect
+

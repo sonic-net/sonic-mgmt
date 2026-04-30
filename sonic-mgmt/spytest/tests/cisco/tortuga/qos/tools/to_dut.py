@@ -1,40 +1,57 @@
 #!/usr/bin/env python3
 """
-Push config_db.json to Gamut DUTs (spine0, leaf0, leaf1).
+Push config_db.json to SONiC DUTs defined in a testbed YAML.
 
 Usage:
-    python3 to_dut.py                    # push from gamut_2x2_base_configs/
-    python3 to_dut.py <directory>         # push from specified directory
+    python3 to_dut.py --yaml <testbed.yaml> --config-dir <directory>
 
 Copies config to /tmp on each DUT, then prompts whether to activate
 (cp to /etc/sonic/ + config reload -y).
 
-Expects files named spine0, leaf0, leaf1 in the source directory.
+Expects config files named after each DUT (e.g., spine0, leaf0) in the config directory.
 """
 import sys
 import os
+import re
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import paramiko
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_CONFIG_DIR = os.path.join(SCRIPT_DIR, "gamut_2x2_base_configs")
 
-DUTS = [
-    {"name": "spine0", "ip": "172.25.168.173", "user": "cisco", "pass": "cisco123"},
-    {"name": "leaf0",  "ip": "172.25.168.174", "user": "cisco", "pass": "cisco123"},
-    {"name": "leaf1",  "ip": "172.25.168.175", "user": "cisco", "pass": "cisco123"},
-]
+def parse_testbed_yaml(yaml_path):
+    """Parse testbed YAML and extract DUT information using regex."""
+    with open(yaml_path, 'r') as f:
+        content = f.read()
+
+    duts = []
+    
+    # Pattern matches device blocks with device_type: DevSonic
+    # Note: use \bpassword to avoid matching 'altpassword'
+    device_pattern = re.compile(
+        r'^    (\w+):.*\n'                                                      # device name
+        r'        device_type:\s*DevSonic\s*\n'                                 # device_type
+        r'        access:\s*\{[^}]*ip:\s*([^,\}\s]+)[^}]*\}\s*\n'               # access
+        r'        credentials:\s*\{[^}]*username:\s*([^,\}\s]+)[^}]*\bpassword:\s*([^,\}\s]+)',
+        re.MULTILINE
+    )
+    
+    for match in device_pattern.finditer(content):
+        duts.append({
+            'name': match.group(1).strip(),
+            'ip': match.group(2).strip(),
+            'user': match.group(3).strip(),
+            'pass': match.group(4).strip(),
+        })
+
+    return duts
 
 
-def resolve_dir(arg):
-    """Resolve the config directory from user input or default."""
-    if arg is None:
-        return DEFAULT_CONFIG_DIR
-    if os.path.isabs(arg):
-        return arg
-    return os.path.join(os.getcwd(), arg)
+def resolve_path(path):
+    """Resolve a path to absolute."""
+    if os.path.isabs(path):
+        return path
+    return os.path.join(os.getcwd(), path)
 
 
 def ssh_connect(dut):
@@ -101,26 +118,51 @@ def run_parallel(func, duts, **kwargs):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Push config_db.json to Gamut DUTs"
+        description="Push config_db.json to SONiC DUTs from testbed YAML"
     )
     parser.add_argument(
-        "directory", nargs="?", default=None,
-        help="Source directory (default: gamut_2x2_base_configs/ next to this script)"
+        "--yaml", required=True,
+        help="Path to testbed YAML file"
+    )
+    parser.add_argument(
+        "--config-dir", required=True,
+        help="Directory containing config files (named after each DUT)"
     )
     args = parser.parse_args()
 
-    srcdir = resolve_dir(args.directory)
+    yaml_path = resolve_path(args.yaml)
+    srcdir = resolve_path(args.config_dir)
 
-    # Verify source directory and files
-    if not os.path.isdir(srcdir):
-        print(f"ERROR: directory not found: {srcdir}")
+    # Verify YAML file exists
+    if not os.path.isfile(yaml_path):
+        print(f"ERROR: testbed YAML not found: {yaml_path}")
         sys.exit(1)
 
+    # Parse testbed YAML to get DUTs
+    DUTS = parse_testbed_yaml(yaml_path)
+    if not DUTS:
+        print(f"ERROR: No DevSonic devices found in {yaml_path}")
+        sys.exit(1)
+
+    # Verify source directory exists
+    if not os.path.isdir(srcdir):
+        print(f"ERROR: config directory not found: {srcdir}")
+        sys.exit(1)
+
+    # Filter DUTs to only those with config files present
+    duts_with_configs = []
     for dut in DUTS:
         src = os.path.join(srcdir, dut["name"])
-        if not os.path.isfile(src):
-            print(f"ERROR: {src} not found")
-            sys.exit(1)
+        if os.path.isfile(src):
+            duts_with_configs.append(dut)
+        else:
+            print(f"WARNING: No config file for {dut['name']} (expected: {src})")
+
+    if not duts_with_configs:
+        print(f"ERROR: No config files found in {srcdir}")
+        sys.exit(1)
+
+    DUTS = duts_with_configs
 
     # Show what will be pushed
     print(f"=== Pushing configs from {srcdir} ===\n")

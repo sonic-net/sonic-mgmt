@@ -155,13 +155,14 @@ LEAF0_VTEP_IP  = '2001:db8:1::2'
 LEAF1_VTEP_IP  = '2001:db8:1::3'
 
 # Use the same config file as the working test (in vxlan directory)
-CONFIGS_FILE = '../vxlan/vxlan_l3vni_v6_vtep_config_template.yaml'
+CONFIGS_FILE = '../qos/vxlan_pfc_l3vni.yaml'
 
 def config_node(node, config, type=''):
     if type:
         st.config(node, config, type=type, skip_error_check=False, conf=True)
     else:
-        st.config(node, config, skip_error_check=False, conf=True)
+        # Use skip_error_check=True for sonic config to handle pre-existing state
+        st.config(node, config, skip_error_check=True, conf=True)
 
 def config_static(node, config_domain, add=True):
     nodes = get_nodes()

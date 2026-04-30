@@ -26,7 +26,7 @@ import qos_test_utils
 import time
 
 # Use the L2VNI config file from vxlan directory
-CONFIGS_FILE = '../vxlan/vxlan_l2vni_v6_vtep_configs_template.yaml'
+CONFIGS_FILE = '../qos/vxlan_pfc_l2vni_2x2.yaml'
 
 data = SpyTestDict()
 
@@ -76,11 +76,13 @@ def config_static(node, config_domain, add=True):
     """Configure or deconfigure static configs from YAML template."""
     nodes = get_nodes()
     domain = 'vtysh' if config_domain == 'bgp' else ''
+    # Use skip_errors=True for sonic config to handle pre-existing state
+    skip_errors = (config_domain != 'bgp')
 
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         if add:
-            config_node(nodes[node], config_list[node][config_domain]['config'], domain)
+            config_node(nodes[node], config_list[node][config_domain]['config'], domain, skip_errors=skip_errors)
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain, skip_errors=True)
 
@@ -123,6 +125,7 @@ def initial_setup():
     vars = st.get_testbed_vars()
     for dut in st.get_dut_names():
         stream_api.init_qos_on_dut(dut)
+        common_util.cleanup_ip_interfaces(dut)
 
     # Set traffic parameters based on HW or SIM
     dut_type = vxlan_obj.check_hw_or_sim(st.get_dut_names()[0])

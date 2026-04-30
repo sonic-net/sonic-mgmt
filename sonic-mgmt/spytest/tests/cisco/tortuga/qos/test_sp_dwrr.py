@@ -39,12 +39,6 @@ TC_BE = 5       # Best-effort / DWRR TC
 LOSSLESS_TCS = [TC_LOSSLESS]
 
 
-def validate_value(actual, expected, tolerance_percent):
-    """Check if actual is within tolerance_percent of expected."""
-    if expected == 0:
-        return actual <= tolerance_percent
-    delta = abs(actual - expected) * 100.0 / expected
-    return delta <= tolerance_percent
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -160,7 +154,8 @@ def test_sp_and_dwrr():
     item_stats = stats['traffic_item']
     total_rx = get_rx_gbps(item_stats, tc7_s1) + get_rx_gbps(item_stats, tc7_s2)
     phase1_pass = True
-    if not validate_value(total_rx, sp_pir_gbps, TOLERANCE_PERCENT):
+    if not qos_test_utils.validate_value(total_rx, sp_pir_gbps,
+                                         TOLERANCE_PERCENT):
         st.error(f'Phase 1 FAIL: TC7 total expected ~{sp_pir_gbps:.1f} Gbps, '
                  f'got {total_rx:.2f} Gbps')
         phase1_pass = False
@@ -213,10 +208,9 @@ def test_sp_and_dwrr():
         stream_api.clear_all_stats()
         stream_api.start_traffic_stream()
         st.wait(TRAFFIC_RUN_TIME // 2)
-        qos_test_utils.dump_mid_traffic_debug(
+        qos_test_utils.dump_counters(
             dut,
-            [test_info['src_dut_if1'], test_info['src_dut_if2'], test_info['dut_if']],
-            TC_LOSSLESS)
+            [test_info['src_dut_if1'], test_info['src_dut_if2'], test_info['dut_if']])
         st.wait(TRAFFIC_RUN_TIME - TRAFFIC_RUN_TIME // 2)
         stats = stream_api.collect_traffic_stream_stats()
         stream_api.stop_traffic_stream()
@@ -238,8 +232,8 @@ def test_sp_and_dwrr():
                                             TC_LOSSLESS) - pre_pfc1
         pfc2 = common_util.get_pfc_tx_count(dut, test_info['src_dut_if2'],
                                             TC_LOSSLESS) - pre_pfc2
-        if not validate_value(loss3_1, 0.0, 1.0) or \
-           not validate_value(loss3_2, 0.0, 1.0):
+        if not qos_test_utils.validate_value(loss3_1, 0.0, 1.0) or \
+           not qos_test_utils.validate_value(loss3_2, 0.0, 1.0):
             diag += (f'[FAIL] TC3: loss too high '
                      f'({loss3_1:.3f}%, {loss3_2:.3f}%) '
                      f'PFC Tx Count: {test_info["src_dut_if1"]}={pfc1} '
@@ -252,7 +246,8 @@ def test_sp_and_dwrr():
 
         # Check TC7 (SP) - expect capped at PIR
         tc7_rx = get_rx_gbps(item_stats, tc7_s1) + get_rx_gbps(item_stats, tc7_s2)
-        if not validate_value(tc7_rx, sp_pir_gbps, TOLERANCE_PERCENT):
+        if not qos_test_utils.validate_value(tc7_rx, sp_pir_gbps,
+                                             TOLERANCE_PERCENT):
             diag += (f'[FAIL] TC7: expected ~{sp_pir_gbps:.1f} Gbps, '
                      f'got {tc7_rx:.2f} Gbps ')
             rc = -1
@@ -262,7 +257,8 @@ def test_sp_and_dwrr():
         # Check TC5 (BE/DWRR) - expect remaining bandwidth
         remaining_bw = if_speed - (tc3_rx + tc7_rx)
         tc5_rx = get_rx_gbps(item_stats, tc5_s1) + get_rx_gbps(item_stats, tc5_s2)
-        if not validate_value(tc5_rx, remaining_bw, TOLERANCE_PERCENT):
+        if not qos_test_utils.validate_value(tc5_rx, remaining_bw,
+                                             TOLERANCE_PERCENT):
             diag += (f'[FAIL] TC5: expected ~{remaining_bw:.2f} Gbps, '
                      f'got {tc5_rx:.2f} Gbps')
             rc = -1
