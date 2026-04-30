@@ -445,7 +445,7 @@ def collect_results(args):
         "success_rate" : 0,
         "status": FAILURE_STATUS,
         "ucs_server": testbed_info_dict["ucs_host_name"],
-        "log_path": f"{logs_path}{dut_run_log_folder}",
+        "log_path": os.path.join(logs_path, dut_run_log_folder),
     }
 
     log.debug(f"Entered collect_results, dut_run_log_folder: {dut_run_log_folder}, results_path: {results_path}, logs_path: {logs_path}")
@@ -512,7 +512,7 @@ def collect_results(args):
                 "success_rate" : round(percent, 2),
                 "report_link": allure_link,
                 "status": SUCCESS_STATUS if round(percent, 2) == 100.0 else FAILURE_STATUS,
-                "log_path": f"{logs_path}{dut_run_log_folder}",
+                "log_path": os.path.join(logs_path, dut_run_log_folder),
                 "ucs_server": testbed_info_dict["ucs_host_name"]
             }
         
