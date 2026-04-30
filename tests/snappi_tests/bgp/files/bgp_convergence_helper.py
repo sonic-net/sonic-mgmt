@@ -1,7 +1,7 @@
 import logging
 from tabulate import tabulate
 from statistics import mean
-from tests.common.utilities import (wait, wait_until)
+from tests.common.utilities import wait
 from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
@@ -73,9 +73,6 @@ def run_bgp_local_link_failover_test(snappi_api,
                                             number_of_routes,
                                             route_type,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
-
 
 def run_bgp_remote_link_failover_test(snappi_api,
                                       duthost,
@@ -119,9 +116,6 @@ def run_bgp_remote_link_failover_test(snappi_api,
                                              number_of_routes,
                                              route_type,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
-
 
 def run_rib_in_convergence_test(snappi_api,
                                 duthost,
@@ -131,7 +125,6 @@ def run_rib_in_convergence_test(snappi_api,
                                 number_of_routes,
                                 route_type,
                                 timeout=None,
-                                skip_cleanup=None,
                                 skip_duthost_bgp_config=False,):
     """
     Run RIB-IN Convergence test
@@ -145,7 +138,6 @@ def run_rib_in_convergence_test(snappi_api,
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
         timeout: optional timeout in seconds for convergence steps (default: TIMEOUT)
-        skip_cleanup: Skip the cleanup integrated in the test since main test does revert of config.
         skip_duthost_bgp_config: Use existing config from config_db to run test.
     """
     if timeout is None:
@@ -183,10 +175,6 @@ def run_rib_in_convergence_test(snappi_api,
                            route_type,
                            timeout,)
 
-    if not skip_cleanup:
-        """ Cleanup the dut configs after getting the convergence numbers """
-        cleanup_config(duthost)
-
 
 def run_RIB_IN_capacity_test(snappi_api,
                              duthost,
@@ -221,9 +209,6 @@ def run_RIB_IN_capacity_test(snappi_api,
                         step_value,
                         route_type,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
-
 
 def duthost_bgp_config(duthost,
                        tgen_ports,
@@ -239,9 +224,6 @@ def duthost_bgp_config(duthost,
         multipath: ECMP value for BGP config
         route_type: IPv4 or IPv6 routes
     """
-    duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     global temp_tg_port
     temp_tg_port = tgen_ports
     for i in range(0, port_count):
@@ -327,7 +309,7 @@ def __tgen_bgp_config(snappi_api,
         route_type: IPv4 or IPv6 routes
         skip_duthost_bgp_config: boolean (true) if DUT is preconfigured
     """
-    global NG_LIST    # noqa: F824
+    global NG_LIST  # noqa: F824
     config = snappi_api.config()
 
     if skip_duthost_bgp_config and port_count > 0:
@@ -356,19 +338,25 @@ def __tgen_bgp_config(snappi_api,
         else:
             m = hex(i).split('0x')[1]
         c_lag.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+        c_lag.protocol.lacp.actor_system_priority = int(1)
+        c_lag.protocol.lacp.actor_key = int(1)
         lp.ethernet.name = "lag_Ethernet %s" % i
         lp.ethernet.mac = "00:10:01:00:00:%s" % m
+        lp.lacp.actor_port_number = int(1)
+        lp.lacp.actor_port_priority = int(1)
         config.devices.device(name='Topology %d' % i)
 
     config.options.port_options.location_preemption = True
-    layer1 = config.layer1.layer1()[-1]
-    layer1.name = 'port settings'
-    layer1.port_names = [port.name for port in config.ports]
-    layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = False
-    layer1.auto_negotiation.link_training = False
-    layer1.speed = temp_tg_port[0]['speed']
-    layer1.auto_negotiate = False
+    for index, port_data in enumerate(temp_tg_port):
+        layer1 = config.layer1.layer1()[-1]
+        layer1.name = f"{index}_settings"
+        layer1.port_names = [config.ports[index].name]
+        layer1.speed = port_data['speed']
+        layer1.ieee_media_defaults = False
+        layer1.auto_negotiation.rs_fec = port_data.get('fec', False)
+        layer1.auto_negotiation.link_training = port_data.get('link_training', False)
+        layer1.speed = port_data['speed']
+        layer1.auto_negotiate = port_data.get('autoneg', False)
 
     def create_v4_topo():
         eth = config.devices[0].ethernets.add()
@@ -673,7 +661,7 @@ def get_convergence_for_local_link_failover(snappi_api,
             cs = snappi_api.control_state()
             cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
             snappi_api.set_control_state(cs)
-            wait(TIMEOUT-10, "For Traffic To Stop")
+            wait(TIMEOUT, "For Traffic To Stop")
         table.append('%s Link Failure' % port_name)
         table.append(route_type)
         table.append(number_of_routes)
@@ -822,7 +810,6 @@ def get_rib_in_convergence(snappi_api,
     # Outstanding sonic-mgmt issue 23744.
     logger.info('Setting AS-SEQ manually via restPy')
     ix = snappi_api._ixnetwork
-
     for topo in ix.Topology.find():
         for dg in topo.DeviceGroup.find():
             for ng in dg.NetworkGroup.find():
@@ -948,14 +935,16 @@ def get_RIB_IN_capacity(snappi_api,
             config.devices.device(name='Topology %d' % i)
 
         config.options.port_options.location_preemption = True
-        layer1 = config.layer1.layer1()[-1]
-        layer1.name = 'port settings'
-        layer1.port_names = [port.name for port in config.ports]
-        layer1.ieee_media_defaults = False
-        layer1.auto_negotiation.rs_fec = False
-        layer1.auto_negotiation.link_training = False
-        layer1.speed = temp_tg_port[0]['speed']
-        layer1.auto_negotiate = False
+        for index, port_data in enumerate(temp_tg_port):
+            layer1 = config.layer1.layer1()[-1]
+            layer1.name = f"{index}_settings"
+            layer1.port_names = [config.ports[index].name]
+            layer1.speed = port_data['speed']
+            layer1.ieee_media_defaults = False
+            layer1.auto_negotiation.rs_fec = port_data.get('fec', False)
+            layer1.auto_negotiation.link_training = port_data.get('link_training', False)
+            layer1.speed = port_data['speed']
+            layer1.auto_negotiate = port_data.get('autoneg', False)
 
         def create_v4_topo():
             eth = config.devices[0].ethernets.add()
@@ -1106,13 +1095,13 @@ def get_RIB_IN_capacity(snappi_api,
                 cs = snappi_api.control_state()
                 cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
                 snappi_api.set_control_state(cs)
-                wait(TIMEOUT-20, "For Traffic To stop")
+                wait(TIMEOUT, "For Traffic To stop")
                 break
             logger.info('Stopping Traffic')
             cs = snappi_api.control_state()
             cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
             snappi_api.set_control_state(cs)
-            wait(TIMEOUT-20, "For Traffic To stop")
+            wait(TIMEOUT, "For Traffic To stop")
         routes = []
         routes.append(b+int(step_value/8))
         routes.append(b+int(step_value/4))
@@ -1133,32 +1122,16 @@ def get_RIB_IN_capacity(snappi_api,
             cs = snappi_api.control_state()
             cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
             snappi_api.set_control_state(cs)
-            wait(TIMEOUT-20, "For Traffic To stop")
+            wait(TIMEOUT, "For Traffic To stop")
             """ Stopping Protocols """
             logger.info("Stopping all protocols ...")
             cs = snappi_api.control_state()
             cs.protocol.all.state = cs.protocol.all.START
             snappi_api.set_control_state(cs)
-            wait(TIMEOUT-20, "For Protocols To STOP")
+            wait(TIMEOUT, "For Protocols To STOP")
     except Exception as e:
         logger.info(e)
     finally:
         columns = ['Test Name', 'Maximum no. of Routes']
         logger.info("\n%s" % tabulate(
             [['RIB-IN Capacity Test', max_routes]], headers=columns, tablefmt="psql"))
-
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-    logger.info('Convergence Test Completed')

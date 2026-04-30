@@ -784,7 +784,7 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
     return result if result else None
 
 
-def check_if_ports_are_members_of_portchannel_or_vlan(duthost, snappi_ports):
+def convert_to_routed_port(duthost, snappi_ports):
     """
     Checks if the ports defined in links.csv is part of vlan or portchannel and
     removes them from the respective vlan/portchannel to avoid any conflict while testing with snappi.
@@ -846,6 +846,7 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
         duthost (pytest fixture): duthost fixture
+        get_snappi_ports (pytest fixture): snappi ports
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
     Return:
@@ -885,17 +886,14 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
         pytest_assert(tgen_ports_list is not None,
                       'Failed to build tgen_ports from port-channel (PORTCHANNEL_INTERFACE / PORTCHANNEL_MEMBER)')
         return tgen_ports_list
-
     gs = get_snappi_ports
-    check_if_ports_are_members_of_portchannel_or_vlan(duthost, gs)
+    convert_to_routed_port(duthost, gs)
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                              dut_hostname=duthost.hostname)
     pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
-
     dut_port_table = config_facts.get('PORT', {})
-
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     for snappi_fanout in snappi_fanouts:
         snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
