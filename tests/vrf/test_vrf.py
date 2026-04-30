@@ -150,7 +150,6 @@ def get_vrf_ports(cfg_facts):
             "but requires further debugging on topologies with PortChannel."
         )
     pc_member = list(cfg_facts.get("PORTCHANNEL_MEMBER", {}).keys())
-    pc_member = list(cfg_facts["PORTCHANNEL_MEMBER"].keys())
     member = vlan_member + pc_member
 
     vrf_intf_member_port_indices = {}
