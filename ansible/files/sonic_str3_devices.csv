@@ -36,7 +36,7 @@ str3-8101-fanout-11,10.64.247.60/26,Cisco-8101-O32,FanoutLeaf,,
 str3-8101-fanout-12,10.64.247.61/26,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-22,10.3.146.151/24,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-23,10.3.146.14/24,Cisco-8101-C64,FanoutLeaf,,
-str3-8101-fanout-24,10.3.146.44/24,Cisco-8101-C64,FanoutLeaf,,
+str3-8101-fanout-24,10.3.146.44/24,Cisco-8101-O32,FanoutLeaf,,
 str3-8101-fanout-25,10.3.146.28/24,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-26,10.3.146.87/24,Cisco-8101-O32,FanoutLeaf,,
 str3-8101-fanout-27,10.3.146.33/24,Cisco-8101-O8C48,FanoutLeaf,,
@@ -210,8 +210,8 @@ str3-cisco-8102-E04-U26-dpu-4,10.3.156.99/27,Pensando-elba,DevSonic,,sonic
 str3-cisco-8102-E04-U26-dpu-5,10.3.156.99/27,Pensando-elba,DevSonic,,sonic
 str3-cisco-8102-E04-U26-dpu-6,10.3.156.99/27,Pensando-elba,DevSonic,,sonic
 str3-cisco-8102-E04-U26-dpu-7,10.3.156.99/27,Pensando-elba,DevSonic,,sonic
-str3-7280r4-ut2-1,10.64.246.133/25,Arista-7280R4K-32QF-32DF-64O,DevSonic,,sonic
-str3-7280r4-ut2-2,10.64.247.2/26,Arista-7280R4K-32QF-32DF-64O,DevSonic,,sonic
+str3-7280r4-ut2-1,10.3.152.113/26,Arista-7280R4K-32QF-32DF-64O,DevSonic,,sonic
+str3-7280r4-ut2-2,10.3.152.113/26,Arista-7280R4K-32QF-32DF-64O,DevSonic,,sonic
 str5-Nokia-7220-Th6p-1,10.3.154.233/27,Nokia-IXR7220-H6-O256,DevSonic,,sonic
 str5-Nokia-7220-Th6p-2,10.3.154.234/27,Nokia-IXR7220-H6-O256,DevSonic,,sonic
 str43-0101-0200-01lt2,10.3.150.250/27,Micas-W6950-P128,DevSonic,,sonic

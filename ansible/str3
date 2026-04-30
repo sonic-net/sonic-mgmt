@@ -2868,7 +2868,7 @@ sonic_arista_7280r4_400G:
       switchids: [0]
       serial: SSN25462003
       base_mac: b8:a1:b8:a4:30:1d
-      ansible_host: 10.3.152.69
+      ansible_host: 10.3.152.113
       ansible_hostv6:
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
@@ -2893,7 +2893,7 @@ sonic_arista_7280r4_400G:
       switchids: [0]
       serial: SSN25462004
       base_mac: b8:a1:b8:a4:31:9e
-      ansible_host: 10.3.152.70
+      ansible_host: 10.3.152.114
       ansible_hostv6:
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
