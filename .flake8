@@ -12,3 +12,7 @@ exclude =
     # Generated proto code
     tests/gnmi/protos/**/*.py
     tests/common/sai_validation/gnmi*.py
+    # Vendored Cisco migration scripts (do not modify in-place; see
+    # tests/conversion/files/common/README.md update policy)
+    tests/conversion/files/common/sonic_migration_xr.py
+    tests/conversion/files/common/sonic-migutil.py
