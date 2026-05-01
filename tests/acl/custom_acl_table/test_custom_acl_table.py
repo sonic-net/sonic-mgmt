@@ -115,8 +115,8 @@ def remove_dataacl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
 
 
 def setup_and_cleanup_custom_acl_table(rand_selected_dut, rand_unselected_dut, tbinfo,
-                                        table_type_src_file, table_type_dst_file,
-                                        table_name, table_type_name, is_ipv6=False):
+                                       table_type_src_file, table_type_dst_file,
+                                       table_name, table_type_name, is_ipv6=False):
     """Helper function to setup and cleanup custom ACL table"""
     # Define custom table type by loading json configuration
     rand_selected_dut.copy(src=table_type_src_file, dest=table_type_dst_file)
@@ -186,7 +186,7 @@ def setup_custom_acl_table_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo):
 
 
 def setup_and_cleanup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, 
-                                 rule_file, dest_file, table_name, is_ipv6=False):
+                                rule_file, dest_file, table_name, is_ipv6=False):
     """Helper function to setup and cleanup ACL rules for a given table"""
     # Copy and load acl rules
     rand_selected_dut.copy(src=rule_file, dest=dest_file)
