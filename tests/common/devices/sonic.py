@@ -3240,13 +3240,21 @@ print(device_prefix)
         ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
         ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
 
-        mgmt_interface = self.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        # Use 'ip addr' instead of 'show ip[v6] interface' because the latter
+        # filters out site-local v6 addresses (fec0::/10) that may legitimately
+        # be configured as mgmt.
+        mgmt_interface = self.shell(
+            "ip -4 -o addr show eth0 scope global", module_ignore_errors=True
+        )["stdout"]
         if mgmt_interface:
             match = ipv4_regex.search(mgmt_interface)
             if match:
                 return {"mgmt_ip": match.group(1), "version": "v4"}
 
-        mgmt_interface = self.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        # Exclude link-local (fe80::/10) — not routable, can't be the mgmt addr.
+        mgmt_interface = self.shell(
+            "ip -6 -o addr show eth0 | grep -v 'scope link'", module_ignore_errors=True
+        )["stdout"]
         if mgmt_interface:
             match = ipv6_regex.search(mgmt_interface)
             if match:
