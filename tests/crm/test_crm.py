@@ -441,7 +441,7 @@ def generate_neighbors(amount, ip_ver):
     return ip_addr_list
 
 
-def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
+def configure_nexthop_groups(amount, interface, duthost, asichost, test_name, chunk_size):
     """ Configure bunch of nexthop groups on DUT. Bash template is used to speedup configuration """
     del_template = """
     %s
@@ -483,8 +483,8 @@ def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
     ip_addr_list = generate_neighbors(amount + 1, "4")
     remaining_ips = ip_addr_list[1:]
     all_ips_str = " ".join([str(item) for item in remaining_ips])
-    ip_batches = [remaining_ips[i:i + NHG_CONFIG_CHUNK_SIZE]
-                  for i in range(0, len(remaining_ips), NHG_CONFIG_CHUNK_SIZE)]
+    ip_batches = [remaining_ips[i:i + chunk_size]
+                  for i in range(0, len(remaining_ips), chunk_size)]
 
     RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
                                                        neigh_ip_list=all_ips_str,
@@ -498,7 +498,7 @@ def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
                          "crm_stats_ipv4_neighbor_available".format(asichost.sonic_db_cli)
     neighbor_used_before, _ = get_crm_stats(get_neighbor_stats, duthost)
 
-    logger.info("Phase 1: Adding {} neighbors in batches of {}".format(amount, NHG_CONFIG_CHUNK_SIZE))
+    logger.info("Phase 1: Adding {} neighbors in batches of {}".format(amount, chunk_size))
     for ip_batch in ip_batches:
         ip_batch_str = " ".join([str(item) for item in ip_batch])
         asichost.shell(neigh_template.render(iface=interface,
@@ -513,7 +513,7 @@ def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
                                 oper_used=">=", timeout=60, interval=5)
 
     # Phase 2: add routes now that all neighbors are confirmed in HW
-    logger.info("Phase 2: Adding {} routes in batches of {}".format(amount, NHG_CONFIG_CHUNK_SIZE))
+    logger.info("Phase 2: Adding {} routes in batches of {}".format(amount, chunk_size))
     for ip_batch in ip_batches:
         ip_batch_str = " ".join([str(item) for item in ip_batch])
         asichost.shell(route_template.render(iface=interface,
@@ -1165,10 +1165,13 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
+        # Configure Mellanox in smaller batches to avoid dropping kernel neighbor messages under load.
+        chunk_size = NHG_CONFIG_CHUNK_SIZE if asic_type == "mellanox" else nexthop_group_num
+
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_nexthop_groups(amount=nexthop_group_num, interface=crm_interface[0],
-                                 duthost=duthost, asichost=asichost,
-                                 test_name="test_crm_nexthop_group")
+                                  duthost=duthost, asichost=asichost,
+                                  test_name="test_crm_nexthop_group", chunk_size=chunk_size)
 
         # Wait for nexthop group resources to stabilize using polling
         expected_nhg_used = new_nexthop_group_used + nexthop_group_num - CRM_COUNTER_TOLERANCE
