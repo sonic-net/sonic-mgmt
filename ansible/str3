@@ -6,6 +6,8 @@ all:
         fanout:
         server:
         pdu:
+        l1_switch:
+
     ptf:
       vars:
         ansible_ssh_user: root
@@ -2953,3 +2955,20 @@ server:
     str3-acs-serv-77:
       ansible_host: 10.3.146.212
       ansible_hostv6: fe80::cac4b:d6ff:feaf:23d5
+
+l1_switch:
+  hosts:
+    str-ocs-dlx64-acs-06:
+      ansible_host: 10.64.247.51
+      mgmt_subnet_mask_length: 26
+    str-ocs-dlx64-acs-07:
+      ansible_host: 10.64.247.54
+      mgmt_subnet_mask_length: 26
+    str-ocs-dlx64-acs-12:
+      ansible_host: 10.64.246.53
+    str-ocs-dlx64-acs-13:
+      ansible_host: 10.64.246.76
+    str-ocs-dlx64-acs-14:
+      ansible_host: 10.64.246.81
+  vars:
+    mgmt_subnet_mask_length: 25

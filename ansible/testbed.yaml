@@ -415,9 +415,35 @@
   vm_base: VM61104
   dut:
   - str3-8101-04
+  test_tags: []
+  l1s:
+  - str-ocs-dlx64-acs-12
+  tgs:
+  - str3-8101-fanout-28
+  - str3-8101-fanout-01
   inv_name: str3
   auto_recover: 'True'
   comment: yawenni
+
+- conf-name: vms20-rdma-t1-8101
+  group-name: vms61-4
+  topo: tgen-t1-3-l25
+  ptf_image_name: docker-keysight-api-server
+  ptf_imagetag: 10.80.2412.176
+  ptf: ixia-apiserver4
+  ptf_ip: 10.64.246.126/25
+  server: server_20
+  vm_base:
+  dut:
+  - str3-8101-04
+  test_tags: []
+  l1s:
+  - str-ocs-dlx64-acs-12
+  tgs:
+  - msr-ixia-5
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: dashuaizhang
 
 - conf-name: vms21-t1-8101c1-06
   group-name: vms21-5

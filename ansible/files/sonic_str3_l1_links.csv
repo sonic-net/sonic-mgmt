@@ -1,0 +1,9 @@
+StartDevice,StartPort,EndDevice,EndPort
+str3-8101-04,Ethernet104,str-ocs-dlx64-acs-12,25
+str3-8101-04,Ethernet112,str-ocs-dlx64-acs-12,26
+str3-8101-04,Ethernet120,str-ocs-dlx64-acs-12,27
+str3-8101-04,Ethernet128,str-ocs-dlx64-acs-12,28
+str3-8101-fanout-28,Ethernet104,str-ocs-dlx64-acs-12,29
+str3-8101-fanout-28,Ethernet112,str-ocs-dlx64-acs-12,30
+str3-8101-fanout-28,Ethernet120,str-ocs-dlx64-acs-12,31
+str3-8101-fanout-28,Ethernet128,str-ocs-dlx64-acs-12,32

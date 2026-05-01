@@ -78,6 +78,13 @@ str3-7808-sup-2,10.64.246.61/25,Arista-7808R3A-FM,DevSonic,,sonic
 str3-7800-lc3-2,10.64.246.31/25,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 str3-7800-lc4-2,10.64.246.18/25,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 str3-z9332f-01,10.64.246.15/25,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
+msr-ixia-4,10.3.145.39/32,IXIA-tester,DevIxiaChassis,,,
+msr-ixia-5,10.3.145.38/32,IXIA-tester,DevIxiaChassis,,,
+str-ocs-dlx64-acs-06,10.64.247.51/26,DLXA64B64HNLA1MS,FanoutL1Sonic,,,
+str-ocs-dlx64-acs-07,10.64.247.54/26,DLXA64B64HNLA1MS,FanoutL1Sonic,,,
+str-ocs-dlx64-acs-12,10.64.246.53/25,DLXA64B64HNLA1MS,FanoutL1Sonic,,,
+str-ocs-dlx64-acs-13,10.64.246.76/25,DLXA64B64HNLA1MS,FanoutL1Sonic,,,
+str-ocs-dlx64-acs-14,10.64.246.81/25,DLXA64B64HNLA1MS,FanoutL1Sonic,,,
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
 pdu-88,10.3.154.86,ApcRPDU,Pdu,snmp,
