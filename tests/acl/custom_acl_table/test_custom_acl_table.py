@@ -501,6 +501,3 @@ def build_testing_pkts_ipv6(router_mac):
     )
 
     return test_packets
-
-
-
