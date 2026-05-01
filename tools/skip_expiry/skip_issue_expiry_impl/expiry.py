@@ -20,6 +20,14 @@ class ManagedState:
     at: Optional[datetime] = None
 
 
+@dataclass
+class IssueEvaluation:
+    issue_payload: Dict[str, object]
+    created_at: datetime
+    expiry_at: datetime
+    expired_now: bool
+
+
 class SkipExpiryManager:
     """Handles issue expiry transition logic for skip/xfail tracked issues."""
 
@@ -35,11 +43,11 @@ class SkipExpiryManager:
         self.bot_login = bot_login
         self.no_op = no_op
 
-    def process_issue(self, issue_ref: IssueRef) -> None:
-        issue = self.api_client.get_issue(issue_ref)
-
-        if issue.get("state") != "open":
+    def process_issue(self, issue_ref: IssueRef) -> Optional[IssueEvaluation]:
+        evaluation = self.evaluate_issue(issue_ref)
+        if evaluation is None:
             if self.no_op:
+                issue = self.api_client.get_issue(issue_ref)
                 created_at = self._parse_github_timestamp(issue.get("created_at"))
                 created_text = created_at.isoformat() if created_at else "unknown"
                 logger.info(
@@ -47,18 +55,16 @@ class SkipExpiryManager:
                     issue_ref.html_url,
                     created_text,
                 )
-                return
+                return None
 
             logger.info("Skipping closed issue %s", issue_ref.html_url)
-            return
+            return None
+
+        issue = evaluation.issue_payload
+        created_at = evaluation.created_at
+        expired_now = evaluation.expired_now
 
         timeline = self.api_client.get_issue_timeline(issue_ref)
-        created_at = self._resolve_created_at(timeline, issue.get("created_at"))
-        if not created_at:
-            logger.error("Unable to determine created_at for %s; skipping", issue_ref.html_url)
-            return
-
-        expired_now = self._is_expired(created_at)
         managed_state = self._resolve_managed_state(timeline, self.api_client.get_issue_comments(issue_ref))
         labels = {label.get("name") for label in issue.get("labels", []) if isinstance(label, dict)}
         action = self._determine_action(expired_now, labels, managed_state)
@@ -71,7 +77,7 @@ class SkipExpiryManager:
                 expired_now,
                 action,
             )
-            return
+            return evaluation
 
         logger.info(
             "Issue %s created %s, expired_now=%s, managed_state=%s, action=%s",
@@ -84,9 +90,30 @@ class SkipExpiryManager:
 
         if expired_now:
             self._handle_expired_transition(issue_ref, labels, managed_state)
-            return
+            return evaluation
 
         self._handle_active_transition(issue_ref, labels, managed_state)
+        return evaluation
+
+    def evaluate_issue(self, issue_ref: IssueRef) -> Optional[IssueEvaluation]:
+        issue = self.api_client.get_issue(issue_ref)
+        if issue.get("state") != "open":
+            return None
+
+        timeline = self.api_client.get_issue_timeline(issue_ref)
+        created_at = self._resolve_created_at(timeline, issue.get("created_at"))
+        if not created_at:
+            logger.error("Unable to determine created_at for %s; skipping", issue_ref.html_url)
+            return None
+
+        expiry_at = created_at + timedelta(days=self.config.expiry_days)
+        expired_now = self._is_expired(created_at)
+        return IssueEvaluation(
+            issue_payload=issue,
+            created_at=created_at,
+            expiry_at=expiry_at,
+            expired_now=expired_now,
+        )
 
     def _handle_expired_transition(self, issue_ref: IssueRef, labels: set, managed_state: ManagedState) -> None:
         if managed_state.value == "expired":

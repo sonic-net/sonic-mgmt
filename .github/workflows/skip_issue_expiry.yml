@@ -38,7 +38,9 @@ jobs:
       - name: Run skip issue expiry workflow
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_ID: ${{ secrets.PROJECT_ID }}
           SKIP_EXPIRY_BOT_LOGIN: github-actions[bot]
+          SKIP_EXPIRY_REPORT_DRY_RUN: ${{ github.event.inputs.no_op == 'true' && 'true' || 'false' }}
           NO_OP_FLAG: ${{ github.event.inputs.no_op == 'true' && '--no-op' || '' }}
         run: |
           python tools/skip_expiry/run_skip_issue_expiry.py \
