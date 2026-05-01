@@ -58,6 +58,7 @@ class TestReportData:
     current_status: str
     issue_url: str
     owner: str
+    fields: Dict[str, object]
 
 
 class ProjectV2Reporter:
@@ -320,7 +321,51 @@ class ProjectV2Reporter:
             },
         )
 
+    def _clear_field_value(self, item_id: str, field_name: str) -> None:
+        field = self._field(field_name)
+        if not field:
+            logger.warning("Project field '%s' not found; skipping clear", field_name)
+            return
+
+        field_id = field.get("id")
+        if not field_id:
+            logger.warning("Project field '%s' has no id; skipping clear", field_name)
+            return
+
+        if self.dry_run:
+            logger.info("[DRY-RUN] clear field %s for item %s", field_name, item_id)
+            return
+
+        mutation = """
+        mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!) {
+          clearProjectV2ItemFieldValue(
+            input: {
+              projectId: $projectId,
+              itemId: $itemId,
+              fieldId: $fieldId
+            }
+          ) {
+            projectV2Item {
+              id
+            }
+          }
+        }
+        """
+
+        self.graphql_request(
+            mutation,
+            {
+                "projectId": self.project_id,
+                "itemId": item_id,
+                "fieldId": field_id,
+            },
+        )
+
     def _update_date_field(self, item_id: str, field_name: str, value: str) -> None:
+        if not str(value or "").strip():
+            self._clear_field_value(item_id, field_name)
+            return
+
         field = self._field(field_name)
         if not field:
             logger.warning("Project field '%s' not found; skipping update", field_name)
@@ -417,6 +462,137 @@ class ProjectV2Reporter:
         logger.warning("No current_status single-select option found for '%s'; trying text update", status_value)
         self._update_text_field(item_id, "current_status", status_value)
 
+    def _update_number_field(self, item_id: str, field_name: str, value: float) -> None:
+        field = self._field(field_name)
+        if not field:
+            logger.warning("Project field '%s' not found; skipping update", field_name)
+            return
+
+        field_id = field.get("id")
+        if not field_id:
+            logger.warning("Project field '%s' has no id; skipping update", field_name)
+            return
+
+        if self.dry_run:
+            logger.info("[DRY-RUN] update number field %s for item %s", field_name, item_id)
+            return
+
+        mutation = """
+        mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $numberValue: Float!) {
+          updateProjectV2ItemFieldValue(
+            input: {
+              projectId: $projectId,
+              itemId: $itemId,
+              fieldId: $fieldId,
+              value: { number: $numberValue }
+            }
+          ) {
+            projectV2Item {
+              id
+            }
+          }
+        }
+        """
+
+        self.graphql_request(
+            mutation,
+            {
+                "projectId": self.project_id,
+                "itemId": item_id,
+                "fieldId": field_id,
+                "numberValue": float(value),
+            },
+        )
+
+    def _update_single_select_field(self, item_id: str, field_name: str, value: str) -> None:
+        field = self._field(field_name)
+        if not field:
+            logger.warning("Project field '%s' not found; skipping update", field_name)
+            return
+
+        field_id = field.get("id")
+        if not field_id:
+            logger.warning("Project field '%s' has no id; skipping update", field_name)
+            return
+
+        option_id = None
+        for option in field.get("options") or []:
+            if not isinstance(option, dict):
+                continue
+            if (option.get("name") or "").strip().lower() == value.lower():
+                option_id = option.get("id")
+                break
+
+        if not option_id:
+            logger.warning("No single-select option found for field '%s' value '%s'", field_name, value)
+            self._update_text_field(item_id, field_name, value)
+            return
+
+        if self.dry_run:
+            logger.info("[DRY-RUN] update single-select field %s for item %s", field_name, item_id)
+            return
+
+        mutation = """
+        mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+          updateProjectV2ItemFieldValue(
+            input: {
+              projectId: $projectId,
+              itemId: $itemId,
+              fieldId: $fieldId,
+              value: { singleSelectOptionId: $optionId }
+            }
+          ) {
+            projectV2Item {
+              id
+            }
+          }
+        }
+        """
+
+        self.graphql_request(
+            mutation,
+            {
+                "projectId": self.project_id,
+                "itemId": item_id,
+                "fieldId": field_id,
+                "optionId": option_id,
+            },
+        )
+
+    def _update_generic_field(self, item_id: str, field_name: str, value: object) -> None:
+        if value is None or value == "":
+            self._clear_field_value(item_id, field_name)
+            return
+
+        field = self._field(field_name)
+        if not field:
+            logger.warning("Project field '%s' not found; skipping update", field_name)
+            return
+
+        data_type = str(field.get("dataType") or "").upper()
+        if data_type == "DATE":
+            self._update_date_field(item_id, field_name, str(value))
+            return
+        if data_type == "NUMBER":
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                logger.warning("Invalid numeric value for field '%s': %r", field_name, value)
+                return
+            self._update_number_field(item_id, field_name, numeric)
+            return
+        if data_type == "SINGLE_SELECT":
+            self._update_single_select_field(item_id, field_name, str(value))
+            return
+
+        if isinstance(value, bool):
+            self._update_text_field(item_id, field_name, "true" if value else "false")
+            return
+        if isinstance(value, list):
+            self._update_text_field(item_id, field_name, ", ".join(str(item) for item in value))
+            return
+        self._update_text_field(item_id, field_name, str(value))
+
     def update_project_item(self, item_id: str, test_data: TestReportData) -> None:
         if not item_id:
             self.skipped_count += 1
@@ -428,6 +604,8 @@ class ProjectV2Reporter:
         self._update_text_field(item_id, "issue_url", test_data.issue_url)
         self._update_text_field(item_id, "owner", test_data.owner)
         self._update_text_field(item_id, "test_id", test_data.test_id)
+        for field_name, field_value in test_data.fields.items():
+            self._update_generic_field(item_id, field_name, field_value)
         self.updated_count += 1
         logger.info("Updated project row for test_id=%s", test_data.test_id)
 

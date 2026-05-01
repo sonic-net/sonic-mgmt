@@ -1,15 +1,16 @@
 import argparse
 from contextlib import contextmanager
+from datetime import datetime, timezone
 import logging
 import os
 from pathlib import Path
-from typing import Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from reporting import TestReportData, create_reporter_from_env
 
-from .conditional_marks import collect_issue_test_mapping_from_conditional_marks
+from .conditional_marks import collect_report_entries_from_conditional_marks
 from .config import load_skip_expiry_config
-from .expiry import SkipExpiryManager
+from .expiry import IssueEvaluation, SkipExpiryManager
 from .github_api import GitHubApiClient
 from .models import IssueRef
 
@@ -89,6 +90,156 @@ def _derive_title_from_test_id(test_id: str) -> str:
     return normalized
 
 
+def _parse_github_timestamp(raw_ts: object) -> Optional[datetime]:
+    if not isinstance(raw_ts, str) or not raw_ts:
+        return None
+    try:
+        return datetime.fromisoformat(raw_ts.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def _compute_days_delta(target: Optional[datetime], now: datetime) -> Optional[int]:
+    if target is None:
+        return None
+    return int((target - now).total_seconds() // 86400)
+
+
+def _expiry_bucket(days_to_expiry: Optional[int], current_status: str) -> str:
+    if current_status == "expired":
+        return "expired"
+    if days_to_expiry is None:
+        return "unknown"
+    if days_to_expiry <= 1:
+        return "0-1d"
+    if days_to_expiry <= 7:
+        return "1-7d"
+    if days_to_expiry <= 15:
+        return "7-15d"
+    if days_to_expiry <= 30:
+        return "15-30d"
+    return ">30"
+
+
+def _normalize_condition_file(condition_file: str, repo_root: Path) -> str:
+    raw = Path(condition_file)
+    try:
+        return str(raw.resolve().relative_to(repo_root))
+    except Exception:
+        return condition_file
+
+
+def _build_report_row(
+    entry: Dict[str, Any],
+    issue_ref: Optional[IssueRef],
+    evaluation: Optional[IssueEvaluation],
+    source_repo: str,
+    warning_days: int,
+    default_maintainer: str,
+    maintainer_map: Dict[str, str],
+    repo_root: Path,
+    now: datetime,
+) -> TestReportData:
+    test_id = str(entry.get("test_id") or "").strip()
+    test_category = str(entry.get("test_category") or "unknown").strip().lower()
+    is_cross_repo = bool(issue_ref and f"{issue_ref.owner}/{issue_ref.repo}".lower() != source_repo.lower())
+
+    issue_payload = evaluation.issue_payload if evaluation else {}
+    issue_state = str(issue_payload.get("state") or "").lower() if issue_payload else ""
+    current_status = "unknown"
+    if bool(entry.get("no_issue_linked")):
+        current_status = "no_issue_linked"
+    elif issue_state == "closed":
+        current_status = "skip_closed"
+    elif evaluation and evaluation.expired_now:
+        current_status = "expired"
+    elif issue_state == "open":
+        current_status = "not expired"
+
+    issue_created_at_raw = issue_payload.get("created_at") if issue_payload else None
+    issue_closed_at_raw = issue_payload.get("closed_at") if issue_payload else None
+    issue_updated_at_raw = issue_payload.get("updated_at") if issue_payload else None
+
+    issue_created_at = _parse_github_timestamp(issue_created_at_raw)
+    age_days = _compute_days_delta(issue_created_at, now)
+    if age_days is not None:
+        age_days = max(0, -age_days)
+
+    days_to_expiry = _compute_days_delta(evaluation.expiry_at if evaluation else None, now)
+    expiry_date = evaluation.expiry_at.date().isoformat() if evaluation and evaluation.expiry_at else ""
+    expiry_bucket = _expiry_bucket(days_to_expiry, current_status)
+
+    issue_assignees: List[str] = []
+    for assignee in issue_payload.get("assignees") or []:
+        if isinstance(assignee, dict):
+            login = str(assignee.get("login") or "").strip()
+            if login:
+                issue_assignees.append(login)
+
+    issue_author = ""
+    if isinstance(issue_payload.get("user"), dict):
+        issue_author = str((issue_payload.get("user") or {}).get("login") or "").strip()
+
+    maintainer = maintainer_map.get(test_category) or default_maintainer
+
+    last_comment_ts = None
+    if evaluation:
+        for comment in evaluation.comments:
+            comment_ts = _parse_github_timestamp(comment.get("updated_at") or comment.get("created_at"))
+            if comment_ts and (last_comment_ts is None or comment_ts > last_comment_ts):
+                last_comment_ts = comment_ts
+
+    last_updated_ts = _parse_github_timestamp(issue_updated_at_raw)
+    activity_candidates = [ts for ts in (last_updated_ts, last_comment_ts) if ts is not None]
+    latest_activity = max(activity_candidates) if activity_candidates else None
+    days_since_last_activity = None
+    if latest_activity is not None:
+        days_since_last_activity = max(0, int((now - latest_activity).total_seconds() // 86400))
+
+    no_issue_linked = bool(entry.get("no_issue_linked"))
+    needs_cleanup = bool(issue_ref is not None and issue_state == "closed")
+    needs_attention = bool(issue_state == "open" and current_status == "expired")
+    approaching_expiry = bool(days_to_expiry is not None and 0 <= days_to_expiry <= warning_days)
+
+    owner = issue_assignees[0] if issue_assignees else maintainer
+    issue_url = issue_ref.html_url if issue_ref else ""
+    repository = f"{issue_ref.owner}/{issue_ref.repo}" if issue_ref else ""
+
+    return TestReportData(
+        test_id=test_id,
+        title=_derive_title_from_test_id(test_id),
+        expiry_date=expiry_date,
+        current_status=current_status,
+        issue_url=issue_url,
+        owner=owner,
+        fields={
+            "issue_number": issue_ref.number if issue_ref else None,
+            "issue_repository": repository,
+            "issue_state": issue_state or None,
+            "issue_created_at": issue_created_at_raw,
+            "issue_closed_at": issue_closed_at_raw,
+            "age_days": age_days,
+            "days_to_expiry": days_to_expiry,
+            "expiry_bucket": expiry_bucket,
+            "maintainer": maintainer,
+            "issue_assignees": ", ".join(issue_assignees),
+            "issue_author": issue_author,
+            "condition_file": _normalize_condition_file(str(entry.get("condition_file") or ""), repo_root),
+            "test_category": test_category,
+            "is_permanent_skip": bool(entry.get("is_permanent_skip")),
+            "last_updated_at": issue_updated_at_raw,
+            "last_comment_at": last_comment_ts.isoformat() if last_comment_ts else None,
+            "days_since_last_activity": days_since_last_activity,
+            "is_cross_repo": is_cross_repo,
+            "source_repo": source_repo,
+            "needs_cleanup": needs_cleanup,
+            "needs_attention": needs_attention,
+            "approaching_expiry": approaching_expiry,
+            "no_issue_linked": no_issue_linked,
+        },
+    )
+
+
 def _resolve_reporting_token() -> str:
     for env_var in ("GITHUB_APP_TOKEN", "GH_APP_TOKEN"):
         token = os.getenv(env_var, "").strip()
@@ -159,8 +310,8 @@ def run() -> int:
         logging.getLogger(__name__).fatal("Invalid --target-repo value: %s", args.target_repo)
         return 2
 
-    issue_test_mapping = collect_issue_test_mapping_from_conditional_marks(conditional_mark_dir)
-    all_issues = sorted(issue_test_mapping.keys())
+    report_entries = collect_report_entries_from_conditional_marks(conditional_mark_dir)
+    all_issues = sorted({entry["issue_ref"] for entry in report_entries if entry.get("issue_ref") is not None})
     issues, skipped_issues = _filter_same_repo_issues(all_issues, args.target_repo)
     logging.getLogger(__name__).info(
         "Evaluating %d same-repo issue(s) from %d total reference(s) for target %s",
@@ -170,7 +321,7 @@ def run() -> int:
     )
     if skipped_issues:
         logging.getLogger(__name__).warning(
-            "Skipping %d cross-repo issue(s); workflow account may not have write access outside %s",
+            "Skipping mutation for %d cross-repo issue(s); they are still included in reporting",
             len(skipped_issues),
             args.target_repo,
         )
@@ -192,42 +343,51 @@ def run() -> int:
         logging.getLogger(__name__).info("Project V2 reporting is disabled")
 
     had_errors = False
+    issue_evaluations: Dict[IssueRef, Optional[IssueEvaluation]] = {}
+    source_repo = f"{_normalize_repo_name(args.target_repo)[0]}/{_normalize_repo_name(args.target_repo)[1]}"
+    now = datetime.now(timezone.utc)
+    default_maintainer = config.maintainers[0] if config.maintainers else ""
+
     for issue_ref in issues:
         try:
             evaluation = manager.process_issue(issue_ref)
-            if reporter and evaluation:
-                assignees = evaluation.issue_payload.get("assignees") or []
-                owner = ""
-                if isinstance(assignees, list) and assignees:
-                    first_assignee = assignees[0]
-                    if isinstance(first_assignee, dict):
-                        owner = str(first_assignee.get("login") or "").strip()
-
-                status_text = "expired" if evaluation.expired_now else "active"
-                expiry_date = evaluation.expiry_at.date().isoformat()
-                for test_mark in issue_test_mapping.get(issue_ref, []):
-                    test_id = str(test_mark.get("test_id") or "").strip()
-                    if not test_id:
-                        logging.getLogger(__name__).info(
-                            "Skipping project upsert for issue %s due to missing test_id",
-                            issue_ref.html_url,
-                        )
-                        continue
-
-                    with _reporting_auth_env(reporting_token):
-                        reporter.upsert_project_item(
-                            TestReportData(
-                                test_id=test_id,
-                                title=_derive_title_from_test_id(test_id),
-                                expiry_date=expiry_date,
-                                current_status=status_text,
-                                issue_url=issue_ref.html_url,
-                                owner=owner,
-                            )
-                        )
+            issue_evaluations[issue_ref] = evaluation
         except Exception:  # pragma: no cover - runtime protection
             had_errors = True
+            issue_evaluations[issue_ref] = None
             logging.getLogger(__name__).exception("Failed to process %s", issue_ref.html_url)
+
+    if reporter:
+        for issue_ref in skipped_issues:
+            try:
+                issue_evaluations[issue_ref] = manager.evaluate_issue(issue_ref)
+            except Exception:  # pragma: no cover - runtime protection
+                issue_evaluations[issue_ref] = None
+                had_errors = True
+                logging.getLogger(__name__).exception("Failed to evaluate cross-repo issue %s", issue_ref.html_url)
+
+        for entry in report_entries:
+            test_id = str(entry.get("test_id") or "").strip()
+            if not test_id:
+                logging.getLogger(__name__).info("Skipping project upsert for row with missing test_id")
+                continue
+
+            issue_ref = entry.get("issue_ref")
+            evaluation = issue_evaluations.get(issue_ref) if isinstance(issue_ref, IssueRef) else None
+            row = _build_report_row(
+                entry=entry,
+                issue_ref=issue_ref if isinstance(issue_ref, IssueRef) else None,
+                evaluation=evaluation,
+                source_repo=source_repo,
+                warning_days=config.warning_days,
+                default_maintainer=default_maintainer,
+                maintainer_map=config.maintainer_map,
+                repo_root=repo_root,
+                now=now,
+            )
+
+            with _reporting_auth_env(reporting_token):
+                reporter.upsert_project_item(row)
 
     if reporter:
         with _reporting_auth_env(reporting_token):
