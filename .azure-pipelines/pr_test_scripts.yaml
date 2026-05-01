@@ -632,6 +632,7 @@ t1-lag:
 
 t1-lag-vpp:
   - acl/test_acl.py
+  - acl/test_stress_acl.py
   - arp/test_arpall.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_aging.py
@@ -678,10 +679,23 @@ t1-lag-vpp:
   - bgp/test_traffic_shift_sup.py
   - crm/test_crm.py
   - crm/test_crm_available.py
+  - disk/test_disk_exhaustion.py
+  - dns/test_dns_resolv_conf.py
+  - dns/test_static_dns.py
   - drop_packets/test_drop_counters.py
   - fib/test_fib.py
+  - gnmi/test_gnmi.py
+  - gnmi/test_gnmi_appldb.py
+  - gnmi/test_gnmi_configdb.py
+  - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnoi_os.py
+  - gnmi/test_gnoi_system.py
+  - gnmi/test_gnoi_system_reboot.py
+  - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - test_interfaces.py
+  - hash/test_generic_hash.py
   - http/test_http_copy.py
+  - iface_namingmode/test_iface_namingmode.py
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dir_bcast.py
