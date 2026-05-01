@@ -25,7 +25,7 @@ import uuid
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import (apply_patch, generate_tmpfile, delete_tmpfile,
+from tests.common.gu_utils import (generate_tmpfile, delete_tmpfile,
                                    create_checkpoint, delete_checkpoint,
                                    rollback_or_reload, expect_op_success,
                                    format_json_patch_for_multiasic)
@@ -46,7 +46,7 @@ MAX_TIMEOUT = 3600
 
 # Fixed overhead for any apply-patch invocation (seconds).
 # Accounts for config read, JSON diff, service restarts, etc.
-FIXED_OVERHEAD = 11
+FIXED_OVERHEAD = 6
 
 # Conservative fallback if loadData measurement fails (seconds).
 # Deliberately generous to avoid false failures.
@@ -111,8 +111,8 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
         key=lambda p: int(''.join(filter(str.isdigit, p)) or 0)
     )
 
-    if len(up_ports) < 8:
-        pytest.skip("Need at least 8 admin-up ports, have {}".format(len(up_ports)))
+    if len(up_ports) < 2:
+        pytest.skip("Need at least 2 admin-up ports, have {}".format(len(up_ports)))
 
     # Measure loadData baseline
     loaddata_time = _measure_loaddata_baseline(duthost)
@@ -203,13 +203,23 @@ def _compute_budget(expected_moves, loaddata_time):
 
 
 def _apply_and_measure(duthost, patch, label=""):
-    """Apply a patch and return (elapsed_seconds, output)."""
+    """Apply a patch and return (elapsed_seconds, output).
+
+    Times only the 'config apply-patch' CLI execution, excluding file
+    transfer overhead which is not part of GCU performance.
+    """
     tmpfile = generate_tmpfile(duthost)
     try:
         patch = format_json_patch_for_multiasic(duthost=duthost, json_data=patch,
                                                 is_host_specific=True)
+        # Copy patch file BEFORE timing — file transfer is not GCU performance
+        patch_content = json.dumps(patch, indent=4)
+        duthost.copy(content=patch_content, dest=tmpfile)
+
+        # Time ONLY the config apply-patch command
         start = time.time()
-        output = apply_patch(duthost, patch, tmpfile)
+        output = duthost.shell("config apply-patch {}".format(tmpfile),
+                               module_ignore_errors=True)
         elapsed = time.time() - start
         logger.info("{} apply-patch completed in {:.1f}s (rc={})".format(
             label, elapsed, output['rc']))
@@ -376,7 +386,7 @@ def test_perf_acl_rules_add(perf_ctx):
         "value": {
             "type": "L3",
             "policy_desc": "Perf test - rules",
-            "ports": up_ports[:4],
+            "ports": up_ports[:min(4, len(up_ports))],
             "stage": "ingress"
         }
     }]
@@ -459,7 +469,7 @@ def test_perf_multi_operation(perf_ctx):
             "value": {
                 "type": "L3",
                 "policy_desc": "Multi test B - to be removed",
-                "ports": up_ports[:4],
+                "ports": up_ports[:min(4, len(up_ports))],
                 "stage": "ingress"
             }
         }
