@@ -3,7 +3,6 @@
 This module contains probe-based tests for buffer threshold detection, including:
 - testQosPfcXoffProbe: PFC XOFF threshold probing
 - testQosIngressDropProbe: Ingress drop threshold probing
-- testQosEgressDropProbe: Egress drop threshold probing (lossy queue)
 - testQosHeadroomPoolProbe: Headroom pool threshold probing
 
 These tests use advanced probing algorithms to automatically detect buffer thresholds.
