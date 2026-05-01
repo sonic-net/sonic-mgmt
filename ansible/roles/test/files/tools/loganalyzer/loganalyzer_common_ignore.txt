@@ -499,3 +499,7 @@ r, ".* ERR syncd\d*#syncd: :- collectData: Failed to get port attr for VID 0x[0-
 r, ".* ERR auditd.*: queue to plugins is full - dropping event"
 r, ".* ERR auditd.*: message repeated .*: \[ queue to plugins is full - dropping event\]"
 r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped event notifications"
+
+# ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
+r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
+r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
