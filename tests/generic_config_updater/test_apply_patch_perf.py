@@ -53,7 +53,7 @@ FIXED_OVERHEAD = 10
 FALLBACK_LOADDATA_TIME = 1.0
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_front_end_hostname,
                                        loganalyzer):
     """Suppress known harmless syslog ERR messages triggered by GCU config changes."""
