@@ -211,7 +211,7 @@ dut_console/test_console_baud_rate.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_console_chassis_conn.py:
   skip:
@@ -219,7 +219,7 @@ dut_console/test_console_chassis_conn.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_escape_character.py:
   skip:
@@ -227,7 +227,7 @@ dut_console/test_escape_character.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_idle_timeout.py:
   skip:
@@ -235,7 +235,7 @@ dut_console/test_idle_timeout.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 #######################################
 #####         Everflow            #####
