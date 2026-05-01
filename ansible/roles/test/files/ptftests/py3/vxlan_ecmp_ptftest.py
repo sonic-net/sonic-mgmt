@@ -45,14 +45,16 @@ class VxlanEcmpTest(BaseTest):
                 self.mac_list = json.load(f)
         else:
             self.mac_list = params.get("mac_address", ["00:aa:bb:cc:dd:ee"] * len(self.endpoints))
-        self.mac_list = self.mac_list + [self.mac_list[-1]] * (len(self.endpoints) - len(self.mac_list))  # pad if shorter than endpoints
+        self.mac_list = self.mac_list + [self.mac_list[-1]] * \
+            (len(self.endpoints) - len(self.mac_list))  # pad if shorter than endpoints
 
         if "vni_file" in params and os.path.exists(params["vni_file"]):
             with open(params["vni_file"], "r") as f:
                 self.vni_list = json.load(f)
         else:
             self.vni_list = params.get("vni", [0] * len(self.endpoints))
-        self.vni_list = self.vni_list + [self.vni_list[-1]] * (len(self.endpoints) - len(self.vni_list))  # pad if shorter than endpoints
+        self.vni_list = self.vni_list + [self.vni_list[-1]] * \
+            (len(self.endpoints) - len(self.vni_list))  # pad if shorter than endpoints
 
         self.endpoints_mac_vni_tuple_list = list(zip(self.endpoints, self.mac_list, self.vni_list))
         self.dst_ip = params.get("dst_ip")

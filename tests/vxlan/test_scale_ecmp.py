@@ -11,7 +11,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa:F401
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.grpc_fixtures import gnmi_tls
+from tests.common.fixtures.grpc_fixtures import gnmi_tls    # noqa: F401
 
 logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -40,11 +40,11 @@ def get_loopback_ip(cfg_facts):
     pytest.fail("Cannot find IPv4 Loopback0 address in LOOPBACK_INTERFACE")
 
 
-def gnmic_set_with_bypass(gnmi_tls, path, payload, name):
+def gnmic_set_with_bypass(gnmi_tls, path, payload, name):   # noqa: F811
     gnmi_tls.gnmic.set(path, payload, metadata="x-sonic-ss-bypass-validation=true", filename=name)
 
 
-def _update_vxlan_endpoints(gnmi_tls, vnet, prefix, endpoints, vni, mac_address=None):
+def _update_vxlan_endpoints(gnmi_tls, vnet, prefix, endpoints, vni, mac_address=None):    # noqa: F811
     ep_str = ",".join(endpoints)
     logger.info(
         f"Updating VNET_ROUTE_TUNNEL {vnet}|{prefix} "
@@ -57,7 +57,7 @@ def _update_vxlan_endpoints(gnmi_tls, vnet, prefix, endpoints, vni, mac_address=
 
     gnmic_set_with_bypass(
         gnmi_tls,
-        f"CONFIG_DB/localhost/VNET_ROUTE_TUNNEL/{vnet}\|{prefix.replace('/', '~1')}",
+        f"CONFIG_DB/localhost/VNET_ROUTE_TUNNEL/{vnet}|{prefix.replace('/', '~1')}",
         value,
         name=f"update_{vnet}_{prefix.replace('/', '_')}"
     )
@@ -102,7 +102,7 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
 
 # ---------- Single-VNET setup ----------
 def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
-                         config_facts, dut_indx, vxlan_port, gnmi_tls):
+                         config_facts, dut_indx, vxlan_port, gnmi_tls):     # noqa: F811
     ports = get_available_vlan_id_and_ports(config_facts, 1)
     pytest_assert(ports and len(ports) >= 1, "Not enough ports for VNET setup")
 
@@ -122,8 +122,10 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
 
     dut_vtep = get_loopback_ip(cfg_facts)
     logger.info(f"Creating VXLAN tunnel {TUNNEL_NAME} with source {dut_vtep}")
-    gnmic_set_with_bypass(gnmi_tls, "CONFIG_DB/localhost/VXLAN_TUNNEL", {TUNNEL_NAME: {"src_ip": dut_vtep}}, "vxlan_tunnel")
-    gnmic_set_with_bypass(gnmi_tls, "CONFIG_DB/localhost/VNET", {VNET_NAME: {"vni": str(VNI), "vxlan_tunnel": TUNNEL_NAME}}, "vnet")
+    gnmic_set_with_bypass(gnmi_tls, "CONFIG_DB/localhost/VXLAN_TUNNEL",
+                          {TUNNEL_NAME: {"src_ip": dut_vtep}}, "vxlan_tunnel")
+    gnmic_set_with_bypass(gnmi_tls, "CONFIG_DB/localhost/VNET",
+                          {VNET_NAME: {"vni": str(VNI), "vxlan_tunnel": TUNNEL_NAME}}, "vnet")
 
     ptf_port_index = port_indexes[ingress_if]
     port_name = ptf_ports_available_in_topo[ptf_port_index]
@@ -172,7 +174,7 @@ def one_vnet_setup_teardown(
     localhost,
     request,
     scaled_vnet_params,
-    gnmi_tls
+    gnmi_tls     # noqa: F811
 ):
     """
     Module-level setup:
@@ -251,7 +253,7 @@ def test_ecmp_two_endpoints(ptfhost, one_vnet_setup_teardown):
     )
 
 
-def test_ecmp_change_endpoints(ptfhost, one_vnet_setup_teardown, gnmi_tls):
+def test_ecmp_change_endpoints(ptfhost, one_vnet_setup_teardown, gnmi_tls):      # noqa: F811
     logger.info("Running test_ecmp_change_endpoints")
     setup, duthost, _ = one_vnet_setup_teardown
     _update_vxlan_endpoints(gnmi_tls, VNET_NAME, PREFIX, CHANGED_ENDPOINTS, VNI)
@@ -263,7 +265,7 @@ def test_ecmp_change_endpoints(ptfhost, one_vnet_setup_teardown, gnmi_tls):
     )
 
 
-def test_ecmp_scale(ptfhost, one_vnet_setup_teardown, gnmi_tls):
+def test_ecmp_scale(ptfhost, one_vnet_setup_teardown, gnmi_tls):      # noqa: F811
     logger.info("Running test_ecmp_scale")
     setup, duthost, _ = one_vnet_setup_teardown
     num_endpoints = setup["num_endpoints"]
@@ -282,7 +284,7 @@ def test_ecmp_scale(ptfhost, one_vnet_setup_teardown, gnmi_tls):
     )
 
 
-def test_ecmp_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_tls):
+def test_ecmp_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_tls):     # noqa: F811
     """
     Validate that endpoint[i] → mac_address[i] mapping is honored
     for a single prefix with multiple endpoints.
@@ -337,7 +339,7 @@ def test_ecmp_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_tls):
     logger.info("MAC+VNI multi-endpoint scale test completed successfully")
 
 
-def test_ecmp_same_endpoint_diff_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_tls):
+def test_ecmp_same_endpoint_diff_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_tls):     # noqa: F811
     """
     Validate single prefix ecmp route with same endpoints but different mac and vni
     """
@@ -392,7 +394,7 @@ def test_ecmp_same_endpoint_diff_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_
     logger.info("MAC+VNI multi-endpoint scale test completed successfully")
 
 
-def test_ecmp_scale_add_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):
+def test_ecmp_scale_add_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):     # noqa: F811
     setup, _, _ = one_vnet_setup_teardown
     num = setup["num_endpoints"]
 
@@ -422,7 +424,7 @@ def test_ecmp_scale_add_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):
     )
 
 
-def test_ecmp_scale_delete_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):
+def test_ecmp_scale_delete_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):      # noqa: F811
     setup, _, _ = one_vnet_setup_teardown
     num = setup["num_endpoints"]
 
@@ -458,7 +460,7 @@ def test_ecmp_scale_delete_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):
     )
 
 
-def test_ecmp_scale_modify_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):
+def test_ecmp_scale_modify_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):     # noqa: F811
     setup, _, _ = one_vnet_setup_teardown
     num = setup["num_endpoints"]
 
@@ -496,7 +498,7 @@ def test_ecmp_scale_modify_endpoint(ptfhost, one_vnet_setup_teardown, gnmi_tls):
     )
 
 
-def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown, gnmi_tls):
+def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown, gnmi_tls):     # noqa: F811
     setup, _, _ = one_vnet_setup_teardown
     num = setup["num_endpoints"]
 

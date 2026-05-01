@@ -141,7 +141,8 @@ class PtfGnmic:
     def __repr__(self):
         return self.__str__()
 
-    def set(self, path: str, value: str, encoding: str = "json_ietf", timeout: int = 90, metadata: str = None, filename: str = "value") -> Dict:
+    def set(self, path: str, value: str, encoding: str = "json_ietf",
+            timeout: int = 90, metadata: str = None, filename: str = "value") -> Dict:
         """
         Set a value on the target device using gNMI Set operation.
 
@@ -171,7 +172,8 @@ class PtfGnmic:
         elif self.ca_cert and self.client_cert and self.client_key:
             cmd += f" --tls-ca {self.ca_cert} --tls-cert {self.client_cert} --tls-key {self.client_key}"
 
-        cmd += f" set --prefix 'sonic-db:' --update-path {path} --update-file {value_file} --encoding {encoding} --timeout={timeout}s"
+        cmd += f" set --prefix 'sonic-db:' --update-path '{path}' --update-file '{value_file}' \
+            --encoding {encoding} --timeout={timeout}s"
 
         if metadata:
             cmd += f" --metadata '{metadata}'"
@@ -226,7 +228,7 @@ class PtfGnmic:
         elif self.ca_cert and self.client_cert and self.client_key:
             cmd += f" --tls-ca {self.ca_cert} --tls-cert {self.client_cert} --tls-key {self.client_key}"
 
-        cmd += f" get --prefix 'sonic-db:' --path {path} --encoding {encoding} --timeout={timeout}s"
+        cmd += f" get --prefix 'sonic-db:' --path '{path}' --encoding {encoding} --timeout={timeout}s"
 
         if metadata:
             cmd += f" --metadata '{metadata}'"
