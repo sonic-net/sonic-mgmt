@@ -203,7 +203,7 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
 
     # Get the PTF portchannel ports connected to the T1 switchs.
     t1_pc_ports = {}
-    for pc in list(config_facts['PORTCHANNEL'].keys()):
+    for pc in list(config_facts.get('PORTCHANNEL', {}).keys()):
         t1_pc_ports[pc] = []
         for intf in config_facts["PORTCHANNEL"][pc]["members"]:
             ptf_port_index = mg_facts["minigraph_ptf_indices"][intf]
