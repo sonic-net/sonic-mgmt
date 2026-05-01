@@ -605,6 +605,33 @@ class TestProbingBaseSetUp:
         assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
         print("[OK] port_buffer_drop mode")
 
+    @pytest.mark.order(941)
+    def test_setUp_applies_ingress_drop_pg_counter_true_env(self):
+        """Test real setUp() applies INGRESS_DROP_USE_PG_COUNTER=true"""
+        print("\n=== Testing setUp() - Real INGRESS_DROP_USE_PG_COUNTER=true Env ===")
+
+        class MockThriftInterfaceDataPlane:
+            @staticmethod
+            def setUp(_test):
+                return None
+
+        pb = ConcreteProbingBase()
+        assert not hasattr(pb, 'use_pg_drop_counter')
+        pb.clients = Mock()
+
+        with patch('probing_base.sai_base_test.ThriftInterfaceDataPlane',
+                   MockThriftInterfaceDataPlane):
+            with patch('probing_base.switch_init'):
+                with patch('probing_base.time.sleep'):
+                    with patch('probing_observer.ProbingObserver.trace') as mock_trace:
+                        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'true'}, clear=True):
+                            pb.setUp()
+
+        assert pb.use_pg_drop_counter is True
+        trace_messages = [str(call_args) for call_args in mock_trace.call_args_list]
+        assert any("use_pg_drop_counter=True" in message for message in trace_messages)
+        print("[OK] real setUp() applies INGRESS_DROP_USE_PG_COUNTER=true")
+
 
 class TestProbingBaseTearDown:
     """Test tearDown() method (simplified - no parent call needed in UT)"""
