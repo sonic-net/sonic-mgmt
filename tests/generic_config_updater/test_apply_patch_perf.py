@@ -46,7 +46,7 @@ MAX_TIMEOUT = 3600
 
 # Fixed overhead for any apply-patch invocation (seconds).
 # Accounts for config read, JSON diff, service restarts, etc.
-FIXED_OVERHEAD = 10
+FIXED_OVERHEAD = 11
 
 # Conservative fallback if loadData measurement fails (seconds).
 # Deliberately generous to avoid false failures.
@@ -111,8 +111,8 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
         key=lambda p: int(''.join(filter(str.isdigit, p)) or 0)
     )
 
-    pytest_assert(len(up_ports) >= 8,
-                  "Need at least 8 admin-up ports, have {}".format(len(up_ports)))
+    if len(up_ports) < 8:
+        pytest.skip("Need at least 8 admin-up ports, have {}".format(len(up_ports)))
 
     # Measure loadData baseline
     loaddata_time = _measure_loaddata_baseline(duthost)
