@@ -34,6 +34,7 @@ FDB_CLEAR_TIMEOUT = 20
 ROUTE_COUNTER_POLL_TIMEOUT = 15
 CRM_COUNTER_TOLERANCE = 2
 ACL_TABLE_NAME = "DATAACL"
+NHG_CONFIG_CHUNK_SIZE = 200
 
 RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_nexthop": [],
@@ -482,6 +483,8 @@ def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
     ip_addr_list = generate_neighbors(amount + 1, "4")
     remaining_ips = ip_addr_list[1:]
     all_ips_str = " ".join([str(item) for item in remaining_ips])
+    ip_batches = [remaining_ips[i:i + NHG_CONFIG_CHUNK_SIZE]
+                  for i in range(0, len(remaining_ips), NHG_CONFIG_CHUNK_SIZE)]
 
     RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
                                                        neigh_ip_list=all_ips_str,
@@ -495,10 +498,13 @@ def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
                          "crm_stats_ipv4_neighbor_available".format(asichost.sonic_db_cli)
     neighbor_used_before, _ = get_crm_stats(get_neighbor_stats, duthost)
 
-    logger.info("Phase 1: Adding {} neighbors".format(amount))
-    asichost.shell(neigh_template.render(iface=interface,
-                                         neigh_ip_list=all_ips_str,
-                                         namespace=asichost.namespace))
+    logger.info("Phase 1: Adding {} neighbors in batches of {}".format(amount, NHG_CONFIG_CHUNK_SIZE))
+    for ip_batch in ip_batches:
+        ip_batch_str = " ".join([str(item) for item in ip_batch])
+        asichost.shell(neigh_template.render(iface=interface,
+                                             neigh_ip_list=ip_batch_str,
+                                             namespace=asichost.namespace))
+        time.sleep(1)
 
     expected_neighbor_used = neighbor_used_before + amount + 1
     logger.info("Waiting for all {} neighbors to be programmed in HW".format(amount + 1))
@@ -507,10 +513,13 @@ def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
                                 oper_used=">=", timeout=60, interval=5)
 
     # Phase 2: add routes now that all neighbors are confirmed in HW
-    logger.info("Phase 2: Adding {} routes".format(amount))
-    asichost.shell(route_template.render(iface=interface,
-                                         neigh_ip_list=all_ips_str,
-                                         namespace=asichost.namespace))
+    logger.info("Phase 2: Adding {} routes in batches of {}".format(amount, NHG_CONFIG_CHUNK_SIZE))
+    for ip_batch in ip_batches:
+        ip_batch_str = " ".join([str(item) for item in ip_batch])
+        asichost.shell(route_template.render(iface=interface,
+                                             neigh_ip_list=ip_batch_str,
+                                             namespace=asichost.namespace))
+        time.sleep(1)
 
 
 def increase_arp_cache(duthost, max_value, ip_ver, test_name):
