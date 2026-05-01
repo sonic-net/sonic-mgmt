@@ -1,0 +1,48 @@
+name: Skip Issue Expiry Manager
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      no_op:
+        description: "Run in no-op mode (log decisions without mutating GitHub issues)"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  skip-issue-expiry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          fetch-tags: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r tools/skip_expiry/requirements.txt
+
+      - name: Run skip issue expiry workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_EXPIRY_BOT_LOGIN: github-actions[bot]
+          NO_OP_FLAG: ${{ github.event.inputs.no_op == 'true' && '--no-op' || '' }}
+        run: |
+          python tools/skip_expiry/run_skip_issue_expiry.py \
+            --repo-root . \
+            --config .github/SKIP_EXPIRY_CONFIG.yaml \
+            --conditional-mark-dir tests/common/plugins/conditional_mark \
+            ${NO_OP_FLAG}
