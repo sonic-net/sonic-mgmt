@@ -14,6 +14,7 @@ def counterpoll_type(request):
 def restore_counter_poll(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     parsed_counterpoll_before_multi_asic = {}
+    parsed_counterpoll_before = {}
     skip_release(duthost, ["201811", "201911", "202012"])
     if duthost.is_multi_asic:
         for asic in duthost.asics:
