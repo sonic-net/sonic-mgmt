@@ -1,0 +1,49 @@
+{
+    "ACL_RULE": {
+        "CUSTOM_IPV6_TABLE|RULE_SRC_IPV6": {
+            "SRC_IPV6": "2001:db8:1::1/128",
+            "IP_TYPE": "IPV6ANY",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9999"
+        },
+        "CUSTOM_IPV6_TABLE|RULE_DST_IPV6": {
+            "DST_IPV6": "2001:db8:2::1/128",
+            "IP_TYPE": "IPV6ANY",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9998"
+        },
+        "CUSTOM_IPV6_TABLE|RULE_SRC_DST_IPV6": {
+            "SRC_IPV6": "2001:db8:3::1/128",
+            "DST_IPV6": "2001:db8:4::1/128",
+            "IP_TYPE": "IPV6ANY",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9997"
+        },
+        "CUSTOM_IPV6_TABLE|RULE_NEXT_HEADER_TCP": {
+            "DST_IPV6": "2001:db8:5::1/128",
+            "NEXT_HEADER": "6",
+            "IP_TYPE": "IPV6ANY",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9996"
+        },
+        "CUSTOM_IPV6_TABLE|RULE_NEXT_HEADER_UDP": {
+            "DST_IPV6": "2001:db8:6::1/128",
+            "NEXT_HEADER": "17",
+            "IP_TYPE": "IPV6ANY",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9995"
+        },
+        "CUSTOM_IPV6_TABLE|RULE_NEXT_HEADER_ICMPV6": {
+            "DST_IPV6": "2001:db8:7::1/128",
+            "NEXT_HEADER": "58",
+            "IP_TYPE": "IPV6ANY",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9994"
+        },
+        "CUSTOM_IPV6_TABLE|DEFAULT_DROP_RULE": {
+            "IP_TYPE": "IPV6ANY",
+            "PACKET_ACTION": "DROP",
+            "PRIORITY": "1"
+        }
+    }
+}
