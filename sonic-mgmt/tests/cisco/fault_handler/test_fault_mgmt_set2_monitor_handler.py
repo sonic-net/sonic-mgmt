@@ -3,7 +3,15 @@ import logging
 import pytest
 import time
 import datetime
-from tests.cisco.fault_handler.fault_handler_utils import FaultHandlerTestHelper, System_Helper_Wrap, TEMP_INFO_TABLE_NAME, VOLT_INFO_TABLE_NAME, CURR_INFO_TABLE_NAME, FAULT_INFO_NAME
+from tests.cisco.fault_handler.fault_handler_utils import (
+    CURR_INFO_TABLE_NAME,
+    FAN_INFO_TABLE_NAME,
+    FAULT_INFO_NAME,
+    TEMP_INFO_TABLE_NAME,
+    VOLT_INFO_TABLE_NAME,
+    FaultHandlerTestHelper,
+    System_Helper_Wrap,
+)
 
 
 pytestmark = [
@@ -12,6 +20,9 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+FAN_NORMAL_SPEED = 65
+FAN_ABNORMAL_SPEED = 0
 
 ##############################################################
 ## SUB_TEST_A for FaultMonitor: TH01 TH04
@@ -526,3 +537,292 @@ def test_service_fm_invalid_thresholds(duthosts, enum_rand_one_per_hwsku_hostnam
         sensorReport.test_service_fm_invalid_thresholds()
     finally:
         System_Helper_Wrap.test_cleanup(duthost, initial_memory_mb, test_case="invalid_thresholds")
+
+##############################################################
+## SUB_TEST_D for FAN Monitoring: Positive and Negative Tests
+## Positive Tests:
+##   - Normal operation: status=True, is_under_speed=False, is_over_speed=False
+##   - Speed within tolerance
+## Negative Tests:
+##   - Fan failure: status=False (fan not operational)
+##   - Under speed: is_under_speed=True (speed < target - tolerance)
+##   - Over speed: is_over_speed=True (speed > target + tolerance)
+##   - Fan not present: presence=False
+###################################################################
+
+class FM_Fan_Monitor_GroupD:
+    """
+    FAN monitoring tests for positive and negative scenarios
+    Covers TEST_D - Group D sensors (FAN)
+    Tests fan status based on status field (True/False)
+    """
+    
+    def __init__(self, duthost):
+        self.duthost = duthost
+        self.wait_seconds = 1
+        # Use centralized sensor data from FaultHandlerTestHelper
+        self.f_data = FaultHandlerTestHelper.SENSOR_DATA["f_data"].copy()
+        
+        # Get FAN sensor configuration (only need f_data for GroupD)
+        # Pass None for unused sensor types to keep the function signature compatible
+        config_dict = FaultHandlerTestHelper.get_sensor_config(
+            None,  # t_data not used for FAN tests
+            None,  # v_data not used for FAN tests
+            None,  # c_data not used for FAN tests
+            self.f_data
+        )
+        # Extract only the fan configuration
+        self._sensor_config = {"fan": config_dict["fan"]}
+
+    def _pub_fan_value(self, fan_key, scenario):
+        """Publish fan sensor values to Redis for a specific scenario.
+
+        Args:
+            fan_key: Fan sensor key (e.g., "FAN_SENSOR_D")
+            scenario: positive | major_status_false | critical_absent
+        """
+        config = self._sensor_config["fan"]
+        
+        # Generate timestamp and prepare data
+        timestamp = datetime.datetime.now().strftime("%Y%m%d %H:%M:%S")
+        data = config["data"].copy()
+        data['timestamp'] = timestamp
+        
+        # Set fan data based on scenario
+        if scenario == "positive":
+            # Test 1: Positive test - normal operation
+            data['status'] = "True"
+            data['presence'] = "True"
+            data['direction'] = "intake"
+            data['speed'] = str(FAN_NORMAL_SPEED)
+            data['speed_target'] = "100"
+            data['is_under_speed'] = "False"
+            data['is_over_speed'] = "False"
+            data['led_status'] = "green"
+            test_type = "positive (normal operation)"
+        elif scenario == "major_status_false":
+            # Test 2: status=False should generate MAJOR, while duplicates are filtered in OBFL
+            data['status'] = "False"
+            data['presence'] = "True"
+            data['direction'] = "intake"
+            data['speed'] = str(FAN_ABNORMAL_SPEED)
+            data['speed_target'] = "100"
+            data['is_under_speed'] = "True"
+            data['is_over_speed'] = "False"
+            data['led_status'] = "red"
+            test_type = "negative major (status=False)"
+        elif scenario == "critical_absent":
+            # Test 3: fan absence should be CRITICAL
+            data['status'] = "False"
+            data['presence'] = "False"
+            data['direction'] = "intake"
+            data['speed'] = "0"
+            data['speed_target'] = "100"
+            data['is_under_speed'] = "True"
+            data['is_over_speed'] = "False"
+            data['led_status'] = "red"
+            test_type = "critical (fan absent)"
+        else:
+            raise ValueError('Unsupported FAN scenario: {}'.format(scenario))
+        
+        # Publish to Redis using individual fields
+        FaultHandlerTestHelper.create_test_fault(self.duthost, fan_key, data, config["table_name"])
+        logger.info(f'FM_FAN: Published {test_type} fan data for {fan_key}')
+
+    def _verify_fan_values(self, fan_key, expected_data, expected_fault_severity=None):
+        """Verify fan values and optional fault entry.
+
+        Args:
+            fan_key: Fan sensor key (e.g., "FAN_SENSOR_D")
+            expected_data: Dict of expected FAN_INFO fields to verify
+            expected_fault_severity: None if no fault expected, otherwise MAJOR/CRITICAL
+        """
+        config = self._sensor_config["fan"]
+        
+        # Verify the fan info was written correctly
+        actual_status = FaultHandlerTestHelper.get_test_fault(self.duthost, config["table_name"], fan_key, "status")
+        actual_presence = FaultHandlerTestHelper.get_test_fault(self.duthost, config["table_name"], fan_key, "presence")
+        actual_direction = FaultHandlerTestHelper.get_test_fault(self.duthost, config["table_name"], fan_key, "direction")
+        actual_speed = FaultHandlerTestHelper.get_test_fault(self.duthost, config["table_name"], fan_key, "speed")
+        actual_under_speed = FaultHandlerTestHelper.get_test_fault(self.duthost, config["table_name"], fan_key, "is_under_speed")
+        actual_over_speed = FaultHandlerTestHelper.get_test_fault(self.duthost, config["table_name"], fan_key, "is_over_speed")
+        actual_led = FaultHandlerTestHelper.get_test_fault(self.duthost, config["table_name"], fan_key, "led_status")
+        
+        if not actual_status:
+            logger.error(f'FM_FAN: No status found in Redis for fan: {fan_key}')
+            return False
+        
+        try:
+            actual_data = {
+                "status": actual_status,
+                "presence": actual_presence,
+                "direction": actual_direction,
+                "speed": actual_speed,
+                "is_under_speed": actual_under_speed,
+                "is_over_speed": actual_over_speed,
+                "led_status": actual_led
+            }
+
+            logger.info('FM_FAN: Verifying fan data for {} - actual={}'.format(fan_key, actual_data))
+
+            for field_name, expected_value in expected_data.items():
+                actual_value = actual_data.get(field_name)
+                if actual_value != expected_value:
+                    logger.error('FM_FAN: {} mismatch! Expected: {}, Got: {}'.format(
+                        field_name, expected_value, actual_value))
+                    return False
+            
+            # Verify FAULT_INFO_TABLE entries
+            time.sleep(self.wait_seconds)
+            fault_severity = FaultHandlerTestHelper.get_test_fault(self.duthost, FAULT_INFO_NAME, fan_key, "severity")
+            fault_action = FaultHandlerTestHelper.get_test_fault(self.duthost, FAULT_INFO_NAME, fan_key, "action")
+            fault_component = FaultHandlerTestHelper.get_test_fault(self.duthost, FAULT_INFO_NAME, fan_key, "component")
+            
+            if expected_fault_severity:
+                logger.info(f'FM_FAN: Fault verification for {fan_key}: severity={fault_severity}, action={fault_action}, component={fault_component}')
+
+                expected_component = "FanSensor"
+
+                if fault_severity != expected_fault_severity:
+                    logger.error('FM_FAN: Expected fault severity: {}, Got: {}'.format(
+                        expected_fault_severity, fault_severity))
+                    return False
+
+                if fault_action != "RAISE":
+                    logger.error('FM_FAN: Expected fault action: RAISE, Got: {}'.format(fault_action))
+                    return False
+
+                if fault_component != expected_component:
+                    logger.error('FM_FAN: Expected fault component: {}, Got: {}'.format(
+                        expected_component, fault_component))
+                    return False
+            else:
+                # Positive test: no fault should exist
+                if fault_action and fault_action == "RAISE":
+                    logger.error(f'FM_FAN: Unexpected fault found for normal operation: action={fault_action}')
+                    return False
+
+            logger.info('FM_FAN: Verification PASSED for {}'.format(fan_key))
+            return True
+            
+        except Exception as e:
+            logger.error(f'FM_FAN: Failed to verify Redis fan data: {e}')
+            return False
+
+    def _get_last_obfl_fan_declare(self, fan_key, severity):
+        """Get the last OBFL DECLARE line for a fan sensor/severity with FAN_FAULT wording."""
+        obfl_content = FaultHandlerTestHelper.check_obfl_alarms(self.duthost, fan_key)
+        if not obfl_content:
+            return ""
+
+        lines = [line.strip() for line in obfl_content.split('\n') if line.strip()]
+        matching_lines = [
+            line for line in lines
+            if fan_key in line and 'DECLARE' in line and severity in line and 'FAN_FAULT' in line
+        ]
+
+        if not matching_lines:
+            return ""
+
+        return matching_lines[-1]
+
+    def test_fan_monitoring(self):
+        """Combined FAN tests: normal path, deduped MAJOR path, and CRITICAL path."""
+        logger.info('FM_FAN: Starting FAN monitoring test with Test1/Test2/Test3 scenarios')
+        fan_key = "FAN_SENSOR_D"
+        
+        # Test 1: Positive test - Normal operation (status="True")
+        logger.info('FM_FAN: Test 1 - Positive test (status=True, normal operation)')
+        self._pub_fan_value(fan_key, scenario="positive")
+        result_positive = self._verify_fan_values(
+            fan_key,
+            expected_data={
+                "status": "True",
+                "presence": "True",
+                "direction": "intake",
+                "is_under_speed": "False",
+                "is_over_speed": "False",
+                "led_status": "green"
+            },
+            expected_fault_severity=None
+        )
+        
+        # Clear the data
+        FaultHandlerTestHelper.cleanup_test_sensors(self.duthost, [fan_key], [FAN_INFO_TABLE_NAME, FAULT_INFO_NAME])
+        
+        # Test 2: status=False should be MAJOR and duplicate OBFL entries should be filtered.
+        logger.info('FM_FAN: Test 2 - status=False generates MAJOR; publish 5 faults with 1s gap for dedup check')
+
+        for _ in range(5):
+            self._pub_fan_value(fan_key, scenario="major_status_false")
+
+        result_negative = self._verify_fan_values(
+            fan_key,
+            expected_data={
+                "status": "False",
+                "presence": "True",
+                "direction": "intake",
+                "speed": str(FAN_ABNORMAL_SPEED),
+                "is_under_speed": "True",
+                "is_over_speed": "False",
+                "led_status": "red"
+            },
+            expected_fault_severity="MAJOR"
+        )
+
+        # Check last OBFL line for Test2
+        time.sleep(self.wait_seconds)
+        obfl_major_last_line = self._get_last_obfl_fan_declare(fan_key, "MAJOR")
+        assert obfl_major_last_line, 'FM_FAN: Test2 missing MAJOR DECLARE FAN_FAULT OBFL line for {}'.format(fan_key)
+        assert f'status=False,speed={FAN_ABNORMAL_SPEED}' in obfl_major_last_line, (
+            'FM_FAN: Test2 expected last MAJOR line to include status=False,speed={}, got: {}'.format(
+                FAN_ABNORMAL_SPEED,
+                obfl_major_last_line)
+        )
+
+        # Clear the data before Test 3
+        FaultHandlerTestHelper.cleanup_test_sensors(self.duthost, [fan_key], [FAN_INFO_TABLE_NAME, FAULT_INFO_NAME])
+
+        # Test 3: Critical condition - fan absent
+        logger.info('FM_FAN: Test 3 - critical validation for fan absence')
+
+        self._pub_fan_value(fan_key, scenario="critical_absent")
+        result_critical_absent = self._verify_fan_values(
+            fan_key,
+            expected_data={
+                "status": "False",
+                "presence": "False",
+                "direction": "intake",
+                "is_under_speed": "True",
+                "is_over_speed": "False"
+            },
+            expected_fault_severity="CRITICAL"
+        )
+
+        # Check last OBFL line for Test3
+        time.sleep(self.wait_seconds)
+        obfl_critical_last_line_absent = self._get_last_obfl_fan_declare(fan_key, "CRITICAL")
+        assert obfl_critical_last_line_absent, (
+            'FM_FAN: Test3 absent expected CRITICAL DECLARE FAN_FAULT OBFL line for {}'.format(fan_key)
+        )
+        
+        # Verify all tests passed
+        assert result_positive, "FM_FAN: Positive test (status=True) failed"
+        assert result_negative, "FM_FAN: Test2 failed (status=False should be MAJOR)"
+        assert result_critical_absent, "FM_FAN: Test3 failed (fan absence should be CRITICAL)"
+        logger.info('FM_FAN: All FAN monitoring tests PASSED (Test1/Test2/Test3)')
+
+
+##############################################################
+## TEST_D for FAN Monitoring: Positive and Negative Tests
+##############################################################
+def test_service_fm_fan_monitoring(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Test FAN monitoring - Combined positive (status=True) and negative (status=False) tests"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    initial_memory_mb = System_Helper_Wrap.test_setup(duthost, check_obfl=True)
+    
+    try:
+        fanMonitor = FM_Fan_Monitor_GroupD(duthost)
+        fanMonitor.test_fan_monitoring()
+    finally:
+        System_Helper_Wrap.test_cleanup(duthost, initial_memory_mb, test_case="fan_monitoring")

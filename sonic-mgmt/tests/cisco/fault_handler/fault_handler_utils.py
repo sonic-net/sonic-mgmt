@@ -22,6 +22,7 @@ STATE_DB = 6
 TEMP_INFO_TABLE_NAME = 'TEMPERATURE_INFO'
 VOLT_INFO_TABLE_NAME = 'VOLTAGE_INFO'
 CURR_INFO_TABLE_NAME = 'CURRENT_INFO'
+FAN_INFO_TABLE_NAME = 'FAN_INFO'
 FAULT_INFO_NAME = 'FAULT_INFO_TABLE'
 
 # Additional constants for System_Helper_Wrap
@@ -34,6 +35,8 @@ class FaultHandlerTestHelper:
     """Helper class containing common utility methods for fault handler tests"""
     
     # Centralized sensor data configuration for all test suites
+    # These are initial healthy sensor values: positive tests keep them unchanged,
+    # while negative tests copy and modify them to trigger warning or fault paths.
     SENSOR_DATA = {
         "t_data": {
             "critical_high_threshold": "105.0",
@@ -43,8 +46,8 @@ class FaultHandlerTestHelper:
             "is_replaceable": "False",
             "maximum_temperature": "51.0",
             "minimum_temperature": "37.0",
-            "temperature": "50.0",  # Safe value in normal range (-5.0 to 100.0)
-            "warning_status": "False"  # No warning by default
+            "temperature": "50.0",  # Healthy default reading.
+            "warning_status": "False"  # Healthy default state until a test raises it.
         },
         "v_data": {
             "critical_high_threshold": "14400",
@@ -69,6 +72,20 @@ class FaultHandlerTestHelper:
             "unit": "mA",
             "current": "4500",  # Safe value in normal range (2000 to 7000)
             "warning_status": "False"  # No warning by default
+        },
+        "f_data": {
+            "presence": "True",
+            "drawer_name": "fantray3",
+            "model": "8808-FAN",
+            "serial": "FTSJJGDVNV3",
+            "status": "True",
+            "direction": "intake",
+            "speed": "65",
+            "speed_target": "100",
+            "is_under_speed": "False",
+            "is_over_speed": "False",
+            "is_replaceable": "False",
+            "led_status": "green"
         }
     }
     
@@ -113,7 +130,7 @@ class FaultHandlerTestHelper:
             sensor: Sensor name
             sensor_data: Dictionary of sensor data fields from SENSOR_DATA
                         Example: FaultHandlerTestHelper.SENSOR_DATA["t_data"]
-            table_name: Redis table name (e.g., 'TEMPERATURE_INFO', 'VOLTAGE_INFO', 'CURRENT_INFO')
+            table_name: Redis table name (e.g., 'TEMPERATURE_INFO', 'VOLTAGE_INFO', 'CURRENT_INFO', 'FAN_INFO')
         """
         compound_key = f"{table_name}|{sensor}"
         fields_str = ""
@@ -437,21 +454,26 @@ class FaultHandlerTestHelper:
 
 
     @staticmethod
-    def get_sensor_config(t_data, v_data, c_data):
+    def get_sensor_config(t_data=None, v_data=None, c_data=None, f_data=None):
         """
         Unified sensor configuration for all test groups
         Contains all possible fields - each group uses only the fields it needs
         
         Args:
-            t_data: Temperature sensor data dictionary
-            v_data: Voltage sensor data dictionary  
-            c_data: Current sensor data dictionary
+            t_data: Temperature sensor data dictionary (optional)
+            v_data: Voltage sensor data dictionary (optional)
+            c_data: Current sensor data dictionary (optional)
+            f_data: Fan sensor data dictionary (optional)
             
         Returns:
-            Dictionary with sensor configurations for temp, volt, and curr sensors
+            Dictionary with sensor configurations for temp, volt, curr, and fan sensors
+            Only includes configurations for sensors where data is provided
         """
-        return {
-            "temp": {
+        config = {}
+        
+        # Add temperature configuration if t_data is provided
+        if t_data:
+            config["temp"] = {
                 "data": t_data,
                 "value_key": "temperature",
                 "convert": float,
@@ -462,8 +484,11 @@ class FaultHandlerTestHelper:
                 # GroupB specific fields
                 "component": "TempSensor", 
                 "type_id": "TEMPERATURE_EXCEEDED"
-            },
-            "volt": {
+            }
+        
+        # Add voltage configuration if v_data is provided
+        if v_data:
+            config["volt"] = {
                 "data": v_data,
                 "value_key": "voltage", 
                 "convert": int,
@@ -474,8 +499,11 @@ class FaultHandlerTestHelper:
                 # GroupB specific fields
                 "component": "VoltSensor", 
                 "type_id": "VOLTAGE_EXCEEDED"
-            },
-            "curr": {
+            }
+        
+        # Add current configuration if c_data is provided
+        if c_data:
+            config["curr"] = {
                 "data": c_data,
                 "value_key": "current",
                 "convert": int,
@@ -487,7 +515,23 @@ class FaultHandlerTestHelper:
                 "component": "CurrSensor", 
                 "type_id": "CURRENT_EXCEEDED"
             }
-        }
+        
+        # Add fan configuration if f_data is provided
+        if f_data:
+            config["fan"] = {
+                "data": f_data,
+                "value_key": "speed",
+                "convert": int,
+                # GroupD specific fields (consistent with temp/volt/curr pattern)
+                "table_name": FAN_INFO_TABLE_NAME,
+                "fault_sensor_key": "FAN_SENSOR_D",
+                "sensor_prefix": "FAN_SENSOR_",
+                # GroupB specific fields
+                "component": "FanSensor",
+                "type_id": "FAN_FAULT"
+            }
+        
+        return config
 
     @staticmethod
     def get_test_fault(duthost, table, sensor, field_name):
@@ -631,6 +675,11 @@ class System_Helper_Wrap:
             FAULT_INFO_NAME: ["TEMP_SENSOR_C", "CURR_SENSOR_C", "VOLT_SENSOR_C", "TEMP_SENSOR_H", 
                               "UNKNOWN_SENSOR_D", "INVALID_SENSOR_PATH_D"],
             "UNKNOWN_SENSOR_TABLE": ["UNKNOWN_SENSOR_D"]
+        },
+        # GroupD - FAN sensor tests
+        "fan_monitoring": {
+            FAN_INFO_TABLE_NAME: ["FAN_SENSOR_D"],
+            FAULT_INFO_NAME: ["FAN_SENSOR_D"]
         }
     }
     
