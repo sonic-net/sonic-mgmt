@@ -185,7 +185,7 @@ def setup_custom_acl_table_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo):
     )
 
 
-def setup_and_cleanup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, 
+def setup_and_cleanup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo,
                                 rule_file, dest_file, table_name, is_ipv6=False):
     """Helper function to setup and cleanup ACL rules for a given table"""
     # Copy and load acl rules
