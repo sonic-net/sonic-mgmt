@@ -451,7 +451,7 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
 
         # Create rule entry for config
         rule_key = f"{ACL_TABLE_NAME}|{rule_name}"
-        priority = 5000 + i  # UNIQUE PRIORITY for each rule (5000, 5001, 5002, ...)
+        priority = 1000  # SAME PRIORITY for all rules to observe behavior
         config_data["ACL_RULE"][rule_key] = {
             "INNER_SRC_IP": f"{inner_src_ip}/32",
             "TUNNEL_VNI": str(vni),
@@ -676,10 +676,6 @@ def create_vxlan_vnet_config_scale(duthost, tunnel_name, src_ip, portchannel_nam
             "Vnet1": {
                 "vni": str(vnet_base),
                 "vxlan_tunnel": tunnel_name,
-                "scope": "default",
-                "peer_list": "",
-                "advertise_prefix": "false",
-                "overlay_dmac": "25:35:45:55:65:75"
             }
         },
         "VNET_ROUTE_TUNNEL": {
@@ -692,15 +688,10 @@ def create_vxlan_vnet_config_scale(duthost, tunnel_name, src_ip, portchannel_nam
     logger.info("Applying VXLAN/VNET config for scale testing")
 
     duthost.copy(content=config_content, dest="/tmp/config_db_vxlan_vnet_scale.json")
-    duthost.shell("cp /tmp/config_db_vxlan_vnet_scale.json /home/admin/config_db_vxlan_vnet_scale.json")
     duthost.shell("sonic-cfggen -j /tmp/config_db_vxlan_vnet_scale.json --write-to-db")
-    duthost.shell("config save -y")
 
     # Clean up temp file
     duthost.shell("rm /tmp/config_db_vxlan_vnet_scale.json")
-    duthost.shell("cp /etc/sonic/config_db.json /home/admin/config_db_vxlan_route_scale_persistent.json")
-    config_reload(duthost, safe_reload=True, yang_validate=False)
-    time.sleep(20)  # wait for DUT to come up after reload
     ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT, dutmac=VXLAN_ROUTER_MAC)
     logger.info("=== VXLAN VNET configuration for scale testing applied successfully ===")
 
@@ -777,8 +768,6 @@ def _send_and_verify_mac_rewrite_scale(ptfadapter, ptf_port_1, ptf_port_2_list, 
     masked_exp_pkt.set_do_not_care_scapy(IP, "ttl")
     masked_exp_pkt.set_do_not_care_scapy(IP, "chksum")
     masked_exp_pkt.set_do_not_care_scapy(IP, "id")
-    masked_exp_pkt.set_do_not_care_scapy(IP, "src")
-    masked_exp_pkt.set_do_not_care_scapy(IP, "dst")
     masked_exp_pkt.set_do_not_care_scapy(UDP, "sport")
     masked_exp_pkt.set_do_not_care_scapy(UDP, "chksum")
 
@@ -791,18 +780,17 @@ def _send_and_verify_mac_rewrite_scale(ptfadapter, ptf_port_1, ptf_port_2_list, 
 
 def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
     """
-    Scale test: Program 9000 ACL rules with UNIQUE PRIORITIES and test packet forwarding.
+    Scale test: Program 9000 ACL rules with SAME PRIORITIES and test packet forwarding.
 
-    This test validates system behavior when 9000 ACL rules have unique priorities (5000-13999).
+    This test validates system behavior when 9000 ACL rules have identical priority (1000).
     It verifies that all rules become Active and tests packet forwarding functionality
-    at scale with proper priority handling.
+    at scale.
 
     Purpose:
-    1. Scale testing with unique priority assignments
-    2. Packet forwarding verification without priority conflicts
-    3. Performance testing with scale + unique priorities
+    1. Behavioral analysis of same-priority rule handling
+    2. Packet forwarding verification with priority conflicts
+    3. Performance testing with scale + same priorities
 
-    Note: Each rule gets a unique priority starting from 5000.
     WARNING: 9000 rules is a significant scale test that will likely hit hardware limits.
     """
 
@@ -887,13 +875,10 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         logger.info(f"Average time per rule: {(setup_time/SCALE_RULE_COUNT)*1000:.2f} ms")
 
         # ===================================================================
-        # STEP 3: Verify rule status and behavior with unique priorities
+        # STEP 3: Verify rule status and behavior with same priority
         # ===================================================================
-        logger.info("STEP 3: Verifying rule status and behavior with UNIQUE PRIORITIES")
-        logger.info(
-            f"All {SCALE_RULE_COUNT} rules programmed with priorities "
-            f"5000-{5000+SCALE_RULE_COUNT-1} - verifying active status"
-        )
+        logger.info("STEP 3: Verifying rule status and behavior with SAME PRIORITY")
+        logger.info(f"All {SCALE_RULE_COUNT} rules programmed with priority 1000 - observing system behavior")
 
         # Check rule status distribution
         logger.info("Checking rule status distribution...")
@@ -904,15 +889,15 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
             active_count = output.count("Active")
             inactive_count = output.count("Inactive")
 
-            logger.info("=== UNIQUE PRIORITY BEHAVIOR ANALYSIS ===")
+            logger.info("=== SAME PRIORITY BEHAVIOR ANALYSIS ===")
             logger.info(f"Total rules found: {total_rules}")
             logger.info(f"Active rules: {active_count}")
             logger.info(f"Inactive rules: {inactive_count}")
             logger.info(f"Active percentage: {(active_count/total_rules*100):.1f}%")
 
             if inactive_count > 0:
-                logger.info(f"WARNING: {inactive_count} rules are INACTIVE with unique priorities")
-                logger.info("This may indicate hardware resource limits or configuration issues")
+                logger.info(f"OBSERVATION: {inactive_count} rules are INACTIVE with same priority")
+                logger.info("This indicates hardware/software priority conflict behavior")
 
                 # Sample some inactive rules for analysis
                 lines = output.split('\n')
@@ -927,8 +912,8 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
                 for sample in inactive_samples:
                     logger.info(f"  {sample}")
             else:
-                logger.info("SUCCESS: All rules are ACTIVE with unique priorities")
-                logger.info("System handles scale with unique priorities successfully")
+                logger.info("OBSERVATION: All rules are ACTIVE despite same priority")
+                logger.info("System handles same priority gracefully")
 
             # Show sample of first few rules for analysis
             logger.info("\nFirst 10 rules status sample:")
@@ -939,19 +924,16 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         else:
             logger.warning(f"Failed to get 'show acl rule' output: {show_acl_result}")
 
-        logger.info("=== UNIQUE PRIORITY ANALYSIS COMPLETED ===")
+        logger.info("=== SAME PRIORITY ANALYSIS COMPLETED ===")
 
         # ===================================================================
-        # STEP 4: Packet testing with unique-priority rules
+        # STEP 4: Packet testing with same-priority rules
         # ===================================================================
-        logger.info("STEP 4: Testing packet forwarding with unique-priority ACL rules")
+        logger.info("STEP 4: Testing packet forwarding with same-priority ACL rules")
 
         # Test a reasonable subset of rules - focus on early rules (most likely to be active)
         test_rule_count = SCALE_RULE_COUNT
-        logger.info(
-            f"Testing packet forwarding for {test_rule_count} rules with unique priorities "
-            f"(5000-{5000+test_rule_count-1})"
-        )
+        logger.info(f"Testing packet forwarding for {test_rule_count} rules with same priority (1000)")
         logger.info("Sending ONE packet per rule to test both MAC rewrite AND counter increment")
         logger.info("This will help identify which rules are ACTIVE vs INACTIVE due to hardware limits")
         logger.info("Note: With 9000 total rules, expect significant hardware resource limits")
@@ -1057,7 +1039,7 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         assert ACL_TABLE_NAME in output, f"ACL table {ACL_TABLE_NAME} missing after scale test"
 
         # Use the existing verify_acl_rules_installation function for comprehensive rule verification
-        logger.info("Performing final verification of all ACL rules with UNIQUE PRIORITIES...")
+        logger.info("Performing final verification of all ACL rules with SAME PRIORITY...")
         try:
             verify_acl_rules_installation(duthost, SCALE_RULE_COUNT)
             logger.info(f"All {SCALE_RULE_COUNT} ACL rules verified successfully")
@@ -1080,11 +1062,8 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
 
         logger.info("=== 9000-RULE SCALE TEST COMPLETED ===")
         logger.info("SCALE TEST SUMMARY:")
-        logger.info(
-            f"- Programmed {SCALE_RULE_COUNT} ACL rules with UNIQUE priorities "
-            f"(5000-{5000+SCALE_RULE_COUNT-1})"
-        )
-        logger.info("- Tested system limits with 5K rule scale and unique priority handling")
+        logger.info(f"- Programmed {SCALE_RULE_COUNT} ACL rules with SAME priority (1000)")
+        logger.info("- System behavior observed for priority conflict handling")
         logger.info("- Packet testing performed for sample rules to identify active vs inactive patterns")
         logger.info("- Check logs above for rule installation, active/inactive ratios, and performance results")
         logger.info("- This scale test provides insights into hardware ACL capacity limits")
