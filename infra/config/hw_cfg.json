@@ -876,6 +876,7 @@
                 }
             },
             "special_run_commands": [
+                "unset http_proxy https_proxy", 
                 "cd /data/sonic-mgmt/spytest",
                 "mkdir /run_logs/$image_folder",
                 "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",
@@ -1168,6 +1169,7 @@
                 ]
             ],
             "special_run_commands": [
+                "unset http_proxy https_proxy", 
                 "cd /data/sonic-mgmt/spytest",                
                 "mkdir /run_logs/$image_folder",             
                 "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",                
@@ -1595,9 +1597,9 @@
             "ucs_username": "sonic",
             "ucs_password": "roZes@123",
             "telnet_host": ["172.26.235.13"],
-            "telnet_port": ["2012", "2013"],
-            "telnet_details": ["172.26.235.13 2012", "172.26.235.13 2013"],
-            "dut_ssh": ["1.3.103.45", "1.3.103.49"],
+            "telnet_port": ["2007", "2008"],
+            "telnet_details": ["172.26.235.13 2007", "172.26.235.13 2008"],
+            "dut_ssh": ["1.3.103.50", "1.3.103.51"],
             "need_ucs_mount": "True",
             "topology": "b2b",
             "installer_mode": "onie",
@@ -1628,6 +1630,7 @@
             "extra_onie_check": "none",
             "extra_onie_commands": "none",
             "special_run_commands": [
+                "unset http_proxy https_proxy", 
                 "cd /data/sonic-mgmt/spytest/",
                 "mkdir /run_logs/$image_folder",
                 "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=86400 --module-init-max-timeout=86400",
@@ -2654,7 +2657,7 @@
         "b2b-ipfabric-apple": "tu2-carib-siren",
         "b2b-m3-2-m64": "ucs_m3_2",
         "b2b-m3-2-croc": "ucs_m3_2",
-        "b2b-m3-2-cmono": "ucs_m3_2",
+        "b2b-m3-2-cmono": "ucs_m3_2_sonic",
         "rdma-m3-2-m64": "ucs_m3_2",
         "ixia-m5-14-lighting": "ucs_m5_14",
         "ixia-m5-14-churchill": "ucs_m5_14",
@@ -2672,7 +2675,7 @@
         "t1-m5-16-lightning": "ucs_m5_16",
         "b2b-m5-14-superbolt": "ucs_m5_14",
         "b2b-m5-14-lightning": "ucs_m5_14",
-        "b2b-m5-16-tornado": "ucs_m5_14",
+        "b2b-m5-16-tornado": "ucs_m5_16",
         "t0-m6-33-laguna": "ucs_m6_33",
         "t0-m6-1-m64": "ucs_m4_3",
         "aaa14-t2": "ucs_m5_10",
@@ -2715,19 +2718,19 @@
             "host" : "sonic-ucs-m3-2",
             "username" : "rraghav",
             "password" : "roZes@123",
-            "ip" : "1.72.33.1",
-            "scp_prompt" : "rraghav@1.72.33.1:/var/www/html/IMAGES",
+            "ip" : "1.72.33.2",
+            "scp_prompt" : "rraghav@1.72.33.2:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
-            "wget" : "http_proxy= https_proxy= wget"
+            "wget" : "wget"
         },
         "ucs_m3_2_sonic": {
             "host" : "sonic-ucs-m3-2",
             "username" : "sonic",
             "password" : "roZes@123",
-            "ip" : "1.72.33.1",
-            "scp_prompt" : "sonic@1.72.33.1:/var/www/html/IMAGES",
+            "ip" : "1.74.23.250",
+            "scp_prompt" : "sonic@1.74.23.250:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
-            "wget" : "http_proxy= https_proxy= wget"
+            "wget" : "wget"
         },
         "ucs_m4_2": {
             "host" : "sonic-ucs-m4-2",
