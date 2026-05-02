@@ -44,9 +44,9 @@ SAFETY_MULTIPLIER = 5
 # Absolute ceiling for the timeout (seconds).
 MAX_TIMEOUT = 3600
 
-# Fixed overhead for any apply-patch invocation (seconds).
-# Accounts for config read, JSON diff, service restarts, etc.
-FIXED_OVERHEAD = 6
+# Minimum overhead floor (seconds) — even if calibration returns
+# something tiny due to measurement noise, never go below this.
+MIN_OVERHEAD = 3
 
 # Conservative fallback if loadData measurement fails (seconds).
 # Deliberately generous to avoid false failures.
@@ -124,6 +124,25 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
     logger.info("Platform: {} admin-up ports, loadData baseline: {:.3f}s".format(
         len(up_ports), loaddata_time))
 
+    # Calibrate overhead: run a trivial 1-move patch and measure wall time.
+    # Overhead = total_time - expected variable cost for 1 move (2 loadData calls).
+    # This captures CLI startup, YANG sort init, ConfigDB write, ansible SSH —
+    # everything that's constant regardless of patch size.
+    cal_patch = [{"op": "add", "path": "/NTP_SERVER/198.51.100.99", "value": {}}]
+    cal_elapsed, cal_output = _apply_and_measure(
+        duthost, cal_patch, label="[calibrate]")
+    # Clean up calibration entry
+    cal_cleanup = [{"op": "remove", "path": "/NTP_SERVER/198.51.100.99"}]
+    _apply_and_measure(duthost, cal_cleanup, label="[cal cleanup]")
+
+    expected_variable = 1 * 2 * loaddata_time  # 1 move, 2 loads/move
+    measured_overhead = max(MIN_OVERHEAD, cal_elapsed - expected_variable)
+    logger.info(
+        "Calibrated overhead: {:.1f}s "
+        "(cal={:.1f}s - variable={:.2f}s, floor={}s)".format(
+            measured_overhead, cal_elapsed,
+            expected_variable, MIN_OVERHEAD))
+
     # Generate unique table prefix per test run to avoid conflicts
     run_id = uuid.uuid4().hex[:6]
     table_prefix = "GCU_PERF_{}".format(run_id)
@@ -132,6 +151,7 @@ def perf_ctx(duthosts, rand_one_dut_front_end_hostname):
         'duthost': duthost,
         'up_ports': up_ports,
         'loaddata_time': loaddata_time,
+        'measured_overhead': measured_overhead,
         'table_prefix': table_prefix,
     }
 
@@ -180,25 +200,26 @@ print("LOADDATA_TIME={:.6f}".format(elapsed))
     return None
 
 
-def _compute_budget(expected_moves, loaddata_time):
+def _compute_budget(expected_moves, loaddata_time, measured_overhead):
     """
     Compute the time budget for apply-patch.
 
     Args:
         expected_moves: Number of moves the sort algorithm is expected to produce
         loaddata_time: Measured cost of a single loadData() call (seconds)
+        measured_overhead: Calibrated per-invocation overhead (seconds)
 
     Returns:
         Budget in seconds, capped at MAX_TIMEOUT
     """
     loads_per_move = 2  # FullConfigMoveValidator + NoDependencyMoveValidator
     raw_budget = expected_moves * loads_per_move * loaddata_time * SAFETY_MULTIPLIER
-    budget = min(MAX_TIMEOUT, FIXED_OVERHEAD + raw_budget)
+    budget = min(MAX_TIMEOUT, measured_overhead + raw_budget)
     logger.info(
-        "Budget: {}s fixed + {} moves * {} loads/move * {:.3f}s/load * {}x safety = {:.1f}s "
+        "Budget: {:.1f}s overhead + {} moves * {} loads/move * {:.3f}s/load * {}x safety = {:.1f}s "
         "(capped at {:.1f}s)".format(
-            FIXED_OVERHEAD, expected_moves, loads_per_move, loaddata_time,
-            SAFETY_MULTIPLIER, FIXED_OVERHEAD + raw_budget, budget))
+            measured_overhead, expected_moves, loads_per_move, loaddata_time,
+            SAFETY_MULTIPLIER, measured_overhead + raw_budget, budget))
     return budget
 
 
@@ -260,6 +281,7 @@ def test_perf_acl_port_removal(perf_ctx):
     duthost = perf_ctx['duthost']
     up_ports = perf_ctx['up_ports']
     loaddata_time = perf_ctx['loaddata_time']
+    measured_overhead = perf_ctx['measured_overhead']
     table_prefix = perf_ctx['table_prefix']
     num_ports = len(up_ports)
 
@@ -290,7 +312,7 @@ def test_perf_acl_port_removal(perf_ctx):
         "value": remaining
     }]
 
-    budget = _compute_budget(num_removed, loaddata_time)
+    budget = _compute_budget(num_removed, loaddata_time, measured_overhead)
     elapsed = None
     try:
         elapsed, output = _apply_and_measure(duthost, test_patch, "[port removal]")
@@ -328,6 +350,7 @@ def test_perf_acl_table_add(perf_ctx):
     duthost = perf_ctx['duthost']
     up_ports = perf_ctx['up_ports']
     loaddata_time = perf_ctx['loaddata_time']
+    measured_overhead = perf_ctx['measured_overhead']
     table_prefix = perf_ctx['table_prefix']
 
     table_name = "{}_ADD".format(table_prefix)
@@ -343,7 +366,7 @@ def test_perf_acl_table_add(perf_ctx):
         }
     }]
 
-    budget = _compute_budget(1, loaddata_time)
+    budget = _compute_budget(1, loaddata_time, measured_overhead)
     elapsed = None
     try:
         elapsed, output = _apply_and_measure(duthost, test_patch, "[table add]")
@@ -374,6 +397,7 @@ def test_perf_acl_rules_add(perf_ctx):
     duthost = perf_ctx['duthost']
     up_ports = perf_ctx['up_ports']
     loaddata_time = perf_ctx['loaddata_time']
+    measured_overhead = perf_ctx['measured_overhead']
     table_prefix = perf_ctx['table_prefix']
 
     table_name = "{}_RULES".format(table_prefix)
@@ -406,7 +430,7 @@ def test_perf_acl_rules_add(perf_ctx):
             }
         })
 
-    budget = _compute_budget(num_rules, loaddata_time)
+    budget = _compute_budget(num_rules, loaddata_time, measured_overhead)
     elapsed = None
     try:
         elapsed, output = _apply_and_measure(duthost, rules_patch, "[rules add]")
@@ -444,6 +468,7 @@ def test_perf_multi_operation(perf_ctx):
     duthost = perf_ctx['duthost']
     up_ports = perf_ctx['up_ports']
     loaddata_time = perf_ctx['loaddata_time']
+    measured_overhead = perf_ctx['measured_overhead']
     table_prefix = perf_ctx['table_prefix']
     num_ports = len(up_ports)
 
@@ -506,7 +531,7 @@ def test_perf_multi_operation(perf_ctx):
 
     # Without batching: half port REMOVEs + 1 table REMOVE + num_rules ADDs
     expected_moves = half + 1 + num_rules
-    budget = _compute_budget(expected_moves, loaddata_time)
+    budget = _compute_budget(expected_moves, loaddata_time, measured_overhead)
     elapsed = None
     try:
         elapsed, output = _apply_and_measure(duthost, test_patch, "[multi-op]")
@@ -537,6 +562,7 @@ def test_perf_ntp_server(perf_ctx):
     """
     duthost = perf_ctx['duthost']
     loaddata_time = perf_ctx['loaddata_time']
+    measured_overhead = perf_ctx['measured_overhead']
 
     # Check if NTP_SERVER table exists
     output = duthost.shell("sonic-cfggen -d --var-json NTP_SERVER",
@@ -565,7 +591,8 @@ def test_perf_ntp_server(perf_ctx):
                 "value": {}
             })
 
-    budget = _compute_budget(len(test_servers), loaddata_time)
+    budget = _compute_budget(
+        len(test_servers), loaddata_time, measured_overhead)
     elapsed = None
     try:
         elapsed, output = _apply_and_measure(duthost, add_patch, "[ntp add]")
@@ -595,6 +622,7 @@ def test_perf_port_mtu_replace(perf_ctx):
     duthost = perf_ctx['duthost']
     up_ports = perf_ctx['up_ports']
     loaddata_time = perf_ctx['loaddata_time']
+    measured_overhead = perf_ctx['measured_overhead']
 
     num_ports_to_change = min(8, len(up_ports))
     ports_to_change = up_ports[:num_ports_to_change]
@@ -607,7 +635,8 @@ def test_perf_port_mtu_replace(perf_ctx):
             "value": "9000"
         })
 
-    budget = _compute_budget(num_ports_to_change, loaddata_time)
+    budget = _compute_budget(
+        num_ports_to_change, loaddata_time, measured_overhead)
     elapsed = None
     try:
         elapsed, output = _apply_and_measure(duthost, test_patch, "[port mtu replace]")
