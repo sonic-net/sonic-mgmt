@@ -1553,13 +1553,15 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
     group_nums = int(math.ceil(float(len(t1_vms)) / T1_GROUP_SIZE))
     t1_route_per_group = int(math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums))
 
-    # 32 route each x 4 to match 110 T1
-    extra_ipv4_t1 = itertools.chain(
-        ipaddress.ip_network("192.168.0.0/27"),
-        ipaddress.ip_network("192.169.0.0/27"),
-        ipaddress.ip_network("192.170.0.0/27"),
-        ipaddress.ip_network("192.171.0.0/27"),
-    )
+    # 32 addresses per /27; need ceil(len(t1_vms)/32) blocks (min 4).
+    # 224 T1 (needs 7); build enough 192.(168+i).0.0/27 nets.
+    num_extra = max(4, int(math.ceil(float(len(t1_vms)) / 32)))
+    extra_networks = []
+    for i in range(num_extra):
+        extra_networks.append(
+            ipaddress.ip_network(UNICODE_TYPE("192.{}.0.0/27".format(168 + i)))
+        )
+    extra_ipv4_t1 = itertools.chain(*extra_networks)
 
     for group in range(group_nums):
         selected_v4_subnets = all_subnetv4[group * t1_route_per_group: group * t1_route_per_group + t1_route_per_group]
