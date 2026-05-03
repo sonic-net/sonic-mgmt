@@ -25,5 +25,4 @@
   conn_graph_facts:
     hosts: "{{ (testbed_facts.duts | default([])) + (testbed_facts.tgs | default([])) + (testbed_facts.l1s | default([])) }}"
     group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
-    forced_mgmt_routes: "{{ forced_mgmt_routes | default([]) }}"
   delegate_to: localhost
