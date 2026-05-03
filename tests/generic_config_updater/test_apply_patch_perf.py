@@ -223,7 +223,9 @@ def _compute_budget(expected_moves, loaddata_time, measured_overhead):
     return budget
 
 
-def _apply_and_measure(duthost, patch, label=""):
+def _apply_and_measure(duthost, patch, label="",
+                       is_asic_specific=False,
+                       asic_namespaces=None):
     """Apply a patch and return (elapsed_seconds, output).
 
     Times only the 'config apply-patch' CLI execution, excluding file
@@ -231,8 +233,11 @@ def _apply_and_measure(duthost, patch, label=""):
     """
     tmpfile = generate_tmpfile(duthost)
     try:
-        patch = format_json_patch_for_multiasic(duthost=duthost, json_data=patch,
-                                                is_host_specific=True)
+        patch = format_json_patch_for_multiasic(
+            duthost=duthost, json_data=patch,
+            is_host_specific=(not is_asic_specific),
+            is_asic_specific=is_asic_specific,
+            asic_namespaces=asic_namespaces)
         # Copy patch file BEFORE timing — file transfer is not GCU performance
         patch_content = json.dumps(patch, indent=4)
         duthost.copy(content=patch_content, dest=tmpfile)
@@ -620,12 +625,32 @@ def test_perf_port_mtu_replace(perf_ctx):
     requires the key to exist, but mtu is optional in YANG).
     """
     duthost = perf_ctx['duthost']
-    up_ports = perf_ctx['up_ports']
     loaddata_time = perf_ctx['loaddata_time']
     measured_overhead = perf_ctx['measured_overhead']
 
-    num_ports_to_change = min(8, len(up_ports))
-    ports_to_change = up_ports[:num_ports_to_change]
+    # On multi-ASIC, PORT is per-namespace. Discover ports from the first
+    # frontend ASIC namespace to build a valid patch.
+    if duthost.is_multi_asic:
+        namespace = duthost.get_frontend_asic_namespace_list()[0]
+        cfg = duthost.config_facts(
+            host=duthost.hostname, source="running",
+            namespace=namespace)['ansible_facts']
+        asic_ports = sorted(
+            [name for name, pcfg in cfg.get('PORT', {}).items()
+             if pcfg.get('admin_status', 'down') == 'up'],
+            key=lambda p: int(''.join(filter(str.isdigit, p)) or 0)
+        )
+        ports_to_change = asic_ports[:min(8, len(asic_ports))]
+        asic_ns = [namespace]
+    else:
+        up_ports = perf_ctx['up_ports']
+        ports_to_change = up_ports[:min(8, len(up_ports))]
+        asic_ns = None
+
+    num_ports_to_change = len(ports_to_change)
+    if num_ports_to_change < 2:
+        pytest.skip("Need at least 2 ports, have {}".format(
+            num_ports_to_change))
 
     test_patch = []
     for port in ports_to_change:
@@ -639,7 +664,10 @@ def test_perf_port_mtu_replace(perf_ctx):
         num_ports_to_change, loaddata_time, measured_overhead)
     elapsed = None
     try:
-        elapsed, output = _apply_and_measure(duthost, test_patch, "[port mtu replace]")
+        elapsed, output = _apply_and_measure(
+            duthost, test_patch, "[port mtu replace]",
+            is_asic_specific=(asic_ns is not None),
+            asic_namespaces=asic_ns)
         expect_op_success(duthost, output)
     except Exception as e:
         pytest.fail("apply-patch failed: {}".format(e))
