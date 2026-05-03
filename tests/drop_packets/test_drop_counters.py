@@ -438,11 +438,13 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,                 # noqa: F811
-                                  pkt_fields, mtu_config, ports_info):                      # noqa: F811
+def test_ip_pkt_with_exceeded_mtu(do_test, duthosts, enum_rand_one_per_hwsku_frontend_hostname,  # noqa: F811
+                                  ptfadapter, setup, tx_dut_ports,                           # noqa: F811
+                                  pkt_fields, mtu_config, ports_info):                       # noqa: F811
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     global L2_COL_KEY
     if "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
@@ -469,6 +471,8 @@ def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,     
     )
     L2_COL_KEY = RX_ERR
     try:
-        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+                # VPP drops the packet but does not increment the drop counter
+                skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
     finally:
         L2_COL_KEY = RX_DRP

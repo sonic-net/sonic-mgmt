@@ -28,10 +28,10 @@ TRAFFIC_LOSS_DURATION = 2.0  # Up to 2s of allowable loss during link failure.
 RATE_PPS = 20  # packets per second
 
 
-def restore_ha_state(localhost, ptfhost, duthost):
+def restore_ha_state(localhost, ptfhost, duthost, standby_vdpu_key="vdpu1_0:haset0_0"):
     try:
-        set_dead_dash_ha_scope(localhost, duthost, ptfhost, "vdpu1_0:haset0_0")
-        activate_secondary_dash_ha(localhost, duthost, ptfhost, "vdpu1_0:haset0_0", "activate_role")
+        set_dead_dash_ha_scope(localhost, duthost, ptfhost, standby_vdpu_key)
+        activate_secondary_dash_ha(localhost, duthost, ptfhost, standby_vdpu_key, "activate_role")
     except Exception as e:
         logger.error(f"HA state restoration on {duthost.hostname} exception: {e}")
 
@@ -232,7 +232,8 @@ def test_ha_link_failure(
     else:
         remove_acl_link_drop(duthosts[0], dash_pl_config[0][NPU_DATAPLANE_PORT])
     # take system out of split-brain
-    restore_ha_state(localhost, ptfhost, duthosts[1])
+    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
+    restore_ha_state(localhost, ptfhost, duthosts[1], standby_vdpu_key=standby_vdpu_key)
 
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
     link_fail = "Standby link fail" if standby_link_fail else "Primary link fail"

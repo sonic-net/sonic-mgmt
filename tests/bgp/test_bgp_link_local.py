@@ -79,12 +79,6 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
                     "current neighbor_type is '{}'".format(neighbor_type))
 
     duthost = duthosts[rand_one_dut_hostname]
-
-    # BGP unnumbered over PortChannel does not work on VS platform
-    # (virtual switch + cEOS neighbors lack proper link-local peering support)
-    if duthost.facts.get('asic_type') == 'vs':
-        pytest.skip("BGP unnumbered over PortChannel not supported on VS/KVM")
-
     dut_asn = common_props.get('dut_asn')
     if not dut_asn:
         # Fallback: get ASN from running config
@@ -263,7 +257,6 @@ def configure_unnumbered_bgp(setup_info):
     neigh_ipv6 = setup_info['neigh_ipv6']
     dut_ipv4 = setup_info['dut_ipv4']
     dut_ipv6 = setup_info['dut_ipv6']
-    dut_link_local = setup_info['dut_link_local']
     neigh_pc_intf = setup_info['neigh_pc_intf']
 
     # --- Setup ---
@@ -280,8 +273,17 @@ def configure_unnumbered_bgp(setup_info):
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     initial_prefixes = int(
         bgp_facts['bgp_neighbors'][neigh_ipv4].get('accepted prefixes', 0))
-    logger.info("Initial prefix count from %s: %d", neigh_ipv4,
-                initial_prefixes)
+    initial_prefixes_v6 = 0
+    if neigh_ipv6:
+        initial_prefixes_v6 = int(
+            bgp_facts['bgp_neighbors'].get(neigh_ipv6, {})
+            .get('accepted prefixes', 0))
+    # Stash baselines so the test can assert the unnumbered session preserves
+    # the full IPv4 (and IPv6) advertisement set, not just that prefixes > 0.
+    setup_info['initial_ipv4_prefixes'] = initial_prefixes
+    setup_info['initial_ipv6_prefixes'] = initial_prefixes_v6
+    logger.info("Initial prefix count from %s: %d (v4), %d (v6)",
+                neigh_ipv4, initial_prefixes, initial_prefixes_v6)
 
     # Remove existing BGP sessions on DUT
     logger.info("Remove existing BGP neighbor %s on DUT", neigh_ipv4)
@@ -310,12 +312,16 @@ def configure_unnumbered_bgp(setup_info):
 
     wait_until(30, 3, 0, old_neighbor_removed)
 
-    # Configure unnumbered BGP on DUT
+    # Configure unnumbered BGP on DUT.
+    # NOTE: 'v6only' is required — without it FRR auto-picks the peer's IPv4
+    # address from the /31 on the PortChannel (since SONiC configures both
+    # IPv4 and IPv6 on inter-switch links) and tries to open a numbered IPv4
+    # session instead of a link-local unnumbered session.
     logger.info("Configure unnumbered BGP on DUT via %s", portchannel)
     vtysh_add = [
         'config',
         'router bgp {}'.format(dut_asn),
-        'neighbor {} interface remote-as {}'.format(portchannel, neigh_asn),
+        'neighbor {} interface v6only remote-as {}'.format(portchannel, neigh_asn),
         'address-family ipv4 unicast',
         'neighbor {} activate'.format(portchannel),
         'exit-address-family',
@@ -329,38 +335,124 @@ def configure_unnumbered_bgp(setup_info):
                   "Failed to configure unnumbered BGP: {}".format(
                       result.get('stderr', '')))
 
-    # Configure link-local neighbor on EOS
-    # EOS does not support the Linux/FRR "fe80::addr%intf" notation.
-    # Use separate neighbor + update-source commands instead.
-    eos_neighbor = dut_link_local
-    logger.info("Configure link-local BGP neighbor on EOS (%s via %s)",
-                eos_neighbor, neigh_pc_intf)
+    # Configure BGP peering on EOS using interface-based (unnumbered) config.
+    # EOS does not support raw fe80:: addresses as BGP neighbors.
+    # Instead, EOS uses: neighbor interface <intf> peer-group <pg>
+    # with the peer-group configured for the remote AS.
+    #
+    # NOTE: cEOS defaults Port-Channel interfaces to 'ipv6 nd ra disabled'.
+    # FRR's unnumbered peering on the DUT side relies on receiving IPv6 RAs
+    # from the peer to discover its link-local address; without RAs the DUT
+    # stays in '(unspec)' state and never opens TCP/179. We therefore enable
+    # RAs on the peer Port-Channel as part of the peering setup.
+    eos_peer_group = "LINK_LOCAL_PG"
+    logger.info("Enable IPv6 RAs on EOS %s (required for FRR unnumbered peer discovery)",
+                neigh_pc_intf)
+    neigh_host.eos_config(
+        lines=["no ipv6 nd ra disabled"],
+        parents="interface {}".format(neigh_pc_intf))
+
+    logger.info("Configure interface-based BGP peering on EOS via %s (peer-group %s)",
+                neigh_pc_intf, eos_peer_group)
     neigh_host.eos_config(
         lines=[
-            "neighbor {} remote-as {}".format(eos_neighbor, dut_asn),
-            "neighbor {} update-source {}".format(eos_neighbor, neigh_pc_intf),
+            "neighbor {} peer group".format(eos_peer_group),
+            "neighbor {} remote-as {}".format(eos_peer_group, dut_asn),
+            "neighbor interface {} peer-group {}".format(neigh_pc_intf, eos_peer_group),
         ],
         parents="router bgp {}".format(neigh_asn))
 
+    # Enable address families for the peer-group
+    for af in ["ipv4", "ipv6"]:
+        neigh_host.eos_config(
+            lines=[
+                "neighbor {} activate".format(eos_peer_group),
+            ],
+            parents=["router bgp {}".format(neigh_asn),
+                     "address-family {}".format(af)])
+
+    # Enable RFC 5549 (extended next-hop encoding) on EOS so it can advertise
+    # IPv4 NLRI with an IPv6 next-hop over the link-local session. Without
+    # these two knobs, cEOS passively receives the capability from FRR but
+    # never advertises it, then drops all outbound IPv4 updates with
+    # "IPv4 local address not available" since the TCP session has no IPv4
+    # local address. Required since EOS 4.22.1F (multi-agent model).
+    logger.info("Enable RFC 5549 extended next-hop on EOS for %s",
+                eos_peer_group)
+    neigh_host.eos_config(lines=["ip routing ipv6 interfaces"])
+    neigh_host.eos_config(
+        lines=[
+            "neighbor {} next-hop address-family ipv6 originate".format(
+                eos_peer_group),
+        ],
+        parents=["router bgp {}".format(neigh_asn),
+                 "address-family ipv4"])
+
+    # Verify EOS accepted the config
+    eos_bgp_cfg = neigh_host.eos_command(
+        commands=["show running-config section bgp"])
+    eos_cfg_text = eos_bgp_cfg['stdout'][0] if isinstance(
+        eos_bgp_cfg['stdout'], list) else eos_bgp_cfg['stdout']
+    logger.info("EOS BGP config after setup:\n%s", eos_cfg_text)
+    if eos_peer_group not in eos_cfg_text:
+        pytest.fail("EOS did not accept the interface-based BGP config. "
+                    "Running config:\n{}".format(eos_cfg_text))
+
     yield {
         'initial_prefixes': initial_prefixes,
-        'eos_neighbor': eos_neighbor,
+        'eos_peer_group': eos_peer_group,
     }
 
     # --- Teardown ---
     logger.info("Teardown: Restoring original configuration")
 
-    # Remove link-local neighbor from EOS and restore originals
+    # Remove interface-based peering from EOS and restore originals.
+    # Order matters: remove interface neighbor first, then deactivate
+    # from address-families, then remove the peer-group itself.
+    eos_peer_group = "LINK_LOCAL_PG"
     try:
-        cleanup_lines = ["no neighbor {}".format(eos_neighbor)]
+        # Step 1: remove interface neighbor (must precede peer-group removal)
+        neigh_host.eos_config(
+            lines=["no neighbor interface {}".format(neigh_pc_intf)],
+            parents="router bgp {}".format(neigh_asn))
+        # Step 2: revert RFC 5549 knobs and deactivate from address-families
+        neigh_host.eos_config(
+            lines=[
+                "no neighbor {} next-hop address-family ipv6 originate".format(
+                    eos_peer_group),
+                "no neighbor {} activate".format(eos_peer_group),
+            ],
+            parents=["router bgp {}".format(neigh_asn),
+                     "address-family ipv4"])
+        neigh_host.eos_config(
+            lines=["no neighbor {} activate".format(eos_peer_group)],
+            parents=["router bgp {}".format(neigh_asn),
+                     "address-family ipv6"])
+        neigh_host.eos_config(lines=["no ip routing ipv6 interfaces"])
+        # Step 3: remove the peer-group
+        neigh_host.eos_config(
+            lines=["no neighbor {} peer group".format(eos_peer_group)],
+            parents="router bgp {}".format(neigh_asn))
+        # Step 4: restore original numbered neighbors
+        restore_lines = []
         if dut_ipv4:
-            cleanup_lines.append(
+            restore_lines.append(
                 "neighbor {} remote-as {}".format(dut_ipv4, dut_asn))
         if dut_ipv6:
-            cleanup_lines.append(
+            restore_lines.append(
                 "neighbor {} remote-as {}".format(dut_ipv6, dut_asn))
-        neigh_host.eos_config(lines=cleanup_lines,
-                              parents="router bgp {}".format(neigh_asn))
+        if restore_lines:
+            neigh_host.eos_config(lines=restore_lines,
+                                  parents="router bgp {}".format(neigh_asn))
+        # Step 5: re-activate the restored v6 neighbor under address-family
+        # ipv6. EOS does NOT auto-activate IPv6 peers (unlike IPv4), so without
+        # this the original v6 session stays Idle after teardown even though
+        # the 'remote-as' line is back. (IPv4 peers are activated by default.)
+        if dut_ipv6:
+            neigh_host.eos_config(
+                lines=["neighbor {} activate".format(dut_ipv6)],
+                parents=["router bgp {}".format(neigh_asn),
+                         "address-family ipv6"])
     except Exception as e:
         logger.error("EOS cleanup failed: %s", e)
         # Still proceed to config_reload below, but fail the teardown afterward
@@ -435,14 +527,22 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
 
     logger.info("Unnumbered BGP session established!")
 
-    # Verify routes are received
-    logger.info("Verify routes are received via unnumbered session")
+    # Verify routes are received — require the full IPv4 (and IPv6) prefix
+    # set previously received on the numbered session. This catches RFC 5549
+    # bring-up regressions that establish the session but silently drop
+    # advertisements (e.g. `IPv4 local address not available`).
+    logger.info("Verify full prefix set is received via unnumbered session")
+    expected_v4 = setup_info.get('initial_ipv4_prefixes', 0)
+    expected_v6 = setup_info.get('initial_ipv6_prefixes', 0)
 
-    def routes_received_via_unnumbered(duthost, portchannel):
-        """Check if any routes are received via the unnumbered BGP peer.
+    def routes_received_via_unnumbered(duthost, portchannel,
+                                       exp_v4, exp_v6):
+        """Check that the unnumbered peer on `portchannel` has received the
+        full expected prefix count in BOTH IPv4 and IPv6 address-families.
 
-        Only matches peers identified by the specific PortChannel interface
-        name, not any arbitrary fe80 peer.
+        Requiring both AFs validates that RFC 5549 extended next-hop is
+        negotiated (IPv4 NLRI carried with an IPv6 next-hop over the
+        link-local session).
         """
         result = duthost.shell("vtysh -c 'show bgp summary json'",
                                module_ignore_errors=True)
@@ -450,21 +550,29 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
             return False
         try:
             bgp_summary = json.loads(result['stdout'])
-            for af in ['ipv4Unicast', 'ipv6Unicast']:
+            ok = {'ipv4Unicast': False, 'ipv6Unicast': False}
+            thresholds = {'ipv4Unicast': max(exp_v4, 1),
+                          'ipv6Unicast': max(exp_v6, 1)}
+            for af in ok:
                 for peer, data in bgp_summary.get(af, {}).get(
                         'peers', {}).items():
-                    if (portchannel.lower() in peer.lower()
-                            and data.get('pfxRcd', 0) > 0):
-                        return True
+                    if portchannel.lower() in peer.lower() \
+                            and data.get('pfxRcd', 0) >= thresholds[af]:
+                        ok[af] = True
+                        break
+            return ok['ipv4Unicast'] and ok['ipv6Unicast']
         except (json.JSONDecodeError, KeyError):
             pass
         return False
 
     pytest_assert(
-        wait_until(30, 5, 0, routes_received_via_unnumbered,
-                   duthost, portchannel),
-        "No routes received via unnumbered BGP session on "
-        "{}".format(portchannel))
+        wait_until(60, 5, 0, routes_received_via_unnumbered,
+                   duthost, portchannel, expected_v4, expected_v6),
+        "Unnumbered BGP on {} did not receive the full advertisement set "
+        "(expected >={} IPv4 and >={} IPv6 prefixes, as observed on the "
+        "numbered baseline). RFC 5549 extended next-hop may not be "
+        "negotiated, or peer is dropping updates."
+        .format(portchannel, expected_v4, expected_v6))
 
     # Get the actual route count for logging
     result = duthost.shell("vtysh -c 'show bgp summary json'",
