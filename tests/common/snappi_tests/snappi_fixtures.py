@@ -981,6 +981,62 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
     return result if result else None
 
 
+def convert_to_routed_port(duthost, snappi_ports):
+    """
+    Checks if the ports defined in links.csv is part of vlan or portchannel and
+    removes them from the respective vlan/portchannel to avoid any conflict while testing with snappi.
+    Args:
+        duthost (pytest fixture): duthost fixture
+        snappi_ports (list): list of snappi ports info
+    Return:
+        Boolean: True
+    """
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    pc_facts = mg_facts['minigraph_portchannels']
+    vlan_facts = mg_facts['minigraph_vlans']
+    if not pc_facts and not vlan_facts:
+        return True
+    pc_members = {k: v['members'] for k, v in pc_facts.items()}
+    for sp in snappi_ports:
+        for pc, members in pc_members.items():
+            if sp['peer_port'] in members:
+                logger.warning(f"Removing port {sp['peer_port']} from portchannel {pc} for snappi testing")
+                duthost.command(
+                    f"sudo config portchannel member del {pc} {sp['peer_port']}"
+                )
+    vlan_members = {k: v['members'] for k, v in vlan_facts.items()}
+    for sp in snappi_ports:
+        for vlan, members in vlan_members.items():
+            if sp['peer_port'] in members:
+                logger.warning(f"Removing port {sp['peer_port']} from vlan {vlan.split('Vlan')[-1]} for snappi testing")
+                duthost.command(
+                    f"sudo config vlan member del {vlan.split('Vlan')[-1]} {sp['peer_port']}"
+                )
+    return True
+
+
+@pytest.fixture(scope="module")
+def setup_bgp_testbed(duthost):     # noqa: F811
+    """
+    Fixture to backup and restore config for bgp tests. This is required as we are making changes to
+    DUT config in bgp tests and we want to restore the original config after the test is done.
+    Args:
+    duthost (pytest fixture): duthost fixture
+    """
+    duthost.command("sudo cp /etc/sonic/config_db.json /etc/sonic/bgp_backup.json \n")
+    logger.info('Backing up the initial config to /etc/sonic/bgp_backup.json \n')
+    yield
+    logger.info('\n Restoring the initial config as part of teardown \n')
+    error = duthost.command("sudo config reload /etc/sonic/bgp_backup.json -f -y \n")['stderr']
+    if 'Error' in error:
+        pytest_assert('Error' not in duthost.shell("sudo config reload /etc/sonic/bgp_backup.json -y \n")['stderr'],
+                      'Error while reloading config in {} !!!!!'.format(duthost.hostname))
+    logger.info("Wait until the system is stable")
+    pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
+    duthost.command("sudo cp /etc/sonic/bgp_backup.json /etc/sonic/config_db.json \n")
+
+
 @pytest.fixture(scope="module")
 def setup_bgp_testbed(duthost):     # noqa: F811
     """
@@ -1051,15 +1107,6 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
         return tgen_ports_list
     gs = get_snappi_ports
     convert_to_routed_port(duthost, gs)
-    use_bgp_pc_config = request.config.getoption("--bgp_pc_config", default=False)
-
-    if use_bgp_pc_config:
-        tgen_ports_list = _tgen_ports_from_portchannel(
-            duthost, conn_graph_facts, fanout_graph_facts, config_facts
-        )
-        pytest_assert(tgen_ports_list is not None,
-                      'Failed to build tgen_ports from port-channel (PORTCHANNEL_INTERFACE / PORTCHANNEL_MEMBER)')
-        return tgen_ports_list
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                              dut_hostname=duthost.hostname)
     pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
