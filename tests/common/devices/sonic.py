@@ -1828,20 +1828,22 @@ Totals               6450                 6449
         """
         config = self.get_running_config_facts()
         vlan_brief = {}
-        for vlan_name, members in config["VLAN_MEMBER"].items():
-            vlan_brief[vlan_name] = {
-                "interface_ipv4": [],
-                "interface_ipv6": [],
-                "members": list(members.keys())
-            }
-        for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
-            if vlan_name not in vlan_brief:
-                continue
-            for prefix in vlan_info.keys():
-                if '.' in prefix:
-                    vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
-                elif ':' in prefix:
-                    vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
+        if config.get('VLAN_MEMBER'):
+            for vlan_name, members in config["VLAN_MEMBER"].items():
+                vlan_brief[vlan_name] = {
+                    "interface_ipv4": [],
+                    "interface_ipv6": [],
+                    "members": list(members.keys())
+                }
+        if config.get('VLAN_INTERFACE'):
+            for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
+                if vlan_name not in vlan_brief:
+                    continue
+                for prefix in vlan_info.keys():
+                    if '.' in prefix:
+                        vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
+                    elif ':' in prefix:
+                        vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
     def get_interfaces_status(self, namespace=None):
