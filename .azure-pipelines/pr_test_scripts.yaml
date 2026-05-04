@@ -681,7 +681,7 @@ t1-lag-vpp:
   - crm/test_crm_available.py
   - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
-  - dns/test_static_dns.py
+  - dns/static_dns/test_static_dns.py
   - drop_packets/test_drop_counters.py
   - fib/test_fib.py
   - gnmi/test_gnmi.py
