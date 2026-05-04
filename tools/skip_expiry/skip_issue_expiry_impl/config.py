@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List
 
@@ -14,8 +14,8 @@ class SkipExpiryConfig:
 
     maintainers: List[str]
     expiry_days: int
-    warning_days: int
-    maintainer_map: Dict[str, str]
+    warning_days: int = 30
+    maintainer_map: Dict[str, str] = field(default_factory=dict)
 
 
 def load_skip_expiry_config(config_path: Path) -> SkipExpiryConfig:

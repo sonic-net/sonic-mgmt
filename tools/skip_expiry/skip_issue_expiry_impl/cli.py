@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from reporting import TestReportData, create_reporter_from_env
+from .reporting import TestReportData, create_reporter_from_env
 
 from .conditional_marks import collect_report_entries_from_conditional_marks
 from .config import load_skip_expiry_config

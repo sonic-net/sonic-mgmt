@@ -102,6 +102,18 @@ class SkipExpiryManager:
 
     def evaluate_issue(self, issue_ref: IssueRef) -> Optional[IssueEvaluation]:
         issue = self.api_client.get_issue(issue_ref)
+        issue_state = str(issue.get("state") or "").lower()
+
+        if issue_state != "open":
+            return IssueEvaluation(
+                issue_payload=issue,
+                timeline=[],
+                comments=[],
+                created_at=None,
+                expiry_at=None,
+                expired_now=False,
+            )
+
         timeline = self.api_client.get_issue_timeline(issue_ref)
         comments = self.api_client.get_issue_comments(issue_ref)
         created_at = self._resolve_created_at(timeline, issue.get("created_at"))
