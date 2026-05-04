@@ -25,9 +25,17 @@ def restart_dhcp_service(duthost):
     duthost.shell('systemctl restart dhcp_relay')
     duthost.shell('systemctl reset-failed dhcp_relay')
 
+    # In SONiC dhcp relay agent mode, dhcprelayd stops dhcpmon by design,
+    # so exclude it from the readiness check (dhcprelayd.py refresh_dhcrelay TODO).
+    has_sonic_relay = duthost.shell(
+        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"',
+        module_ignore_errors=True)['stdout'].strip() == 'True'
+
     def _is_dhcp_relay_ready():
-        output = duthost.shell('docker exec dhcp_relay supervisorctl status | grep dhc | awk \'{print $2}\'',
-                               module_ignore_errors=True)
+        filter_cmd = 'grep dhc | grep -v dhcpmon' if has_sonic_relay else 'grep dhc'
+        output = duthost.shell(
+            "docker exec dhcp_relay supervisorctl status | {} | awk '{{print $2}}'".format(filter_cmd),
+            module_ignore_errors=True)
         return (not output['rc'] and output['stderr'] == '' and len(output['stdout_lines']) != 0 and
                 all(element == 'RUNNING' for element in output['stdout_lines']))
 
