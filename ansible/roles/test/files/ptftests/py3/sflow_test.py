@@ -190,15 +190,15 @@ class SflowTest(BaseTest):
                                     % (data['total_counter_count'], collector))
                 else:
                     logging.info("..Analyzing polling test counter packets")
-                    self.assertTrue(data['total_samples'] != 0,
-                                    "....Packets are not received in active collector  ,%s" % collector)
+                    self.assertTrue(data['total_counter_count'] != 0,
+                                    "....Counter packets are not received in active collector  ,%s" % collector)
                     self.analyze_counter_sample(
                         data, collector, self.polling_int, port_sample)
             else:
                 logging.info(
                     "Analyzing flow samples in collector %s" % collector)
-                self.assertTrue(data['total_samples'] != 0,
-                                "....Packets are not received in active collector  ,%s" % collector)
+                self.assertTrue(data['total_flow_count'] != 0,
+                                "....Flow packets are not received in active collector  ,%s" % collector)
                 self.analyze_flow_sample(data, collector)
         return data
 
@@ -279,7 +279,17 @@ class SflowTest(BaseTest):
                                                       ip_dst=ip_dst_addr,
                                                       ip_ttl=64)
                 no_of_packets = self.interfaces[intf]['sample_rate']
-                testutils.send(self, src_port, tcp_pkt, count=no_of_packets)
+                # VS TAP interfaces have a limited kernel receive queue depth.
+                # Sending large bursts causes drops before the TC ingress sampler sees them.
+                # Send in small batches with a brief pause to let the queue drain.
+                BATCH_SIZE = 32
+                remaining = no_of_packets
+                while remaining > 0:
+                    burst = min(BATCH_SIZE, remaining)
+                    testutils.send(self, src_port, tcp_pkt, count=burst)
+                    remaining -= burst
+                    if remaining > 0:
+                        time.sleep(0.001)
                 index += 1
             pktlen += 10  # send traffic with different packet sizes
 

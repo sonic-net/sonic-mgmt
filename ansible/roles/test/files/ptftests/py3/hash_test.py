@@ -734,7 +734,7 @@ class IPinIPHashTest(HashTest):
                 ipv6_dst=outer_dst_ipv6,
                 inner_frame=pkt['IPv6'])
             exp_pkt = ipinip_pkt.copy()
-            exp_pkt['IPV6'].hlim -= 1
+            exp_pkt['IPv6'].hlim -= 1
         else:
             ipinip_pkt = simple_ipv4ip_packet(
                 eth_dst=router_mac,
@@ -872,7 +872,6 @@ class VxlanHashTest(HashTest):
                             sport,
                             dport,
                             src_port))
-        logs.append(vxlan_pkt.show())
         return logs
 
     def set_packet_parameter(self, pkt, exp_pkt, hash_key, ip_proto, version='IP'):

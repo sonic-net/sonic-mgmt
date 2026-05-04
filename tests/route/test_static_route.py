@@ -83,6 +83,10 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
             )
     else:
         ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+        # Remove the arp_responder config that add_ipaddr() wrote earlier so it
+        # cannot be picked up by a later test invoking arp_responder with its
+        # default config path.
+        ptfhost.file(path="/tmp/from_t1.json", state="absent")
 
 
 def clear_arp_ndp(duthost, ipv6=False):
@@ -189,9 +193,9 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 #        nexthop via fc00::2e dev PortChannel104 weight 1 pref medium
 def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
     if ipv6:
-        SHOW_STATIC_ROUTE_CMD = "ip -6 route show {}".format(prefix)
+        SHOW_STATIC_ROUTE_CMD = "show ipv6 route {}".format(prefix)
     else:
-        SHOW_STATIC_ROUTE_CMD = "ip route show {}".format(prefix)
+        SHOW_STATIC_ROUTE_CMD = "show ip route {}".format(prefix)
     output = duthost.shell(SHOW_STATIC_ROUTE_CMD, module_ignore_errors=True)["stdout"].split("\n")
 
     def _check_nh_in_output(nexthop):
