@@ -1,6 +1,6 @@
 import logging
 from collections import Counter
-
+import random
 import ptf
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
@@ -25,6 +25,10 @@ class VnetBgpScaleDataplane(BaseTest):
         self.vnet_count = int(params["vnet_count"])
         self.subifs_per_vnet = int(params["subif_per_vnet"])
         self.base_vlan_id = int(params["base_vlan_id"])
+        self.traffic_test_type = params.get("traffic_test_type", "vxlan")
+        self.test_vnet_id = int(params.get("test_vnet_id", 1))
+        self.packets_per_path = int(params.get("packets_per_path", 100))
+        self.ecmp_deviation_pct = int(params.get("ecmp_deviation_pct", 50))
 
         self.wl_ptf_port_indices = [
             int(port_index)
@@ -44,7 +48,16 @@ class VnetBgpScaleDataplane(BaseTest):
             port_index: self.dataplane.get_mac(0, port_index)
             for port_index in all_ports
         }
+
         self.dataplane.flush()
+
+        logger.info(
+            "Traffic type: %s, VNET: %d, packets_per_path=%d, deviation=%d%%",
+            self.traffic_test_type,
+            self.test_vnet_id,
+            self.packets_per_path,
+            self.ecmp_deviation_pct,
+        )
 
     def _vlan_for_vnet(self, vnet_id):
         return self.base_vlan_id + (vnet_id - 1)
@@ -110,136 +123,212 @@ class VnetBgpScaleDataplane(BaseTest):
             inner_frame=inner_pkt,
         )
 
-    def runTest(self):
-        flow_count = self.subifs_per_vnet * 10
-        all_failures = []
-        per_vnet_distribution = {}
+    def _check_ecmp_distribution(self, distribution, total_packets, failures, context, vnet_id):
+        missing_ports = [
+            port for port in self.wl_ptf_port_indices
+            if distribution[port] == 0
+        ]
 
+        expected = float(total_packets) / len(self.wl_ptf_port_indices)
+        allowed_delta = expected * self.ecmp_deviation_pct / 100.0
+
+        bad_ports = []
+        for port in self.wl_ptf_port_indices:
+            count = distribution[port]
+            if abs(count - expected) > allowed_delta:
+                bad_ports.append(
+                    "port {} count {} expected {:.2f} allowed +/- {:.2f}".format(
+                        port, count, expected, allowed_delta
+                    )
+                )
+
+        logger.info("========================================")
+        logger.info("%s dataplane summary for VNET %d", context, vnet_id)
+        logger.info("Total flows sent: %d", total_packets)
+        logger.info("Flows passed: %d", total_packets - len(failures))
+        logger.info("Flows failed: %d", len(failures))
+        logger.info("ECMP distribution: %s", dict(distribution))
+        logger.info("Missing egress ports: %s", missing_ports)
+        logger.info("Bad ECMP distribution ports: %s", bad_ports)
+        logger.info("Expected packets per port: %.2f", expected)
         logger.info(
-            "Starting VXLAN decap + ECMP dataplane validation for VNETs 1..%d from T1 port %s to WL ports %s",
-            self.vnet_count,
-            self.t1_ptf_port_index,
-            self.wl_ptf_port_indices,
+            "Allowed deviation: +/- %.2f packets (%d%%)",
+            allowed_delta,
+            self.ecmp_deviation_pct,
         )
+        logger.info("========================================")
 
-        for vnet_id in range(1, self.vnet_count + 1):
-            shared_dst_ip = self._shared_route_ip(vnet_id)
-            distribution = Counter()
-            failures = []
-
-            logger.info(
-                "Validating VNET %d: dst=%s, vlan=%d, vni=%d",
-                vnet_id,
-                shared_dst_ip,
-                self._vlan_for_vnet(vnet_id),
-                VNI_BASE + vnet_id,
+        if failures or missing_ports or bad_ports:
+            self.fail(
+                "{} ECMP test failed for VNET {}. failures={}, missing_ports={}, "
+                "bad_ports={}, distribution={}".format(
+                    context,
+                    vnet_id,
+                    failures,
+                    missing_ports,
+                    bad_ports,
+                    dict(distribution),
+                )
             )
 
-            for flow_id in range(flow_count):
-                inner_src_ip = "192.0.2.{}".format((flow_id % 250) + 1)
+    def _run_vxlan_decap_ecmp_test(self):
+        vnet_id = self.test_vnet_id
+        shared_dst_ip = self._shared_route_ip(vnet_id)
 
-                tx_pkt = self._build_vxlan_packet(
+        total_packets = self.packets_per_path * self.subifs_per_vnet
+        distribution = Counter()
+        failures = []
+
+        logger.info(
+            "VXLAN ECMP test: vnet=%d dst=%s total_packets=%d",
+            vnet_id,
+            shared_dst_ip,
+            total_packets,
+        )
+
+        for flow_id in range(total_packets):
+            inner_src_ip = "192.0.2.{}".format((flow_id % 250) + 1)
+
+            tx_pkt = self._build_vxlan_packet(
+                vnet_id,
+                inner_src_ip,
+                shared_dst_ip,
+                flow_id,
+            )
+
+            exp_pkt = self._build_expected_packet(
+                vnet_id,
+                inner_src_ip,
+                shared_dst_ip,
+            )
+
+            send_packet(self, self.ingress_port, tx_pkt)
+
+            try:
+                match_index, _ = verify_packet_any_port(
+                    self,
+                    exp_pkt,
+                    ports=self.wl_ptf_port_indices,
+                    timeout=2,
+                )
+
+                matched_port = self.wl_ptf_port_indices[match_index]
+                distribution[matched_port] += 1
+
+                logger.info(
+                    "VNET %d VXLAN flow %d PASSED: src=%s dst=%s matched index=%s egress port=%s",
                     vnet_id,
-                    inner_src_ip,
-                    shared_dst_ip,
                     flow_id,
-                )
-
-                exp_pkt = self._build_expected_packet(
-                    vnet_id,
                     inner_src_ip,
                     shared_dst_ip,
+                    match_index,
+                    matched_port,
+                )
+            except Exception as e:
+                failure = "VNET {} VXLAN flow {} FAILED: src={} dst={} error={}".format(
+                    vnet_id,
+                    flow_id,
+                    inner_src_ip,
+                    shared_dst_ip,
+                    e,
+                )
+                logger.error(failure)
+                failures.append(failure)
+
+        logger.info("VXLAN distribution: %s", dict(distribution))
+        self._check_ecmp_distribution(
+            distribution,
+            total_packets,
+            failures,
+            "VXLAN",
+            vnet_id,
+        )
+
+    def _run_regular_tcp_ecmp_test(self):
+        vnet_id = self.test_vnet_id
+        dst_ip = self._shared_route_ip(vnet_id)
+
+        ingress_port = self.wl_ptf_port_indices[0]
+        total_packets = self.packets_per_path * self.subifs_per_vnet
+
+        distribution = Counter()
+        failures = []
+
+        logger.info(
+            "Regular TCP ECMP test: vnet=%d dst=%s ingress_port=%s total_packets=%d",
+            vnet_id,
+            dst_ip,
+            ingress_port,
+            total_packets,
+        )
+
+        for flow_id in range(total_packets):
+            src_ip = "192.0.2.{}".format(random.randint(1, 250))
+
+            tx_pkt = simple_tcp_packet(
+                eth_src=self.ptf_macs[ingress_port],
+                eth_dst=self.dut_mac,
+                dl_vlan_enable=True,
+                vlan_vid=self._vlan_for_vnet(vnet_id),
+                ip_src=src_ip,
+                ip_dst=dst_ip,
+                tcp_sport=10000 + flow_id,
+                tcp_dport=5000,
+                pktlen=104,
+            )
+
+            exp_pkt = self._build_expected_packet(
+                vnet_id,
+                src_ip,
+                dst_ip,
+            )
+
+            send_packet(self, ingress_port, tx_pkt)
+
+            try:
+                match_index, _ = verify_packet_any_port(
+                    self,
+                    exp_pkt,
+                    ports=self.wl_ptf_port_indices,
+                    timeout=2,
                 )
 
-                try:
-                    send_packet(self, self.ingress_port, tx_pkt)
+                matched_port = self.wl_ptf_port_indices[match_index]
+                distribution[matched_port] += 1
 
-                    match_index, rcv_pkt = verify_packet_any_port(
-                        self,
-                        exp_pkt,
-                        ports=self.wl_ptf_port_indices,
-                        timeout=2,
-                    )
-
-                    matched_port = self.wl_ptf_port_indices[match_index]
-                    distribution[matched_port] += 1
-
-                    logger.info(
-                        "VNET %d flow %d PASSED: src=%s dst=%s matched index=%s egress port=%s",
-                        vnet_id,
-                        flow_id,
-                        inner_src_ip,
-                        shared_dst_ip,
-                        match_index,
-                        matched_port,
-                    )
-
-                except Exception as exc:
-                    logger.warning(
-                        "VNET %d flow %d FAILED: src=%s dst=%s error=%s",
-                        vnet_id,
-                        flow_id,
-                        inner_src_ip,
-                        shared_dst_ip,
-                        exc,
-                    )
-                    failures.append(
-                        {
-                            "vnet_id": vnet_id,
-                            "flow_id": flow_id,
-                            "src_ip": inner_src_ip,
-                            "dst_ip": shared_dst_ip,
-                            "error": str(exc),
-                        }
-                    )
-
-            missing_ports = [
-                port_index
-                for port_index in self.wl_ptf_port_indices
-                if distribution[port_index] == 0
-            ]
-
-            per_vnet_distribution[vnet_id] = dict(distribution)
-
-            logger.info("========================================")
-            logger.info("VXLAN dataplane summary for VNET %d", vnet_id)
-            logger.info("Total flows sent: %d", flow_count)
-            logger.info("Flows passed: %d", flow_count - len(failures))
-            logger.info("Flows failed: %d", len(failures))
-            logger.info("ECMP distribution: %s", dict(distribution))
-            logger.info("Missing egress ports: %s", missing_ports)
-            logger.info("========================================")
-
-            if failures:
-                all_failures.extend(failures)
-
-            if missing_ports:
-                all_failures.append(
-                    {
-                        "vnet_id": vnet_id,
-                        "flow_id": "N/A",
-                        "src_ip": "N/A",
-                        "dst_ip": shared_dst_ip,
-                        "error": "No traffic observed on WL port(s): {}".format(missing_ports),
-                    }
+                logger.info(
+                    "VNET %d regular TCP flow %d PASSED: src=%s dst=%s matched index=%s egress port=%s",
+                    vnet_id,
+                    flow_id,
+                    src_ip,
+                    dst_ip,
+                    match_index,
+                    matched_port,
                 )
-
-        if all_failures:
-            failure_lines = [
-                "VXLAN dataplane validation failed for {} issue(s) across {} VNET(s)".format(
-                    len(all_failures), self.vnet_count
+            except Exception as e:
+                failure = "VNET {} regular TCP flow {} FAILED: src={} dst={} error={}".format(
+                    vnet_id,
+                    flow_id,
+                    src_ip,
+                    dst_ip,
+                    e,
                 )
-            ]
+                logger.error(failure)
+                failures.append(failure)
 
-            for entry in all_failures[:20]:
-                failure_lines.append(
-                    "vnet={vnet_id} flow_id={flow_id} src={src_ip} dst={dst_ip} error={error}".format(**entry)
-                )
+        logger.info("Regular TCP distribution: %s", dict(distribution))
+        self._check_ecmp_distribution(
+            distribution,
+            total_packets,
+            failures,
+            "Regular TCP",
+            vnet_id,
+        )
 
-            if len(all_failures) > 20:
-                failure_lines.append(
-                    "... {} more failures omitted".format(len(all_failures) - 20)
-                )
-
-            failure_lines.append("Per-VNET ECMP distribution: {}".format(per_vnet_distribution))
-            self.fail("\n".join(failure_lines))
+    def runTest(self):
+        if self.traffic_test_type == "vxlan":
+            self._run_vxlan_decap_ecmp_test()
+        elif self.traffic_test_type == "regular_tcp":
+            self._run_regular_tcp_ecmp_test()
+        else:
+            self.fail("Unsupported traffic_test_type: {}".format(self.traffic_test_type))
