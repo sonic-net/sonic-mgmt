@@ -230,24 +230,24 @@ def get_threshold_based_on_memory(duthost):
     :param duthost: DUT host object
     :return: value with unit, such as '1024K' which represents the logrotate size threshold.
     """
-    # Try reading actual configured threshold from device (most reliable)
-    try:
-        # Use sed to extract the size from the syslog block (last size directive).
-        # The rsyslog config has multiple blocks — first block (mail/debug) has "size 10k",
-        # but the syslog block (last) has the real threshold (e.g., "size 1M" or "size 16M").
-        result = duthost.shell("grep -oP 'size \\K\\S+' /etc/logrotate.d/rsyslog | tail -1",
-                               module_ignore_errors=True)
-        if result['rc'] == 0 and result['stdout'].strip():
-            threshold = result['stdout'].strip().splitlines()[-1]
-            # Normalize M to K for precision in multiply_with_unit().
-            # e.g., "1M" becomes "1024K" so that 1024*0.9=921K works correctly,
-            # whereas int(1*0.9)=0 would create a zero-byte file.
-            if threshold[-1] in ('M', 'm'):
-                threshold = str(int(threshold[:-1]) * 1024) + 'K'
-            logger.info('Read logrotate threshold from config: {}'.format(threshold))
-            return threshold
-    except Exception as e:
-        logger.debug('Failed to read logrotate config: {}'.format(e))
+    cmd = ("sudo awk '"
+           "/(^|[[:space:]])\\/var\\/log\\/syslog([[:space:]]|$)/ { in_syslog=1; next } "
+           "in_syslog && $1 == \"}\" { exit } "
+           "in_syslog && $1 == \"size\" && $2 ~ /^[0-9]+[kKmMgG]?$/ { print $2; exit }"
+           "' /etc/logrotate.d/rsyslog")
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    threshold = result.get('stdout', '').strip()
+    if result.get('rc') == 0 and threshold:
+        if threshold[-1] in ('K', 'k'):
+            threshold = '{}K'.format(int(threshold[:-1]))
+        elif threshold[-1] in ('M', 'm'):
+            threshold = '{}K'.format(int(threshold[:-1]) * 1024)
+        elif threshold[-1] in ('G', 'g'):
+            threshold = '{}K'.format(int(threshold[:-1]) * 1024 * 1024)
+        else:
+            threshold = '{}K'.format((int(threshold) + 1023) // 1024)
+        logger.info('Read logrotate threshold from config: {}'.format(threshold))
+        return threshold
 
     # Fallback: compute based on partition size
     available_memory = int(duthost.shell("df -k /var/log | sed -n 2p")["stdout_lines"][0].split()[1])
