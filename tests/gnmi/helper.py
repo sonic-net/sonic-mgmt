@@ -131,9 +131,16 @@ def recover_cert_config(duthost):
 
     # Restart telemetry container if it was stopped during cert config change
     # apply_cert_config may trigger ctrmgrd to stop the telemetry container
+    # Only attempt restart if telemetry is an enabled feature; on platforms where
+    # telemetry is disabled, the container is never running and restarting it causes
+    # a systemd failure that the loganalyzer will flag as a test error.
     if not check_container_state(duthost, "telemetry", should_be_running=True):
-        logger.info("Telemetry container is not running after cert config recovery, restarting it")
-        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status.get("telemetry") == "enabled":
+            logger.info("Telemetry container is not running after cert config recovery, restarting it")
+            duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
+        else:
+            logger.info("Telemetry feature is %s, skipping restart", feature_status.get("telemetry", "absent"))
 
     # Wait for monit container_checker to report healthy status.
     # After restarting processes/containers, monit needs time to re-evaluate
