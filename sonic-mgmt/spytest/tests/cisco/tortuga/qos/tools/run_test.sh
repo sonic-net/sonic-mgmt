@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Unified QoS Test Runner
-# Location: /ws/shbhatna-rtp/public/run_test.sh
 #
 # Usage:
 #   ./run_test.sh --platform <name> --yaml <path> <test_file>  # Run specific test
@@ -12,6 +11,9 @@
 # the script loads the docker image (if needed) and starts the container.
 
 set -euo pipefail
+
+# Get script directory (works even if script is sourced or symlinked)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Platform registry ─────────────────────────────────────────────────────
 # Each platform defines: docker image, tar path, container name, test base path
@@ -95,7 +97,7 @@ do_setup() {
     echo "  Container: $CONTAINER_NAME"
 
     # Copy this script into spytest dir so it's available at /data inside container
-    SCRIPT_SOURCE="/ws/shbhatna-rtp/public/run_test.sh"
+    SCRIPT_SOURCE="${SCRIPT_DIR}/run_test.sh"
     if [ -f "$SCRIPT_SOURCE" ]; then
         cp "$SCRIPT_SOURCE" ./run_test.sh
         chmod +x ./run_test.sh
@@ -169,7 +171,7 @@ do_setup() {
 }
 
 run_tests() {
-    local RUN_TEST_PATH="$1"
+    local RUN_TEST_PATHS=("$@")
 
     # If outside container, auto-setup and exec into it
     if ! is_inside_container; then
@@ -197,7 +199,7 @@ run_tests() {
         echo "Executing test inside container '$CONTAINER_NAME'..."
 
         # Always copy run_test.sh into the container
-        docker cp /ws/shbhatna-rtp/public/run_test.sh "$CONTAINER_NAME:/data/run_test.sh"
+        docker cp "${SCRIPT_DIR}/run_test.sh" "$CONTAINER_NAME:/data/run_test.sh"
 
         # Copy testbed YAML into container
             local TB_BASE=$(basename "$TESTBED_YAML")
@@ -209,11 +211,19 @@ run_tests() {
                 exit 1
             fi
 
+            # Pre-create logs directory on host (so it's owned by user, not root)
             local LOGS_DIR_ARG=""
-            [[ -n "$LOGS_DIR" ]] && LOGS_DIR_ARG="--logs-dir $LOGS_DIR"
+            if [[ -n "$LOGS_DIR" ]]; then
+                mkdir -p "$PWD/$LOGS_DIR" 2>/dev/null || mkdir -p "$LOGS_DIR"
+                LOGS_DIR_ARG="--logs-dir $LOGS_DIR"
+            else
+                local AUTO_LOGS_DIR="run_logs_${PLATFORM}_$(date '+%Y%m%d_%H%M%S')"
+                mkdir -p "$PWD/$AUTO_LOGS_DIR"
+                LOGS_DIR_ARG="--logs-dir /data/$AUTO_LOGS_DIR"
+            fi
 
             docker exec -i "${ENV_ARGS[@]}" "$CONTAINER_NAME" \
-                bash /data/run_test.sh --platform "$PLATFORM" --yaml "/data/$TB_BASE" $LOGS_DIR_ARG "$COMMAND"
+                bash /data/run_test.sh --platform "$PLATFORM" --yaml "/data/$TB_BASE" $LOGS_DIR_ARG "${RUN_TEST_PATHS[@]}"
             return $?
     fi
 
@@ -258,9 +268,11 @@ run_tests() {
         RUN_LOGS_DIR="/data/run_logs_${PLATFORM}_$(date '+%Y%m%d_%H%M%S')"
     fi
     mkdir -p "$RUN_LOGS_DIR"
+    # Make logs directory writable for non-root users (container runs as root)
+    chmod 777 "$RUN_LOGS_DIR"
 
     echo ""
-    echo "Starting test run: $RUN_TEST_PATH"
+    echo "Starting test run: ${RUN_TEST_PATHS[*]}"
     echo "Platform:  $PLATFORM"
     echo "Testbed:   $TESTBED_YAML"
     echo "Logs:      $RUN_LOGS_DIR"
@@ -271,12 +283,15 @@ run_tests() {
         --device-feature-group master \
         --module-init-max-timeout=99000 \
         --tc-max-timeout=99000 \
-        "$RUN_TEST_PATH" \
+        "${RUN_TEST_PATHS[@]}" \
         --skip-init-checks \
         --skip-init-config \
         --logs-path "$RUN_LOGS_DIR" \
         --port-init-wait 10 \
         "${SPYTEST_EXTRA_ARGS[@]}"
+
+    # Make all log files accessible outside the container (spytest runs as root)
+    chmod -R 777 "$RUN_LOGS_DIR" 2>/dev/null || true
 }
 
 # ── Parse args ────────────────────────────────────────────────────────────
@@ -305,7 +320,10 @@ CONTAINER_NAME="${PLAT_CONTAINER[$PLATFORM]}"
 TEST_PATH="${PLAT_TEST_PATH[$PLATFORM]}"
 
 [[ $# -lt 1 ]] && { show_usage; exit 0; }
+
+# Collect all remaining args as test files
 COMMAND="$1"
+shift
 
 case "$COMMAND" in
     full)
@@ -317,6 +335,17 @@ case "$COMMAND" in
         ;;
     *)
         [[ -z "$TESTBED_YAML" ]] && { echo -e "${RED}Error: --yaml is required${NC}"; exit 1; }
-        run_tests "$TEST_PATH/$COMMAND"
+        # Build test paths: handle space-separated tests in COMMAND plus any additional args
+        TEST_FILES=()
+        for t in $COMMAND "$@"; do
+            [[ -z "$t" ]] && continue
+            # Only prepend TEST_PATH if not already an absolute path
+            if [[ "$t" == /* ]]; then
+                TEST_FILES+=("$t")
+            else
+                TEST_FILES+=("$TEST_PATH/$t")
+            fi
+        done
+        run_tests "${TEST_FILES[@]}"
         ;;
 esac

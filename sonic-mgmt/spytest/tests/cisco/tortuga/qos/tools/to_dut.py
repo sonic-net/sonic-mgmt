@@ -128,6 +128,10 @@ def main():
         "--config-dir", required=True,
         help="Directory containing config files (named after each DUT)"
     )
+    parser.add_argument(
+        "--yes", "-y", action="store_true",
+        help="Auto-confirm activation (non-interactive mode)"
+    )
     args = parser.parse_args()
 
     yaml_path = resolve_path(args.yaml)
@@ -187,11 +191,15 @@ def main():
             except Exception as e:
                 print(f"  {futures[future]}: FAILED: {e}")
 
-    # Step 2: Prompt to activate
-    print(f"\nActivate config on all DUTs?")
-    print(f"  This will copy /tmp/config_db.json -> /etc/sonic/config_db.json")
-    print(f"  and run 'config reload -y' on each DUT.")
-    resp = input("\nProceed? (y/N): ").strip().lower()
+    # Step 2: Prompt to activate (or auto-confirm with --yes)
+    if args.yes:
+        resp = "y"
+        print(f"\nActivating config on all DUTs (--yes specified)...")
+    else:
+        print(f"\nActivate config on all DUTs?")
+        print(f"  This will copy /tmp/config_db.json -> /etc/sonic/config_db.json")
+        print(f"  and run 'config reload -y' on each DUT.")
+        resp = input("\nProceed? (y/N): ").strip().lower()
     if resp != "y":
         print("Configs left in /tmp/config_db.json on each DUT.")
         print("To activate manually, SSH to each DUT and run:")

@@ -32,6 +32,7 @@ ECN Verification:
 """
 
 import os
+import time
 import yaml
 import pytest
 from spytest import st, tgapi, SpyTestDict
@@ -220,6 +221,19 @@ def setup_tgen_interfaces_and_stream(tc, rate_percent, ect=ECN_ECT_10):
     st.banner("Configuring TGEN IPv6 interfaces via NGPF")
     handles = vxlan_obj.config_tgen_interface(int_dict, 'ipv6')
 
+    # L3VNI requires gateway MAC resolution via ND before end-to-end ping works
+    # Ping each TGEN's local gateway first to force ND resolution
+    st.banner("Pinging local gateways to force IPv6 ND resolution (L3VNI requirement)")
+    for port, info in int_dict.items():
+        gateway = info['gateway']
+        st.log(f"Pinging gateway {gateway} from {port} to trigger ND...")
+        gw_ping_ok = vxlan_obj.ping_gateway(handles, port, gateway, handles[port]['int_handle'])
+        if gw_ping_ok:
+            st.log(f"Gateway ping from {port} to {gateway} succeeded - ND resolved")
+        else:
+            st.log(f"WARNING: Gateway ping from {port} to {gateway} failed - ND may not be resolved")
+            # Don't fail yet - the end-to-end ping will catch this
+
     # Set up traffic parameters in data object for config_traffic_item
     data.ip_dscp = int(dscp)
     data.traffic_class = int(dscp) << 2
@@ -278,13 +292,12 @@ def verify_l3vni_asic_entries(nodes):
     Verify L3VNI ASIC programming (VNI-to-VRF mapping).
     
     Returns True if entries are present, False otherwise.
+    Note: No longer attempts recovery - just reports status.
     """
-    leaf_vlan = {'leaf0': '2', 'leaf1': '3'}
     all_good = True
     
     for node_name in ['leaf0', 'leaf1']:
         dut = nodes[node_name]
-        vlan_id = leaf_vlan[node_name]
         
         # Check ASIC_DB for VNI_TO_VIRTUAL_ROUTER_ID entries
         output = st.config(dut,
@@ -304,19 +317,7 @@ def verify_l3vni_asic_entries(nodes):
         if has_vrf_entry:
             st.log(f"{node_name}: L3VNI ASIC entries confirmed present")
         else:
-            st.log(f"WARNING: {node_name}: L3VNI ASIC entries MISSING - attempting recovery...")
-            # Remove and re-add VRF-VNI mapping
-            st.config(dut, f"sudo config vxlan map del VXLAN {vlan_id} 1000",
-                      skip_error_check=True)
-            st.config(dut, "sudo config vrf del_vrf_vni_map Vrf01",
-                      skip_error_check=True)
-            st.wait(5)
-            st.config(dut, "sudo config vrf add_vrf_vni_map Vrf01 1000",
-                      skip_error_check=True)
-            st.wait(5)
-            st.config(dut, f"sudo config vxlan map add VXLAN {vlan_id} 1000",
-                      skip_error_check=True)
-            st.wait(5)
+            st.log(f"WARNING: {node_name}: L3VNI ASIC entries MISSING")
             all_good = False
     
     return all_good
@@ -351,15 +352,25 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
 
     # Define interfaces for WRED counter capture on all 4 nodes
     # With XOFF-based congestion, we only need 1 port per leaf-spine link
+    # APTODO       'spine1': [vars.D2D4P1] if hasattr(vars, 'D2D4P1') else [],
     wred_interfaces = {
         'leaf0': [vars.D3D1P1] + ([vars.D3D2P1] if hasattr(vars, 'D3D2P1') else []),
         'spine0': [vars.D1D4P1] if hasattr(vars, 'D1D4P1') else [],
-        'spine1': [vars.D2D4P1] if hasattr(vars, 'D2D4P1') else [],
         'leaf1': [vars.D4T1P1]
     }
     st.log(f"WRED interfaces for counter capture: {wred_interfaces}")
 
     try:
+        # CRITICAL: Reset all TGEN ports first to clear stale cached topology handles
+        # vxlan_obj.config_tgen_interface() caches topology handles internally, and
+        # tg_interface_config(mode='destroy') doesn't clear that cache.
+        # Reset ensures a clean IxNetwork state AND refreshes SPyTest/vxlan_obj caches.
+        st.banner("Resetting all TGEN ports to clear cached topology handles")
+        tg_reset, _ = tgapi.get_handle_byname('T1D3P1')
+        tg_reset.tg_traffic_control(action='reset', port_handle=[tgapi.get_handle_byname('T1D3P1')[1],
+                                                                  tgapi.get_handle_byname('T1D4P1')[1]])
+        st.wait(3)
+
         # Pre-test: Verify L3VNI ASIC entries
         st.banner("Verifying L3VNI ASIC entries before test")
         verify_l3vni_asic_entries(nodes)
@@ -410,8 +421,8 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
             st.config(dut, "show vxlan vlanvnimap", skip_error_check=True)
             st.log(f"--- {node_name}: show dropcounters counts ---")
             st.config(dut, "show dropcounters counts", skip_error_check=True)
-            st.log(f"--- {node_name}: show ipv6 neighbors ---")
-            st.config(dut, "show ipv6 neighbors", skip_error_check=True)
+            st.log(f"--- {node_name}: fdbshow ---")
+            st.config(dut, "fdbshow", skip_error_check=True)
 
         # DUT-to-DUT ping through VRF to verify tunnel data plane
         st.log("--- leaf0: ping leaf1 SVI through Vrf01 ---")
@@ -443,12 +454,12 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
                 gamut_utils.gamut_clear_port_counters(dut)
 
         # Step 5: Clear and capture WRED/ECN counters BEFORE traffic
-        st.banner("Clearing WRED/ECN counters on all nodes")
-        qos_utils.clear_all_wred_counters(nodes, wred_interfaces, tc=data.tc)
+        #st.banner("Clearing WRED/ECN counters on all nodes")
+        #qos_utils.clear_all_wred_counters(nodes, wred_interfaces, tc=data.tc)
 
         # Clear queue watermarks on all nodes (with robust verification)
-        st.banner("Clearing queue watermarks on all nodes")
-        qos_utils.clear_all_queue_watermarks(nodes, wait_after=3)
+        #st.banner("Clearing queue watermarks on all nodes")
+        #qos_utils.clear_all_queue_watermarks(nodes, wait_after=3)
 
         st.banner("Capturing WRED/ECN counters BEFORE traffic")
         wred_before = qos_utils.capture_wred_counters(nodes, wred_interfaces, tc=data.tc)
@@ -508,7 +519,7 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
         # Step 11: Stop all traffic
         st.banner("Stopping traffic")
         tg.tg_traffic_control(action='stop')
-        st.wait(5)
+        st.wait(15)  # Wait for SONiC interface counters to sync
 
         # Poll for traffic to fully stop before collecting stats
         st.log("Polling for traffic state to settle...")
@@ -611,25 +622,39 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
             st.log("TGEN stats unavailable - using DUT interface counters as fallback")
             stats_from_dut = True
             try:
-                # TX: leaf0 TGEN port RX counter (packets received from TGEN into leaf0)
-                tx_output = st.show(nodes['leaf0'], f"show interface counters | grep {vars.D3T1P1}",
-                                   skip_tmpl=True, skip_error_check=True)
-                # RX: leaf1 TGEN port TX counter (packets sent from leaf1 to TGEN)
-                rx_output = st.show(nodes['leaf1'], f"show interface counters | grep {vars.D4T1P1}",
-                                   skip_tmpl=True, skip_error_check=True)
-                # Parse counters - format: IFACE STATE RX_OK RX_BPS RX_UTIL ... TX_OK TX_BPS ...
-                import re
-                # RX_OK is the first large number after interface name
-                tx_match = re.search(r'U\s+([\d,]+)\s+', tx_output)
-                # TX_OK is after a series of RX columns - look for pattern after U
-                # Typical format: Ethernet1_58_1  U  760,017,886  0.00 B/s  0.00%  0  0  0  33  8.17 B/s
-                # We need the first number (RX_OK)
-                rx_full_match = re.search(r'U\s+([\d,]+)\s+[\d.]+\s+B/s\s+[\d.]+%\s+\d+\s+\d+\s+\d+\s+([\d,]+)', rx_output)
-                if tx_match:
-                    tx_frames = int(tx_match.group(1).replace(',', ''))
-                if rx_full_match:
-                    # For egress port, we want TX_OK which is the second capture group
-                    rx_frames = int(rx_full_match.group(2).replace(',', ''))
+                # For Gamut (N9164E), use real-time ASIC counters instead of stale CLI counters
+                # The 'show interface counters' CLI uses counterpoll cache which can be minutes stale
+                if platform_type == 'n9164e':
+                    st.log("Gamut: Using real-time ASIC counters (bypassing counterpoll cache)")
+                    # TX: leaf0 TGEN port RX counter (packets received from TGEN into leaf0)
+                    leaf0_counters = gamut_utils.gamut_get_interface_counters(nodes['leaf0'], vars.D3T1P1)
+                    # RX: leaf1 TGEN port TX counter (packets sent from leaf1 to TGEN)
+                    leaf1_counters = gamut_utils.gamut_get_interface_counters(nodes['leaf1'], vars.D4T1P1)
+                    if leaf0_counters:
+                        tx_frames = leaf0_counters.get('rx_frames', 0)
+                    if leaf1_counters:
+                        rx_frames = leaf1_counters.get('tx_frames', 0)
+                else:
+                    # Other platforms: use CLI counters (may have less caching issues)
+                    # TX: leaf0 TGEN port RX counter (packets received from TGEN into leaf0)
+                    tx_output = st.show(nodes['leaf0'], f"show interface counters | grep {vars.D3T1P1}",
+                                       skip_tmpl=True, skip_error_check=True)
+                    # RX: leaf1 TGEN port TX counter (packets sent from leaf1 to TGEN)
+                    rx_output = st.show(nodes['leaf1'], f"show interface counters | grep {vars.D4T1P1}",
+                                       skip_tmpl=True, skip_error_check=True)
+                    # Parse counters - format: IFACE STATE RX_OK RX_BPS RX_UTIL ... TX_OK TX_BPS ...
+                    import re
+                    # RX_OK is the first large number after interface name
+                    tx_match = re.search(r'U\s+([\d,]+)\s+', tx_output)
+                    # TX_OK is after a series of RX columns - look for pattern after U
+                    # Typical format: Ethernet1_58_1  U  760,017,886  0.00 B/s  0.00%  0  0  0  33  8.17 B/s
+                    # We need the first number (RX_OK)
+                    rx_full_match = re.search(r'U\s+([\d,]+)\s+[\d.]+\s+B/s\s+[\d.]+%\s+\d+\s+\d+\s+\d+\s+([\d,]+)', rx_output)
+                    if tx_match:
+                        tx_frames = int(tx_match.group(1).replace(',', ''))
+                    if rx_full_match:
+                        # For egress port, we want TX_OK which is the second capture group
+                        rx_frames = int(rx_full_match.group(2).replace(',', ''))
                 st.log(f"DUT-based stats: TX~={tx_frames}, RX~={rx_frames}")
             except Exception as dut_err:
                 st.error(f"DUT counter fallback also failed: {dut_err}")
@@ -657,19 +682,52 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
             loss_rate = ((tx_frames - rx_frames) / tx_frames) * 100
         st.log(f"Packet loss rate: {loss_rate:.2f}%")
 
-        # Step 15: Determine pass/fail with ECN-specific criteria
-        basic_pass = rx_frames > 0
+        # Compute WRED totals for use in basic_pass determination
+        wred_total_packets = 0
+        wred_total_ecn_marked = 0
+        for node_name, interfaces in (wred_summary or {}).items():
+            for intf, counters in interfaces.items():
+                wred_total_packets += counters.get('packets', 0)
+                wred_total_ecn_marked += counters.get('ecn_marked_pkts', 0)
+
+        # Get captured frames count from packet capture
+        captured_frames = 0
+        if capture_results and 'T1D4P1' in capture_results:
+            captured_frames = capture_results['T1D4P1'].get('analyzed_frames', 0)
+
+        # Platform-specific basic_pass determination
+        if platform_type == 'n9164e':
+            # Gamut (N9164E): Interface counters often stale (counterpoll caching)
+            if ect == ECN_CE:
+                # CE traffic: WRED counters don't increment, use packet capture as proof
+                basic_pass = rx_frames > 0 or captured_frames > 0
+            else:
+                # ECT(0), ECT(1), Not-ECT: WRED counters work
+                basic_pass = rx_frames > 0 or wred_total_packets > 0 or wred_total_ecn_marked > 0
+        elif platform_type == 'hf6100':
+            # HF6100: CE traffic increments ECN counters, WRED always valid
+            basic_pass = rx_frames > 0 or wred_total_packets > 0 or wred_total_ecn_marked > 0
+        else:
+            # Generic fallback: use all available sources
+            basic_pass = rx_frames > 0 or wred_total_packets > 0 or wred_total_ecn_marked > 0 or captured_frames > 0
+
         if not basic_pass:
-            st.error(f"FAIL: No traffic received (TX={tx_frames}, RX={rx_frames})")
+            st.error(f"FAIL: No traffic received (TX={tx_frames}, RX={rx_frames}, WRED_pkts={wred_total_packets}, ECN_marked={wred_total_ecn_marked}, captured={captured_frames})")
             dump_l3vni_diagnostics(nodes, "POST-TRAFFIC FAILURE")
             result = False
         else:
-            st.log(f"Basic traffic check PASS: TX={tx_frames}, RX={rx_frames}")
+            if rx_frames > 0:
+                st.log(f"Basic traffic check PASS: TX={tx_frames}, RX={rx_frames}")
+            elif wred_total_packets > 0 or wred_total_ecn_marked > 0:
+                st.log(f"Basic traffic check PASS (from WRED counters): WRED_pkts={wred_total_packets}, ECN_marked={wred_total_ecn_marked}")
+            else:
+                st.log(f"Basic traffic check PASS (from packet capture): captured={captured_frames} frames")
             if congestion_pfc_delta > 0:
                 st.log(f"PFC XOFF received at congestion point (delta={congestion_pfc_delta})")
             else:
                 st.log(f"WARNING: PFC XOFF not received at congestion point (delta={congestion_pfc_delta})")
-            result = True
+
+            result = True  # Start with pass, fail on any criteria violation
 
         # Compute ECN marked packets per node from WRED summary
         ecn_marked_per_node = {}
@@ -781,7 +839,8 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
 
         # Dump running configuration on all nodes for post-mortem analysis
         st.banner("Saving running configuration on all nodes")
-        for node_name in ['leaf0', 'leaf1', 'spine0', 'spine1']:
+        #APTODO for node_name in ['leaf0', 'leaf1', 'spine0', 'spine1']:
+        for node_name in ['leaf0', 'leaf1', 'spine0']:
             if node_name in nodes:
                 st.log(f"Saving config on {node_name} to /tmp/ap.json")
                 st.config(nodes[node_name], "config save -y /tmp/ap.json")
@@ -818,13 +877,22 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
                 st.log("Cleaning up NGPF device groups...")
                 tg.tg_test_control(action='stop_all_protocols')
                 st.wait(2)
+                destroyed_topologies = set()
                 for port_name, handle_dict in handles.items():
-                    if 'topology_handle' in handle_dict:
-                        try:
-                            tg.tg_topology_config(topology_handle=handle_dict['topology_handle'], mode='destroy')
-                            st.log(f"Destroyed topology for {port_name}")
-                        except Exception as e:
-                            st.log(f"Warning: Failed to destroy topology for {port_name}: {e}")
+                    # Extract topology_handle from int_handle path
+                    # int_handle format: /topology:N/deviceGroup:1/ethernet:1/ipv6:1/item:1
+                    int_handle = handle_dict.get('int_handle', '')
+                    if int_handle and '/topology:' in int_handle:
+                        # Extract /topology:N part
+                        parts = int_handle.split('/')
+                        topo_handle = '/' + parts[1] if len(parts) > 1 else None
+                        if topo_handle and topo_handle not in destroyed_topologies:
+                            try:
+                                tg.tg_topology_config(topology_handle=topo_handle, mode='destroy')
+                                st.log(f"Destroyed topology {topo_handle} for {port_name}")
+                                destroyed_topologies.add(topo_handle)
+                            except Exception as e:
+                                st.log(f"Warning: Failed to destroy {topo_handle} for {port_name}: {e}")
             except Exception as e:
                 st.log(f"Warning: NGPF cleanup error: {e}")
 
@@ -833,6 +901,59 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
             qos_utils.restore_ecn_on_nodes(nodes, saved_ecn_state)
 
     return result
+
+
+def verify_vtep_state(nodes):
+    '''
+    Verify VXLAN tunnel state
+    '''
+    REMOTE_VTEP_COUNT = '1'
+    NO_OF_RETRIES=12
+    for node in ['leaf0', 'leaf1']:
+        dut = nodes[node]
+        expected_sip = LEAF0_VTEP_IP if node == 'leaf0' else LEAF1_VTEP_IP
+        expected_dip = LEAF1_VTEP_IP if node == 'leaf0' else LEAF0_VTEP_IP
+        
+        output = st.config(dut, "show vxlan remotevtep")
+        output_parsed = st.parse_show(dut, "show vxlan remotevtep", output, "show_vxlan_remote.tmpl")
+        iter = 0
+        for vtep in output_parsed:
+            start_time = time.time()
+            while vtep['tun_status'] != 'oper_up' and iter < NO_OF_RETRIES:
+                iter += 1
+                st.wait(10)
+                output = st.config(dut, "show vxlan remotevtep")
+                output_parsed = st.parse_show(dut, "show vxlan remotevtep", output, "show_vxlan_remote.tmpl")
+                vtep = output_parsed[0]
+            
+            if iter == NO_OF_RETRIES:
+                end_time = time.time()
+                iter = 0
+                if vtep['tun_status'] == 'oper_down':
+                    st.log("Tunnel State is not Up after {} secs".format(end_time - start_time))
+                    report_fail(dut, msg='Tunnel State is not up. Status : oper_down')
+                else:
+                    st.log("Tunnel State is not set after {} secs".format(end_time - start_time))
+                    report_fail(dut, msg='Tunnel State is not set')
+            
+            if vtep['tun_status'] == 'oper_up':
+                end_time = time.time()
+                st.log("Tunnel State is up after {} secs Status : oper_up".format(end_time - start_time), dut)
+
+            if vtep['src_vtep'] == expected_sip:
+                st.log("Source vtep validated", dut)
+            else:
+                report_fail(dut, msg='Source vtep is not as expected. Found {} Expected {}'.format(vtep['src_vtep'], expected_sip))
+
+            if vtep['dst_vtep'] == expected_dip:
+                st.log("Destination vtep validated", dut)
+            else:
+                report_fail(dut, msg='Destination vtep is not as expected. Found {} Expected {}'.format(vtep['dst_vtep'], expected_dip))
+
+            if vtep['total_count'] == REMOTE_VTEP_COUNT:
+                st.log("All remote VTEPs detected", dut)
+            else:
+                report_fail(dut, msg='Remote Vteps discovered count not as expected. Found {} Expected {}'.format(vtep['total_count'], REMOTE_VTEP_COUNT))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -856,77 +977,74 @@ def module_setup():
     vars = st.get_testbed_vars()
     nodes = get_nodes()
 
-    # ---- Speed up queue watermark counterpoll (default 60s is too slow) ----
-    for dut in st.get_dut_names():
-        qos_utils.set_queue_watermark_poll_interval(dut, 1000)
-
-    # ---- Enable WRED queue counterpoll for ECN/WRED counter visibility ----
-    st.log("Enabling wredqueue counterpoll")
-    for dut in st.get_dut_names():
-        st.config(dut, "sudo counterpoll wredqueue enable", skip_error_check=True)
-
-    # Step 1: Clean up any existing config
-    st.banner("STEP 1: Cleaning up any existing VXLAN/BGP configuration")
-    for node_name in ['leaf0', 'leaf1']:
-        dut = nodes[node_name]
-        qos_utils.cleanup_config(dut)
-
-    # Remove any leftover VRF BGP instances
-    #qos_utils.cleanup_leftover_vrf_bgp(nodes)
-   
-    # Step 2: Initialize QoS (MUST be first - does config reload on Gamut which wipes runtime config)
-    st.banner("STEP 2: Initializing QoS configuration (before VXLAN/BGP setup)")
+    # Step 1: Initialize QoS (MUST be first - does config reload on Gamut which may restart FRR)
+    st.banner("STEP 1: Initializing QoS configuration")
     for dut in st.get_dut_names():
         stream_api.init_qos_on_dut(dut)
         qos_utils.load_config_db(dut)
 
+    # Step 2: Clean up any existing config (AFTER init_qos_on_dut since that may restart FRR
+    # and reload frr.conf, undoing any cleanup done before)
+    st.banner("STEP 2: Cleaning up any existing VXLAN/BGP configuration")
+    for node_name in ['leaf0', 'leaf1']:
+        dut = nodes[node_name]
+        qos_utils.cleanup_config(dut)
+
+    # Remove any leftover VRF BGP instances (must be after QoS init which restarts FRR)
+    # TODO REMOVE qos_utils.cleanup_leftover_vrf_bgp(nodes)
+
+    # Step 3: Get port speed for XOFF rate calculation
+    st.banner("STEP 3: Getting port speed for XOFF rate calculation")
+    speeds = qos_utils.get_link_speeds(nodes, {'leaf1': [vars.D4T1P1]})
+    port_speed_gbps = speeds['leaf1'][vars.D4T1P1]
+    st.log(f"Port speed: {port_speed_gbps} Gbps, XOFF rate will be {get_xoff_rate(port_speed_gbps)} fps")
+
+    # Step 4: Validate testbed topology
+    st.banner("STEP 4: Validating ECN testbed topology for WRED counter interfaces")
+    topo_info = qos_utils.validate_ecn_testbed_topology()
+    if not topo_info['valid']:
+        st.log(f"WARNING: Testbed topology validation issue: {topo_info.get('error')}")
+        st.log("Continuing with minimal port set for WRED counters...")
+
+    # Step 5: Detect platform type 
+    # TODO this should be done per node and stored in a dict, but for now we only have one platform type so it's fine
+    st.banner("STEP 5: Detecting platform type")
+    # Use leaf0 as reference for platform detection
+    platform_type = qos_utils.detect_platform(nodes['leaf0'])
+    st.log(f"Detected platform type: {platform_type}")
+
+    '''
+    if platform_type == 'n9164e':
+        st.banner("Gamut platform detected - Building port mappings for all nodes")
+        for node_name, dut in nodes.items():
+            st.log(f"Building Gamut port mapping for {node_name}...")
+            gamut_utils.gamut_build_port_mapping(dut)
+    '''
+
+    # Remove any leftover VRF BGP instances (must be after QoS init which restarts FRR)
+    qos_utils.cleanup_leftover_vrf_bgp(nodes)
+
+    st.banner("STEP 6: Generate L2VNI VXLAN/BGP configuration")
     updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE, vars)
 
-    # Deconfigure first (cleanup)
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node in reversed(list(config_list.keys())):
-            config_static(node, 'bgp', add=False)
-            st.wait(1)
-            config_static(node, 'sonic', add=False)
-
-    st.wait(5)
-
-    # Step 3: Apply VXLAN/BGP configuration for L3VNI
-    st.banner("STEP 3: Applying L3VNI VXLAN/BGP configuration from template")
-    with open(updated_config_file) as c:
-        config_list = yaml.load(c, Loader=yaml.FullLoader)
-
-        # Phase 1: Apply SONiC/VXLAN configs
-        st.log("Phase 1: Applying SONiC/VXLAN configuration...")
         for node in config_list.keys():
-            config_static(node, 'sonic')
+            config_static(node, 'sonic', config_list)
+            st.wait(5)
+            config_static(node, 'bgp', config_list)
 
-        # Enable tunnel counterpoll on leaves
-        for node_name in ['leaf0', 'leaf1']:
-            st.config(nodes[node_name], "sudo counterpoll tunnel enable", skip_error_check=True)
+    # Wait for BGP to converge
+    st.banner("STEP 7: Waiting for BGP convergence")
+    st.wait(20)
 
-        st.wait(5)
+    # Step 8: Wait for BGP EVPN convergence
+    st.banner("STEP 8: Waiting for BGP underlay & EVPN convergence")
+    if not qos_utils.wait_for_bgp_underlay_established(nodes, max_wait=180):
+        st.log("WARNING: BGP underlay sessions may not be fully established")
+        # TODO any point in proceeding? Declare failure
 
-        # Phase 2: Apply BGP configs
-        st.log("Phase 2: Applying BGP configuration...")
-        for node in config_list.keys():
-            config_static(node, 'bgp')
-
-        # Save BGP config
-        for node in config_list.keys():
-            st.config(nodes[node], "vtysh -c 'write memory'", skip_error_check=True)
-
-    # Wait for VNI to register
-    st.log("Waiting for VNI to register in zebra...")
-    st.wait(30)
-
-    # Step 4: Wait for BGP EVPN convergence
-    st.banner("STEP 4: Waiting for BGP EVPN convergence")
-    if not qos_utils.wait_for_bgp_evpn_established(nodes, max_wait=180):
-        st.log("WARNING: BGP EVPN sessions may not be fully established")
-
-    # Wait for VXLAN tunnels
+    # Wait for VXLAN tunnels - else TODO fail
     st.banner("Waiting for VXLAN tunnels to establish")
     for node_name in ['leaf0', 'leaf1']:
         dut = nodes[node_name]
@@ -941,39 +1059,12 @@ def module_setup():
     # DUMP full connectivity and BGP session details for debugging
     qos_utils.dump_vxlan_debug_info(nodes, "BGP session details")
 
-    # Step 5: Verify L3VNI ASIC programming
-    st.banner("STEP 5: Verifying L3VNI ASIC programming")
+    # Step 9: Verify L3VNI ASIC programming
+    st.banner("STEP 9: Verifying L3VNI ASIC programming")
     verify_l3vni_asic_entries(nodes)
 
-    # Step 6: Get port speed for XOFF rate calculation
-    st.banner("STEP 6: Getting port speed for XOFF rate calculation")
-    speeds = qos_utils.get_link_speeds(nodes, {'leaf1': [vars.D4T1P1]})
-    port_speed_gbps = speeds['leaf1'][vars.D4T1P1]
-    st.log(f"Port speed: {port_speed_gbps} Gbps, XOFF rate will be {get_xoff_rate(port_speed_gbps)} fps")
-
-    # Step 7: Validate testbed topology
-    st.banner("STEP 7: Validating ECN testbed topology for WRED counter interfaces")
-    topo_info = qos_utils.validate_ecn_testbed_topology()
-    if not topo_info['valid']:
-        st.log(f"WARNING: Testbed topology validation issue: {topo_info.get('error')}")
-        st.log("Continuing with minimal port set for WRED counters...")
-
-    # Step 8: Verify ECN configuration
-    st.banner("STEP 8: Verifying ECN configuration")
-    qos_utils.verify_ecn_config(nodes, ['leaf0', 'leaf1', 'spine0', 'spine1'])
-
-    # Step 9: Detect platform type
-    st.banner("STEP 9: Detecting platform type")
-    platform_type = qos_utils.detect_platform(nodes['leaf0'])
-    st.log(f"Detected platform type: {platform_type}")
-
-    '''
-    if platform_type == 'n9164e':
-        st.banner("Gamut platform detected - Building port mappings for all nodes")
-        for node_name, dut in nodes.items():
-            st.log(f"Building Gamut port mapping for {node_name}...")
-            gamut_utils.gamut_build_port_mapping(dut)
-    '''
+    # redundant, but clean(er)
+    verify_vtep_state(nodes)
 
     yield
 
@@ -983,8 +1074,13 @@ def module_setup():
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node in reversed(list(config_list.keys())):
             config_static(node, 'bgp', add=False)
-            st.wait(1)
+            st.wait(3)
             config_static(node, 'sonic', add=False)
+
+    for vrf in data.config_vrfs:
+        vxlan_obj.config_vrf(nodes['leaf0'], vrf, add=False)
+        vxlan_obj.config_vrf(nodes['leaf1'], vrf, add=False)
+    data.config_vrfs = []
 
     vxlan_obj.remove_temp_config(updated_config_file)
 

@@ -2971,8 +2971,7 @@
     },
     "LOGGER": {
         "DomInfoUpdateTask": {
-            "LOGLEVEL": "NOTICE",
-            "require_manual_refresh": "true"
+            "LOGLEVEL": "NOTICE"
         },
         "SAI_API_ACL": {
             "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
@@ -3263,8 +3262,7 @@
             "LOGOUTPUT": "SYSLOG"
         },
         "SfpStateUpdateTask": {
-            "LOGLEVEL": "NOTICE",
-            "require_manual_refresh": "true"
+            "LOGLEVEL": "NOTICE"
         },
         "apm": {
             "LOGLEVEL": "NOTICE",
@@ -3375,8 +3373,7 @@
             "LOGOUTPUT": "SYSLOG"
         },
         "xcvrd": {
-            "LOGLEVEL": "NOTICE",
-            "require_manual_refresh": "true"
+            "LOGLEVEL": "NOTICE"
         }
     },
     "MAP_PFC_PRIORITY_TO_QUEUE": {

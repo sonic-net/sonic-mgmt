@@ -37,6 +37,7 @@ import glob
 import subprocess
 import argparse
 import json
+import shutil
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from getpass import getpass
@@ -65,6 +66,7 @@ SERVER_BASE_PATH = '/home/sonic/test_logs_central/spytest_logs'
 DASHBOARD_URL = 'http://sonic-ucs-m6-51:5005'
 IMPORT_XML_ENDPOINT = '/api/import-xml'  # For XML already on server
 UPLOAD_XML_ENDPOINT = '/api/upload-xml'  # For uploading XML from local machine
+RESULTS_ENDPOINT = '/api/results'  # Direct results posting
 
 # Valid options (for validation and help) - from dashboard UI dropdowns
 VALID_PROFILES = [
@@ -83,17 +85,68 @@ VALID_PROFILES = [
     'gamut_bringup'
 ]
 VALID_PLATFORMS = ['g200', 'q200', 'p200', 'spectrum4']
+VALID_FABRICS = ['IPv4', 'VXLAN', 'IPv6']
+VALID_TOPOS = ['2x2', 'B2B', '3-tier', 'standalone']
+
+# Testbed to NPU mapping (from base_configs directories)
+# - carib/siren testbed → Q200
+# - gamut testbed → SPECTRUM4
+# - laguna testbed → G200
+TESTBED_TO_NPU = {
+    'carib': 'Q200',
+    'siren': 'Q200',
+    'gamut': 'SPECTRUM4',
+    'laguna': 'G200',
+}
+
+# Platform name normalization (various inputs → canonical NPU name)
+PLATFORM_NORMALIZE = {
+    'g200': 'G200',
+    'q200': 'Q200',
+    'p200': 'P200',
+    'spectrum4': 'SPECTRUM4',
+    # Also accept uppercase
+    'G200': 'G200',
+    'Q200': 'Q200',
+    'P200': 'P200',
+    'SPECTRUM4': 'SPECTRUM4',
+}
 
 # Profiles that don't use platform subdirectory (e.g., gamut_bringup/<build>/ instead of gamut_bringup/g200/<build>/)
 PROFILES_WITHOUT_PLATFORM_DIR = ['202505c-Gamut', 'gamut_bringup']
+
+# Test name patterns for fabric classification
+VXLAN_PATTERNS = ['vxlan', 'l2vni', 'l3vni']
+IPV4_PATTERNS = ['congestion', 'dwrr', 'strict_priority', 'wred', 'ecn_marking', 'mmu_config', 'breakout', 'pfc_stream', 'compare_three', '4stream_tc3']
+
+
+def detect_npu_from_path(path):
+    """Auto-detect NPU from path based on testbed naming conventions.
+    
+    Looks for testbed names (gamut, laguna, carib, siren) in the path
+    and returns the corresponding NPU.
+    """
+    path_lower = path.lower()
+    for testbed, npu in TESTBED_TO_NPU.items():
+        if testbed in path_lower:
+            return npu
+    return None
+
+
+def normalize_platform(platform):
+    """Normalize platform/NPU name to canonical form (uppercase)."""
+    return PLATFORM_NORMALIZE.get(platform, platform.upper())
 
 
 # ============================================================================
 # XML Generation Functions
 # ============================================================================
 
-def generate_xml(summary, tests, subtests_pass, subtests_fail, profile, platform, build_id, logs_location):
+def generate_xml(summary, tests, subtests_pass, subtests_fail, profile, npu, build_id, logs_location):
     """Generate JUnit-compatible XML with profile/platform metadata.
+    
+    Args:
+        npu: Canonical NPU name (already uppercase: G200, Q200, SPECTRUM4)
     
     Creates single testsuite structure expected by dashboard parser:
     <testsuites>
@@ -105,13 +158,13 @@ def generate_xml(summary, tests, subtests_pass, subtests_fail, profile, platform
     </testsuites>
     """
     # Count results by type
-    counts = {'Pass': 0, 'Fail': 0, 'ConfigFail': 0, 'TGenFail': 0, 'Unsupported': 0}
+    counts = {'Pass': 0, 'Fail': 0, 'ConfigFail': 0, 'TGenFail': 0, 'ScriptError': 0, 'Unsupported': 0}
     for t in tests:
         r = t['result']
         if r in counts:
             counts[r] += 1
 
-    total_failures = counts['Fail'] + counts['ConfigFail'] + counts['TGenFail']
+    total_failures = counts['Fail'] + counts['ConfigFail'] + counts['TGenFail'] + counts['ScriptError']
     total_time = time_to_seconds(summary.get('Execution Time', '0'))
     
     # Build XML root
@@ -146,10 +199,10 @@ def generate_xml(summary, tests, subtests_pass, subtests_fail, profile, platform
     prop_build.set('name', 'os_version')
     prop_build.set('value', f'HEAD.{build_id}')
     
-    # Platform/NPU
+    # Platform/NPU (already uppercase)
     prop_npu = ET.SubElement(props, 'property')
     prop_npu.set('name', 'npu')
-    prop_npu.set('value', platform.upper())
+    prop_npu.set('value', npu)
     
     # Logs location
     if logs_location:
@@ -166,7 +219,7 @@ def generate_xml(summary, tests, subtests_pass, subtests_fail, profile, platform
         tc.set('file', t['module'])  # Add file attribute for category detection
         tc.set('time', str(time_to_seconds(t['time'])))
         
-        if t['result'] in ['Fail', 'ConfigFail', 'TGenFail']:
+        if t['result'] in ['Fail', 'ConfigFail', 'TGenFail', 'ScriptError']:
             fail = ET.SubElement(tc, 'failure')
             fail.set('message', t['description'][:200])
             fail.set('type', t['result'])
@@ -225,8 +278,11 @@ def scp_upload(local_path, remote_path, password, recursive=False):
     return success
 
 
-def curl_import(xml_path, profile, platform, build_id, logs_location, dashboard_url, password=None):
+def curl_import(xml_path, profile, npu, build_id, logs_location, dashboard_url, password=None):
     """Import results to dashboard via SSH + curl POST to /api/import-xml.
+    
+    Args:
+        npu: Canonical NPU name (already uppercase: G200, Q200, SPECTRUM4)
     
     Runs the curl command via SSH on the server itself to bypass DNS/proxy issues.
     Uses localhost:PORT on the server side.
@@ -244,7 +300,8 @@ def curl_import(xml_path, profile, platform, build_id, logs_location, dashboard_
         'xml_path': xml_path,
         'profile': profile,
         'build_id': build_id,
-        'npu': platform.upper(),
+        'npu': npu,
+        'test_suite': 'spytest',
         'test_logs_location': logs_location
     }
     
@@ -264,8 +321,12 @@ def curl_import(xml_path, profile, platform, build_id, logs_location, dashboard_
     return success, stdout, stderr
 
 
-def curl_upload_xml(local_xml_path, profile, platform, build_id, dashboard_url):
-    """Upload XML file directly to dashboard via curl POST to /api/upload-xml."""
+def curl_upload_xml(local_xml_path, profile, npu, build_id, dashboard_url):
+    """Upload XML file directly to dashboard via curl POST to /api/upload-xml.
+    
+    Args:
+        npu: Canonical NPU name (already uppercase)
+    """
     upload_url = f"{dashboard_url}{UPLOAD_XML_ENDPOINT}"
     
     # Build curl command with multipart form data
@@ -274,11 +335,82 @@ def curl_upload_xml(local_xml_path, profile, platform, build_id, dashboard_url):
         '-F', f'file=@{local_xml_path}',
         '-F', f'profile={profile}',
         '-F', f'build_id={build_id}',
-        '-F', f'npu={platform.upper()}'
+        '-F', f'npu={npu}'
     ]
     
     success, stdout, stderr = run_command(cmd)
     return success, stdout, stderr
+
+
+def post_result_direct(data, dashboard_url, password=None):
+    """Post result directly to /api/results endpoint via SSH.
+    
+    This gives full control over all dashboard fields including:
+    - fabric, topo, notes, jira_link, save_to_confluence
+    
+    Args:
+        data: Dict with result fields (test_suite, npu, topo, profile, fabric, 
+              build_id, status, total_tests, passed, failed, skipped, errors,
+              notes, test_logs_location, jira_link, save_to_confluence)
+        dashboard_url: Dashboard URL (used to extract port)
+        password: Server password for SSH
+    
+    Returns:
+        (success, stdout, stderr) tuple
+    """
+    # Extract port from dashboard URL
+    port_match = re.search(r':(\d+)', dashboard_url)
+    port = port_match.group(1) if port_match else '5005'
+    
+    local_url = f"http://localhost:{port}{RESULTS_ENDPOINT}"
+    
+    # Escape single quotes in JSON for shell
+    json_data = json.dumps(data).replace("'", "'\\''")
+    remote_curl = f"curl -s -X POST '{local_url}' -H 'Content-Type: application/json' -d '{json_data}'"
+    
+    if password:
+        cmd = ['sshpass', '-p', password, 'ssh', '-o', 'StrictHostKeyChecking=no',
+               f'{SERVER_USER}@{SERVER}', remote_curl]
+    else:
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', f'{SERVER_USER}@{SERVER}', remote_curl]
+    
+    success, stdout, stderr = run_command(cmd)
+    return success, stdout, stderr
+
+
+def classify_test_fabric(test_name):
+    """Classify a test as VXLAN or IPv4 based on name patterns."""
+    test_lower = test_name.lower()
+    for pattern in VXLAN_PATTERNS:
+        if pattern in test_lower:
+            return 'VXLAN'
+    return 'IPv4'
+
+
+def filter_tests_by_fabric(tests, fabric):
+    """Filter tests by fabric type (VXLAN or IPv4)."""
+    return [t for t in tests if classify_test_fabric(t['function']) == fabric]
+
+
+def generate_failed_tests_notes(tests):
+    """Generate notes string listing failed tests."""
+    failed = [t['function'] for t in tests if t['result'] in ['Fail', 'ConfigFail', 'TGenFail', 'ScriptError']]
+    config_fail = [t['function'] for t in tests if t['result'] == 'ConfigFail']
+    tgen_fail = [t['function'] for t in tests if t['result'] == 'TGenFail']
+    script_error = [t['function'] for t in tests if t['result'] == 'ScriptError']
+    regular_fail = [t['function'] for t in tests if t['result'] == 'Fail']
+    
+    notes_parts = []
+    if regular_fail:
+        notes_parts.append(f"Failed: {', '.join(regular_fail)}")
+    if config_fail:
+        notes_parts.append(f"ConfigFail: {', '.join(config_fail)}")
+    if tgen_fail:
+        notes_parts.append(f"TGenFail: {', '.join(tgen_fail)}")
+    if script_error:
+        notes_parts.append(f"ScriptError: {', '.join(script_error)}")
+    
+    return '. '.join(notes_parts) if notes_parts else ''
 
 
 # ============================================================================
@@ -302,7 +434,7 @@ def print_test_execution_summary(tests):
         print(status_line)
         
         # For failures, show error description indented
-        if result in ['Fail', 'ConfigFail', 'TGenFail']:
+        if result in ['Fail', 'ConfigFail', 'TGenFail', 'ScriptError']:
             desc = t['description'][:100]  # Truncate long descriptions
             if desc and desc != 'No description':
                 print(f"         └─ {desc}")
@@ -320,6 +452,7 @@ def print_summary(tests, counts, subtests_pass, subtests_fail):
     print(f"  Fail:        {counts['Fail']}")
     print(f"  ConfigFail:  {counts['ConfigFail']}")
     print(f"  TGenFail:    {counts['TGenFail']}")
+    print(f"  ScriptError: {counts.get('ScriptError', 0)}")
     print(f"  Unsupported: {counts['Unsupported']}")
     
     if subtests_pass + subtests_fail > 0:
@@ -341,12 +474,25 @@ def print_brief_usage():
     print("Required:")
     print("  results_dir           Path to spytest results directory")
     print("  --profile PROFILE     Profile name")
-    print("  --platform PLATFORM   Platform/NPU")
+    print("  --platform PLATFORM   Platform/NPU or testbed name")
     print("")
     print("Profiles:  202505c-Gamut | gamut_bringup | 202405c_tortuga | 202505c_tortuga")
-    print("Platforms: g200 | q200 | p200 | spectrum4")
+    print("Platforms: spectrum4 | g200 | q200 | p200")
+    print("Testbeds:  gamut (SPECTRUM4) | laguna (G200) | carib/siren (Q200)")
     print("")
-    print("Options:   --dry-run  --xml-only  --skip-upload  --skip-import")
+    print("Dashboard Fields:")
+    print("  --fabric FABRIC       Fabric type: IPv4 | VXLAN | IPv6")
+    print("  --topo TOPO           Topology: 2x2 | B2B | 3-tier | standalone")
+    print("  --notes NOTES         Notes / failed tests (auto-generated if not specified)")
+    print("  --jira URL            Jira link")
+    print("  --no-confluence       Don't save to Confluence (default)")
+    print("")
+    print("Defaults (use --no-* to disable):")
+    print("  --direct-api          Use /api/results POST (default: ON)")
+    print("  --split-fabric        Split into VXLAN and IPv4 entries (default: ON)")
+    print("")
+    print("Options:   --dry-run  --xml-only  --skip-upload  --skip-import  --no-cleanup")
+    print("           Local logs are removed after successful upload (use --no-cleanup to keep)")
     print("")
     print("Use --help for full documentation.")
 
@@ -379,8 +525,12 @@ def main():
   Other:    202511-Community, 202505-OCI, 202505-Community, 202511.2-Titan'''
     parser.add_argument('--profile', required=True, metavar='PROFILE', help=profile_help)
     
-    platform_help = f'Platform/NPU. Choices: {", ".join(VALID_PLATFORMS)}'
-    parser.add_argument('--platform', required=True, choices=VALID_PLATFORMS, 
+    # Accept both NPU names and testbed names
+    valid_platform_inputs = VALID_PLATFORMS + list(TESTBED_TO_NPU.keys())
+    platform_help = f'''Platform/NPU or testbed name.
+  NPU names: {", ".join(VALID_PLATFORMS)}
+  Testbed names: gamut (SPECTRUM4), laguna (G200), carib/siren (Q200)'''
+    parser.add_argument('--platform', required=True, choices=valid_platform_inputs, 
                         metavar='PLATFORM', help=platform_help)
     
     # Optional arguments
@@ -389,6 +539,28 @@ def main():
                         help=f'Server password (default: {SERVER_PASSWORD[:3]}...)')
     parser.add_argument('--dashboard-url', default=DASHBOARD_URL,
                         help=f'Dashboard URL (default: {DASHBOARD_URL})')
+    
+    # Dashboard metadata fields
+    parser.add_argument('--fabric', choices=VALID_FABRICS, metavar='FABRIC',
+                        help=f'Fabric type. Choices: {", ".join(VALID_FABRICS)}')
+    parser.add_argument('--topo', choices=VALID_TOPOS, metavar='TOPO',
+                        help=f'Topology. Choices: {", ".join(VALID_TOPOS)}')
+    parser.add_argument('--notes', help='Notes / failed tests (auto-generated if not specified)')
+    parser.add_argument('--jira', help='Jira link URL')
+    parser.add_argument('--no-confluence', action='store_true', default=True,
+                        help='Don\'t save to Confluence table (default: True)')
+    parser.add_argument('--confluence', action='store_true',
+                        help='Save to Confluence table')
+    
+    # API mode options (both True by default)
+    parser.add_argument('--direct-api', action='store_true', default=True,
+                        help='Use direct /api/results POST instead of XML import (default: True)')
+    parser.add_argument('--no-direct-api', action='store_true',
+                        help='Use XML import via /api/import-xml instead of direct API')
+    parser.add_argument('--split-fabric', action='store_true', default=True,
+                        help='Split results into separate VXLAN and IPv4 entries (default: True)')
+    parser.add_argument('--no-split-fabric', action='store_true',
+                        help='Create single entry for all tests')
     
     # Workflow control
     parser.add_argument('--dry-run', action='store_true', 
@@ -399,6 +571,8 @@ def main():
                         help='Skip uploading logs to server')
     parser.add_argument('--skip-import', action='store_true',
                         help='Skip importing to dashboard')
+    parser.add_argument('--no-cleanup', action='store_true',
+                        help='Keep local logs directory after upload (default: remove after successful upload)')
     parser.add_argument('-o', '--output', help='Output XML file path (for --xml-only)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     
@@ -416,9 +590,38 @@ def main():
         print(f"Error: {results_dir} is not a directory")
         sys.exit(1)
     
-    platform = args.platform.lower()
-    if platform not in VALID_PLATFORMS:
-        print(f"Warning: Platform '{platform}' not in known list: {VALID_PLATFORMS}")
+    # Normalize platform/NPU name
+    # - npu: canonical uppercase name for API (G200, Q200, SPECTRUM4)
+    # - platform_dir: lowercase for directory paths (g200, q200, spectrum4)
+    platform_input = args.platform.lower()
+    
+    # NPU to directory name mapping
+    NPU_TO_DIR = {
+        'G200': 'g200',
+        'Q200': 'q200', 
+        'P200': 'p200',
+        'SPECTRUM4': 'spectrum4',
+    }
+    
+    if platform_input in PLATFORM_NORMALIZE:
+        npu = normalize_platform(platform_input)
+        platform_dir = NPU_TO_DIR.get(npu, platform_input)
+    elif platform_input in TESTBED_TO_NPU:
+        # User provided testbed name instead of platform
+        npu = TESTBED_TO_NPU[platform_input]
+        platform_dir = NPU_TO_DIR.get(npu, platform_input)
+        print(f"  (Mapped testbed '{platform_input}' -> NPU '{npu}')")
+    else:
+        # Try auto-detection from profile or path
+        detected = detect_npu_from_path(args.profile) or detect_npu_from_path(results_dir)
+        if detected:
+            npu = detected
+            platform_dir = NPU_TO_DIR.get(npu, platform_input)
+            print(f"  (Auto-detected NPU '{npu}' from path)")
+        else:
+            npu = platform_input.upper()
+            platform_dir = platform_input
+            print(f"Warning: Platform '{platform_input}' not recognized, using '{npu}'")
     
     profile = args.profile
     
@@ -430,9 +633,18 @@ def main():
     
     print(f"\nConfiguration:")
     print(f"  Profile:     {profile}")
-    print(f"  Platform:    {platform}")
+    print(f"  NPU:         {npu}")
     print(f"  Build:       {build_id}")
     print(f"  Results Dir: {results_dir}")
+    if args.fabric:
+        print(f"  Fabric:      {args.fabric}")
+    if args.topo:
+        print(f"  Topology:    {args.topo}")
+    # Show split mode status (default is ON)
+    if args.no_split_fabric:
+        print(f"  Split Mode:  OFF (single entry)")
+    else:
+        print(f"  Split Mode:  ON (separate VXLAN and IPv4 entries)")
     
     if args.dry_run:
         print(f"  Mode:        DRY RUN (no changes will be made)")
@@ -465,14 +677,14 @@ def main():
     
     # Build target paths - some profiles don't use platform subdirectory
     if profile in PROFILES_WITHOUT_PLATFORM_DIR:
-        remote_logs_dir = f"{SERVER_BASE_PATH}/{profile}/{build_id}/run_logs_{platform}"
+        remote_logs_dir = f"{SERVER_BASE_PATH}/{profile}/{build_id}/run_logs_{platform_dir}"
     else:
-        remote_logs_dir = f"{SERVER_BASE_PATH}/{profile}/{platform}/{build_id}/run_logs_{platform}"
+        remote_logs_dir = f"{SERVER_BASE_PATH}/{profile}/{platform_dir}/{build_id}/run_logs_{platform_dir}"
     remote_xml_path = f"{remote_logs_dir}/tr.xml"
     
     root, counts = generate_xml(
         summary, tests, subtests_pass, subtests_fail,
-        profile, platform, build_id, remote_logs_dir
+        profile, npu, build_id, remote_logs_dir
     )
     xml_str = prettify_xml(root)
     
@@ -481,7 +693,7 @@ def main():
     
     # Handle --xml-only mode
     if args.xml_only:
-        output_file = args.output or f"results_{profile}_{platform}_{build_id}.xml"
+        output_file = args.output or f"results_{profile}_{platform_dir}_{build_id}.xml"
         if not args.dry_run:
             with open(output_file, 'w') as f:
                 f.write(xml_str)
@@ -494,7 +706,7 @@ def main():
         return
     
     # Save XML locally for upload
-    local_xml = f"/tmp/tr_{profile}_{platform}_{build_id}.xml"
+    local_xml = f"/tmp/tr_{profile}_{platform_dir}_{build_id}.xml"
     if not args.dry_run:
         with open(local_xml, 'w') as f:
             f.write(xml_str)
@@ -522,6 +734,8 @@ def main():
                 print(f"    - {item}")
             if len(items) > 5:
                 print(f"    ... and {len(items) - 5} more")
+            if not args.no_cleanup:
+                print(f"  [DRY RUN] Would remove local directory after upload: {results_dir}")
         else:
             password = args.password
             
@@ -552,74 +766,297 @@ def main():
                     failed += 1
             
             print(f"  Uploaded: {uploaded} items, Failed: {failed} items")
+            
+            # Cleanup local logs directory after successful upload (default behavior)
+            if not args.no_cleanup and failed == 0:
+                print(f"\n  Cleaning up local directory: {results_dir}")
+                try:
+                    shutil.rmtree(results_dir)
+                    print(f"  Removed: {results_dir}")
+                except Exception as e:
+                    print(f"  Warning: Failed to remove directory: {e}")
     else:
         print(f"\n[SKIPPED] Step 3: Upload to server (--skip-upload)")
+        # Still upload the XML if import is not skipped (import needs it on the server)
+        if not args.skip_import:
+            password = args.password
+            print(f"  Uploading XML only for import...")
+            if not ssh_mkdir(remote_logs_dir, password):
+                print("  Warning: Failed to create remote directory")
+            if scp_upload(local_xml, remote_xml_path, password):
+                print(f"  ✓ XML uploaded to {remote_xml_path}")
+            else:
+                print("  Error: Failed to upload XML")
     
     # ========================================================================
     # Step 4: Import to dashboard
     # ========================================================================
+    # Determine save_to_confluence flag
+    save_to_confluence = args.confluence and not args.no_confluence
+    
+    # Resolve --no-* flags (they override the defaults)
+    split_fabric = args.split_fabric and not args.no_split_fabric
+    direct_api = args.direct_api and not args.no_direct_api
+    
+    # Use direct API if enabled or if split-fabric/fabric/topo specified
+    use_direct_api = direct_api or split_fabric or args.fabric or args.topo
+    
     if not args.skip_import and not args.skip_upload:
+        print(f"\n{'='*60}")
+        if split_fabric:
+            print(f"STEP 4: Importing to dashboard (Split by Fabric)")
+        elif use_direct_api:
+            print(f"STEP 4: Importing to dashboard (Direct API)")
+        else:
+            print(f"STEP 4: Importing to dashboard (via SSH)")
+        print(f"{'='*60}")
+    elif not args.skip_import and args.skip_upload:
+        # Import still happens even without upload (XML was uploaded by Phase 3 or already exists)
         print(f"\n{'='*60}")
         print(f"STEP 4: Importing to dashboard (via SSH)")
         print(f"{'='*60}")
-        print(f"  Server:     {SERVER_USER}@{SERVER}")
-        print(f"  Dashboard:  localhost:5005 (on server)")
-        print(f"  API:        POST {IMPORT_XML_ENDPOINT}")
-        print(f"  XML Path:   {remote_xml_path}")
-        print(f"  Profile:    {profile}")
-        print(f"  Build ID:   {build_id}")
-        print(f"  NPU:        {platform.upper()}")
-        print(f"  Logs:       {remote_logs_dir}")
+
+    if not args.skip_import:
         
-        if args.dry_run:
-            print(f"\n  [DRY RUN] Would SSH to {SERVER} and POST to localhost:5005{IMPORT_XML_ENDPOINT}")
-            print(f"  [DRY RUN] Payload:")
-            print(f"    {{")
-            print(f'      "xml_path": "{remote_xml_path}",')
-            print(f'      "profile": "{profile}",')
-            print(f'      "build_id": "{build_id}",')
-            print(f'      "npu": "{platform.upper()}",')
-            print(f'      "test_logs_location": "{remote_logs_dir}"')
-            print(f"    }}")
-        else:
-            print(f"\n  Sending import request via SSH...")
-            success, stdout, stderr = curl_import(
-                remote_xml_path, profile, platform, build_id, remote_logs_dir,
-                args.dashboard_url, password
-            )
+        if split_fabric:
+            # Split tests by fabric and create separate entries
+            vxlan_tests = filter_tests_by_fabric(tests, 'VXLAN')
+            ipv4_tests = filter_tests_by_fabric(tests, 'IPv4')
             
-            if success and stdout:
-                try:
-                    resp = json.loads(stdout)
-                    if resp.get('success'):
-                        print(f"  Success! Result ID: {resp.get('result_id')}")
-                        print(f"  Message: {resp.get('message')}")
-                        if 'data' in resp:
-                            data = resp['data']
-                            print(f"  Imported: {data.get('total', 'N/A')} tests")
-                            print(f"    Passed: {data.get('passed', 'N/A')}")
-                            print(f"    Failed: {data.get('failed', 'N/A')}")
-                            print(f"    Skipped: {data.get('skipped', 'N/A')}")
+            for fabric_name, fabric_tests in [('VXLAN', vxlan_tests), ('IPv4', ipv4_tests)]:
+                if not fabric_tests:
+                    print(f"\n  No {fabric_name} tests found, skipping...")
+                    continue
+                
+                # Count subtests for this fabric (use subtest counts, not function counts)
+                sub_pass = sum(t.get('subtests_pass', 0) for t in fabric_tests)
+                sub_fail = sum(t.get('subtests_fail', 0) for t in fabric_tests)
+                # For tests without subtests, count the function result
+                for t in fabric_tests:
+                    if t.get('subtests_pass', 0) == 0 and t.get('subtests_fail', 0) == 0:
+                        if t['result'] == 'Pass':
+                            sub_pass += 1
+                        elif t['result'] in ['Fail', 'ConfigFail', 'TGenFail', 'ScriptError']:
+                            sub_fail += 1
+                
+                total = sub_pass + sub_fail
+                passed = sub_pass
+                failed = sub_fail
+                errors = 0  # Errors already counted in sub_fail
+                skipped = sum(1 for t in fabric_tests if t['result'] == 'Unsupported')
+                status = 'Passed' if failed == 0 else 'Failed'
+                
+                # Auto-generate notes if not provided
+                notes = args.notes or generate_failed_tests_notes(fabric_tests)
+                
+                # Build failed_tests list for the dashboard detail view
+                failed_tests_list = []
+                for t in fabric_tests:
+                    if t['result'] in ['Fail', 'ConfigFail', 'TGenFail', 'ScriptError']:
+                        failed_tests_list.append({
+                            'name': t['function'],
+                            'message': t.get('description', t['result'])
+                        })
+                
+                # Build full test_details (all tests) for the view page
+                test_details_list = []
+                for t in fabric_tests:
+                    test_details_list.append({
+                        'name': t['function'],
+                        'status': t['result'],
+                        'duration': t.get('time', ''),
+                        'description': t.get('description', '')
+                    })
+                
+                print(f"\n  {fabric_name} Fabric: {total} tests ({passed} pass, {failed} fail)")
+                
+                data = {
+                    'test_suite': 'spytest',
+                    'npu': npu,
+                    'topo': args.topo or '2x2',
+                    'profile': profile,
+                    'fabric': fabric_name,
+                    'build_id': build_id,
+                    'status': status,
+                    'total_tests': total,
+                    'passed': passed,
+                    'failed': failed,
+                    'skipped': skipped,
+                    'errors': errors,
+                    'notes': notes,
+                    'failed_tests': failed_tests_list,
+                    'test_details': test_details_list,
+                    'test_logs_location': remote_logs_dir,
+                    'jira_link': args.jira or '',
+                    'save_to_confluence': save_to_confluence
+                }
+                
+                if args.dry_run:
+                    print(f"  [DRY RUN] Would POST to /api/results:")
+                    print(f"    {json.dumps(data, indent=2)}")
+                else:
+                    success, stdout, stderr = post_result_direct(data, args.dashboard_url, password)
+                    if success and stdout:
+                        try:
+                            resp = json.loads(stdout)
+                            if resp.get('success'):
+                                print(f"    Success! Result ID: {resp.get('result_id')}")
+                            else:
+                                print(f"    API Error: {resp.get('error', stdout)}")
+                        except json.JSONDecodeError:
+                            print(f"    Response: {stdout}")
                     else:
-                        print(f"  API Error: {resp.get('error', stdout)}")
-                except json.JSONDecodeError:
-                    print(f"  Response: {stdout}")
-            elif stderr:
-                print(f"  Error: {stderr}")
+                        print(f"    Error: {stderr}")
+        
+        elif use_direct_api:
+            # Single direct API post with specified fabric/topo
+            # Use subtest counts (not function counts)
+            sub_pass = sum(t.get('subtests_pass', 0) for t in tests)
+            sub_fail = sum(t.get('subtests_fail', 0) for t in tests)
+            # For tests without subtests, count the function result
+            for t in tests:
+                if t.get('subtests_pass', 0) == 0 and t.get('subtests_fail', 0) == 0:
+                    if t['result'] == 'Pass':
+                        sub_pass += 1
+                    elif t['result'] in ['Fail', 'ConfigFail', 'TGenFail', 'ScriptError']:
+                        sub_fail += 1
             
-            if not success:
-                print(f"\n  Note: Dashboard import may require manual intervention")
-                print(f"  Manual import URL: {args.dashboard_url}")
-                print(f"  XML Path: {remote_xml_path}")
-    elif args.skip_import and not args.skip_upload:
-        # Logs uploaded but import skipped - offer direct upload option
+            total = sub_pass + sub_fail
+            passed = sub_pass
+            failed = sub_fail
+            errors = 0
+            skipped = counts['Unsupported']
+            status = 'Passed' if failed == 0 else 'Failed'
+            
+            # Auto-generate notes if not provided
+            notes = args.notes or generate_failed_tests_notes(tests)
+            
+            # Build failed_tests and test_details for dashboard
+            failed_tests_list = []
+            test_details_list = []
+            for t in tests:
+                test_details_list.append({
+                    'name': t['function'],
+                    'status': t['result'],
+                    'duration': t.get('time', ''),
+                    'description': t.get('description', '')
+                })
+                if t['result'] in ['Fail', 'ConfigFail', 'TGenFail', 'ScriptError']:
+                    failed_tests_list.append({
+                        'name': t['function'],
+                        'message': t.get('description', t['result'])
+                    })
+            
+            data = {
+                'test_suite': 'spytest',
+                'npu': npu,
+                'topo': args.topo or '2x2',
+                'profile': profile,
+                'fabric': args.fabric or 'IPv4',
+                'build_id': build_id,
+                'status': status,
+                'total_tests': total,
+                'passed': passed,
+                'failed': failed,
+                'skipped': skipped,
+                'errors': errors,
+                'notes': notes,
+                'failed_tests': failed_tests_list,
+                'test_details': test_details_list,
+                'test_logs_location': remote_logs_dir,
+                'jira_link': args.jira or '',
+                'save_to_confluence': save_to_confluence
+            }
+            
+            print(f"  Server:     {SERVER_USER}@{SERVER}")
+            print(f"  Dashboard:  localhost:5005 (on server)")
+            print(f"  API:        POST {RESULTS_ENDPOINT}")
+            print(f"  Profile:    {profile}")
+            print(f"  Build ID:   {build_id}")
+            print(f"  NPU:        {npu}")
+            print(f"  Fabric:     {data['fabric']}")
+            print(f"  Topology:   {data['topo']}")
+            print(f"  Logs:       {remote_logs_dir}")
+            print(f"  Confluence: {save_to_confluence}")
+            
+            if args.dry_run:
+                print(f"\n  [DRY RUN] Would POST to /api/results:")
+                print(f"    {json.dumps(data, indent=2)}")
+            else:
+                print(f"\n  Sending direct API request via SSH...")
+                success, stdout, stderr = post_result_direct(data, args.dashboard_url, password)
+                
+                if success and stdout:
+                    try:
+                        resp = json.loads(stdout)
+                        if resp.get('success'):
+                            print(f"  Success! Result ID: {resp.get('result_id')}")
+                            print(f"  Message: {resp.get('message')}")
+                        else:
+                            print(f"  API Error: {resp.get('error', stdout)}")
+                    except json.JSONDecodeError:
+                        print(f"  Response: {stdout}")
+                elif stderr:
+                    print(f"  Error: {stderr}")
+        
+        else:
+            # Original XML import logic
+            print(f"  Server:     {SERVER_USER}@{SERVER}")
+            print(f"  Dashboard:  localhost:5005 (on server)")
+            print(f"  API:        POST {IMPORT_XML_ENDPOINT}")
+            print(f"  XML Path:   {remote_xml_path}")
+            print(f"  Profile:    {profile}")
+            print(f"  Build ID:   {build_id}")
+            print(f"  NPU:        {npu}")
+            print(f"  Logs:       {remote_logs_dir}")
+            
+            if args.dry_run:
+                print(f"\n  [DRY RUN] Would SSH to {SERVER} and POST to localhost:5005{IMPORT_XML_ENDPOINT}")
+                print(f"  [DRY RUN] Payload:")
+                print(f"    {{")
+                print(f'      "xml_path": "{remote_xml_path}",')
+                print(f'      "profile": "{profile}",')
+                print(f'      "build_id": "{build_id}",')
+                print(f'      "npu": "{npu}",')
+                print(f'      "test_logs_location": "{remote_logs_dir}"')
+                print(f"    }}")
+            else:
+                print(f"\n  Sending import request via SSH...")
+                success, stdout, stderr = curl_import(
+                    remote_xml_path, profile, npu, build_id, remote_logs_dir,
+                    args.dashboard_url, password
+                )
+                
+                if success and stdout:
+                    try:
+                        resp = json.loads(stdout)
+                        if resp.get('success'):
+                            print(f"  Success! Result ID: {resp.get('result_id')}")
+                            print(f"  Message: {resp.get('message')}")
+                            if 'data' in resp:
+                                data = resp['data']
+                                print(f"  Imported: {data.get('total', 'N/A')} tests")
+                                print(f"    Passed: {data.get('passed', 'N/A')}")
+                                print(f"    Failed: {data.get('failed', 'N/A')}")
+                                print(f"    Skipped: {data.get('skipped', 'N/A')}")
+                        else:
+                            print(f"  API Error: {resp.get('error', stdout)}")
+                    except json.JSONDecodeError:
+                        print(f"  Response: {stdout}")
+                elif stderr:
+                    print(f"  Error: {stderr}")
+                
+                if not success:
+                    print(f"\n  Note: Dashboard import may require manual intervention")
+                    print(f"  Manual import URL: {args.dashboard_url}")
+                    print(f"  XML Path: {remote_xml_path}")
+    elif args.skip_import:
+        # Import explicitly skipped
         print(f"\n[SKIPPED] Step 4: Import to dashboard (--skip-import)")
         print(f"\n  To import later, use:")
         print(f"  curl -X POST {args.dashboard_url}{IMPORT_XML_ENDPOINT} \\")
         print(f'    -H "Content-Type: application/json" \\')
-        print(f"    -d '{{\"xml_path\": \"{remote_xml_path}\", \"profile\": \"{profile}\", \"build_id\": \"{build_id}\", \"npu\": \"{platform.upper()}\"}}'")
-    else:
-        print(f"\n[SKIPPED] Step 4: Import to dashboard")
+        print(f"    -d '{{\"xml_path\": \"{remote_xml_path}\", \"profile\": \"{profile}\", \"build_id\": \"{build_id}\", \"npu\": \"{npu}\"}}'")
     
     # ========================================================================
     # Summary
@@ -635,7 +1072,7 @@ def main():
     print(f"\nFor manual dashboard import via API:")
     print(f"  curl -X POST {args.dashboard_url}{IMPORT_XML_ENDPOINT} \\")
     print(f'    -H "Content-Type: application/json" \\')
-    print(f"    -d '{{\"xml_path\": \"{remote_xml_path}\", \"profile\": \"{profile}\", \"build_id\": \"{build_id}\", \"npu\": \"{platform.upper()}\"}}'")
+    print(f"    -d '{{\"xml_path\": \"{remote_xml_path}\", \"profile\": \"{profile}\", \"build_id\": \"{build_id}\", \"npu\": \"{npu}\"}}'")
     print(f"\nOr use the web UI:")
     print(f"  {args.dashboard_url}")
 

@@ -534,3 +534,112 @@ def gamut_get_ecn_counters_multi(dut, port_names, tc=3):
                f"wred_dropped={r['wred_dropped_packets']}")
 
     return results
+
+
+def _parse_cli_counters_for_port(dump_content, port_id):
+    """
+    Parse CLI Counters Group for a specific port from dump.
+
+    The dump format is:
+        Port 0x10001 - CLI Counters Group
+        ==================================================
+        port_rx_frames = 8
+        port_rx_multicast = 8
+        port_rx_octets = 2112
+        port_tx_frames = 8
+        port_tx_multicast = 8
+        port_tx_octets = 2112
+
+    Args:
+        dump_content: String content of port counters dump
+        port_id: Port ID in hex format (e.g., '0x10001')
+
+    Returns:
+        dict: Counter values including 'port_rx_frames', 'port_tx_frames', etc.
+              or empty dict if not found
+    """
+    counters = {}
+
+    # Normalize port_id to lowercase for matching
+    port_id = port_id.lower()
+
+    # Find the CLI Counters Group section for this port
+    # Pattern: "Port 0x10001 - CLI Counters Group"
+    cli_section_pattern = re.compile(
+        rf'Port\s+{re.escape(port_id)}\s+-\s+CLI Counters Group.*?(?=Port\s+0x[0-9a-fA-F]+\s+-|$)',
+        re.IGNORECASE | re.DOTALL
+    )
+
+    section_match = cli_section_pattern.search(dump_content)
+    if not section_match:
+        st.log(f"Gamut: CLI Counters Group not found for port {port_id}")
+        return counters
+
+    section = section_match.group(0)
+
+    # Parse all counters in the section
+    # Pattern: "counter_name = value"
+    counter_pattern = re.compile(r'(port_\w+)\s*=\s*(\d+)')
+
+    for match in counter_pattern.finditer(section):
+        counter_name = match.group(1)
+        counter_value = int(match.group(2))
+        counters[counter_name] = counter_value
+
+    return counters
+
+
+def gamut_get_interface_counters(dut, port_name):
+    """
+    Get real-time interface counters for a specific port on Gamut.
+
+    This function reads counters directly from the ASIC via sx_api_port_counter_dump_all.py,
+    bypassing the counterpoll cache that can be stale. Use this instead of
+    'show interface counters' on Gamut when fresh counter values are needed.
+
+    Args:
+        dut: DUT object
+        port_name: Ethernet port name (e.g., 'Ethernet1_58_1')
+
+    Returns:
+        dict: Counter values with keys:
+            - 'rx_frames': Received frames (port_rx_frames)
+            - 'tx_frames': Transmitted frames (port_tx_frames)
+            - 'rx_octets': Received bytes (port_rx_octets)
+            - 'tx_octets': Transmitted bytes (port_tx_octets)
+            Returns None on failure.
+    """
+    result = {
+        'rx_frames': 0,
+        'tx_frames': 0,
+        'rx_octets': 0,
+        'tx_octets': 0,
+    }
+
+    # Get port mapping
+    port_id = gamut_get_port_id(dut, port_name)
+    if port_id is None:
+        st.error(f"Gamut: Cannot get interface counters - port {port_name} not in mapping")
+        return None
+
+    # Dump port counters from ASIC
+    dump_content = gamut_dump_port_counters(dut)
+    if not dump_content:
+        st.error(f"Gamut: Failed to dump port counters")
+        return None
+
+    # Parse CLI Counters Group
+    counters = _parse_cli_counters_for_port(dump_content, port_id)
+    if not counters:
+        st.error(f"Gamut: Failed to parse CLI counters for port {port_name} ({port_id})")
+        return None
+
+    result['rx_frames'] = counters.get('port_rx_frames', 0)
+    result['tx_frames'] = counters.get('port_tx_frames', 0)
+    result['rx_octets'] = counters.get('port_rx_octets', 0)
+    result['tx_octets'] = counters.get('port_tx_octets', 0)
+
+    st.log(f"Gamut: {port_name} ({port_id}) counters: "
+           f"rx_frames={result['rx_frames']}, tx_frames={result['tx_frames']}")
+
+    return result

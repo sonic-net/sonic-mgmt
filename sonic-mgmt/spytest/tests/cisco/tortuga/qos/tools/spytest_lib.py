@@ -29,7 +29,13 @@ def time_to_seconds(time_str):
 
 
 def extract_build_id(results_dir):
-    """Extract build ID from results directory name."""
+    """Extract build ID from results directory name or build.txt file.
+    
+    Checks in order:
+    1. Directory name pattern: *_image_<build_id>
+    2. Directory name pattern: *_<build_id> (4+ digits at end)
+    3. build.txt file: SONiC.*..<build_id>-*
+    """
     dirname = os.path.basename(results_dir.rstrip('/'))
     
     # Try pattern: *_image_<build_id>
@@ -41,6 +47,24 @@ def extract_build_id(results_dir):
     match = re.search(r'_(\d{4,})$', dirname)
     if match:
         return match.group(1)
+    
+    # Try reading build.txt file
+    build_txt = os.path.join(results_dir, 'build.txt')
+    if os.path.exists(build_txt):
+        try:
+            with open(build_txt, 'r') as f:
+                content = f.read()
+            # Pattern: SONiC.202405c.2.2.6-359I-40123-20260423.210228
+            # Extract the build number (40123 in this case)
+            match = re.search(r'SONiC\.[^-]+-\d+[A-Z]*-(\d+)-', content)
+            if match:
+                return match.group(1)
+            # Also try simpler pattern: build: ... <digits> ...
+            match = re.search(r'-(\d{4,})-\d{8}', content)
+            if match:
+                return match.group(1)
+        except Exception:
+            pass
     
     return None
 
@@ -130,9 +154,9 @@ def count_results(tests):
     """Count test results by type.
     
     Returns:
-        dict: {Pass: N, Fail: N, ConfigFail: N, TGenFail: N, Unsupported: N}
+        dict: {Pass: N, Fail: N, ConfigFail: N, TGenFail: N, ScriptError: N, Unsupported: N}
     """
-    counts = {'Pass': 0, 'Fail': 0, 'ConfigFail': 0, 'TGenFail': 0, 'Unsupported': 0}
+    counts = {'Pass': 0, 'Fail': 0, 'ConfigFail': 0, 'TGenFail': 0, 'ScriptError': 0, 'Unsupported': 0}
     for t in tests:
         r = t['result']
         if r in counts:
@@ -153,5 +177,6 @@ STATUS_SYMBOLS = {
     'Fail': '✗',
     'ConfigFail': '⚠',
     'TGenFail': '⚡',
+    'ScriptError': '⚠',
     'Unsupported': '○'
 }

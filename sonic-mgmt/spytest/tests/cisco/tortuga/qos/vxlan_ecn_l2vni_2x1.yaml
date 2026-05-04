@@ -2,6 +2,8 @@ spine0:
     sonic:
       config: |
         sudo counterpoll tunnel enable 
+        sudo counterpoll watermark interval 1000
+        sudo counterpoll wredqueue enable
         sudo config interface startup D1D3P1 
         sudo config interface startup D1D4P1
         sudo config interface ipv6 enable use-link-local-only D1D3P1 
@@ -42,6 +44,8 @@ spine1:
     sonic:
       config: |
         sudo counterpoll tunnel enable
+        sudo counterpoll watermark interval 1000
+        sudo counterpoll wredqueue enable
         sudo config interface startup D2D3P1 
         sudo config interface startup D2D4P1 
         sudo config interface ipv6 enable use-link-local-only D2D3P1 
@@ -82,6 +86,8 @@ leaf0:
     sonic:
       config: |
         sudo counterpoll tunnel enable
+        sudo counterpoll watermark interval 1000
+        sudo counterpoll wredqueue enable
         sudo config interface startup D3D1P1 
         sudo config interface startup D3D2P1 
         sudo config interface startup D3T1P1 
@@ -148,6 +154,8 @@ leaf1:
     sonic:
       config: |
         sudo counterpoll tunnel enable
+        sudo counterpoll watermark interval 1000
+        sudo counterpoll wredqueue enable
         sudo config interface startup D4D1P1 
         sudo config interface startup D4D2P1 
         sudo config interface startup D4T1P1 

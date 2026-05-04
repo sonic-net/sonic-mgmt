@@ -440,12 +440,13 @@ def vxlan_config_hooks():
     st.wait(60)
     yield vxlan_config_hooks
 
-    with open(updated_config_file) as c:
-        config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node, config in reversed(config_list.items()):
-            config_static(node, 'bgp', add=False)
-            st.wait(2)
-            config_static(node, 'sonic', add=False)
+    if updated_config_file and os.path.exists(updated_config_file):
+        with open(updated_config_file) as c:
+            config_list = yaml.load(c, Loader=yaml.FullLoader)
+            for node, config in reversed(config_list.items()):
+                config_static(node, 'bgp', add=False)
+                st.wait(2)
+                config_static(node, 'sonic', add=False)
 
     for vrf in data.config_vrfs:
         vxlan_obj.config_vrf(nodes['leaf0'], vrf, add=False)

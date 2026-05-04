@@ -3225,8 +3225,8 @@ def clear_all_counters(dut, wait_time=3):
     - Priority group watermark shared (sonic-clear priority-group watermark shared)
     - Buffer pool watermark (watermarkstat -t buffer_pool -c)
     - Drop counters
-    - TODO likely to fail: WRED counters (sonic-clear queue wredcounters)
-    - TODO NO: oq-debug and npu counters
+    - likely to fail: WRED counters (sonic-clear queue wredcounters)
+    - NO: oq-debug and npu counters
     
     Args:
         dut: DUT handle
@@ -3606,7 +3606,7 @@ def collect_pre_traffic_debug(api, iteration_info=""):
     st.log(f"{'='*60}")
 
 
-def wait_for_bgp_evpn_established(nodes, max_wait=180):
+def wait_for_bgp_underlay_established(nodes, max_wait=180):
     """
     Wait for BGP sessions to establish between leaves.
 

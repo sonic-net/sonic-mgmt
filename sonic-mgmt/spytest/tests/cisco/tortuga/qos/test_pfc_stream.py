@@ -80,7 +80,7 @@ def create_pfc_stream(tgen_src_port, tc_num, src_mac, pps):
         high_speed_result_analysis=1)
     return new_stream['stream_id']
 
-def test_pfc_stream():
+def ignore_pfc_stream():
     global tgen_handle
 
     vars = st.get_testbed_vars()

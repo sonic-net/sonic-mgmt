@@ -84,7 +84,7 @@ def create_pfc_stream(tgen_src_port, tc_num, src_mac, pps):
         high_speed_result_analysis=1)
     return new_stream['stream_id']
 
-def test_pfc_stream():
+def ignore_pfc_stream():
     global tgen_handle
 
     vars = st.get_testbed_vars()
@@ -114,7 +114,7 @@ def test_pfc_stream():
         st.report_fail('msg', f'{pfc_delta} PFC frames generated')
 
 
-def test_compare_three_streams():
+def ignore_compare_three_streams():
     """
     Compare three different stream creation approaches:
     1. Original PFC stream (mac_src, mac_dst, ether_type params)

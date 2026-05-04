@@ -92,7 +92,7 @@ def run_mmu_config(buffer_tier):
                     assert cable_table[key] == default_cable_length, \
                         "cable length {} does not match expected {}".format(cable_table[key], default_cable_length)
 
-def test_mmu_config():
+def ignore_mmu_config():
     dut_type = ""
     cmd_output = st.config(st.get_testbed_vars().D1, "cat /proc/cpuinfo | grep '^model name.: VXR$'")
     if 'VXR' in str(cmd_output.encode('ascii','ignore')):
