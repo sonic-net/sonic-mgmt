@@ -23,7 +23,7 @@ def test_ha_reconfigure(request, duthosts, localhost, dpuhosts, ptfhost, setup_h
     for i in range(NUM_RECONFIGS):
         iter = i + 1
         logger.info(f"HA: deconfigure iteration {iter}")
-        deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server)
+        deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
         remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
         # Reconfigure HA to verify that configuration was removed properly
