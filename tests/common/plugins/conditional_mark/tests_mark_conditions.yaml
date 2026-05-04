@@ -5222,7 +5222,7 @@ sub_port_interfaces:
     reason: "Unsupported platform or asic and not supported on this DUT topology"
     conditions_logical_operator: or
     conditions:
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx','vpp']"
       - "asic_type in ['mellanox', 'nvidia']"
       - "'dualtor' in topo_name"
       - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7060CX-32S-C32','Arista-7060CX-32S-D48C8','Arista-7260CX3-C64','Arista-7260CX3-D108C8','Arista-7260CX3-D108C10']"
@@ -5233,7 +5233,7 @@ sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/19735"
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx','vpp']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port_in_lag]:
   skip:
@@ -5249,7 +5249,7 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_be
     conditions_logical_operator: or
     conditions:
       - "asic_type=='cisco-8000'"
-      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
+      - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx','vpp']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_untagged_packet_not_routed[port_in_lag] :
   skip:
@@ -5258,6 +5258,186 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_untagged_pac
 sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[port_in_lag]:
   skip:
     reason: "Not supported port type"
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPortStress::test_max_numbers_of_sub_ports[port]:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPortStress::test_max_numbers_of_sub_ports[port_in_lag]:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_admin_status_down_disables_forwarding[port]:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_admin_status_down_disables_forwarding[port_in_lag]:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_balancing_sub_ports[port]:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_balancing_sub_ports[port_in_lag]:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_packet_routed_with_valid_vlan[port]:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_packet_routed_with_valid_vlan[port_in_lag]:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports[port-:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports[port_in_lag-:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_and_port[port-:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_and_port[port_in_lag-:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_unaffected_by_sub_ports_removal[port-:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports_unaffected_by_sub_ports_removal[port_in_lag-:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports[port-:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_tunneling_between_sub_ports[port_in_lag-:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_vlan_config_impact[port]:
+  skip:
+    reason: >
+            SONiC-VPP sub-interface dataplane is broken on the virtio-net-pci
+            NIC driver used by KVM testbeds (sonic-net/sonic-platform-vpp#202).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/202
+
+sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_vlan_config_impact[port_in_lag]:
+  skip:
+    reason: >
+            SONiC-VPP PortChannel/LAG sub-interfaces are not programmed/routed
+            correctly in VPP (sonic-net/sonic-platform-vpp#227).
+    conditions_logical_operator: and
+    conditions:
+      - "asic_type in ['vpp']"
+      - https://github.com/sonic-net/sonic-platform-vpp/issues/227
 
 #######################################
 #####             syslog          #####
