@@ -363,7 +363,7 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     output = rollback(duthost, cp)
 
     if output['rc'] or "Config rolled back successfully" not in output['stdout']:
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         pytest.fail("config rollback failed. Restored by config_reload")
 
 
