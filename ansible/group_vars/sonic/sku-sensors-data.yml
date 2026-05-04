@@ -7072,6 +7072,175 @@ sensors_checks:
     psu_skips: { }
     sensor_skip_per_version: { }
 
+  x86_64-nvidia_sn6600_ld-r0:
+    alarms:
+      fan: []
+
+      power:
+      - mp29816-i2c-15-6a/PMIC-20 PVIN1_HVDD Volt (in)/in1_min_alarm
+      - mp29816-i2c-15-6a/PMIC-20 PVIN1_HVDD Volt (in)/in1_lcrit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 PVIN1_HVDD Volt (in)/in1_crit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD_03 Volt (out1)/in2_lcrit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD_03 Volt (out1)/in2_crit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD47 Volt (out2)/in3_lcrit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD47 Volt (out2)/in3_crit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 PVIN1_HVDD03 Pwr (in1)/power1_alarm
+      - mp29816-i2c-15-6a/PMIC-20 PVIN1_HVDD47 Pwr (in2)/power2_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD03 Pwr (out1)/power3_max_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD47 Pwr (out2)/power4_max_alarm
+      - mp29816-i2c-15-6a/PMIC-20 PVIN1_HVDD03 Curr (in1)/curr1_alarm
+      - mp29816-i2c-15-6a/PMIC-20 PVIN1_HVDD47 Curr (in2)/curr2_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD03 Curr (out1)/curr3_max_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD03 Curr (out1)/curr3_crit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD47 Curr (out2)/curr4_max_alarm
+      - mp29816-i2c-15-6a/PMIC-20 ASIC_HVDD47 Curr (out2)/curr4_crit_alarm
+      - mp29816-i2c-16-67/PMIC-17 PVIN1_HBID_TILE04_56_ASIC Volt (in)/in1_min_alarm
+      - mp29816-i2c-16-67/PMIC-17 PVIN1_HBID_TILE04_56_ASIC Volt (in)/in1_lcrit_alarm
+      - mp29816-i2c-16-67/PMIC-17 PVIN1_HBID_TILE04_56_ASIC Volt (in)/in1_crit_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE04 Volt (out1)/in2_lcrit_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE04 Volt (out1)/in2_crit_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE56 Volt (out2)/in3_lcrit_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE56 Volt (out2)/in3_crit_alarm
+      - mp29816-i2c-16-67/PMIC-17 PVIN1_HBID_TILE04_ASIC Pwr (in1)/power1_alarm
+      - mp29816-i2c-16-67/PMIC-17 PVIN1_HBID_TILE56_ASIC Pwr (in2)/power2_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE04 Pwr (out1)/power3_max_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE56 Pwr (out2)/power4_max_alarm
+      - mp29816-i2c-16-67/PMIC-17 PVIN1_HBID_TILE04 Curr (in1)/curr1_alarm
+      - mp29816-i2c-16-67/PMIC-17 PVIN1_HBID_TILE56 Curr (in2)/curr2_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE04 Curr (out1)/curr3_max_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE04 Curr (out1)/curr3_crit_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE56 Curr (out2)/curr4_max_alarm
+      - mp29816-i2c-16-67/PMIC-17 ASIC_HBID_TILE56 Curr (out2)/curr4_crit_alarm
+      - lm5066i-i2c-7-12/PDB-2 HSC VinDC Volt (in)/in1_min_alarm
+      - lm5066i-i2c-7-12/PDB-2 HSC VinDC Volt (in)/in1_max_alarm
+      - lm5066i-i2c-7-12/PDB-2 HSC Vout Volt (out)/in3_min_alarm
+      - lm5066i-i2c-7-12/PDB-2 HSC VinDC Pwr (in)/power1_alarm
+      - lm5066i-i2c-7-12/PDB-2 HSC VinDC Curr (in)/curr1_max_alarm
+      - lm5066i-i2c-6-12/PDB-1 HSC VinDC Volt (in)/in1_min_alarm
+      - lm5066i-i2c-6-12/PDB-1 HSC VinDC Volt (in)/in1_max_alarm
+      - lm5066i-i2c-6-12/PDB-1 HSC Vout Volt (out)/in3_min_alarm
+      - lm5066i-i2c-6-12/PDB-1 HSC VinDC Pwr (in)/power1_alarm
+      - lm5066i-i2c-6-12/PDB-1 HSC VinDC Curr (in)/curr1_max_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Volt (in)/in1_crit_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEMIO Volt (out1)/in2_lcrit_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEMIO Volt (out1)/in2_crit_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Volt (out2)/in3_lcrit_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Volt (out2)/in3_crit_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Pwr (in)/power1_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Curr (in)/curr1_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Curr (out)/curr2_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV VinDC Volt (in)/in1_min_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV VinDC Volt (in)/in1_max_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV VinDC Volt (in)/in1_lcrit_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV VinDC Volt (in)/in1_crit_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV Vout Volt (out)/in3_lcrit_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV Vout Volt (out)/in3_crit_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV Curr (out)/curr2_max_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV Curr (out)/curr2_crit_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV VinDC Volt (in)/in1_min_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV VinDC Volt (in)/in1_max_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV VinDC Volt (in)/in1_lcrit_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV VinDC Volt (in)/in1_crit_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV Vout Volt (out)/in3_lcrit_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV Vout Volt (out)/in3_crit_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV Curr (out)/curr2_max_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV Curr (out)/curr2_crit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR Volt (in)/in0_lcrit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR Volt (in)/in0_crit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR_CPU Volt (out1)/in1_lcrit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR_CPU Volt (out1)/in1_crit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR_SOC Volt (out2)/in3_lcrit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR_SOC Volt (out2)/in3_crit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR_CPU Phase Temp/temp1_crit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR_SOC Phase Temp/temp3_crit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR_CPU Curr (out1)/curr1_crit_alarm
+      - mp2845-i2c-5-69/CPU PMIC VDDCR_SOC Curr (out2)/curr3_crit_alarm
+      temp:
+      - tmp451-i2c-7-4c/PDB-2 Temp/temp1_max_alarm
+      - tmp451-i2c-7-4c/PDB-2 Temp/temp1_min_alarm
+      - tmp451-i2c-7-4c/PDB-2 Temp/temp1_crit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 Temp 1/temp1_max_alarm
+      - mp29816-i2c-15-6a/PMIC-20 Temp 1/temp1_crit_alarm
+      - mp29816-i2c-15-6a/PMIC-20 Temp 2/temp2_max_alarm
+      - mp29816-i2c-15-6a/PMIC-20 Temp 2/temp2_crit_alarm
+      - mp29816-i2c-16-67/PMIC-17 Temp 1/temp1_max_alarm
+      - mp29816-i2c-16-67/PMIC-17 Temp 1/temp1_crit_alarm
+      - mp29816-i2c-16-67/PMIC-17 Temp 2/temp2_max_alarm
+      - mp29816-i2c-16-67/PMIC-17 Temp 2/temp2_crit_alarm
+      - tmp451-i2c-6-4c/PDB-1 Temp/temp1_max_alarm
+      - tmp451-i2c-6-4c/PDB-1 Temp/temp1_min_alarm
+      - tmp451-i2c-6-4c/PDB-1 Temp/temp1_crit_alarm
+      - lm5066i-i2c-7-12/PDB-2 HSC Temp/temp1_max_alarm
+      - lm5066i-i2c-7-12/PDB-2 HSC Temp/temp1_crit_alarm
+      - lm5066i-i2c-6-12/PDB-1 HSC Temp/temp1_max_alarm
+      - lm5066i-i2c-6-12/PDB-1 HSC Temp/temp1_crit_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Phase Temp/temp1_max_alarm
+      - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Phase Temp/temp1_crit_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV Temp/temp2_max_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV Temp/temp2_crit_alarm
+      - raa228004-i2c-7-60/PDB-2 CONV Temp/temp2_lcrit_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV Temp/temp2_max_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV Temp/temp2_crit_alarm
+      - raa228004-i2c-6-60/PDB-1 CONV Temp/temp2_lcrit_alarm
+      - jc42-i2c-10-53/SODIMM2 Temp/temp1_max_alarm
+      - jc42-i2c-10-53/SODIMM2 Temp/temp1_min_alarm
+      - jc42-i2c-10-53/SODIMM2 Temp/temp1_crit_alarm
+      - jc42-i2c-10-52/SODIMM1 Temp/temp1_max_alarm
+      - jc42-i2c-10-52/SODIMM1 Temp/temp1_min_alarm
+      - jc42-i2c-10-52/SODIMM1 Temp/temp1_crit_alarm
+      - \nvme-pci-.*\/SSD Temp/temp1_alarm
+    compares:
+      fan: []
+      power: []
+
+      temp:
+      - - tmp451-i2c-7-4c/PDB-2 Temp/temp1_input
+        - tmp451-i2c-7-4c/PDB-2 Temp/temp1_crit
+
+      - - tmp451-i2c-6-4c/PDB-1 Temp/temp1_input
+        - tmp451-i2c-6-4c/PDB-1 Temp/temp1_crit
+
+      - - mp29816-i2c-15-6a/PMIC-20 Temp 1/temp1_input
+        - mp29816-i2c-15-6a/PMIC-20 Temp 1/temp1_crit
+
+      - - mp29816-i2c-15-6a/PMIC-20 Temp 2/temp2_input
+        - mp29816-i2c-15-6a/PMIC-20 Temp 2/temp2_crit
+
+      - - mp29816-i2c-16-67/PMIC-17 Temp 1/temp1_input
+        - mp29816-i2c-16-67/PMIC-17 Temp 1/temp1_crit
+
+      - - mp29816-i2c-16-67/PMIC-17 Temp 2/temp2_input
+        - mp29816-i2c-16-67/PMIC-17 Temp 2/temp2_crit
+
+      - - lm5066i-i2c-7-12/PDB-2 HSC Temp/temp1_input
+        - lm5066i-i2c-7-12/PDB-2 HSC Temp/temp1_crit
+
+      - - lm5066i-i2c-6-12/PDB-1 HSC Temp/temp1_input
+        - lm5066i-i2c-6-12/PDB-1 HSC Temp/temp1_crit
+
+      - - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Phase Temp/temp1_input
+        - mp2975-i2c-5-6a/DDR PMIC VDD_MEM Phase Temp/temp1_crit
+
+      - - raa228004-i2c-7-60/PDB-2 CONV Temp/temp2_input
+        - raa228004-i2c-7-60/PDB-2 CONV Temp/temp2_crit
+
+      - - raa228004-i2c-6-60/PDB-1 CONV Temp/temp2_input
+        - raa228004-i2c-6-60/PDB-1 CONV Temp/temp2_crit
+
+      - - jc42-i2c-10-53/SODIMM2 Temp/temp1_input
+        - jc42-i2c-10-53/SODIMM2 Temp/temp1_crit
+
+      - - jc42-i2c-10-52/SODIMM1 Temp/temp1_input
+        - jc42-i2c-10-52/SODIMM1 Temp/temp1_crit
+
+      - - \nvme-pci-.*\/SSD Temp/temp1_input
+        - \nvme-pci-.*\/SSD Temp/temp1_crit
+    non_zero:
+      fan: []
+      power: []
+      temp: []
+    psu_skips: {}
+    sensor_skip_per_version: {}
 
   arm64-nvda_bf-bf3comdpu:
     alarms:
