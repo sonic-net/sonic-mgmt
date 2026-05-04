@@ -176,6 +176,11 @@ class TestPfcwdAllTimer(object):
         with DisableLogrotateCronContext(self.dut):
             logger.info("Flush logs")
             self.dut.shell("logrotate -f /etc/logrotate.conf")
+
+        if self.dut.facts['asic_type'] == 'vs':
+            logger.info("Skip run_test for VS")
+            return
+
         # Retry logic as workaround for issue #10848
         num_tries = 3
         storm_port = setup_info['test_port']
@@ -214,10 +219,6 @@ class TestPfcwdAllTimer(object):
                     break
             else:
                 pytest.fail("Could not detect storm restoration on port even after {} retries".format(num_tries))
-
-        if self.dut.facts['asic_type'] == 'vs':
-            logger.info("Skip time detect for VS")
-            return
 
         wait_until_pfcwd_restored(self.dut, setup_info['test_port'])
 
