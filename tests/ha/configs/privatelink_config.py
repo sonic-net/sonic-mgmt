@@ -172,14 +172,6 @@ VM_VNET_MAPPING_CONFIG = {
     }
 }
 
-VM_VNET_MAPPING_CONFIG = {
-    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
-        "routing_type": RoutingType.ROUTING_TYPE_VNET,
-        "underlay_ip": VM1_PA,
-        "mac_address": VM_MAC,
-    }
-}
-
 PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG = {
     f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
         "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
