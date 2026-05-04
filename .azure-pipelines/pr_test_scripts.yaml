@@ -679,7 +679,6 @@ t1-lag-vpp:
   - bgp/test_traffic_shift_sup.py
   - crm/test_crm.py
   - crm/test_crm_available.py
-  - disk/test_disk_exhaustion.py
   - dns/test_dns_resolv_conf.py
   - dns/static_dns/test_static_dns.py
   - drop_packets/test_drop_counters.py
@@ -693,7 +692,6 @@ t1-lag-vpp:
   - gnmi/test_gnoi_system_reboot.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - test_interfaces.py
-  - hash/test_generic_hash.py
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
   - ip/test_ip_packet.py
