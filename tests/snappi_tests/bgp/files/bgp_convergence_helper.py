@@ -662,7 +662,7 @@ def get_convergence_for_local_link_failover(snappi_api,
             cs = snappi_api.control_state()
             cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
             snappi_api.set_control_state(cs)
-            wait(TIMEOUT, "For Traffic To Stop")
+            wait(TIMEOUT-10, "For Traffic To Stop")
         table.append('%s Link Failure' % port_name)
         table.append(route_type)
         table.append(number_of_routes)
@@ -1112,13 +1112,13 @@ def get_RIB_IN_capacity(snappi_api,
                 cs = snappi_api.control_state()
                 cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
                 snappi_api.set_control_state(cs)
-                wait(TIMEOUT, "For Traffic To stop")
+                wait(TIMEOUT-20, "For Traffic To stop")
                 break
             logger.info('Stopping Traffic')
             cs = snappi_api.control_state()
             cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
             snappi_api.set_control_state(cs)
-            wait(TIMEOUT, "For Traffic To stop")
+            wait(TIMEOUT-20, "For Traffic To stop")
         routes = []
         routes.append(b+int(step_value/8))
         routes.append(b+int(step_value/4))
