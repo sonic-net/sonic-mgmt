@@ -502,6 +502,9 @@ class VMTopology(object):
                 bridge_count += 1
                 self.destroy_ovs_bridge(fp_br_name)
 
+        # Wait the bridges to be cleaned up
+        self.wait_for_bridges_cleanup(bridge_count)
+
     def destroy_ovs_bridge(self, bridge_name):
         logging.info('=== Destroy bridge %s ===' % bridge_name)
         VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
