@@ -32,7 +32,7 @@ from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.ha.ha_utils import (
     wait_for_pending_operation_id,
     verify_ha_state,
-    set_dead_dash_ha_scope
+    set_dash_ha_scope
 )
 
 ENABLE_GNMI_API = True
@@ -748,14 +748,14 @@ def activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setu
         logger.info("HA: activate completed for Primary and Standby")
 
 
-def deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server):
+def deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
 
     primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
     standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
 
-    logger.info("HA: de-activate Primary and Standby - set dead")
-    set_dead_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key)
-    set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key)
+    logger.info("HA: de-activate Primary and Standby")
+    set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner)
+    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner)
 
 
 @pytest.fixture(scope="function")
@@ -763,7 +763,7 @@ def activate_dash_ha_from_json(duthosts, dpuhosts, localhost, ptfhost, setup_gnm
                                setup_dash_ha_from_json_func_scope, ha_owner):
     activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
-    deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server)
+    deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
 
 @pytest.fixture(scope="function")
