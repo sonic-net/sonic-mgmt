@@ -22,10 +22,17 @@
     {% if fanout_hwsku == "Arista-720DT-G48S4" and (fanout_port_config[port_name]['lanes'] | int) <= 24 %}
             "autoneg": "on",
     {% endif %}
-    {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
+    {% if fanout_port_config[port_name]['speed'] | default('100000') in ["100000", "200000", "400000", "800000"] %}
             "fec" : "rs",
     {% endif %}
     {% if port_name in device_conn[inventory_hostname] %}
+        {% if 'linktraining' in device_conn[inventory_hostname][port_name] %}
+            {% if 'on' in device_conn[inventory_hostname][port_name]['linktraining'] %}
+                "link_training": "on",
+            {% elif 'off' in device_conn[inventory_hostname][port_name]['linktraining'] %}
+                "link_training": "off",
+            {% endif %}
+        {% endif %}
         {% if 'autoneg' in device_conn[inventory_hostname][port_name] %}
                 {% if 'on' in device_conn[inventory_hostname][port_name]['autoneg'] %}
                     "autoneg": "on",
@@ -41,6 +48,9 @@
         {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"].lower() == "access" %}
             "tpid": "0x9100",
         {% endif %}
+    {% endif %}
+    {% if 'subport' in fanout_port_config[port_name] %}
+            "subport": "{{ fanout_port_config[port_name]['subport'] }}",
     {% endif %}
     {% if 'peerdevice' in fanout_port_config[port_name] %}
             "admin_status": "up"

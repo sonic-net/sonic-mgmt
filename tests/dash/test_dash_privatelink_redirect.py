@@ -362,11 +362,12 @@ def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
             dpu_cmds.append(
                 f"config int ip add Ethernet0 {dpuhost.dpu_data_port_ip}/31"
             )
-    pt_require(dpuhost.npu_data_port_ip, "DPU data port IP is not set")
-    dpu_cmds.append(
-        f"ip route replace default via {dpuhost.npu_data_port_ip}"
-    )
-    dpuhost.shell_cmds(cmds=dpu_cmds)
+    if dpuhost.npu_data_port_ip:
+        dpu_cmds.append(
+            f"ip route replace default via {dpuhost.npu_data_port_ip}"
+        )
+    if len(dpu_cmds) > 0:
+        dpuhost.shell_cmds(cmds=dpu_cmds)
 
 
 @pytest.fixture(scope="class", autouse=True)
@@ -502,6 +503,7 @@ def privatelink_redirect_fnic_config(
     if 'pensando' not in dpuhost.facts['asic_type']:
         route_rule_messages = {
             **pl.VM_VNI_ROUTE_RULE_CONFIG,
+            **pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
             **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
             **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
         }
@@ -590,6 +592,7 @@ def privatelink_redirect_nsg_config(
     if 'pensando' not in dpuhost.facts['asic_type']:
         route_rule_messages = {
             **pl.VM_VNI_ROUTE_RULE_CONFIG,
+            **pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
             **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
         }
         logger.info(route_rule_messages)

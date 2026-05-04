@@ -93,7 +93,7 @@ def create_testcase_mapping(testcase_file):
 def create_parameters_mapping(containers, parameters_file):
     with open(parameters_file, 'r') as file:
         data = json.load(file)
-    container_parameters = {container: details['parameters'] for container, details in data.items()}
+    container_parameters = {container: ' '.join(details['parameters']) for container, details in data.items()}
 
     return container_parameters
 

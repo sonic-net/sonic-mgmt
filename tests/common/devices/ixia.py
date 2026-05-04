@@ -25,7 +25,20 @@ class IxiaHost (AnsibleHostBase):
         self.os = os
         self.hostname = hostname
         self.device_type = device_type
-        super().__init__(IxiaHost, self)
+        # Do not call AnsibleHostBase.__init__ because IxiaHost uses a different constructor signature.
+        # Set self.host to None to prevent AttributeError in __getattr__
+        self.host = None
+
+    def __getattr__(self, module_name):
+        """Override parent's __getattr__ to provide a clear error message.
+
+        IxiaHost does not support Ansible module execution like other host types.
+        This is a placeholder class for future Ixia fanout device support.
+        """
+        raise NotImplementedError(
+            "IxiaHost does not support Ansible module execution. "
+            "Attempted to call '{}' on IxiaHost '{}'".format(module_name, self.hostname)
+        )
 
     def __str__(self):
         return '<IxiaHost {}>'.format(self.hostname)

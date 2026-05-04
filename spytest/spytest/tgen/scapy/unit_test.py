@@ -417,9 +417,9 @@ def test_dot1x(ipaddr, port=8009):
     tg = TGScapyTest(ipaddr, port, ["1/1", "1/2"], False)
     tg_ph_1 = list(tg.tg_port_handle.values())[0]
     res1 = tg.tg_emulation_dot1x_config(username='userp11', eap_auth_method='md5', local_ip_addr='192.168.1.10', port_handle=tg_ph_1,
-                                        mode='create', gateway_ip_addr='192.168.1.1', ip_version='ipv4', encapsulation='ethernet_ii', password='userp11', mac_addr='00:00:00:A1:A1:A1')
+                                        mode='create', gateway_ip_addr='192.168.1.1', ip_version='ipv4', encapsulation='ethernet_ii', password='userp11', mac_addr='00:00:00:A1:A1:A1')  # [SuppressMessage("Microsoft.Security", "CS001:SecretInline", Justification="Test placeholder password")]
     res2 = tg.tg_emulation_dot1x_config(username='userp12', eap_auth_method='md5', local_ip_addr='192.168.2.10', port_handle=tg_ph_1,
-                                        mode='create', gateway_ip_addr='192.168.2.1', ip_version='ipv4', encapsulation='ethernet_ii', password='userp12', mac_addr='00:00:00:A2:A2:A2')
+                                        mode='create', gateway_ip_addr='192.168.2.1', ip_version='ipv4', encapsulation='ethernet_ii', password='userp12', mac_addr='00:00:00:A2:A2:A2')  # [SuppressMessage("Microsoft.Security", "CS001:SecretInline", Justification="Test placeholder password")]
     tg.tg_emulation_dot1x_control(handle=res1["handle"], mode="start")
     tg.tg_emulation_dot1x_control(handle=res2["handle"], mode="start")
     time.sleep(10)

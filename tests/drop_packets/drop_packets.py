@@ -104,7 +104,7 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             fanout.restore_drop_counter_config()
 
     if fanout:
-        if fanout.facts["asic_type"] == "marvell-teralynx":
+        if hasattr(fanout, "facts") and fanout.facts.get("asic_type") == "marvell-teralynx":
             # Check and clean up existing REDIRECT_VLAN ACL table if present.
             check_output = fanout.shell("show acl table", module_ignore_errors=True)
             if "REDIRECT_VLAN" in check_output["stdout"]:
@@ -269,6 +269,11 @@ EOF
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
     config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
+    if duthost.facts["asic_type"] == "vpp":
+        # monit refreshes on a ~60s cycle, so wait one full cycle to let usage
+        # settle and ensure monit's next refresh captures the steady-state
+        # value for the next test's baseline.
+        time.sleep(65)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
@@ -663,7 +668,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
     src_mac = ports_info["dst_mac"]
 
     # Marvell ASIC specific ACL rule injection
-    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':
@@ -712,7 +717,7 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
                    pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 
     # Marvell ASIC specific ACL rule injection
-    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':
@@ -779,7 +784,9 @@ def test_not_expected_vlan_tag_drop(do_test, duthosts, enum_rand_one_per_hwsku_f
         )
 
     group = "L2"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+            # VPP drops the packet but does not increment the drop counter
+            skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
 
 
 def test_dst_ip_is_loopback_addr(do_test, ptfadapter, setup, pkt_fields, tx_dut_ports, ports_info):

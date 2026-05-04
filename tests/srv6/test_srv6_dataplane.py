@@ -115,12 +115,12 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
 
     if duthost.is_multi_asic:
         cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
-        dut_asic = duthost.asic_instance[asic_index]
+        dut_asic = duthost.asic_instance(asic_index)
         dut_mac = dut_asic.get_router_mac()
         dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
     else:
         cli_options = ''
-        dut_mac = duthost._get_router_mac()
+        dut_mac = duthost.facts["router_mac"]
         dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
 
     logger.info("Doing test on DUT port {} | PTF ports {}".format(dut_port, ptf_src_ports))
