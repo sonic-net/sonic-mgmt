@@ -199,8 +199,8 @@ steps:
 
         if [[ ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }} == True ]]; then
             CONSISTENCY_CHECKER_ARGS="--enable_consistency_checker"
-            CONSISTENCY_CHECKER_ARGS+=" --consistency_checker_libsairedis_url_template=http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/consistency-checker-{sonic_version}/latest/target/debs/bullseye/libsairedis_1.0.0_amd64.deb"
-            CONSISTENCY_CHECKER_ARGS+=" --consistency_checker_python3_pysairedis_url_template=http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/consistency-checker-{sonic_version}/latest/target/debs/bullseye/python3-pysairedis_1.0.0_amd64.deb"
+            CONSISTENCY_CHECKER_ARGS+=" --consistency_checker_libsairedis_url_template=http://10.1.3.6/pipelines/Networking-acs-buildimage-Official/broadcom/consistency-checker-{sonic_version}/latest/target/debs/bullseye/libsairedis_1.0.0_amd64.deb"
+            CONSISTENCY_CHECKER_ARGS+=" --consistency_checker_python3_pysairedis_url_template=http://10.1.3.6/pipelines/Networking-acs-buildimage-Official/broadcom/consistency-checker-{sonic_version}/latest/target/debs/bullseye/python3-pysairedis_1.0.0_amd64.deb"
         fi
 
         FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
