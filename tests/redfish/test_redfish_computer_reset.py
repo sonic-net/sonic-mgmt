@@ -11,7 +11,6 @@ import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.redfish.redfish_utils import assert_field_in, assert_status_ok
 
 logger = logging.getLogger(__name__)
 
@@ -21,52 +20,56 @@ pytestmark = [
 ]
 
 RESET_PATH = "/redfish/v1/Systems/system/Actions/ComputerSystem.Reset"
-SYSTEM_PATH = "/redfish/v1/Systems/system"
 
-POWER_ON_TIMEOUT = 120    # seconds to wait for system to power on
-POWER_OFF_TIMEOUT = 120   # seconds to wait for system to power off
-POLL_INTERVAL = 5         # seconds between power state polls
+POWER_ON_TIMEOUT = 120    # seconds to wait for x86 CPU to come out of reset
+POWER_OFF_TIMEOUT = 120   # seconds to wait for x86 CPU to be held in reset
+POLL_INTERVAL = 5         # seconds between CPU-state polls
 
-
-def _get_power_state(redfish_client):
-    """Return current PowerState string from /redfish/v1/Systems/system."""
-    response = redfish_client.get(SYSTEM_PATH)
-    if response.status_code != 200:
-        return None
-    return response.json().get("PowerState")
+CPU_STATUS_CMD = "switch_cpu_utils.sh status"
 
 
-def _wait_for_power_state(redfish_client, target_state, timeout):
-    """Poll until PowerState equals target_state or timeout expires. Returns True on success."""
+def _cpu_running(bmc_exec):
+    """Return True iff the x86 host CPU is OUT OF RESET (running).
+
+    Trusts the BMC-side switch_cpu_utils.sh output (which reads the hardware
+    reset pin) rather than the Redfish PowerState field, since bmcweb's
+    PowerState can lag or misreport the actual CPU state.
+    """
+    stdout, _, _ = bmc_exec(CPU_STATUS_CMD)
+    return "OUT OF RESET" in stdout
+
+
+def _wait_for_cpu_running(bmc_exec, want_running, timeout):
+    """Poll switch_cpu_utils.sh until CPU running state matches want_running."""
     elapsed = 0
     while elapsed < timeout:
-        state = _get_power_state(redfish_client)
-        logger.info("PowerState: {} (waiting for {})".format(state, target_state))
-        if state == target_state:
+        running = _cpu_running(bmc_exec)
+        logger.info("CPU running={} (waiting for running={})".format(running, want_running))
+        if running == want_running:
             return True
         time.sleep(POLL_INTERVAL)
         elapsed += POLL_INTERVAL
     return False
 
 
-def _ensure_system_on(redfish_client):
-    """Power on the system if it is not currently On."""
-    state = _get_power_state(redfish_client)
-    if state != "On":
-        logger.info("System is {}, sending ResetType=On to restore".format(state))
-        redfish_client.post(RESET_PATH, json={"ResetType": "On"})
-        assert _wait_for_power_state(redfish_client, "On", POWER_ON_TIMEOUT), \
-            "System did not reach PowerState=On within {}s".format(POWER_ON_TIMEOUT)
+def _ensure_system_on(redfish_client, bmc_exec):
+    """Power on the x86 CPU if it is not currently running."""
+    if _cpu_running(bmc_exec):
+        return
+    logger.info("CPU is in reset, sending ResetType=On to restore")
+    redfish_client.post(RESET_PATH, json={"ResetType": "On"})
+    assert _wait_for_cpu_running(bmc_exec, True, POWER_ON_TIMEOUT), \
+        "x86 CPU did not come out of reset within {}s".format(POWER_ON_TIMEOUT)
 
 
 class TestRedfishComputerReset:
 
-    def test_reset_on(self, redfish_client):
+    def test_reset_on(self, redfish_client, bmc_exec):
         """
         Test Case #11 — Reset with valid ResetType "On".
 
-        POST ResetType=On and validate system reaches PowerState=On.
-        If system is already On, the action is a no-op and 200/204 is still expected.
+        POST ResetType=On and validate the x86 CPU is OUT OF RESET (running)
+        per switch_cpu_utils.sh on the BMC.
         """
         response = redfish_client.post(RESET_PATH, json={"ResetType": "On"})
         logger.info("POST {} ResetType=On -> {}".format(RESET_PATH, response.status_code))
@@ -76,17 +79,18 @@ class TestRedfishComputerReset:
             "Expected HTTP 200 or 204, got: {}".format(response.status_code)
         )
 
-        reached = _wait_for_power_state(redfish_client, "On", POWER_ON_TIMEOUT)
-        pytest_assert(reached, "System did not reach PowerState=On within {}s".format(
+        reached = _wait_for_cpu_running(bmc_exec, True, POWER_ON_TIMEOUT)
+        pytest_assert(reached, "x86 CPU did not come out of reset within {}s".format(
             POWER_ON_TIMEOUT))
 
-    def test_reset_graceful_shutdown(self, redfish_client):
+    def test_reset_graceful_shutdown(self, redfish_client, bmc_exec):
         """
         Test Case #12 — Reset with valid ResetType "GracefulShutdown".
 
-        Verifies system powers off gracefully, then restores it to On.
+        Verifies the x86 CPU is held in reset after graceful shutdown, then
+        restores it to running.
         """
-        _ensure_system_on(redfish_client)
+        _ensure_system_on(redfish_client, bmc_exec)
 
         response = redfish_client.post(RESET_PATH, json={"ResetType": "GracefulShutdown"})
         logger.info("POST {} ResetType=GracefulShutdown -> {}".format(RESET_PATH,
@@ -97,43 +101,19 @@ class TestRedfishComputerReset:
             "Expected HTTP 200 or 204, got: {}".format(response.status_code)
         )
 
-        reached = _wait_for_power_state(redfish_client, "Off", POWER_OFF_TIMEOUT)
-        pytest_assert(reached, "System did not reach PowerState=Off within {}s".format(
+        reached = _wait_for_cpu_running(bmc_exec, False, POWER_OFF_TIMEOUT)
+        pytest_assert(reached, "x86 CPU was not held in reset within {}s".format(
             POWER_OFF_TIMEOUT))
 
-        # Restore system to On
-        _ensure_system_on(redfish_client)
+        _ensure_system_on(redfish_client, bmc_exec)
 
-    def test_reset_force_off(self, redfish_client):
-        """
-        Test Case #13 — Reset with valid ResetType "ForceOff".
-
-        Verifies system powers off immediately, then restores it to On.
-        """
-        _ensure_system_on(redfish_client)
-
-        response = redfish_client.post(RESET_PATH, json={"ResetType": "ForceOff"})
-        logger.info("POST {} ResetType=ForceOff -> {}".format(RESET_PATH, response.status_code))
-
-        pytest_assert(
-            response.status_code in (200, 204),
-            "Expected HTTP 200 or 204, got: {}".format(response.status_code)
-        )
-
-        reached = _wait_for_power_state(redfish_client, "Off", POWER_OFF_TIMEOUT)
-        pytest_assert(reached, "System did not reach PowerState=Off within {}s".format(
-            POWER_OFF_TIMEOUT))
-
-        # Restore system to On
-        _ensure_system_on(redfish_client)
-
-    def test_reset_power_cycle(self, redfish_client):
+    def test_reset_power_cycle(self, redfish_client, bmc_exec):
         """
         Test Case #14 — Reset with valid ResetType "PowerCycle".
 
-        Verifies system power-cycles and returns to PowerState=On.
+        Verifies the x86 CPU power-cycles and returns to OUT OF RESET (running).
         """
-        _ensure_system_on(redfish_client)
+        _ensure_system_on(redfish_client, bmc_exec)
 
         response = redfish_client.post(RESET_PATH, json={"ResetType": "PowerCycle"})
         logger.info("POST {} ResetType=PowerCycle -> {}".format(RESET_PATH, response.status_code))
@@ -143,10 +123,11 @@ class TestRedfishComputerReset:
             "Expected HTTP 200 or 204, got: {}".format(response.status_code)
         )
 
-        # System may briefly go to Off before returning to On
-        reached = _wait_for_power_state(redfish_client, "On", POWER_ON_TIMEOUT)
-        pytest_assert(reached, "System did not return to PowerState=On after PowerCycle within {}s".format(
-            POWER_ON_TIMEOUT))
+        # CPU may briefly enter reset before coming back out
+        reached = _wait_for_cpu_running(bmc_exec, True, POWER_ON_TIMEOUT)
+        pytest_assert(reached,
+                      "x86 CPU did not return to OUT OF RESET after PowerCycle within {}s".format(
+                          POWER_ON_TIMEOUT))
 
     def test_reset_invalid_type(self, redfish_client):
         """

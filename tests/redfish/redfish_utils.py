@@ -2,34 +2,34 @@
 Shared Redfish test utilities for SONiC BMC Redfish API tests.
 """
 import requests
-import urllib3
 
 from tests.common.helpers.assertions import pytest_assert
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 
 class RedfishClient:
-    """HTTP client for Redfish API calls with Basic Auth and TLS verification disabled."""
+    """HTTP client for Redfish API calls using mTLS client-certificate auth."""
 
-    def __init__(self, bmc_ip, user, password, timeout=30):
+    def __init__(self, bmc_ip, cert, key, ca, timeout=30):
         self.base_url = "https://{}".format(bmc_ip)
-        self.auth = (user, password)
+        self.cert = (cert, key)
+        self.verify = ca
         self.timeout = timeout
 
-    def get(self, path, auth=True, **kwargs):
-        url = self.base_url + path
-        auth_arg = self.auth if auth else None
-        return requests.get(url, auth=auth_arg, verify=False, timeout=self.timeout, **kwargs)
+    def _request(self, method, path, **kwargs):
+        return requests.request(
+            method, self.base_url + path,
+            cert=self.cert, verify=self.verify, timeout=self.timeout,
+            **kwargs,
+        )
+
+    def get(self, path, **kwargs):
+        return self._request("GET", path, **kwargs)
 
     def post(self, path, json=None, **kwargs):
-        url = self.base_url + path
-        return requests.post(url, auth=self.auth, verify=False, timeout=self.timeout,
-                             json=json, **kwargs)
+        return self._request("POST", path, json=json, **kwargs)
 
     def delete(self, path, **kwargs):
-        url = self.base_url + path
-        return requests.delete(url, auth=self.auth, verify=False, timeout=self.timeout, **kwargs)
+        return self._request("DELETE", path, **kwargs)
 
 
 def assert_field_equals(body, field, expected):

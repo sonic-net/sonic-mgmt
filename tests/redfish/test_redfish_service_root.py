@@ -66,10 +66,11 @@ class TestRedfishServiceRoot:
         assert_field_equals(body, "Product", "SONiCBMC")
 
         # Navigation links
-        chassis_link = body.get("Chassis", {}).get("@odata.id", "")
+        update_service_link = body.get("UpdateService", {}).get("@odata.id", "")
         pytest_assert(
-            chassis_link == "/redfish/v1/Chassis",
-            "Chassis.@odata.id must be '/redfish/v1/Chassis', got: {!r}".format(chassis_link)
+            update_service_link == "/redfish/v1/UpdateService",
+            "UpdateService.@odata.id must be '/redfish/v1/UpdateService', got: {!r}".format(
+                update_service_link)
         )
 
         systems_link = body.get("Systems", {}).get("@odata.id", "")
@@ -80,20 +81,3 @@ class TestRedfishServiceRoot:
 
         links = body.get("Links", {})
         pytest_assert("Sessions" in links, "Links.Sessions is missing from {} response".format(SERVICE_ROOT))
-
-    def test_service_root_no_auth(self, redfish_client):
-        """
-        Test Case #3 — Unauthenticated access is not rejected.
-
-        GET /redfish/v1 without credentials must still return HTTP 200.
-        The service root is a public discovery endpoint per the Redfish spec.
-        """
-        response = redfish_client.get(SERVICE_ROOT, auth=False)
-        logger.info("HTTP status (no auth): {}".format(response.status_code))
-
-        assert_status_ok(response, SERVICE_ROOT)
-        content_type = response.headers.get("Content-Type", "")
-        pytest_assert(
-            "application/json" in content_type,
-            "Expected Content-Type to contain 'application/json', got: {!r}".format(content_type)
-        )

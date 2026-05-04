@@ -19,6 +19,7 @@ import pytest
 import requests
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.redfish.conftest import BMC_TEST_CA_NAME
 from tests.redfish.redfish_utils import assert_status_ok
 
 logger = logging.getLogger(__name__)
@@ -40,22 +41,22 @@ class TestRedfishCertAuth:
         - The CA cert is present in the truststore
         - bmcweb is running (supervisorctl shows RUNNING)
         """
-        # Server cert
+        # Server cert — verify it was signed by our CA (not the default self-signed)
         stdout, _, _ = bmc_exec(
-            "docker exec redfish test -f /etc/ssl/certs/https/server.pem && echo exists"
+            "docker exec redfish openssl x509 -in /etc/ssl/certs/https/server.pem -noout -issuer"
         )
         pytest_assert(
-            "exists" in stdout,
-            "Server cert not found at redfish:/etc/ssl/certs/https/server.pem"
+            BMC_TEST_CA_NAME in stdout,
+            "Server cert issuer must be our CA, got: {}".format(stdout)
         )
 
-        # CA cert in truststore
+        # CA cert in truststore — verify subject matches our CA
         stdout, _, _ = bmc_exec(
-            "docker exec redfish test -f /etc/ssl/certs/authority/CA-cert.pem && echo exists"
+            "docker exec redfish openssl x509 -in /etc/ssl/certs/authority/CA-cert.pem -noout -subject"
         )
         pytest_assert(
-            "exists" in stdout,
-            "CA cert not found at redfish:/etc/ssl/certs/authority/CA-cert.pem"
+            BMC_TEST_CA_NAME in stdout,
+            "CA cert subject must contain our CA name, got: {}".format(stdout)
         )
 
         # bmcweb is running
@@ -86,19 +87,19 @@ class TestRedfishCertAuth:
         """
         Test Case B — Certificate-based auth works for an authenticated endpoint.
 
-        GET /redfish/v1/Chassis/chassis using only client cert (no Basic Auth).
-        Must return HTTP 200 with valid chassis data.
+        GET /redfish/v1/UpdateService using only client cert (no Basic Auth).
+        Must return HTTP 200 with valid UpdateService data.
         """
         response = requests.get(
-            "https://{}/redfish/v1/Chassis/chassis".format(bmc_ip),
+            "https://{}/redfish/v1/UpdateService".format(bmc_ip),
             cert=(bmc_tls_certs["cert"], bmc_tls_certs["key"]),
             verify=bmc_tls_certs["ca"],
             timeout=30,
         )
-        logger.info("GET /redfish/v1/Chassis/chassis (with cert) -> {}".format(
+        logger.info("GET /redfish/v1/UpdateService (with cert) -> {}".format(
             response.status_code))
 
-        assert_status_ok(response, "/redfish/v1/Chassis/chassis")
+        assert_status_ok(response, "/redfish/v1/UpdateService")
         pytest_assert(
             "@odata.id" in response.json(),
             "Response missing @odata.id"
