@@ -4,7 +4,6 @@ import time
 import yaml
 import pytest
 import logging
-import requests
 import ipaddress
 from jinja2 import Template
 from tests.common.helpers.assertions import pytest_assert
@@ -20,6 +19,7 @@ from bgp_helpers import BGP_SENTINEL_PORT_V6, BGP_SENTINEL_NAME_V6
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME
 from tests.common.helpers.generators import generate_ip_through_default_route
 from netaddr import IPNetwork
+from tests.common2.routing.bgp.bgp_route_control import BGPRouteController
 
 
 pytestmark = [
@@ -414,22 +414,6 @@ def sentinel_community(duthost):
     return constants['constants']['bgp']['sentinel_community']
 
 
-def announce_route(ptfip, neighbor, route, nexthop, port, community):
-    change_route("announce", ptfip, neighbor, route, nexthop, port, community)
-
-
-def withdraw_route(ptfip, neighbor, route, nexthop, port, community):
-    change_route("withdraw", ptfip, neighbor, route, nexthop, port, community)
-
-
-def change_route(operation, ptfip, neighbor, route, nexthop, port, community):
-    url = "http://%s:%d" % (ptfip, port)
-    data = {"command": "neighbor %s %s route %s next-hop %s local-preference 10000 community [%s]"
-            % (neighbor, operation, route, nexthop, community)}
-    r = requests.post(url, data=data, proxies={"http": None, "https": None})
-    assert r.status_code == 200
-
-
 def get_target_routes(duthost, tbinfo):
     v4_peer, v6_peer = None, None
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
@@ -520,16 +504,48 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
     # Announce routes from bgp sentinel
     if request.param == "IPv4":
         for route in ipv4_routes:
-            announce_route(ptfip, lo_ipv4_addr, route, ptf_bp_v4, BGP_SENTINEL_PORT_V4, community)
+            BGPRouteController.announce_route(
+                ptfip=ptfip,
+                neighbor=lo_ipv4_addr,
+                route=route,
+                nexthop=ptf_bp_v4,
+                port=BGP_SENTINEL_PORT_V4,
+                community=community,
+                local_preference=10000
+            )
 
         for route in ipv6_routes:
-            announce_route(ptfip, lo_ipv4_addr, route, ptf_bp_v6, BGP_SENTINEL_PORT_V4, community)
+            BGPRouteController.announce_route(
+                ptfip=ptfip,
+                neighbor=lo_ipv4_addr,
+                route=route,
+                nexthop=ptf_bp_v6,
+                port=BGP_SENTINEL_PORT_V4,
+                community=community,
+                local_preference=10000
+            )
     else:
         for route in ipv4_routes:
-            announce_route(ptfip, lo_ipv6_addr, route, ptf_bp_v4, BGP_SENTINEL_PORT_V6, community)
+            BGPRouteController.announce_route(
+                ptfip=ptfip,
+                neighbor=lo_ipv6_addr,
+                route=route,
+                nexthop=ptf_bp_v4,
+                port=BGP_SENTINEL_PORT_V6,
+                community=community,
+                local_preference=10000
+            )
 
         for route in ipv6_routes:
-            announce_route(ptfip, lo_ipv6_addr, route, ptf_bp_v6, BGP_SENTINEL_PORT_V6, community)
+            BGPRouteController.announce_route(
+                ptfip=ptfip,
+                neighbor=lo_ipv6_addr,
+                route=route,
+                nexthop=ptf_bp_v6,
+                port=BGP_SENTINEL_PORT_V6,
+                community=community,
+                local_preference=10000
+            )
 
     time.sleep(10)
 
@@ -572,16 +588,48 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
     # Withdraw routes from bgp sentinel
     if request.param == "IPv4":
         for route in ipv4_routes:
-            withdraw_route(ptfip, lo_ipv4_addr, route, ptf_bp_v4, BGP_SENTINEL_PORT_V4, community)
+            BGPRouteController.withdraw_route(
+                ptfip=ptfip,
+                neighbor=lo_ipv4_addr,
+                route=route,
+                nexthop=ptf_bp_v4,
+                port=BGP_SENTINEL_PORT_V4,
+                community=community,
+                local_preference=10000
+            )
 
         for route in ipv6_routes:
-            withdraw_route(ptfip, lo_ipv4_addr, route, ptf_bp_v6, BGP_SENTINEL_PORT_V4, community)
+            BGPRouteController.withdraw_route(
+                ptfip=ptfip,
+                neighbor=lo_ipv4_addr,
+                route=route,
+                nexthop=ptf_bp_v6,
+                port=BGP_SENTINEL_PORT_V4,
+                community=community,
+                local_preference=10000
+            )
     else:
         for route in ipv4_routes:
-            withdraw_route(ptfip, lo_ipv6_addr, route, ptf_bp_v4, BGP_SENTINEL_PORT_V6, community)
+            BGPRouteController.withdraw_route(
+                ptfip=ptfip,
+                neighbor=lo_ipv6_addr,
+                route=route,
+                nexthop=ptf_bp_v4,
+                port=BGP_SENTINEL_PORT_V6,
+                community=community,
+                local_preference=10000
+            )
 
         for route in ipv6_routes:
-            withdraw_route(ptfip, lo_ipv6_addr, route, ptf_bp_v6, BGP_SENTINEL_PORT_V6, community)
+            BGPRouteController.withdraw_route(
+                ptfip=ptfip,
+                neighbor=lo_ipv6_addr,
+                route=route,
+                nexthop=ptf_bp_v6,
+                port=BGP_SENTINEL_PORT_V6,
+                community=community,
+                local_preference=10000
+            )
 
     time.sleep(10)
     # Check if the routes are announced to ebgp peers
