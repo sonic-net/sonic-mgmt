@@ -738,7 +738,8 @@ class TestQosSai(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
-        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LosslessVoqProfile])
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts,
+                                portSpeedCableLength, qosConfig[LosslessVoqProfile])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -825,8 +826,8 @@ class TestQosSai(QosSaiBase):
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
 
-        if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx") and (dutConfig["dutAsic"] != 'q3d'):
+        if dutTestParams["basicParams"].get("platform_asic") == 'broadcom-dnx' \
+                and get_src_dst_asic_and_duts['src_dut'].facts.get('modular_chassis'):
             # for 100G port speed the number of ports required to fill headroom is huge,
             # hence skipping the test with speed 100G or cable length of 2k
             if portSpeedCableLength not in ['400000_120000m']:
@@ -858,7 +859,7 @@ class TestQosSai(QosSaiBase):
             'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
             else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
 
-        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, portSpeedCableLength, qosConfig["hdrm_pool_size"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1056,7 +1057,7 @@ class TestQosSai(QosSaiBase):
                 qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][-1]
                 qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
 
-        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, portSpeedCableLength, qosConfig["hdrm_pool_size"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1306,7 +1307,7 @@ class TestQosSai(QosSaiBase):
         assert flow_config in ["separate", "shared"], "Invalid flow config '{}'".format(
             flow_config)
 
-        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LossyVoq])
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, portSpeedCableLength, qosConfig[LossyVoq])
 
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
@@ -2402,7 +2403,7 @@ class TestQosSai(QosSaiBase):
         else:
             qosConfig = dutQosConfig["param"]
 
-        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LossyVoq])
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, portSpeedCableLength, qosConfig[LossyVoq])
 
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
