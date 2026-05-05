@@ -219,7 +219,7 @@ def test_pmon_syseepromd_kill_and_start_status(check_daemon_status, duthosts,
     pytest_assert(daemon_status != expected_running_status,
                   "{} unexpected killed status is not {}".format(daemon_name, daemon_status))
 
-    time.sleep(10)
+    wait_until(120, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
