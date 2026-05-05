@@ -339,12 +339,11 @@ class QosSaiBase(QosBase):
         )[0]).replace("oid:", '')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
-    def __getBufferProfile(self, request, dut_asic, os_version, table, port, priorityGroup):
+    def __getBufferProfile(self, dut_asic, os_version, table, port, priorityGroup):
         """
             Get buffer profile attribute from Redis db
 
             Args:
-                request (Fixture): pytest request object
                 dut_asic(SonicAsic): Device Under Test (DUT)
                 table (str): Redis table name
                 port (str): DUT port alias
@@ -1712,6 +1711,27 @@ class QosSaiBase(QosBase):
                 if 'proxy_arp' in value:
                     logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
+    def getPortSpeedCableLength(self, dut_asic, duthost, srcport, pgs):
+        profileName = self.__getBufferProfile(
+                    dut_asic,
+                    duthost.os_version,
+                    "BUFFER_PG_TABLE" if self.isBufferInApplDb(
+                        dut_asic) else "BUFFER_PG",
+                    srcport,
+                    pgs
+                )["profileName"]
+
+        if self.isBufferInApplDb(dut_asic):
+            profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
+        else:
+            profile_pattern = "^BUFFER_PROFILE\\|pg_lossless_(.*)_profile"
+        m = re.search(profile_pattern, profileName)
+        pytest_assert(m and m.group(1), f"Cannot find port speed/cable length for srcport {srcport} and pgs {pgs}")
+
+        portSpeedCableLength = m.group(1)
+        logger.debug(f"portSpeedCableLength of src port {srcport} is {portSpeedCableLength}")
+        return portSpeedCableLength
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, duthosts, get_src_dst_asic_and_duts,
@@ -1740,14 +1760,9 @@ class QosSaiBase(QosBase):
         logger.info(
             "Lossless Buffer profile selected is {}".format(profileName))
 
-        if self.isBufferInApplDb(dut_asic):
-            profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
-        else:
-            profile_pattern = "^BUFFER_PROFILE\\|pg_lossless_(.*)_profile"
-        m = re.search(profile_pattern, profileName)
-        pytest_assert(m.group(1), "Cannot find port speed/cable length")
-
-        portSpeedCableLength = m.group(1)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+        portSpeedCableLength = self.getPortSpeedCableLength(dut_asic, duthost,
+                                                            srcport, "3-4")
 
         qosConfigs = dutConfig["qosConfigs"]
         dutAsic = dutConfig["dutAsic"]
@@ -2194,7 +2209,6 @@ class QosSaiBase(QosBase):
             pgs = "3-4"
 
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(
@@ -2222,7 +2236,6 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut']
         dut_asic = get_src_dst_asic_and_duts['src_asic']
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(
@@ -2259,7 +2272,6 @@ class QosSaiBase(QosBase):
             queues = "3-4"
 
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
@@ -2310,7 +2322,6 @@ class QosSaiBase(QosBase):
                 queues = "0-2"
 
         egress_lossy_profile = self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
