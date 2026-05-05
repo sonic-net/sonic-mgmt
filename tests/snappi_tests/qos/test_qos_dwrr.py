@@ -25,7 +25,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
      snappi_testbed_config     # noqa F401
 
 from tests.snappi_tests.dataplane.files.helper import get_duthost_interface_details
-from tests.snappi_tests.dataplane.files.helper import set_primary_chassis  # noqa F401 
+from tests.snappi_tests.dataplane.files.helper import set_primary_chassis  # noqa F401
 from tests.snappi_tests.dataplane.files.helper import create_snappi_config, create_snappi_config  # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
@@ -46,7 +46,7 @@ class Common_vars:
     # 8x100G ports per per group.
     # 1=(Mainly for a quick test) testing just one port in the port-group as rx-port
     # 8=testing all 8 ports in the port-group as rx-port
-    total_rx_port_rotation = 1
+    total_rx_port_rotation = 8
 
     # --- DON'T TOUCH BELOW VALUES ---
 
@@ -115,7 +115,7 @@ def execute_common_configs(rx_port_index,
         read_dut_configs(Common_vars, duthosts)
 
     create_snappi_flows_dwrr(Common_vars, duthosts, snappi_api, snappi_ports)
-    
+
     control_state_obj = run_traffic(Common_vars, duthosts, snappi_api=snappi_api,
                                     config=Common_vars.snappi_configs)
     sleep(Common_vars.flow_duration_seconds)
@@ -219,7 +219,3 @@ def test_qos_dwrr_inter_port(snappi_api,                           # noqa F811
         define_tx_rx_inter_port_testing(Common_vars, snappi_ports, rx_port_index)
         execute_common_configs(rx_port_index, duthosts, create_snappi_config,
                                snappi_api, snappi_extra_params, snappi_ports)
-
-
-
-

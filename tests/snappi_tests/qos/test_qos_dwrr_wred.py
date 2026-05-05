@@ -107,8 +107,8 @@ def local_script_setup_and_teardown():
     yield
     logger.info("Teardown after ALL test cases")
     restore_config_db(Common_vars)
-    
-    
+
+
 def execute_common_configs(duthosts,
                            create_snappi_config, # noqa F811
                            snappi_api, # noqa F811
@@ -136,7 +136,7 @@ def execute_common_configs(duthosts,
         if Common_vars.backup_config_db is False:
             backup_config_db(Common_vars, duthost)
             Common_vars.backup_config_db = True
-                
+
         # scheduler_data_dict: Get the scheduler_id from the weight
         # weight_data_dict:    Get the weight from the scheduler_id
         Common_vars.scheduler_to_weight_dict, Common_vars.weight_to_scheduler_dict = \
@@ -194,7 +194,7 @@ def test_dwrr_wred_with_extreme_weight_ratio_1(snappi_api,                 # noq
                                                rand_one_dut_hostname,
                                                rand_one_dut_portname_oper_up,
                                                get_snappi_ports, # noqa F811
-                                               subnet_type, # noqa F811 
+                                               subnet_type, # noqa F811
                                                create_snappi_config, # noqa F811
                                                local_script_setup_and_teardown
                                                ):
@@ -253,7 +253,7 @@ def test_dwrr_wred_with_extreme_weight_ratio_2(snappi_api,                 # noq
                                                rand_one_dut_hostname,
                                                rand_one_dut_portname_oper_up,
                                                get_snappi_ports, # noqa F811
-                                               subnet_type, # noqa F811 
+                                               subnet_type, # noqa F811
                                                create_snappi_config, # noqa F811
                                                local_script_setup_and_teardown
                                                ):
@@ -295,8 +295,8 @@ def test_dwrr_wred_with_extreme_weight_ratio_3(snappi_api,                 # noq
                                                set_primary_chassis, # noqa F811
                                                rand_one_dut_hostname,
                                                rand_one_dut_portname_oper_up,
-                                               get_snappi_ports, # noqa F811 
-                                               subnet_type, # noqa F811 
+                                               get_snappi_ports, # noqa F811
+                                               subnet_type, # noqa F811
                                                create_snappi_config, # noqa F811
                                                local_script_setup_and_teardown
                                                ):
