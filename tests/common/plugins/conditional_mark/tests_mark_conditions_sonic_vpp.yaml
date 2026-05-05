@@ -633,16 +633,6 @@ read_mac/test_read_mac_metadata.py::ReadMACMetadata:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           Route             #####
-#######################################
-route/test_route_flow_counter.py:
-  skip:
-    reason: "per route counter is not supported in sonic-vpp but is supported in vpp dataplane. To be included after per route counter support is added in sonic-vpp."
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           SNMP              #####
 #######################################
 
