@@ -2,7 +2,7 @@
 #####   vendor utility docker       #####
 #######################################
 
-tests/vendor_utility_docker/test_utility_docker.py:
+vendor_utility_docker/test_utility_docker.py:
   skip:
     reason: "Vendor utility docker tests are for Cisco 8000 only (skip VS/KVM and other asic_type)"
     conditions_logical_operator: or
