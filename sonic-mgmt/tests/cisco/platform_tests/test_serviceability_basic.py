@@ -6,6 +6,7 @@ import logging
 import re
 import pytest
 import re
+import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.cisco.common.utils import CheckEnvironment
 
@@ -52,8 +53,25 @@ npu_cli_dict_usr_mode = {
     "l3-interface": [""],
     "temperatures": [""],
     "histogram": ["sms", "sqg", "tc"],
-    "rx": ["cgm_profile", "cgm_global", "interface_cgm", "punt"],
-    "tx": ["cgm_state", "cgm_global"],
+    "mac-state": ["-i {interface}"],
+    "rx": [
+        "cgm_profile -i {interface} -t {traffic_class}", 
+        "cgm_global", 
+        "interface_cgm -i {interface} -t {traffic_class}", 
+        "punt -i {interface}"
+    ],
+    "tx": [
+        "cgm_state -i {interface}", 
+        "cgm_global"
+    ],
+    "voq": [
+        "cgm_profile -i {interface}",
+        "queue_counters -i {interface}",
+        "stats -i {interface} -s {src_interface}",
+        "voq_globals",
+        "voq_ids",
+        "hbm",
+    ],
 }
 
 # NPU CLIs that require sudo (not allowed in non-sudo user mode)
@@ -103,6 +121,20 @@ def _normalize_cli_opts(opts):
     if isinstance(opts, list):
         return opts
     return [str(opts)]
+
+def _render_cli_opt(opt, intf, src_intf):
+    """
+    Replace option placeholders with selected runtime interfaces.
+    """
+    rendered = opt
+    if "{interface}" in rendered:
+        rendered = rendered.replace("{interface}", intf)
+    if "{src_interface}" in rendered:
+        rendered = rendered.replace("{src_interface}", src_intf)
+    if "{traffic_class}" in rendered:
+        traffic_class = '%d' % random.randint(0, 7)
+        rendered = rendered.replace("{traffic_class}", traffic_class)
+    return rendered
 
 def get_asic_str(duthost, asic):
     if duthost.is_multi_asic:
@@ -246,7 +278,7 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
     assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
 
 
-def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, enum_rand_one_asic_index):
+def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostname, rand_one_dut_portname_oper_up, tbinfo, enum_rand_one_asic_index):
     """
     @summary: Verify output of `show platform npu` for user mode CLIs when run as a non-sudo user.
     Creates non_sudo_usr (password: password), then runs allowed user-mode CLIs as that user; commands must succeed.
@@ -264,23 +296,39 @@ def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostn
     if duthost.facts["platform"] in Q200_PLATFORMS:
         npu_cli_dict.update(npu_cli_dict_q200_usr_mode)
 
+    _, selected_interface = rand_one_dut_portname_oper_up.split('|')
+    _, selected_src_interface = rand_one_dut_portname_oper_up.split('|')
+
+    logging.info("Selected interfaces for user-mode NPU CLI: interface=%s src_interface=%s",
+                 selected_interface, selected_src_interface)
+
     for cli in npu_cli_dict:
         if duthost.is_multi_asic:
             asic = enum_rand_one_asic_index
         else:
             asic = ''
         for opt in _normalize_cli_opts(npu_cli_dict[cli]):
-            cmd = "show platform npu {} {} {}".format(cli, opt, get_asic_str(duthost, asic))
+            requires_interface = "{interface}" in opt or "{src_interface}" in opt
+            if requires_interface and not selected_interface:
+                result_list.append("No interfaces available for show platform npu {} {}".format(cli, opt))
+                continue
+
+            rendered_opt = _render_cli_opt(opt, selected_interface, selected_src_interface)
+
+            # When interface is provided, let the CLI infer namespace from interface.
+            asic_str = "" if requires_interface else get_asic_str(duthost, asic)
+
+            cmd = "show platform npu {} {} {}".format(cli, rendered_opt, asic_str)
             result = duthost.shell("sudo -u {} {}".format(NON_SUDO_USER, cmd), module_ignore_errors=True)
             logging.info(result["stdout"])
             traceback_found = "Traceback" in result["stdout"]
 
             if traceback_found:
-                result_list.append("Traceback found in show platform npu {} {}".format(cli, opt))
+                result_list.append("Traceback found in show platform npu {} {}".format(cli, rendered_opt))
             elif result is None:
-                result_list.append("No output for this CLI show platform npu {} {}".format(cli, opt))
+                result_list.append("No output for this CLI show platform npu {} {}".format(cli, rendered_opt))
             elif result["failed"]:
-                result_list.append("Failed CLI show platform npu {} {} (rc={})".format(cli, opt, result.get("rc", "")))
+                result_list.append("Failed CLI show platform npu {} {} (rc={})".format(cli, rendered_opt, result.get("rc", "")))
 
     for result in result_list:
         logging.error(result)
