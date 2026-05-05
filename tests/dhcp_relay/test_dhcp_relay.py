@@ -122,7 +122,7 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, requ
             create_checkpoint(duthost, check_point)
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_success(duthost, output)
-            restart_dhcp_service(duthost)
+            restart_dhcp_service(duthost, ['isc'])
 
             def dhcp_ready(enable_source_port_ip_in_relay):
                 dhcp_relay_running = duthost.is_service_fully_started("dhcp_relay")
@@ -143,7 +143,7 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, requ
             logger.info("Rolled back to original checkpoint")
             rollback_or_reload(duthost, check_point)
             delete_checkpoint(duthost, check_point)
-            restart_dhcp_service(duthost)
+            restart_dhcp_service(duthost, ['isc'])
             pytest_assert(wait_until(60, 2, 0, dhcp_ready, False), "Source port ip in relay is not disabled!")
 
 
@@ -334,9 +334,10 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     if not skip_dhcpmon:
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
+        restart_dhcp_service(duthost, relay_types)
         if testing_mode == DUAL_TOR_MODE:
-            restart_dhcp_service(standby_duthost)
+            restart_dhcp_service(standby_duthost, relay_types)
             pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost, relay_agent))
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost, relay_agent))
 
@@ -455,9 +456,10 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
 
     if not skip_dhcpmon:
         # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
+        relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
+        restart_dhcp_service(duthost, relay_types)
         if testing_mode == DUAL_TOR_MODE:
-            restart_dhcp_service(standby_duthost)
+            restart_dhcp_service(standby_duthost, relay_types)
             pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost, relay_agent))
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost, relay_agent))
 
