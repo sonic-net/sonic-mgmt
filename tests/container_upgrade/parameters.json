@@ -1,6 +1,33 @@
 {
+    "docker-auditd": {
+        "parameters": [
+            "--privileged",
+            "--pid=host",
+            "--net=host",
+            "-v /etc/audit/rules.d:/etc/audit/rules.d:rw",
+            "-v /etc/audit/plugins.d:/etc/audit/plugins.d:rw",
+            "-v /lib/systemd/system:/lib/systemd/system:rw",
+            "-v /etc/audit:/etc/audit:rw",
+            "-v /etc/localtime:/etc/localtime:ro",
+            "-v /etc/sonic:/etc/sonic:ro"
+        ]
+    },
+    "docker-auditd-watchdog": {
+        "parameters": [
+            "--privileged",
+            "--pid=host",
+            "--net=host",
+            "-v /etc/localtime:/etc/localtime:ro",
+            "-v /etc/sonic:/etc/sonic:ro"
+        ]
+    },
     "docker-sonic-telemetry": {
-        "parameters": []
+        "parameters": [
+            "--privileged",
+            "--pid=host",
+            "-v /host/reboot-cause:/host/reboot-cause:rw",
+            "-v /tmp/cache:/tmp/cache:rw"
+        ]
     },
     "docker-sonic-gnmi": {
         "parameters": [
@@ -20,6 +47,22 @@
             "-v /etc/fips/fips_enable:/etc/fips/fips_enable:ro",
             "-v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro",
             "-v /var/run/dbus:/var/run/dbus:rw",
+            "-v /var/run/redis:/var/run/redis:rw",
+            "-v /var/run/redis-chassis:/var/run/redis-chassis:ro",
+            "--env RUNTIME_OWNER=local"
+        ]
+    },
+    "docker-telemetry-watchdog": {
+        "parameters": [
+            "--privileged",
+            "--pid=host",
+            "--net=host",
+            "-v /host/reboot-cause:/host/reboot-cause:rw",
+            "-v /tmp/cache:/tmp/cache:rw",
+            "-v /etc/sonic:/etc/sonic:ro",
+            "-v /etc/localtime:/etc/localtime:ro",
+            "-v /etc/fips/fips_enable:/etc/fips/fips_enable:ro",
+            "-v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro",
             "-v /var/run/redis:/var/run/redis:rw",
             "-v /var/run/redis-chassis:/var/run/redis-chassis:ro",
             "--env RUNTIME_OWNER=local"
@@ -49,6 +92,13 @@
             "--net=host",
             "-v /etc/localtime:/etc/localtime:ro",
             "-v /etc/sonic:/etc/sonic:ro"
+        ]
+    },
+    "kubesonic-cleanup": {
+        "parameters": [
+            "--privileged",
+            "--pid=host",
+            "--net=host"
         ]
     },
     "docker-sonic-restapi": {
