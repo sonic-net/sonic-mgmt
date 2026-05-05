@@ -886,7 +886,7 @@
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
-          duts_list: "{{ testbed_facts['duts'] | default([]) }}"
+          duts_list: "{{ testbed_facts['duts'] | default([]) | reject('search', '-dpu-') | list }}"
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
         become: true
