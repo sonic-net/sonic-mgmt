@@ -1485,7 +1485,7 @@ def clear_wred_counters(dut, interfaces=None, tc=3):
         tc: Unused (kept for API compatibility)
     """
     st.log("Clearing WRED counters")
-    st.config(dut, "sonic-clear queue wredcounters", skip_error_check=True)
+    st.config(dut, "sonic-clear queue wredcounters", skip_error_check=True, trace_log=1)
 
 
 def clear_all_wred_counters(nodes, interfaces_map=None, tc=3):
@@ -2956,11 +2956,8 @@ def clear_queue_watermark(dut):
     This function clears and then does a read to ensure the clear takes effect.
     """
     st.log(f"Clearing queue watermark unicast on DUT={dut}")
-    st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True)
+    st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True, trace_log=1)
     st.wait(2)
-    # Read watermarks to ensure clear takes effect on hardware
-    st.show(dut, 'show queue watermark unicast', skip_tmpl=True)
-    st.wait(1)
 
 
 def clear_all_queue_watermarks(nodes, wait_after=3):
@@ -2976,14 +2973,7 @@ def clear_all_queue_watermarks(nodes, wait_after=3):
     # Clear watermarks on all nodes
     for node_name, dut in nodes.items():
         st.log(f"  Clearing queue watermark unicast on {node_name}")
-        st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True)
-    
-    st.wait(2)
-    
-    # Do a verification read on all nodes to ensure clear took effect
-    for node_name, dut in nodes.items():
-        st.log(f"  Verifying watermark clear on {node_name}")
-        st.show(dut, 'show queue watermark unicast', skip_tmpl=True)
+        st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True, trace_log=1)
     
     st.wait(wait_after)
     st.log("Queue watermarks cleared on all nodes")
@@ -3014,7 +3004,7 @@ def get_queue_watermark(dut, port):
 def clear_buffer_pool_watermark(dut):
     """Clear buffer pool watermark on specified DUT."""
     st.log(f"Clearing buffer pool watermark on DUT={dut}")
-    st.config(dut, 'watermarkstat -t buffer_pool -c', skip_tmpl=True)
+    st.config(dut, 'watermarkstat -t buffer_pool -c', skip_tmpl=True, trace_log=1)
     st.wait(1)
 
 
@@ -3042,7 +3032,7 @@ def get_buffer_pool_watermark(dut):
 def clear_priority_group_watermark(dut):
     """Clear priority group watermark shared on specified DUT."""
     st.log(f"Clearing priority group watermark shared on DUT={dut}")
-    st.config(dut, 'sonic-clear priority-group watermark shared', skip_tmpl=True)
+    st.config(dut, 'sonic-clear priority-group watermark shared', skip_tmpl=True, trace_log=1)
     st.wait(1)
 
 
@@ -3237,28 +3227,28 @@ def clear_all_counters(dut, wait_time=3):
     st.log("="*60)
     
     st.log("Clearing interface counters...")
-    st.config(dut, 'sonic-clear counters', skip_tmpl=True)
+    st.config(dut, 'sonic-clear counters', skip_tmpl=True, trace_log=1)
     
     st.log("Clearing queue counters...")
-    st.config(dut, 'sonic-clear queuecounters', skip_tmpl=True)
+    st.config(dut, 'sonic-clear queuecounters', skip_tmpl=True, trace_log=1)
     
     st.log("Clearing PFC counters...")
-    st.config(dut, 'sonic-clear pfccounters', skip_tmpl=True)
+    st.config(dut, 'sonic-clear pfccounters', skip_tmpl=True, trace_log=1)
     
     st.log("Clearing queue watermark unicast...")
-    st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True)
+    st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True, trace_log=1)
     
     st.log("Clearing priority-group watermark shared...")
-    st.config(dut, 'sonic-clear priority-group watermark shared', skip_tmpl=True)
+    st.config(dut, 'sonic-clear priority-group watermark shared', skip_tmpl=True, trace_log=1)
     
     st.log("Clearing buffer pool watermark...")
-    st.config(dut, 'watermarkstat -t buffer_pool -c', skip_tmpl=True)
+    st.config(dut, 'watermarkstat -t buffer_pool -c', skip_tmpl=True, trace_log=1)
 
     st.log("Clearing dropcounters ...")
-    st.config(dut, 'sonic-clear dropcounters', skip_tmpl=True)
+    st.config(dut, 'sonic-clear dropcounters', skip_tmpl=True, trace_log=1)
    
     st.log("Clearing queue ECN/WRED counters...")
-    st.config(dut, 'sonic-clear queue wredcounters', skip_tmpl=True, skip_error_check=True)
+    st.config(dut, 'sonic-clear queue wredcounters', skip_tmpl=True, skip_error_check=True, trace_log=1)
     
     #st.log("Clearing npu counters ...")
     #get_npu_counters(dut)

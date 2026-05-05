@@ -3,7 +3,6 @@ spine0:
       config: |
         sudo counterpoll tunnel enable
         sudo counterpoll watermark interval 1000
-        sudo counterpoll wredqueue enable
         sudo config interface startup D1D3P1
         sudo config interface startup D1D4P1
         sudo config interface ipv6 enable use-link-local-only D1D3P1
@@ -61,7 +60,6 @@ leaf0:
       config: |
         sudo counterpoll tunnel enable
         sudo counterpoll watermark interval 1000
-        sudo counterpoll wredqueue enable
         sudo config interface startup D3D1P1
         sudo config interface startup D3D2P1
         sudo config interface ipv6 enable use-link-local-only D3D1P1
@@ -146,11 +144,10 @@ leaf0:
         exit
 
       deconfig: |
-        no router bgp 2363073663 vrf Vrf01
         vrf Vrf01
         no vni 1000
-        exit
-        no router bgp 2363073663
+        exit-vrf
+        no router bgp 2363073663 vrf Vrf01
         end
         exit
 
@@ -160,7 +157,6 @@ leaf1:
       config: |
         sudo counterpoll tunnel enable
         sudo counterpoll watermark interval 1000
-        sudo counterpoll wredqueue enable
         sudo config interface startup D4D1P1
         sudo config interface startup D4D2P1
         sudo config interface ipv6 enable use-link-local-only D4D1P1
@@ -245,10 +241,9 @@ leaf1:
         exit
 
       deconfig: |
-        no router bgp 2363033449 vrf Vrf01
         vrf Vrf01
         no vni 1000
-        exit
-        no router bgp 2363033449
+        exit-vrf
+        no router bgp 2363033449 vrf Vrf01
         end
         exit

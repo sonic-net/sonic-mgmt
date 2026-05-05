@@ -573,6 +573,8 @@ def main():
                         help='Skip importing to dashboard')
     parser.add_argument('--no-cleanup', action='store_true',
                         help='Keep local logs directory after upload (default: remove after successful upload)')
+    parser.add_argument('--logs-path', metavar='PATH',
+                        help='Explicit remote logs path (overrides computed path). Used by spytest_run.py when Phase 3 already transferred logs.')
     parser.add_argument('-o', '--output', help='Output XML file path (for --xml-only)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     
@@ -609,8 +611,9 @@ def main():
     elif platform_input in TESTBED_TO_NPU:
         # User provided testbed name instead of platform
         npu = TESTBED_TO_NPU[platform_input]
-        platform_dir = NPU_TO_DIR.get(npu, platform_input)
-        print(f"  (Mapped testbed '{platform_input}' -> NPU '{npu}')")
+        # Use testbed name as directory (matches spytest_run.py Phase 3 transfer path)
+        platform_dir = platform_input
+        print(f"  (Mapped testbed '{platform_input}' -> NPU '{npu}', dir '{platform_dir}')")
     else:
         # Try auto-detection from profile or path
         detected = detect_npu_from_path(args.profile) or detect_npu_from_path(results_dir)
@@ -676,10 +679,24 @@ def main():
     print(f"{'='*60}")
     
     # Build target paths - some profiles don't use platform subdirectory
-    if profile in PROFILES_WITHOUT_PLATFORM_DIR:
-        remote_logs_dir = f"{SERVER_BASE_PATH}/{profile}/{build_id}/run_logs_{platform_dir}"
+    if args.logs_path:
+        # Explicit path provided by spytest_run.py (Phase 3 already transferred)
+        remote_logs_dir = args.logs_path
+    elif profile in PROFILES_WITHOUT_PLATFORM_DIR:
+        remote_base_dir = f"{SERVER_BASE_PATH}/{profile}/{build_id}"
+        if args.skip_upload:
+            remote_logs_dir = remote_base_dir
+        else:
+            remote_logs_dir = f"{remote_base_dir}/run_logs_{platform_dir}"
     else:
-        remote_logs_dir = f"{SERVER_BASE_PATH}/{profile}/{platform_dir}/{build_id}/run_logs_{platform_dir}"
+        remote_base_dir = f"{SERVER_BASE_PATH}/{profile}/{platform_dir}/{build_id}"
+        # When --skip-upload is used, Phase 3 (spytest_run.py) already transferred logs
+        # directly into remote_base_dir without a run_logs_* subdirectory.
+        # Only add run_logs_* when this script handles the upload itself.
+        if args.skip_upload:
+            remote_logs_dir = remote_base_dir
+        else:
+            remote_logs_dir = f"{remote_base_dir}/run_logs_{platform_dir}"
     remote_xml_path = f"{remote_logs_dir}/tr.xml"
     
     root, counts = generate_xml(

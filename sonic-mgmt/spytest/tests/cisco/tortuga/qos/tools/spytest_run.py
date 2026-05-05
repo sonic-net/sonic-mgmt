@@ -8,9 +8,16 @@ Supports a sequential testbed queue (e.g. g200 → q200).
 Usage:
     ./spytest_run.py                                       # Use default config
     ./spytest_run.py --config spytest_job.yaml             # Custom config
-    ./spytest_run.py --testbed g200 q200 --url <url>       # CLI overrides
-    ./spytest_run.py --skip-upgrade --testbed g200         # Test only
-    ./spytest_run.py --schedule 2 --testbed g200           # Run 2 hours from now
+    ./spytest_run.py --testbed 10001 10000 --url <url>     # By ID: g200 then q200
+    ./spytest_run.py --testbed g200 q200 --url <url>       # By name (still works)
+    ./spytest_run.py --skip-upgrade --testbed 10002        # Gamut, test only
+    ./spytest_run.py --schedule 2 --testbed 10001          # g200, 2 hours from now
+
+Testbed IDs:
+    10000 = q200   (Carib/Siren, Q200 ASIC)
+    10001 = g200   (Laguna, G200 ASIC)
+    10002 = gamut  (Gamut, Spectrum4 ASIC)
+    10003 = oci    (OCI, G200 ASIC)
 """
 
 import argparse
@@ -53,6 +60,14 @@ LOG_SERVER = {
     "base_path": "/home/sonic/test_logs_central/spytest_logs",
 }
 DASHBOARD_URL = "http://sonic-ucs-m6-51:5005"
+
+# Testbed integer ID mapping (for --testbed shorthand)
+TESTBED_ID_MAP = {
+    "10000": "q200",     # Carib/Siren (Q200 ASIC)
+    "10001": "g200",     # Laguna (G200 ASIC)
+    "10002": "gamut",    # Gamut (Spectrum4 ASIC)
+    "10003": "oci",      # OCI (G200 ASIC)
+}
 
 # Testbed to base config directory mapping
 BASE_CONFIG_MAP = {
@@ -390,24 +405,50 @@ def wait_for_containers(dut, max_wait=180, interval=10):
 # ── Log transfer ─────────────────────────────────────────────────────────
 
 def transfer_and_cleanup_logs(tb, local_log_dir, branch, build_id, log_server, testbed_registry):
-    """SCP run logs to central server."""
+    """SCP run logs to central server.
+
+    If the build directory already contains logs from a previous run,
+    a numbered subdirectory (run2, run3, ...) is created automatically.
+    Returns the final remote path used (or None on failure).
+    """
     if not os.path.isdir(local_log_dir):
         log.warning("No local log dir: %s", local_log_dir)
-        return
+        return None
 
     srv = log_server
 
     # Path: <base>/<profile>/<platform>/<build_id>/
     # e.g. /home/sonic/test_logs_central/spytest_logs/202405c-Tortuga/g200/40506/
     profile = f"{branch}-Tortuga" if branch != "unknown" else "Tortuga"
-    remote_path = f"{srv['base_path']}/{profile}/{tb}/{build_id}"
+    base_remote_path = f"{srv['base_path']}/{profile}/{tb}/{build_id}"
+
+    # Check if the directory already has content from a previous run
+    r = remote_ssh(srv["host"], srv["user"], srv["password"],
+                   f"ls '{base_remote_path}/' 2>/dev/null | head -1", timeout=15)
+    if r.returncode == 0 and r.stdout.strip():
+        # Directory exists and has content — find the highest existing runN directory
+        r2 = remote_ssh(srv["host"], srv["user"], srv["password"],
+                        f"ls -d '{base_remote_path}'/run[0-9]* 2>/dev/null | grep -oP 'run\\K[0-9]+' | sort -n | tail -1",
+                        timeout=15)
+        if r2.returncode == 0 and r2.stdout.strip().isdigit():
+            # runN directories exist — use next number
+            next_run = int(r2.stdout.strip()) + 1
+        else:
+            # No runN dirs yet — existing content is implicitly run1, new goes to run2
+            next_run = 2
+
+        remote_path = f"{base_remote_path}/run{next_run}"
+        log.info("Build %s already has logs — using %s", build_id, remote_path)
+    else:
+        remote_path = base_remote_path
+
     log.info("Transferring logs → %s:%s", srv["host"], remote_path)
 
     # Create remote directory
     r = remote_ssh(srv["host"], srv["user"], srv["password"], f"mkdir -p '{remote_path}'", timeout=30)
     if r.returncode != 0:
         log.error("Failed to create remote dir: %s", r.stderr.strip())
-        return
+        return None
 
     # Remove .gz files before transfer to save time/space
     for gz in glob.glob(os.path.join(local_log_dir, "**", "*.gz"), recursive=True):
@@ -425,9 +466,10 @@ def transfer_and_cleanup_logs(tb, local_log_dir, branch, build_id, log_server, t
     r = subprocess.run(scp_cmd, shell=True, capture_output=True, text=True, timeout=600)
     if r.returncode != 0:
         log.error("SCP failed: %s", r.stderr.strip())
-        return
+        return None
 
     log.info("  ✓ Logs transferred")
+    return remote_path
 
 
 def cleanup_local_logs(local_log_dir):
@@ -657,10 +699,11 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
     # Logs are created in the spytest_dir (which is mounted as /data inside the container)
     run_log_dirs = sorted(glob.glob(str(spytest_dir / f"run_logs_{runner_plat}_*")), reverse=True)
     latest_log_dir = None
+    remote_logs_path = None
     if run_log_dirs:
         latest_log_dir = run_log_dirs[0]
         if log_server:
-            transfer_and_cleanup_logs(tb, latest_log_dir, tb_branch, tb_build_id, log_server, testbed_registry)
+            remote_logs_path = transfer_and_cleanup_logs(tb, latest_log_dir, tb_branch, tb_build_id, log_server, testbed_registry)
         else:
             log.warning("No log_server configured; logs remain at %s", latest_log_dir)
     else:
@@ -679,8 +722,11 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
             "--build", tb_build_id,
             "--skip-upload",  # Phase 3 already transferred logs; just generate XML + import
             "--no-cleanup",
-            latest_log_dir,
         ]
+        # Pass actual remote path so publish records the correct log location
+        if remote_logs_path:
+            publish_cmd += ["--logs-path", remote_logs_path]
+        publish_cmd.append(latest_log_dir)
         log.info("  Running: %s", " ".join(publish_cmd))
         try:
             publish_proc = subprocess.run(publish_cmd, capture_output=True, text=True, timeout=300)
@@ -842,16 +888,19 @@ def main():
         epilog="""
 Testbeds run sequentially in listed order. If one fails, the next still runs.
 
+Testbed IDs:  10000=q200 (Carib/Siren)  10001=g200 (Laguna)  10002=gamut (Spectrum4)  10003=oci
+
 Examples:
-  %(prog)s                                          # Use default config
-  %(prog)s --testbed g200 q200 --url <url>          # CLI queue
-  %(prog)s --skip-upgrade --testbed g200 --test test_dwrr.py
-  %(prog)s --schedule 2 --testbed g200 --url <url>  # Run 2 hours from now
+  %(prog)s --testbed 10001 10000 --url <url>        # g200 then q200
+  %(prog)s --testbed g200 q200 --url <url>          # Same, by name
+  %(prog)s --skip-upgrade --testbed 10002 --test test_dwrr.py
+  %(prog)s --schedule 2 --testbed 10001 --url <url> # Run 2 hours from now
   %(prog)s --schedule 0.5 --testbed q200            # Run 30 minutes from now
 """,
     )
     parser.add_argument("--config", default=str(DEFAULT_CONF), help="Config YAML file")
-    parser.add_argument("--testbed", nargs="+", help="Testbed queue (space-separated)")
+    parser.add_argument("--testbed", nargs="+",
+                        help="Testbed queue (names or IDs: 10000=q200, 10001=g200, 10002=gamut, 10003=oci)")
     parser.add_argument("--branch", help="Git branch to checkout before running")
     parser.add_argument("--url", help="Image URL (overrides config)")
     parser.add_argument("--spine-url", help="Separate image URL for spines")
@@ -860,6 +909,12 @@ Examples:
     parser.add_argument("--test", help="Test file or 'full'")
     parser.add_argument("--schedule", type=float, metavar="HOURS",
                         help="Schedule run N hours from now (creates crontab entry and exits)")
+
+    # If no arguments given, print help and exit
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(0)
+
     args = parser.parse_args()
 
     # Handle --schedule: create crontab entry and exit
@@ -903,27 +958,13 @@ Examples:
         per_tb_config = {}
 
     # --testbed CLI selects which testbeds to run (subset of config)
-    testbed_names = cfg.get("_cli_testbeds", all_tb_names)
+    # Resolve integer IDs to testbed names
+    raw_cli_tbs = cfg.get("_cli_testbeds", all_tb_names)
+    testbed_names = [TESTBED_ID_MAP.get(t, t) for t in raw_cli_tbs]
     if not testbed_names:
         parser.error("No testbeds specified. Use --testbed or set in config.")
 
     # Note: empty image_url is allowed - testbed will be skipped unless skip_upgrade=true
-
-    # Acquire per-testbed locks (allows different testbeds to run in parallel)
-    lock_fds = []
-    for tb in sorted(testbed_names):
-        lock_file = Path(f"/tmp/spytest_run_{tb}.lock")
-        lock_file.parent.mkdir(parents=True, exist_ok=True)
-        fd = open(lock_file, "w")
-        try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            lock_fds.append(fd)
-        except IOError:
-            print(f"[{datetime.now()}] Testbed '{tb}' is already running. Exiting.", file=sys.stderr)
-            # Release any locks we acquired
-            for lfd in lock_fds:
-                lfd.close()
-            sys.exit(1)
 
     # Setup logging
     log_dir = Path(str(DEFAULT_LOG_DIR))
@@ -969,8 +1010,22 @@ Examples:
 
     # Run testbed queue
     results = {}
+    lock_fds = []
     for i, tb in enumerate(testbed_names, 1):
         log.info("━━━ Queue [%d/%d]: %s ━━━", i, len(testbed_names), tb)
+
+        # Per-testbed lock: skip this testbed if already running elsewhere
+        lock_file = Path(f"/tmp/spytest_run_{tb}.lock")
+        lock_file.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fd = os.open(str(lock_file), os.O_WRONLY | os.O_CREAT, 0o666)
+            fd = os.fdopen(fd, "w")
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_fds.append(fd)
+        except (IOError, PermissionError):
+            log.warning("Testbed '%s' is locked (already running). Skipping.", tb)
+            results[tb] = {"pass": True, "duration": 0, "skipped_locked": True}
+            continue
 
         # Build effective config for this testbed: per-tb overrides → CLI overrides → global
         run_cfg = dict(cfg)  # shallow copy of global
@@ -994,7 +1049,9 @@ Examples:
     all_pass = True
     for tb in testbed_names:
         r = results[tb]
-        if r["pass"] and r["duration"] == 0:
+        if r.get("skipped_locked"):
+            status = "⊘ LOCKED"
+        elif r["pass"] and r["duration"] == 0:
             status = "○ SKIP"
         elif r["pass"]:
             status = "✓ PASS"

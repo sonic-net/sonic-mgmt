@@ -38,7 +38,6 @@ import qos_test_utils as qos_utils
 import gamut_qos_utils as gamut_utils
 
 # Use the L2VNI config file from vxlan directory
-#CONFIGS_FILE = '../qos/vxlan_pfc_l2vni_2x2.yaml'
 CONFIGS_FILE = '../qos/vxlan_ecn_l2vni_2x1.yaml'
 
 data = SpyTestDict()
@@ -60,6 +59,7 @@ data.vlan_id = "100"
 data.mask = "64"
 data.addr_family = 'ipv6'
 data.capture_count=100
+data.node_meta = {}  # Per-node metadata: {node_name: {'platform_type': ...}}
 
 # VTEP IPs for L2VNI topology (from original test)
 LEAF0_VTEP_IP = 'fd27::280:10f1:25f'
@@ -298,10 +298,10 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
 
     # Define interfaces for WRED counter capture on all 4 nodes
     # With XOFF-based congestion, we only need 1 port per leaf-spine link
+    # 'spine1': [vars.D2D4P1] if hasattr(vars, 'D2D4P1') else [],
     wred_interfaces = {
         'leaf0': [vars.D3D1P1] + ([vars.D3D2P1] if hasattr(vars, 'D3D2P1') else []),
         'spine0': [vars.D1D4P1] if hasattr(vars, 'D1D4P1') else [],
-        'spine1': [vars.D2D4P1] if hasattr(vars, 'D2D4P1') else [],
         'leaf1': [vars.D4T1P1]
     }
     st.log(f"WRED interfaces for counter capture: {wred_interfaces}")
@@ -540,37 +540,40 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
             st.log("TGEN stats unavailable - using DUT interface counters as fallback")
             stats_from_dut = True
             try:
-                # For Gamut (N9164E), use platform commands
-                # TODO 'show interface counters' CLI was not refereshing correctly on gamut
-                if platform_type == 'n9164e':
-                    st.log("Gamut: Using real-time ASIC counters (bypassing counterpoll cache)")
-                    # TX: leaf0 TGEN port RX counter (packets received from TGEN into leaf0)
+                # For Gamut (N9164E), use real-time ASIC counters instead of stale CLI counters
+                # The 'show interface counters' CLI uses counterpoll cache which can be minutes stale
+                # Check per-node platform type since topology may be mixed
+                leaf0_platform = data.node_meta.get('leaf0', {}).get('platform_type', 'generic')
+                leaf1_platform = data.node_meta.get('leaf1', {}).get('platform_type', 'generic')
+                
+                # TX: leaf0 TGEN port RX counter (packets received from TGEN into leaf0)
+                if leaf0_platform == 'n9164e':
+                    st.log("leaf0 (Gamut): Using real-time ASIC counters")
                     leaf0_counters = gamut_utils.gamut_get_interface_counters(nodes['leaf0'], vars.D3T1P1)
-                    # RX: leaf1 TGEN port TX counter (packets sent from leaf1 to TGEN)
-                    leaf1_counters = gamut_utils.gamut_get_interface_counters(nodes['leaf1'], vars.D4T1P1)
                     if leaf0_counters:
                         tx_frames = leaf0_counters.get('rx_frames', 0)
+                else:
+                    tx_output = st.show(nodes['leaf0'], f"show interface counters | grep {vars.D3T1P1}",
+                                       skip_tmpl=True, skip_error_check=True)
+                    import re
+                    tx_match = re.search(r'U\s+([\d,]+)\s+', tx_output)
+                    if tx_match:
+                        tx_frames = int(tx_match.group(1).replace(',', ''))
+                
+                # RX: leaf1 TGEN port TX counter (packets sent from leaf1 to TGEN)
+                if leaf1_platform == 'n9164e':
+                    st.log("leaf1 (Gamut): Using real-time ASIC counters")
+                    leaf1_counters = gamut_utils.gamut_get_interface_counters(nodes['leaf1'], vars.D4T1P1)
                     if leaf1_counters:
                         rx_frames = leaf1_counters.get('tx_frames', 0)
                 else:
-                    # Other platforms: use CLI counters (may have less caching issues)
-                    # TX: leaf0 TGEN port RX counter (packets received from TGEN into leaf0)
-                    tx_output = st.show(nodes['leaf0'], f"show interface counters | grep {vars.D3T1P1}",
-                                       skip_tmpl=True, skip_error_check=True)
-                    # RX: leaf1 TGEN port TX counter (packets sent from leaf1 to TGEN)
                     rx_output = st.show(nodes['leaf1'], f"show interface counters | grep {vars.D4T1P1}",
                                        skip_tmpl=True, skip_error_check=True)
-                    # Parse counters - format: IFACE STATE RX_OK RX_BPS RX_UTIL ... TX_OK TX_BPS ...
                     import re
-                    # RX_OK is the first large number after interface name and state U
-                    tx_match = re.search(r'U\s+([\d,]+)\s+', tx_output)
-                    # TX_OK is the 8th numeric field - use pattern to capture it
                     rx_full_match = re.search(r'U\s+([\d,]+)\s+[\d.]+\s+B/s\s+[\d.]+%\s+\d+\s+\d+\s+\d+\s+([\d,]+)', rx_output)
-                    if tx_match:
-                        tx_frames = int(tx_match.group(1).replace(',', ''))
                     if rx_full_match:
-                        # For egress port, we want TX_OK which is the second capture group
                         rx_frames = int(rx_full_match.group(2).replace(',', ''))
+                
                 st.log(f"DUT-based stats: TX~={tx_frames}, RX~={rx_frames}")
             except Exception as dut_err:
                 st.error(f"DUT counter fallback also failed: {dut_err}")
@@ -622,7 +625,9 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
             captured_frames = capture_results['T1D4P1'].get('analyzed_frames', 0)
 
         # Platform-specific basic_pass determination
-        if platform_type == 'n9164e':
+        # Use egress leaf (leaf1) platform type for pass criteria
+        egress_platform = data.node_meta.get('leaf1', {}).get('platform_type', 'generic')
+        if egress_platform == 'n9164e':
             # Gamut (N9164E): Interface counters often stale (counterpoll caching)
             if ect == ECN_CE:
                 # CE traffic: WRED counters don't increment, use packet capture as proof
@@ -630,7 +635,7 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
             else:
                 # ECT(0), ECT(1), Not-ECT: WRED counters work
                 basic_pass = rx_frames > 0 or wred_total_packets > 0 or wred_total_ecn_marked > 0
-        elif platform_type == 'hf6100':
+        elif egress_platform == 'hf6100':
             # HF6100: CE traffic increments ECN counters, WRED always valid
             basic_pass = rx_frames > 0 or wred_total_packets > 0 or wred_total_ecn_marked > 0
         else:
@@ -673,6 +678,10 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
 
         # ECN counter criteria based on ECT value
         # Note: On HF6100 platforms, ECN marked counter is incremented even for CE traffic
+        # Check if any marking node is HF6100 for CE traffic behavior
+        marking_node_platforms = [data.node_meta.get(n, {}).get('platform_type', 'generic') for n in marking_nodes]
+        any_hf6100 = 'hf6100' in marking_node_platforms
+        
         ecn_counter_pass = True
         if ect in (ECN_ECT_01, ECN_ECT_10):
             # ECT(0) or ECT(1): should see non-zero ECN marked at marking node(s)
@@ -682,7 +691,7 @@ def run_ecn_xoff_test(congestion_point, test_name, ect=ECN_ECT_10):
             else:
                 st.error(f"ECN counter check FAIL: Marking nodes {marking_nodes} have 0 ECN marked packets (expected > 0)")
                 ecn_counter_pass = False
-        elif ect == ECN_CE and platform_type == 'hf6100':
+        elif ect == ECN_CE and any_hf6100:
             # HF6100: CE traffic still increments ECN marked counter at congestion points
             marking_node_ecn = sum(ecn_marked_per_node.get(n, 0) for n in marking_nodes)
             if marking_node_ecn > 0:
@@ -872,20 +881,25 @@ def module_setup():
         st.log(f"WARNING: Testbed topology validation issue: {topo_info.get('error')}")
         st.log("Continuing with minimal port set for WRED counters...")
 
-    # Step 5: Detect platform type 
-    # TODO this should be done per node and stored in a dict, but for now we only have one platform type so it's fine
-    st.banner("STEP 5: Detecting platform type")
-    # Use leaf0 as reference for platform detection
-    platform_type = qos_utils.detect_platform(nodes['leaf0'])
-    st.log(f"Detected platform type: {platform_type}")
-
-    '''
-    if platform_type == 'n9164e':
-        st.banner("Gamut platform detected - Building port mappings for all nodes")
-        for node_name, dut in nodes.items():
-            st.log(f"Building Gamut port mapping for {node_name}...")
-            gamut_utils.gamut_build_port_mapping(dut)
-    '''
+    # Step 5: Detect platform type per node and build port mappings for Gamut
+    st.banner("STEP 5: Detecting platform type per node")
+    for node_name, dut in nodes.items():
+        node_platform = qos_utils.detect_platform(dut)
+        data.node_meta[node_name] = {'platform_type': node_platform, 'port_mapping': {}}
+        st.log(f"{node_name}: platform_type={node_platform}")
+        
+        # Build port mapping for Gamut nodes
+        if node_platform == 'n9164e':
+            st.log(f"{node_name}: Building Gamut port name -> port ID mapping...")
+            port_mapping = gamut_utils.gamut_build_port_mapping(dut)
+            data.node_meta[node_name]['port_mapping'] = port_mapping
+            st.log(f"{node_name}: {len(port_mapping)} ports mapped")
+            # enable queue wredcounters
+            st.config(dut, "sudo counterpoll wredqueue enable", skip_tmpl=True, trace_log=1)
+    
+    # Keep global for backward compatibility (use leaf0 as reference)
+    platform_type = data.node_meta['leaf0']['platform_type']
+    st.log(f"Reference platform type (from leaf0): {platform_type}")
 
 
     # Remove any leftover VRF BGP instances (must be after QoS init which restarts FRR)

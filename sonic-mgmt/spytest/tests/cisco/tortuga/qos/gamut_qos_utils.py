@@ -21,7 +21,7 @@ from spytest import st
 _gamut_port_mapping_cache = {}
 
 # Path where SDK dump is copied to on the DUT
-SDKDUMP_PATH = "/tmp/sdkdump"
+SDKDUMP_PATH = "/tmp/eth.out"
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ def gamut_generate_dump(dut):
       1. docker exec -it syncd bash -c "sx_api_dbg_generate_dump.py"
       2. docker cp syncd:/var/log/sdk_dbg/sdkdump /tmp/sdkdump
 
-    The dump file is copied to /tmp/sdkdump on the DUT for parsing.
+    The port name to id file is copied to /tmp/eth.out on the DUT for parsing.
 
     Args:
         dut: DUT object
@@ -44,29 +44,27 @@ def gamut_generate_dump(dut):
     Returns:
         bool: True if dump generation succeeded, False otherwise
     """
-    st.log("Gamut: Generating SDK debug dump...")
+    st.log("Gamut: Generating SDK port name -> id mapping...")
 
-    # Generate the dump inside syncd container
-    # Note: Using -t instead of -it since we're not interactive
-    cmd1 = 'docker exec -t syncd bash -c "sx_api_dbg_generate_dump.py"'
+    cmd1 = 'docker exec -t syncd bash -c "sx_api_dbg_generate_dump.py; grep Ethernet /var/log/sdk_dbg/sdkdump > /eth.out"'
     output1 = st.config(dut, cmd1, skip_error_check=True)
     if output1 is None:
-        st.error("Gamut: Failed to execute sx_api_dbg_generate_dump.py")
+        st.error("Gamut: Failed to execute sx_api_dbg_generate_dump.py to generate port map")
         return False
 
-    st.log("Gamut: SDK dump generated, copying to /tmp/sdkdump")
+    st.log("Gamut: SDK dump generated port map table, copying to /eth.out")
 
     # Remove old dump file first (may have different ownership from previous run)
-    st.config(dut, f'sudo rm -f {SDKDUMP_PATH}', skip_error_check=True)
+    st.config(dut, f'sudo rm -f {SDKDUMP_PATH}', skip_error_check=True, trace_log=1)
 
     # Copy dump file from container to host
-    cmd2 = f'docker cp syncd:/var/log/sdk_dbg/sdkdump {SDKDUMP_PATH}'
-    output2 = st.config(dut, cmd2, skip_error_check=True)
+    cmd2 = f'docker cp syncd:/eth.out {SDKDUMP_PATH}'
+    output2 = st.config(dut, cmd2, skip_error_check=True, trace_log=1)
     if output2 is None:
-        st.error("Gamut: Failed to copy sdkdump to /tmp")
+        st.error("Gamut: Failed to copy port map to {SDKDUMP_PATH}")
         return False
 
-    st.log(f"Gamut: SDK dump available at {SDKDUMP_PATH}")
+    st.log(f"Gamut: SDK port map available at {SDKDUMP_PATH}")
     return True
 
 
@@ -117,8 +115,8 @@ def gamut_build_port_mapping(dut):
     Generate SDK dump and build Ethernet port to internal ID mapping.
 
     This function:
-      1. Generates SDK dump via gamut_generate_dump()
-      2. Reads the dump file from /tmp/sdkdump
+      1. Generates SDK dump and ethernet to logical port mapping in /tmp/eth.out
+      2. Reads the dump file from /tmp/eth.out
       3. Parses Ethernet port mappings
       4. Caches the result for future use
       5. Logs the mapping to console
