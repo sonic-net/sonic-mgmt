@@ -72,7 +72,7 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
         console_fanout.command("config console flow_control {} {}".format(flow_control, target_line))
         console_fanout.set_loopback(target_line, baud_rate, flow_control_bool)
         delay_factor = 3.2
-    if duthost.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
+    if duthost.facts['platform'].startswith('arm64-c8220tg_48a'):
         delay_factor *= 25.0
 
     dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
