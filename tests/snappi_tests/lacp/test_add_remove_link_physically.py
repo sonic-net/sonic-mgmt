@@ -1,8 +1,8 @@
-from tests.common.snappi_tests.snappi_fixtures import snappi_api             # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import (                   # noqa: F401
-    snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
-from tests.snappi_tests.lacp.files.lacp_physical_helper import run_lacp_add_remove_link_physically
-from tests.common.fixtures.conn_graph_facts import (                # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
+    snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports,
+    get_snappi_ports_single_dut, get_snappi_ports, setup_bgp_testbed)
+from tests.snappi_tests.lacp.files.lacp_dut_helper import run_lacp_add_remove_link_from_dut
+from tests.common.fixtures.conn_graph_facts import (                    # noqa: F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
@@ -12,14 +12,16 @@ pytestmark = [pytest.mark.topology('tgen')]
 @pytest.mark.parametrize('port_count', [4])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('iterations', [1])
-def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F811
-                                         duthost,
-                                         tgen_ports,                # noqa: F811
-                                         iterations,
-                                         conn_graph_facts,          # noqa: F811
-                                         fanout_graph_facts,        # noqa: F811
-                                         port_count,
-                                         number_of_routes,):
+def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa: F811
+                                       duthost,
+                                       setup_bgp_testbed,   # noqa: F811
+                                       get_snappi_ports,   # noqa: F811
+                                       tgen_ports,                      # noqa: F811
+                                       iterations,
+                                       conn_graph_facts,                # noqa: F811
+                                       fanout_graph_facts,              # noqa: F811
+                                       port_count,
+                                       number_of_routes,):
     """
     Topo:
     LAG1 --- DUT --- LAG2 (N-1 TGEN Ports)
@@ -30,8 +32,7 @@ def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F
     3) Send Traffic from LAG1 to LAG2
     4) Simulate link failure by bringing down one of the LAG2 Ports
     5) Ensure that packets are rerouted to rest of the LAG2 ports with no loss
-    6) Measure the convergence time
-    7) Clean up the BGP config on the dut
+    6) Clean up the BGP config on the dut
 
     Verification:
     1) Send traffic without flapping any link
@@ -47,13 +48,11 @@ def test_lacp_add_remove_link_physically(snappi_api,                   # noqa: F
         port_count: Total no of ports used in the test
         iterations: no of iterations to run the link flap test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        lacpdu_interval_period: LACP update packet interval ( 0 - Auto, 1- Fast, 30 - Slow )
-        lacpdu_timeout: LACP Timeout value (0 - Auto, 3 - Short, 90 - Long)
     """
     # port_count, number_of_routes ,iterations and port_speed parameters can be modified as per user preference
-    run_lacp_add_remove_link_physically(snappi_api,
-                                        duthost,
-                                        tgen_ports,
-                                        iterations,
-                                        port_count,
-                                        number_of_routes,)
+    run_lacp_add_remove_link_from_dut(snappi_api,
+                                      duthost,
+                                      tgen_ports,
+                                      iterations,
+                                      port_count,
+                                      number_of_routes,)
