@@ -480,6 +480,7 @@ stages:
           SKIP_POSTUPGRADE_ACTIONS: true
           RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: false
           METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
+          RUN_REBOOT_CASE: "test_warmboot_data_consistency"
           ITERATIONS: [1]
           SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
           POOL: ${{ parameters.POOL }}
