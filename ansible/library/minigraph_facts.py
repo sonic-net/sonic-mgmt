@@ -650,32 +650,59 @@ def port_alias_to_name_map_50G(all_ports, s100G_ports):
 
 
 def parse_linkmeta(meta, hname):
+    """Parse LinkMetadataDeclaration for MACsec-enabled links.
+
+    Returns:
+        (macsec_enabled_ports, macsec_neighbors, macsec_links)
+        - macsec_enabled_ports: list of local port names with MACsec enabled
+        - macsec_neighbors: list of neighbor hostnames (parallel to macsec_enabled_ports)
+        - macsec_links: dict {local_port: {"neighbor": str, "neighbor_port": str, "profile": str}}
+    """
     link = meta.find(str(QName(ns, "Link")))
     macsec_neighbors = []
     macsec_enabled_ports = []
+    macsec_links = {}
     for linkmeta in link.findall(str(QName(ns1, "LinkMetadata"))):
         linkprop = linkmeta.find(str(QName(ns1, "Properties")))
-        linkdevprop = linkprop.find(str(QName(ns1, "DeviceProperty")))
-        macsec_en_name = linkdevprop.find(str(QName(ns1, "Name"))).text
-        if macsec_en_name == "MacSecEnabled":
-            macsec_en_lnk = linkdevprop.find(str(QName(ns1, "Value"))).text
-            if macsec_en_lnk:
-                local_port = None
-                # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
-                key = linkmeta.find(str(QName(ns1, "Key"))).text
-                endpoints = key.split(';')
-                local_endpoint = endpoints[1]
-                remote_endpoint = endpoints[0]
-                t = local_endpoint.split(':')
-                if len(t) == 2 and t[0].lower() == hname.lower():
-                    local_port = t[1]
-                    macsec_enabled_ports.append(local_port)
-                    neighbor_host = remote_endpoint.split(':')[0]
-                    macsec_neighbors.append(neighbor_host)
-                else:
-                    # Cannot find a matching hname, something went wrong
-                    continue
-    return macsec_enabled_ports, macsec_neighbors
+        # Collect all DeviceProperty entries — the old code used find() which only
+        # reads the first child, silently ignoring MacSecProfileName and others.
+        props = {}
+        for devprop in linkprop.findall(str(QName(ns1, "DeviceProperty"))):
+            name_el = devprop.find(str(QName(ns1, "Name")))
+            value_el = devprop.find(str(QName(ns1, "Value")))
+            if name_el is not None and value_el is not None:
+                props[name_el.text] = value_el.text
+
+        if props.get("MacSecEnabled", "").lower() != "true":
+            continue
+
+        # Sample key: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
+        key = linkmeta.find(str(QName(ns1, "Key"))).text
+        endpoints = key.split(';')
+        if len(endpoints) != 2:
+            continue
+        remote_endpoint, local_endpoint = endpoints[0], endpoints[1]
+        local_parts = local_endpoint.split(':')
+        if len(local_parts) != 2 or local_parts[0].lower() != hname.lower():
+            # Cannot find a matching hname, something went wrong
+            continue
+
+        local_port = local_parts[1]
+        remote_parts = remote_endpoint.split(':')
+        neighbor_name = remote_parts[0]
+        neighbor_port = remote_parts[1] if len(remote_parts) > 1 else ""
+        # Default to "128" for minigraphs that only have MacSecEnabled (backward compat)
+        profile_name = props.get("MacSecProfileName", "128")
+
+        macsec_enabled_ports.append(local_port)
+        macsec_neighbors.append(neighbor_name)
+        macsec_links[local_port] = {
+            "neighbor": neighbor_name,
+            "neighbor_port": neighbor_port,
+            "profile": profile_name,
+        }
+
+    return macsec_enabled_ports, macsec_neighbors, macsec_links
 
 
 def parse_xml(filename, hostname, asic_name=None):
@@ -709,6 +736,7 @@ def parse_xml(filename, hostname, asic_name=None):
     is_storage_device = None
     macsec_enabled_ports = []
     macsec_neighbors = []
+    macsec_links = {}
 
     if asic_name is not None:
         asic_id = asic_name[len('asic'):]
@@ -757,7 +785,7 @@ def parse_xml(filename, hostname, asic_name=None):
                 (syslog_servers, ntp_servers, mgmt_routes, deployment_id,
                  resource_type, zebra_nexthop) = parse_meta(child, hostname)
             elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
-                macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
+                macsec_enabled_ports, macsec_neighbors, macsec_links = parse_linkmeta(child, hostname)
         else:
             if child.tag == str(QName(ns, "DpgDec")):
                 (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls,
@@ -769,7 +797,7 @@ def parse_xml(filename, hostname, asic_name=None):
             elif child.tag == str(QName(ns, "PngDec")):
                 (neighbors, devices, _) = parse_asic_png(child, asic_name, hostname)
             elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
-                macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
+                macsec_enabled_ports, macsec_neighbors, macsec_links = parse_linkmeta(child, hostname)
 
     current_device = [devices[key]
                       for key in devices if key.lower() == hostname.lower()][0]
@@ -909,6 +937,8 @@ def parse_xml(filename, hostname, asic_name=None):
         results['macsec_enabled_ports'] = macsec_enabled_ports
     if macsec_neighbors:
         results['macsec_neighbors'] = macsec_neighbors
+    if macsec_links:
+        results['minigraph_macsec_links'] = macsec_links
     return results
 
 
