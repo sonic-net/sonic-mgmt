@@ -84,6 +84,54 @@ class GenerateGoldenConfigDBModule(object):
         self.dut_loopbacks = self.module.params['dut_loopbacks']
         self.console_ports = self.module.params['console_ports']
 
+    def _update_config_db_in_ns(self, config, table, value, namespaces_to_update='asic'):
+        """Update a table entry across all ASIC namespaces for multi-ASIC platforms.
+
+        Args:
+            config: Dict with the original config db content to update.
+            table: The config table path to update, using '/' to denote nested levels.
+                   e.g. "DEVICE_METADATA/localhost" navigates to asicN -> DEVICE_METADATA -> localhost.
+            value: A dict of field-value pairs to merge at the resolved path.
+            namespaces_to_update: Specifies which namespaces to update. can be "asic" or "localhost" or "all"
+
+        Returns:
+            Updated config as a JSON string.
+        """
+
+        if namespaces_to_update == "localhost":
+            ns_to_update = ["localhost"]
+        elif namespaces_to_update == "all":
+            ns_to_update = ["localhost"] + ["asic{}".format(asic) for asic in range(self.num_asics)]
+        else:
+            ns_to_update = ["asic{}".format(asic) for asic in range(self.num_asics)]
+        path_parts = table.split("/")
+        for ns in ns_to_update:
+            ns_cfg = config.get(ns)
+            if ns_cfg is None:
+                continue
+            target = ns_cfg
+            for part in path_parts:
+                target = target.setdefault(part, {})
+            target.update(value)
+        return config
+
+    def _render_macsec_config(self):
+        if not self.macsec_profile:
+            return {}
+
+        with open(MACSEC_PROFILE_PATH) as f:
+            macsec_profiles = json.load(f)
+
+        profile = macsec_profiles.get(self.macsec_profile)
+        if not profile:
+            return {}
+
+        profile['macsec_profile'] = self.macsec_profile
+        profile['asic_cnt'] = self.num_asics
+
+        with open(GOLDEN_CONFIG_TEMPLATE_PATH) as template_file:
+            return Template(template_file.read()).render(profile)
+
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -186,6 +234,34 @@ class GenerateGoldenConfigDBModule(object):
             return False
         repos = [line.strip().lower() for line in out.splitlines() if line.strip()]
         return "docker-sonic-otel" in repos
+
+    def get_port_config_path(self, asic_id):
+        platform = device_info.get_platform()
+        hwsku = device_info.get_hwsku()
+
+        return "/usr/share/sonic/device/{}/{}/{}/port_config.ini".format(
+                platform, hwsku, asic_id)
+
+    def get_config_from_minigraph_multiasic(self):
+        full_config = {}
+        cmd = "sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data"
+        # get the config for the host
+        rc, out, err = self.module.run_command(cmd)
+        if rc != 0:
+            self.module.fail_json(
+                msg="Failed to get config from minigraph for namespace {}: {}".format("localhost", err))
+        full_config["localhost"] = json.loads(out)
+
+        # get the config for asic namespaces
+        for asic_id in range(self.num_asics):
+            ns = "asic{}".format(asic_id)
+            port_config_path = self.get_port_config_path(asic_id)
+            asic_cmd = f"{cmd} -n {ns} -p {port_config_path}"
+            rc, out, err = self.module.run_command(asic_cmd)
+            if rc != 0:
+                self.module.fail_json(msg="Failed to get config from minigraph for namespace {}: {}".format(ns, err))
+            full_config[ns] = json.loads(out)
+        return full_config
 
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -688,6 +764,38 @@ class GenerateGoldenConfigDBModule(object):
 
         return ha_config
 
+    def generate_ut2_golden_config_db(self):
+        full_config = {}
+        if self.num_asics > 1:
+            full_config = self.get_config_from_minigraph_multiasic()
+        else:
+            full_config = json.loads(self.get_config_from_minigraph())
+
+        macsec_config = self._render_macsec_config()
+
+        if self.num_asics > 1:
+            for asic in range(self.num_asics):
+                asic_name = f"asic{asic}"
+                if macsec_config:
+                    full_config[asic_name].update(macsec_config[asic_name])
+
+                if self.bgp_confd_asn and self.bgp_confd_peers:
+                    bgp_device_global = full_config[asic_name].setdefault("BGP_DEVICE_GLOBAL", {})
+                    bgp_device_global["CONFED"] = {
+                        "asn": str(self.bgp_confd_asn),
+                        "peers": str(self.bgp_confd_peers).replace(' ', ';')
+                    }
+        else:
+            full_config.update(macsec_config)
+            if self.bgp_confd_asn and self.bgp_confd_peers:
+                bgp_device_global = full_config.setdefault("BGP_DEVICE_GLOBAL", {})
+                bgp_device_global["CONFED"] = {
+                    "asn": str(self.bgp_confd_asn),
+                    "peers": str(self.bgp_confd_peers).replace(' ', ';')
+                }
+
+        return json.dumps(full_config, indent=4)
+
     def generate_t2_golden_config_db(self):
         with open(MACSEC_PROFILE_PATH) as f:
             macsec_profiles = json.load(f)
@@ -748,19 +856,25 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(golden_config_db, indent=4)
 
     def update_zmq_config(self, config):
-        ori_config_db = json.loads(config)
-        if "DEVICE_METADATA" not in ori_config_db:
-            ori_config_db["DEVICE_METADATA"] = {}
-        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
-            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+        # for multi asic platform this config is per asic.
 
-        # Older version image may not support ZMQ feature flag
+        ori_config_db = json.loads(config)
         rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
         if "orch_northbond_route_zmq_enabled" in out:
-            if self.topo_name == "t1-smartswitch-ha":
-                ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "false"
+            if self.num_asics > 1:
+                ori_config_db = self._update_config_db_in_ns(
+                    ori_config_db, "DEVICE_METADATA/localhost",
+                    {"orch_northbond_route_zmq_enabled": "true"}
+                )
             else:
-                ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+                if "DEVICE_METADATA" not in ori_config_db:
+                    ori_config_db["DEVICE_METADATA"] = {}
+                if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+                    ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+                if self.topo_name == "t1-smartswitch-ha":
+                    ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "false"
+                else:
+                    ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
 
         return json.dumps(ori_config_db, indent=4)
 
@@ -811,16 +925,21 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(
                 msg="Invalid zebra_nexthop value '{}': must be 'enabled' or 'disabled'".format(zebra_nexthop))
         ori_config_db = json.loads(config)
-        if "DEVICE_METADATA" not in ori_config_db or \
-                "localhost" not in ori_config_db["DEVICE_METADATA"]:
-            # For topologies where golden config has no DEVICE_METADATA (e.g. T0/T1),
-            # do not inject a minigraph-derived entry. Injecting a full localhost entry
-            # from sonic-cfggen would cause config override-config-table to REPLACE the
-            # CONFIG_DB localhost entry, wiping fields like default_pfcwd_status that
-            # are only present via init_cfg.json (not in minigraph).
-            # zebra_nexthop is restored separately by config_reload.py via hset.
-            return config
-        ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
+        if self.num_asics > 1:
+            ori_config_db = self._update_config_db_in_ns(
+                ori_config_db, "DEVICE_METADATA/localhost",
+                {"zebra_nexthop": zebra_nexthop})
+        else:
+            if "DEVICE_METADATA" not in ori_config_db or \
+                    "localhost" not in ori_config_db["DEVICE_METADATA"]:
+                # For topologies where golden config has no DEVICE_METADATA (e.g. T0/T1),
+                # do not inject a minigraph-derived entry. Injecting a full localhost entry
+                # from sonic-cfggen would cause config override-config-table to REPLACE the
+                # CONFIG_DB localhost entry, wiping fields like default_pfcwd_status that
+                # are only present via init_cfg.json (not in minigraph).
+                # zebra_nexthop is restored separately by config_reload.py via hset.
+                return config
+            ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
     def generate_drh_golden_config_db(self):
