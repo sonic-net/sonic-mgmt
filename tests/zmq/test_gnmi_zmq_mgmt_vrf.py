@@ -15,12 +15,12 @@ pytestmark = [
 
 @pytest.fixture
 def enable_zmq(duthost):
-    """Fixture to enable ZMQ without management VRF."""
-    initial_mgmt_vrf_enabled, subtype = enable_zmq_fixture(duthost, enable_mgmt_vrf=False)
+    """Fixture to enable ZMQ with management VRF enabled."""
+    initial_mgmt_vrf_enabled, subtype = enable_zmq_fixture(duthost, enable_mgmt_vrf=True)
 
     yield
 
-    cleanup_zmq_fixture(duthost, initial_mgmt_vrf_enabled, subtype, enable_mgmt_vrf=False)
+    cleanup_zmq_fixture(duthost, initial_mgmt_vrf_enabled, subtype, enable_mgmt_vrf=True)
 
 
 def test_gnmi_zmq(duthosts,
