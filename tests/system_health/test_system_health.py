@@ -81,7 +81,7 @@ def check_image_version(duthost):
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthost):
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="function")
