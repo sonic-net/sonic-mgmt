@@ -65,7 +65,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "sub_port_interfaces,ptftests,acstests,saitests,scripts,k8s,sai_qualify,metadata-scripts"
+    default: "sub_port_interfaces,ptftests,acstests,saitests,scripts,k8s,sai_qualify,metadata-scripts,high_frequency_telemetry"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
