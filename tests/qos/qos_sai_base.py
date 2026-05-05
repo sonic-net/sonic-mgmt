@@ -351,12 +351,11 @@ class QosSaiBase(QosBase):
         )[0]).replace("oid:", '')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
-    def __getBufferProfile(self, request, dut_asic, os_version, table, port, priorityGroup):
+    def __getBufferProfile(self, dut_asic, os_version, table, port, priorityGroup):
         """
             Get buffer profile attribute from Redis db
 
             Args:
-                request (Fixture): pytest request object
                 dut_asic(SonicAsic): Device Under Test (DUT)
                 table (str): Redis table name
                 port (str): DUT port alias
@@ -640,7 +639,7 @@ class QosSaiBase(QosBase):
 
         return dutPortIps
 
-    def replaceNonExistentPortId(self, availablePortIds, portIds):
+    def replaceNonExistentPortId(self, availablePortIds, portIds, mapDuplicatesToSameAvailable=False):
         '''
         if port id of availablePortIds/dst_port_ids is not existing in availablePortIds
         replace it with correct one, make sure all port id is valid
@@ -648,98 +647,196 @@ class QosSaiBase(QosBase):
             Given below parameter:
                 availablePortIds: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26,
                                    28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
-                portIds: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                portIds: [1, 2, 2, 3, 3, 4, 5, 6, 6, 7, 7, 8, 9]
             get result:
-                portIds: [0, 2, 16, 4, 18, 6, 20, 8, 22]
+                portIds: [0, 2, 10, 16, 18, 4, 20, 6, 22, 24, 26, 8, 28]
+        if mapDuplicatesToSameAvailable is True then the resulting portIds is allowed
+        to have duplicate entries and they will be mapped to the same available ports
+        e.g.
+            Given below parameter:
+                availablePortIds: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26,
+                                   28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
+                portIds: [1, 2, 2, 3, 3, 4, 5, 6, 6, 7, 7, 8, 9]
+            get result, the valid duplicates are kept and invalid are mapped to the same value:
+                portIds: [0, 2, 2, 10, 10, 4, 16, 6, 6, 18, 18, 8, 20]
         '''
-        if len(portIds) > len(availablePortIds):
-            logger.info('no enough ports for test')
+        numNeeded = len(set(portIds)) if mapDuplicatesToSameAvailable else len(portIds)
+        numAvailable = len(availablePortIds)
+        if numNeeded > numAvailable:
+            logger.info(f'not enough ports for test, {numNeeded} ports needed > {numAvailable} ports available')
+            return False
+        if numAvailable != len(set(availablePortIds)):
+            logger.warning(f"duplicate ports found in availablePortIds: {availablePortIds}")
             return False
 
         # cache available as free port pool
         freePorts = [pid for pid in availablePortIds]
+        removedPorts = set()
 
-        # record invaild port
-        # and remove valid port from free port pool
-        invalid = []
+        # record invalid port
+        # otherwise remove valid port from free port pool
+        invalid = {}
         for idx, pid in enumerate(portIds):
+            # if we removed the port from freeports then it's still valid
+            if mapDuplicatesToSameAvailable and pid in removedPorts:
+                continue
             if pid not in freePorts:
-                invalid.append(idx)
+                invalid.setdefault(pid, [])
+                invalid[pid].append(idx)
             else:
                 freePorts.remove(pid)
+                removedPorts.add(pid)
 
         # replace invalid port from free port pool
-        for idx in invalid:
-            portIds[idx] = freePorts.pop(0)
+        for pid, idxs in invalid.items():
+            # either map invalid duplicates to the same port or get a fresh one for all
+            if mapDuplicatesToSameAvailable:
+                newPid = freePorts.pop(0)
+            for idx in idxs:
+                if not mapDuplicatesToSameAvailable:
+                    newPid = freePorts.pop(0)
+                portIds[idx] = newPid
 
         return True
 
-    def updateTestPortIdIp(self, dutConfig, get_src_dst_asic_and_duts, qosParams=None):
+    def updateTestPortIdIp(self, dutConfig, get_src_dst_asic_and_duts, portSpeedCableLength=None, qosParams=None):
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         src_testPortIds = dutConfig["testPortIds"][src_dut_index][src_asic_index]
         dst_testPortIds = dutConfig["testPortIds"][dst_dut_index][dst_asic_index]
-        testPortIds = src_testPortIds + list(set(dst_testPortIds) - set(src_testPortIds))
-
-        portIdNames = []
-        portIds = []
+        # Keep src and dest ports separate so we can pick a valid replacement from the correct asic
+        src_portIdNames = []
+        src_portIds = []
+        dst_portIdNames = []
+        dst_portIds = []
 
         for idName in dutConfig["testPorts"]:
-            if re.match(r'(?:src|dst)_port\S+id', idName):
-                portIdNames.append(idName)
+            if re.match(r'src_port\S+id', idName):
+                src_portIdNames.append(idName)
                 ipName = idName.replace('id', 'ip')
                 pytest_assert(
                     ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
-                portIds.append(dutConfig["testPorts"][idName])
-        has_enough_ports = self.replaceNonExistentPortId(testPortIds, list(portIds))
+                src_portIds.append(dutConfig["testPorts"][idName])
+            elif re.match(r'dst_port\S+id', idName):
+                dst_portIdNames.append(idName)
+                ipName = idName.replace('id', 'ip')
+                pytest_assert(
+                    ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
+                dst_portIds.append(dutConfig["testPorts"][idName])
+
+        # replace src and dst ports with valid choices from the appropriate asic
+        # filter the source ports to those with the correct profile if provided
+        if portSpeedCableLength:
+            dut_asic = get_src_dst_asic_and_duts['src_asic']
+            duthost = get_src_dst_asic_and_duts['src_dut']
+            pgs = None
+            if qosParams and "pgs" in qosParams:
+                pgs = qosParams["pgs"]
+                maxPg = max(pgs)
+                minPg = min(pgs)
+                if minPg == maxPg:
+                    pgs = str(minPg)
+                else:
+                    # valid PG pattern "[0-7]((-)[0-7])?"
+                    expectedRange = set(range(minPg, maxPg + 1))
+                    actualPgs = set(pgs)
+                    pytest_assert(actualPgs == expectedRange,
+                                  f"Invalid PGs {pgs}, should be a continuous range."
+                                  f"Expected {sorted(expectedRange)}, got {sorted(actualPgs)}")
+                    pgs = f"{minPg}-{maxPg}"
+            elif dutConfig.get("dualTor"):
+                pgs = "2-4"
+            else:
+                pgs = "3-4"
+
+            logger.debug(f"src_testPortIds before portSpeedCableLength filtering: {src_testPortIds}")
+            src_testPortIds = [id for id in src_testPortIds
+                               if portSpeedCableLength == self.getPortSpeedCableLength(
+                                    dut_asic,
+                                    duthost,
+                                    dutConfig["dutInterfaces"][id],
+                                    pgs
+                                )]
+            logger.debug(f"src_testPortIds after portSpeedCableLength filtering: {src_testPortIds}")
+
+            pytest_assert(len(src_testPortIds) > 0,
+                          f"No source ports found matching portSpeedCableLength={portSpeedCableLength}")
+
+        has_enough_src_ports = self.replaceNonExistentPortId(src_testPortIds, src_portIds)
+
+        # remove src ports from dst ports to avoid src and dst ports are the same on single asic
+        # if the dut or the asic is different then don't remove the src port ids
+        sameSrcDestDutAndAsic = src_dut_index == dst_dut_index and src_asic_index == dst_asic_index
+        if sameSrcDestDutAndAsic:
+            dst_testPortIds = list(set(dst_testPortIds) - set(src_portIds))
+        has_enough_dst_ports = self.replaceNonExistentPortId(dst_testPortIds, dst_portIds,
+                                                             mapDuplicatesToSameAvailable=True)
+
+        has_enough_ports = has_enough_src_ports and has_enough_dst_ports
         if not has_enough_ports:
+            message = "Not enough test ports, "
+            if not has_enough_src_ports:
+                message += f"(need {len(src_portIds)} src ports, got {len(src_testPortIds)}) "
+            if not has_enough_dst_ports:
+                message += f"(need {len(dst_portIds)} dst ports, got {len(dst_testPortIds)})"
             src_dut = get_src_dst_asic_and_duts['src_dut']
             is_vs = dutConfig.get('dstDutAsic') == 'vs'
             is_t2 = src_dut.facts.get('switch_type') == 'voq'
             if is_vs and is_t2:
-                pytest.skip(
-                    "Not enough test ports for T2 VS platform "
-                    "(need {}, got {}). See: https://github.com/sonic-net/sonic-mgmt/issues/23988".format(
-                        len(portIds), len(testPortIds)))
-            pytest_assert(False, "No enough test ports")
-        for idx, idName in enumerate(portIdNames):
-            dutConfig["testPorts"][idName] = portIds[idx]
+                pytest.skip("For T2 VS platform: " + message)
+            pytest_assert(False, message)
+
+        # update dutConfig with corrected src ports and their IPs
+        for idx, idName in enumerate(src_portIdNames):
+            dutConfig["testPorts"][idName] = src_portIds[idx]
             ipName = idName.replace('id', 'ip')
-            if 'src' in ipName:
-                testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
-            else:
-                testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
-            dutConfig["testPorts"][ipName] = testPortIps[portIds[idx]]['peer_addr']
+            testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+            dutConfig["testPorts"][ipName] = testPortIps[src_portIds[idx]]['peer_addr']
+
+        # update dutConfig with corrected dst ports and their IPs
+        for idx, idName in enumerate(dst_portIdNames):
+            dutConfig["testPorts"][idName] = dst_portIds[idx]
+            ipName = idName.replace('id', 'ip')
+            testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+            dutConfig["testPorts"][ipName] = testPortIps[dst_portIds[idx]]['peer_addr']
+        logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
 
         if qosParams is not None:
-            portIdNames = []
-            portNumbers = []
-            portIds = []
-            for idName in qosParams.keys():
-                if re.match(r'(?:src|dst)_port\S+ids?', idName):
-                    portIdNames.append(idName)
-                    ids = qosParams[idName]
-                    if isinstance(ids, list):
-                        portIds += ids
-                        # if it's port list, record number of pots
-                        portNumbers.append(len(ids))
-                    else:
-                        portIds.append(ids)
-                        # record None to indicate it's just one port
-                        portNumbers.append(None)
-            pytest_assert(self.replaceNonExistentPortId(testPortIds, portIds), "No enough test ports")
-            startPos = 0
-            for idx, idName in enumerate(portIdNames):
-                if portNumbers[idx] is not None:    # port list
-                    qosParams[idName] = [
-                        portId for portId in portIds[startPos:startPos + portNumbers[idx]]]
-                    startPos += portNumbers[idx]
-                else:   # not list, just one port
-                    qosParams[idName] = portIds[startPos]
-                    startPos += 1
-        logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
+            for idName in list(qosParams.keys()):
+                if re.match(r'src_port\S+ids?', idName):
+                    port_list = qosParams[idName]
+                    isList = True
+                    if not isinstance(port_list, list):
+                        port_list = [port_list]
+                        isList = False
+                    pytest_assert(self.replaceNonExistentPortId(src_testPortIds, port_list),
+                                  f"Not enough src test ports in qosParams for {idName}")
+
+                    # update qosParams for this param and remove from available src ports
+                    qosParams[idName] = port_list if isList else port_list[0]
+                    src_testPortIds = list(set(src_testPortIds) - set(port_list))
+                    # if same dut and same asic, then also remove from the dest ports
+                    if sameSrcDestDutAndAsic:
+                        dst_testPortIds = list(set(dst_testPortIds) - set(port_list))
+                elif re.match(r'dst_port\S+ids?', idName):
+                    port_list = qosParams[idName]
+                    isList = True
+                    if not isinstance(port_list, list):
+                        port_list = [port_list]
+                        isList = False
+                    pytest_assert(self.replaceNonExistentPortId(dst_testPortIds, port_list),
+                                  f"Not enough dst test ports in qosParams for {idName}")
+
+                    # update qosParams for this param and remove from available dest ports
+                    qosParams[idName] = port_list if isList else port_list[0]
+                    dst_testPortIds = list(set(dst_testPortIds) - set(port_list))
+                    # if same dut and same asic, then also remove from the src ports
+                    if sameSrcDestDutAndAsic:
+                        src_testPortIds = list(set(src_testPortIds) - set(port_list))
+
+            logger.debug(f'updateTestPortIdIp qosParams: {qosParams}')
 
     @pytest.fixture(scope='module')
     def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host,  # noqa: F811
@@ -1852,6 +1949,27 @@ class QosSaiBase(QosBase):
                 if 'proxy_arp' in value:
                     logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
+    def getPortSpeedCableLength(self, dut_asic, duthost, srcport, pgs):
+        profileName = self.__getBufferProfile(
+                    dut_asic,
+                    duthost.os_version,
+                    "BUFFER_PG_TABLE" if self.isBufferInApplDb(
+                        dut_asic) else "BUFFER_PG",
+                    srcport,
+                    pgs
+                )["profileName"]
+
+        if self.isBufferInApplDb(dut_asic):
+            profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
+        else:
+            profile_pattern = "^BUFFER_PROFILE\\|pg_lossless_(.*)_profile"
+        m = re.search(profile_pattern, profileName)
+        pytest_assert(m and m.group(1), f"Cannot find port speed/cable length for srcport {srcport} and pgs {pgs}")
+
+        portSpeedCableLength = m.group(1)
+        logger.debug(f"portSpeedCableLength of src port {srcport} is {portSpeedCableLength}")
+        return portSpeedCableLength
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, request, duthosts, get_src_dst_asic_and_duts,
@@ -1880,14 +1998,9 @@ class QosSaiBase(QosBase):
         logger.info(
             "Lossless Buffer profile selected is {}".format(profileName))
 
-        if self.isBufferInApplDb(dut_asic):
-            profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
-        else:
-            profile_pattern = "^BUFFER_PROFILE\\|pg_lossless_(.*)_profile"
-        m = re.search(profile_pattern, profileName)
-        pytest_assert(m.group(1), "Cannot find port speed/cable length")
-
-        portSpeedCableLength = m.group(1)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+        portSpeedCableLength = self.getPortSpeedCableLength(dut_asic, duthost,
+                                                            srcport, "3-4")
 
         qosConfigs = dutConfig["qosConfigs"]
         dutAsic = dutConfig["dutAsic"]
@@ -2336,7 +2449,6 @@ class QosSaiBase(QosBase):
             pgs = "3-4"
 
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(
@@ -2364,7 +2476,6 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut']
         dut_asic = get_src_dst_asic_and_duts['src_asic']
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(
@@ -2401,7 +2512,6 @@ class QosSaiBase(QosBase):
             queues = "3-4"
 
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
@@ -2452,7 +2562,6 @@ class QosSaiBase(QosBase):
                 queues = "0-2"
 
         egress_lossy_profile = self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
