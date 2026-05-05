@@ -57,7 +57,14 @@ class VlanPort(object):
         elif VlanPort.iface_exists(vlan_port):
             self.destroy_vlan_port(vlan_port)
 
-        VlanPort.cmd('ip link add link %s name %s type vlan id %d' % (port, vlan_port, vlan_id))
+        try:
+            VlanPort.cmd('ip link add link %s name %s type vlan id %d' % (port, vlan_port, vlan_id))
+        except Exception as detail:
+            # Allow benign races where another process created the interface.
+            if VlanPort.iface_exists(vlan_port):
+                logging.debug("VLAN interface %s already exists after add failure: %s", vlan_port, detail)
+            else:
+                raise
         VlanPort.iface_up(vlan_port)
 
         return
@@ -115,18 +122,13 @@ class VlanPort(object):
         return bool(iface)
 
     @staticmethod
-    def log_show_vlan_intf(port, vlan_id):
-        vlan_intf = VlanPort.get_vlan_intf(port, vlan_id)
-        if vlan_intf is None:
-            logging.debug(
-                "Port %s doesn't has vlan interface with vlan id %s" % (port, vlan_id))
-        else:
-            logging.debug("Port %s has vlan interface %s with vlan id %s" % (
-                port, vlan_intf, vlan_id))
-
-    @staticmethod
     def get_vlan_intf(port, vlan_id):
         out = VlanPort.cmd('cat /proc/net/vlan/config', ignore_error=True)
+        if not out.strip():
+            logging.debug(
+                "VLAN config /proc/net/vlan/config is unavailable or empty; 8021q module may not be loaded")
+            return None
+
         lines = out.splitlines()
         for line in lines:
             if '|' not in line:
@@ -146,7 +148,7 @@ class VlanPort(object):
             try:
                 if int(config_vlan_id) == int(vlan_id):
                     return vlan_intf
-            except Exception:
+            except ValueError:
                 continue
 
         return None
