@@ -225,6 +225,8 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_hostname, neighbor_ip, mirror_se
     :param mirror_config: mirror_config fixture
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.facts['asic_type'] == 'vpp':
+        pytest.skip('Mirroring is not supported on VPP platform')
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
@@ -557,6 +559,9 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
     # Remove /proc/dma for armh
     elif duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
         if 'armhf-' in duthost.facts["platform"] or 'arm64-' in duthost.facts["platform"]:
+            cmds.copy_proc_files.remove("/proc/dma")
+    elif duthost.facts["asic_type"] == "vpp":
+        if 'arm64-' in duthost.facts["platform"] or 'kvm' in duthost.facts["platform"]:
             cmds.copy_proc_files.remove("/proc/dma")
 
     return cmds_to_check

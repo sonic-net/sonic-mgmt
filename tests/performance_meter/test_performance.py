@@ -14,6 +14,7 @@ from success_criteria import filter_vars
 
 
 pytestmark = [
+    pytest.mark.topology('any'),
     pytest.mark.sanity_check(skip_sanity=True),  # will be invoked manually in test
     pytest.mark.disable_loganalyzer
 ]

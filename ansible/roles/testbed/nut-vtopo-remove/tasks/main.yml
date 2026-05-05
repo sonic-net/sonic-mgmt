@@ -1,0 +1,100 @@
+---
+- name: Read testbed definition
+  include_tasks: read_testbed.yml
+
+# --- Destroy KVM VMs ---
+- name: Get list of running VMs
+  virt:
+    command: list_vms
+    state: running
+    uri: qemu:///system
+  register: vm_list_running
+  become: yes
+  ignore_errors: yes
+
+- name: Destroy DUT VMs
+  virt:
+    name: "{{ item.Hostname }}"
+    state: destroyed
+    uri: qemu:///system
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  when: item.Hostname in (vm_list_running.list_vms | default([]))
+  become: yes
+  ignore_errors: yes
+
+- name: Get list of defined VMs
+  virt:
+    command: list_vms
+    uri: qemu:///system
+  register: vm_list_defined
+  become: yes
+  ignore_errors: yes
+
+- name: Undefine DUT VMs
+  virt:
+    name: "{{ item.Hostname }}"
+    command: undefine
+    uri: qemu:///system
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  when: item.Hostname in (vm_list_defined.list_vms | default([]))
+  become: yes
+  ignore_errors: yes
+
+- name: Remove DUT disk images
+  file:
+    path: "{{ vnut_vm_disk_dir }}/sonic_{{ item.Hostname }}.img"
+    state: absent
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  ignore_errors: yes
+
+# --- Remove TG containers ---
+- name: Stop and remove TG containers
+  community.docker.docker_container:
+    name: "{{ vnut_container_prefix }}_{{ testbed_name }}_{{ item.Hostname }}"
+    state: absent
+    force_kill: yes
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevIxiaChassis') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  ignore_errors: yes
+
+# --- Clean up link bridges ---
+- name: Remove front-panel link bridges
+  shell: |
+    {% for idx in range(vnut_links | length) %}
+    BRIDGE="vbr_{{ testbed_name[:8] }}_{{ idx }}"
+    ip link delete "$BRIDGE" 2>/dev/null || true
+    {% endfor %}
+    echo "Cleaned up link bridges"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  ignore_errors: yes
+
+# --- Clean up TG veth pairs ---
+- name: Clean up TG veth pairs
+  shell: |
+    {% for idx in range(vnut_links | length) %}
+    {% if vnut_links[idx].StartDevice in (vnut_devices | selectattr('Type', 'equalto', 'DevIxiaChassis') | map(attribute='Hostname') | list) or vnut_links[idx].EndDevice in (vnut_devices | selectattr('Type', 'equalto', 'DevIxiaChassis') | map(attribute='Hostname') | list) %}
+    ip link delete "vtg{{ testbed_name[:6] }}_{{ idx }}a" 2>/dev/null || true
+    {% endif %}
+    {% endfor %}
+    echo "Cleaned up TG veth pairs"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  ignore_errors: yes
+
+# --- Management network ---
+# The management bridge and iptables rules are shared with other testbeds,
+# so we do NOT remove them during vnut teardown.
+
+- name: Display teardown summary
+  debug:
+    msg: "Removed all VMs, containers, and front-panel links for testbed {{ testbed_name }}"

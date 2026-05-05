@@ -1,6 +1,6 @@
 qos_params:
     q3d:
-        topo-t2-single-node-min:
+        topo-t2_single_node_min:
             400000_2000m:
                 hdrm_pool_size:
                     dscps:

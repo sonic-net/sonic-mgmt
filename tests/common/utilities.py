@@ -171,6 +171,38 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         return False
 
 
+def ping_ip(host, dst_ip, count=4, cmd_prefix=""):
+    """Ping an IP address from a host with an optional command prefix.
+
+    The *host* is expected to be an AnsibleHost-like object exposing a
+    ``command`` method (for example, ``duthost``, ``ptfhost`` or a localhost
+    wrapper).
+
+    This helper is designed to be used with wait_until: it returns True on
+    success and False on failure so callers can retry.
+
+    The cmd_prefix parameter can be used to run ping inside a namespace or
+    other wrapper context (for example, "sudo ip netns exec <ns>").
+    """
+    base_cmd = "ping -c {} {}".format(count, dst_ip)
+    cmd = "{} {}".format(cmd_prefix, base_cmd) if cmd_prefix else base_cmd
+    host_name = getattr(host, "hostname", repr(host))
+    logger.info("Pinging %s from host %s with command: %s", dst_ip, host_name, cmd)
+    result = host.command(cmd, module_ignore_errors=True)
+
+    if result.get("failed", False):
+        logger.info(
+            "Ping to %s from host %s failed: rc=%s, stderr=%s",
+            dst_ip,
+            host_name,
+            result.get("rc"),
+            result.get("stderr"),
+        )
+        return False
+
+    return True
+
+
 async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
     """
     @summary: Same as wait_until but async
@@ -1280,7 +1312,7 @@ def capture_and_check_packet_on_dut(
     pkts_validator_args=[],
     pkts_validator_kwargs={},
     wait_time=1,
-    tcpdump_buffer_size=102400
+    tcpdump_buffer_size=4096
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1360,6 +1392,17 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except Exception:
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
+
+
+def update_console_creds(creds, console_auth_type):
+    # Load creds for console based on auth type (e.g. tacacs, xpme)
+    if console_auth_type and console_auth_type in creds.get("console_login_options", {}):
+        console_login_creds = creds["console_login_options"][console_auth_type]
+        creds["console_user"] = {}
+        creds["console_password"] = {}
+        for k, v in list(console_login_creds.items()):
+            creds["console_user"][k] = v["user"]
+            creds["console_password"][k] = v["passwd"]
 
 
 def check_msg_in_syslog(duthost, log_msg):
@@ -1466,7 +1509,8 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
-        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
+                      wait_for_bgp=True)
     finally:
         # Cleanup golden config because some other test or device recover may reload config with golden config
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
@@ -1706,3 +1750,10 @@ def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
         namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
         asic_interface_map["-n {}".format(namespace)].append(interface)
     return dict(asic_interface_map)
+
+
+def testbed_is_multi_vrf(tbinfo):
+    val = tbinfo.get('use_converged_peers')
+    if val:
+        return str(val).lower() == 'true'
+    return False

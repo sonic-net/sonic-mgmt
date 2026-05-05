@@ -163,7 +163,7 @@ class VlanPort(object):
         logging.debug("CMD: %s", cmdline)
         process = subprocess.Popen(  # nosemgrep: subprocess-shell-true
             cmdline, stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)  # nosemgrep: subprocess-shell-true
         stdout, stderr = process.communicate()
         ret_code = process.returncode
 

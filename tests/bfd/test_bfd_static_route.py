@@ -80,7 +80,7 @@ class TestBfdStaticRoute(BfdBase):
             for _, asic, _, dut, dut_nexthops in src_dst_context:
                 executor.submit(verify_bfd_only, dut, dut_nexthops, asic, "No BFD sessions found")
 
-    def test_bfd_static_route_deletion(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
+    def test_bfd_static_route_deletion(self, select_src_dst_dut_with_asic, bfd_cleanup_db):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
@@ -121,7 +121,6 @@ class TestBfdStaticRoute(BfdBase):
                     dut_nexthops,
                     asic,
                     "No BFD sessions found" if target == "src" else "Down",
-                    request,
                     prefix,
                     "Route Addition" if target == "src" else "Route Removal",
                     version,
@@ -137,7 +136,6 @@ class TestBfdStaticRoute(BfdBase):
                     dut_nexthops,
                     asic,
                     "No BFD sessions found",
-                    request,
                     prefix,
                     "Route Addition",
                     version,
@@ -145,13 +143,8 @@ class TestBfdStaticRoute(BfdBase):
 
         logger.info("BFD deletion did not influence static routes and test completed successfully")
 
-    def test_bfd_flap(
-        self,
-        request,
-        select_src_dst_dut_with_asic,
-        bfd_cleanup_db,
-        get_function_completeness_level,
-    ):
+    def test_bfd_flap(self, select_src_dst_dut_with_asic, bfd_cleanup_db,
+                      get_function_completeness_level):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
@@ -208,7 +201,6 @@ class TestBfdStaticRoute(BfdBase):
                         dut_nexthops,
                         asic,
                         "No BFD sessions found" if target == "src" else "Down",
-                        request,
                         prefix,
                         "Route Addition" if target == "src" else "Route Removal",
                         version,
@@ -225,7 +217,6 @@ class TestBfdStaticRoute(BfdBase):
                         dut_nexthops,
                         asic,
                         "Up",
-                        request,
                         prefix,
                         "Route Addition",
                         version,
@@ -246,15 +237,9 @@ class TestBfdStaticRoute(BfdBase):
 
         logger.info("test_bfd_flap completed")
 
-    def test_bfd_with_rp_reboot(
-        self,
-        localhost,
-        request,
-        duthosts,
-        enum_supervisor_dut_hostname,
-        select_src_dst_dut_with_asic,
-        bfd_cleanup_db,
-    ):
+    def test_bfd_with_rp_reboot(self, localhost, request, duthosts,
+                                enum_supervisor_dut_hostname,
+                                select_src_dst_dut_with_asic, bfd_cleanup_db):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
@@ -318,12 +303,12 @@ class TestBfdStaticRoute(BfdBase):
             for _, asic, _, dut, dut_nexthops in src_dst_context:
                 executor.submit(verify_bfd_only, dut, dut_nexthops, asic, "No BFD sessions found")
 
-    def test_bfd_remote_link_flap(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
+    def test_bfd_remote_link_flap(self, select_src_dst_dut_with_asic, bfd_cleanup_db):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
         """
-        request.config.interface_shutdown = True
+        bfd_cleanup_db.allow_empty_static_routes_on_removal = True
 
         src_asic = select_src_dst_dut_with_asic["src_asic"]
         dst_asic = select_src_dst_dut_with_asic["dst_asic"]
@@ -344,9 +329,8 @@ class TestBfdStaticRoute(BfdBase):
                 executor.submit(create_and_verify_bfd_state, asic, prefix, dut, dut_nexthops)
 
         # Extract portchannel interfaces on dst
-        list_of_portchannels_on_dst = src_dut_nexthops.keys()
-        request.config.portchannels_on_dut = "dst"
-        request.config.selected_portchannels = list_of_portchannels_on_dst
+        list_of_portchannels_on_dst = list(src_dut_nexthops.keys())
+        bfd_cleanup_db.register_restore(dst_dut, dst_asic, list_of_portchannels_on_dst)
 
         # Shutdown PortChannels on destination dut
         batch_control_interface_state(dst_dut, dst_asic, list_of_portchannels_on_dst, "shutdown")
@@ -357,10 +341,10 @@ class TestBfdStaticRoute(BfdBase):
             src_dut_nexthops,
             src_asic,
             "Down",
-            request,
             src_prefix,
             "Route Removal",
             version,
+            allow_empty_static_routes_on_removal=bfd_cleanup_db.allow_empty_static_routes_on_removal,
         )
 
         batch_control_interface_state(dst_dut, dst_asic, list_of_portchannels_on_dst, "startup")
@@ -372,18 +356,17 @@ class TestBfdStaticRoute(BfdBase):
                     dut_nexthops,
                     asic,
                     "Up",
-                    request,
                     prefix,
                     "Route Addition",
                     version,
                 )
 
-    def test_bfd_lc_asic_shutdown(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
+    def test_bfd_lc_asic_shutdown(self, select_src_dst_dut_with_asic, bfd_cleanup_db):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
         """
-        request.config.interface_shutdown = True
+        bfd_cleanup_db.allow_empty_static_routes_on_removal = True
 
         src_asic = select_src_dst_dut_with_asic["src_asic"]
         dst_asic = select_src_dst_dut_with_asic["dst_asic"]
@@ -404,9 +387,8 @@ class TestBfdStaticRoute(BfdBase):
                 executor.submit(create_and_verify_bfd_state, asic, prefix, dut, dut_nexthops)
 
         # Extract portchannel interfaces on src
-        list_of_portchannels_on_src = dst_dut_nexthops.keys()
-        request.config.portchannels_on_dut = "src"
-        request.config.selected_portchannels = list_of_portchannels_on_src
+        list_of_portchannels_on_src = list(dst_dut_nexthops.keys())
+        bfd_cleanup_db.register_restore(src_dut, src_asic, list_of_portchannels_on_src)
 
         # Shutdown PortChannels
         batch_control_interface_state(src_dut, src_asic, list_of_portchannels_on_src, "shutdown")
@@ -420,10 +402,10 @@ class TestBfdStaticRoute(BfdBase):
                     dut_nexthops,
                     asic,
                     "Down",
-                    request,
                     prefix,
                     "Route Removal",
                     version,
+                    allow_empty_static_routes_on_removal=bfd_cleanup_db.allow_empty_static_routes_on_removal,
                 )
 
         batch_control_interface_state(src_dut, src_asic, list_of_portchannels_on_src, "startup")
@@ -437,18 +419,17 @@ class TestBfdStaticRoute(BfdBase):
                     dut_nexthops,
                     asic,
                     "Up",
-                    request,
                     prefix,
                     "Route Addition",
                     version,
                 )
 
-    def test_bfd_portchannel_member_flap(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
+    def test_bfd_portchannel_member_flap(self, select_src_dst_dut_with_asic, bfd_cleanup_db):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
         """
-        request.config.interface_shutdown = True
+        bfd_cleanup_db.allow_empty_static_routes_on_removal = True
 
         src_asic = select_src_dst_dut_with_asic["src_asic"]
         dst_asic = select_src_dst_dut_with_asic["dst_asic"]
@@ -469,9 +450,7 @@ class TestBfdStaticRoute(BfdBase):
                 executor.submit(create_and_verify_bfd_state, asic, prefix, dut, dut_nexthops)
 
         # Extract portchannel interfaces on src
-        list_of_portchannels_on_src = dst_dut_nexthops.keys()
-        request.config.portchannels_on_dut = "src"
-        request.config.selected_portchannels = list_of_portchannels_on_src
+        list_of_portchannels_on_src = list(dst_dut_nexthops.keys())
 
         # Shutdown PortChannel members
         port_channel_members_on_src = []
@@ -482,7 +461,7 @@ class TestBfdStaticRoute(BfdBase):
 
             port_channel_members_on_src.extend(list_of_portchannel_members_on_src)
 
-        request.config.selected_portchannel_members = port_channel_members_on_src
+        bfd_cleanup_db.register_restore(src_dut, src_asic, port_channel_members_on_src)
         batch_control_interface_state(src_dut, src_asic, port_channel_members_on_src, "shutdown")
 
         # Verify BFD and static routes
@@ -494,10 +473,10 @@ class TestBfdStaticRoute(BfdBase):
                     dut_nexthops,
                     asic,
                     "Down",
-                    request,
                     prefix,
                     "Route Removal",
                     version,
+                    allow_empty_static_routes_on_removal=bfd_cleanup_db.allow_empty_static_routes_on_removal,
                 )
 
         # Bring up of PortChannel members
@@ -512,7 +491,85 @@ class TestBfdStaticRoute(BfdBase):
                     dut_nexthops,
                     asic,
                     "Up",
-                    request,
+                    prefix,
+                    "Route Addition",
+                    version,
+                )
+
+    def test_bfd_single_portchannel_member_flap(self, select_src_dst_dut_with_asic, bfd_cleanup_db):
+        """
+        Validate BFD static route behavior when one member from each selected
+        source backend portchannel is shut down and brought back up.
+
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+        bfd_cleanup_db.allow_empty_static_routes_on_removal = True
+
+        src_asic = select_src_dst_dut_with_asic["src_asic"]
+        dst_asic = select_src_dst_dut_with_asic["dst_asic"]
+        src_dut = select_src_dst_dut_with_asic["src_dut"]
+        dst_dut = select_src_dst_dut_with_asic["dst_dut"]
+        src_dut_nexthops = select_src_dst_dut_with_asic["src_dut_nexthops"]
+        dst_dut_nexthops = select_src_dst_dut_with_asic["dst_dut_nexthops"]
+        src_prefix = select_src_dst_dut_with_asic["src_prefix"]
+        dst_prefix = select_src_dst_dut_with_asic["dst_prefix"]
+        version = select_src_dst_dut_with_asic["version"]
+        src_dst_context = [
+            ("src", src_asic, src_prefix, src_dut, src_dut_nexthops),
+            ("dst", dst_asic, dst_prefix, dst_dut, dst_dut_nexthops),
+        ]
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for _, asic, prefix, dut, dut_nexthops in src_dst_context:
+                executor.submit(create_and_verify_bfd_state, asic, prefix, dut, dut_nexthops)
+
+        # Extract portchannel interfaces on src
+        list_of_portchannels_on_src = list(dst_dut_nexthops.keys())
+
+        # Shutdown one PortChannel member per portchannel
+        selected_portchannel_members_on_src = []
+        for portchannel_interface in list_of_portchannels_on_src:
+            list_of_portchannel_members_on_src = (
+                extract_backend_portchannels(src_dut)[portchannel_interface]["members"]
+            )
+            if not list_of_portchannel_members_on_src:
+                pytest.fail(
+                    "No members found for backend portchannel {}".format(portchannel_interface)
+                )
+
+            selected_portchannel_members_on_src.append(list_of_portchannel_members_on_src[0])
+
+        bfd_cleanup_db.register_restore(src_dut, src_asic, selected_portchannel_members_on_src)
+        batch_control_interface_state(src_dut, src_asic, selected_portchannel_members_on_src, "shutdown")
+
+        # Verify BFD and static routes
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for _, asic, prefix, dut, dut_nexthops in src_dst_context:
+                executor.submit(
+                    verify_bfd_and_static_route,
+                    dut,
+                    dut_nexthops,
+                    asic,
+                    "Down",
+                    prefix,
+                    "Route Removal",
+                    version,
+                    allow_empty_static_routes_on_removal=bfd_cleanup_db.allow_empty_static_routes_on_removal,
+                )
+
+        # Bring up PortChannel members
+        batch_control_interface_state(src_dut, src_asic, selected_portchannel_members_on_src, "startup")
+
+        # Verify BFD and static routes
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for _, asic, prefix, dut, dut_nexthops in src_dst_context:
+                executor.submit(
+                    verify_bfd_and_static_route,
+                    dut,
+                    dut_nexthops,
+                    asic,
+                    "Up",
                     prefix,
                     "Route Addition",
                     version,
@@ -570,14 +627,10 @@ class TestBfdStaticRoute(BfdBase):
             for _, asic, _, dut, dut_nexthops in src_dst_context:
                 executor.submit(verify_bfd_only, dut, dut_nexthops, asic, "No BFD sessions found")
 
-    def test_bfd_with_rp_config_reload(
-        self,
-        request,
-        duthosts,
-        select_src_dst_dut_with_asic,
-        enum_supervisor_dut_hostname,
-        bfd_cleanup_db,
-    ):
+    def test_bfd_with_rp_config_reload(self, request, duthosts,
+                                       select_src_dst_dut_with_asic,
+                                       enum_supervisor_dut_hostname,
+                                       bfd_cleanup_db):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
@@ -643,14 +696,10 @@ class TestBfdStaticRoute(BfdBase):
             for _, asic, _, dut, dut_nexthops in src_dst_context:
                 executor.submit(verify_bfd_only, dut, dut_nexthops, asic, "No BFD sessions found")
 
-    def test_bfd_with_bad_fc_asic(
-        self,
-        request,
-        duthosts,
-        select_src_dst_dut_with_asic,
-        enum_supervisor_dut_hostname,
-        bfd_cleanup_db,
-    ):
+    def test_bfd_with_bad_fc_asic(self, request, duthosts,
+                                  select_src_dst_dut_with_asic,
+                                  enum_supervisor_dut_hostname,
+                                  bfd_cleanup_db):
         """
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
