@@ -5422,16 +5422,16 @@ sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_packet_route
       - "asic_type in ['vpp']"
       - https://github.com/sonic-net/sonic-platform-vpp/issues/202
 
-sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_packet_routed_with_valid_vlan[port_in_lag]:
-  skip:
-    reason: >
-            SONiC-VPP cannot create PortChannel sub-interfaces because the SAI
-            shim's tap_to_hwif_name() in SwitchStateBaseRif.cpp only maps
-            physical PORT taps and returns "Unknown" for PortChannel devices,
-            so the LAG sub-interface is never created in VPP.
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
+# sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_packet_routed_with_valid_vlan[port_in_lag]:
+#   skip:
+#     reason: >
+#             SONiC-VPP cannot create PortChannel sub-interfaces because the SAI
+#             shim's tap_to_hwif_name() in SwitchStateBaseRif.cpp only maps
+#             physical PORT taps and returns "Unknown" for PortChannel devices,
+#             so the LAG sub-interface is never created in VPP.
+#     conditions_logical_operator: or
+#     conditions:
+#       - "asic_type in ['vpp']"
 
 sub_port_interfaces/test_sub_port_interfaces.py::TestSubPorts::test_routing_between_sub_ports[port-:
   skip:
