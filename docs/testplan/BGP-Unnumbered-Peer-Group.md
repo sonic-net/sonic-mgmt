@@ -32,7 +32,7 @@ Applicable to T0, T1, and T2 topologies.
 
 ### Sample DUT configuration files
 BGP Unnumbered using peer group:
-'''
+```
   router bgp 65100
    bgp router-id 10.1.0.1
    no bgp ebgp-requires-policy
@@ -51,7 +51,7 @@ BGP Unnumbered using peer group:
    address-family ipv6 unicast
     neighbor ARISTA-UNNUM activate
    exit-address-family
-'''
+```
 
 ## Setup configuration
 
