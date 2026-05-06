@@ -93,7 +93,7 @@ def find_results_files(results_dir):
 def parse_summary(summary_file):
     """Parse the summary.txt file into a dictionary."""
     summary = {}
-    with open(summary_file) as f:
+    with open(summary_file, encoding='utf-8', errors='replace') as f:
         for line in f:
             if '=' in line:
                 key, val = line.strip().split('=', 1)
@@ -114,7 +114,7 @@ def parse_functions(functions_file):
     subtests_pass = 0
     subtests_fail = 0
 
-    with open(functions_file) as f:
+    with open(functions_file, encoding='utf-8', errors='replace') as f:
         reader = csv.DictReader(f)
         for row in reader:
             # Handle both column name variants

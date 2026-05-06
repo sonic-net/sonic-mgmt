@@ -244,13 +244,13 @@ def prettify_xml(root):
 
 def run_command(cmd, capture=True, password=None):
     """Run a shell command, optionally with sshpass for password."""
-    sshpass_available = subprocess.run(['which', 'sshpass'], capture_output=True).returncode == 0
+    sshpass_available = subprocess.run(['which', 'sshpass'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode == 0
     
     if password and sshpass_available:
         cmd = ['sshpass', '-p', password] + cmd
     
     if capture:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         return result.returncode == 0, result.stdout, result.stderr
     else:
         result = subprocess.run(cmd)
@@ -723,7 +723,7 @@ def main():
         return
     
     # Save XML locally for upload
-    local_xml = f"/tmp/tr_{profile}_{platform_dir}_{build_id}.xml"
+    local_xml = f"/tmp/tr_{os.environ.get('USER', 'user')}_{profile}_{platform_dir}_{build_id}.xml"
     if not args.dry_run:
         with open(local_xml, 'w') as f:
             f.write(xml_str)

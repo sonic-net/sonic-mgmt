@@ -326,17 +326,18 @@ def git_pull_repo(repo_dir, branch=None):
     )
     current_branch = r.stdout.strip() if r.returncode == 0 else "master"
 
-    # Hard reset to origin (discard any local changes)
-    log.info("  git reset --hard origin/%s ...", current_branch)
+    # Pull latest (preserves local commits)
+    log.info("  git pull --ff-only origin/%s ...", current_branch)
     r = subprocess.run(
-        ["git", "reset", "--hard", f"origin/{current_branch}"],
+        ["git", "pull", "--ff-only", "origin", current_branch],
         cwd=repo_dir, capture_output=True, text=True, timeout=60,
     )
     if r.returncode == 0:
-        log.info("  ✓ Repo reset to origin/%s", current_branch)
-        _pulled_repos.add(repo_str)
+        log.info("  ✓ Repo updated (origin/%s)", current_branch)
     else:
-        log.warning("  git reset failed: %s", r.stderr.strip())
+        # ff-only failed (local commits ahead) — that's fine, keep as-is
+        log.info("  Local commits ahead of origin — keeping as-is")
+    _pulled_repos.add(repo_str)
 
     return repo_str in _pulled_repos
 
@@ -566,17 +567,25 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
     for d in duts:
         log.info("  DUT: %s (%s)", d["name"], d["ip"])
 
+    # HACK: On gamut testbed, skip upgrading spine1 (Superbolt) — only upgrade spine0, leaf0, leaf1
+    if tb == "gamut":
+        upgrade_duts = [d for d in duts if d["name"] != "spine1"]
+        log.info("  [HACK] Gamut: skipping spine1 upgrade. Upgrading: %s",
+                 [d["name"] for d in upgrade_duts])
+    else:
+        upgrade_duts = duts
+
     # ── Phase 1: Upgrade ──
     if not skip_upgrade:
-        log.info("═══ Phase 1: Upgrading %d DUTs (parallel) ═══", len(duts))
+        log.info("═══ Phase 1: Upgrading %d DUTs (parallel) ═══", len(upgrade_duts))
 
         # Check reachability (parallel)
         def check_reachable(d):
             ok = is_host_reachable(d["ip"], d["user"], d["password"])
             return d, ok
 
-        with ThreadPoolExecutor(max_workers=len(duts)) as pool:
-            futures = [pool.submit(check_reachable, d) for d in duts]
+        with ThreadPoolExecutor(max_workers=len(upgrade_duts)) as pool:
+            futures = [pool.submit(check_reachable, d) for d in upgrade_duts]
             for f in as_completed(futures):
                 d, ok = f.result()
                 if not ok:
@@ -592,8 +601,8 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
             upgrade_dut(d, url)
             return d
 
-        with ThreadPoolExecutor(max_workers=len(duts)) as pool:
-            futures = [pool.submit(do_upgrade, d) for d in duts]
+        with ThreadPoolExecutor(max_workers=len(upgrade_duts)) as pool:
+            futures = [pool.submit(do_upgrade, d) for d in upgrade_duts]
             for f in as_completed(futures):
                 d = f.result()
                 log.info("  ✓ Upgrade initiated on %s", d["name"])
@@ -606,8 +615,8 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
             return d, ok
 
         failed = 0
-        with ThreadPoolExecutor(max_workers=len(duts)) as pool:
-            futures = [pool.submit(do_wait, d) for d in duts]
+        with ThreadPoolExecutor(max_workers=len(upgrade_duts)) as pool:
+            futures = [pool.submit(do_wait, d) for d in upgrade_duts]
             for f in as_completed(futures):
                 d, ok = f.result()
                 if not ok:
@@ -619,7 +628,7 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
 
         # Print versions
         log.info("Post-upgrade versions:")
-        for d in duts:
+        for d in upgrade_duts:
             r = remote_ssh(d["ip"], d["user"], d["password"],
                            "show version | grep 'SONiC Software Version'", timeout=15)
             ver = r.stdout.strip() if r.returncode == 0 else "unknown"
@@ -627,8 +636,8 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
 
         # Wait for containers to come up after upgrade
         log.info("Waiting for containers to start (parallel)...")
-        with ThreadPoolExecutor(max_workers=len(duts)) as pool:
-            futures = [pool.submit(wait_for_containers, d) for d in duts]
+        with ThreadPoolExecutor(max_workers=len(upgrade_duts)) as pool:
+            futures = [pool.submit(wait_for_containers, d) for d in upgrade_duts]
             for f in as_completed(futures):
                 f.result()  # Just wait, don't fail on warning
     else:
@@ -712,8 +721,9 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
     # ── Phase 4: Publish to dashboard (before local cleanup) ──
     if latest_log_dir and os.path.isdir(latest_log_dir):
         log.info("═══ Phase 4: Publishing to dashboard ═══")
-        # Build profile from branch (e.g., "202405c" -> "202405c-Tortuga")
-        profile = f"{tb_branch}-Tortuga" if tb_branch != "unknown" else "Tortuga"
+        # Build profile from branch + testbed (e.g., "202405c-Tortuga", "202505c-Gamut")
+        profile_suffix = "Gamut" if tb == "gamut" else "Tortuga"
+        profile = f"{tb_branch}-{profile_suffix}" if tb_branch != "unknown" else profile_suffix
         publish_cmd = [
             sys.executable, str(PUBLISH_SCRIPT),
             "--profile", profile,
@@ -1033,7 +1043,11 @@ Examples:
         run_cfg["image_url"] = cfg.get("_cli_url") or tb_c.get("image_url") or cfg.get("image_url", "")
         run_cfg["spine_image_url"] = cfg.get("_cli_spine_url") or tb_c.get("spine_image_url") or cfg.get("spine_image_url", "")
         run_cfg["test"] = cfg.get("_cli_test") or tb_c.get("test") or cfg.get("test", "full")
-        run_cfg["skip_upgrade"] = cfg.get("skip_upgrade") or tb_c.get("skip_upgrade", False)
+        # If --url was passed on CLI, force upgrade (override yaml skip_upgrade)
+        if cfg.get("_cli_url"):
+            run_cfg["skip_upgrade"] = False
+        else:
+            run_cfg["skip_upgrade"] = cfg.get("skip_upgrade") or tb_c.get("skip_upgrade", False)
         run_cfg["pre_patch"] = tb_c.get("pre_patch", "")
         run_cfg["_tb_config"] = {}  # already merged, clear to avoid double-read
 
