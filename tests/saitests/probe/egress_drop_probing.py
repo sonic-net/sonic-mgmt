@@ -197,12 +197,13 @@ class EgressDropProbing(ProbingBase):
             rx_port_resolver=self.get_rx_port
         )
 
+        # stream_manager's `pg=` is its traffic-class selector kwarg (shared
+        # across all probes); we pass the egress queue index here.
         self.stream_mgr.add_flow(FlowConfig(
             srcport, dstport,
             dmac=determine_traffic_dmac(dstport.mac, self.router_mac, is_dualtor, def_vlan_mac),
             dscp=self.dscp, ecn=self.ecn, ttl=ttl, length=packet_length
-        ), pg=self.queue)  # stream_manager's `pg=` is its traffic-class selector kwarg
-                           # (shared across all probes); we pass the egress queue index here.
+        ), pg=self.queue)
 
         self.stream_mgr.generate_packets()
 

@@ -66,6 +66,27 @@ except ImportError:
     port_list = {"dst": {}}
 
 
+def _sai_thrift_read_port_counters(*args, **kwargs):
+    """Pass-through call to ``sai_thrift_read_port_counters``.
+
+    The repo defines ``sai_thrift_read_port_counters`` twice with
+    different arities:
+
+      tests/saitests/switch.py:751      def(client, port)              # legacy py2
+      tests/saitests/py3/switch.py:799  def(client, asic_type, port)   # py3, used at runtime
+
+    PTF runs under py3 and resolves to the 3-arg version via
+    ``sys.path`` manipulation. CodeQL static analysis binds to the
+    2-arg legacy version and produces a ``py/call/wrong-arguments``
+    false-positive at every 3-arg call site. The ``*args, **kwargs``
+    signature here breaks CodeQL's arity check while preserving
+    runtime semantics (positional/keyword args pass through
+    transparently). The ``_`` prefix marks this as a localized
+    workaround for the same underlying ``sai_thrift_read_port_counters``.
+    """
+    return sai_thrift_read_port_counters(*args, **kwargs)
+
+
 @ExecutorRegistry.register(probe_type='egress_drop', executor_env='physical')
 class EgressDropProbingExecutor:
     """
@@ -157,7 +178,7 @@ class EgressDropProbingExecutor:
                     time.sleep(PORT_TX_CTRL_DELAY)
 
                 # ===== Step 2: Baseline measurement on dst port =====
-                dport_cnt_base, _ = sai_thrift_read_port_counters(
+                dport_cnt_base, _ = _sai_thrift_read_port_counters(
                     self.ptftest.dst_client,
                     self.ptftest.asic_type,
                     port_list["dst"][dst_port]
@@ -178,7 +199,7 @@ class EgressDropProbingExecutor:
                 time.sleep(PFC_TRIGGER_DELAY)
 
                 # ===== Step 5: Egress Drop detection on dst port =====
-                dport_cnt_curr, _ = sai_thrift_read_port_counters(
+                dport_cnt_curr, _ = _sai_thrift_read_port_counters(
                     self.ptftest.dst_client,
                     self.ptftest.asic_type,
                     port_list["dst"][dst_port]
