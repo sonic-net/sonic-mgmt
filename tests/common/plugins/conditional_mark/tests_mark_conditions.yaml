@@ -806,9 +806,9 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
 
 copp/test_copp.py::TestCoppStats:
   skip:
-    reason: "COPP Stats tests are not supported on Broadcom DNX platforms"
+    reason: "COPP Stats tests are only supported on Broadcom XGS platforms"
     conditions:
-      - "asic_subtype in ['broadcom-dnx']"
+      - "asic_type not in ['broadcom'] or asic_subtype in ['broadcom-dnx']"
 
 #######################################
 #####            crm              #####
