@@ -71,7 +71,7 @@ class XonDrainStepAlgorithm:
             Returns (None, None, elapsed) if max_iter reached.
         """
         t0 = time.time()
-        self.observer.console(
+        ProbingObserver.console(
             f"[XOn Drain Step] Starting step-by-step search "
             f"src={src_port} dst_A={dst_port_a} dst_B={dst_port_b} "
             f"max_iter={self.max_iter}"
@@ -90,25 +90,26 @@ class XonDrainStepAlgorithm:
                 **traffic_keys,
             )
             if not success:
-                self.observer.trace(
+                ProbingObserver.trace(
                     f"[XOn Drain Step] D={d}: check FAILED (inconsistent verification)"
                 )
                 continue
 
-            self.observer.trace(
+            ProbingObserver.trace(
                 f"[XOn Drain Step] D={d}: xon_fired={xon_fired}"
             )
 
             if xon_fired:
                 elapsed = time.time() - t0
-                self.observer.console(
+                ProbingObserver.console(
                     f"[XOn Drain Step] FOUND xon offset: lower={d - 1} upper={d} "
                     f"(after {d} iterations, {elapsed:.1f}s)"
                 )
                 return d - 1, d, elapsed
 
         elapsed = time.time() - t0
-        self.observer.on_error(
+        ProbingObserver.console(
             f"[XOn Drain Step] EXHAUSTED max_iter={self.max_iter} without finding xon trigger"
         )
         return None, None, elapsed
+

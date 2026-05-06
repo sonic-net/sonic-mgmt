@@ -77,7 +77,7 @@ class XonDrainBinaryAlgorithm:
         t0 = time.time()
         pfcxoff_point = self.executor.pfcxoff_point
 
-        self.observer.console(
+        ProbingObserver.console(
             f"[XOn Drain Binary] Starting binary-then-step "
             f"src={src_port} dst_A={dst_port_a} dst_B={dst_port_b} "
             f"pfcxoff_point={pfcxoff_point} range_limit={self.range_limit}"
@@ -113,7 +113,7 @@ class XonDrainBinaryAlgorithm:
             binary_iter += 1
 
             if not success:
-                self.observer.trace(
+                ProbingObserver.trace(
                     f"[XOn Drain Binary] mid={mid}: check FAILED (inconsistent); "
                     f"narrowing window aggressively"
                 )
@@ -126,20 +126,20 @@ class XonDrainBinaryAlgorithm:
             else:
                 lower = mid    # mid not enough, search upper
 
-            self.observer.trace(
+            ProbingObserver.trace(
                 f"[XOn Drain Binary] iter {binary_iter}: mid={mid} xon_fired={xon_fired} "
                 f"-> [{lower}, {upper}] width={upper - lower}"
             )
 
         if (upper - lower) > self.range_limit:
             elapsed = time.time() - t0
-            self.observer.on_error(
+            ProbingObserver.console(
                 f"[XOn Drain Binary] Phase 1 binary did not converge after "
                 f"{binary_iter} iterations; window=[{lower}, {upper}]"
             )
             return None, None, elapsed
 
-        self.observer.console(
+        ProbingObserver.console(
             f"[XOn Drain Binary] Phase 1 done: window=[{lower}, {upper}] width={upper - lower}"
         )
 
@@ -160,18 +160,18 @@ class XonDrainBinaryAlgorithm:
                 **traffic_keys,
             )
             if not success:
-                self.observer.trace(
+                ProbingObserver.trace(
                     f"[XOn Drain Binary] step D={d}: check FAILED (inconsistent)"
                 )
                 continue
 
-            self.observer.trace(
+            ProbingObserver.trace(
                 f"[XOn Drain Binary] step D={d}: xon_fired={xon_fired}"
             )
 
             if xon_fired:
                 elapsed = time.time() - t0
-                self.observer.console(
+                ProbingObserver.console(
                     f"[XOn Drain Binary] FOUND xon offset: lower={d - 1} upper={d} "
                     f"(binary iters={binary_iter}, step iters={step_iter}, "
                     f"total {elapsed:.1f}s)"
@@ -179,8 +179,9 @@ class XonDrainBinaryAlgorithm:
                 return d - 1, d, elapsed
 
         elapsed = time.time() - t0
-        self.observer.on_error(
+        ProbingObserver.console(
             f"[XOn Drain Binary] Phase 2 step exhausted [{lower}, {upper}] without "
             f"finding xon trigger"
         )
         return None, None, elapsed
+
