@@ -54,7 +54,7 @@ Key fields:
 |-----------------|-----------------------------------------------------------------------------------------------------------------------|
 | `conf-name`     | Referred to as the **testbed-name** in CLI scripts.                                                                   |
 | `topo`          | Specifies the SONiC topology (e.g., `t0`, `t1`).                                                                      |
-| `ptf_image_name`| Name of the API Docker server; can be arbitrary.                                                                      |
+| `ptf_image_name`| Name of the API Docker server; can be arbitrary. Set to `docker-stc-api-server` to use STC as the traffic-generator backend.                          |
 | `ptf`           | Not relevant for Snappi tests; can be any value.                                                                      |
 | `ptf_ip`        | IP address (IPv4/6) accessible from the testbed server running the Docker API Server.                                 |
 | `vm_base`       | Not relevant for Snappi tests; can be any value.                                                                      |
@@ -124,7 +124,7 @@ All python dependencies are installed in the `sonic-mgmt` docker container from 
 To deploy the IxNetwork API Server Docker, follow these steps:
 
 1. **Obtain the Docker Image**: Download the IxNetwork Web Edition Docker image (e.g., `IxNetworkWeb_Docker_<version>.tar`) from the [Keysight support portal](https://support.ixiacom.com/version/ixnetwork-1000-update-1). It will be the `IxNetwork Web Edition - Docker deployment`.
-    
+
 2. **Transfer the Image to the Host**: Copy the `.tar`/`tar.bz2` file to your testbed server (can be a Linux machine).
 
 3. Make sure the management interface has promiscuous mode enabled
@@ -144,16 +144,16 @@ To deploy the IxNetwork API Server Docker, follow these steps:
 ```bash
 tar xvjf <path_to_tar_file>
 ```
-	
+
 5. **Load the Docker Image**: On the host machine, load the Docker image using:
-    
+
     ```bash
     docker load -i IxNetworkWeb_Docker_<version>.tar
     ```
-    
+
 
 6. **Create a Macvlan Network**: To allow the container to communicate on the network, create a macvlan bridge:
-    
+
     ```bash
     docker network create -d macvlan \
       -o parent=<host_interface> \
@@ -161,7 +161,7 @@ tar xvjf <path_to_tar_file>
       --gateway=<gateway> \
       ixnet_macvlan
     ```
-    
+
 
 Replace `<host_interface>`, `<subnet>`, and `<gateway>` with your network interface and subnet details. *As you are setting the IPs, please keep note that the IxNetwork Docker Server, `sonic-mgmt` docker and traffic generator need to be reachable between each other (that means there either needs to be a tunnel between the 3 machines or they should be under a larger subnet)*.
 
@@ -173,7 +173,7 @@ docker network inspect IxNetVlanMac
 ```
 
 8. **Run the IxNetwork Container**: Start the container with the following command:
-    
+
     ```bash
     docker run --net <bridge_name> \
 	--ip <container ip> \
@@ -197,12 +197,12 @@ docker network inspect IxNetVlanMac
 Note : The folders within /opt/container/one/ should to be created with read and write permission prior docker run.
 
     ```
-    
+
 
 Replace `<container_ip>` with an available IP address in your subnet.
 
 9. **Access the Web Interface**: Open a browser and navigate to `http://<container_ip>/api/v1` to verify the API server is running (assuming your testbed server has a browser on it with a GUI).
-    
+
 
 For more detailed instructions, refer to the official [IxNetwork Docker deployment guide](https://www.openixia.amzn.keysight.com/static/tutorials/ixNetwork/dockers/IxNetwork_docker_installation.pdf).
 
@@ -220,26 +220,34 @@ To install `snappi-trex` on your testbed server and run tests using your physica
 
 ---
 
+### 3.4 Viavi STC Path
+
+#### 3.4.1 Deploying the STC OTG Service
+
+To deploy the STC OTG service, follow these [steps](https://github.com/Spirent-STC/stc-otg-setup/blob/main/README.md).
+
+---
+
 ## 4 Provisioning the Testbed
 
 1. **Generate & deploy a minigraph** matching your topology:
-    
+
     ```bash
     ./testbed-cli.sh deploy-mg <testbed-name> <inventory> password.txt
     ```
-    
+
     These commands build a DUT-specific `minigraph.xml` and push it via Ansible ([GitHub](https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/README.testbed.Minigraph.md)).
-    
+
 2. **Add the topology:**
-    
+
     ```bash
     ./testbed-cli.sh -t testbed.yaml -m veos -k veos add-topo <testbed-name> password.txt
     ```
-    
+
     The `add-topo` action provisions the API Docker container.
 
 > **Important** — Build & network the API-server container *before* running `add-topo`. The automation assumes the container is already reachable at `ptf_ip`; it does **not** import images or create macvlan bridges for you. Follow § 3.2.1 steps 1-8 first.
-    
+
 
 ---
 
@@ -291,6 +299,22 @@ sequenceDiagram
     Server-->>Api: Flow status & counters
     Api-->>Host: Test results
 ```
+### 6.3 STC
+
+```mermaid
+sequenceDiagram
+    participant Host as sonic-mgmt-docker
+    participant OtgApi as OTG API-Docker
+    participant Labserver as Labserver
+    participant Chassis as STC Chassis
+
+    Host->>OtgApi: snappi.set_config()
+    OtgApi->>Labserver: API
+    Labserver->>Chassis: API
+    Chassis-->>Labserver: Status & statistics
+    Labserver-->>OtgApi: Status & statistics
+    OtgApi-->>Host: Test results
+```
 
 ---
 
@@ -311,13 +335,13 @@ sequenceDiagram
 The `sonic-mgmt` repository already ships a self-contained [smoke test](https://github.com/sonic-net/sonic-mgmt/blob/master/tests/snappi_tests/test_snappi.py) at `tests/snappi_tests/test_snappi.py`. This verifies that:
 
 - all TG↔DUT links are operational;
-    
+
 - ARP resolution succeeds;
-    
+
 - bidirectional “all-to-all” IPv4 traffic flows between every pair of test-bed ports;
-    
+
 - every transmitted frame is received and the observed packet count is within ±5 % of the theoretical value.
-    
+
 
 The script relies exclusively on Snappi APIs and generic fixtures—no lab-specific secrets—so vendors can run it unmodified once their **`testbed.yaml`** and **`sonic_tgen_links.csv`** are in place.
 
@@ -327,16 +351,16 @@ The script relies exclusively on Snappi APIs and generic fixtures—no lab-speci
 
 1. **Fixture orchestration**
     `snappi_api`, `snappi_testbed_config`, `conn_graph_facts`, etc. create a fresh Snappi session, discover port maps and pick a random loss-less priority.
-    
+
 2. **Dynamic traffic matrix**
     Helper `__gen_all_to_all_traffic()` builds one flow per ordered port-pair (Tx ≠ Rx) and assigns an equal share of line-rate so aggregate load is 100%.
-    
+
 3. **Execution & polling**
     Traffic runs for 2 s; the script polls flow metrics until every stream reports `stopped`.
-    
+
 4. **Assertions**
     For each flow it asserts _Rx = Tx_ and that the actual packet count deviates ≤5 % from theory (based on speed, rate %, duration, and size).
-    
+
 
 Passing this test is a quick guarantee that cabling, API-Docker reachability, and DUT forwarding are all correct.
 
@@ -389,11 +413,11 @@ Resolve the issue, rerun the command, and proceed to the full Snappi regression 
 ## 10 Further References
 
 - Snappi SDK overview – PyPI([PyPI](https://pypi.org/project/snappi/))
-    
+
 - Snappi-IxNetwork plugin – PyPI & GitHub([PyPI](https://pypi.org/project/snappi-ixnetwork/), [GitHub](https://github.com/open-traffic-generator/snappi-ixnetwork))
-    
+
 - Snappi-TRex plugin – PyPI & GitHub([PyPI](https://pypi.org/project/snappi-trex/0.0.95/), [GitHub](https://github.com/open-traffic-generator/snappi-trex ))
-    
+
 - IxNetwork API-Docker deployment guide – OpenIxia ([openixia.com](https://www.openixia.com/tutorials?page=apiServer.html&subject=ixNetwork%2Fdockers "www.openixia.com"))
-    
+
 - TRex Stateless user guide – Cisco ([trex-tgn.cisco.com](https://trex-tgn.cisco.com/trex/doc/trex_manual.html))
