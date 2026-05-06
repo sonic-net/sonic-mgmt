@@ -152,7 +152,7 @@ class TestXonDrainBinaryAlgorithm:
         assert lower < 500 <= upper, \
             f"true threshold 500 must remain in window; got [{lower}, {upper}]"
 
-    @pytest.mark.order(8914.5)
+    @pytest.mark.order(8915)
     def test_binary_failed_check_does_not_exclude_real_threshold(self):
         """Regression for code review I2 (2026-05-06): the original code
         moved upper=mid on success=False, which could permanently exclude
@@ -204,7 +204,7 @@ class TestXonDrainBinaryAlgorithm:
         assert upper == 700, \
             f"phase 2 step should land exactly on 700, got upper={upper}"
 
-    @pytest.mark.order(8914.7)
+    @pytest.mark.order(8916)
     def test_binary_aborts_after_max_consecutive_failures(self):
         """If executor.check returns success=False repeatedly (>=3 times in
         a row), phase 1 aborts and phase 2 step search runs over the
@@ -239,7 +239,7 @@ class TestXonDrainBinaryAlgorithm:
         assert lower == 49 and upper == 50, \
             f"phase 2 should find threshold=50; got lower={lower}, upper={upper}"
 
-    @pytest.mark.order(8915)
+    @pytest.mark.order(8917)
     def test_traffic_keys_forwarded(self):
         from xon_drain_binary_algorithm import XonDrainBinaryAlgorithm
 
@@ -254,7 +254,7 @@ class TestXonDrainBinaryAlgorithm:
         assert call_kwargs["pg"] == 3
         assert call_kwargs["queue"] == 5
 
-    @pytest.mark.order(8916)
+    @pytest.mark.order(8918)
     def test_verification_attempts_propagated(self):
         from xon_drain_binary_algorithm import XonDrainBinaryAlgorithm
 
@@ -268,7 +268,7 @@ class TestXonDrainBinaryAlgorithm:
 
         assert executor.check.call_args.kwargs["attempts"] == 2
 
-    @pytest.mark.order(8917)
+    @pytest.mark.order(8919)
     def test_step_phase_exhaustion_returns_none(self):
         """Pathological: binary converges to a window but step-by-step
         within window also fails (xon never fires in [lower+1, upper])."""

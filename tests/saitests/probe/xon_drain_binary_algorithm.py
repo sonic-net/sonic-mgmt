@@ -44,6 +44,7 @@ class XonDrainBinaryAlgorithm:
         range_limit: int = 32,
         binary_max_iter: int = 20,
         step_max_iter: int = 50,
+        max_consecutive_failures: int = 3,
     ):
         """
         Args:
@@ -53,6 +54,11 @@ class XonDrainBinaryAlgorithm:
             range_limit: stop binary phase when window <= this.
             binary_max_iter: cap on binary iterations (safety).
             step_max_iter: cap on step iterations after binary narrowing.
+            max_consecutive_failures: number of consecutive ``check()``
+                failures (success=False) allowed before phase 1 aborts and
+                falls through to phase 2 over the uncorrupted window.
+                Tunable for very-noisy testbeds; default 3 is sensible for
+                most environments.
         """
         self.executor = executor
         self.observer = observer
@@ -60,6 +66,7 @@ class XonDrainBinaryAlgorithm:
         self.range_limit = range_limit
         self.binary_max_iter = binary_max_iter
         self.step_max_iter = step_max_iter
+        self.max_consecutive_failures = max_consecutive_failures
 
     def run(
         self,
@@ -96,7 +103,6 @@ class XonDrainBinaryAlgorithm:
         upper = pfcxoff_point        # D where xon DOES fire
         binary_iter = 0
         consecutive_failures = 0
-        max_consecutive_failures = 3
         binary_aborted_due_to_failures = False
 
         while (upper - lower) > self.range_limit and binary_iter < self.binary_max_iter:
@@ -125,9 +131,9 @@ class XonDrainBinaryAlgorithm:
                 # current (uncorrupted) [lower+1, upper] window.
                 ProbingObserver.trace(
                     f"[XOn Drain Binary] mid={mid}: check FAILED (inconsistent) "
-                    f"(consecutive_failures={consecutive_failures}/{max_consecutive_failures})"
+                    f"(consecutive_failures={consecutive_failures}/{self.max_consecutive_failures})"
                 )
-                if consecutive_failures >= max_consecutive_failures:
+                if consecutive_failures >= self.max_consecutive_failures:
                     ProbingObserver.console(
                         f"[XOn Drain Binary] Phase 1 aborted: {consecutive_failures} "
                         f"consecutive failures; falling back to phase 2 step over "
