@@ -1596,6 +1596,11 @@ def tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names):
         stats[metric_name+'_avg_latency_ns'] = metric.latency.average_ns
         stats[metric_name+'_max_latency_ns'] = metric.latency.maximum_ns
         stats[metric_name+'_min_latency_ns'] = metric.latency.minimum_ns
+        # Populate rate stats for STC/OTG backends where traf_metrics is empty.
+        # traf_metrics (IXIA-only) already sets _rxrate_Gbps; don't override it.
+        if metric_name+'_rxrate_Gbps' not in stats:
+            stats[metric_name+'_rxrate_Gbps'] = round(metric.rx_l1_rate_bps / 1e9, 2)
+            stats[metric_name+'_txrate_Gbps'] = round(metric.tx_l1_rate_bps / 1e9, 2)
     return stats
 
 
