@@ -57,7 +57,7 @@ class TestPfcXonProbingExecutorInit:
         assert ex.name == ""
         assert ex.max_fill_attempts == 3
         assert ex.fill_retry_margin == 2
-        assert ex.drain_settle_delay == 0.5
+        assert ex.drain_settle_delay == 2  # default = PFC_TRIGGER_DELAY (per code review I3)
 
     @pytest.mark.order(8801)
     def test_init_rejects_zero_pfcxoff_point(self):

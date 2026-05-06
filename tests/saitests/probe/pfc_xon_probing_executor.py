@@ -63,7 +63,13 @@ except ImportError:
 # Default tunables — can be overridden via __init__ kwargs
 _DEFAULT_FILL_VERIFICATION_ATTEMPTS = 3   # how many times to retry fill if xoff doesn't fire
 _DEFAULT_FILL_RETRY_MARGIN = 2            # extra packets to add when retrying fill
-_DEFAULT_DRAIN_SETTLE_DELAY = 0.5         # seconds after tx_enable before reading counter
+# NOTE (I3, code review 2026-05-06): default raised from 0.5s -> 2s (matches
+# PFC_TRIGGER_DELAY) to be symmetric with the fill phase post-traffic wait.
+# The 0.5s value was provisional and unvalidated on real hardware (UT/IT both
+# patch time.sleep so the asymmetry was never exercised). After physical
+# validation across Broadcom/Cisco/Mellanox confirms 0.5s is sufficient, this
+# can be lowered per ASIC family via the constructor kwarg.
+_DEFAULT_DRAIN_SETTLE_DELAY = 2           # seconds after tx_enable before reading counter
 
 
 @ExecutorRegistry.register(probe_type="pfc_xon", executor_env="physical")
@@ -73,6 +79,16 @@ class PfcXonProbingExecutor:
 
     Topology: 1 src -> 2 dst (dst_A is drain target, dst_B is the holder).
     Both dst flows enter the SAME ingress PG (same source port + same DSCP).
+
+    Protocol divergence from peer executors (intentional):
+      Peer executors (PfcXoffProbingExecutor, IngressDropProbingExecutor,
+      Sim*ProbingExecutor) use `check(src_port, dst_port, value, ...)` — 2 ports.
+      This executor uses `check(src_port, dst_port_a, dst_port_b, value, ...)` —
+      3 ports. The divergence is required because XOn is a fill-then-drain protocol
+      that needs two destination queues: dst_A is drained to test the XOn trigger
+      while dst_B holds back its share of the buffer fill. Algorithms paired with
+      this executor (XonDrainStepAlgorithm, XonDrainBinaryAlgorithm) are aware
+      of and use the 3-port signature explicitly.
 
     The constructor takes pfcxoff_point obtained from a prior PfcXoff probe
     so the executor knows the buffer fill level needed to trigger xoff.
@@ -163,7 +179,6 @@ class PfcXonProbingExecutor:
         dst_port_b: int,
         value: int,
         attempts: int = 1,
-        iteration: int = 0,
         **traffic_keys,
     ) -> Tuple[bool, bool]:
         """
@@ -179,7 +194,6 @@ class PfcXonProbingExecutor:
                 Must satisfy 1 <= value <= pfcxoff_point.
             attempts: outer verification attempts (multiple full check cycles
                 for noise resilience). Defaults to 1.
-            iteration: iteration index (for observer metrics).
             **traffic_keys: traffic identification (must include pg=N).
 
         Returns:

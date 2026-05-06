@@ -86,7 +86,6 @@ class XonDrainStepAlgorithm:
                 dst_port_b=dst_port_b,
                 value=d,
                 attempts=self.verification_attempts,
-                iteration=d,
                 **traffic_keys,
             )
             if not success:
@@ -112,4 +111,3 @@ class XonDrainStepAlgorithm:
             f"[XOn Drain Step] EXHAUSTED max_iter={self.max_iter} without finding xon trigger"
         )
         return None, None, elapsed
-

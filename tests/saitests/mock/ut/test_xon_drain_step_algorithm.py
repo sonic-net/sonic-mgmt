@@ -8,11 +8,12 @@ Covers:
 - prepare() being called once at start
 """
 
-import sys
+import sys  # noqa: F401
 import pytest
 from unittest.mock import MagicMock
 
-sys.path.insert(0, r'c:\ws\repo\sonic-mgmt-int\sonic-mgmt-int\tests\saitests\probe')
+# sys.path injection is handled by conftest.py (probe_dir prepended);
+# no per-file hardcoded path needed.
 
 from observer_config import ObserverConfig  # noqa: E402
 from probing_observer import ProbingObserver  # noqa: E402
@@ -47,8 +48,9 @@ class TestXonDrainStepAlgorithm:
         from xon_drain_step_algorithm import XonDrainStepAlgorithm
 
         executor = _make_executor()
+
         # check returns (success, xon_fired). xon fires when D=5.
-        def check_side(src_port, dst_port_a, dst_port_b, value, attempts, iteration, **kw):
+        def check_side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
             return (True, value >= 5)
         executor.check.side_effect = check_side
 
