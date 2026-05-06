@@ -57,7 +57,7 @@ warnings.filterwarnings(
 
 from spytest import st, tgapi
 
-from fx3_qos_helpers import (
+from qos_helpers import (
     GOLDEN_DSCP_TO_TC,
     # Shared IXIA IP constants — used in traffic streams and L3 setup by
     # setup_topo_common.  Ingress-A/B correspond to D1T1P1/D1T1P2; egress is
@@ -101,7 +101,7 @@ _TCAM_DUMP_COUNT = 256   # covers 64 IPv4 (1 slot each) + 64 IPv6 wide-key (2 sl
 _SPOT_CHECK = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 46: 5, 48: 6, 49: 7}
 
 # ─── Section D constants (Ixia traffic — topology auto-detected) ────────────
-# IP addressing is shared with WRED/scheduler suites via fx3_qos_helpers
+# IP addressing is shared with WRED/scheduler suites via qos_helpers
 # constants (IXIA_INGRESS_A_IP etc.).  setup_topo_common configures the DUT
 # L3 and IXIA interfaces, so these are reference aliases only.
 _IXIA_DST_V4  = IXIA_EGRESS_IP    # destination for ingress→egress streams
@@ -744,6 +744,7 @@ def test_dscp_map_exists():
         "DSCP_TO_TC map present in ASIC_DB with correct type. OID: {}".format(oid_key))
 
 
+@pytest.mark.smoke_non_breakout
 @pytest.mark.config_only
 def test_dscp_to_tc_entry_readback():
     """#22 — Verify all 64 ASIC_DB MAP_TO_VALUE_LIST entries match the AZURE golden map.
@@ -1308,7 +1309,10 @@ def test_per_dscp_queue_placement(af):
 
 
 @pytest.mark.traffic
-@pytest.mark.parametrize("af", ["ipv4", "ipv6"])
+@pytest.mark.parametrize("af", [
+    pytest.param("ipv4", marks=pytest.mark.smoke_breakout),
+    pytest.param("ipv6", marks=pytest.mark.smoke_non_breakout),
+])
 def test_zero_drops_on_expected_queue(af):
     """#19 — Verify no packets are dropped at low traffic rate.
 

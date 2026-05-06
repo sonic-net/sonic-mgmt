@@ -21,7 +21,7 @@
 """
 FX3 QoS Strict Priority Tests — verify STRICT scheduler queues with PIR enforcement.
 
-Topology is auto-detected by setup_topo_common (from fx3_qos_helpers):
+Topology is auto-detected by setup_topo_common (from qos_helpers):
   ixia      -- D1T1:3.  2 ingress + 1 egress, all IXIA on DUT1.
   peer_link -- D1T1:2 + D1D2:1 + D2T1:1.  Egress is the peer link to DUT2.
   breakout  -- D1T1:1 + D1D2:1 + D2T1:1.  1 ingress, 4x25G breakout egress.
@@ -37,7 +37,7 @@ within tolerance, given the configured PIR and available egress bandwidth.
 
 import pytest
 
-from fx3_qos_helpers import (
+from qos_helpers import (
     setup_topo_common,
     IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP, IXIA_EGRESS_IP,
     get_dut_mac, parse_speed_to_mbps,

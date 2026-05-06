@@ -47,7 +47,7 @@ import pytest
 from spytest import st
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from fx3_qos_helpers import (
+from qos_helpers import (
     GOLDEN_WRED_PROFILE,
     WRED_BOUND_QUEUES,
     verify_wred_profile,
@@ -282,6 +282,7 @@ def test_wred_disable_unbind_profile():
             'cleared, ASIC_DB unbound, DCHAL HW zeroed')
 
 
+@pytest.mark.smoke_non_breakout
 def test_wred_reenable_after_disable():
     """
     Test 20 (config only): Re-enable WRED after disable via config qos reload.

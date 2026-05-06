@@ -45,7 +45,7 @@ import pytest
 from spytest import st
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from fx3_qos_helpers import (
+from qos_helpers import (
     GOLDEN_WRED_PROFILE,
     verify_wred_profile,
     parse_redis_hgetall,

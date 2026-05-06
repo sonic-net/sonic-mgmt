@@ -21,7 +21,7 @@
 """
 FX3 QoS Scheduler Tests — testbed end-to-end verification (IPv4 + IPv6 dual-stack).
 
-Topology is auto-detected by setup_topo_common (from fx3_qos_helpers):
+Topology is auto-detected by setup_topo_common (from qos_helpers):
   ixia      — D1T1:3.  2 ingress + 1 egress, all IXIA on DUT1.
   peer_link — D1T1:2 + D1D2:1 + D2T1:1.  Egress is the peer link to DUT2.
   breakout  — D1T1:1 + D1D2:1 + D2T1:1.  1 ingress, 4x25G breakout egress.
@@ -81,7 +81,7 @@ FX3 constraints:
 
 import pytest
 
-from fx3_qos_helpers import (
+from qos_helpers import (
     setup_topo_common,
     V4_INGRESS_A_IP, V4_INGRESS_B_IP, V4_EGRESS_IP,
     V6_INGRESS_A_IP, V6_INGRESS_B_IP, V6_EGRESS_IP,
@@ -115,7 +115,7 @@ from spytest import st, tgapi
 
 
 # ── L3 Addresses ─────────────────────────────────────────────────────────
-# Keyed by port role.  Addresses match fx3_qos_helpers constants so that
+# Keyed by port role.  Addresses match qos_helpers constants so that
 # setup_topo_common and the traffic functions use the same L3 config.
 #
 # DUT-side IPv4/IPv6 (assigned to DUT interfaces)
@@ -256,7 +256,7 @@ def setup_topo():
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # ── Scheduler test library ────────────────────────────────────────────────────
 #    Shared helpers for all FX3 scheduler test cases in this file.
-#    These are intentionally kept here (not in fx3_qos_helpers.py) because they
+#    These are intentionally kept here (not in qos_helpers.py) because they
 #    depend on module-level test state (dut, tg, tg_ph, port_info, constants).
 
 def log_scheduler_state(label):
@@ -1002,6 +1002,7 @@ def test_fx3_scheduler_weight_change(setup_topo):
             'scheduler.2 20->30, scheduler.5 30->20, all others unchanged')
 
 
+@pytest.mark.smoke_non_breakout
 def test_fx3_bind_unbind_rebind_cycle(setup_topo):
     """Unbind Q0, then rebind Q0 to scheduler.4 (w=40); verify DCHAL and traffic ratios.
 
@@ -6260,8 +6261,6 @@ def test_fx3_all_sgs_dwrr_no_strict(setup_topo):
             'Q4/Q5>Q6/Q7>Q0-Q3; equal-weight groups equal; total ≈ 100%%')
 
 
-@pytest.mark.skip(reason="Deferred: meter_type=PACKETS rejection leaves orchagent "
-                  "in broken state causing syncd crash in subsequent tests — under investigation")
 def test_fx3_packet_meter_not_supported(setup_topo):
     """SCHEDULER with meter_type=PACKETS must be rejected at create time.
 
@@ -6407,21 +6406,35 @@ def test_fx3_packet_meter_not_supported(setup_topo):
     # ── Restore ─────────────────────────────────────────────
     # SAI rejected the create (meter_type=PACKETS) so orchagent entered a
     # backoff/error state and never added the key to m_schedulerTable.
-    # HDEL alone does NOT trigger a retry.  Strategy:
-    #  1. DEL the key entirely -- clears orchagent error state.
-    #  2. HSET it back as valid DWRR (no meter_type) -- orchagent treats as new,
-    #     creates OID, inserts into m_schedulerTable.
-    #  3. Poll until OID appears in ASIC_DB.
-    #  4. Final DEL -- safe because m_schedulerTable now has the entry.
-    st.banner("RESTORE: sched_packets_meter -- DEL + re-HSET (valid DWRR) "
+    # SAI rejected the create (meter_type=PACKETS) so orchagent never added
+    # "sched_packets_meter" to m_schedulerTable.
+    # Do not issue a DEL while the key is absent from m_schedulerTable.
+    # handleSchedulerTable() calls m_schedulerTable.at(key) on the DEL path;
+    # if the key was never inserted, that throws std::out_of_range -> SIGABRT.
+    # Strategy:
+    #  1. HSET as valid DWRR (no meter_type) -- orchagent treats as new create,
+    #     SAI create succeeds, key gets inserted into m_schedulerTable.
+    #  2. Poll until OID appears in ASIC_DB (confirms orchagent processed it).
+    #  3. Final DEL -- safe because m_schedulerTable now has the entry.
+    st.banner("RESTORE: sched_packets_meter -- HDEL meter_type -> HSET (valid DWRR) "
               "-> poll for OID -> DEL")
     oids_pre_repair = set(asic_db_get_sched_oids(dut))
-    # Step A: DEL to clear orchagent error state
+    # Step A: DO NOT issue CONFIG_DB DEL here.
+    # Issuing DEL while orchagent never inserted the key (SAI rejected the PACKETS
+    # create so m_schedulerTable has no entry) causes handleSchedulerTable() to call
+    # m_schedulerTable.at("sched_packets_meter") on a missing key -> std::out_of_range
+    # -> SIGABRT.  Go directly to the field-level HDEL + repair HSET instead.
+    #
+    # Step A2: HDEL the meter_type field from CONFIG_DB.
+    # The original HSET wrote meter_type=PACKETS into CONFIG_DB; HSET does not
+    # replace the hash, so meter_type would persist and cause SAI to reject the
+    # repair create again.  Remove it explicitly before the repair HSET.
     st.config(dut,
-              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_packets_meter"',
+              'sonic-db-cli CONFIG_DB HDEL "SCHEDULER|sched_packets_meter" "meter_type"',
               skip_error_check=True)
-    st.wait(1)
-    # Step B: re-HSET as valid DWRR (no meter_type) -- orchagent treats as new
+    # Step B: HSET as valid DWRR (no meter_type).
+    # orchagent sees SET for a key absent from m_schedulerTable -> treats as new
+    # create -> SAI create_scheduler succeeds -> entry inserted into m_schedulerTable.
     st.config(dut,
               'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_packets_meter" '
               '"type" "DWRR" "weight" "20"',
@@ -6436,8 +6449,9 @@ def test_fx3_packet_meter_not_supported(setup_topo):
             _repair_done = True
             break
     if not _repair_done:
-        st.log("  WARNING: repair OID never appeared in 15s -- "
-               "proceeding with final DEL anyway (error state cleared by DEL+HSET)")
+        st.report_fail('msg',
+            'packet-meter-not-supported FAILED: repair OID never appeared in '
+            'ASIC_DB after 15s -- orchagent did not process the repair HSET')
     # Step D: final DEL
     st.config(dut,
               'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_packets_meter"',

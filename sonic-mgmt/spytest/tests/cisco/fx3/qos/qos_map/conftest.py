@@ -1,8 +1,8 @@
 import sys
 import os
 
-# Add grandparent qos/ directory to path so fx3_qos_helpers can be found
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+# Add parent qos/ directory to path so qos_helpers can be found
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def pytest_configure(config):

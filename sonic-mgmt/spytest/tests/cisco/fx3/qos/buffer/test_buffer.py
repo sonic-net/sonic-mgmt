@@ -27,7 +27,7 @@ FX3 buffer_manager constraints (src/sai_buffer.cpp):
       (DEFAULT_POOL_CELLS=93804 * CELL_SIZE_BYTES=416)
   - One default egress profile seeded at init:
       POOL_ID=<default pool>, THRESHOLD_MODE=DYNAMIC,
-      SHARED_DYNAMIC_TH=27 (alpha=0x1b)
+      SHARED_DYNAMIC_TH=5 (SONiC) → FX3 alpha index 9 → ASIC alpha=27 (0x1b)
   - create with matching default attrs returns pre-seeded OID (idempotent)
   - create with non-matching attrs → NOT_SUPPORTED
   - set with matching HW value → SUCCESS; mismatch → NOT_SUPPORTED
@@ -38,7 +38,7 @@ FX3 HW constants:
   CELL_SIZE_BYTES         = 416
   DEFAULT_POOL_CELLS      = 93804
   EXPECTED_POOL_SIZE      = 93804 * 416 = 39,022,464 bytes
-  DEFAULT_DYNAMIC_TH      = 27
+  DEFAULT_DYNAMIC_TH      = 5  (SONiC range -8..7; maps to FX3 alpha=27)
 
 SONiC Redis paths:
   CONFIG_DB  BUFFER_POOL|<name>     TYPE / MODE / SIZE
@@ -53,18 +53,22 @@ Test plan mapping (scheduler_test_plan.md buffer section):
   (test_fx3_buffer_pool_mode_dynamic)   — MODE=dynamic
   (test_fx3_buffer_pool_size)           — SIZE matches HW constant
   (test_fx3_buffer_profile_exists)      — profile exists in CONFIG_DB + ASIC_DB
-  (test_fx3_buffer_profile_dynamic_th)  — DYNAMIC_TH=27 in ASIC_DB
+  (test_fx3_buffer_profile_dynamic_th)  — DYNAMIC_TH=5 in CONFIG_DB (SONiC valid range)
   (test_fx3_buffer_pool_stats)          — watermark/occupancy stats readable and sane
 """
 
 import pytest
 
-from fx3_qos_helpers import (
+from qos_helpers import (
+    setup_topo_common,
     parse_redis_hget,
     parse_redis_hgetall,
     ensure_interfaces_admin_up,
     tg_port_speed_gbps,
     get_dut_mac,
+    parse_speed_to_mbps,
+    V4_INGRESS_A_IP, V4_INGRESS_B_IP, V4_EGRESS_IP,
+    IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP, IXIA_EGRESS_IP,
 )
 
 from spytest import st, tgapi
@@ -75,7 +79,7 @@ from spytest import st, tgapi
 CELL_SIZE_BYTES    = 416
 DEFAULT_POOL_CELLS = 93804
 EXPECTED_POOL_SIZE = DEFAULT_POOL_CELLS * CELL_SIZE_BYTES   # 39,022,464
-DEFAULT_DYNAMIC_TH = 27
+DEFAULT_DYNAMIC_TH = 5
 
 # Default SONiC buffer object names on FX3 (as configured by config qos reload)
 # FX3 uses lossy (not lossless) naming; two profiles exist: _dwrr and _sp.
@@ -87,56 +91,60 @@ DEFAULT_PROFILE_NAME = 'egress_lossy_profile_dwrr'
 # ---------------------------------------------------------------------------
 dut        = None
 port_info  = {}
+topo_mode  = 'ixia'   # 'ixia', 'peer_link', or 'breakout' — set by setup_topo
 
 # ---------------------------------------------------------------------------
-# Module-level Ixia/traffic state (populated by setup_traffic fixture)
+# Module-level Ixia/traffic state (populated by setup_topo fixture)
 # ---------------------------------------------------------------------------
 tg           = None    # tg object from tgapi.get_handle_byname
 tg_ph        = {}      # {'ingress_a': ph, 'egress': ph}
 port_speeds  = {}      # {'ingress_a': 100, 'egress': 100}  Gbps
-STREAM_RATE_PCT = 90   # % of line rate; 2 ingress × 90% = 180% total → congests 10G egress buffer
+STREAM_RATE_PCT = 90   # % of line rate; overwritten by setup_topo
 
-# L3 addressing for traffic-based buffer tests (ingress_a + ingress_b → egress)
-_DUT_IPV4 = {
-    'ingress_a': '10.10.10.1/24',
-    'ingress_b': '10.10.11.1/24',
-    'egress':    '20.20.20.1/24',
+# L3 addressing — shared constants from qos_helpers (same across all topologies)
+IXIA_IPV4 = {
+    'ingress_a': IXIA_INGRESS_A_IP,
+    'ingress_b': IXIA_INGRESS_B_IP,
+    'egress':    IXIA_EGRESS_IP,
 }
-_IXIA_IPV4 = {
-    'ingress_a': '10.10.10.2',
-    'ingress_b': '10.10.11.2',
-    'egress':    '20.20.20.2',
-}
-_IXIA_GWV4      = {role: ip.split('/')[0] for role, ip in _DUT_IPV4.items()}
-_NETMASK        = '255.255.255.0'
-_IXIA_EGRESS_IP = _IXIA_IPV4['egress']
-_PKT_SIZE       = 128
-_TRAFFIC_DURATION = 10
+
+PKT_SIZE        = 128
+TRAFFIC_DURATION = 10
 # DSCP value that maps to each TC/queue under the FX3 default AZURE DSCP map
-_QUEUE_TO_DSCP  = {0: 0, 1: 6, 2: 2, 3: 3, 4: 4, 5: 46, 6: 48, 7: 49}
+QUEUE_TO_DSCP   = {0: 0, 1: 6, 2: 2, 3: 3, 4: 4, 5: 46, 6: 48, 7: 49}
 
 
 @pytest.fixture(scope='module')
 def setup_topo(request):
-    """Resolve DUT handle and port map from testbed; verify interfaces up."""
-    global dut, port_info
+    """Resolve DUT handle and port map from testbed; verify interfaces up.
 
-    tbd = st.get_testbed_vars()
-    dut = tbd.D1
+    Adapts automatically to the testbed topology via setup_topo_common:
+      * ixia      — D1T1:3, 2 ingress + 1 egress, all IXIA on DUT1
+      * peer_link — D1T1:2 + D1D2:1 + D2T1:1, egress via DUT2
+      * breakout  — D1T1:1 + D1D2:1 + D2T1:1, 1 ingress, 25G breakout egress
+    """
+    global dut, port_info, tg, tg_ph, port_speeds, topo_mode, STREAM_RATE_PCT
 
-    port_info = {
-        'egress':   tbd.D1T1P3,
-        'ingress_a': tbd.D1T1P1,
-        'ingress_b': tbd.D1T1P2,
-    }
+    for result in setup_topo_common(tgapi, target_queue=0):
+        dut = result['dut']
+        tg = result['tg']
+        tg_ph = result['tg_ph']
+        port_info = result['port_info']
+        topo_mode = result['mode']
 
-    st.log("Buffer test topology:")
-    for role, intf in port_info.items():
-        st.log("  {:<12} -> {}".format(role, intf))
+        # Convert port speed strings ('100G', '25G') to integer Gbps
+        raw_speeds = result['port_speeds']
+        port_speeds = {}
+        for role, spd_str in raw_speeds.items():
+            mbps = parse_speed_to_mbps(spd_str)
+            port_speeds[role] = mbps // 1000 if mbps else 100
 
-    yield
+        st.log("Buffer test topology (mode={}):".format(topo_mode))
+        for role, intf in port_info.items():
+            st.log("  {:<12} -> {}  ({}G)".format(
+                role, intf, port_speeds.get(role, '?')))
 
-    st.log("Buffer test teardown complete")
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -217,13 +225,14 @@ def _get_pool_stats_true_persistent(dut_h, pool_oid):
 # Test cases — Buffer Pool
 # ===========================================================================
 
+@pytest.mark.smoke_non_breakout
 def test_fx3_buffer_pool_exists(setup_topo):
     """Default egress buffer pool exists in CONFIG_DB and has an ASIC_DB OID.
 
     Maps to SAI test_default_create_pool_succeeds.
 
     Steps:
-      1. Read CONFIG_DB BUFFER_POOL|egress_lossless_pool
+      1. Read CONFIG_DB BUFFER_POOL|egress_lossy_pool
       2. Verify key is present (non-empty)
       3. Lookup OID in COUNTERS_DB COUNTERS_BUFFER_POOL_NAME_MAP
       4. Verify OID is non-empty and non-zero
@@ -408,7 +417,7 @@ def test_fx3_buffer_profile_exists(setup_topo):
 
 
 def test_fx3_buffer_profile_dynamic_th(setup_topo):
-    """Default buffer profile DYNAMIC_TH must be 27 (FX3 alpha=0x1b).
+    """Default buffer profile DYNAMIC_TH must be 5 (SONiC range -8..7; maps to FX3 ASIC alpha=27).
 
     Maps to SAI test_profile_dynamic_th.
     """
@@ -577,7 +586,7 @@ def test_fx3_buffer_profile_static_th(setup_topo):
 
     Maps to SAI test_profile_static_th.
 
-    The FX3 default profile uses DYNAMIC threshold mode (dynamic_th=27).
+    The FX3 default profile uses DYNAMIC threshold mode (dynamic_th=5, maps to ASIC alpha=27).
     In dynamic mode SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH is not set
     in ASIC_DB.  CONFIG_DB has no 'static_th' key either.
 
@@ -617,7 +626,7 @@ def test_fx3_buffer_profile_static_th(setup_topo):
             attr_out = st.show(dut,
                 'sonic-db-cli ASIC_DB HGETALL "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:{}"'.format(oid),
                 skip_tmpl=True)
-            from fx3_qos_helpers import parse_redis_hgetall as _hgetall
+            from qos_helpers import parse_redis_hgetall as _hgetall
             attrs = _hgetall(attr_out)
             st.log("  ASIC profile {} attrs: {}".format(oid, attrs))
             if 'SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH' in attrs:
@@ -1039,7 +1048,7 @@ def test_fx3_buffer_pool_stats_clear(setup_topo):
     st.log("  Watermark before clear: {:,} bytes".format(wm_before))
 
     # Step 1: clear watermarks (first clear)
-    st.config(dut, "watermarkstat -c", skip_error_check=True)
+    st.config(dut, "watermarkstat -c -t buffer_pool", skip_error_check=True)
     st.wait(2)
 
     # Read after first clear
@@ -1063,7 +1072,7 @@ def test_fx3_buffer_pool_stats_clear(setup_topo):
             "HW peak counter may not have been reset".format(wm_after1, wm_before))
 
     # Step 2: second clear (idempotent)
-    st.config(dut, "watermarkstat -c", skip_error_check=True)
+    st.config(dut, "watermarkstat -c -t buffer_pool", skip_error_check=True)
     st.wait(2)
 
     stats_after2 = _get_pool_stats(dut, pool_oid)
@@ -1097,96 +1106,20 @@ def test_fx3_buffer_pool_stats_clear(setup_topo):
             "cell-aligned; idempotent second clear: PASSED")
 
 
-# ===========================================================================
-# Fixture — Ixia + DUT L3 setup for traffic-based watermark tests
-# ===========================================================================
-
-@pytest.fixture(scope='module')
-def setup_traffic(request):
-    """Set up DUT L3 + Ixia IPv4 interfaces for traffic-based watermark tests.
-
-    Mirrors the working scheduler test setup_topo pattern:
-      - start_all_protocols + tg_arp_control to resolve ARP before traffic
-      - Both ingress ports send simultaneously to oversubscribe egress
-        (2×90% → 180% load on 10G egress fills the buffer pool)
-
-    Depends on the module-level dut/port_info populated by setup_topo.
-    """
-    global tg, tg_ph, port_speeds
-
-    st.ensure_min_topology("D1T1:3")
-
-    tg_handle, tg_ph_a = tgapi.get_handle_byname('T1D1P1')
-    _, tg_ph_b         = tgapi.get_handle_byname('T1D1P2')
-    _, tg_ph_e         = tgapi.get_handle_byname('T1D1P3')
-    tg   = tg_handle
-    tg_ph = {'ingress_a': tg_ph_a, 'ingress_b': tg_ph_b, 'egress': tg_ph_e}
-
-    for role, ph in tg_ph.items():
-        port_speeds[role] = tg_port_speed_gbps(tg, ph)
-    st.log("setup_traffic: port speeds — {}".format(port_speeds))
-
-    # DUT L3 config
-    l3_cmds = []
-    for role in sorted(_DUT_IPV4):
-        intf = port_info[role]
-        l3_cmds.append('config interface ip add {} {}'.format(intf, _DUT_IPV4[role]))
-    st.config(dut, '\n'.join(l3_cmds), skip_error_check=True)
-    st.wait(10)
-
-    # Ixia IPv4 interfaces
-    intf_handles = []
-    for role in sorted(_IXIA_IPV4):
-        result = tg.tg_interface_config(
-            mode='config', port_handle=tg_ph[role],
-            intf_ip_addr=_IXIA_IPV4[role], netmask=_NETMASK,
-            gateway=_IXIA_GWV4[role],
-            arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
-        if result and result.get('handle'):
-            intf_handles.append(result['handle'])
-
-    # Start protocol stacks (resolves ARP)
-    try:
-        tg.tg_topology_test_control(action='start_all_protocols')
-    except Exception:
-        st.warn("start_all_protocols unavailable; relying on arp_send_req")
-
-    st.wait(30)
-
-    # Force ARP from all Ixia interfaces
-    for h in intf_handles:
-        try:
-            tg.tg_arp_control(handle=h, arp_target='all')
-        except Exception as e:
-            st.warn("tg_arp_control failed for handle {}: {}".format(h, e))
-    st.wait(5)
-
-    ensure_interfaces_admin_up(dut, port_info.values())
-
-    yield
-
-    st.log("setup_traffic: teardown — removing L3 IPs")
-    cleanup_cmds = []
-    for role in sorted(_DUT_IPV4):
-        intf = port_info[role]
-        cleanup_cmds.append(
-            'config interface ip remove {} {}'.format(intf, _DUT_IPV4[role]))
-    st.config(dut, '\n'.join(cleanup_cmds), skip_error_check=True)
-    st.log("setup_traffic: teardown complete")
-
-
 # ---------------------------------------------------------------------------
 # Flex counter poll interval helpers (FLEX_COUNTER_DB, db5)
+# Watermarks are driven by flexcounter which reads POLL_INTERVAL from
+# FLEX_COUNTER_DB (db 5) FLEX_COUNTER_GROUP_TABLE:BUFFER_POOL_WATERMARK_STAT_COUNTER
 # ---------------------------------------------------------------------------
 _FLEX_COUNTER_DB_NUM  = 5
 _FLEX_GROUP_KEY       = 'FLEX_COUNTER_GROUP_TABLE:BUFFER_POOL_WATERMARK_STAT_COUNTER'
 _DEFAULT_POLL_MS      = 60000   # SONiC default (60 s)
 _TEST_POLL_MS         = 5000    # shortened during traffic tests (5 s)
-_POLL_SETTLE_SECS     = 8       # wait after shortening interval for a poll to fire
+_POLL_SETTLE_SECS     = 12      # wait after shortening interval for a poll to fire
 
 
 def _set_watermark_poll_interval(dut_h, interval_ms):
-    """Set BUFFER_POOL_WATERMARK flex counter poll interval (ms) via redis-cli."""
+    """Set BUFFER_POOL_WATERMARK flex counter poll interval (ms) via FLEX_COUNTER_DB."""
     st.config(dut_h,
         'redis-cli -n {} HSET "{}" POLL_INTERVAL {}'.format(
             _FLEX_COUNTER_DB_NUM, _FLEX_GROUP_KEY, interval_ms),
@@ -1194,18 +1127,32 @@ def _set_watermark_poll_interval(dut_h, interval_ms):
     st.log("  Flex counter poll interval set to {}ms".format(interval_ms))
 
 
+def _restore_watermark_poll_interval(dut_h):
+    """Restore default poll interval in FLEX_COUNTER_DB."""
+    st.config(dut_h,
+        'redis-cli -n {} HSET "{}" POLL_INTERVAL {}'.format(
+            _FLEX_COUNTER_DB_NUM, _FLEX_GROUP_KEY, _DEFAULT_POLL_MS),
+        skip_error_check=True)
+    st.log("  Flex counter poll interval restored to default ({}ms)".format(_DEFAULT_POLL_MS))
+
+
 # ===========================================================================
 # Test cases — Buffer pool watermark under traffic
 # ===========================================================================
 
-def test_fx3_buffer_pool_watermark_nonzero_under_traffic(setup_topo, setup_traffic):
+@pytest.mark.smoke_non_breakout
+def test_fx3_buffer_pool_watermark_nonzero_under_traffic(setup_topo):
     """SAI_BUFFER_POOL_STAT_WATERMARK_BYTES is positive after congesting traffic.
 
-    Sends 90%-rate IPv4 traffic on Q1 (DSCP 6) from both ingress ports to
-    congest the egress buffer pool (2×90% = 180% on 10G egress), then reads
+    Sends 90%-rate IPv4 traffic on Q1 (DSCP 6) from all available ingress
+    ports to congest the egress buffer pool, then reads
     SAI_BUFFER_POOL_STAT_WATERMARK_BYTES from:
       - USER_WATERMARKS:<oid>        (cleared by 'watermarkstat -c')
       - PERSISTENT_WATERMARKS:<oid>  (never cleared, truly sticky)
+
+    Topology-aware: uses all ingress roles present in port_info (1 in
+    breakout/peer_link, 2 in ixia).  90% per ingress stream oversubscribes
+    the egress link in all topologies (100G ingress vs <=100G egress).
 
     Note: PERIODIC_WATERMARKS is not validated here as it is cleared
     by the flex counter poll immediately after traffic stops (timing-sensitive).
@@ -1225,6 +1172,14 @@ def test_fx3_buffer_pool_watermark_nonzero_under_traffic(setup_topo, setup_traff
             'Watermark-under-traffic FAILED — no pool OID in COUNTERS_DB')
         return
 
+    _ingress_roles = sorted(k for k in port_info if k not in ('egress', 'egress_sink'))
+    dscp = QUEUE_TO_DSCP[1]   # Q1 / TC1
+    st.log("  Ingress roles: {}  Topology: {}".format(_ingress_roles, topo_mode))
+    st.log("  Streams: Q1 DSCP={} | rate={}% each | frame={}B | dur={}s | "
+           "{}×ingress->egress".format(
+        dscp, STREAM_RATE_PCT, PKT_SIZE, TRAFFIC_DURATION, len(_ingress_roles)))
+
+    stream_handles = []
     try:
         # ── Step 2: Shorten flex poll interval so watermark updates quickly ─
         _set_watermark_poll_interval(dut, _TEST_POLL_MS)
@@ -1240,43 +1195,26 @@ def test_fx3_buffer_pool_watermark_nonzero_under_traffic(setup_topo, setup_traff
         st.log("  Baseline — USER: {:,}  PERSISTENT: {:,} bytes".format(
             wm_user_before, wm_true_before))
 
-        # ── Step 4: Send oversubscribing traffic (ingress_a + ingress_b → egress)
-        #   2 × 90% on 10G → 10G egress = 180% load → fills egress buffer
-        # ────────────────────────────────────────────────────────────────
-        dut_mac_a = get_dut_mac(dut, port_info['ingress_a'])
-        dut_mac_b = get_dut_mac(dut, port_info['ingress_b'])
-        dscp = _QUEUE_TO_DSCP[1]   # Q1 / TC1
-        st.log("  Streams: Q1 DSCP={} | rate={}% each | frame={}B | dur={}s | "
-               "2×ingress→egress (180% total)".format(
-            dscp, STREAM_RATE_PCT, _PKT_SIZE, _TRAFFIC_DURATION))
-
-        stream_a = tg.tg_traffic_config(
-            mode='create', port_handle=tg_ph['ingress_a'],
-            l3_protocol='ipv4', l4_protocol='icmp',
-            ip_src_addr=_IXIA_IPV4['ingress_a'],
-            ip_dst_addr=_IXIA_EGRESS_IP,
-            mac_dst=dut_mac_a,
-            ip_dscp=dscp, ip_ttl=64,
-            frame_size=_PKT_SIZE,
-            rate_percent=STREAM_RATE_PCT,
-            transmit_mode='continuous',
-            high_speed_result_analysis=0,
-        )
-        stream_b = tg.tg_traffic_config(
-            mode='create', port_handle=tg_ph['ingress_b'],
-            l3_protocol='ipv4', l4_protocol='icmp',
-            ip_src_addr=_IXIA_IPV4['ingress_b'],
-            ip_dst_addr=_IXIA_EGRESS_IP,
-            mac_dst=dut_mac_b,
-            ip_dscp=dscp, ip_ttl=64,
-            frame_size=_PKT_SIZE,
-            rate_percent=STREAM_RATE_PCT,
-            transmit_mode='continuous',
-            high_speed_result_analysis=0,
-        )
+        # ── Step 4: Send oversubscribing traffic from all ingress ports ───
+        tg.tg_traffic_control(action='clear_stats')
+        for role in _ingress_roles:
+            dut_mac = get_dut_mac(dut, port_info[role])
+            result = tg.tg_traffic_config(
+                mode='create', port_handle=tg_ph[role],
+                l3_protocol='ipv4', l4_protocol='icmp',
+                ip_src_addr=IXIA_IPV4[role],
+                ip_dst_addr=IXIA_EGRESS_IP,
+                mac_dst=dut_mac,
+                ip_dscp=dscp, ip_ttl=64,
+                frame_size=PKT_SIZE,
+                rate_percent=STREAM_RATE_PCT,
+                transmit_mode='continuous',
+                high_speed_result_analysis=0,
+            )
+            stream_handles.append(result)
         tg.tg_traffic_control(action='apply')
         tg.tg_traffic_control(action='run')
-        st.wait(_TRAFFIC_DURATION)
+        st.wait(TRAFFIC_DURATION)
         tg.tg_traffic_control(action='stop')
         st.wait(2)
 
@@ -1294,9 +1232,9 @@ def test_fx3_buffer_pool_watermark_nonzero_under_traffic(setup_topo, setup_traff
         st.log("  After traffic — PERSISTENT_WATERMARKS:    {:,} bytes".format(wm_true))
 
     finally:
-        # ── Always restore poll interval ──────────────────────────────────
-        _set_watermark_poll_interval(dut, _DEFAULT_POLL_MS)
-        for sr in [locals().get('stream_a'), locals().get('stream_b')]:
+        # ── Always restore poll interval and remove streams ───────────────
+        _restore_watermark_poll_interval(dut)
+        for sr in stream_handles:
             try:
                 sid = sr.get('stream_id') if sr else None
                 if sid:

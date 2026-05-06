@@ -48,7 +48,7 @@ import pytest
 from spytest import st, tgapi
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from fx3_qos_helpers import (
+from qos_helpers import (
     QUEUE_TO_DSCP,
     setup_topo_common, verify_egress_reachable,
     deploy_dchal_helper,

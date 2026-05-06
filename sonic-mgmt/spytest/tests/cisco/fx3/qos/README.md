@@ -1,171 +1,135 @@
+# FX3 QoS Spytests
 
-QoS Spytest Validation Summary (FX3)
+SpyTest + IXIA validation of FX3 QoS: DSCP→TC mapping, scheduler (DWRR / strict
+priority), WRED, and buffer behavior. ASIC: Tahoe (Sundown1). SDK: Nexus SDK.
 
-This PR validates DSCP mapping, Scheduler (DWRR/SP), and WRED behavior on FX3
-under realistic traffic conditions using SpyTest + IXIA.
+## Layout
 
-Scheduler (DWRR / SP) Validation
-DWRR weight distribution validated across queues (Q0–Q5)
-Observed TX share aligns with configured weights within ±20% tolerance
-All queues passed share validation (6/6 PASS)
-Strict Priority queues (Q6–Q7) verified:
-No packet drops observed
-Behavior consistent with SP expectations
+The directory mirrors the FX3 QoS SAI test layout in `cisco-nx-sai`
+(`test/python/hw/mig_hw/fx3/qos/`) so the same area exists on both sides.
 
-✅  Result: Scheduler behavior validated (DWRR + SP)
+```text
+qos/
+├── conftest.py                    # registers `smoke` marker, hoists smoke first
+├── qos_helpers.py
+├── test_qos_integration.py        # cross-area end-to-end (DWRR + SP + WRED)
+├── test_simple_connect.py         # topology sanity
+├── buffer/
+├── qos_map/
+├── scheduler/
+└── wred/
+```
 
-WRED Validation (Linearity & Threshold Behavior)
-Traffic oversubscription used to trigger WRED (100% → ~105.5%)
-Queue depth observed to increase from ~1.1MB → ~3.0MB
-WRED drop probability increases linearly with queue depth
-Measured drop rate closely matches expected probability
+`test_qos_integration.py` holds the multi-port end-to-end scenarios (the
+"tortuga" use case). The area subdirectories hold focused per-feature tests.
 
-Key Observations:
-WRED operates in linear region (Zone B) as expected
-Drop behavior matches configured min/max thresholds
-No unexpected drop anomalies observed
+## Running
 
-✅  Result: WRED linearity and threshold behavior validated
+Tests are invoked via `bin/spytest` from `sonic-mgmt/spytest/`. See the
+[Testbed Setup wiki](https://ciscoteams.atlassian.net/wiki/spaces/WHITEBOX/pages/967479575/Testbed+Setup)
+for environment prerequisites (spytest container, mounts, IXIA access).
 
-Test Coverage
-The following test scenarios are covered:
+### Run modes
 
-Scheduler
-test_scheduler_dwrr_validation_ipv4
-test_scheduler_dwrr_validation_ipv6
+A curated 12-test smoke set is split across two topology-targeted markers so
+smoke runs cover both the non-breakout and breakout testbeds without
+duplicating coverage:
 
-WRED
-test_wred_active_zone_ipv4/ipv6
-test_wred_below_min_ipv4/ipv6
-test_wred_linearity_ipv4/ipv6
-test_wred_tail_drop_ipv4/ipv6
+- `@pytest.mark.smoke_non_breakout` (9 IDs) — pin to `fx3_qos_testbed.yaml`
+  (cheaper, 1 DUT). Covers config / DB / SAI checks plus the tests where
+  topology doesn't add coverage.
+- `@pytest.mark.smoke_breakout` (3 IDs) — pin to
+  `fx3_qos_testbed_breakout.yaml` so the 4×25G peer-link egress path gets
+  exercised in smoke.
 
-✅  Environment
-Platform: FX3
-ASIC: Tahoe (Sundown1)
-SDK: Nexus SDK
-SAI Version: 1.16.4
-Testbed: IXIA-based (2×100G ingress → 1×100G egress)
-Conclusion
-Scheduler (DWRR/SP) behavior is validated and stable
-WRED operates correctly across threshold regions with expected linearity
-End-to-end validation confirms correct integration across SONiC → SAI → DCHAL → ASIC
-Description of PR
-Summary:
+For IPv4/IPv6 traffic-test pairs, the two AFs are split across topologies —
+same egress queueing/drop machinery either way; topology is what's worth
+varying. Total smoke count is 12, distributed 9 + 3.
 
-✅  Test Result Examples
-Scheduler CLI:
-cd /data/sonic-mgmt/spytest && bin/spytest \
-  --testbed testbeds/fx3/fx3_qos_testbed_2022.yaml \
+`-m smoke` is auto-applied as the union (so `-m smoke` and
+`git grep smoke` keep working). `conftest.py` also hoists any smoke item to
+the front of the collection, so the full-suite invocation runs smoke first.
+
+| Goal | Command |
+|---|---|
+| Smoke (non-breakout topology) | `bin/spytest --testbed-file testbeds/fx3/fx3_qos_testbed.yaml ... -m smoke_non_breakout cisco/fx3/qos/` |
+| Smoke (breakout topology) | `bin/spytest --testbed-file testbeds/fx3/fx3_qos_testbed_breakout.yaml ... -m smoke_breakout cisco/fx3/qos/` |
+| Smoke union | `bin/spytest ... -m smoke cisco/fx3/qos/` |
+| Smoke first, then the rest | `bin/spytest ... cisco/fx3/qos/` (default) |
+| Same, fail fast on smoke | `bin/spytest ... --maxfail 3 cisco/fx3/qos/` |
+| Just non-smoke | `bin/spytest ... -m "not smoke" cisco/fx3/qos/` |
+| Smoke for one area only | `bin/spytest ... -m smoke cisco/fx3/qos/scheduler/` |
+| One specific test | `bin/spytest ... cisco/fx3/qos/<file>::<test>` |
+
+To see what is in each smoke set:
+`git grep -E 'smoke_(non_)?breakout' sonic-mgmt/spytest/tests/cisco/fx3/qos/`.
+
+Canonical full-suite command (smoke first, then everything else):
+
+```bash
+bin/spytest --testbed-file testbeds/fx3/fx3_qos_testbed.yaml \
   --device-feature-group master \
   --module-init-max-timeout=72000 \
   --tc-max-timeout=72000 \
   --port-init-wait 1 \
   --skip-init-checks \
+  --breakout-mode none \
   --logs-path run_logs/ \
-  cisco/fx3/qos/test_fx3_qos_integration.py -k 'test_scheduler_dwrr_validation'
+  cisco/fx3/qos/ 2>&1 | tee log
+```
 
-========================================================================
-  DWRR TX-SHARE VALIDATION  —  DWRR validation
-  Tolerance  : 20%  (±20% of expected share)
-  Total weight: 170  (Q0=20  Q1=20  Q2=20  Q3=40  Q4=40  Q5=30)
-========================================================================
-  Queue    Weight      Before (pkts)     After (pkts)       Tx Delta     Drop Delta
-  ------------------------------------------------------------------------
-  Q0       20                      0       84,387,397     84,387,397     86,065,657
-  Q1       20                      0       84,387,385     84,387,385     86,065,669
-  Q2       20                      0       84,387,389     84,387,389     86,065,665
-  Q3       40                      0      170,453,054    170,453,054              0
-  Q4       40                      0      170,453,054    170,453,054              0
-  Q5       30                      0      130,370,050    130,370,050     40,083,004
-  ------------------------------------------------------------------------
-  Total Tx delta: 724,438,329 pkts
+### Testbed YAMLs
 
-  Queue    Weight       Expected %       Actual %     Acceptable Range Result
-  ------------------------------------------------------------------------
-  Q0       20                11.8%          11.6%  [9.4% .. 14.1%]   PASS
-  Q1       20                11.8%          11.6%  [9.4% .. 14.1%]   PASS
-  Q2       20                11.8%          11.6%  [9.4% .. 14.1%]   PASS
-  Q3       40                23.5%          23.5%  [18.8% .. 28.2%]   PASS
-  Q4       40                23.5%          23.5%  [18.8% .. 28.2%]   PASS
-  Q5       30                17.6%          18.0%  [14.1% .. 21.2%]   PASS
-  ------------------------------------------------------------------------
-  DWRR share result : 6 passed,  0 failed
+Available in `testbeds/fx3/`:
 
-  Strict-Priority Queues (zero drops expected):
-  ------------------------------------------------------------------------
-  Queue         Before (drop)     After (drop)     Drop Delta Result
-  ------------------------------------------------------------------------
-  Q6                        0                0              0 PASS
-  Q7                        0                0              0 PASS
-  ------------------------------------------------------------------------
-========================================================================
+- `fx3_qos_testbed.yaml` — default 2×100G ingress → 1×100G egress
+- `fx3_qos_testbed_breakout.yaml` — breakout topology
+- `fx3_qos_testbed_config_only.yaml` — config-only (no traffic)
+- `fx3_qos_testbed_peer_link.yaml` — peer-link variant
 
+Swap YAMLs to run the same tests against a different topology.
 
+## What a passing run looks like
 
-WRED CLI:
-cd /data/sonic-mgmt/spytest && bin/spytest \
-  --testbed testbeds/fx3/fx3_qos_testbed_2022.yaml \
-  --device-feature-group master \
-  --module-init-max-timeout=72000 \
-  --tc-max-timeout=72000 \
-  --port-init-wait 1 \
-  --skip-init-checks \
-  --logs-path run_logs/ \
-  cisco/fx3/qos/test_fx3_qos_integration.py -k 'test_wred_linearity'
+### Scheduler DWRR (`test_scheduler_dwrr_validation`)
 
- ==========================================================================================
-   WRED LINEARITY SUMMARY (egress 100000M)
- ==========================================================================================
-     Margin    Port A    Port B     Rate% Avg Depth  Est. Prob  WRED Drop   Zone   Status
-   ----------------------------------------------------------------------------------------
-       250M   50.125%   50.125%  100.250%    1.12MB      0.30%      0.25%      B       OK
-       500M   50.250%   50.250%  100.500%    1.20MB      0.51%      0.50%      B       OK
-      1000M   50.500%   50.500%  101.000%    1.43MB      1.06%      0.99%      B       OK
-      2000M   51.000%   51.000%  102.000%    1.80MB      2.00%      1.96%      B       OK
-      3000M   51.500%   51.500%  103.000%    2.18MB      2.94%      2.91%      B       OK
-      4000M   52.000%   52.000%  104.000%    2.59MB      3.98%      3.85%      B       OK
-      5000M   52.500%   52.500%  105.000%    2.90MB      4.74%      4.76%      B       OK
-      5250M   52.625%   52.625%  105.250%    2.98MB      4.95%      4.99%      B       OK
-      5500M   52.750%   52.750%  105.500%    3.00MB      5.00%      5.29%      B       OK
- ==========================================================================================
+DWRR weight distribution validated across Q0–Q5; observed TX share within
+±20% of configured weight. Strict-priority Q6/Q7 see zero drops.
 
-Approach
-What is the motivation for this PR?
-To validate FX3 Tortuga QoS DSCP, Scheduler, WRED behavior on FX3 under realistic traffic conditions
-and ensure correct implementation across SAI, DCHAL, and ASIC layers, especially for threshold-based drop behavior.
+```text
+DWRR TX-SHARE VALIDATION  —  Tolerance ±20%
+Total weight: 170  (Q0=20  Q1=20  Q2=20  Q3=40  Q4=40  Q5=30)
 
-How did you do it?
-Added Scheduler validation helper functions in fx3_qos_helpers.py
-Added WRED validation helper functions in fx3_qos_helpers.py
-Implemented SpyTest-based WRED test cases
-Generated congestion using IXIA traffic to trigger WRED behavior
-Verified queue mapping and WRED profile application via SAI and DCHAL
+Queue  Weight  Expected %  Actual %  Acceptable Range  Result
+Q0     20      11.8%       11.6%     [9.4% .. 14.1%]   PASS
+Q1     20      11.8%       11.6%     [9.4% .. 14.1%]   PASS
+Q2     20      11.8%       11.6%     [9.4% .. 14.1%]   PASS
+Q3     40      23.5%       23.5%     [18.8% .. 28.2%]  PASS
+Q4     40      23.5%       23.5%     [18.8% .. 28.2%]  PASS
+Q5     30      17.6%       18.0%     [14.1% .. 21.2%]  PASS
+DWRR share result: 6 passed, 0 failed
 
-How did you verify/test it?
-Ran SAI regression tests (PASS)
-Validated min/max thresholds and drop behavior
-Monitored queue depth and drop counters via ASIC/DCHAL CLI
-Repeated traffic runs (multiple iterations) to confirm consistency
+Strict-Priority (zero drops expected):
+Q6   Drop Delta 0  PASS
+Q7   Drop Delta 0  PASS
+```
 
-Any platform specific information?
-Platform: FX3
-ASIC: Tahoe (Sundown1)
-SDK: Nexus SDK
-SAI Version: 1.16.4
+### WRED linearity (`test_wred_linearity`)
 
-Supported testbed topology if it's a new test case?
-test_scheduler_dwrr_validation_ipv4
-test_scheduler_dwrr_validation_ipv6
-test_wred_active_zone_ipv4
-test_wred_active_zone_ipv6
-test_wred_below_min_ipv4
-test_wred_below_min_ipv6
-test_wred_linearity_ipv4
-test_wred_linearity_ipv6
-test_wred_tail_drop_ipv4
-test_wred_tail_drop_ipv6
+Oversubscription drives queue depth from ~1.1 MB to ~3.0 MB; measured drop
+rate tracks expected probability in linear region (Zone B).
 
-Documentation
-https://wwwin-github.cisco.com/whitebox/cisco-nx-sai/pull/333
-https://ciscoteams.atlassian.net/wiki/spaces/WHITEBOX/pages/967479575/Testbed+Setup
+```text
+WRED LINEARITY SUMMARY (egress 100000M)
+Margin    Rate%     Avg Depth  Est. Prob  WRED Drop  Zone  Status
+250M      100.250%  1.12MB     0.30%      0.25%      B     OK
+500M      100.500%  1.20MB     0.51%      0.50%      B     OK
+1000M     101.000%  1.43MB     1.06%      0.99%      B     OK
+2000M     102.000%  1.80MB     2.00%      1.96%      B     OK
+5500M     105.500%  3.00MB     5.00%      5.29%      B     OK
+```
+
+## References
+
+- Testbed setup: <https://ciscoteams.atlassian.net/wiki/spaces/WHITEBOX/pages/967479575/Testbed+Setup>
+- SAI suite: <https://wwwin-github.cisco.com/whitebox/cisco-nx-sai> (`test/python/hw/mig_hw/fx3/qos/`)

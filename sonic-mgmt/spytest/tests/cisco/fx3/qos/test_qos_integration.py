@@ -60,7 +60,7 @@ warnings.filterwarnings(
 warnings.filterwarnings(
     "ignore", r".*connections\(\) is deprecated.*", DeprecationWarning)
 
-from fx3_qos_helpers import (
+from qos_helpers import (
     QUEUE_TO_DSCP, NUM_QUEUES, PKT_SIZE,
     V4_INGRESS_A_IP, V4_INGRESS_B_IP,
     V6_INGRESS_A_IP, V6_INGRESS_B_IP,
@@ -260,7 +260,10 @@ def setup_topo():
 #     ...  # commented out — see test_fx3_scheduler_2022.py for full implementation
 
 
-@pytest.mark.parametrize("af", ["ipv4", "ipv6"])
+@pytest.mark.parametrize("af", [
+    pytest.param("ipv4", marks=pytest.mark.smoke_breakout),
+    pytest.param("ipv6", marks=pytest.mark.smoke_non_breakout),
+])
 def test_scheduler_dwrr_validation(af):
     """Validate Tortuga DWRR weight ratios under 2:1 oversubscribed fan-in traffic.
 
@@ -723,8 +726,16 @@ def test_wred_below_min(af):
 
 # ── Test: WRED Zone B — active zone (drop 0-5%) ─────────────────────────
 
-@pytest.mark.parametrize("margin_mbps", [250, 500, 1000, 2000])
-@pytest.mark.parametrize("af", ["ipv4", "ipv6"])
+@pytest.mark.parametrize("af,margin_mbps", [
+    ("ipv4", 250),
+    ("ipv4", 500),
+    pytest.param("ipv4", 1000, marks=pytest.mark.smoke_non_breakout),
+    ("ipv4", 2000),
+    ("ipv6", 250),
+    ("ipv6", 500),
+    pytest.param("ipv6", 1000, marks=pytest.mark.smoke_breakout),
+    ("ipv6", 2000),
+])
 def test_wred_active_zone(af, margin_mbps):
     """Zone B: 1 MB < queue depth < 3 MB, WRED probability 0-5%.
 

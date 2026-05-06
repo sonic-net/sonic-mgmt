@@ -71,7 +71,7 @@ Parsers:
 
 
 Usage:
-  from fx3_qos_helpers import (
+  from qos_helpers import (
       QUEUE_TO_DSCP, EXPECTED_SCHEDULERS, TORTUGA_CONFIG,
       GOLDEN_WRED_PROFILE, WRED_BOUND_QUEUES, GOLDEN_DSCP_TO_TC,
       print_banner, print_section,
@@ -966,7 +966,7 @@ def verify_config_db_baseline(dut, egress_intf, port_info, fail_msgs):
 #
 # Deployed once into /tmp/dchal_qi.py inside the syncd container via
 # deploy_dchal_helper().  Uses show_queuing_intf.py already present in
-# /usr/share/sonic/dchalshell/ which calls 'insshell regdump dump' directly.
+# /opt/cisco/syncd/dchalshell/ which calls 'insshell regdump dump' directly.
 #
 # On some image versions (e.g. 2021 DUT) interface_pb2 (gRPC protobuf module)
 # is absent, so resolve_port()'s primary gRPC path raises ModuleNotFoundError
@@ -980,8 +980,8 @@ def verify_config_db_baseline(dut, egress_intf, port_info, fail_msgs):
 # output is for visibility, not a hard gate.
 DCHAL_QI_SCRIPT = """\
 import json, os, re, sys
-sys.path.insert(0, '/usr/share/sonic/dchalshell')
-sys.path.insert(0, '/usr/share/sonic/dchalshell/commands')
+sys.path.insert(0, '/opt/cisco/syncd/dchalshell')
+sys.path.insert(0, '/opt/cisco/syncd/dchalshell/commands')
 import show_queuing_intf
 from show_queuing_intf import (
     collect_queuing_data, format_output,
@@ -1061,8 +1061,8 @@ print(format_output(qd))
 
 DCHAL_AQM_SCRIPT = """\
 import json, os, re, sys
-sys.path.insert(0, '/usr/share/sonic/dchalshell')
-sys.path.insert(0, '/usr/share/sonic/dchalshell/commands')
+sys.path.insert(0, '/opt/cisco/syncd/dchalshell')
+sys.path.insert(0, '/opt/cisco/syncd/dchalshell/commands')
 try:
     import show_queuing_intf
     from show_queuing_intf import (
@@ -1194,8 +1194,8 @@ print('AQM_JSON:' + json.dumps(data))
 
 DCHAL_WRED_VARIANCE_SCRIPT = """\
 import sys, os, json
-sys.path.insert(0, '/usr/share/sonic/dchalshell')
-sys.path.insert(0, '/usr/share/sonic/dchalshell/commands')
+sys.path.insert(0, '/opt/cisco/syncd/dchalshell')
+sys.path.insert(0, '/opt/cisco/syncd/dchalshell/commands')
 try:
     import grpc
     import qos_pb2
@@ -1247,7 +1247,7 @@ except Exception as e:
 DCHAL_TCAM_SCRIPT = """\
 import json, re, subprocess, sys
 
-_DCHALSHELL_DIR = '/usr/share/sonic/dchalshell'
+_DCHALSHELL_DIR = '/opt/cisco/syncd/dchalshell'
 _DCHALSHELL_BIN = './dchalshell'
 
 
@@ -1508,7 +1508,7 @@ def dchal_tcam_info(dut, region="ing-l3-vlan-qos", min_used=None):
     """
     cmd = ("sudo docker exec syncd sh -c "
            "'printf \"acl show tcam-info ingress region {r}\\nquit\\n\" "
-           "| (cd /usr/share/sonic/dchalshell && ./dchalshell)'".format(r=region))
+           "| (cd /opt/cisco/syncd/dchalshell && ./dchalshell)'".format(r=region))
 
     _GRPC_NOT_READY = ("Connection refused", "Server connection not opened",
                        "StatusCode.UNAVAILABLE", "UNKNOWN: ipv4:")
@@ -1573,7 +1573,7 @@ def dchal_tcam_dump(dut, start_idx=1792, count=256):
     import json as _json
     cmd = ("sudo docker exec syncd sh -c "
            "'printf \"acl show tcam inst 0 ingress start-idx {s} count {c}\\nquit\\n\" "
-           "| (cd /usr/share/sonic/dchalshell && ./dchalshell)'".format(
+           "| (cd /opt/cisco/syncd/dchalshell && ./dchalshell)'".format(
                s=start_idx, c=count))
     out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True) or ''
     entries = _parse_tcam_dump_output(out)
@@ -1586,8 +1586,8 @@ def dchal_tcam_dump(dut, start_idx=1792, count=256):
 
 DCHAL_PEAK_SCRIPT = """\
 import json, os, re, sys
-sys.path.insert(0, '/usr/share/sonic/dchalshell')
-sys.path.insert(0, '/usr/share/sonic/dchalshell/commands')
+sys.path.insert(0, '/opt/cisco/syncd/dchalshell')
+sys.path.insert(0, '/opt/cisco/syncd/dchalshell/commands')
 try:
     import show_queuing_intf
     from show_queuing_intf import PortInfo, _resolve_sport_from_json
@@ -2431,13 +2431,13 @@ def dchal_clear_counters(dut_handle, interface):
     """
     st.config(dut_handle,
               "sudo docker exec syncd bash -c "
-              "\"cd /usr/share/sonic/dchalshell && "
+              "\"cd /opt/cisco/syncd/dchalshell && "
               "echo 'qos clear counters interface {}' "
               "| ./dchalshell\"".format(interface),
               skip_error_check=True)
     st.config(dut_handle,
               "sudo docker exec syncd bash -c "
-              "\"cd /usr/share/sonic/dchalshell && "
+              "\"cd /opt/cisco/syncd/dchalshell && "
               "echo 'qos clear counters buffers interface {}' "
               "| ./dchalshell\"".format(interface),
               skip_error_check=True)

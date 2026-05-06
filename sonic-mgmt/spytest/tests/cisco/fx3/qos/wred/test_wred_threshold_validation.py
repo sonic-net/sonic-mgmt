@@ -55,7 +55,7 @@ import pytest
 from spytest import st
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from fx3_qos_helpers import (
+from qos_helpers import (
     GOLDEN_WRED_PROFILE,
     ensure_interfaces_admin_up,
     parse_redis_hgetall,
@@ -152,6 +152,7 @@ def _restore_qos_baseline(dut_handle):
 
 # ── Tests ────────────────────────────────────────────────────────────────
 
+@pytest.mark.smoke_non_breakout
 def test_reject_min_gt_max():
     """Test 6: min_threshold > max_threshold is rejected by SAI (ASIC_DB unchanged).
 

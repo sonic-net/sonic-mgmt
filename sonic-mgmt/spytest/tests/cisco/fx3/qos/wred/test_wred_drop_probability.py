@@ -42,7 +42,7 @@ import pytest
 from spytest import st, tgapi
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from fx3_qos_helpers import (
+from qos_helpers import (
     QUEUE_TO_DSCP, IXIA_INGRESS_A_IP, IXIA_INGRESS_B_IP, IXIA_EGRESS_IP,
     NUM_QUEUES, PKT_SIZE,
     setup_topo_common, compute_single_queue_rate_pct,
