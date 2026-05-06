@@ -310,23 +310,22 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         # For QSFP-DD specification compliance will return type as passive or active
+        spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
         if xcvr_info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP", "SFP"]:
             if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable" or \
                     xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
                 return False
-        else:
-            spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
             if xcvr_info_dict["type_abbrv_name"] == "SFP":
                 compliance_code = spec_compliance_dict.get("SFP+CableTechnology")
                 if compliance_code == "Passive Cable":
                     return False
-            else:
-                compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code", " ")
-                if "CR" in compliance_code:
-                    return False
-                extended_code = spec_compliance_dict.get("Extended Specification Compliance", " ")
-                if "CR" in extended_code:
-                    return False
+        else:
+            compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code", " ")
+            if "CR" in compliance_code:
+                return False
+            extended_code = spec_compliance_dict.get("Extended Specification Compliance", " ")
+            if "CR" in extended_code:
+                return False
         return True
 
     def is_xcvr_resettable(self, request, xcvr_info_dict):
