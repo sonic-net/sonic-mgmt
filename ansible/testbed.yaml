@@ -5878,7 +5878,7 @@
 
 - conf-name: ptp-nh5010-1
   group-name:
-  topo: ptp-66-upper-spine-router
+  topo: ptp-66
   ptf_image_name: ''
   ptf: ''
   ptf_ip: ''
@@ -5893,7 +5893,7 @@
 
 - conf-name: ptp-nh5010-2
   group-name:
-  topo: ptp-66-upper-spine-router
+  topo: ptp-66
   ptf_image_name: ''
   ptf: ''
   ptf_ip: ''
