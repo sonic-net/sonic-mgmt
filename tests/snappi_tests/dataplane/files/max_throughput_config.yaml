@@ -1,0 +1,79 @@
+# Max Throughput Minimum Packet Size Test Configuration
+
+min_ports: 32
+traffic_duration_sec: 60
+line_rate_pct: 100
+tolerance_pkt_size_offset: 10
+
+srv6:
+  locator_name: "loc1"
+  locator_prefix: "fcbb:bbbb:1::"
+  block_len: 32
+  node_len: 16
+  func_len: 0
+  arg_len: 0
+  sid_action: "uN"
+  sid_ip: "fcbb:bbbb:1::"
+  decap_vrf: "default"
+  decap_dscp_mode: "pipe"
+  outer_dst_ip: "fcbb:bbbb:1:11a::2"
+
+# Each scenario defines which DUT features are enabled (true) or disabled (false).
+scenarios:
+  all_features:
+    description: "DataAcl + Everflow + EverflowV6 + IPinIP Decap + uSID Decap"
+    dataacl: true
+    everflow: true
+    everflowv6: true
+    ipinip_decap: true
+    usid_decap: true
+
+  dataacl_usid:
+    description: "DataAcl + uSID Decap"
+    dataacl: true
+    everflow: false
+    everflowv6: false
+    ipinip_decap: false
+    usid_decap: true
+
+  dataacl_ipinip_usid:
+    description: "DataAcl + IPinIP Decap + uSID Decap"
+    dataacl: true
+    everflow: false
+    everflowv6: false
+    ipinip_decap: true
+    usid_decap: true
+
+  ipinip_usid:
+    description: "IPinIP Decap + uSID Decap"
+    dataacl: false
+    everflow: false
+    everflowv6: false
+    ipinip_decap: true
+    usid_decap: true
+
+  dataacl_only:
+    description: "DataAcl only"
+    dataacl: true
+    everflow: false
+    everflowv6: false
+    ipinip_decap: false
+    usid_decap: false
+
+  no_features:
+    description: "No ACLs + No Decap"
+    dataacl: false
+    everflow: false
+    everflowv6: false
+    ipinip_decap: false
+    usid_decap: false
+
+# Per-platform minimum packet sizes (bytes) for zero-drop at 100% line rate.
+platform_thresholds:
+  "Nvidia 5640":
+    all_features: 2100
+    dataacl_usid: 2100
+    dataacl_ipinip_usid: 2100
+    ipinip_usid: 2100
+    dataacl_only: 2100
+    no_features: 2100
