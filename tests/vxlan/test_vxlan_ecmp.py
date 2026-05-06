@@ -57,6 +57,7 @@ import json
 import re
 import pytest
 import copy
+from ipaddress import ip_address, IPv4Address
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.ptf_runner import ptf_runner
@@ -72,6 +73,7 @@ SUPPORTED_ENCAP_TYPES = ['v4_in_v4', 'v4_in_v6', 'v6_in_v4', 'v6_in_v6']
 # Starting prefixes to be used for the destinations and End points.
 DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
+VPP_RANDOM_SRC_IP_TOLERANCE = 0.10
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
@@ -213,6 +215,8 @@ def fixture_setUp(duthosts,
 
     data['enable_bfd'] = request.config.option.bfd
     data['include_long_tests'] = request.config.option.include_long_tests
+    data['dump_vpp_state'] = request.config.option.vxlan_dump_vpp_state
+    data['asic_type'] = asic_type
     data['monitor_file'] = '/tmp/bfd_responder_monitor_file.txt'
     data['ptfhost'] = ptfhost
     data['tbinfo'] = tbinfo
@@ -415,6 +419,114 @@ class Test_VxLAN():
     '''
     vxlan_test_setup = {}
 
+    def _run_optional_debug_command(self, cmd):
+        Logger.info("Running VXLAN debug command: %s", cmd)
+        result = self.vxlan_test_setup['duthost'].shell(cmd, module_ignore_errors=True)
+        Logger.info("VXLAN debug command rc=%s stdout:\n%s\nstderr:\n%s",
+                    result.get('rc'), result.get('stdout', ''), result.get('stderr', ''))
+
+    def _record_vxlan_debug_info(self, label, dest_to_nh_map, force=False):
+        if not force and not self.vxlan_test_setup.get('dump_vpp_state'):
+            return
+        if self.vxlan_test_setup.get('asic_type') != 'vpp':
+            return
+
+        Logger.info("Recording VPP VXLAN debug state: %s", label)
+        cmds = [
+            "show vxlan tunnel",
+            "show vnet route all",
+            "docker exec syncd vppctl show vxlan tunnel",
+            "docker exec syncd vppctl show interface",
+            "docker exec syncd vppctl show bridge-domain",
+            "docker exec syncd vppctl show error"
+        ]
+
+        destinations = []
+        for _, dest_map in dest_to_nh_map.items():
+            destinations.extend(dest_map.keys())
+
+        for destination in sorted(set(destinations)):
+            try:
+                destination_addr = ip_address(destination)
+            except ValueError:
+                Logger.warning("Skipping VXLAN debug dump for invalid destination %s", destination)
+                continue
+            destination = str(destination_addr)
+            fib_cmd = "show ip fib" if isinstance(destination_addr, IPv4Address) else "show ip6 fib"
+            cmds.extend([
+                "docker exec syncd vppctl {} {}".format(fib_cmd, destination),
+                "sonic-db-cli APPL_DB keys 'VNET_ROUTE_TUNNEL_TABLE*{}*' | "
+                "while IFS= read -r key; do echo \"### $key\"; "
+                "sonic-db-cli APPL_DB hgetall \"$key\"; done".format(destination),
+                "sonic-db-cli APPL_DB keys 'VNET_ROUTE_TABLE*{}*' | "
+                "while IFS= read -r key; do echo \"### $key\"; "
+                "sonic-db-cli APPL_DB hgetall \"$key\"; done".format(destination),
+                "sonic-db-cli ASIC_DB keys '*ROUTE_ENTRY*{}*' | "
+                "while IFS= read -r key; do echo \"### $key\"; "
+                "sonic-db-cli ASIC_DB hgetall \"$key\"; done".format(destination)
+            ])
+
+        for endpoint in sorted(get_all_endpoints(dest_to_nh_map)):
+            try:
+                endpoint_addr = ip_address(endpoint)
+            except ValueError:
+                Logger.warning("Skipping VXLAN debug dump for invalid endpoint %s", endpoint)
+                continue
+            endpoint = str(endpoint_addr)
+            route_cmd = "show ip route" if isinstance(endpoint_addr, IPv4Address) else "show ipv6 route"
+            fib_cmd = "show ip fib" if isinstance(endpoint_addr, IPv4Address) else "show ip6 fib"
+            cmds.extend([
+                "{} {}".format(route_cmd, endpoint),
+                "docker exec syncd vppctl {} {}".format(fib_cmd, endpoint),
+                "sonic-db-cli ASIC_DB keys 'ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:*' | "
+                "while IFS= read -r key; do data=$(sonic-db-cli ASIC_DB hgetall \"$key\"); "
+                "echo \"$data\" | grep -F -q '{}' && echo \"### $key\" && echo \"$data\"; done".format(endpoint)
+            ])
+
+        for cmd in cmds:
+            self._run_optional_debug_command(cmd)
+
+    def _get_vpp_overlay_ecmp_weights(self, destination, nhs):
+        destination_addr = ip_address(destination)
+        fib_cmd = "show ip fib" if isinstance(destination_addr, IPv4Address) else "show ip6 fib"
+        cmd = "docker exec syncd vppctl {} {}".format(fib_cmd, destination)
+        bucket_pattern = re.compile(r"^\s*\[\d+\]\s+\[@\d+\]:\s+\S+\s+via\s+(\S+)(?:\s|$)")
+        missing_nhs = set(nhs)
+        bucket_counts = {}
+        result = {}
+        stdout = ''
+
+        for _ in range(10):
+            result = self.vxlan_test_setup['duthost'].shell(cmd, module_ignore_errors=True)
+            stdout = result.get('stdout', '')
+            bucket_counts = {}
+            for line in stdout.splitlines():
+                match = bucket_pattern.search(line)
+                if not match:
+                    continue
+                nh = match.group(1)
+                if nh in nhs:
+                    bucket_counts[nh] = bucket_counts.get(nh, 0) + 1
+
+            missing_nhs = set(nhs) - set(bucket_counts)
+            if not missing_nhs:
+                break
+            time.sleep(1)
+
+        if missing_nhs:
+            raise RuntimeError(
+                "Unable to parse VPP ECMP bucket weights for destination {}. "
+                "Missing nexthops: {}. Command: {}. rc:{}. stdout:\n{}\nstderr:\n{}".format(
+                    destination,
+                    sorted(missing_nhs),
+                    cmd,
+                    result.get('rc'),
+                    stdout,
+                    result.get('stderr', '')))
+
+        Logger.info("VPP overlay ECMP bucket weights for %s: %s", destination, bucket_counts)
+        return {destination: bucket_counts}
+
     def dump_self_info_and_run_ptf(self,
                                    tcname,
                                    encap_type,
@@ -427,17 +539,20 @@ class Test_VxLAN():
                                    underlay_tolerance=None,
                                    underlay_tolerance_within_lag=None,
                                    check_underlay_ecmp=False,
-                                   payload=None):
+                                   payload=None,
+                                   overlay_ecmp_weights=None,
+                                   dest_to_nh_map=None):
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
         '''
 
+        ptf_dest_to_nh_map = dest_to_nh_map or self.vxlan_test_setup[encap_type]['dest_to_nh_map']
         if check_underlay_ecmp:
             outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
             # For each VNET endpoint (nexthop), get the list of all interfaces from which VxLAN packets to
             # that endpoint can be sent out. This is typically the same as all PortChannel interfaces to T2 neighbors.
-            endpoints = get_all_endpoints(self.vxlan_test_setup[encap_type]['dest_to_nh_map'])
+            endpoints = get_all_endpoints(ptf_dest_to_nh_map)
             self.vxlan_test_setup["endpoint_to_egress_interfaces"] = {}
             for endpoint in endpoints:
                 self.vxlan_test_setup["endpoint_to_egress_interfaces"][endpoint] = \
@@ -466,7 +581,7 @@ class Test_VxLAN():
             {
                 'vnet_vni_map': self.vxlan_test_setup[encap_type]['vnet_vni_map'],
                 'vnet_intf_map': self.vxlan_test_setup[encap_type]['vnet_intf_map'],
-                'dest_to_nh_map': self.vxlan_test_setup[encap_type]['dest_to_nh_map'],
+                'dest_to_nh_map': ptf_dest_to_nh_map,
                 'neighbors': self.vxlan_test_setup[encap_type]['neighbor_config'],
                 'intf_to_ip_map': self.vxlan_test_setup[encap_type]['intf_to_ip_map'],
                 'endpoint_to_egress_interfaces': self.vxlan_test_setup["endpoint_to_egress_interfaces"]
@@ -503,22 +618,34 @@ class Test_VxLAN():
             "underlay_tolerance_within_lag": underlay_tolerance_within_lag,
             "downed_endpoints": list(self.vxlan_test_setup['list_of_downed_endpoints'])
         }
+        if overlay_ecmp_weights:
+            ptf_params["overlay_ecmp_weights"] = overlay_ecmp_weights
         Logger.info("ptf arguments:%s", ptf_params)
-        Logger.info(
-            "dest->nh mapping:%s", self.vxlan_test_setup[encap_type]['dest_to_nh_map'])
+        Logger.info("dest->nh mapping:%s", ptf_dest_to_nh_map)
 
-        ptf_runner(self.vxlan_test_setup['ptfhost'],
-                   "ptftests",
-                   "vxlan_traffic.VxLAN_in_VxLAN" if payload == 'vxlan'
-                   else "vxlan_traffic.VXLAN",
-                   platform_dir="ptftests",
-                   params=ptf_params,
-                   qlen=1000,
-                   log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(
-                       tcname,
-                       encap_type,
-                       datetime.now().strftime('%Y-%m-%d-%H:%M:%S')),
-                   is_python3=True)
+        self._record_vxlan_debug_info(
+            "{}-before-ptf".format(tcname),
+            ptf_dest_to_nh_map)
+
+        try:
+            ptf_runner(self.vxlan_test_setup['ptfhost'],
+                       "ptftests",
+                       "vxlan_traffic.VxLAN_in_VxLAN" if payload == 'vxlan'
+                       else "vxlan_traffic.VXLAN",
+                       platform_dir="ptftests",
+                       params=ptf_params,
+                       qlen=1000,
+                       log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(
+                           tcname,
+                           encap_type,
+                           datetime.now().strftime('%Y-%m-%d-%H:%M:%S')),
+                       is_python3=True)
+        except BaseException:
+            self._record_vxlan_debug_info(
+                "{}-after-ptf-failure".format(tcname),
+                ptf_dest_to_nh_map,
+                force=True)
+            raise
 
     def update_monitor_list(self, bfd_enable, encap_type, ip_address_list):
         '''
@@ -1377,17 +1504,16 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             tc10: remove tunnel route 2. send packets to route 2's prefix dst.
         '''
         self.vxlan_test_setup = setUp
-        self.setup_route2_shared_endpoints(encap_type)
-        Logger.info("Backup the current route config.")
         vnet = list(self.vxlan_test_setup[encap_type]['vnet_vni_map'].keys())[0]
-        full_map = self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet].copy()
         payload_af = ecmp_utils.get_payload_version(encap_type)
+        original_map = copy.deepcopy(
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map_orignal'][vnet])  # noqa: F821
 
-        Logger.info(
-            "This is to keep track if the selected route "
-            "should be deleted in the end.")
-        del_needed = False
         try:
+            self.setup_route2_shared_endpoints(encap_type)
+            Logger.info("Backup the current route config.")
+            full_map = self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet].copy()
+
             Logger.info("Choose a vnet for testing.")
 
             Logger.info("Choose a destination and its nhs to delete.")
@@ -1408,8 +1534,6 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
                 tc10_nhs,
                 "DEL")
 
-            del_needed = True
-
             Logger.info(
                 "We should pass only the deleted entry to the ptf call,"
                 "and expect encap to fail.")
@@ -1429,17 +1553,19 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = full_map.copy()
             Logger.info("Remove the deleted entry alone.")
             del self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet][tc10_dest]
-            del_needed = False
 
             Logger.info("Check the traffic is working in the other routes.")
             self.dump_self_info_and_run_ptf("tc10", encap_type, True)
 
-        except BaseException:
-            self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = full_map.copy()
-            Logger.info("Remove the deleted entry alone.")
-            if del_needed:
-                del self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet][tc10_dest]
-            raise
+        finally:
+            Logger.info("Restore the original routes in the DUT.")
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = original_map.copy()
+            ecmp_utils.set_routes_in_dut(
+                self.vxlan_test_setup['duthost'],
+                {vnet: original_map},
+                payload_af,
+                "SET",
+                bfd=self.vxlan_test_setup['enable_bfd'])
 
 
 @pytest.mark.skipif(
@@ -1496,11 +1622,18 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
             "Apply the config in the DUT and verify traffic. "
             "The random hash and ECMP check is already taken care of in the "
             "VxLAN PTF script.")
+        overlay_ecmp_weights = None
+        ptf_dest_to_nh_map = None
+        if self.vxlan_test_setup.get('asic_type') == 'vpp':
+            overlay_ecmp_weights = self._get_vpp_overlay_ecmp_weights(tc11_new_dest, tc11_new_nhs)
+            ptf_dest_to_nh_map = {vnet: {tc11_new_dest: tc11_new_nhs}}
         self.dump_self_info_and_run_ptf(
             "tc11",
             encap_type,
             True,
-            packet_count=1000)
+            packet_count=1000,
+            overlay_ecmp_weights=overlay_ecmp_weights,
+            dest_to_nh_map=ptf_dest_to_nh_map)
 
 
 @pytest.mark.skipif(
@@ -1555,6 +1688,14 @@ class Test_VxLAN_entropy(Test_VxLAN):
             encap_type,
             end_point_list)
         Logger.info("Verify that the new config takes effect and run traffic.")
+        overlay_ecmp_weights = None
+        ptf_dest_to_nh_map = None
+        if self.vxlan_test_setup.get('asic_type') == 'vpp':
+            overlay_ecmp_weights = self._get_vpp_overlay_ecmp_weights(new_dest, end_point_list)
+            ptf_dest_to_nh_map = {vnet: {new_dest: end_point_list}}
+            if random_src_ip and not random_sport and not random_dport:
+                base_tolerance = tolerance if tolerance is not None else self.vxlan_test_setup['tolerance']
+                tolerance = max(base_tolerance, VPP_RANDOM_SRC_IP_TOLERANCE)
         self.dump_self_info_and_run_ptf(
             "entropy",
             encap_type,
@@ -1563,7 +1704,9 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_dport=random_dport,
             random_src_ip=random_src_ip,
             packet_count=1000,
-            tolerance=tolerance)
+            tolerance=tolerance,
+            overlay_ecmp_weights=overlay_ecmp_weights,
+            dest_to_nh_map=ptf_dest_to_nh_map)
 
     def test_verify_entropy(self, setUp, encap_type):
         '''

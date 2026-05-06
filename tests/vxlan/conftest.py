@@ -173,6 +173,13 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
+        "--vxlan_dump_vpp_state",
+        action="store_true",
+        help="Collect VPP-focused VXLAN route debug state before PTF runs and "
+             "after PTF failures."
+    )
+
+    vxlan_group.addoption(
         "--keep_temp_files",
         action="store_true",
         help="This will keep the config files in the DUT and PTF."

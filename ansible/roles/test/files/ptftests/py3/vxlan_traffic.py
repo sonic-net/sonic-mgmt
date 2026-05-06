@@ -157,6 +157,7 @@ class VXLAN(BaseTest):
         self.expect_encap_success = self.test_params['expect_encap_success']
         self.packet_count = self.test_params['packet_count']
         self.downed_endpoints = self.test_params['downed_endpoints']
+        self.overlay_ecmp_weights = self.test_params.get('overlay_ecmp_weights', {})
         self.t2_ports = self.test_params['t2_ports']
         # The ECMP check fails occasionally if there is not enough packets.
         # We should keep the packet count atleast MIN_PACKET_COUNT.
@@ -292,7 +293,8 @@ class VXLAN(BaseTest):
                                           nhs,
                                           returned_ip_addresses,
                                           packet_count,
-                                          downed_endpoints=[]):
+                                          downed_endpoints=[],
+                                          destination=None):
         '''
            Verify the ECMP functionality using 2 checks.
            Check 1 verifies every nexthop address has been used.
@@ -304,6 +306,7 @@ class VXLAN(BaseTest):
                                        and corresponding packet counts.
         '''
 
+        nhs = list(nhs)
         if downed_endpoints:
             for down_endpoint in downed_endpoints:
                 if down_endpoint in nhs:
@@ -328,6 +331,56 @@ class VXLAN(BaseTest):
             # packets(300). Any lower number will need higher
             # tolerance(more than 2%).
             if packet_count > MINIMUM_PACKETS_FOR_ECMP_VALIDATION:
+                expected_weights = self.overlay_ecmp_weights.get(destination, {})
+                if expected_weights:
+                    unexpected_nhs = set(returned_ip_addresses) - set(nhs)
+                    if unexpected_nhs:
+                        raise RuntimeError(
+                            "Unexpected ECMP nexthop address(es) used for "
+                            "destination {}: {}, expected:{}, got:{}".format(
+                                destination,
+                                unexpected_nhs,
+                                nhs,
+                                returned_ip_addresses))
+
+                    expected_total_packets = packet_count * len(nhs)
+                    total_weight = 0
+                    for nh_address in nhs:
+                        if nh_address not in expected_weights:
+                            raise RuntimeError(
+                                "ECMP nexthop address: {} has no expected weight "
+                                "for destination {}. Expected weights:{}".format(
+                                    nh_address, destination, expected_weights))
+                        total_weight += expected_weights[nh_address]
+                    if total_weight <= 0:
+                        raise RuntimeError(
+                            "Invalid ECMP weights for destination {}: {}".format(
+                                destination, expected_weights))
+
+                    for nh_address in list(returned_ip_addresses.keys()):
+                        if nh_address not in nhs:
+                            continue
+                        expected_count = float(expected_total_packets * expected_weights[nh_address]) / total_weight
+                        probability = float(expected_weights[nh_address]) / total_weight
+                        statistical_tolerance = 3 * math.sqrt(
+                            expected_total_packets * probability * (1.0 - probability))
+                        allowed_deviation = max(self.tolerance * expected_count, statistical_tolerance)
+                        if abs(returned_ip_addresses[nh_address] - expected_count) <= allowed_deviation:
+                            pass
+                        else:
+                            raise RuntimeError(
+                                "ECMP nexthop address: {} received too less or too"
+                                " many of the packets expected. Expected:{:.2f}, "
+                                "allowed deviation:{:.2f}, received on that address:{}, "
+                                "destination:{}, weights:{}".format(
+                                    nh_address,
+                                    expected_count,
+                                    allowed_deviation,
+                                    returned_ip_addresses[nh_address],
+                                    destination,
+                                    expected_weights))
+                    return
+
                 for nh_address in list(returned_ip_addresses.keys()):
                     if (1.0-self.tolerance) * packet_count <= \
                         returned_ip_addresses[nh_address] <= \
@@ -468,6 +521,9 @@ class VXLAN(BaseTest):
                     str(ptf_port),
                     destination)
                 total_vxlan_count = 0
+                ignored_non_vxlan_count = 0
+                ignored_wrong_port_count = 0
+                ignored_packet_samples = []
                 # We send a fixed number of packets per iteration and then process responses
                 # to avoid overflowing ingress buffers (so that responses are not dropped by the kernel).
                 number_of_iterations = math.ceil(packet_count / self.PACKETS_PER_ITERATION)
@@ -571,27 +627,33 @@ class VXLAN(BaseTest):
                                 self, timeout=wait_timeout
                             )
                             if isinstance(result, self.dataplane.PollSuccess):
-                                if not isinstance(
-                                    result, self.dataplane.PollSuccess) or \
-                                        result.port not in self.t2_ports or \
-                                        "VXLAN" not in scapy.Ether(result.packet):
+                                scapy_pkt = scapy.Ether(result.packet)
+                                if result.port not in self.t2_ports:
+                                    ignored_wrong_port_count += 1
+                                    if len(ignored_packet_samples) < 5:
+                                        ignored_packet_samples.append(
+                                            "unexpected port {}: {}".format(result.port, scapy_pkt.summary()))
                                     continue
+                                if "VXLAN" not in scapy_pkt:
+                                    ignored_non_vxlan_count += 1
+                                    if len(ignored_packet_samples) < 5:
+                                        ignored_packet_samples.append(
+                                            "non-vxlan port {}: {}".format(result.port, scapy_pkt.summary()))
+                                    continue
+                                vxlan_count += 1
+                                # Store every destination that was received.
+                                if isinstance(
+                                        ip_address(host_address), IPv6Address):
+                                    dest_ip = scapy_pkt['IPv6'].dst
                                 else:
-                                    vxlan_count += 1
-                                    scapy_pkt = scapy.Ether(result.packet)
-                                    # Store every destination that was received.
-                                    if isinstance(
-                                            ip_address(host_address), IPv6Address):
-                                        dest_ip = scapy_pkt['IPv6'].dst
-                                    else:
-                                        dest_ip = scapy_pkt['IP'].dst
-                                    try:
-                                        returned_ip_addresses[dest_ip] = \
-                                            returned_ip_addresses[dest_ip] + 1
-                                    except KeyError:
-                                        returned_ip_addresses[dest_ip] = 1
-                                    current_count = endpoint_to_port_index_to_count[host_address].get(result.port, 0)
-                                    endpoint_to_port_index_to_count[host_address][result.port] = current_count + 1
+                                    dest_ip = scapy_pkt['IP'].dst
+                                try:
+                                    returned_ip_addresses[dest_ip] = \
+                                        returned_ip_addresses[dest_ip] + 1
+                                except KeyError:
+                                    returned_ip_addresses[dest_ip] = 1
+                                current_count = endpoint_to_port_index_to_count[host_address].get(result.port, 0)
+                                endpoint_to_port_index_to_count[host_address][result.port] = current_count + 1
                             else:
                                 Logger.info("No packet came in %s seconds",
                                             wait_timeout)
@@ -634,8 +696,12 @@ class VXLAN(BaseTest):
                     if not total_vxlan_count or not returned_ip_addresses:
                         raise RuntimeError(
                             "Didnot get any reply for this destination:{}"
-                            " Its active endpoints:{}".format(
-                                destination, test_nhs))
+                            " Its active endpoints:{} "
+                            "ignored non-vxlan packets:{} ignored wrong-port packets:{} "
+                            "ignored packet samples:{}".format(
+                                destination, test_nhs,
+                                ignored_non_vxlan_count, ignored_wrong_port_count,
+                                ignored_packet_samples))
                     Logger.info("received = {}".format(returned_ip_addresses))
 
             # Verify overlay ECMP:
@@ -644,7 +710,8 @@ class VXLAN(BaseTest):
                     nhs,
                     returned_ip_addresses,
                     packet_count,
-                    self.downed_endpoints)
+                    self.downed_endpoints,
+                    destination)
 
             Logger.info(f"VNET endpoint to port index to count mapping: {endpoint_to_port_index_to_count}")
 
@@ -913,7 +980,8 @@ class VxLAN_in_VxLAN(VXLAN):
                     nhs,
                     returned_ip_addresses,
                     packet_count,
-                    self.downed_endpoints)
+                    self.downed_endpoints,
+                    destination)
 
             Logger.info(f"VNET endpoint to port index to count mapping: {endpoint_to_port_index_to_count}")
 
