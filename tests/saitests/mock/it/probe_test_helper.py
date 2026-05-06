@@ -27,6 +27,7 @@ This helper provides TWO layers of functions:
 2. IT Test Convenience Functions (IT Test only):
    - create_pfc_xoff_probe_instance(): Quick instance creation for IT tests
    - create_ingress_drop_probe_instance(): Quick instance creation for IT tests
+   - create_egress_drop_probe_instance(): Quick instance creation for IT tests
    - create_headroom_pool_probe_instance(): Quick instance creation for IT tests
 """
 
@@ -610,6 +611,114 @@ def create_ingress_drop_probe_instance(
 
     # Create probe using shared function
     probe = create_probe_instance(IngressDropProbing, test_params)
+
+    return probe
+
+
+def create_test_params_for_egress_drop(
+    actual_threshold=700,
+    scenario=None,
+    enable_precise_detection=False,
+    precise_detection_range_limit=100,
+    precision_target_ratio=0.05,
+    point_probing_step_size=1,
+    probing_port_ids=None,
+    queue=3,
+    **kwargs
+):
+    """
+    Create Egress Drop test parameters (will be parsed by real parse_param).
+
+    Egress Drop specifics:
+    - Traffic pattern: 1 src -> 1 dst
+    - Uses egress_lossy_pool_size instead of ingress_lossless_pool
+    - Expected threshold from pkts_num_trig_egr_drp (lossy queue config)
+    - probing_port_ids default: [24, 28] (only 2 ports for 1:1)
+
+    Note (review-r3): EgressDrop's testParams field is `queue` (not `pg`).
+    sibling probes (PfcXoff/IngressDrop/HeadroomPool) keep `pg` because they
+    are PG-semantic; EgressDrop uses queue index directly.
+    """
+    test_params = create_test_params_for_pfc_xoff(
+        actual_threshold=actual_threshold,
+        scenario=scenario,
+        enable_precise_detection=enable_precise_detection,
+        precise_detection_range_limit=precise_detection_range_limit,
+        precision_target_ratio=precision_target_ratio,
+        point_probing_step_size=point_probing_step_size,
+        probing_port_ids=probing_port_ids or [24, 28],
+        pg=queue,  # base helper uses 'pg' name; we pass the queue value through it
+        **kwargs
+    )
+
+    # Egress Drop specific: rename pg → queue at the test_params layer
+    # so EgressDropProbing reads `self.queue` directly (no internal alias).
+    if 'pg' in test_params:
+        test_params['queue'] = test_params.pop('pg')
+    else:
+        test_params['queue'] = str(queue) if isinstance(queue, int) else queue
+    test_params['egress_lossy_pool_size'] = str(104000)  # 104000 bytes, ~500 cells at 208
+    test_params['pkts_num_trig_egr_drp'] = str(actual_threshold)
+    test_params['executor_env'] = 'sim'  # Ensure sim environment
+
+    return test_params
+
+
+def create_egress_drop_probe_instance(
+    actual_threshold=700,
+    scenario=None,
+    enable_precise_detection=False,
+    precise_detection_range_limit=100,
+    precision_target_ratio=0.05,
+    point_probing_step_size=1,
+    probing_port_ids=None,
+    queue=3,
+    **kwargs
+):
+    """
+    Create EgressDropProbing instance (using V2 Minimal Mock strategy).
+
+    V2 improvements:
+    - [OK] Run real probe_base.setUp()
+    - [OK] Run real probe_base.parse_param()
+    - [OK] Only mock PTF low-level and hardware operations
+
+    Egress Drop specifics:
+    - Traffic pattern: 1 src -> 1 dst (only 2 probing ports)
+    - Uses egress_lossy_pool instead of ingress_lossless_pool
+    - Expected threshold from pkts_num_trig_egr_drp
+
+    Args:
+        actual_threshold: Mock executor's threshold value
+        scenario: Mock scenario ('noisy', 'wrong_config', 'intermittent', None)
+        enable_precise_detection: Enable 4-phase Point Probing
+        precise_detection_range_limit: Max range before Point Probing
+        precision_target_ratio: Binary search precision (e.g., 0.05 = 5%)
+        point_probing_step_size: Step size for Point Probing
+        probing_port_ids: Port IDs for probing (default: [24, 28])
+        queue: Queue index for egress drop counter (review-r3: was `pg`).
+        **kwargs: Additional mock executor parameters
+
+    Returns:
+        EgressDropProbing: Configured probe instance ready for testing
+    """
+    from egress_drop_probing import EgressDropProbing
+
+    # Create test params (will be parsed by REAL parse_param)
+    test_params = create_test_params_for_egress_drop(
+        actual_threshold=actual_threshold,
+        scenario=scenario,
+        enable_precise_detection=enable_precise_detection,
+        precise_detection_range_limit=precise_detection_range_limit,
+        precision_target_ratio=precision_target_ratio,
+        point_probing_step_size=point_probing_step_size,
+        probing_port_ids=probing_port_ids,
+        queue=queue,
+        **kwargs
+    )
+
+    # Create probe using shared function
+    probe = create_probe_instance(EgressDropProbing, test_params)
 
     return probe
 
