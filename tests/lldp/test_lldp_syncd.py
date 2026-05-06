@@ -392,8 +392,7 @@ def test_lldp_entry_table_after_syncd_orchagent(
             duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
     else:
         duthost.shell("sudo systemctl restart swss")
-    assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
-        "Not all critical services are fully started"
+    duthost.wait_critical_services_fully_started(timeout=600, poll_interval=5, wait=120)
     time.sleep(60)
     # Wait until all interfaces are up and lldp entries are populated
     for interface in lldp_entry_keys:

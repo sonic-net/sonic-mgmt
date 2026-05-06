@@ -343,14 +343,12 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
                warmboot_finalizer_timeout=360)
 
-    pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started(timeout=360, poll_interval=10, wait=120)
 
     # Restore interfaces/neighbors before verifying BGP recovery
     failure_injection.restore()
 
-    pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
+    duthost.wait_critical_services_fully_started(timeout=120, poll_interval=10, wait=30)
 
     timeout = 120
     if test_type == "swss_docker":

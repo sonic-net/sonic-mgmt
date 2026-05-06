@@ -72,7 +72,7 @@ def test_gnoi_killprocess_then_restart(
 
     wait_critical_processes(duthost)
     pytest_assert(
-        duthost.critical_services_fully_started,
+        duthost.critical_services_fully_started(),
         "System unhealthy after gNOI API request",
     )
 
@@ -112,7 +112,7 @@ def test_gnoi_killprocess_restart(
 
     wait_critical_processes(duthost)
     pytest_assert(
-        duthost.critical_services_fully_started,
+        duthost.critical_services_fully_started(),
         "System unhealthy after gNOI API request",
     )
 
@@ -131,6 +131,6 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, gnmi_tls):  # noqa: F81
 
     wait_critical_processes(duthost)
     pytest_assert(
-        duthost.critical_services_fully_started,
+        duthost.critical_services_fully_started(),
         "System unhealthy after gNOI API request",
     )

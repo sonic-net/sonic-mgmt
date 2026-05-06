@@ -94,6 +94,10 @@ class DutHost:
 
         return True
 
+    def wait_critical_services_fully_started(self, timeout=300, poll_interval=20, wait=0):
+        if not wait_until(timeout, poll_interval, wait, self.critical_services_fully_started):
+            raise TimeoutError(f"{self.hostname}: Not all critical services are fully started")
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info

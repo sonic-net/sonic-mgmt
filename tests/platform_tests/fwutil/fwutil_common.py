@@ -7,7 +7,6 @@ import allure
 
 from copy import deepcopy
 
-from tests.common.utilities import wait_until
 from tests.common.reboot import SONIC_SSH_REGEX
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.firmware_helper import show_firmware
@@ -117,7 +116,10 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
         pytest_assert(wait_until(300, 10, 0, duthost.is_host_service_running, "docker"),
                       "Docker service failed to start")
         logger.info("Waiting on critical systems to come online...")
-        wait_until(300, 30, 0, duthost.critical_services_fully_started)
+        try:
+            duthost.wait_critical_services_fully_started(poll_interval=30)
+        except TimeoutError:
+            logger.warning("Not all critical services started within timeout")
         time.sleep(60)
 
         # Reboot back into original image if neccesary
@@ -130,7 +132,10 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
             time.sleep(100)
             logger.info("Waiting on switch to come up....")
             localhost.wait_for(host=hn, port=22, state='started', delay=10, timeout=150)
-            wait_until(300, 30, 0, duthost.critical_services_fully_started)
+            try:
+                duthost.wait_critical_services_fully_started(poll_interval=30)
+            except TimeoutError:
+                logger.warning("Not all critical services started within timeout after rollback")
             time.sleep(60)
 
 

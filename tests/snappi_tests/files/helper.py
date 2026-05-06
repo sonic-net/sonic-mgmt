@@ -196,7 +196,10 @@ def reboot_duts(request, localhost):
         node.shell("sudo config save -y")
         reboot(node, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
-        wait_until(180, 20, 0, node.critical_services_fully_started)
+        try:
+            node.wait_critical_services_fully_started(timeout=180)
+        except TimeoutError:
+            logger.warning("Not all critical services started on {} within timeout".format(node.hostname))
         wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
         wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
         if node.facts.get('asic_type') == "cisco-8000":
@@ -463,7 +466,10 @@ def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
         node.shell("sudo config save -y")
         reboot(node, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
-        wait_until(180, 20, 0, node.critical_services_fully_started)
+        try:
+            node.wait_critical_services_fully_started(timeout=180)
+        except TimeoutError:
+            logger.warning("Not all critical services started on {} within timeout".format(node.hostname))
         wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
         wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
 

@@ -793,12 +793,7 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
     with allure.step("Do {}".format(reboot_type)):
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True, check_intf_up_ports=True,
                wait_for_bgp=True, wait_warmboot_finalizer=True)
-        pytest_assert(
-            wait_until(300, 20, 0, duthost.critical_services_fully_started),
-            (
-                "Not all critical services started within the allotted time after reboot or config reload. "
-            )
-        )
+        duthost.wait_critical_services_fully_started()
 
         pytest_assert(
             wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost),

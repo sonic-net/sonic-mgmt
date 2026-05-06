@@ -1327,7 +1327,9 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     # Step 1.1: Reload minigraph
     logger.info("Reloading minigraph using 'config load_minigraph -y'")
     duthost.shell("sudo config load_minigraph -y", module_ignore_errors=False)
-    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
+    try:
+        duthost.wait_critical_services_fully_started()
+    except TimeoutError:
         logger.error("Not all critical services fully started!")
         pytest.fail("Critical services not fully started after minigraph reload")
 
@@ -1361,7 +1363,9 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer
     # Step 4: Reload minigraph
     logger.info("Reloading minigraph using 'config load_minigraph -y'")
     duthost.shell("sudo config load_minigraph -y", module_ignore_errors=False)
-    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
+    try:
+        duthost.wait_critical_services_fully_started()
+    except TimeoutError:
         logger.error("Not all critical services fully started!")
         pytest.fail("Critical services not fully started after minigraph reload")
 
