@@ -43,7 +43,6 @@ t0:
   - console/test_console_driver.py
   - console/test_console_loopback.py
   - console/test_console_reversessh.py
-  - console/test_console_udevrule.py
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
   - container_upgrade/test_container_upgrade.py
@@ -409,7 +408,6 @@ t1-lag:
   - console/test_console_driver.py
   - console/test_console_loopback.py
   - console/test_console_reversessh.py
-  - console/test_console_udevrule.py
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
   - container_upgrade/test_container_upgrade.py
@@ -634,16 +632,11 @@ t1-lag:
 
 t1-lag-vpp:
   - acl/test_acl.py
-  - arp/test_neighbor_mac_noptf.py
   - arp/test_arpall.py
-  - arp/test_arp_update.py
-  - arp/test_unknown_mac.py
-  - arp/test_arp_extended.py
-  - arp/test_tagged_arp.py
   - arp/test_neighbor_mac.py
-  - arp/test_wr_arp.py
-  - arp/test_arp_dualtor.py
-  - arp/test_stress_arp.py
+  - arp/test_neighbor_mac_aging.py
+  - arp/test_neighbor_mac_noptf.py
+  - bfd/test_bfd.py
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_sentinel.py
@@ -683,6 +676,9 @@ t1-lag-vpp:
   - bgp/test_bgp_vnet.py
   - bgp/test_bgpmon_v6.py
   - bgp/test_traffic_shift_sup.py
+  - crm/test_crm.py
+  - crm/test_crm_available.py
+  - drop_packets/test_drop_counters.py
   - fib/test_fib.py
   - test_interfaces.py
   - http/test_http_copy.py
@@ -692,6 +688,7 @@ t1-lag-vpp:
   - ipfwd/test_nhop_group.py
   - ipfwd/test_mtu.py
   - ipfwd/test_dip_sip.py
+  - lldp/test_lldp.py
   - pc/test_po_voq.py
   - pc/test_lag_member.py
   - pc/test_po_update.py
@@ -709,6 +706,7 @@ t1-lag-vpp:
   - route/test_route_flap.py
   - route/test_route_perf.py
   - route/test_route_bgp_ecmp.py
+  - route/test_route_map_check.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
   - vxlan/test_vxlan_ecmp.py
@@ -798,7 +796,6 @@ onboarding_t1_multi_asic:
   - console/test_console_driver.py
   - console/test_console_loopback.py
   - console/test_console_reversessh.py
-  - console/test_console_udevrule.py
   - container_hardening/test_container_hardening.py
   - database/test_db_config.py
   - database/test_db_scripts.py

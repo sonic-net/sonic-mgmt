@@ -86,6 +86,11 @@ def check_daemon_status(duthosts, rand_one_dut_hostname):
         time.sleep(10)
 
 
+def check_expected_daemon_status(duthost, expected_daemon_status):
+    daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
+    return daemon_status == expected_daemon_status
+
+
 def check_pcie_devices_table_ready(duthost):
     if duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES"):
         return True
@@ -249,7 +254,7 @@ def test_pmon_pcied_kill_and_start_status(check_daemon_status, duthosts, rand_on
     pytest_assert(daemon_status != expected_running_status,
                   "{} unexpected killed status is not {}".format(daemon_name, daemon_status))
 
-    time.sleep(10)
+    wait_until(120, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,

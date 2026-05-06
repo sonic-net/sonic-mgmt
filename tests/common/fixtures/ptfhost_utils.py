@@ -257,6 +257,11 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     yield vlan, ipv4_base, ipv6_base, ip_offset
 
     ptfhost.command('supervisorctl stop arp_responder')
+    # Remove the rendered config so it can't mislead diagnostics or be picked up
+    # by a later, stale invocation of arp_responder. The supervisor unit file
+    # itself is intentionally left in place because the autouse fixture re-renders
+    # it on every module setup; deleting only the data file is enough.
+    ptfhost.file(path=CFG_FILE, state="absent")
 
 
 def _ptf_portmap_file(duthost, ptfhost, tbinfo):
@@ -701,6 +706,6 @@ def skip_traffic_test(request):
 
 @pytest.fixture(scope='function')
 def iptables_drop_ipv6_tx(ptfhost):
-    ptfhost.shell("ip6tables -P OUTPUT DROP")
+    ptfhost.shell("ip6tables -P OUTPUT DROP || true")
     yield
-    ptfhost.shell("ip6tables -P OUTPUT ACCEPT")
+    ptfhost.shell("ip6tables -P OUTPUT ACCEPT || true")

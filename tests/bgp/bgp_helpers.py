@@ -440,6 +440,16 @@ def check_results(results):
                   'Unexpected routes on neighbors, failed_results={}'.format(json.dumps(failed_results, indent=2)))
 
 
+def check_routes_presence(result, prefix):
+    # Filter the route output
+    matched_lines = [line for line in result["stdout"].splitlines() if prefix in line]
+
+    if matched_lines:
+        logging.info("Found prefix {} in BGP received-routes: {}".format(prefix, matched_lines))
+    else:
+        logging.warning("Prefix {} not found in BGP received-routes".format(prefix))
+
+
 def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
     """
     Check routes result for neighbors in parallel without applying allow list
@@ -827,19 +837,19 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
 
     if ip_ver == IP_VER:
         logging.info('Execute EOS command - "show ip bgp neighbors {} routes vrf {}"'.format(bgp_neighbor, vrf))
-        if vmhost['type'] == 'eos':
+        if isinstance(vmhost['host'], EosHost):
             out = vmhost['host'].eos_command(
                 commands=['show ip bgp neighbors {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
-        elif vmhost['type'] == 'sonic':
-            out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(bgp_neighbor, vrf),
+        elif isinstance(vmhost['host'], SonicHost):
+            out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
     else:
         logging.info('Execute EOS command - "show ipv6 bgp peers {} routes vrf {}"'.format(bgp_neighbor, vrf))
-        if vmhost['type'] == 'eos':
+        if isinstance(vmhost['host'], EosHost):
             out = vmhost['host'].eos_command(
                 commands=['show ipv6 bgp peers {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
-        elif vmhost['type'] == 'sonic':
-            out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(bgp_neighbor, vrf),
+        elif isinstance(vmhost['host'], SonicHost):
+            out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
     logging.debug('Command output:\n {}'.format(out))
 
@@ -905,10 +915,10 @@ def operate_orchagent(duthost, action=ACTION_STOP):
     """
     if action == ACTION_STOP:
         logging.info('Suspend orchagent process to simulate a delay')
-        cmd = 'sudo kill -SIGSTOP $(pidof orchagent)'
+        cmd = 'sudo kill -SIGSTOP $(pgrep -x orchagent)'
     else:
         logging.info('Recover orchagent process')
-        cmd = 'sudo kill -SIGCONT $(pidof orchagent)'
+        cmd = 'sudo kill -SIGCONT $(pgrep -x orchagent)'
     duthost.shell(cmd)
 
 

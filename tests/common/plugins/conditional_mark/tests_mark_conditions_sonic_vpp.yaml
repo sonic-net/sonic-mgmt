@@ -18,39 +18,7 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
 #######################################
 #####           BFD               #####
 #######################################
-bfd/test_bfd.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_basic:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_echo_mode:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bfd/test_bfd.py::test_bfd_multihop:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -93,55 +61,7 @@ bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[:
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_port_disable.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bgp/test_bgp_suppress_fib.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgpmon.py::test_bgpmon:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -234,17 +154,6 @@ copp:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           CRM               #####
-#######################################
-crm/test_crm.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           Decap             #####
 #######################################
 decap/test_decap.py:
@@ -293,14 +202,6 @@ drop_packets/test_configurable_drop_counters.py:
     conditions:
       - "asic_type in ['vpp']"
 
-drop_packets/test_drop_counters.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 #######################################
 #####          DUT Console        #####
 #######################################
@@ -310,7 +211,7 @@ dut_console/test_console_baud_rate.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_console_chassis_conn.py:
   skip:
@@ -318,7 +219,7 @@ dut_console/test_console_chassis_conn.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_escape_character.py:
   skip:
@@ -326,7 +227,7 @@ dut_console/test_escape_character.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_idle_timeout.py:
   skip:
@@ -334,7 +235,7 @@ dut_console/test_idle_timeout.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 #######################################
 #####         Everflow            #####
@@ -727,16 +628,6 @@ read_mac/test_read_mac_metadata.py::ReadMACMetadata:
   skip:
     reason: >
             Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           Route             #####
-#######################################
-route/test_route_flow_counter.py:
-  skip:
-    reason: "per route counter is not supported in sonic-vpp but is supported in vpp dataplane. To be included after per route counter support is added in sonic-vpp."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"

@@ -14,12 +14,11 @@ from tests.common.helpers.dut_utils import is_mellanox_devices
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpus_check,\
     dpus_shutdown_and_check, dpus_startup_and_check, check_dpus_module_status,\
-    num_dpu_modules, check_dpus_are_not_pingable, check_dpus_reboot_cause,\
-    get_dpuhost_for_dpu  # noqa: F401
+    check_dpu_module_status, num_dpu_modules, check_dpus_are_not_pingable,\
+    check_dpus_reboot_cause, get_dpuhost_for_dpu  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
-from tests.common.fixtures.grpc_fixtures import ptf_grpc  # noqa: F401
-# ptf_gnoi comes from tests.smartswitch.conftest (SmartSwitch dsmsroot certs)
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
@@ -38,6 +37,34 @@ EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG = 40
 def invocation_type(request):
     """Parametrize reboot tests to run with both gNOI and CLI reboot paths."""
     return request.param
+
+
+@pytest.fixture(autouse=True)
+def ensure_dpus_up_after_test(duthosts,
+                              enum_rand_one_per_hwsku_hostname,
+                              num_dpu_modules):  # noqa: F811
+    """
+    Teardown fixture: after each test case, ensure all DPUs are back online.
+    If any DPU is found offline at the end of a test, it will be started up
+    before the next test begins.
+    """
+    yield
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dpu_names = ["DPU{}".format(i) for i in range(num_dpu_modules)]
+    try:
+        offline_dpus = [
+            dpu for dpu in dpu_names
+            if not check_dpu_module_status(duthost, "on", dpu)
+        ]
+        if offline_dpus:
+            logging.info("DPUs found offline after test: %s. Bringing them back UP...", offline_dpus)
+            dpus_startup_and_check(duthost, offline_dpus, num_dpu_modules)
+            logging.info("All DPUs are back online after recovery.")
+        else:
+            logging.info("All DPUs are online after test. No recovery needed.")
+    except Exception as e:
+        logging.warning("DPU recovery in teardown failed (non-fatal): %s", e)
 
 
 def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
@@ -326,7 +353,7 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
 @pytest.mark.disable_loganalyzer
 def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                           platform_api_conn, num_dpu_modules,  # noqa: F811
-                          invocation_type, ptf_gnoi):  # noqa: F811, E501
+                          invocation_type, gnmi_tls):  # noqa: F811, E501
     """
     Test to cold reboot all DPUs in the DUT.
     Steps:
@@ -350,7 +377,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
         logging.info("Rebooting all DPUs in parallel")
         for dpu_name in dpu_on_list:
             executor.submit(perform_reboot, duthost, REBOOT_TYPE_COLD, dpu_name, invocation_type,
-                            ptf_gnoi=ptf_gnoi)
+                            ptf_gnoi=gnmi_tls.gnoi)
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
@@ -392,3 +419,30 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     logging.info("Executing post switch reboot dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules,
                          re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
+
+
+def test_reboot_cause(duthosts, dpuhosts,
+                      enum_rand_one_per_hwsku_hostname,
+                      platform_api_conn, num_dpu_modules):    # noqa: F811
+    """
+    @summary: Verify `Reboot Cause` using parallel execution.
+              DPUs are shutdown and started up, then reboot-cause is verified.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+        duthost,
+        platform_api_conn,
+        num_dpu_modules)
+
+    logging.info("Shutting DOWN the DPUs in parallel")
+    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
+
+    logging.info("Starting UP the DPUs in parallel")
+    dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules,
+                         re.compile(r"reboot|Non-Hardware",
+                                    re.IGNORECASE))
