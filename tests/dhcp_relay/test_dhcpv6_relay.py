@@ -5,7 +5,7 @@ import time
 import netaddr
 import logging
 
-from tests.common.dhcp_relay_utils import restart_dhcp_service
+from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
@@ -277,6 +277,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
         config_reload(duthost)
         wait_critical_processes(duthost)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+        wait_dhcp_relay_ready(duthost, ['v6'])
 
     # Cmds to delete LLA for all Vlans
     delete_cmds = ["ip -6 address del {} dev {}"
