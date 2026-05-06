@@ -22,26 +22,26 @@ Options:
     - option-name: mode
       description: |
         Backend used to implement the portchannel inside the PTF container.
-        - 'bond' (default): native Linux bonding driver in 802.3ad (LACP) mode.
-        - 'teamd': legacy teamd-based implementation managed via supervisord.
+        - 'bond': native Linux bonding driver in 802.3ad (LACP) mode.
+        - 'teamd' (default): legacy teamd-based implementation managed via supervisord.
       choices: ['teamd', 'bond']
-      default: 'bond'
+      default: 'teamd'
       required: False
 '''
 
 
 EXAMPLES = '''
-- name: Start PTF portchannel (default bond backend)
-  ptf_portchannel:
-    cmd: "start"
-    portchannel_config: "{{ portchannel_config }}"
-    mode: "bond"
-
-- name: Start PTF portchannel using legacy teamd backend
+- name: Start PTF portchannel (default teamd backend)
   ptf_portchannel:
     cmd: "start"
     portchannel_config: "{{ portchannel_config }}"
     mode: "teamd"
+
+- name: Start PTF portchannel using Linux bond backend
+  ptf_portchannel:
+    cmd: "start"
+    portchannel_config: "{{ portchannel_config }}"
+    mode: "bond"
 '''
 
 
@@ -206,7 +206,7 @@ def main():
         argument_spec=dict(
             cmd=dict(required=True, choices=['start', 'stop'], type='str'),
             portchannel_config=dict(required=True, type='dict'),
-            mode=dict(required=False, choices=['teamd', 'bond'], default='bond', type='str'),
+            mode=dict(required=False, choices=['teamd', 'bond'], default='teamd', type='str'),
         ),
         supports_check_mode=False)
     cmd = module.params['cmd']

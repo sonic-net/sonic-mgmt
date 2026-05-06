@@ -16,7 +16,7 @@
 
 - name: find portchannel mode
   set_fact:
-    portchannel_mode: "{{ topology['DUT']['portchannel_mode'] | default('bond') }}"
+    portchannel_mode: "{{ topology['DUT']['portchannel_mode'] | default('teamd') }}"
 
 - name: Start PTF portchannel
   ptf_portchannel:
