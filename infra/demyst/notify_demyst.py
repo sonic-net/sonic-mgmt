@@ -4,22 +4,21 @@ Notify demyst server with run information after ring4 test completion.
 Called from CICD after collect-results step.
 
 Usage:
-    python3 notify_demyst.py -t <TESTBED> -b <BUILD_ID> -r <RUN_ID> --allure_url <URL> --syslogs_url <URL>
+    python3 notify_demyst.py --pipeline-type <TYPE> -t <TESTBED> -b <BUILD_ID> -r <RUN_ID> -m <STREAM> --results-json <PATH>
 
 Arguments:
+    --pipeline-type     Pipeline type (e.g., ring4)
     -t, --testbed       Testbed name (key in hw_cfg.json)
     -b, --build_id      Sonic buildimage build ID (p2build_job_id)
     -r, --run_id        Jenkins job build ID
-    --allure_url        Allure report URL
-    --syslogs_url       Syslogs tarball URL
-    --stream            Stream name (e.g., 202405, master) for container lookup
+    -m, --stream        Stream name (e.g., 202405, master) for container lookup
+    --results-json      Path to results.json file containing report_link and log_tarball_link
 
 Requirements:
-    - PIPELINE_TYPE env var must be "ring4"
+    - pipeline-type must be "ring4" to send notification
     - Testbed must be listed in supported_testbeds.txt
     - hw_cfg.json must have topology for the testbed
-Additional Notes: 
-syslogs_url = LOG_TARBALL_LINK+ "/sanity_logs.tar.gz"
+    - results.json must contain report_link and log_tarball_link
 """
 import os
 import sys
@@ -38,7 +37,7 @@ from utils import _run_cmd_in_ssh
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SUPPORTED_TESTBEDS_FILE = os.path.join(SCRIPT_DIR, "supported_testbeds.txt")
-DEMYST_SERVER_URL = "http://demyst.cisco.com:80/api/v1/analysis/offline" # TODO: this is a placeholder for now, will update when ready to merge
+DEMYST_SERVER_URL = "https://demyst.cisco.com:10003/api/v1/analysis/offline"
 
 
 def init_logging(name):
@@ -66,13 +65,41 @@ def init_logging(name):
 log = init_logging("NOTIFY_DEMYST")
 
 
-def is_ring4_run():
+def is_ring4_run(pipeline_type):
     """Check if this is a ring4 pipeline run."""
-    pipeline_type = os.environ.get("PIPELINE_TYPE", "").lower()
-    is_ring4 = pipeline_type == "ring4" #TODO: verify is this is the correct string to match with
+    is_ring4 = pipeline_type.lower() == "ring4"
     if not is_ring4:
-        log.info(f"Not a ring4 run (PIPELINE_TYPE={pipeline_type})")
+        log.info(f"Not a ring4 run (pipeline_type={pipeline_type}), skipping demyst notification")
     return is_ring4
+
+
+def parse_results_json(results_json_path):
+    """Parse results.json and extract required fields."""
+    try:
+        with open(results_json_path, 'r') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        log.error(f"results.json not found at: {results_json_path}")
+        return None
+    except json.JSONDecodeError as e:
+        log.error(f"Failed to parse results.json: {e}")
+        return None
+    
+    report_link = data.get("report_link")
+    log_tarball_link = data.get("log_tarball_link")
+    
+    if not report_link:
+        log.error("Missing required field 'report_link' in results.json")
+        return None
+    if not log_tarball_link:
+        log.error("Missing required field 'log_tarball_link' in results.json")
+        return None
+    
+    log.info(f"Parsed results.json: report_link={report_link}, log_tarball_link={log_tarball_link}")
+    return {
+        "report_link": report_link,
+        "log_tarball_link": log_tarball_link
+    }
 
 
 def is_testbed_supported(testbed):
@@ -127,14 +154,14 @@ def get_syslogs_url(base_url):
         return None
 
 
-def build_payload(args, testbed_info):
+def build_payload(args, testbed_info, results_data):
     """Build the payload to send to demyst server."""
     topology = testbed_info.get("topology", "")
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_run_id = f"{args.testbed}_{args.run_id}_{timestamp}"
     
-    syslogs_url = get_syslogs_url(args.syslogs_url)
+    syslogs_url = get_syslogs_url(results_data["log_tarball_link"])
     if not syslogs_url:
         log.warning("Could not find sanity_logs.tar.gz, skipping demyst notification")
         return None
@@ -163,7 +190,7 @@ def build_payload(args, testbed_info):
         "run_id": unique_run_id,
         "sonic_test_commit_id": sonic_test_commit,
         "log_source": "allure_url",
-        "allure_report_url": args.allure_url,
+        "allure_report_url": results_data["report_link"],
         "syslogs_url": syslogs_url,
         "testbed": args.testbed,
         "topo_type": topology,
@@ -206,20 +233,24 @@ def send_to_demyst(payload):
 
 def main():
     parser = argparse.ArgumentParser(description='Notify demyst server after ring4 test completion')
+    parser.add_argument("-p","--pipeline-type", required=True, help="Pipeline type (e.g., ring4)")
     parser.add_argument("-t", "--testbed", required=True, help="Testbed name (key in hw_cfg.json)")
     parser.add_argument("-b", "--build_id", required=True, help="Sonic buildimage build ID (p2build_job_id)")
     parser.add_argument("-r", "--run_id", required=True, help="Jenkins job build ID")
-    parser.add_argument("-a", "--allure_url", required=True, help="Allure report URL")
-    parser.add_argument("-s", "--syslogs_url", required=True, help="Syslogs tarball URL")
     parser.add_argument("-m", "--stream", required=True, help="Stream name (e.g., 202405, master) for container lookup")
+    parser.add_argument("-j","--results-json", required=True, help="Path to results.json file")
     args = parser.parse_args()
     
     log.info(f"Starting demyst notification: testbed={args.testbed}, build_id={args.build_id}, run_id={args.run_id}")
     
-    if not is_ring4_run():
-        return 1
+    if not is_ring4_run(args.pipeline_type):
+        return 0  # Skip, not an error
     
     if not is_testbed_supported(args.testbed):
+        return 0 #Skip sending payload to demyst server if testbed is not supported. 
+    
+    results_data = parse_results_json(args.results_json)
+    if results_data is None:
         return 1
     
     testbed_info = getTestbedInfoDict(args.testbed)
@@ -227,7 +258,7 @@ def main():
         log.error(f"Testbed '{args.testbed}' not found in hw_cfg.json")
         return 1
     
-    payload = build_payload(args, testbed_info)
+    payload = build_payload(args, testbed_info, results_data)
     if payload is None:
         return 1
     
