@@ -13,11 +13,19 @@
 
 set -e
 
-echo "Checking for added or modified files affecting the MMU probe testing infrastructure..."
+# Resolve the target branch we should compute the merge-base against.
+# In Azure Pipelines PR context, $SYSTEM_PULLREQUEST_TARGETBRANCH carries the
+# PR target ("master", "refs/heads/202405", etc.); strip refs/heads/ if present.
+# In a non-PR (manual / push) context, fall back to "master".
+TARGET_BRANCH_RAW="${SYSTEM_PULLREQUEST_TARGETBRANCH:-master}"
+TARGET_BRANCH="${TARGET_BRANCH_RAW#refs/heads/}"
+TARGET_REF="origin/${TARGET_BRANCH}"
 
-BASE_COMMIT=$(git merge-base HEAD origin/master 2>/dev/null || echo HEAD~1)
+echo "Checking for added or modified files affecting the MMU probe testing infrastructure (vs ${TARGET_REF})..."
+
+BASE_COMMIT=$(git merge-base HEAD "${TARGET_REF}" 2>/dev/null || echo HEAD~1)
 if [ "$BASE_COMMIT" = "HEAD~1" ]; then
-    echo "Warning: Could not determine merge base with origin/master. Comparing with previous commit (HEAD~1)."
+    echo "Warning: Could not determine merge base with ${TARGET_REF}. Comparing with previous commit (HEAD~1)."
 else
     echo "Comparing changes since $BASE_COMMIT."
 fi

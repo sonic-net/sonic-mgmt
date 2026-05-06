@@ -27,7 +27,14 @@ stages:
           - script: |
               git fetch origin
               echo "Fetching changes from origin rc = $?"
-              CHANGED_FILES=$(git diff --name-only origin/master)
+              # Resolve PR target branch (mirrors get-changed-probe-files.sh):
+              # - PR build: $SYSTEM_PULLREQUEST_TARGETBRANCH carries "master", "refs/heads/202405", etc.
+              # - non-PR build: fall back to "master"
+              TARGET_BRANCH_RAW="${SYSTEM_PULLREQUEST_TARGETBRANCH:-master}"
+              TARGET_BRANCH="${TARGET_BRANCH_RAW#refs/heads/}"
+              TARGET_REF="origin/${TARGET_BRANCH}"
+              echo "Diffing against ${TARGET_REF}"
+              CHANGED_FILES=$(git diff --name-only "${TARGET_REF}")
               echo "Changed files:"
               echo "$CHANGED_FILES"
               if echo "$CHANGED_FILES" | grep -qE '^(tests/saitests/probe/|tests/saitests/mock/|tests/qos/test_qos_probe\.py)'; then
