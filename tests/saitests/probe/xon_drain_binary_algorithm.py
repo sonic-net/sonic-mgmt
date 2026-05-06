@@ -95,6 +95,9 @@ class XonDrainBinaryAlgorithm:
         lower = 0                    # D where xon does NOT fire
         upper = pfcxoff_point        # D where xon DOES fire
         binary_iter = 0
+        consecutive_failures = 0
+        max_consecutive_failures = 3
+        binary_aborted_due_to_failures = False
 
         while (upper - lower) > self.range_limit and binary_iter < self.binary_max_iter:
             mid = (lower + upper) // 2
@@ -107,19 +110,34 @@ class XonDrainBinaryAlgorithm:
                 dst_port_b=dst_port_b,
                 value=mid,
                 attempts=self.verification_attempts,
-                iteration=binary_iter,
                 **traffic_keys,
             )
             binary_iter += 1
 
             if not success:
+                consecutive_failures += 1
+                # Per code review I2 (2026-05-06): success=False means we have
+                # NO semantic information about mid. Moving `upper = mid` would
+                # corrupt the search invariant and can permanently exclude the
+                # true threshold from the window. Instead: don't move bounds;
+                # retry the same midpoint. After max_consecutive_failures, abort
+                # phase 1 and fall through to phase 2 step search over the
+                # current (uncorrupted) [lower+1, upper] window.
                 ProbingObserver.trace(
-                    f"[XOn Drain Binary] mid={mid}: check FAILED (inconsistent); "
-                    f"narrowing window aggressively"
+                    f"[XOn Drain Binary] mid={mid}: check FAILED (inconsistent) "
+                    f"(consecutive_failures={consecutive_failures}/{max_consecutive_failures})"
                 )
-                # Treat failed as ambiguous — pessimistically narrow toward upper
-                upper = mid
-                continue
+                if consecutive_failures >= max_consecutive_failures:
+                    ProbingObserver.console(
+                        f"[XOn Drain Binary] Phase 1 aborted: {consecutive_failures} "
+                        f"consecutive failures; falling back to phase 2 step over "
+                        f"[{lower + 1}, {upper}] (width={upper - lower})"
+                    )
+                    binary_aborted_due_to_failures = True
+                    break
+                continue  # don't move bounds; re-probe same mid
+
+            consecutive_failures = 0  # reset on any successful check
 
             if xon_fired:
                 upper = mid    # mid drained enough, search lower
@@ -131,7 +149,9 @@ class XonDrainBinaryAlgorithm:
                 f"-> [{lower}, {upper}] width={upper - lower}"
             )
 
-        if (upper - lower) > self.range_limit:
+        # Decision: did binary converge, abort due to failures, or run out of iters?
+        window_too_wide = (upper - lower) > self.range_limit
+        if window_too_wide and not binary_aborted_due_to_failures:
             elapsed = time.time() - t0
             ProbingObserver.console(
                 f"[XOn Drain Binary] Phase 1 binary did not converge after "
@@ -141,6 +161,8 @@ class XonDrainBinaryAlgorithm:
 
         ProbingObserver.console(
             f"[XOn Drain Binary] Phase 1 done: window=[{lower}, {upper}] width={upper - lower}"
+            + (" (aborted due to failures, falling through to step phase)"
+               if binary_aborted_due_to_failures else "")
         )
 
         # ----------------- Phase 2: step-by-step within window -----------------
@@ -156,7 +178,6 @@ class XonDrainBinaryAlgorithm:
                 dst_port_b=dst_port_b,
                 value=d,
                 attempts=self.verification_attempts,
-                iteration=binary_iter + step_iter,
                 **traffic_keys,
             )
             if not success:
@@ -184,4 +205,3 @@ class XonDrainBinaryAlgorithm:
             f"finding xon trigger"
         )
         return None, None, elapsed
-

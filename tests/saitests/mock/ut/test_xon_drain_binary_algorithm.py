@@ -10,11 +10,12 @@ Covers:
 - traffic_keys forwarded
 """
 
-import sys
+import sys  # noqa: F401
 import pytest
 from unittest.mock import MagicMock
 
-sys.path.insert(0, r'c:\ws\repo\sonic-mgmt-int\sonic-mgmt-int\tests\saitests\probe')
+# sys.path injection is handled by conftest.py (probe_dir prepended);
+# no per-file hardcoded path needed.
 
 from observer_config import ObserverConfig  # noqa: E402
 from probing_observer import ProbingObserver  # noqa: E402
@@ -36,7 +37,7 @@ def _make_executor_with_threshold(pfcxoff_point, true_threshold):
     ex = MagicMock()
     ex.pfcxoff_point = pfcxoff_point
 
-    def check_side(src_port, dst_port_a, dst_port_b, value, attempts, iteration, **kw):
+    def check_side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
         return (True, value >= true_threshold)
     ex.check.side_effect = check_side
     return ex
@@ -116,9 +117,13 @@ class TestXonDrainBinaryAlgorithm:
         assert upper == 1
 
     @pytest.mark.order(8914)
-    def test_failed_check_in_binary_phase_treated_as_pessimistic(self):
-        """If a binary midpoint check fails (success=False), narrow window
-        toward upper (treat ambiguous as 'too aggressive')."""
+    def test_failed_check_in_binary_phase_does_not_advance_bounds(self):
+        """Per code review I2 fix: when a binary midpoint check returns
+        success=False, the algorithm must NOT advance bounds (specifically,
+        must NOT set upper=mid). Bounds stay where they were; the same
+        midpoint is re-probed on the next iteration. After
+        max_consecutive_failures, phase 1 aborts and falls through to
+        phase 2 step search over the (uncorrupted) window."""
         from xon_drain_binary_algorithm import XonDrainBinaryAlgorithm
 
         executor = MagicMock()
@@ -126,7 +131,8 @@ class TestXonDrainBinaryAlgorithm:
 
         # Pattern: first check fails (success=False), then normal threshold=500
         call_count = [0]
-        def side(src_port, dst_port_a, dst_port_b, value, attempts, iteration, **kw):
+
+        def side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
             call_count[0] += 1
             if call_count[0] == 1:
                 return (False, False)
@@ -138,10 +144,100 @@ class TestXonDrainBinaryAlgorithm:
         )
         lower, upper, elapsed = algo.run(24, 28, 29, pg=3)
 
-        # Should still find an answer despite first failed check
+        # Should still find an answer despite first failed check.
+        # threshold=500 must be in [lower, upper]; lower<500<=upper.
         assert lower is not None
         assert upper is not None
         assert lower < upper
+        assert lower < 500 <= upper, \
+            f"true threshold 500 must remain in window; got [{lower}, {upper}]"
+
+    @pytest.mark.order(8914.5)
+    def test_binary_failed_check_does_not_exclude_real_threshold(self):
+        """Regression for code review I2 (2026-05-06): the original code
+        moved upper=mid on success=False, which could permanently exclude
+        the true threshold from the search window when the failing midpoint
+        was lower than the true threshold.
+
+        Setup: true threshold=700, window starts [0, 1000].
+          - First call to check(value=500) returns (False, False) — simulated noise.
+          - Subsequent check(value=500) returns (True, False) — 500 < 700, no xon.
+          - check(value>=700) returns (True, True).
+
+        Old (buggy) behavior: failing mid=500 -> upper=500. True threshold 700
+        permanently outside window. Algorithm returns lower<700, upper<=500.
+
+        New behavior: failing mid=500 -> bounds unchanged. Re-probe 500, get
+        (True, False), set lower=500. Subsequent binary iterations narrow
+        to [688, 700] or similar; phase 2 step finds exact 700.
+        """
+        from xon_drain_binary_algorithm import XonDrainBinaryAlgorithm
+
+        executor = MagicMock()
+        executor.pfcxoff_point = 1000
+
+        # Track number of times we've been called for value=500
+        first_500_call_done = [False]
+
+        def side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
+            # First call to value=500 is the noisy one
+            if value == 500 and not first_500_call_done[0]:
+                first_500_call_done[0] = True
+                return (False, False)
+            return (True, value >= 700)
+
+        executor.check.side_effect = side
+
+        algo = XonDrainBinaryAlgorithm(
+            executor=executor, observer=self.observer,
+            range_limit=16, binary_max_iter=20, step_max_iter=50
+        )
+        lower, upper, elapsed = algo.run(24, 28, 29, pg=3)
+
+        # The real threshold (700) must be discoverable
+        assert lower is not None and upper is not None, \
+            f"algorithm failed to converge; got ({lower}, {upper})"
+        assert lower < 700, \
+            f"lower={lower} excluded real threshold 700 (would be old-bug behavior)"
+        assert upper >= 700, \
+            f"upper={upper} excluded real threshold 700 (would be old-bug behavior)"
+        assert upper == 700, \
+            f"phase 2 step should land exactly on 700, got upper={upper}"
+
+    @pytest.mark.order(8914.7)
+    def test_binary_aborts_after_max_consecutive_failures(self):
+        """If executor.check returns success=False repeatedly (>=3 times in
+        a row), phase 1 aborts and phase 2 step search runs over the
+        uncorrupted window. This ensures pathological always-failing
+        executors don't loop forever and don't corrupt bounds."""
+        from xon_drain_binary_algorithm import XonDrainBinaryAlgorithm
+
+        executor = MagicMock()
+        executor.pfcxoff_point = 100   # small so step phase can cover full window
+
+        # Always fail in binary phase; succeed in step phase (xon fires at d=50)
+        # We can't distinguish phases here because executor.check is the same.
+        # Strategy: count failures, fail first 3 calls, then return (True, value>=50).
+        fail_counter = [0]
+
+        def side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
+            if fail_counter[0] < 3:
+                fail_counter[0] += 1
+                return (False, False)
+            return (True, value >= 50)
+
+        executor.check.side_effect = side
+
+        algo = XonDrainBinaryAlgorithm(
+            executor=executor, observer=self.observer,
+            range_limit=16, binary_max_iter=20, step_max_iter=100
+        )
+        lower, upper, elapsed = algo.run(24, 28, 29, pg=3)
+
+        # Phase 1 aborted after 3 failures (bounds untouched at [0, 100]).
+        # Phase 2 steps from 1 to 100, finds first xon at d=50.
+        assert lower == 49 and upper == 50, \
+            f"phase 2 should find threshold=50; got lower={lower}, upper={upper}"
 
     @pytest.mark.order(8915)
     def test_traffic_keys_forwarded(self):
