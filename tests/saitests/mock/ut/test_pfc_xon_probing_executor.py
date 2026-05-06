@@ -6,11 +6,12 @@ Tests initialization, parameter validation, prepare logic, fill phase
 handling — all using mocked PTF dependencies.
 """
 
-import sys
+import sys  # noqa: F401
 import pytest
 from unittest.mock import MagicMock, patch
 
-sys.path.insert(0, r'c:\ws\repo\sonic-mgmt-int\sonic-mgmt-int\tests\saitests\probe')
+# sys.path injection is handled by conftest.py (probe_dir prepended);
+# no per-file hardcoded path needed.
 
 from observer_config import ObserverConfig  # noqa: E402
 from probing_observer import ProbingObserver  # noqa: E402
@@ -181,9 +182,9 @@ class TestPfcXonExecutorCheckFlow:
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         # cnt_pg_idx=5
-        pre_cnt = [0] * 20; pre_cnt[5] = 10
-        post_fill_cnt = [0] * 20; post_fill_cnt[5] = 11      # xoff fired
-        post_drain_cnt = [0] * 20; post_drain_cnt[5] = 12    # xon resumed
+        pre_cnt = [10 if i == 5 else 0 for i in range(20)]
+        post_fill_cnt = [11 if i == 5 else 0 for i in range(20)]   # xoff fired
+        post_drain_cnt = [12 if i == 5 else 0 for i in range(20)]  # xon resumed
 
         # Order of reads: pre-fill, post-fill, post-drain
         mock_read.side_effect = [
@@ -214,9 +215,9 @@ class TestPfcXonExecutorCheckFlow:
         """xon does not fire: post-drain counter stays at baseline."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
-        pre_cnt = [0] * 20; pre_cnt[5] = 10
-        post_fill_cnt = [0] * 20; post_fill_cnt[5] = 11      # xoff fired
-        post_drain_cnt = [0] * 20; post_drain_cnt[5] = 11    # no change = xon NOT fired
+        pre_cnt = [10 if i == 5 else 0 for i in range(20)]
+        post_fill_cnt = [11 if i == 5 else 0 for i in range(20)]    # xoff fired
+        post_drain_cnt = [11 if i == 5 else 0 for i in range(20)]   # no change = xon NOT fired
 
         mock_read.side_effect = [
             (pre_cnt, [0] * 10),
@@ -240,15 +241,15 @@ class TestPfcXonExecutorCheckFlow:
         (extra margin packets pushed it over)."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
-        pre_cnt = [0] * 20; pre_cnt[5] = 10
+        pre_cnt = [10 if i == 5 else 0 for i in range(20)]
 
         # Attempt 1: pre=10, post=10 (no xoff)
         # Attempt 2: pre=10, post=11 (xoff fired with margin=2 extra)
         # After fill: drain phase reads post_drain=12 (xon)
-        attempt1_post_fill = [0] * 20; attempt1_post_fill[5] = 10  # not fired
-        attempt2_pre = [0] * 20; attempt2_pre[5] = 10
-        attempt2_post_fill = [0] * 20; attempt2_post_fill[5] = 11  # fired
-        post_drain = [0] * 20; post_drain[5] = 12                  # xon
+        attempt1_post_fill = [10 if i == 5 else 0 for i in range(20)]   # not fired
+        attempt2_pre = [10 if i == 5 else 0 for i in range(20)]
+        attempt2_post_fill = [11 if i == 5 else 0 for i in range(20)]   # fired
+        post_drain = [12 if i == 5 else 0 for i in range(20)]           # xon
 
         mock_read.side_effect = [
             (pre_cnt, [0] * 10),                # attempt 1 pre
@@ -283,7 +284,7 @@ class TestPfcXonExecutorCheckFlow:
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         # Always pre=10, post=10 (xoff never fires)
-        baseline = [0] * 20; baseline[5] = 10
+        baseline = [10 if i == 5 else 0 for i in range(20)]
         max_attempts = 3
         # 2 reads per attempt
         mock_read.side_effect = [(baseline, [0] * 10) for _ in range(max_attempts * 2)]
@@ -330,9 +331,9 @@ class TestPfcXonExecutorMultipleAttempts:
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         # Pattern per attempt: pre, post-fill (xoff fired), post-drain (xon)
-        pre = [0] * 20; pre[5] = 10
-        post_fill = [0] * 20; post_fill[5] = 11
-        post_drain = [0] * 20; post_drain[5] = 12
+        pre = [10 if i == 5 else 0 for i in range(20)]
+        post_fill = [11 if i == 5 else 0 for i in range(20)]
+        post_drain = [12 if i == 5 else 0 for i in range(20)]
 
         mock_read.side_effect = [
             (pre, [0] * 10), (post_fill, [0] * 10), (post_drain, [0] * 10),  # attempt 1
@@ -354,10 +355,10 @@ class TestPfcXonExecutorMultipleAttempts:
         """2 attempts disagree -> success=False."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
-        pre = [0] * 20; pre[5] = 10
-        post_fill = [0] * 20; post_fill[5] = 11
-        post_drain_xon = [0] * 20; post_drain_xon[5] = 12   # xon fired
-        post_drain_no_xon = [0] * 20; post_drain_no_xon[5] = 11  # no xon
+        pre = [10 if i == 5 else 0 for i in range(20)]
+        post_fill = [11 if i == 5 else 0 for i in range(20)]
+        post_drain_xon = [12 if i == 5 else 0 for i in range(20)]      # xon fired
+        post_drain_no_xon = [11 if i == 5 else 0 for i in range(20)]   # no xon
 
         mock_read.side_effect = [
             (pre, [0] * 10), (post_fill, [0] * 10), (post_drain_xon, [0] * 10),     # attempt 1: xon

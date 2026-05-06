@@ -18,6 +18,18 @@ Why this is "IT" not "UT":
   - We exercise REAL Executor code paths (not mocked check())
   - The "DUT" is a stateful counter model that behaves like real hardware
   - Algorithm and Executor are wired up the same way as in production
+
+⚠️ MODEL FIDELITY DISCLAIMER (per code review I4, 2026-05-06):
+  The HardwareModel below uses ADDITIVE drain semantics: XOn fires when
+  the cumulative drained packet count crosses true_xon_offset. Real ASIC
+  behavior is OCCUPANCY-CROSSING: XOn fires when the buffer occupancy
+  drops below (pfcxoff_point - xon_offset). The two are equivalent only
+  for the perfectly clean fill-then-drain-once scenario; with margin
+  retries or multi-phase drain, additive count loses the relationship.
+  Combined with patched time.sleep, this IT exercises algorithm logic
+  and counter ordering correctness but does NOT validate real-hardware
+  timing or occupancy-threshold semantics. Physical validation across
+  Broadcom/Cisco/Mellanox remains required before merge.
 """
 
 import pytest
@@ -46,6 +58,15 @@ class HardwareModel:
     """
     Stateful PFC_PAUSE_RX counter model.
 
+    ⚠️ MODEL FIDELITY (per code review I4): This model uses ADDITIVE drain
+    semantics — XOn fires when total_drained >= true_xon_offset. Real ASIC
+    behavior is OCCUPANCY-CROSSING (XOn fires when buffer occupancy drops
+    below pfcxoff_point - xon_offset). The two are equivalent only for the
+    perfectly clean fill-then-drain-once scenario tested here. The model is
+    fine for validating algorithm logic + counter-read ordering, but it does
+    NOT model overshoot semantics, multi-drain accumulation, or counter
+    update latency. Physical validation remains required.
+
     Models a single ingress PG with:
       - pfcxoff_point: how many packets fill the buffer to xoff threshold.
       - true_xon_offset: how many packets must drain after xoff for xon to fire.
@@ -63,14 +84,15 @@ class HardwareModel:
     XOff trigger logic:
       When ingress buffer >= pfcxoff_point, increment pause_counter.
 
-    XOn trigger logic:
-      After xoff, if buffer level drops below (pfcxoff_point - true_xon_offset),
+    XOn trigger logic (additive — see disclaimer above):
+      After xoff, if cumulative drain count >= true_xon_offset,
       we model that src is resumed -> next "send" from src will trigger xoff
       again -> pause_counter increments.
 
     Simplification: We collapse the "src resumes -> sends -> xoff fires
     again" into a single +1 to the counter when the drain crosses the
-    xon threshold. This matches what the real executor observes.
+    xon threshold. This matches what the real executor observes at the
+    counter level, but abstracts away ASIC counter latency and overshoot.
     """
 
     def __init__(self, pfcxoff_point: int, true_xon_offset: int, cnt_pg_idx: int = 5):
