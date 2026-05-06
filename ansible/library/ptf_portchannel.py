@@ -19,14 +19,29 @@ Options:
     - option-name: portchannel_config
       description: A dict to indicate the portchannel configuration. E.G. {"PortChannel101": {"intfs": [0, 4]}}
       required: True
+    - option-name: mode
+      description: |
+        Backend used to implement the portchannel inside the PTF container.
+        - 'bond' (default): native Linux bonding driver in 802.3ad (LACP) mode.
+        - 'teamd': legacy teamd-based implementation managed via supervisord.
+      choices: ['teamd', 'bond']
+      default: 'bond'
+      required: False
 '''
 
 
 EXAMPLES = '''
-- name: Start PTF portchannel
+- name: Start PTF portchannel (default bond backend)
   ptf_portchannel:
     cmd: "start"
     portchannel_config: "{{ portchannel_config }}"
+    mode: "bond"
+
+- name: Start PTF portchannel using legacy teamd backend
+  ptf_portchannel:
+    cmd: "start"
+    portchannel_config: "{{ portchannel_config }}"
+    mode: "teamd"
 '''
 
 
@@ -163,6 +178,9 @@ def create_bond(module, portchannel_config):
         for intf in conf["intfs"]:
             exec_command(module, "ip link set dev {} down".format(intf))
             exec_command(module, "ip link set dev {} master {}".format(intf, name))
+            # Bring slave back up so LACP PDUs can flow and the 802.3ad
+            # aggregator can form.
+            exec_command(module, "ip link set dev {} up".format(intf))
         exec_command(module, "ip link set dev {} up".format(name))
 
 
