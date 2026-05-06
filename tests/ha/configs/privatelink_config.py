@@ -24,7 +24,7 @@ PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 
 APPLIANCE_ID = "100"
 LOCAL_REGION_ID = "100"
-VM_VNI = 4321
+VM_VNI = 2001
 ENCAP_VNI = 100
 NSG_OUTBOUND_VNI = 100
 VNET1 = "Vnet1"

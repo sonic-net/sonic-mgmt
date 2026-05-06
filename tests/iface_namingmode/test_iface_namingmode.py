@@ -312,7 +312,22 @@ class TestShowLLDP():
         dutHostGuest, mode, ifmode = setup_config_mode
         minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-        lldp_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+        lldp_table_result = {}
+
+        def _lldp_table_ready():
+            lldp_table_result['output'] = dutHostGuest.shell(
+                'SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+            expected_intfs = lldp_interfaces['alias'] if mode == 'alias' else lldp_interfaces['interface']
+            return all(re.search(re.escape(intf), lldp_table_result['output']) for intf in expected_intfs)
+
+        pytest_assert(
+            wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 10, 0, _lldp_table_ready),
+            "LLDP table did not converge with all expected interfaces within {} seconds".format(
+                ESTABLISH_LLDP_NEIGHBOR_TIMEOUT
+            )
+        )
+
+        lldp_table = lldp_table_result['output']
         logger.info('lldp_table:\n{}'.format(lldp_table))
 
         vrf_map = {}

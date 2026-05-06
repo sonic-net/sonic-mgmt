@@ -78,14 +78,15 @@ def route_config(nbrhosts, tbinfo):
 
 
 @pytest.fixture(scope='function')
-def dscp_config(dscp_mode, duthost, loganalyzer):
+def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     """
     Test setup and teardown
 
     Args:
         request: pytest request
-        duthost (AnsibleHost): The DUT host
+        rand_selected_dut (AnsibleHost): The randomly selected DUT host
     """
+    duthost = rand_selected_dut
     asic_type = duthost.facts['asic_type']
 
     # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
@@ -289,7 +290,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ptf_dst_port_ids = get_stream_ptf_ports(links)
         pytest_assert(ptf_dst_port_ids, f"ptf_dst_port_ids is {ptf_dst_port_ids}")
 
-        ptf_dst_port_ids.remove(ptf_src_port_id)
+        if ptf_src_port_id in ptf_dst_port_ids:
+            ptf_dst_port_ids.remove(ptf_src_port_id)
 
         return {
             'ptf_src_port_id': ptf_src_port_id,

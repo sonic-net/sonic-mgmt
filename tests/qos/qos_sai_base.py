@@ -14,6 +14,7 @@ import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
@@ -59,7 +60,7 @@ class QosBase:
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
                            "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
@@ -350,12 +351,11 @@ class QosSaiBase(QosBase):
         )[0]).replace("oid:", '')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
-    def __getBufferProfile(self, request, dut_asic, os_version, table, port, priorityGroup):
+    def __getBufferProfile(self, dut_asic, os_version, table, port, priorityGroup):
         """
             Get buffer profile attribute from Redis db
 
             Args:
-                request (Fixture): pytest request object
                 dut_asic(SonicAsic): Device Under Test (DUT)
                 table (str): Redis table name
                 port (str): DUT port alias
@@ -639,7 +639,7 @@ class QosSaiBase(QosBase):
 
         return dutPortIps
 
-    def replaceNonExistentPortId(self, availablePortIds, portIds):
+    def replaceNonExistentPortId(self, availablePortIds, portIds, mapDuplicatesToSameAvailable=False):
         '''
         if port id of availablePortIds/dst_port_ids is not existing in availablePortIds
         replace it with correct one, make sure all port id is valid
@@ -647,98 +647,196 @@ class QosSaiBase(QosBase):
             Given below parameter:
                 availablePortIds: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26,
                                    28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
-                portIds: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                portIds: [1, 2, 2, 3, 3, 4, 5, 6, 6, 7, 7, 8, 9]
             get result:
-                portIds: [0, 2, 16, 4, 18, 6, 20, 8, 22]
+                portIds: [0, 2, 10, 16, 18, 4, 20, 6, 22, 24, 26, 8, 28]
+        if mapDuplicatesToSameAvailable is True then the resulting portIds is allowed
+        to have duplicate entries and they will be mapped to the same available ports
+        e.g.
+            Given below parameter:
+                availablePortIds: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26,
+                                   28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
+                portIds: [1, 2, 2, 3, 3, 4, 5, 6, 6, 7, 7, 8, 9]
+            get result, the valid duplicates are kept and invalid are mapped to the same value:
+                portIds: [0, 2, 2, 10, 10, 4, 16, 6, 6, 18, 18, 8, 20]
         '''
-        if len(portIds) > len(availablePortIds):
-            logger.info('no enough ports for test')
+        numNeeded = len(set(portIds)) if mapDuplicatesToSameAvailable else len(portIds)
+        numAvailable = len(availablePortIds)
+        if numNeeded > numAvailable:
+            logger.info(f'not enough ports for test, {numNeeded} ports needed > {numAvailable} ports available')
+            return False
+        if numAvailable != len(set(availablePortIds)):
+            logger.warning(f"duplicate ports found in availablePortIds: {availablePortIds}")
             return False
 
         # cache available as free port pool
         freePorts = [pid for pid in availablePortIds]
+        removedPorts = set()
 
-        # record invaild port
-        # and remove valid port from free port pool
-        invalid = []
+        # record invalid port
+        # otherwise remove valid port from free port pool
+        invalid = {}
         for idx, pid in enumerate(portIds):
+            # if we removed the port from freeports then it's still valid
+            if mapDuplicatesToSameAvailable and pid in removedPorts:
+                continue
             if pid not in freePorts:
-                invalid.append(idx)
+                invalid.setdefault(pid, [])
+                invalid[pid].append(idx)
             else:
                 freePorts.remove(pid)
+                removedPorts.add(pid)
 
         # replace invalid port from free port pool
-        for idx in invalid:
-            portIds[idx] = freePorts.pop(0)
+        for pid, idxs in invalid.items():
+            # either map invalid duplicates to the same port or get a fresh one for all
+            if mapDuplicatesToSameAvailable:
+                newPid = freePorts.pop(0)
+            for idx in idxs:
+                if not mapDuplicatesToSameAvailable:
+                    newPid = freePorts.pop(0)
+                portIds[idx] = newPid
 
         return True
 
-    def updateTestPortIdIp(self, dutConfig, get_src_dst_asic_and_duts, qosParams=None):
+    def updateTestPortIdIp(self, dutConfig, get_src_dst_asic_and_duts, portSpeedCableLength=None, qosParams=None):
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         src_testPortIds = dutConfig["testPortIds"][src_dut_index][src_asic_index]
         dst_testPortIds = dutConfig["testPortIds"][dst_dut_index][dst_asic_index]
-        testPortIds = src_testPortIds + list(set(dst_testPortIds) - set(src_testPortIds))
-
-        portIdNames = []
-        portIds = []
+        # Keep src and dest ports separate so we can pick a valid replacement from the correct asic
+        src_portIdNames = []
+        src_portIds = []
+        dst_portIdNames = []
+        dst_portIds = []
 
         for idName in dutConfig["testPorts"]:
-            if re.match(r'(?:src|dst)_port\S+id', idName):
-                portIdNames.append(idName)
+            if re.match(r'src_port\S+id', idName):
+                src_portIdNames.append(idName)
                 ipName = idName.replace('id', 'ip')
                 pytest_assert(
                     ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
-                portIds.append(dutConfig["testPorts"][idName])
-        has_enough_ports = self.replaceNonExistentPortId(testPortIds, list(portIds))
+                src_portIds.append(dutConfig["testPorts"][idName])
+            elif re.match(r'dst_port\S+id', idName):
+                dst_portIdNames.append(idName)
+                ipName = idName.replace('id', 'ip')
+                pytest_assert(
+                    ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
+                dst_portIds.append(dutConfig["testPorts"][idName])
+
+        # replace src and dst ports with valid choices from the appropriate asic
+        # filter the source ports to those with the correct profile if provided
+        if portSpeedCableLength:
+            dut_asic = get_src_dst_asic_and_duts['src_asic']
+            duthost = get_src_dst_asic_and_duts['src_dut']
+            pgs = None
+            if qosParams and "pgs" in qosParams:
+                pgs = qosParams["pgs"]
+                maxPg = max(pgs)
+                minPg = min(pgs)
+                if minPg == maxPg:
+                    pgs = str(minPg)
+                else:
+                    # valid PG pattern "[0-7]((-)[0-7])?"
+                    expectedRange = set(range(minPg, maxPg + 1))
+                    actualPgs = set(pgs)
+                    pytest_assert(actualPgs == expectedRange,
+                                  f"Invalid PGs {pgs}, should be a continuous range."
+                                  f"Expected {sorted(expectedRange)}, got {sorted(actualPgs)}")
+                    pgs = f"{minPg}-{maxPg}"
+            elif dutConfig.get("dualTor"):
+                pgs = "2-4"
+            else:
+                pgs = "3-4"
+
+            logger.debug(f"src_testPortIds before portSpeedCableLength filtering: {src_testPortIds}")
+            src_testPortIds = [id for id in src_testPortIds
+                               if portSpeedCableLength == self.getPortSpeedCableLength(
+                                    dut_asic,
+                                    duthost,
+                                    dutConfig["dutInterfaces"][id],
+                                    pgs
+                                )]
+            logger.debug(f"src_testPortIds after portSpeedCableLength filtering: {src_testPortIds}")
+
+            pytest_assert(len(src_testPortIds) > 0,
+                          f"No source ports found matching portSpeedCableLength={portSpeedCableLength}")
+
+        has_enough_src_ports = self.replaceNonExistentPortId(src_testPortIds, src_portIds)
+
+        # remove src ports from dst ports to avoid src and dst ports are the same on single asic
+        # if the dut or the asic is different then don't remove the src port ids
+        sameSrcDestDutAndAsic = src_dut_index == dst_dut_index and src_asic_index == dst_asic_index
+        if sameSrcDestDutAndAsic:
+            dst_testPortIds = list(set(dst_testPortIds) - set(src_portIds))
+        has_enough_dst_ports = self.replaceNonExistentPortId(dst_testPortIds, dst_portIds,
+                                                             mapDuplicatesToSameAvailable=True)
+
+        has_enough_ports = has_enough_src_ports and has_enough_dst_ports
         if not has_enough_ports:
+            message = "Not enough test ports, "
+            if not has_enough_src_ports:
+                message += f"(need {len(src_portIds)} src ports, got {len(src_testPortIds)}) "
+            if not has_enough_dst_ports:
+                message += f"(need {len(dst_portIds)} dst ports, got {len(dst_testPortIds)})"
             src_dut = get_src_dst_asic_and_duts['src_dut']
             is_vs = dutConfig.get('dstDutAsic') == 'vs'
             is_t2 = src_dut.facts.get('switch_type') == 'voq'
             if is_vs and is_t2:
-                pytest.skip(
-                    "Not enough test ports for T2 VS platform "
-                    "(need {}, got {}). See: https://github.com/sonic-net/sonic-mgmt/issues/23988".format(
-                        len(portIds), len(testPortIds)))
-            pytest_assert(False, "No enough test ports")
-        for idx, idName in enumerate(portIdNames):
-            dutConfig["testPorts"][idName] = portIds[idx]
+                pytest.skip("For T2 VS platform: " + message)
+            pytest_assert(False, message)
+
+        # update dutConfig with corrected src ports and their IPs
+        for idx, idName in enumerate(src_portIdNames):
+            dutConfig["testPorts"][idName] = src_portIds[idx]
             ipName = idName.replace('id', 'ip')
-            if 'src' in ipName:
-                testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
-            else:
-                testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
-            dutConfig["testPorts"][ipName] = testPortIps[portIds[idx]]['peer_addr']
+            testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+            dutConfig["testPorts"][ipName] = testPortIps[src_portIds[idx]]['peer_addr']
+
+        # update dutConfig with corrected dst ports and their IPs
+        for idx, idName in enumerate(dst_portIdNames):
+            dutConfig["testPorts"][idName] = dst_portIds[idx]
+            ipName = idName.replace('id', 'ip')
+            testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+            dutConfig["testPorts"][ipName] = testPortIps[dst_portIds[idx]]['peer_addr']
+        logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
 
         if qosParams is not None:
-            portIdNames = []
-            portNumbers = []
-            portIds = []
-            for idName in qosParams.keys():
-                if re.match(r'(?:src|dst)_port\S+ids?', idName):
-                    portIdNames.append(idName)
-                    ids = qosParams[idName]
-                    if isinstance(ids, list):
-                        portIds += ids
-                        # if it's port list, record number of pots
-                        portNumbers.append(len(ids))
-                    else:
-                        portIds.append(ids)
-                        # record None to indicate it's just one port
-                        portNumbers.append(None)
-            pytest_assert(self.replaceNonExistentPortId(testPortIds, portIds), "No enough test ports")
-            startPos = 0
-            for idx, idName in enumerate(portIdNames):
-                if portNumbers[idx] is not None:    # port list
-                    qosParams[idName] = [
-                        portId for portId in portIds[startPos:startPos + portNumbers[idx]]]
-                    startPos += portNumbers[idx]
-                else:   # not list, just one port
-                    qosParams[idName] = portIds[startPos]
-                    startPos += 1
-        logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
+            for idName in list(qosParams.keys()):
+                if re.match(r'src_port\S+ids?', idName):
+                    port_list = qosParams[idName]
+                    isList = True
+                    if not isinstance(port_list, list):
+                        port_list = [port_list]
+                        isList = False
+                    pytest_assert(self.replaceNonExistentPortId(src_testPortIds, port_list),
+                                  f"Not enough src test ports in qosParams for {idName}")
+
+                    # update qosParams for this param and remove from available src ports
+                    qosParams[idName] = port_list if isList else port_list[0]
+                    src_testPortIds = list(set(src_testPortIds) - set(port_list))
+                    # if same dut and same asic, then also remove from the dest ports
+                    if sameSrcDestDutAndAsic:
+                        dst_testPortIds = list(set(dst_testPortIds) - set(port_list))
+                elif re.match(r'dst_port\S+ids?', idName):
+                    port_list = qosParams[idName]
+                    isList = True
+                    if not isinstance(port_list, list):
+                        port_list = [port_list]
+                        isList = False
+                    pytest_assert(self.replaceNonExistentPortId(dst_testPortIds, port_list),
+                                  f"Not enough dst test ports in qosParams for {idName}")
+
+                    # update qosParams for this param and remove from available dest ports
+                    qosParams[idName] = port_list if isList else port_list[0]
+                    dst_testPortIds = list(set(dst_testPortIds) - set(port_list))
+                    # if same dut and same asic, then also remove from the src ports
+                    if sameSrcDestDutAndAsic:
+                        src_testPortIds = list(set(src_testPortIds) - set(port_list))
+
+            logger.debug(f'updateTestPortIdIp qosParams: {qosParams}')
 
     @pytest.fixture(scope='module')
     def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host,  # noqa: F811
@@ -1851,6 +1949,27 @@ class QosSaiBase(QosBase):
                 if 'proxy_arp' in value:
                     logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
+    def getPortSpeedCableLength(self, dut_asic, duthost, srcport, pgs):
+        profileName = self.__getBufferProfile(
+                    dut_asic,
+                    duthost.os_version,
+                    "BUFFER_PG_TABLE" if self.isBufferInApplDb(
+                        dut_asic) else "BUFFER_PG",
+                    srcport,
+                    pgs
+                )["profileName"]
+
+        if self.isBufferInApplDb(dut_asic):
+            profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
+        else:
+            profile_pattern = "^BUFFER_PROFILE\\|pg_lossless_(.*)_profile"
+        m = re.search(profile_pattern, profileName)
+        pytest_assert(m and m.group(1), f"Cannot find port speed/cable length for srcport {srcport} and pgs {pgs}")
+
+        portSpeedCableLength = m.group(1)
+        logger.debug(f"portSpeedCableLength of src port {srcport} is {portSpeedCableLength}")
+        return portSpeedCableLength
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, request, duthosts, get_src_dst_asic_and_duts,
@@ -1879,14 +1998,9 @@ class QosSaiBase(QosBase):
         logger.info(
             "Lossless Buffer profile selected is {}".format(profileName))
 
-        if self.isBufferInApplDb(dut_asic):
-            profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
-        else:
-            profile_pattern = "^BUFFER_PROFILE\\|pg_lossless_(.*)_profile"
-        m = re.search(profile_pattern, profileName)
-        pytest_assert(m.group(1), "Cannot find port speed/cable length")
-
-        portSpeedCableLength = m.group(1)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+        portSpeedCableLength = self.getPortSpeedCableLength(dut_asic, duthost,
+                                                            srcport, "3-4")
 
         qosConfigs = dutConfig["qosConfigs"]
         dutAsic = dutConfig["dutAsic"]
@@ -2335,7 +2449,6 @@ class QosSaiBase(QosBase):
             pgs = "3-4"
 
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(
@@ -2363,7 +2476,6 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut']
         dut_asic = get_src_dst_asic_and_duts['src_asic']
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(
@@ -2400,7 +2512,6 @@ class QosSaiBase(QosBase):
             queues = "3-4"
 
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
@@ -2451,7 +2562,6 @@ class QosSaiBase(QosBase):
                 queues = "0-2"
 
         egress_lossy_profile = self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
@@ -2602,35 +2712,21 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts.frontend_nodes[0]
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll watermark {} enable".format(namespace_arg))
-                    duthost.command("sudo counterpoll queue {} enable".format(namespace_arg))
-        else:
-            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
-                dut_asic.command("counterpoll watermark enable")
-                dut_asic.command("counterpoll queue enable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for asic in duthost.asics:
+                ConterpollHelper.enable_counterpoll(asic, ['watermark', 'queue'])
 
         time.sleep(70)
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll watermark {} disable".format(namespace_arg))
-                    duthost.command("sudo counterpoll queue {} disable".format(namespace_arg))
-        else:
-            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-                dut_asic.command("counterpoll watermark disable")
-                dut_asic.command("counterpoll queue disable")
+
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for asic in duthost.asics:
+                ConterpollHelper.disable_counterpoll(asic, ['watermark', 'queue'])
 
         yield
 
-        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-            dut_asic.command("counterpoll watermark enable")
-            dut_asic.command("counterpoll queue enable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for asic in duthost.asics:
+                ConterpollHelper.enable_counterpoll(asic, ['watermark', 'queue'])
 
     @pytest.fixture
     def blockGrpcTraffic(self, tbinfo, lower_tor_host, nic_simulator_info):   # noqa F811
@@ -3098,6 +3194,416 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
+    @pytest.fixture(scope="function", autouse=False)
+    def permit_only_test_traffic_on_fanout(
+            self, get_src_dst_asic_and_duts, tbinfo,
+            nbrhosts, dutConfig, dutQosConfig, fanouthosts,
+            conn_graph_facts, request):
+        """
+        Block non-test L2 traffic from reaching DUT ingress ports during QoS
+        headroom pool tests to prevent false InDiscard counter increments.
+
+        Configures the fanout switch to suppress noise reaching the DUT:
+        - on EOS via an egress MAC ACL whitelist (permit IP/IPv6/ARP, deny
+          all other ethertypes incl. LLDP 0x88CC, LACP 0x8809) plus
+          ``no lldp transmit/receive`` per interface;
+        - on SONiC via stopping the LLDP container only (partial coverage —
+          full L2 ACL filtering is tracked in #24236, see
+          ``_apply_sonic_filter`` for limitations).
+
+        Steps:
+        1. Stop DUT teamd lacpd (prevents LACP timeout detection)
+        2. Set EOS neighbor LACP timer multiplier to 600 (prevents EOS-side timeout)
+        3. Per-fanout: dispatch by fanout OS to apply the appropriate filter
+
+        Fanout dispatch:
+        - EOS fanout: egress MAC ACL + ``no lldp transmit/receive`` per interface
+        - SONiC fanout: stop LLDP container only (LLDP-stop-only, partial
+          coverage — see ``_apply_sonic_filter`` for limitations and
+          tracked issue #24236)
+
+        Note on change_lag_lacp_timer interaction: that fixture only activates
+        for broadcom-dnx platforms and operates on dst_port LAGs. This fixture
+        operates on src_port LAGs for Broadcom TH (7060CX), so there is no
+        overlap on the affected platform.
+
+        Note on broadcom-dnx port mismatch: ``testQosSaiHeadroomPoolSize`` /
+        ``testQosSaiHeadroomPoolWatermark`` override ``hdrm_pool_size`` at
+        runtime on broadcom-dnx (non-q3d) platforms with a slice of
+        ``testPortIds``. We pre-emptively include the ``testPortIds`` candidate
+        pool below to cover that case. See issue #24236.
+        """
+        # Skip when neighbors are SONiC: this fixture's LACP-multiplier path is
+        # EOS-only, and physical fanout config does not apply to KVM/virtual
+        # topologies which are the typical --neighbor_type=sonic scenario.
+        if request.config.getoption("--neighbor_type") == "sonic":
+            yield
+            return
+
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        src_mgfacts = src_dut.get_extended_minigraph_facts(tbinfo)
+
+        # Resolve which DUT ports actually need protection from PTF test config.
+        # PTF sends from `hdrm_pool_size.src_port_ids` and `dst_port_id` from
+        # qos params, not from `dutConfig.testPorts.src_port_id`. Get the real
+        # list from dutQosConfig.
+        protected_port_ids = set()
+        try:
+            qos_param = dutQosConfig['param'].get(dutQosConfig['portSpeedCableLength'], {})
+            hdrm = qos_param.get('hdrm_pool_size', {}) or {}
+            for pid in hdrm.get('src_port_ids', []) or []:
+                protected_port_ids.add(int(pid))
+            if hdrm.get('dst_port_id') is not None:
+                protected_port_ids.add(int(hdrm['dst_port_id']))
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
+            logger.warning("permit_only_test_traffic_on_fanout: "
+                           "failed to read hdrm_pool_size from dutQosConfig: %s", str(e))
+
+        # On broadcom-dnx (non-q3d), the test method overrides hdrm_pool_size
+        # at runtime with a slice of testPortIds. Pre-include the candidate
+        # pool so the optimization covers that path too.
+        try:
+            src_dut_index = get_src_dst_asic_and_duts.get('src_dut_index', 0)
+            src_asic_index = get_src_dst_asic_and_duts.get('src_asic_index', 0)
+            test_port_ids = dutConfig.get('testPortIds', {}) or {}
+            runtime_candidates = (
+                test_port_ids.get(src_dut_index, {}).get(src_asic_index, []) or [])
+            for pid in runtime_candidates:
+                protected_port_ids.add(int(pid))
+        except (KeyError, TypeError, AttributeError, ValueError) as e:
+            logger.debug("permit_only_test_traffic_on_fanout: "
+                         "could not augment with testPortIds: %s", str(e))
+
+        if not protected_port_ids:
+            # Fallback: protect all dutInterfaces
+            logger.info("permit_only_test_traffic_on_fanout: hdrm_pool_size "
+                        "src_port_ids not available; falling back to all dutInterfaces")
+            protected_port_ids = set(dutConfig.get('dutInterfaces', {}).keys())
+
+        src_interfaces = [dutConfig['dutInterfaces'][idx]
+                          for idx in sorted(protected_port_ids)
+                          if idx in dutConfig.get('dutInterfaces', {})]
+
+        logger.info(
+            "permit_only_test_traffic_on_fanout: protecting %d ports: %s",
+            len(src_interfaces), src_interfaces)
+
+        # Find LAG names containing any of the protected interfaces
+        portchannels = src_mgfacts.get('minigraph_portchannels', {})
+        lag_names = []
+        for port_ch, port_intf in portchannels.items():
+            for member in port_intf.get('members', []):
+                if member in src_interfaces:
+                    if port_ch not in lag_names:
+                        lag_names.append(port_ch)
+                        logger.debug("permit_only_test_traffic_on_fanout: "
+                                     "%s is member of %s", member, port_ch)
+                    break
+
+        # State tracking for teardown
+        eos_restore_list = []
+        fanout_restore_list = []
+        acl_created_fanouts = {}  # fanout_name -> fanout_os (for cleanup dispatch)
+        sonic_lldp_stopped = set()  # fanout names where we stopped lldp container
+        lacpd_stopped = False
+        acl_name = "QOS_TEST_WHITELIST"
+        teamd_docker = src_asic.get_docker_name("teamd")
+
+        try:
+            # --- Step 1 & 2: LACP-specific (only when ports are in LAG) ---
+            if lag_names:
+                logger.info(
+                    "permit_only_test_traffic_on_fanout: found %d LAGs, "
+                    "stopping lacpd and setting timer", len(lag_names))
+
+                # Step 1: Stop DUT teamd lacpd
+                result = src_dut.command(
+                    "docker exec {} supervisorctl stop lacpd".format(teamd_docker),
+                    module_ignore_errors=True)
+                if result.get('failed', False) or result.get('rc', 0) != 0:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: lacpd stop may have "
+                        "failed (rc=%s), proceeding anyway", result.get('rc', '?'))
+                else:
+                    lacpd_stopped = True
+                # Brief wait for any in-flight LACP PDU to drain
+                time.sleep(2)
+
+                # Step 2: Set EOS neighbor LACP timer multiplier to 600
+                lag_facts = src_dut.lag_facts(
+                    host=src_dut.hostname)['ansible_facts']['lag_facts']
+                vm_neighbors = src_mgfacts.get('minigraph_neighbors', {})
+
+                for lag_name in lag_names:
+                    if lag_name not in lag_facts.get('lags', {}):
+                        continue
+                    po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
+                    for po_intf in po_interfaces:
+                        if po_intf not in vm_neighbors:
+                            continue
+                        peer_device = vm_neighbors[po_intf]['name']
+                        neighbor_port = vm_neighbors[po_intf]['port']
+                        if peer_device not in nbrhosts:
+                            continue
+                        vm_host = nbrhosts[peer_device]['host']
+                        if isinstance(vm_host, EosHost):
+                            logger.info(
+                                "permit_only_test_traffic_on_fanout: "
+                                "setting LACP multiplier 600 on %s %s",
+                                peer_device, neighbor_port)
+                            vm_host.set_interface_lacp_time_multiplier(
+                                neighbor_port, 600)
+                            eos_restore_list.append((vm_host, neighbor_port))
+            else:
+                logger.info("permit_only_test_traffic_on_fanout: "
+                            "no LAGs found, skipping LACP steps")
+
+            # --- Step 3: Per-fanout dispatch (LLDP suppression + ACL where supported) ---
+            # EOS path: egress MAC ACL whitelist (permit IP 0x0800 / IPv6 0x86DD /
+            # ARP 0x0806; deny all others including LLDP 0x88CC, LACP 0x8809) plus
+            # `no lldp transmit/receive` per interface.
+            # SONiC path: stop LLDP container only — see _apply_sonic_filter for
+            # limitations and tracked issue #24236.
+            # PFC (0x8808) is DUT-originated and travels DUT→fanout; the EOS
+            # egress ACL does not affect it. SONiC has no port-side filtering
+            # applied here, so PFC is naturally unaffected.
+            dev_conn = conn_graph_facts.get('device_conn', {})
+            # Restrict to only the source DUT's connections to avoid touching
+            # fanout ports of unrelated DUTs in multi-DUT topologies.
+            src_dut_conn = dev_conn.get(src_dut.hostname, {})
+
+            for dut_port, fanout_rec in src_dut_conn.items():
+                if dut_port not in src_interfaces:
+                    continue
+                fanout_name = str(fanout_rec['peerdevice'])
+                fanout_port = str(fanout_rec['peerport'])
+
+                if fanout_name not in fanouthosts:
+                    continue
+
+                fanout = fanouthosts[fanout_name]
+                fanout_os = fanout.get_fanout_os()
+
+                if fanout_os == 'eos':
+                    self._apply_eos_filter(
+                        fanout, fanout_name, fanout_port, acl_name,
+                        fanout_restore_list, acl_created_fanouts)
+                elif fanout_os == 'sonic':
+                    self._apply_sonic_filter(
+                        fanout, fanout_name, fanout_port,
+                        fanout_restore_list, sonic_lldp_stopped)
+                else:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: "
+                        "fanout OS '%s' not supported, skipping %s",
+                        fanout_os, fanout_name)
+
+        except Exception as e:
+            # Setup failed partway — run teardown for anything already configured
+            logger.error(
+                "permit_only_test_traffic_on_fanout: setup failed: %s. "
+                "Running partial teardown.", str(e))
+            self._teardown_test_traffic_filter(
+                src_dut, teamd_docker, lacpd_stopped,
+                eos_restore_list, fanout_restore_list,
+                acl_created_fanouts, sonic_lldp_stopped, acl_name, fanouthosts)
+            raise
+
+        eos_count = sum(1 for e in fanout_restore_list if e[0] == 'eos')
+        sonic_count = sum(1 for e in fanout_restore_list if e[0] == 'sonic')
+        logger.info(
+            "permit_only_test_traffic_on_fanout: setup complete — "
+            "EOS=%d ports (egress MAC ACL), SONiC=%d ports "
+            "(LLDP-stop on %d fanouts), %d LACP timers set",
+            eos_count, sonic_count, len(sonic_lldp_stopped),
+            len(eos_restore_list))
+
+        yield
+
+        self._teardown_test_traffic_filter(
+            src_dut, teamd_docker, lacpd_stopped,
+            eos_restore_list, fanout_restore_list,
+            acl_created_fanouts, sonic_lldp_stopped, acl_name, fanouthosts)
+
+    def _apply_eos_filter(self, fanout, fanout_name, fanout_port, acl_name,
+                          fanout_restore_list, acl_created_fanouts):
+        """Apply LLDP disable + egress MAC ACL on an EOS fanout port."""
+        try:
+            # Disable LLDP first; record immediately for restore
+            fanout.host.eos_config(
+                lines=['no lldp transmit', 'no lldp receive'],
+                parents=['interface %s' % fanout_port])
+            fanout_restore_list.append(
+                ('eos', fanout, fanout_name, fanout_port))
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: "
+                "LLDP disable failed on EOS %s %s: %s",
+                fanout_name, fanout_port, str(e))
+            return
+
+        try:
+            # Create MAC ACL once per fanout
+            if fanout_name not in acl_created_fanouts:
+                fanout.host.eos_config(
+                    lines=[
+                        'permit any any ip',
+                        'permit any any ipv6',
+                        'permit any any arp',
+                        'deny any any',
+                    ],
+                    parents=['mac access-list %s' % acl_name])
+                acl_created_fanouts[fanout_name] = 'eos'
+            # Bind egress MAC ACL (out = fanout→DUT direction)
+            fanout.host.eos_config(
+                lines=['mac access-group %s out' % acl_name],
+                parents=['interface %s' % fanout_port])
+            logger.info(
+                "permit_only_test_traffic_on_fanout: protected EOS %s %s",
+                fanout_name, fanout_port)
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: "
+                "ACL config failed on EOS %s %s: %s",
+                fanout_name, fanout_port, str(e))
+
+    def _apply_sonic_filter(self, fanout, fanout_name, fanout_port,
+                            fanout_restore_list, sonic_lldp_stopped):
+        """Apply partial filter on SONiC fanout: stop LLDP container only.
+
+        Why partial: Broadcom SONiC does not support egress ACL, so we
+        cannot replicate the EOS "egress on DUT-facing port" approach.
+        Applying ingress ACL on the DUT-facing port would filter the wrong
+        direction (DUT->fanout, blocking PFC). Applying ingress ACL on
+        VM-facing ports requires multi-tier topology discovery that is
+        out of scope for this PR.
+
+        What this DOES cover:
+        - Fanout-self originated LLDP (stopped via container)
+
+        What this does NOT cover (limitation, tracked in #24236):
+        - VM-originated LLDP/LACP that transits through the SONiC fanout
+
+        Mitigations for the uncovered cases come from the existing
+        DUT-side defenses already applied by this fixture and stopServices:
+        - DUT teamd lacpd stopped (no LAG flap from blocked LACP)
+        - EOS neighbor LACP multiplier 600 (no EOS-side LAG flap)
+        - DUT LLDP/BGP/radvd stopped by stopServices fixture
+        """
+        # Stop LLDP container once per fanout (covers fanout-self LLDP).
+        # The 202511 fanout role only stops LLDP for marvell-teralynx;
+        # broadcom SONiC fanouts still run LLDP by default.
+        # Assumption: LLDP is running before the test; "docker stop" rc=0 does
+        # not distinguish "stopped now" from "was already stopped", so the
+        # teardown's symmetric "docker start" will start LLDP even on fanouts
+        # where it was previously off. This is acceptable for the testbeds
+        # in scope (#24236) where LLDP runs by default on Broadcom SONiC.
+        if fanout_name not in sonic_lldp_stopped:
+            try:
+                result = fanout.host.command(
+                    "docker stop lldp", module_ignore_errors=True)
+                if result.get('failed', False) or result.get('rc', 0) != 0:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: "
+                        "docker stop lldp on SONiC %s returned rc=%s, "
+                        "output=%s", fanout_name, result.get('rc', '?'),
+                        result.get('stdout', result.get('stderr', '')))
+                else:
+                    sonic_lldp_stopped.add(fanout_name)
+                    logger.info(
+                        "permit_only_test_traffic_on_fanout: stopped lldp "
+                        "container on SONiC %s", fanout_name)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to stop lldp on SONiC %s: %s",
+                    fanout_name, str(e))
+
+        # Track this port for restore symmetry. The actual SONiC defense is
+        # one-shot per fanout (LLDP container stop above); this per-port
+        # entry is bookkeeping for log-symmetry with the EOS path.
+        fanout_restore_list.append(
+            ('sonic', fanout, fanout_name, fanout_port))
+        logger.debug(
+            "permit_only_test_traffic_on_fanout: SONiC fanout %s associated "
+            "DUT port %s recorded; LLDP-stop already applied at fanout level",
+            fanout_name, fanout_port)
+
+    def _teardown_test_traffic_filter(
+            self, src_dut, teamd_docker, lacpd_stopped,
+            eos_restore_list, fanout_restore_list,
+            acl_created_fanouts, sonic_lldp_stopped, acl_name, fanouthosts):
+        """Reverse all changes made by permit_only_test_traffic_on_fanout."""
+        # Step 1 reverse: restart DUT lacpd FIRST (before timer restore)
+        if lacpd_stopped:
+            logger.info("permit_only_test_traffic_on_fanout: "
+                        "restarting lacpd in %s", teamd_docker)
+            result = src_dut.command(
+                "docker exec {} supervisorctl start lacpd".format(teamd_docker),
+                module_ignore_errors=True)
+            if result.get('failed', False) or result.get('rc', 0) != 0:
+                logger.error(
+                    "permit_only_test_traffic_on_fanout: lacpd restart "
+                    "FAILED — DUT may be left without LACP. Output: %s",
+                    result.get('stdout', result.get('stderr', 'unknown')))
+
+        # Step 2 reverse: restore EOS LACP timer
+        for vm_host, neighbor_port in eos_restore_list:
+            try:
+                vm_host.no_lacp_time_multiplier(neighbor_port)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to restore LACP timer: %s", str(e))
+
+        # Step 3 reverse: per-port LLDP/ACL teardown (dispatch by fanout_os)
+        for entry in fanout_restore_list:
+            fanout_os, fanout, fanout_name, fanout_port = entry
+            try:
+                if fanout_os == 'eos':
+                    fanout.host.eos_config(
+                        lines=['lldp transmit', 'lldp receive',
+                               'no mac access-group %s out' % acl_name],
+                        parents=['interface %s' % fanout_port])
+                elif fanout_os == 'sonic':
+                    # No per-port action: SONiC path only stops LLDP container
+                    # (see _apply_sonic_filter); LLDP container restart is
+                    # handled below per fanout, not per port.
+                    pass
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to restore %s %s: %s",
+                    fanout_name, fanout_port, str(e))
+
+        # Delete ACL definition once per fanout (dispatch by recorded os)
+        for fanout_name, fanout_os in acl_created_fanouts.items():
+            try:
+                fanout = fanouthosts[fanout_name]
+                if fanout_os == 'eos':
+                    fanout.host.eos_config(
+                        lines=['no mac access-list %s' % acl_name])
+                # SONiC: no ACL was created in this version (see _apply_sonic_filter)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to delete ACL on %s: %s", fanout_name, str(e))
+
+        # Restart LLDP container on SONiC fanouts where we stopped it
+        for fanout_name in sonic_lldp_stopped:
+            try:
+                fanout = fanouthosts[fanout_name]
+                fanout.host.command(
+                    "docker start lldp", module_ignore_errors=True)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to restart lldp on SONiC %s: %s",
+                    fanout_name, str(e))
+
+        logger.info("permit_only_test_traffic_on_fanout: teardown complete")
+
     def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         dshell_script = '''
 from common import *
@@ -3433,36 +3939,19 @@ def clear_pg_watermark(interface):
         By default WRED_ECN_QUEUE and WRED_ECN_PORT are disabled for polling.
         Enable flexcounter groups WRED_ECN_QUEUE and WRED_ECN_PORT using counterpoll CLI
         """
-        duthost = duthosts.frontend_nodes[0]
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    try:
-                        duthost.command("sudo counterpoll wredqueue {} enable".format(namespace_arg))
-                        duthost.command("sudo counterpoll wredport {} enable".format(namespace_arg))
-                    except Exception:
-                        pass  # VS/KVM counterpoll may not support -n namespace
-                duthost.command("sudo config save -y")
-        else:
-            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
-                dut_asic.command("counterpoll wredqueue enable")
-                dut_asic.command("counterpoll wredport enable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for dut_asic in duthost.asics:
+                try:
+                    ConterpollHelper.enable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
+                except Exception as e:  # VS/KVM counterpoll may not support -n namespace
+                    logging.error(f"Failed to enable counterpoll for {dut_asic.hostname} with error: {e}")
             duthost.command("sudo config save -y")
 
         yield
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    try:
-                        duthost.command("sudo counterpoll wredqueue {} disable".format(namespace_arg))
-                        duthost.command("sudo counterpoll wredport {} disable".format(namespace_arg))
-                    except Exception:
-                        pass  # VS/KVM counterpoll may not support -n namespace
-                duthost.command("sudo config save -y")
-        else:
-            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
-                dut_asic.command("counterpoll wredqueue disable")
-                dut_asic.command("counterpoll wredport disable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for dut_asic in duthost.asics:
+                try:
+                    ConterpollHelper.disable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
+                except Exception as e:  # VS/KVM counterpoll may not support -n namespace
+                    logging.error(f"Failed to disable counterpoll for {dut_asic.hostname} with error: {e}")
             duthost.command("sudo config save -y")
