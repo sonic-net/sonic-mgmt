@@ -1,0 +1,186 @@
+"""
+XOn Drain Binary-Then-Step Algorithm — for platforms with large
+effective_xon_offset (Cisco J2C/JR2/Q3D, Mellanox PAC, Broadcom GB:
+hundreds to ~13000 packets).
+
+Two-phase search:
+  Phase 1 (binary): coarse binary search to narrow [lower, upper] to a
+    window of `range_limit` packets.
+  Phase 2 (step):   step-by-step within [xon_lower, xon_upper] to find
+    the exact transition point.
+
+Total cost: O(log(pfcxoff_point)) + O(range_limit) — typically ~10-15
+binary iters + ~32 step iters = ~50 iterations max for any platform,
+even Cisco's 12985.
+
+Pairs with PfcXonProbingExecutor.check(value=D).
+
+Use this for the 4-step path (when enable_xon_range_probe=True).
+"""
+
+import time
+from typing import Optional, Tuple
+
+from probing_observer import ProbingObserver
+
+
+class XonDrainBinaryAlgorithm:
+    """
+    Binary range narrowing + step-by-step within tight window.
+
+    Phase 1 invariant during binary search:
+      - lower D where xon does NOT fire (drain too small, src still paused)
+      - upper D where xon DOES fire     (drain enough, src resumed)
+    Stop binary phase when (upper - lower) <= range_limit.
+
+    Phase 2: step-by-step from lower+1 up to upper, stop on first xon_fired.
+    """
+
+    def __init__(
+        self,
+        executor,
+        observer: ProbingObserver,
+        verification_attempts: int = 1,
+        range_limit: int = 32,
+        binary_max_iter: int = 20,
+        step_max_iter: int = 50,
+    ):
+        """
+        Args:
+            executor: PfcXonProbingExecutor instance.
+            observer: ProbingObserver.
+            verification_attempts: per-check verification rounds.
+            range_limit: stop binary phase when window <= this.
+            binary_max_iter: cap on binary iterations (safety).
+            step_max_iter: cap on step iterations after binary narrowing.
+        """
+        self.executor = executor
+        self.observer = observer
+        self.verification_attempts = verification_attempts
+        self.range_limit = range_limit
+        self.binary_max_iter = binary_max_iter
+        self.step_max_iter = step_max_iter
+
+    def run(
+        self,
+        src_port: int,
+        dst_port_a: int,
+        dst_port_b: int,
+        **traffic_keys,
+    ) -> Tuple[Optional[int], Optional[int], float]:
+        """
+        Run binary-then-step XOn drain probing.
+
+        Returns (xon_lower, xon_upper, elapsed_seconds), or (None, None, elapsed)
+        on failure.
+        """
+        t0 = time.time()
+        pfcxoff_point = self.executor.pfcxoff_point
+
+        self.observer.console(
+            f"[XOn Drain Binary] Starting binary-then-step "
+            f"src={src_port} dst_A={dst_port_a} dst_B={dst_port_b} "
+            f"pfcxoff_point={pfcxoff_point} range_limit={self.range_limit}"
+        )
+
+        self.executor.prepare(src_port, dst_port_a, dst_port_b)
+
+        # ----------------- Phase 1: binary search -----------------
+        # Initial bounds:
+        #   D=1   -> almost certainly xon does NOT fire (only 1 packet drained)
+        #   D=pfcxoff_point -> xon definitely fires (everything drained from A
+        #     and B's portion is 0 means nothing held back)
+        # We don't actually probe these endpoints — we use them as logical
+        # bounds and probe midpoints.
+        lower = 0                    # D where xon does NOT fire
+        upper = pfcxoff_point        # D where xon DOES fire
+        binary_iter = 0
+
+        while (upper - lower) > self.range_limit and binary_iter < self.binary_max_iter:
+            mid = (lower + upper) // 2
+            if mid == lower or mid == upper:
+                break  # converged
+
+            success, xon_fired = self.executor.check(
+                src_port=src_port,
+                dst_port_a=dst_port_a,
+                dst_port_b=dst_port_b,
+                value=mid,
+                attempts=self.verification_attempts,
+                iteration=binary_iter,
+                **traffic_keys,
+            )
+            binary_iter += 1
+
+            if not success:
+                self.observer.trace(
+                    f"[XOn Drain Binary] mid={mid}: check FAILED (inconsistent); "
+                    f"narrowing window aggressively"
+                )
+                # Treat failed as ambiguous — pessimistically narrow toward upper
+                upper = mid
+                continue
+
+            if xon_fired:
+                upper = mid    # mid drained enough, search lower
+            else:
+                lower = mid    # mid not enough, search upper
+
+            self.observer.trace(
+                f"[XOn Drain Binary] iter {binary_iter}: mid={mid} xon_fired={xon_fired} "
+                f"-> [{lower}, {upper}] width={upper - lower}"
+            )
+
+        if (upper - lower) > self.range_limit:
+            elapsed = time.time() - t0
+            self.observer.on_error(
+                f"[XOn Drain Binary] Phase 1 binary did not converge after "
+                f"{binary_iter} iterations; window=[{lower}, {upper}]"
+            )
+            return None, None, elapsed
+
+        self.observer.console(
+            f"[XOn Drain Binary] Phase 1 done: window=[{lower}, {upper}] width={upper - lower}"
+        )
+
+        # ----------------- Phase 2: step-by-step within window -----------------
+        step_iter = 0
+        for d in range(lower + 1, upper + 1):
+            if step_iter >= self.step_max_iter:
+                break
+            step_iter += 1
+
+            success, xon_fired = self.executor.check(
+                src_port=src_port,
+                dst_port_a=dst_port_a,
+                dst_port_b=dst_port_b,
+                value=d,
+                attempts=self.verification_attempts,
+                iteration=binary_iter + step_iter,
+                **traffic_keys,
+            )
+            if not success:
+                self.observer.trace(
+                    f"[XOn Drain Binary] step D={d}: check FAILED (inconsistent)"
+                )
+                continue
+
+            self.observer.trace(
+                f"[XOn Drain Binary] step D={d}: xon_fired={xon_fired}"
+            )
+
+            if xon_fired:
+                elapsed = time.time() - t0
+                self.observer.console(
+                    f"[XOn Drain Binary] FOUND xon offset: lower={d - 1} upper={d} "
+                    f"(binary iters={binary_iter}, step iters={step_iter}, "
+                    f"total {elapsed:.1f}s)"
+                )
+                return d - 1, d, elapsed
+
+        elapsed = time.time() - t0
+        self.observer.on_error(
+            f"[XOn Drain Binary] Phase 2 step exhausted [{lower}, {upper}] without "
+            f"finding xon trigger"
+        )
+        return None, None, elapsed
