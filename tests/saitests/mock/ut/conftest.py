@@ -45,7 +45,10 @@ def reset_executor_registry():
         'lower_bound_probing_algorithm',
         'threshold_range_probing_algorithm',
         'threshold_point_probing_algorithm',
-        'iteration_outcome'
+        'iteration_outcome',
+        'pfc_xon_probing_executor',
+        'xon_drain_step_algorithm',
+        'xon_drain_binary_algorithm'
     ]
     for mod in probe_modules:
         if mod in sys.modules:
@@ -104,3 +107,4 @@ def pytest_sessionstart(session):
             print(f"[Cleanup] Removed {probe_cache}")
         except Exception as e:
             print(f"[Warning] Failed to remove {probe_cache}: {e}")
+
