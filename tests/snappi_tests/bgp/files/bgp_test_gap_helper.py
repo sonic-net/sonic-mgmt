@@ -2,6 +2,7 @@ from tabulate import tabulate
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
 import logging
+import pytest
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -199,6 +200,9 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     """
     global temp_tg_port
     port_count = multipath + 1
+    for i in range(0, port_count):
+        if i >= len(tgen_ports) or tgen_ports[i] is None:
+            pytest.skip("Not enough tgen ports available for BGP scalability test")
     duthost.command('sudo crm config polling interval 30')
     duthost.command('sudo crm config thresholds ipv4 route high 85')
     duthost.command('sudo crm config thresholds ipv4 route low 70')
