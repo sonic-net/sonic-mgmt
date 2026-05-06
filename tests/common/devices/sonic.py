@@ -1828,20 +1828,22 @@ Totals               6450                 6449
         """
         config = self.get_running_config_facts()
         vlan_brief = {}
-        for vlan_name, members in config["VLAN_MEMBER"].items():
-            vlan_brief[vlan_name] = {
-                "interface_ipv4": [],
-                "interface_ipv6": [],
-                "members": list(members.keys())
-            }
-        for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
-            if vlan_name not in vlan_brief:
-                continue
-            for prefix in vlan_info.keys():
-                if '.' in prefix:
-                    vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
-                elif ':' in prefix:
-                    vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
+        if config.get('VLAN_MEMBER'):
+            for vlan_name, members in config["VLAN_MEMBER"].items():
+                vlan_brief[vlan_name] = {
+                    "interface_ipv4": [],
+                    "interface_ipv6": [],
+                    "members": list(members.keys())
+                }
+        if config.get('VLAN_INTERFACE'):
+            for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
+                if vlan_name not in vlan_brief:
+                    continue
+                for prefix in vlan_info.keys():
+                    if '.' in prefix:
+                        vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
+                    elif ':' in prefix:
+                        vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
     def get_interfaces_status(self, namespace=None):
@@ -2889,7 +2891,7 @@ Totals               6450                 6449
         res: ShellResult = self.shell(f"sudo lsof {device_path}", module_ignore_errors=True)
         return True if res["stdout"] else False
 
-    def _get_serial_device_prefix(self) -> str:
+    def get_serial_device_prefix(self) -> str:
         """
         Get the serial device prefix for the platform.
 
@@ -2934,7 +2936,7 @@ print(device_prefix)
         Returns:
             str: The full device path (e.g., "/dev/C0-1", "/dev/ttyUSB1")
         """
-        device_prefix = self._get_serial_device_prefix()
+        device_prefix = self.get_serial_device_prefix()
         return f"{device_prefix}{port}"
 
     def set_loopback(self, port: int, baud_rate: int = 9600, flow_control: bool = False) -> None:
@@ -3207,7 +3209,7 @@ print(device_prefix)
             logging.error(error_msg)
             raise RuntimeError(error_msg)
 
-        device_prefix = self._get_serial_device_prefix()
+        device_prefix = self.get_serial_device_prefix()
         pattern = f"{device_prefix}*"
 
         # Find all related serial port processes
@@ -3240,13 +3242,21 @@ print(device_prefix)
         ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
         ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
 
-        mgmt_interface = self.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        # Use 'ip addr' instead of 'show ip[v6] interface' because the latter
+        # filters out site-local v6 addresses (fec0::/10) that may legitimately
+        # be configured as mgmt.
+        mgmt_interface = self.shell(
+            "ip -4 -o addr show eth0 scope global", module_ignore_errors=True
+        )["stdout"]
         if mgmt_interface:
             match = ipv4_regex.search(mgmt_interface)
             if match:
                 return {"mgmt_ip": match.group(1), "version": "v4"}
 
-        mgmt_interface = self.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        # Exclude link-local (fe80::/10) — not routable, can't be the mgmt addr.
+        mgmt_interface = self.shell(
+            "ip -6 -o addr show eth0 | grep -v 'scope link'", module_ignore_errors=True
+        )["stdout"]
         if mgmt_interface:
             match = ipv6_regex.search(mgmt_interface)
             if match:
