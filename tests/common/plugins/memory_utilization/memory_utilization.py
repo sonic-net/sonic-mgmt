@@ -432,7 +432,8 @@ class MemoryMonitor:
                     'name': name,
                     'cmd': command,
                     'memory_params': memory_params,
-                    'memory_check_fn': memory_check_fn
+                    'memory_check_fn': memory_check_fn,
+                    'order': item.get('order', 0)
                 }
 
         with open(MEMORY_UTILIZATION_DEPENDENCE_JSON_FILE, 'r') as file:
@@ -447,7 +448,8 @@ class MemoryMonitor:
                     'name': name,
                     'cmd': command,
                     'memory_params': memory_params,
-                    'memory_check_fn': memory_check_fn
+                    'memory_check_fn': memory_check_fn,
+                    'order': item.get('order', parameter_dict.get(name, {}).get('order', 0))
                 }
 
             if hwsku:
@@ -479,15 +481,48 @@ class MemoryMonitor:
                                         'name': name,
                                         'cmd': command,
                                         'memory_params': memory_params,
-                                        'memory_check_fn': memory_check_fn
+                                        'memory_check_fn': memory_check_fn,
+                                        'order': item.get('order', 0)
                                     }
 
-        for param in parameter_dict.values():
+        for param in sorted(parameter_dict.values(), key=lambda x: x.get('order', 0)):
             # Normalize thresholds in memory_params to ensure consistent behavior
             for mem_item, thresholds in param['memory_params'].items():
                 param['memory_params'][mem_item] = self._normalize_thresholds(thresholds)
 
             self.register_command(param['name'], param['cmd'], param['memory_params'], eval(param['memory_check_fn']))
+
+
+# Parse top output for sufffix.
+_RES_WITH_SUFFIX_RE = re.compile(
+    r"^\s*(?P<num>[\d.]+)\s*(?P<suf>[kKmMgGtT]?)\s*$"
+)
+
+
+def _parse_top_res_to_mib(res_str):
+    """
+    Convert top's RES column to MiB.
+
+    Plain numeric (no suffix) is treated as KiB (procps default).
+    Suffixes: k=KiB, m=MiB, g=GiB, t=TiB (case-insensitive).
+    """
+    if res_str is None:
+        raise ValueError("RES is None")
+    m = _RES_WITH_SUFFIX_RE.match(str(res_str).strip())
+    if not m:
+        raise ValueError("unrecognized RES format: {!r}".format(res_str))
+    num = float(m.group("num"))
+    suf = (m.group("suf") or "").lower()
+
+    if suf in ("", "k"):
+        return num / 1024.0
+    if suf == "m":
+        return num
+    if suf == "g":
+        return num * 1024.0
+    if suf == "t":
+        return num * 1024.0 * 1024.0
+    raise ValueError("unrecognized RES format: {!r}".format(res_str))
 
 
 def parse_top_output(output, memory_params):
@@ -512,12 +547,14 @@ def parse_top_output(output, memory_params):
 
             for mem_item, thresholds in memory_params.items():
                 if mem_item in process_info["COMMAND"]:
+                    # Fixes issue 24178
+                    res_mib = _parse_top_res_to_mib(process_info["RES"])
                     if mem_item in memory_values:
                         memory_values[mem_item] = round(
-                            memory_values[mem_item] + float(int(process_info["RES"]) / 1024), 1
+                            memory_values[mem_item] + res_mib, 1
                         )
                     else:
-                        memory_values[mem_item] = round(float(int(process_info["RES"]) / 1024), 1)
+                        memory_values[mem_item] = round(res_mib, 1)
 
     logger.debug("Parsed memory values: {}".format(memory_values))
     return memory_values

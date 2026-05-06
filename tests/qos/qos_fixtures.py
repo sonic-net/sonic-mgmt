@@ -1,5 +1,6 @@
 import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
+from tests.common.helpers.pfc_counters import leaf_fanouts              # noqa: F401
 
 
 @pytest.fixture(scope="module")
@@ -40,26 +41,6 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
             result[int(tc)].append(int(prio))
 
     return result
-
-
-@pytest.fixture(scope="module")
-def leaf_fanouts(conn_graph_facts):         # noqa: F811
-    """
-    @summary: Fixture for getting the list of leaf fanout switches
-    @param conn_graph_facts: Topology connectivity information
-    @return: Return the list of leaf fanout switches
-    """
-    leaf_fanouts = []
-    conn_facts = conn_graph_facts['device_conn']
-
-    """ for each interface of DUT """
-    for _, value in list(conn_facts.items()):
-        for _, val in list(value.items()):
-            peer_device = val['peerdevice']
-            if peer_device not in leaf_fanouts:
-                leaf_fanouts.append(peer_device)
-
-    return leaf_fanouts
 
 
 @pytest.fixture(scope="module")

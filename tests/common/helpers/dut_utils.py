@@ -671,7 +671,7 @@ def creds_on_dut(duthost):
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
         if cred_var in creds:
-            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)  # nosemgrep: direct-use-of-jinja2
 
     creds["console_login_options"] = hostvars.get("console_login_options", {})
 
@@ -877,3 +877,14 @@ def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
     ]
     duthost.shell_cmds(cmds=enable_nat_cmds)
     check_nat_is_enabled_and_set_cache(duthost, request)
+
+
+def migrate_container_systemd(duthost, service, parameters):
+    # Remove --net=host in parameters because it is already existed in /usr/bin/{service}.sh
+    parts = parameters.split()
+    no_network_parts = [p for p in parts if p != "--net=host"]
+    no_network_parameters = " ".join(no_network_parts)
+
+    duthost.shell(f'sed -i "s|docker create -t |docker create -t {no_network_parameters} |" /usr/bin/{service}.sh')
+    duthost.shell(f"systemctl reset-failed {service}", module_ignore_errors=True)
+    duthost.shell(f"systemctl restart {service}", module_ignore_errors=True)

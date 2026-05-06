@@ -231,6 +231,12 @@ TUNNEL4_CONFIG = {
         "encap_type": EncapType.ENCAP_TYPE_VXLAN,
     }
 }
+PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG = {
+    f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:{PL_REDIRECT_BACKEND_IP}/32": {
+        "action_type": ActionType.ACTION_TYPE_DECAP,
+        "priority": 0
+    }
+}
 
 INBOUND_VNI_ROUTE_RULE_CONFIG = {
     f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:{PE_PA}/32": {

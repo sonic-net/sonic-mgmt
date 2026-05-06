@@ -1,11 +1,11 @@
 # Verified on Q200 @ 100G port speed. e.g. 687 is bit time to pause for 50ms (clock at 900Mhz).
-from common import is_graphene2, tree, is_gr, port_to_sai_lane_map, \
+from common import is_graphene2, is_palladium2, tree, is_gr, port_to_sai_lane_map, \
     sai_lane_to_slice_ifg_pif, dd0, is_pac, is_gb, sdk, get_mac_port, d0
 
 
 def get_ifg_reg_list(slice_idx):
     ''' Gr2 does not have an ifg list, listify '''
-    if is_graphene2:                                 # noqa: F821
+    if is_graphene2 or is_palladium2:                 # noqa: F821
         ifg_root = [tree.slice[slice_idx].ifg]       # noqa: F821
     else:
         ifg_root = tree.slice[slice_idx].ifg       # noqa: F821
@@ -15,7 +15,7 @@ def get_ifg_reg_list(slice_idx):
 def get_ifgb(ifg_root):
     ''' Complex tree register differences for ifgb per asic.
             Takes tree.slice[slice_idx].ifg[ifg_idx] '''
-    if is_graphene2:                               # noqa: F821
+    if is_graphene2 or is_palladium2:               # noqa: F821
         ifgb = ifg_root.ifgbe_ra
     elif is_gr:                               # noqa: F821
         ifgb = ifg_root.ifgbe_mac
@@ -50,11 +50,11 @@ def compute_fractional_512bit_value(mac_freq_khz, port_gbps):
 bit_time = None
 if is_pac or is_gb:                                                       # noqa: F821
     bit_time = 5
-elif is_gr or is_graphene2:                                               # noqa: F821
+elif is_gr or is_graphene2 or is_palladium2:                              # noqa: F821
     mac_freq_khz = d0.get_int_property(sdk.la_device_property_e_MAC_FREQUENCY)      # noqa: F821
     print("Mac frequency khz: {}".format(mac_freq_khz))
 
-    mac_port = get_mac_port(INTERFACE)                                    # noqa: F821
+    mac_port = get_mac_port("INTERFACE")                                    # noqa: F821
     mac_port_speed_enum_val = mac_port.get_speed()
 
     # Find matching speed enum
@@ -72,6 +72,9 @@ elif is_gr or is_graphene2:                                               # noqa
     gbps_str = speed[:-1]
     assert gbps_str.isdigit(), "Non-digit speed {}".format(gbps_str)
     gbps = int(gbps_str)
+    if is_palladium2 and gbps == 800:
+        print("Reducing 800G to 400G for P200 PFC 512 bit time calculation")
+        gbps = 400
     print("Port speed gbps: {}".format(gbps))
     bit_time = compute_fractional_512bit_value(mac_freq_khz, gbps)
 

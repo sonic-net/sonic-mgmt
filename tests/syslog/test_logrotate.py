@@ -144,11 +144,19 @@ def run_logrotate(duthost, force=False):
     """
     if force:
         logger.debug('Make sure there is no big /var/log/syslog exist by forcing execute logrotate')
-        cmd = 'sudo /usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1'
+        cmd = 'sudo /usr/sbin/logrotate -f /etc/logrotate.conf'
     else:
-        cmd = 'sudo /usr/sbin/logrotate /etc/logrotate.conf > /dev/null 2>&1'
+        cmd = 'sudo /usr/sbin/logrotate /etc/logrotate.conf'
     logger.info('Run logrotate command: {}'.format(cmd))
-    duthost.shell(cmd)
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get('rc', 1) != 0:
+        logger.warning(
+            'Logrotate returned non-zero rc={} (stdout: {}, stderr: {})'.format(
+                result.get('rc'),
+                result.get('stdout', ''),
+                result.get('stderr', '')
+            )
+        )
 
 
 def multiply_with_unit(logrotate_threshold, num):

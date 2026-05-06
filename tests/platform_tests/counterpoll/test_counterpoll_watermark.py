@@ -66,11 +66,31 @@ def get_keys_on_asics(duthost, db_id, key):
 
 
 def check_counters_populated(duthost, key):
-    try:
-        keys = get_keys_on_asics(duthost, "COUNTERS_DB", key)
-        return bool(keys.values())
-    except SonicDbKeyNotFound:
-        return False
+    """Check that COUNTERS_DB keys matching pattern exist on every ASIC.
+
+    The original ``bool(keys.values())`` check was wrong: dict.values()
+    on a non-empty dict is always truthy, so it returned True as soon as
+    the dict comprehension succeeded even if individual ASICs had empty
+    key lists.  A SonicDbKeyNotFound from *any* ASIC would mask the real
+    per-ASIC status.
+
+    This version checks each ASIC individually and logs which ASIC is
+    still missing keys so that failures are easier to diagnose.
+    """
+    for asic in duthost.asics:
+        try:
+            asic_keys = SonicDbCli(asic, "COUNTERS_DB").get_keys(key)
+            if not asic_keys:
+                logging.debug(
+                    "No keys matching '%s' on asic%s yet",
+                    key, asic.asic_index)
+                return False
+        except SonicDbKeyNotFound:
+            logging.debug(
+                "SonicDbKeyNotFound for '%s' on asic%s",
+                key, asic.asic_index)
+            return False
+    return True
 
 
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, dut_vars):
@@ -112,6 +132,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
 
     # choosing only one counterpoll to test due to test duration limitaions
     tested_counterpoll = random.choice(RELEVANT_COUNTERPOLLS)
+    logging.info("Testing counterpoll: %s, config method: %s",
+                 tested_counterpoll, config_apply_method)
     # need reload or reboot after disabling counterpolls to clean DB stats, this is by design
     with allure.step(config_apply_method + " dut {} ...".format(duthost.hostname)):
         if 'reload' in config_apply_method:
@@ -131,10 +153,20 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
             ConterpollHelper.enable_counterpoll(asic, [tested_counterpoll])
             verify_counterpoll_status(asic, [tested_counterpoll], ENABLE)
     # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
-    with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
+    with allure.step("waiting for counterpoll to generate maps in COUNTERS_DB"):
         delay = RELEVANT_MAPS[tested_counterpoll][DELAY]
-        pytest_assert(wait_until(120, 5, delay, check_counters_populated, duthost, MAPS_LONG_PREFIX.format('*')),
-                      "COUNTERS_DB failed to populate")
+        # Multi-asic needs a longer timeout: each ASIC's orchagent processes
+        # the enable independently and may take different amounts of time
+        # depending on the flex counter startup delay (-D flag) and port
+        # readiness.
+        timeout = 180 if duthost.is_multi_asic else 120
+        pytest_assert(
+            wait_until(timeout, 5, delay, check_counters_populated,
+                       duthost, MAPS_LONG_PREFIX.format('*')),
+            "COUNTERS_DB failed to populate after {}s "
+            "(counterpoll: {}, method: {}, multi_asic: {})".format(
+                timeout, tested_counterpoll, config_apply_method,
+                duthost.is_multi_asic))
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]

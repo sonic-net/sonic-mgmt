@@ -1627,3 +1627,92 @@ def test_suppress_fib_performance(duthosts, enum_downstream_dut_hostname, enum_u
             with allure.step("Withdraw BGP ipv4 and ipv6 routes in case of any failure in case"):
                 announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
                                           action=WITHDRAW)
+
+
+RELAY_LATENCY_THRESHOLD_SEC = 0.5
+RELAY_TEST_PREFIX_V4 = "99.99.99.0/24"
+
+
+def test_bgp_update_relay_latency(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname, tbinfo, nbrhosts,
+                                  ptfadapter, prepare_param, ptfhost, restore_bgp_suppress_fib):
+    """
+    Verify BGP UPDATE relay latency is sub-second with suppress-fib-pending.
+
+    Uses the same capture/merge flow as test_suppress_fib_performance but announces
+    a single route and measures the time delta between the inbound UPDATE (from T0)
+    and the outbound UPDATE (to T2) using parse_time_stamp.
+    """
+    duthost_down = duthosts[enum_downstream_dut_hostname]
+    duthost_up = duthosts[enum_upstream_dut_hostname]
+
+    with allure.step("Prepare needed parameters"):
+        router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
+        exabgp_port = exabgp_port_list[0]
+        recv_port = recv_port_list[0]
+
+    tcpdump_sniffer_upstream = tcpdump_helper(ptfadapter, duthost_up, ptfhost,
+                                              pcap_path="/tmp/relay.pcap_up")
+    tcpdump_sniffer_downstream = tcpdump_helper(ptfadapter, duthost_down, ptfhost,
+                                                pcap_path="/tmp/relay.pcap_down")
+
+    try:
+        with allure.step("Config bgp suppress-fib-pending function"):
+            config_bgp_suppress_fib(duthost_down)
+            if enum_downstream_dut_hostname != enum_upstream_dut_hostname:
+                config_bgp_suppress_fib(duthost_up)
+
+        with allure.step("Start sniffer"):
+            perf_sniffer_prepare(tcpdump_sniffer_downstream, tcpdump_sniffer_upstream,
+                                 duthost_up, nbrhosts, mg_facts, recv_port, tbinfo)
+            tcpdump_sniffer_downstream.start_sniffer(host='dut')
+            tcpdump_sniffer_upstream.start_sniffer(host='dut')
+
+        with allure.step("Announce single test route via ExaBGP"):
+            announce_route(ptf_ip, [RELAY_TEST_PREFIX_V4], exabgp_port, action=ANNOUNCE)
+
+        with allure.step("Validate the BGP route is propagated to Upstream VM"):
+            validate_route_propagate(duthost_up, nbrhosts, tbinfo, [RELAY_TEST_PREFIX_V4], [])
+
+        with allure.step("Stop sniffer"):
+            tcpdump_sniffer_downstream.stop_sniffer(host='dut')
+            if enum_downstream_dut_hostname == enum_upstream_dut_hostname:
+                tcpdump_sniffer_upstream.stop_sniffer(host='dut', kill=False)
+            else:
+                tcpdump_sniffer_upstream.stop_sniffer(host='dut')
+
+        # Merge upstream and downstream pcaps (same pattern as test_suppress_fib_performance)
+        tcpdump_sniffer = tcpdump_helper(ptfadapter, duthost_up, ptfhost,
+                                         pcap_path="/tmp/relay.pcap")
+        tcpdump_sniffer.out_direct_ifaces = ["up"]
+        tcpdump_sniffer.in_direct_ifaces = ["down"]
+        tcpdump_sniffer.tcpdump_filter = BGP_FILTER
+        tcpdump_sniffer.create_single_pcap()
+        logging.info("Copy {} from ptf docker to ngts docker".format(tcpdump_sniffer.pcap_path))
+        tcpdump_sniffer.ptfhost.shell("chmod 777 {}".format(tcpdump_sniffer.pcap_path))
+        logging.info("Copy file {} from ptf docker to ngts docker".format(tcpdump_sniffer.pcap_path))
+        tcpdump_sniffer.ptfhost.fetch(src=tcpdump_sniffer.pcap_path, dest=tcpdump_sniffer.pcap_path, flat=True)
+
+        with allure.step("Parse relay timestamps and validate latency"):
+            bgp_packets = sniff(
+                offline=tcpdump_sniffer.pcap_path,
+                lfilter=lambda p: (IP or IPv6 in p) and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2)
+            announce_ts, _ = parse_time_stamp(bgp_packets, [RELAY_TEST_PREFIX_V4], [])
+            timestamps = announce_ts.get(RELAY_TEST_PREFIX_V4, [])
+            pytest_assert(
+                len(timestamps) >= 2,
+                "Could not find BGP UPDATE timestamp pair for {} in pcap".format(RELAY_TEST_PREFIX_V4),
+            )
+
+            relay_latency = abs(float(timestamps[1]) - float(timestamps[0]))
+            logger.info("BGP UPDATE relay latency: %.3fs (threshold: %.3fs)",
+                        relay_latency, RELAY_LATENCY_THRESHOLD_SEC)
+            pytest_assert(
+                relay_latency < RELAY_LATENCY_THRESHOLD_SEC,
+                "BGP UPDATE relay latency {:.3f}s exceeds threshold {:.3f}s".format(
+                    relay_latency, RELAY_LATENCY_THRESHOLD_SEC),
+            )
+    finally:
+        with allure.step("Withdraw test route"):
+            announce_route(ptf_ip, [RELAY_TEST_PREFIX_V4], exabgp_port, action=WITHDRAW)
+        if enum_downstream_dut_hostname != enum_upstream_dut_hostname:
+            config_bgp_suppress_fib(duthost_up, enable=False)

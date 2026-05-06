@@ -169,6 +169,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                             exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
                             exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
                             exp_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
+                            exp_pkt.set_do_not_care_packet(scapy.IPv6, "tc")
+                            exp_pkt.set_do_not_care_packet(scapy.IPv6, "fl")
                             testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptfadapter.ptf_port_set,
                                                              timeout=5)
                     count += 1
