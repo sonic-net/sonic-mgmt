@@ -37,6 +37,13 @@ class TelnetConsoleConn(BaseConsoleConn):
         delay_factor = self.select_delay_factor(delay_factor)
         time.sleep(1 * delay_factor)
 
+        # Netmiko opens telnet then calls telnet_login() directly — session_preparation() is not
+        # invoked first, so BMC→CPU mux must run here before SONiC login probes.
+        if self.bmc_first_console_switch:
+            time.sleep(0.3)
+            self.read_channel()
+            self.switch_bmc_to_cpu_console()
+
         output = ""
         return_msg = ""
         login_failure_prompt = r".*incorrect"

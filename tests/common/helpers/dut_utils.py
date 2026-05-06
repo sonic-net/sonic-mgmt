@@ -13,6 +13,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from collections import defaultdict
 from tests.common.connections.console_host import ConsoleHost, CONSOLE_LINECARD
 from tests.common.connections.linecard_console_conn import UnsupportedPlatformError
+from tests.common.nokia_data import needs_bmc_to_cpu_console_switch
 from tests.common.utilities import get_dut_current_passwd, update_console_creds
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
@@ -617,24 +618,37 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
     except Exception as e:
         logger.warning(f"Issue trying to clear console port: {e}")
 
+    graph_hwsku = conn_graph_facts.get("device_info", {}).get(dut_hostname, {}).get("HwSku")
+    bmc_mux = needs_bmc_to_cpu_console_switch(duthost, hwsku_hint=graph_hwsku)
+    _facts = getattr(duthost, "facts", None) or getattr(getattr(duthost, "sonichost", None), "facts", None) or {}
+    logger.info(
+        "create_duthost_console %s: bmc_first_console_switch=%s (graph HwSku=%r, facts platform=%r)",
+        dut_hostname,
+        bmc_mux,
+        graph_hwsku,
+        _facts.get("platform"),
+    )
+
     # Set up console host
     for attempt in range(1, 4):
         try:
-            return ConsoleHost(
-                console_type=console_type,
-                console_host=console_host,
-                console_port=console_port,
-                sonic_username=creds["sonicadmin_user"],
-                sonic_password=sonic_password,
-                console_username=console_username,
-                console_password=creds["console_password"][console_type],
-                console_device=console_device,
-            )
+            host = ConsoleHost(console_type=console_type,
+                               console_host=console_host,
+                               console_port=console_port,
+                               sonic_username=creds['sonicadmin_user'],
+                               sonic_password=sonic_password,
+                               console_username=console_username,
+                               console_password=creds['console_password'][console_type],
+                               console_device=console_device,
+                               bmc_first_console_switch=bmc_mux)
+            break
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
+
+    return host
 
 
 def creds_on_dut(duthost):
