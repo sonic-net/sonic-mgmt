@@ -38,7 +38,6 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     setup_ha_config,
-    setup_dash_ha_from_json,
     ha_owner,
     setup_gnmi_server,
     set_vxlan_udp_sport_range,
