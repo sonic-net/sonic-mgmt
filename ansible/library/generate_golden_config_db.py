@@ -130,7 +130,7 @@ class GenerateGoldenConfigDBModule(object):
         profile['asic_cnt'] = self.num_asics
 
         with open(GOLDEN_CONFIG_TEMPLATE_PATH) as template_file:
-            return json.load(Template(template_file.read()).render(profile))
+            return json.loads(Template(template_file.read()).render(profile))
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
