@@ -105,13 +105,26 @@ def config_reload_minigraph_with_rendered_golden_config(duthost):
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthosts, tbinfo, creds):
+def setup_env(duthosts, tbinfo, creds, request):
     """
     Setup/teardown
     Args:
         duthost: DUT.
         golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
+    # Register finalizer upfront so that even if setup fails partway through,
+    # the original minigraph and golden_config are always restored.
+    def cleanup():
+        for duthost in duthosts:
+            try:
+                restore_minigraph_and_golden_config(duthost)
+                config_reload_minigraph_with_rendered_golden_config(duthost)
+            except Exception as e:
+                logger.error("Failed to restore minigraph/golden_config on {}: {}".format(
+                    duthost.hostname, e))
+
+    request.addfinalizer(cleanup)
+
     # Prepare for all DUTs
     for duthost in duthosts:
         if not duthost.is_multi_asic:
@@ -139,12 +152,6 @@ def setup_env(duthosts, tbinfo, creds):
         config_reload_minigraph_with_rendered_golden_config(duthost)
 
     yield
-
-    # Cleanup for all DUTs
-    for duthost in duthosts:
-        # Restore minigraph and golden config
-        restore_minigraph_and_golden_config(duthost)
-        config_reload_minigraph_with_rendered_golden_config(duthost)
 
 
 def test_golden_config_yang_validation_check(duthosts, rand_one_dut_hostname, setup_env):
