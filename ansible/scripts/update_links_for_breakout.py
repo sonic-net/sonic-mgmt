@@ -491,8 +491,7 @@ def main():
 
     # Summary
     total_non_mgmt = dut_lines_new - mgmt_kept
-    removed = dut_lines_original - (dut_lines_new - len(expansion_entries)) - mgmt_kept + mgmt_kept
-    print(f"Results:")
+    print("Results:")
     print(f"  Original DUT entries: {dut_lines_original}")
     print(f"  New DUT entries: {dut_lines_new} ({total_non_mgmt} ports + {mgmt_kept} mgmt)")
     print(f"  Removed (unmapped to target): {skipped}")
@@ -502,17 +501,17 @@ def main():
               f"(VLANs {vlan_start}-{next_vlan - 1})")
 
     if trunk_updated:
-        print(f"  Trunk VLAN range updated for root fanout")
+        print("  Trunk VLAN range updated for root fanout")
     print()
 
     # Show sample entries
-    dut_new = [l for l in new_lines if f'{args.hostname},' in l]
+    dut_new = [line for line in new_lines if f'{args.hostname},' in line]
     print("Sample entries (first 5):")
-    for l in dut_new[:5]:
-        print(f"  {l.rstrip()}")
+    for line in dut_new[:5]:
+        print(f"  {line.rstrip()}")
     print("Sample entries (last 3):")
-    for l in dut_new[-3:]:
-        print(f"  {l.rstrip()}")
+    for line in dut_new[-3:]:
+        print(f"  {line.rstrip()}")
 
     if args.dry_run:
         print("\n[DRY RUN] No changes written.")
@@ -528,4 +527,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

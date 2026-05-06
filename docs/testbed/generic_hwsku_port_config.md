@@ -343,5 +343,3 @@ ssh dut "show bgp summary | grep -v Established | grep -v 'Neighbor\|entries'"
 # Verify neighbor count matches expected topology
 ssh dut "show bgp summary | grep -c Established"
 ```
-
-

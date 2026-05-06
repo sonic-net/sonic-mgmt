@@ -105,7 +105,7 @@ def generate_port_table_from_platform(port_speeds, platform_json_path):
         cage_info = plat_intfs[cage_name]
         cage_base = int(cage_name.replace('Ethernet', ''))
         lane_str = cage_info.get('lanes', '')
-        lane_list = [l.strip() for l in lane_str.split(',') if l.strip()]
+        lane_list = [ln.strip() for ln in lane_str.split(',') if ln.strip()]
         total_lanes = len(lane_list)
         if total_lanes == 0:
             continue
@@ -1091,7 +1091,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
-        ori_config = json.loads(self.get_config_from_minigraph())      
+        ori_config = json.loads(self.get_config_from_minigraph())
         golden_config = ori_config
         golden_config["PORT"] = ori_config.get("PORT", {})
         for _, config in golden_config["PORT"].items():
@@ -1131,7 +1131,6 @@ class GenerateGoldenConfigDBModule(object):
         config_dict = json.loads(config)
         config_dict["PORT"] = port_table
         return json.dumps(config_dict, indent=4)
-
 
     def generate_t0_f2_golden_config_db(self):
         """

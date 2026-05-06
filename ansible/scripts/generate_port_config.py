@@ -123,7 +123,7 @@ def generate_port_table(port_speeds, platform_json_path):
         cage_info = plat_intfs[cage_name]
         cage_base = int(cage_name.replace('Ethernet', ''))
         lane_str = cage_info.get('lanes', '')
-        lane_list = [l.strip() for l in lane_str.split(',') if l.strip()]
+        lane_list = [lane.strip() for lane in lane_str.split(',') if lane.strip()]
         total_lanes = len(lane_list)
         if total_lanes == 0:
             continue
@@ -222,7 +222,7 @@ def validate_port_config(port_speeds, platform_json_path, hwsku):
         for cage_name, cage_info in plat_intfs.items():
             cage_base = int(cage_name.replace('Ethernet', ''))
             lane_str = cage_info.get('lanes', '')
-            total_lanes = len([l for l in lane_str.split(',') if l.strip()])
+            total_lanes = len([lane for lane in lane_str.split(',') if lane.strip()])
             if total_lanes > 0 and cage_base <= pnum < cage_base + total_lanes:
                 matched_cage = cage_name
                 break
@@ -264,11 +264,7 @@ def validate_port_config(port_speeds, platform_json_path, hwsku):
 
     # Check 4: HwSKU-specific pattern validation
     if hwsku and hwsku != 'Unknown':
-        total_non_mgmt = len([p for p in port_speeds if p.startswith('Ethernet') and
-                              p[8:].isdigit() and int(p[8:]) < 512])
-        total_cages = len(plat_intfs)
         non_mgmt_cages = len([k for k in plat_intfs if int(k.replace('Ethernet', '')) < 512])
-        used_cages = len([c for c in cage_ports if int(c.replace('Ethernet', '')) < 512])
 
         # Detect copper pattern (C* HwSKUs use only odd cages)
         if re.search(r'-C\d+', hwsku):
