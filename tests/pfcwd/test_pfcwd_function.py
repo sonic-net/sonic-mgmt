@@ -27,6 +27,10 @@ from tests.common.cisco_data import is_cisco_device
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
+# Wait long enough for at least one pfcwd polling cycle to update counters
+# between snapshots in run_pfcwd_storm_with_active_traffic.
+PFCWD_POLL_WINDOW_SEC = 12
+
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 WD_ACTION_MSG_PFX = {"dontcare": "Verify PFCWD detection when queue buffer is not empty "
                      "and proper function of pfcwd drop action",
@@ -1296,10 +1300,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             time.sleep(2)
             self.storm_hndle.start_storm()
             # Wait for storm detection
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
-                       dut, port, queue, "storm")
+            pytest_assert(
+                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
+                           dut, port, queue, "storm"),
+                "PFC storm was not detected on port {} queue {}".format(port, queue))
             # Ensure storm is active → wait full polling window → snap
-            time.sleep(12)
+            time.sleep(PFCWD_POLL_WINDOW_SEC)
             wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
                        dut, port, queue, "storm")
             snap1 = parser_show_pfcwd_stat(dut, port, queue)
@@ -1307,7 +1313,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             # Again: confirm storm → wait poll window → snap
             wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
                        dut, port, queue, "storm")
-            time.sleep(12)
+            time.sleep(PFCWD_POLL_WINDOW_SEC)
             wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
                        dut, port, queue, "storm")
             snap2 = parser_show_pfcwd_stat(dut, port, queue)
@@ -1325,8 +1331,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         finally:
             self.storm_hndle.stop_storm()
             dut.shell("sudo config interface {} pfc priority {} {} on".format(asic_ns_option, rx_port, queue))
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
-                       dut, port, queue, "restored")
+            pytest_assert(
+                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
+                           dut, port, queue, "restored"),
+                "PFC storm was not restored on port {} queue {}".format(port, queue))
 
     def test_pfcwd_storm_during_traffic(self, setup_pfc_test, tbinfo, nbrhosts,
                                         setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
@@ -1383,7 +1391,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         else:
             actions = ['drop', 'forward']
 
-        failures = []
         try:
             for action in actions:
                 logger.info("########## Pfcwd storm during traffic: port={} action={} ##########".format(
@@ -1391,15 +1398,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 try:
                     self.set_traffic_action(duthost, action)
                     self.run_pfcwd_storm_with_active_traffic(self.dut, port, action)
-                except Exception as e:
-                    logger.error("Action '{}' failed: {}".format(action, e))
-                    failures.append((action, str(e)))
                 finally:
                     if self.storm_hndle:
                         self.storm_hndle.stop_storm()
                     self.dut.command("pfcwd stop")
-            if failures:
-                pytest_assert(False, "Actions failed: {}".format(failures))
         finally:
             restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, self.ports)
 
