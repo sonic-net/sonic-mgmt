@@ -517,10 +517,14 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
 
         is_smartswitch = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch", False)
+        # TH5 devices don't support warm reboot; only cold reboot supported during upgrades.
+        # Remove this check if TH5 warm reboot support is added in the future.
+        is_th5_device = duthost.get_asic_name() == 'th5'
         topo_name = tbinfo["topo"]["name"]
         if (
             completeness_level != "basic"
             and not is_smartswitch
+            and not is_th5_device
             and "dualtor" not in topo_name
             and "t1" not in topo_name
         ):
