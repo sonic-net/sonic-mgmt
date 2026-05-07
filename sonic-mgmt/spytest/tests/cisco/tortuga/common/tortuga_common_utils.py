@@ -339,8 +339,9 @@ def config_node(node, config, type=''):
     else:
         st.config(node, config, skip_error_check=False, conf=True)
 
-def config_static(node, config_domain, add, config_file, device_type = 'sonic'):
+def config_static(node, config_domain, add, config_file, device_type = 'sonic', node_name=None):
 
+    yaml_key = node_name if node_name else node
     domain = ''
     if 'bgp' in config_domain:
         domain = 'vtysh'
@@ -348,9 +349,9 @@ def config_static(node, config_domain, add, config_file, device_type = 'sonic'):
     with open(config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         if add:
-            cmd = config_list[node][config_domain]['config']
+            cmd = config_list[yaml_key][config_domain]['config']
         else:
-            cmd = config_list[node][config_domain]['deconfig']
+            cmd = config_list[yaml_key][config_domain]['deconfig']
         if device_type == 'linux':
             cmd = ";".join(cmd.splitlines())
         config_node(node, cmd, domain)

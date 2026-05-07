@@ -147,11 +147,18 @@ def setup_teardown_basic():
 # Multiple Vlans
 @pytest.fixture()
 def setup_teardown_stp(setup_teardown_basic):
+    node_to_dut = {
+        'spine0': data_glob.spine0,
+        'spine1': data_glob.spine1,
+        'leaf0': data_glob.leaf0,
+        'leaf1': data_glob.leaf1,
+    }
     if not data_glob.pre_config:
         with open(updated_path) as c:
             config_list = yaml.load(c, Loader=yaml.FullLoader)
             for node, config in config_list.items():
-                common_obj.config_static(node, 'sonic', True, updated_path)
+                dut = node_to_dut.get(node, node)
+                common_obj.config_static(dut, 'sonic', True, updated_path, node_name=node)
         #wait for STP to converge
         st.wait(2*data_glob.default_forward_delay)
         data_glob.mac_add = SpyTestDict()
@@ -169,7 +176,8 @@ def setup_teardown_stp(setup_teardown_basic):
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
-            common_obj.config_static(node, 'sonic', False, updated_path)
+            dut = node_to_dut.get(node, node)
+            common_obj.config_static(dut, 'sonic', False, updated_path, node_name=node)
 
 def test_vlan_params(setup_teardown_stp):
     '''
@@ -747,10 +755,16 @@ def test_port_params_port_fast_uplink_fast(setup_teardown_stp):
         st.report_fail("msg","Spine1 D2D4P2 is NOT root port for Vlan 10.")
 
     st.log("update D2D4P2 port cost on Spine1 port such that it will be NOT be chosen as root port anymore")
-    if pvst_obj.config_stp_interface_params(data_glob.spine1, vars.D2D4P2, cost=400, priority=192):
-        st.log('STP configured successfully on Spine1 for D2D4P2.')
+    if basic_obj.get_hwsku(data_glob.leaf0) == "Cisco-N9K-C93108TC-FX3":
+        if pvst_obj.config_stp_interface_params(data_glob.spine1, vars.D2D4P2, cost=4000, priority=192):
+            st.log('STP configured successfully on Spine1 for D2D4P2.')
+        else:
+            st.report_fail('msg','STP configuration failed on Spine1 for D2D4P2.')
     else:
-        st.report_fail('msg','STP configuration failed on Spine1 for D2D4P2.')
+        if pvst_obj.config_stp_interface_params(data_glob.spine1, vars.D2D4P2, cost=400, priority=192):
+            st.log('STP configured successfully on Spine1 for D2D4P2.')
+        else:
+            st.report_fail('msg','STP configuration failed on Spine1 for D2D4P2.')
 
     st.log("Uplink fast delay is 2s")
     st.wait(2)
@@ -768,10 +782,16 @@ def test_port_params_port_fast_uplink_fast(setup_teardown_stp):
 
     st.log("Check STP port parameters on Spine1 for all Vlans")
     for vlan in data_glob.stp_vlan:
-        expected_dict = {
-            'vlan': vlan, 'iface' : vars.D2D4P2,
-            'portpriority' : '192', 'portpathcost' : '400'
-        }
+        if basic_obj.get_hwsku(data_glob.leaf0) == "Cisco-N9K-C93108TC-FX3":
+            expected_dict = {
+                'vlan': vlan, 'iface' : vars.D2D4P2,
+                'portpriority' : '192', 'portpathcost' : '4000'
+            }
+        else:
+            expected_dict = {
+                'vlan': vlan, 'iface' : vars.D2D4P2,
+                'portpriority' : '192','portpathcost' : '400'
+            }
         if pvst_obj.verify_stp_vlan_iface(data_glob.spine1, **expected_dict):
             st.log("Port params successfully verified for vlan {}.".format(vlan))
         else:
