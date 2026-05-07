@@ -194,7 +194,7 @@ def _start_vtysh_race_loop(duthost):
     )
     result = duthost.shell(
         "nohup setsid bash -c 'while true; do for i in $(seq 1 5); do "
-        "{probes} done; wait; sleep 1; done' &>/dev/null & "
+        "{probes} done; wait; sleep 1; done' >/dev/null 2>&1 & "
         "PID=$!; echo $PID $(ps -o pgid= -p $PID | tr -d ' ')".format(probes=probe_cmds),
         module_ignore_errors=True
     )
