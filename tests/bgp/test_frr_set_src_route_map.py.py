@@ -7,6 +7,7 @@ import pytest
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -120,6 +121,16 @@ def _verify_set_src_all_asics(duthost):
         _verify_route_maps_in_running_config(asichost, lo_ipv4, lo_ipv6)
 
 
+def _check_set_src_all_asics(duthost):
+    """Non-asserting wrapper for use with wait_until."""
+    try:
+        _verify_set_src_all_asics(duthost)
+        return True
+    except Exception as e:
+        logger.debug("_check_set_src_all_asics not yet passing: %s", e)
+        return False
+
+
 def _generate_bloat_frr_config(count=BLOAT_PREFIX_LIST_COUNT):
     """Generate FRR prefix-list + route-map lines to add extra config load."""
     assert count <= 65536, "count exceeds 65536; 198.18.x.y address space exhausted"
@@ -228,6 +239,12 @@ def test_mgmtd_preserves_default_route_set_src(
 
     logger.info("Running mgmtd set-src regression for %s iteration(s)", iterations)
 
+    # Baseline: verify route-maps exist before reload
+    pytest_assert(
+        wait_until(60, 10, 0, _check_set_src_all_asics, duthost),
+        "Baseline check failed: RM_SET_SRC route-maps not present before reload"
+    )
+
     for iteration in range(1, iterations + 1):
         logger.info("Iteration %s/%s: issuing config reload with race amplification", iteration, iterations)
         pid, pgid = _start_vtysh_race_loop(duthost)
@@ -242,7 +259,10 @@ def test_mgmtd_preserves_default_route_set_src(
         finally:
             _stop_vtysh_race_loop(duthost, pid, pgid)
 
-        _verify_set_src_all_asics(duthost)
+        pytest_assert(
+            wait_until(120, 10, 0, _check_set_src_all_asics, duthost),
+            "RM_SET_SRC route-maps not restored within 120s after config reload"
+        )
 
 
 def test_mgmtd_preserves_default_route_set_src_with_large_config(
@@ -259,6 +279,12 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
     pytest_require(_mgmtd_running(duthost), "Test requires mgmtd (FRR 10.x+)")
 
     checkpoint_name = "set_src_bloat_cp"
+
+    # Baseline: verify route-maps exist before reload
+    pytest_assert(
+        wait_until(60, 10, 0, _check_set_src_all_asics, duthost),
+        "Baseline check failed: RM_SET_SRC route-maps not present before reload"
+    )
 
     create_checkpoint(duthost, checkpoint_name)
 
@@ -278,7 +304,10 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
         finally:
             _stop_vtysh_race_loop(duthost, pid, pgid)
 
-        _verify_set_src_all_asics(duthost)
+        pytest_assert(
+            wait_until(120, 10, 0, _check_set_src_all_asics, duthost),
+            "RM_SET_SRC route-maps not restored within 120s after config reload"
+        )
     finally:
         _remove_bloat_frr_config(duthost)
         rollback_or_reload(duthost, checkpoint_name)
