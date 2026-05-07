@@ -34,11 +34,27 @@ REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
 PING_TIME_INT = 10
 
-# Syslog error patterns to ignore on DPUs after reboot (known/expected messages).
-# These will be used as loganalyzer ignore patterns for DPUs once
-# loganalyzer gains --dpu-pattern support.
+# DPU-specific syslog error patterns to add to loganalyzer's ignore list.
+#
+# These are kept here (rather than in the common loganalyzer ignore file
+# tests/common/plugins/loganalyzer/loganalyzer_common_ignore.txt) because
+# they are expected ONLY on DPUs (not on the NPU).  Adding them to the
+# common file would suppress real errors if the same messages ever appeared
+# on the NPU.  They are wired into the per-DPU loganalyzer instance via the
+# `dpu_loganalyzer_ignore_patterns` fixture in tests/smartswitch/conftest.py.
+#
+# Reason for each pattern:
+#   * transceiver: DPUs do not have front-panel transceivers, so xcvrd/pmon
+#     consistently logs ERR-level messages while probing absent SFPs during
+#     bring-up.  These are benign on a SmartSwitch DPU.
+#   * syncd SAI_STATUS_ITEM_NOT_FOUND: during DPU boot, syncd transiently
+#     queries SAI objects that have not yet been created by orchagent; the
+#     resulting "item not found" errors clear once initialization completes
+#     and are not indicative of a real failure.
 DPU_SYSLOG_ERROR_IGNORE_PATTERNS = [
+    # DPUs have no front-panel transceivers; xcvrd/pmon errors are expected.
     r".*ERR.*transceiver.*",
+    # Transient during DPU boot before SAI objects are fully populated.
     r".*ERR.*syncd.*SAI_STATUS_ITEM_NOT_FOUND.*",
 ]
 
@@ -589,20 +605,34 @@ def get_dpu_uptime(dpuhosts, dpu_id):
 def get_all_dpu_uptimes(dpuhosts, dpu_on_list):
     """
     Collect boot times for all online DPUs before a reboot operation.
+
+    The pre-reboot boot time is the anchor used by verify_dpu_rebooted() to
+    confirm a DPU actually rebooted.  If we cannot record it here for one or
+    more DPUs, there is no reliable way to verify a reboot later, so we fail
+    fast at recording time rather than producing ambiguous failures during
+    post-test verification.
+
     Args:
         dpuhosts: DPU host handles
         dpu_on_list: List of DPU names currently online (e.g. ['DPU0', 'DPU1'])
     Returns:
-        dict mapping dpu_name -> datetime (last boot time), or None if unavailable
+        dict mapping dpu_name -> datetime (last boot time)
     """
     uptimes = {}
+    failed = []
     for dpu_name in dpu_on_list:
         dpu_id = int(re.search(r'\d+', dpu_name).group())
         uptimes[dpu_name] = get_dpu_uptime(dpuhosts, dpu_id)
         if uptimes[dpu_name]:
             logging.info("DPU %s last boot time before test: %s", dpu_name, uptimes[dpu_name])
         else:
-            logging.warning("Could not record pre-test boot time for %s", dpu_name)
+            logging.error("Could not record pre-test boot time for %s", dpu_name)
+            failed.append(dpu_name)
+    pytest_assert(
+        not failed,
+        "Failed to record pre-reboot boot time for DPU(s) {}; "
+        "cannot reliably verify reboot afterwards".format(failed)
+    )
     return uptimes
 
 
@@ -621,9 +651,8 @@ def verify_dpu_rebooted(dpuhosts, dpu_name, pre_boot_time):
     if post_boot_time is None:
         logging.error("Cannot get post-reboot uptime for %s: DPU likely did not come back up", dpu_name)
         return False
-    if pre_boot_time is None:
-        logging.error("Cannot verify reboot for %s: pre-reboot uptime was not recorded", dpu_name)
-        return False
+    # pre_boot_time presence is guaranteed by get_all_dpu_uptimes() at
+    # recording time, so we don't re-check it here.
     rebooted = post_boot_time > pre_boot_time
     if rebooted:
         logging.info("%s confirmed rebooted: boot time changed from %s to %s",
