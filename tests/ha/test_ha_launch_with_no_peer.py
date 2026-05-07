@@ -144,7 +144,7 @@ def test_ha_launch_with_no_peer(request, duthosts, dpuhosts, localhost, ptfhost,
     pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="standalone"),
                   "HA: Primary state is not standalone")
 
-    logger.info("HA: activate standby without primary")
+    logger.info("HA: activate standby with standalone primary")
     setup_dash_ha(duthosts[1], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
     activate_dash_ha(duthosts[1], dpuhosts[1], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
     pytest_assert(verify_ha_state(duthosts[1], scope_key=standby_vdpu_key, expected_state="standalone"),
