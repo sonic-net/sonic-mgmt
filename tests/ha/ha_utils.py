@@ -2,8 +2,10 @@ import logging
 import json
 import os
 
+import configs.privatelink_config as pl
 from tests.common.utilities import wait_until
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
+from gnmi_utils import apply_messages
 
 logger = logging.getLogger(__name__)
 
@@ -430,3 +432,42 @@ def bfd_unpin_both_sides(localhost, ptfhost, duthosts):
                 ptfhost=ptfhost,
                 messages=ha_set_messages,
             )
+
+
+def program_eni_pl_on_dpu(localhost, ptfhost, duthost, dpuhost):
+    """
+    Apply the full DASH PL pipeline configuration (appliance, routing types,
+    VNET, routes, meters and ENI) on the DPU .
+    """
+
+    base_config_messages = {
+        **pl.APPLIANCE_CONFIG,
+        **pl.ROUTING_TYPE_PL_CONFIG,
+        **pl.VNET_CONFIG,
+        **pl.ROUTE_GROUP1_CONFIG,
+        **pl.METER_POLICY_V4_CONFIG
+    }
+    logger.info(
+        f"HA: Programming ENI PL on DPU: "
+        f"{duthost.hostname} dpu {dpuhost.dpu_index}"
+    )
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+
+    route_and_mapping_messages = {
+        **pl.PE_VNET_MAPPING_CONFIG,
+        **pl.PE_SUBNET_ROUTE_CONFIG,
+        **pl.VM_SUBNET_ROUTE_CONFIG
+    }
+    if 'bluefield' in dpuhost.facts['asic_type']:
+        route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
+    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+    meter_rule_messages = {
+        **pl.METER_RULE1_V4_CONFIG,
+        **pl.METER_RULE2_V4_CONFIG,
+    }
+    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
+
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    logger.info(f"HA: ENI programming on {dpuhost.hostname} completed")
