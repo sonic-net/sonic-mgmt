@@ -212,7 +212,11 @@ def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_
                 "desired_ha_state": "unspecified",
                 "owner": owner,
             }
-    return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
+    if owner == "dpu":
+        return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
+    else:
+        return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type,
+                                expected_state="standby")
 
 
 def _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields, approved_pending_operation_ids=None):
@@ -279,7 +283,7 @@ def activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op
 
 
 def set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, desired_ha_state, owner,
-                      expected_op_type="switchover"):
+                      expected_op_type="switchover", disabled=None):
     """
     Set DASH_HA_SCOPE_CONFIG_TABLE entry to the specified state. For DPU-driven, only DEAD state is allowed.
     Only "active" state requires activation (wait for and approve pending operation).
@@ -290,7 +294,7 @@ def set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, desired_ha_state, 
         owner: HA owner string (e.g. "dpu" or "switch")
         expected_op_type: Expected pending operation type for activation (default: "switchover")
     """
-    disabled = desired_ha_state == "dead"
+    disabled = disabled if not disabled else desired_ha_state == "dead"
     fields = {
                 "version": "1",
                 "disabled": disabled,
