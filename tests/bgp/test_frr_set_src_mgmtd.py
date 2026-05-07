@@ -196,6 +196,59 @@ def _remove_static_routes_for_bloat(duthost, prefixes):
     duthost.shell("rm -f {}".format(BLOAT_CONFIG_TMPFILE), module_ignore_errors=True)
 
 
+def _start_vtysh_race_loop(duthost):
+    """
+    Start a background process on the DUT that continuously spawns competing
+    vtysh sessions.  Returns (pid, pgid) so the caller can kill the process
+    group reliably even if the PID has exited by cleanup time.
+
+    The loop must keep running across the config_reload so it catches the
+    window when the bgp container comes back and mgmtd starts replaying.
+    """
+    bgp_names = _get_frontend_bgp_docker_names(duthost)
+    probe_cmds = "; ".join(
+        'docker exec {c} vtysh -c "show version" &>/dev/null &'.format(c=c)
+        for c in bgp_names
+    )
+    result = duthost.shell(
+        "nohup setsid bash -c 'while true; do for i in $(seq 1 5); do "
+        "{probes} done; wait; sleep 1; done' &>/dev/null & "
+        "PID=$!; echo $PID $(ps -o pgid= -p $PID | tr -d ' ')".format(probes=probe_cmds),
+        module_ignore_errors=True
+    )
+    parts = result["stdout"].strip().split()
+    pytest_assert(
+        len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit(),
+        "Failed to start vtysh race loop, got: '{}'".format(result["stdout"].strip())
+    )
+    pid, pgid = parts
+    logger.info("Started vtysh race loop (PID %s, PGID %s) targeting containers: %s", pid, pgid, bgp_names)
+    return pid, pgid
+
+
+def _stop_vtysh_race_loop(duthost, pid, pgid):
+    """Kill the background vtysh race loop and its full process tree."""
+    # Kill the entire process group (captured at start time for reliability),
+    # then the PID itself as a fallback, then mop up any orphaned docker exec
+    # vtysh processes.
+    duthost.shell(
+        "kill -- -{pgid} 2>/dev/null; kill {pid} 2>/dev/null".format(pid=pid, pgid=pgid),
+        module_ignore_errors=True
+    )
+    # Belt and suspenders: kill any remaining docker exec vtysh processes
+    duthost.shell(
+        "pkill -f 'docker exec.*vtysh.*show version' 2>/dev/null",
+        module_ignore_errors=True
+    )
+
+
+def _race_loop_alive(duthost, pid):
+    """Return True if the race loop process is still running."""
+    return duthost.shell(
+        "kill -0 {} 2>/dev/null".format(pid), module_ignore_errors=True
+    )['rc'] == 0
+
+
 def test_mgmtd_preserves_default_route_set_src(
         duthosts,
         enum_rand_one_per_hwsku_frontend_hostname,
@@ -213,8 +266,18 @@ def test_mgmtd_preserves_default_route_set_src(
     logger.info("Running mgmtd set-src regression for %s iteration(s)", iterations)
 
     for iteration in range(1, iterations + 1):
-        logger.info("Iteration %s/%s: issuing config reload", iteration, iterations)
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        logger.info("Iteration %s/%s: issuing config reload with race amplification", iteration, iterations)
+        pid, pgid = _start_vtysh_race_loop(duthost)
+        try:
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+            if not _race_loop_alive(duthost, pid):
+                logger.warning(
+                    "vtysh race loop (PID %s) died during config_reload — "
+                    "this iteration did NOT exercise the mgmtd race condition",
+                    pid
+                )
+        finally:
+            _stop_vtysh_race_loop(duthost, pid, pgid)
 
         _verify_set_src_all_asics(duthost)
 
@@ -240,7 +303,17 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
         logger.info("Injected %d static routes via interface %s", len(prefixes), interface)
 
         duthost.shell("sudo config save -y")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        pid, pgid = _start_vtysh_race_loop(duthost)
+        try:
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+            if not _race_loop_alive(duthost, pid):
+                logger.warning(
+                    "vtysh race loop (PID %s) died during config_reload — "
+                    "this iteration did NOT exercise the mgmtd race condition",
+                    pid
+                )
+        finally:
+            _stop_vtysh_race_loop(duthost, pid, pgid)
 
         _verify_set_src_all_asics(duthost)
     finally:
