@@ -119,10 +119,12 @@ def _compute_days_delta(target: Optional[datetime], now: datetime) -> Optional[i
 
 
 def _expiry_bucket(days_to_expiry: Optional[int], current_status: str) -> str:
+    if current_status == "expired":
+        return "expired"
     if days_to_expiry is None:
         return "unknown"
     if days_to_expiry < 0:
-        return "0-1d"
+        return "expired"
     if days_to_expiry <= 1:
         return "0-1d"
     if days_to_expiry <= 7:
