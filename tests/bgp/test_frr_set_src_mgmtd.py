@@ -8,7 +8,6 @@ import pytest
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.common.platform.processes_utils import wait_critical_processes
 
 
 pytestmark = [
@@ -216,7 +215,6 @@ def test_mgmtd_preserves_default_route_set_src(
     for iteration in range(1, iterations + 1):
         logger.info("Iteration %s/%s: issuing config reload", iteration, iterations)
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-        wait_critical_processes(duthost)
 
         _verify_set_src_all_asics(duthost)
 
@@ -243,7 +241,6 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
 
         duthost.shell("sudo config save -y")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-        wait_critical_processes(duthost)
 
         _verify_set_src_all_asics(duthost)
     finally:
