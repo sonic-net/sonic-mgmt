@@ -640,11 +640,11 @@ class ProjectV2Reporter:
         }
 
 
-def create_reporter_from_env() -> Optional[ProjectV2Reporter]:
+def create_reporter_from_env(force_dry_run: bool = False) -> Optional[ProjectV2Reporter]:
     token = os.getenv("GITHUB_TOKEN", "").strip()
     project_id = os.getenv("PROJECT_ID", "").strip()
     dry_run_raw = os.getenv("SKIP_EXPIRY_REPORT_DRY_RUN", "false").strip().lower()
-    dry_run = dry_run_raw in {"1", "true", "yes", "on"}
+    dry_run = force_dry_run or dry_run_raw in {"1", "true", "yes", "on"}
 
     if not project_id:
         logger.info("PROJECT_ID is not set; skip Project V2 reporting")

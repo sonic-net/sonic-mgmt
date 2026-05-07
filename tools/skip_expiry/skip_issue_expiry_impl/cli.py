@@ -352,7 +352,7 @@ def run() -> int:
         no_op=args.no_op,
     )
     with _reporting_auth_env(reporting_token):
-        reporter = create_reporter_from_env()
+        reporter = create_reporter_from_env(force_dry_run=args.no_op)
     if reporter:
         logging.getLogger(__name__).info("Project V2 reporting is enabled")
     else:
