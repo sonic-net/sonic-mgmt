@@ -206,9 +206,9 @@ def send_to_demyst(payload):
     
     headers = {"Content-Type": "application/json"}
     
-    # Try with system proxy first
+    # Try with system proxy first (verify=False for self-signed cert)
     try:
-        response = requests.post(DEMYST_SERVER_URL, json=payload, headers=headers, timeout=30)
+        response = requests.post(DEMYST_SERVER_URL, json=payload, headers=headers, timeout=30, verify=False)
         if response.status_code in [200, 202]:
             log.info(f"Successfully sent to demyst: {response.status_code}")
             return 0
@@ -219,7 +219,7 @@ def send_to_demyst(payload):
     try:
         response = requests.post(
             DEMYST_SERVER_URL, json=payload, headers=headers, timeout=30,
-            proxies={"http": None, "https": None}
+            proxies={"http": None, "https": None}, verify=False
         )
         if response.status_code in [200, 202]:
             log.info(f"Successfully sent to demyst (direct): {response.status_code}")
