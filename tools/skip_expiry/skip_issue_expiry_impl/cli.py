@@ -337,7 +337,7 @@ def run() -> int:
     )
     if skipped_issues:
         logging.getLogger(__name__).warning(
-            "Skipping mutation for %d cross-repo issue(s); they are still included in reporting",
+            "Skipping mutation for %d cross-repo issue(s) for target %s; they are still included in reporting",
             len(skipped_issues),
             args.target_repo,
         )
