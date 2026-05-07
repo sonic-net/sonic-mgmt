@@ -153,12 +153,19 @@ def _generate_bloat_frr_config(count=BLOAT_PREFIX_LIST_COUNT):
 
 
 def _inject_bloat_frr_config(duthost, count=BLOAT_PREFIX_LIST_COUNT):
-    """Inject bloat prefix-lists into FRR running config via vtysh -f."""
+    """Inject bloat prefix-lists into FRR running config via vtysh -f.
+
+    The config file is placed under /etc/frr/ inside the container rather than
+    /tmp/ because FRR 10.x daemons may run with PrivateTmp or separate mount
+    namespaces, making /tmp invisible to child processes spawned by vtysh -f.
+    /etc/frr/ is always shared across all FRR daemon processes.
+    """
     config_text = _generate_bloat_frr_config(count)
     duthost.copy(content=config_text, dest=BLOAT_FRR_CONFIG_FILE)
     for bgp_name in _get_frontend_bgp_docker_names(duthost):
-        duthost.shell("docker cp {} {}:/tmp/bloat.conf".format(BLOAT_FRR_CONFIG_FILE, bgp_name))
-        duthost.shell("docker exec {} vtysh -f /tmp/bloat.conf".format(bgp_name))
+        duthost.shell("docker cp {} {}:/etc/frr/bloat.conf".format(BLOAT_FRR_CONFIG_FILE, bgp_name))
+        duthost.shell("docker exec {} vtysh -f /etc/frr/bloat.conf".format(bgp_name))
+        duthost.shell("docker exec {} rm -f /etc/frr/bloat.conf".format(bgp_name))
         duthost.shell("docker exec {} vtysh -c 'write memory'".format(bgp_name))
     logger.info("Injected %d bloat prefix-list entries into FRR config", count)
 
