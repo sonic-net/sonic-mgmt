@@ -73,5 +73,5 @@ def test_ha_eni_out_of_order(
         pytest_assert(verify_ha_state(duthosts[1], standby_vdpu_key, "active"),
                       "Standby HA state is not active")
     finally:
-        deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server)
+        deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
         remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)

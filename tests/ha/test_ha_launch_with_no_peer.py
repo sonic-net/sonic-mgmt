@@ -149,5 +149,5 @@ def test_ha_launch_with_no_peer(request, duthosts, dpuhosts, localhost, ptfhost,
     activate_dash_ha(duthosts[1], dpuhosts[1], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
     pytest_assert(verify_ha_state(duthosts[1], scope_key=standby_vdpu_key, expected_state="standalone"),
                   "HA: Standby state is not standalone")
-    deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server)
+    deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
