@@ -25,23 +25,68 @@ def restart_dhcp_service(duthost, relay_types):
     Restart dhcp_relay and wait until the requested relay agent(s) are ready.
 
     relay_types: a non-empty iterable of agent identifiers. Each entry must be one of:
-        'isc'          -> every isc-dhcpv4-relay-<Vlan> supervisord entry currently
-                          present in the dhcp_relay container is RUNNING (legacy /
-                          external mode, built from dockers/docker-dhcp-relay/
-                          dhcpv4-relay.agents.j2). The set of expected entries is
-                          read from supervisord at poll time, not predicted from
-                          CONFIG_DB - a VLAN with v6-only dhcp_servers or no IPv4
-                          interface won't have an isc-dhcpv4-relay-<Vlan> entry,
-                          and we shouldn't wait for one.
-        'isc-internal' -> exactly one consolidated `dhcrelay -iu docker0 ...` proc
-                          spawned by dhcprelayd (mx internal mode; per-VLAN
-                          supervisord entries stay STOPPED by design).
-                          See dhcprelayd._start_dhcrelay_process in
-                          src/sonic-dhcp-utilities/dhcp_utilities/dhcprelayd/dhcprelayd.py.
-        'sonic'        -> the single `dhcp4relay` supervisord entry RUNNING
-                          (built from dockers/docker-dhcp-relay/dhcpv4-sonic-relay.agents.j2;
-                          one consolidated `/usr/sbin/dhcp4relay` proc handles all v4 VLANs).
-        'v6'           -> dhcp6relay supervisord entry RUNNING.
+        'isc'          -> Legacy / external v4 relay layout
+                          (dockers/docker-dhcp-relay/dhcpv4-relay.agents.j2).
+                          Required RUNNING:
+                            - every isc-dhcpv4-relay-<Vlan> supervisord entry
+                            - every dhcpmon-<Vlan> supervisord entry (paired
+                              1:1 with the isc helpers via
+                              dhcp-relay.monitors.j2)
+                          Notes:
+                            - The expected per-Vlan entries are read from
+                              supervisord at poll time (parsed from
+                              `supervisorctl status`), not derived from
+                              CONFIG_DB's VLAN / DHCP_RELAY config. The j2
+                              template only renders an isc-dhcpv4-relay-<Vlan>
+                              + dhcpmon-<Vlan> pair for Vlans that actually
+                              have v4 dhcp_servers configured, so supervisord
+                              is the authoritative source for which entries
+                              we wait on.
+                            - If no Vlan has v4 dhcp_servers defined, the
+                              matching set of isc-dhcpv4-relay-<Vlan> /
+                              dhcpmon-<Vlan> entries is empty, the loops
+                              iterate over nothing, and the 'isc' check
+                              passes immediately. This is intentional:
+                              there is genuinely nothing to wait for.
+
+        'isc-internal' -> mx internal mode. dhcprelayd consolidates v4 relay
+                          into a single `dhcrelay -iu docker0 ...` proc
+                          (not a supervisord entry).
+                          Required:
+                            - exactly one such dhcrelay proc
+                          Not checked:
+                            - isc-dhcpv4-relay-<Vlan> supervisord entries
+                              (stay STOPPED by design in this mode)
+                            - dhcpmon-<Vlan> supervisord entries (also stay
+                              STOPPED today: dhcpmon does not yet support
+                              the mx/isc-internal layout, so when dhcprelayd
+                              takes over the v4 relay it does not (re)spawn
+                              dhcpmon)
+                          TODO: extend this check once dhcpmon supports the
+                          mx/isc-internal layout (when a single dhcpmon can
+                          monitor the consolidated `dhcrelay -iu docker0`
+                          proc); at that point we should require dhcpmon
+                          RUNNING here too, mirroring the 'isc' check.
+
+        'sonic'        -> Consolidated v4 relay layout
+                          (dockers/docker-dhcp-relay/dhcpv4-sonic-relay.agents.j2).
+                          One `/usr/sbin/dhcp4relay` proc handles all v4 VLANs.
+                          Required RUNNING:
+                            - the single `dhcp4relay` supervisord entry
+                          Not checked:
+                            - dhcpmon-<Vlan> supervisord entries (dhcp4relay
+                              publishes its own counters, so per-Vlan dhcpmon
+                              is not part of this layout)
+
+        'v6'           -> IPv6 relay.
+                          Required RUNNING:
+                            - the `dhcp6relay` supervisord entry
+                          Not checked:
+                            - any dhcpv6mon / dhcp6mon equivalent. No such
+                              daemon ships today; when one lands this check
+                              will need to be extended to mirror the 'isc'
+                              dhcpmon-<Vlan> check above.
+                          TODO: revisit when dhcpv6mon ships.
 
     The orchestrator (`dhcprelayd`) is always required RUNNING. There is intentionally
     no default; each caller must declare which agent(s) it expects to be active.
@@ -115,6 +160,14 @@ def wait_dhcp_relay_ready(duthost, relay_types):
             # specific helpers should pair with their own config setup).
             for name, state in states.items():
                 if name.startswith('isc-dhcpv4-relay-') and state != 'RUNNING':
+                    return False
+            # Same layout-driven rule for dhcpmon-Vlan*: each entry is paired
+            # 1:1 with isc-dhcpv4-relay-<Vlan> in the same supervisord conf
+            # and must be RUNNING. Intentionally NOT checked in 'isc-internal'
+            # / 'sonic' / 'v6' modes - see the docstring for the per-mode
+            # rationale (and the v6 TODO for the upcoming dhcpv6mon).
+            for name, state in states.items():
+                if name.startswith('dhcpmon-') and state != 'RUNNING':
                     return False
         if 'isc-internal' in relay_types:
             internal = duthost.shell(
