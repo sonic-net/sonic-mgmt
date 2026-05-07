@@ -16,7 +16,7 @@ from gnmi_utils import apply_messages
 from ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from ha_utils import (
     activate_primary_dash_ha,
-    program_eni_on_dpu,
+    program_eni_pl_on_dpu,
     verify_ha_state,
     set_dead_dash_ha_scope,
 )
@@ -327,7 +327,7 @@ def test_ha_repairing_primary_dpu(
         # ------------------------------------------------------------------
         replacement_dpuhost = dpuhosts[2]
         logger.info(f"HA: Step 3: Programming ENIs on the replacement DPU: {replacement_dpuhost.hostname}")
-        program_eni_on_dpu(localhost, ptfhost, replacement_duthost, replacement_dpuhost)
+        program_eni_pl_on_dpu(localhost, ptfhost, replacement_duthost, replacement_dpuhost)
 
         # ------------------------------------------------------------------
         # Step 4: SDN controller enables HA admin state on the new DPU
