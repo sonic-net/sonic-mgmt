@@ -15,7 +15,7 @@ from constants import (
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
 from ha_utils import set_dash_ha_scope, activate_secondary_dash_ha
-from ha_link_utils import add_acl_link_drop, remove_acl_link_drop
+from ha_link_utils import add_acl_link_drop, remove_acl_link_drop_table
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +151,11 @@ def test_ha_link_failure(
             time.sleep(0.2)
         if standby_link_fail:
             logger.info(f"Simulate standby link failure, pkt sent {send_count}")
+            remove_acl_link_drop_table(duthosts[1])
             add_acl_link_drop(duthosts[1], dash_pl_config[1][NPU_DATAPLANE_PORT])
         else:
             logger.info(f"Simulate primary link failure, pkt sent {send_count}")
+            remove_acl_link_drop_table(duthosts[0])
             add_acl_link_drop(duthosts[0], dash_pl_config[0][NPU_DATAPLANE_PORT])
         logger.info(f"After link failure, pkt sent {send_count}")
 
@@ -228,9 +230,9 @@ def test_ha_link_failure(
     t.join()
     time.sleep(2)
     if standby_link_fail:
-        remove_acl_link_drop(duthosts[1], dash_pl_config[1][NPU_DATAPLANE_PORT])
+        remove_acl_link_drop_table(duthosts[1])
     else:
-        remove_acl_link_drop(duthosts[0], dash_pl_config[0][NPU_DATAPLANE_PORT])
+        remove_acl_link_drop_table(duthosts[0])
     # take system out of split-brain
     standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
     restore_ha_state(localhost, ptfhost, duthosts[1], standby_vdpu_key=standby_vdpu_key)
