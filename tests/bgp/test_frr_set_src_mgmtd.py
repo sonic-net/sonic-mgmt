@@ -13,7 +13,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t0', 't1', 't2')
 ]
 
 
@@ -26,6 +26,23 @@ ITERATION_LEVEL_MAP = {
     'thorough': 3
 }
 logger = logging.getLogger(__name__)
+
+
+def _get_frontend_bgp_docker_names(duthost):
+    """Return bgp container names for frontend ASICs only."""
+    if not duthost.is_multi_asic:
+        return ["bgp"]
+    return ["bgp{}".format(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+
+
+def _mgmtd_running(duthost):
+    """Return True if mgmtd is running inside all frontend bgp containers."""
+    for bgp_name in _get_frontend_bgp_docker_names(duthost):
+        if duthost.shell(
+            "docker exec {} pgrep -x mgmtd".format(bgp_name), module_ignore_errors=True
+        )['rc'] != 0:
+            return False
+    return True
 
 
 def _get_asic_hosts(duthost):
@@ -189,10 +206,7 @@ def test_mgmtd_preserves_default_route_set_src(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    pytest_require(
-        duthost.get_frr_mgmt_framework_config(),
-        "Test requires FRR mgmt-framework (mgmtd) mode to be enabled"
-    )
+    pytest_require(_mgmtd_running(duthost), "Test requires mgmtd (FRR 10.x+)")
 
     normalized_level = get_function_completeness_level if get_function_completeness_level else 'debug'
     iterations = ITERATION_LEVEL_MAP.get(normalized_level, ITERATION_LEVEL_MAP['debug'])
@@ -216,10 +230,7 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    pytest_require(
-        duthost.get_frr_mgmt_framework_config(),
-        "Test requires FRR mgmt-framework (mgmtd) mode to be enabled"
-    )
+    pytest_require(_mgmtd_running(duthost), "Test requires mgmtd (FRR 10.x+)")
 
     interface, nexthop = _find_static_route_anchor(duthost)
     checkpoint_name = "set_src_bloat_cp"
