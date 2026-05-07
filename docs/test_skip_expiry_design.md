@@ -111,6 +111,8 @@ Today: 2026-02-18
 Status: EXPIRED → Workflow adds expired label and comments with maintainer mentions
 ```
 
+> **NOTE:** The current GitHub Actions token for this workflow has write access to `sonic-net/sonic-mgmt` only. Although conditional mark parsing can detect issue URLs from any GitHub repository, expiry tagging/commenting actions are applied only to issues in `sonic-net/sonic-mgmt`. For issues tracked in other repositories (for example `sonic-net/sonic-buildimage`), an equivalent tracking issue must exist in `sonic-net/sonic-mgmt` (and be referenced in conditional marks) for this workflow to manage expiry state.
+
 #### Strategy B: Priority Tag Escalation
 
 - Issues are assigned initial priority tags (e.g., P3) with associated time-to-expiry values
@@ -151,6 +153,8 @@ Implementation notes:
 ##### 2. Issue Expiry Workflow
 
 This workflow prevents protected GitHub issues from being closed. When an issue is closed, it scans all conditional mark files named `test_mark_conditions*.yaml` on `main` and on a configured list of release branches, extracts every GitHub issue referenced in `skip` and `xfail` conditions, and checks whether the closed issue is still present in any of those files. If it is, the workflow posts a comment explaining that the issue cannot be closed until the conditional mark entry is removed, then reopens the issue.
+
+> **NOTE:** The current GitHub Actions token for this workflow has write access to `sonic-net/sonic-mgmt` only. Although conditional mark parsing can detect issue URLs from any GitHub repository, expiry tagging/commenting actions are applied only to issues in `sonic-net/sonic-mgmt`. For issues tracked in other repositories (for example `sonic-net/sonic-buildimage`), an equivalent tracking issue must exist in `sonic-net/sonic-mgmt` (and be referenced in conditional marks) for this workflow to manage expiry state.
 
 > **NOTE** See "Detailed Design Of GitHub Issue-Based Expiry Management" section for more details.
 

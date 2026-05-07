@@ -3,6 +3,7 @@
 This module contains probe-based tests for buffer threshold detection, including:
 - testQosPfcXoffProbe: PFC XOFF threshold probing
 - testQosIngressDropProbe: Ingress drop threshold probing
+- testQosEgressDropProbe: Egress drop threshold probing (lossy queue)
 - testQosHeadroomPoolProbe: Headroom pool threshold probing
 
 These tests use advanced probing algorithms to automatically detect buffer thresholds.
@@ -38,6 +39,7 @@ class TestQosProbe(QosSaiBase):
     These tests use advanced algorithms to automatically detect buffer thresholds:
     - Binary search for PFC XOFF threshold
     - Ingress drop threshold detection
+    - Egress drop threshold detection (lossy queue)
     - Headroom pool size probing
     """
 
@@ -277,6 +279,137 @@ class TestQosProbe(QosSaiBase):
 
         self.runPtfTest(
             ptfhost, testCase="ingress_drop_probing.IngressDropProbing", testParams=testParams,
+            pdb=enable_qos_ptf_pdb, test_subdir='probe'
+        )
+
+    @pytest.mark.parametrize("lossyProfile", ["lossy_queue_1"])
+    def testQosEgressDropProbe(
+        self, lossyProfile, duthost, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile, egressLosslessProfile, change_lag_lacp_timer, tbinfo, request
+    ):
+        """
+            Test QoS Egress Drop limits using EgressDropProbe
+
+            Args:
+                lossyProfile (pytest parameter): Lossy queue profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ingressLosslessProfile (Fxiture): Map of ingress lossless buffer profile attributes
+                egressLosslessProfile (Fxiture): Map of egress lossless buffer profile attributes
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        if lossyProfile not in qosConfig:
+            pytest.skip(f"{lossyProfile} is not defined in QoS config")
+
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        if platform_asic == "broadcom-dnx":
+            pytest.skip("Egress drop probing is not supported on broadcom-dnx")
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
+
+        src_port_id = dutConfig["testPorts"]["src_port_id"]
+        dst_port_id = dutConfig["testPorts"]["dst_port_id"]
+        probing_port_ids = [src_port_id, dst_port_id]
+        logger.info(f"Egress drop probing: using src_port_id={src_port_id}, dst_port_id={dst_port_id}")
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
+        testParams.update({"test_port_ips": dutConfig["testPortIps"]})
+        testParams.update({"probing_port_ids": probing_port_ids})
+        testParams.update({
+            "dscp": qosConfig[lossyProfile]["dscp"],
+            "ecn": qosConfig[lossyProfile]["ecn"],
+            # EgressDrop probes a dst-port egress queue, not a priority group.
+            # The qos.yml field is named `pg` (legacy LossyQueueTest naming),
+            # but at the test entry layer we rename to `queue` so PTF code reads
+            # `self.queue` directly with no internal alias. Sibling probes
+            # (PfcXoff/IngressDrop/HeadroomPool) keep `pg` because they really
+            # are PG-semantic.
+            "queue": qosConfig[lossyProfile]["pg"],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": src_port_id,
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "hwsku": dutTestParams['hwsku'],
+            "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic'])
+        })
+
+        # pkts_num_trig_egr_drp is the *expected* threshold used for assertion.
+        # If the platform's qos.yml does not define it (e.g., a new platform yet
+        # to be characterized), let the probe still run and print the measured
+        # value to the log so we can update qos.yml manually. PTF-side
+        # `get_expected_threshold` returns None when this attr is absent, and
+        # `probing_base.assert_probing_result` skips the assertion in that case.
+        # This aligns with probe's core value: discover thresholds, don't gate on them.
+        expected_egr_drp = qosConfig[lossyProfile].get("pkts_num_trig_egr_drp")
+        if expected_egr_drp is not None:
+            testParams["pkts_num_trig_egr_drp"] = expected_egr_drp
+        else:
+            logger.info(
+                f"pkts_num_trig_egr_drp not defined in {lossyProfile} for this "
+                f"platform's qos.yml; probe will run and print the measured "
+                f"value for manual qos.yml update."
+            )
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if "packet_size" in list(qosConfig[lossyProfile].keys()):
+            testParams["packet_size"] = qosConfig[lossyProfile]["packet_size"]
+
+        if 'cell_size' in list(qosConfig[lossyProfile].keys()):
+            testParams["cell_size"] = qosConfig[lossyProfile]["cell_size"]
+
+        bufferConfig = dutQosConfig["bufferConfig"]
+        # Resolve egress_lossy_pool_size to a numeric value at the test entry layer
+        # so PTF receives an explicit integer (not a string sentinel). When the platform's
+        # qos.yml does not define `egress_lossy_pool`, the value is 0; the PTF-side
+        # `get_pool_size()` will then RuntimeError with a clear message rather than silently
+        # falling back to the wrong pool. See review findings I2 / I4.
+        egress_lossy_pool = bufferConfig["BUFFER_POOL"].get("egress_lossy_pool")
+        if egress_lossy_pool and "size" in egress_lossy_pool:
+            egress_lossy_pool_size = int(egress_lossy_pool["size"])
+        else:
+            egress_lossy_pool_size = 0
+            logger.info(
+                "egress_lossy_pool not present in BUFFER_POOL; PTF will RuntimeError "
+                "if the test exercises buffer-size-dependent code paths."
+            )
+        testParams["egress_lossy_pool_size"] = egress_lossy_pool_size
+
+        # Get cell_size with fallback to sub-layers if not found at top level
+        cell_size = dutQosConfig["param"].get("cell_size", None)
+        if cell_size is None:
+            cell_size = self.find_cell_size(dutQosConfig["param"])
+        testParams["cell_size"] = cell_size
+
+        # Get pdb parameter from command line
+        enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
+
+        self.runPtfTest(
+            ptfhost, testCase="egress_drop_probing.EgressDropProbing", testParams=testParams,
             pdb=enable_qos_ptf_pdb, test_subdir='probe'
         )
 
