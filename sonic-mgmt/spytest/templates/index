@@ -85,6 +85,7 @@ show_ip_ospf_router.tmpl, .*, sonic, show ip ospf vrf .*
 show_ip_route_summary.tmpl, .*, sonic, show ip(v6)? route summary
 show_ip_route_summary.tmpl, .*, sonic, show ip route vrf .* summary
 show_ip_route_summary.tmpl, .*, sonic, show ipv6 route vrf .* summary
+show_ip_route_mh.tmpl, .*, sonic, show ipv6 route vrf .*
 show_ip_route.tmpl, .*, sonic, show ip route
 show_ip_route.tmpl, .*, sonic, show ipv6 route
 show_ip_route.tmpl, .*, sonic, show ip route vrf * ospf

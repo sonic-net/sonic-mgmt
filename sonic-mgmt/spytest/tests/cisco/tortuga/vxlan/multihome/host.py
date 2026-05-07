@@ -227,6 +227,105 @@ def verify_vrf_route_l3vni(nodes, prefix_ip, vtep_host, vrf):
     return False
 
 
+def verify_ndp(nodes, host_ip, dut_name):
+    """
+    Verify NDP entry exists on the specified DUT.
+    Uses show_ndp.tmpl for structured parsing (avoids substring false-matches
+    against shorter v6 prefixes that share the same hextet prefix).
+
+    Args:
+        nodes (WA)      : WorkArea objects (DUTs)
+        host_ip (str)   : IPv6 host address
+        dut_name (str)  : DUT name
+    Returns:
+        True if NDP entry for host_ip is found on dut_name
+    """
+    output = st.show(nodes[dut_name], "show ndp", skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[dut_name], "show ndp", output, "show_ndp.tmpl")
+    st.log(parsed)
+    for entry in parsed:
+        if entry.get("address") == host_ip:
+            st.log("NDP entry for {} present on {}".format(host_ip, dut_name))
+            return True
+    st.log("NDP entry for {} NOT found on {}".format(host_ip, dut_name))
+    return False
+
+
+def _parse_ipv6_route(node, vrf):
+    """Run `show ipv6 route vrf <vrf>` and return parsed rows.
+
+    show_ip_route_mh.tmpl is auto-selected via the template index mapping.
+    """
+
+    cmd = "show ipv6 route vrf {}".format(vrf)
+    return st.show(node, cmd, type="vtysh", skip_error_check=True)
+
+def verify_vrf_route_l3vni_v6(nodes, prefix_ip, vtep_host, vrf):
+    """
+    Verify IPv6 Type-5 VRF route on the specified VTEP via L3VNI/VXLAN tunnel.
+    Walks the parsed `show ipv6 route vrf` output and asserts a BGP route for
+    the requested prefix has LEAF2_VXLAN_IP in its nexthop list.
+
+    Args:
+        nodes (WA)      : WorkArea objects (DUTs)
+        prefix_ip (str) : IPv6 prefix (e.g. "2001:db8:20::" or "2001:db8:20::/64")
+        vtep_host (str) : VTEP host name to query
+        vrf (str)       : VRF name
+    Returns:
+        True if a BGP route with prefix_ip and LEAF2 nexthop exists
+    """
+    parsed = _parse_ipv6_route(nodes[vtep_host], vrf)
+    if not parsed:
+        st.log("Empty `show ipv6 route vrf {}` on {}".format(vrf, vtep_host))
+        return False
+    for path in parsed:
+        if path.get("type") != "B":
+            continue
+        ip_addr = path.get("ip_address", "")
+        if prefix_ip not in ip_addr:
+            continue
+        nh = path.get("nexthop", []) or []
+        if const.LEAF2_VXLAN_IP in nh:
+            return True
+    st.log("IPv6 VRF route {} via {} not found on {}".format(
+        prefix_ip, const.LEAF2_VXLAN_IP, vtep_host))
+    return False
+
+
+def verify_ipv6_route_multihomed_host(nodes, prefix_ip, dut_name, vrf):
+    """
+    Verify IPv6 ECMP host route (or prefix route) for the multihomed host
+    on the specified DUT. Walks parsed `show ipv6 route vrf` output and
+    asserts a BGP route for prefix_ip has BOTH LEAF0 and LEAF1 in its
+    nexthop list.
+
+    Args:
+        nodes (WA)      : WorkArea objects (DUTs)
+        prefix_ip (str) : IPv6 prefix to look for (e.g. "<lag_ip6>/128"
+                          for the Type-2 host route, or "<subnet>/64").
+        dut_name (str)  : DUT name to query (typically leaf2)
+        vrf (str)       : VRF name
+    Returns:
+        True if an ECMP BGP route with both LEAF0 and LEAF1 nexthops exists
+    """
+    parsed = _parse_ipv6_route(nodes[dut_name], vrf)
+    if not parsed:
+        st.log("Empty `show ipv6 route vrf {}` on {}".format(vrf, dut_name))
+        return False
+    for path in parsed:
+        if path.get("type") != "B":
+            continue
+        ip_addr = path.get("ip_address", "")
+        if prefix_ip not in ip_addr:
+            continue
+        nh = path.get("nexthop", []) or []
+        if const.LEAF0_VXLAN_IP in nh and const.LEAF1_VXLAN_IP in nh:
+            return True
+    st.log("{} not installed as ECMP (LEAF0+LEAF1) in FRR on {}".format(
+        prefix_ip, dut_name))
+    return False
+
+
 def get_mac_static_dynamic(nodes, dut, mac):
     """
     get_mac_static_dynamic

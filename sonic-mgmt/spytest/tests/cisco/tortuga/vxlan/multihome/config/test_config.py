@@ -33,6 +33,62 @@ def test_evpn_mh_basic_config(setup):
     except Exception as e:
         report_fail("", msg=e)
 
+def test_evpn_mh_basic_config_v6(setup):
+    """
+    Test EVPN Multihome Basic Config with IPv6 VRF prefixes.
+    Adds IPv6 addresses to VRF SVIs, verifies BGP EVPN Type-5
+    route advertisement for IPv6 prefixes, then cleans up.
+
+    Uses vxlan_utils.verify_bgp_v6 because the IPv4 verifier relies on a
+    TextFSM template whose PREFIXIP regex does not match IPv6 prefixes.
+    """
+    banner("test_evpn_mh_basic_config_v6")
+    nodes = setup["duts"]
+
+    leaf0_v6_prefix = const.leaf0_vrf_prefix_v6
+    leaf1_v6_prefix = const.leaf1_vrf_prefix_v6
+    leaf2_v6_prefix = const.leaf2_vrf_prefix_v6
+
+    leaf0_vlan10_v6 = "{}10/64".format(leaf0_v6_prefix)
+    leaf1_vlan10_v6 = "{}10/64".format(leaf1_v6_prefix)
+    leaf2_vlan10_v6 = "{}10/64".format(leaf0_v6_prefix)
+    leaf2_vlan20_v6 = "{}10/64".format(leaf2_v6_prefix)
+
+    svi_added = False
+    try:
+        log("Adding IPv6 addresses to VRF SVIs")
+        host.configure_cmd(nodes["leaf0"], "sudo config interface ip add Vlan10 {}".format(leaf0_vlan10_v6))
+        host.configure_cmd(nodes["leaf1"], "sudo config interface ip add Vlan10 {}".format(leaf1_vlan10_v6))
+        host.configure_cmd(nodes["leaf2"], "sudo config interface ip add Vlan10 {}".format(leaf2_vlan10_v6))
+        host.configure_cmd(nodes["leaf2"], "sudo config interface ip add Vlan20 {}".format(leaf2_vlan20_v6))
+        svi_added = True
+
+        wait(30)
+        log("Verifying BGP EVPN Type-5 routes for IPv6 prefixes")
+        vxlan_utils.verify_bgp_v6(nodes, leaf1_v6_prefix, "leaf0", const.EXPECTED_L3VNI)
+        vxlan_utils.verify_bgp_v6(nodes, leaf0_v6_prefix, "leaf1", const.EXPECTED_L3VNI)
+        vxlan_utils.verify_bgp_v6(nodes, leaf2_v6_prefix, "leaf0", const.EXPECTED_L3VNI)
+        report_pass("test_case_passed", "test_evpn_mh_basic_config_v6")
+    except Exception as e:
+        report_fail("", msg=e)
+    finally:
+        if not svi_added:
+            return
+        log("Removing IPv6 addresses from VRF SVIs")
+        for node, vlan, addr in (
+            (nodes["leaf2"], "Vlan20", leaf2_vlan20_v6),
+            (nodes["leaf2"], "Vlan10", leaf2_vlan10_v6),
+            (nodes["leaf1"], "Vlan10", leaf1_vlan10_v6),
+            (nodes["leaf0"], "Vlan10", leaf0_vlan10_v6),
+        ):
+            try:
+                host.configure_cmd(
+                    node,
+                    "sudo config interface ip remove {} {}".format(vlan, addr),
+                )
+            except Exception as cleanup_err:
+                log("Cleanup of {} {} failed: {}".format(vlan, addr, cleanup_err))
+
 
 def test_es_peering(setup):
     """

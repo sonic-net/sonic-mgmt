@@ -10,10 +10,10 @@ from multihome.const import (
     interface_map,
     spytest_data,
 )
-from spytest import st
+from multihome import const
+from spytest import st, tgapi
 import apis.switching.portchannel as portchannel_obj
 from multihome import dut
-from multihome.const import spytest_data
 from multihome.traffic_generator import PORTCHANNEL_NAME, LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT
 
 
@@ -59,7 +59,6 @@ def configure():
 
     dut_names = st.get_dut_names()
     dut_type = vxlan_utils.check_hw_or_sim(dut_names[0])
-    # yield to test_data
     test_data = {
         "duts": nodes,
         "dut_names": dut_names,
@@ -80,10 +79,12 @@ def configure():
     dut.wait(15)
     yield test_data
 
-    # Destroy LAG interface
-    tg = lag_handle[lag_name]["tg_handle"]
+    # Destroy LAG interface -- use the potentially-updated handle from
+    # test_data in case a test (e.g. test_ipv6_traffic) swapped the LAG.
+    current_lag = test_data.get("lag_handle", lag_handle)
+    tg = current_lag[lag_name]["tg_handle"]
     topology_handle = re.search(
-        "/topology:\d+", lag_handle[lag_name]["int_handle"]
+        "/topology:\d+", current_lag[lag_name]["int_handle"]
     ).group()
     tg.tg_test_control(action="stop_protocol", handle=topology_handle)
     if not st.poll_wait2(LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT,
@@ -93,7 +94,7 @@ def configure():
     tg.tg_topology_config(topology_handle=topology_handle, mode="destroy")
     dut.wait(5)
     tg.tg_emulation_lag_config(
-        mode="delete", lag_handle=lag_handle[lag_name]["lag_handle"], lag_name=lag_name
+        mode="delete", lag_handle=current_lag[lag_name]["lag_handle"], lag_name=lag_name
     )
     dut.wait(5)
 

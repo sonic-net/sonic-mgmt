@@ -1,3 +1,5 @@
+import re
+
 import evpn_mh_utils as evpn_mh_obj
 import vxlan_utils
 
@@ -9,8 +11,11 @@ from multihome.host import configure_cmd as host_configure_cmd
 from multihome.host import show_cmd as host_show_cmd
 from multihome.host import (
     verify_arp,
+    verify_ndp,
     verify_port_channel,
     verify_vrf_route_l3vni,
+    verify_vrf_route_l3vni_v6,
+    verify_ipv6_route_multihomed_host,
     is_mac_exists,
     is_mac_exists_local,
     verify_ip_route_multihomed_host,
@@ -23,11 +28,15 @@ from multihome.traffic_generator import (
     verify_l3_traffic,
     verify_df_ndf_traffic,
     create_continous_traffic,
-    continuous_traffic_control
+    continuous_traffic_control,
+    PORTCHANNEL_NAME,
+    LAG_POLL_INTERVAL,
+    LAG_POLL_TIMEOUT,
 )
 from multihome.vtysh import show_evpn_es
 from multihome.vtysh import configure_cmd as vtysh_configure_cmd
 import apis.system.interface as intf_obj
+import apis.switching.portchannel as portchannel_obj
 from spytest import st
 
 
@@ -1344,3 +1353,405 @@ def test_portchannel_member_flap(traffic_setup):
         report_fail(nodes["leaf0"], result_str)
     else:
         report_pass(nodes["leaf0"], test_case_id)
+
+
+######################################################################
+# Helper: build a stream dict from port names and address family
+######################################################################
+def _build_stream(src_port, dst_port, addr_family="ipv4"):
+    if addr_family == "ipv6":
+        int_map = const.interface_map_v6
+    else:
+        int_map = const.interface_map
+    return {
+        "src_endpoint": {
+            "port": src_port,
+            "host_ip": int_map[src_port]["host_ip"],
+            "gateway": int_map[src_port]["gateway"],
+            "mac": int_map[src_port]["mac"],
+        },
+        "dst_endpoint": {
+            "port": dst_port,
+            "host_ip": int_map[dst_port]["host_ip"],
+            "gateway": int_map[dst_port]["gateway"],
+            "mac": int_map[dst_port]["mac"],
+        },
+    }
+
+
+def _destroy_lag(lag_handle):
+    """Tear down an existing IXIA LAG so the vports can be reused."""
+    tg = lag_handle[const.lag_name]["tg_handle"]
+    topology_handle = re.search(
+        r"/topology:\d+", lag_handle[const.lag_name]["int_handle"]
+    ).group()
+    tg.tg_test_control(action="stop_protocol", handle=topology_handle)
+    st.poll_wait2(
+        LAG_POLL_INTERVAL, LAG_POLL_TIMEOUT,
+        portchannel_obj.verify_portchannel_state,
+        st.get_testbed_vars().D2, PORTCHANNEL_NAME, state="down",
+    )
+    tg.tg_topology_config(topology_handle=topology_handle, mode="destroy")
+    wait(5)
+    tg.tg_emulation_lag_config(
+        mode="delete",
+        lag_handle=lag_handle[const.lag_name]["lag_handle"],
+        lag_name=const.lag_name,
+    )
+    wait(5)
+
+
+def _create_ipv4_lag():
+    """Recreate the standard IPv4 LAG + physical TGen interfaces."""
+    lag_handle = vxlan_utils.config_lag_interface(
+        const.lag_name,
+        const.lag_ports,
+        const.spytest_data.lag_ip,
+        const.spytest_data.lag_gateway_ip,
+        const.spytest_data.lag_mac,
+    )
+    lag_handle.update(vxlan_utils.config_tgen_interface(const.phy_int_map))
+    return lag_handle
+
+
+######################################################################
+# Test IPv6 Traffic (standalone)
+######################################################################
+def test_ipv6_traffic(traffic_setup):
+    """
+    Base IPv6 end-to-end traffic test.
+    Creates IPv6 IXIA hosts on-the-fly and validates:
+      - L3 inter-subnet routed: MH host -> leaf2 (H1v6->H4v6, H2v6->H4v6)
+      - L3 inter-subnet routed: leaf2 -> MH host (H3v6->H2v6 ECMP)
+      - L2 BUM broadcast from leaf2 with DF/NDF verification
+      - L2 BUM unknown unicast from leaf2 with DF/NDF + ingress replication
+      - NDP, VRF route, VXLAN tunnel counter verification
+    """
+    nodes = traffic_setup["duts"]
+    lag_handle_v6 = {}
+    existing_lag = traffic_setup["lag_handle"]
+
+    ipv6_svi_cmds_add = {
+        "leaf0": [
+            "sudo config interface ip add Vlan10 2001:db8:10::10/64",
+        ],
+        "leaf1": [
+            "sudo config interface ip add Vlan10 2001:db8:10::10/64",
+        ],
+        "leaf2": [
+            "sudo config interface ip add Vlan10 2001:db8:10::10/64",
+            "sudo config interface ip add Vlan20 2001:db8:20::10/64",
+        ],
+    }
+    ipv6_svi_cmds_del = {
+        "leaf0": [
+            "sudo config interface ip remove Vlan10 2001:db8:10::10/64",
+        ],
+        "leaf1": [
+            "sudo config interface ip remove Vlan10 2001:db8:10::10/64",
+        ],
+        "leaf2": [
+            "sudo config interface ip remove Vlan10 2001:db8:10::10/64",
+            "sudo config interface ip remove Vlan20 2001:db8:20::10/64",
+        ],
+    }
+
+    try:
+        ################################################################
+        # Phase 1: Create IPv6 IXIA hosts
+        ################################################################
+        banner("Phase 1: Tearing down IPv4 LAG and creating IPv6 IXIA hosts")
+
+        for leaf, cmds in ipv6_svi_cmds_add.items():
+            for cmd in cmds:
+                host_configure_cmd(nodes[leaf], cmd)
+        wait(10)
+
+        _destroy_lag(existing_lag)
+
+        lag_handle_v6 = vxlan_utils.config_lag_interface(
+            const.lag_name,
+            const.lag_ports,
+            const.spytest_data.lag_ip6,
+            const.spytest_data.lag_gateway_ip6,
+            const.spytest_data.lag_mac,
+            addr_family="ipv6",
+        )
+        lag_handle_v6.update(
+            vxlan_utils.config_tgen_interface(const.phy_int_map_v6, addr_family="ipv6")
+        )
+        wait(15)
+
+        saved_cet = const.spytest_data.circuit_endpoint_type
+        const.spytest_data.circuit_endpoint_type = "ipv6"
+
+        ################################################################
+        # Phase 2: L3 routed -- MH host to leaf2 host
+        ################################################################
+        banner("Phase 2: L3 inter-subnet IPv6 -- MH hosts to leaf2")
+
+        get_cli_out()
+
+        # H1(v6) -> H4(v6): single-homed leaf0 Vlan10 -> leaf2 Vlan20
+        stream_h1_h4 = _build_stream("T1D2P1", "T1D4P2", "ipv6")
+        vxlan_utils.clear_counters()
+        stream_id = vxlan_utils.create_udp_traffic_stream(
+            lag_handle_v6, const.spytest_data, stream_h1_h4
+        )
+        result = vxlan_utils.send_udp_traffic(
+            lag_handle_v6, const.spytest_data, stream_h1_h4, stream_id
+        )
+        vxlan_utils.delete_udp_traffic_stream(lag_handle_v6, stream_h1_h4)
+        if not result:
+            report_fail(
+                nodes["leaf0"],
+                "IPv6 L3: H1(v6)->H4(v6) traffic failed",
+            )
+
+        # Verify VXLAN tunnel counters for H1->H4
+        leaf0_tx = vxlan_utils.get_counters(
+            nodes["leaf0"], cmd="show vxlan counters",
+            target_iface="EVPN_{}".format(const.LEAF2_VXLAN_IP),
+            r_t_key="tx_pkts",
+        )
+        leaf2_rx = vxlan_utils.get_counters(
+            nodes["leaf2"], cmd="show vxlan counters",
+            target_iface="EVPN_{}".format(const.LEAF0_VXLAN_IP),
+        )
+        log("H1->H4 tunnel: leaf0 TX={}, leaf2 RX={}".format(leaf0_tx, leaf2_rx))
+        if vxlan_utils.tunnel_counters_supported(nodes["leaf0"]) and not (
+            leaf0_tx >= 0.98 * int(const.spytest_data.pkts_per_burst)
+            and leaf2_rx >= 0.98 * int(const.spytest_data.pkts_per_burst)
+        ):
+            report_fail(
+                nodes["leaf0"],
+                "IPv6 H1->H4 traffic not traversing VXLAN tunnel",
+            )
+
+        # H2(v6, PortChannel) -> H4(v6): MH leaf0/leaf1 Vlan10 -> leaf2 Vlan20
+        stream_h2_h4 = _build_stream(const.lag_name, "T1D4P2", "ipv6")
+        vxlan_utils.clear_counters()
+        stream_id = vxlan_utils.create_udp_traffic_stream(
+            lag_handle_v6, const.spytest_data, stream_h2_h4
+        )
+        result = vxlan_utils.send_udp_traffic(
+            lag_handle_v6, const.spytest_data, stream_h2_h4, stream_id
+        )
+        vxlan_utils.delete_udp_traffic_stream(lag_handle_v6, stream_h2_h4)
+        if not result:
+            report_fail(
+                nodes["leaf0"],
+                "IPv6 L3: H2(v6, PortChannel)->H4(v6) traffic failed",
+            )
+
+        # Verify VXLAN tunnel counters for H2->H4
+        leaf0_tx = vxlan_utils.get_counters(
+            nodes["leaf0"], cmd="show vxlan counters",
+            target_iface="EVPN_{}".format(const.LEAF2_VXLAN_IP),
+            r_t_key="tx_pkts",
+        )
+        leaf2_rx = vxlan_utils.get_counters(
+            nodes["leaf2"], cmd="show vxlan counters",
+            target_iface="EVPN_{}".format(const.LEAF0_VXLAN_IP),
+        )
+        log("H2->H4 tunnel: leaf0 TX={}, leaf2 RX={}".format(leaf0_tx, leaf2_rx))
+        if vxlan_utils.tunnel_counters_supported(nodes["leaf0"]) and not (
+            leaf0_tx >= 0.98 * int(const.spytest_data.pkts_per_burst)
+            and leaf2_rx >= 0.98 * int(const.spytest_data.pkts_per_burst)
+        ):
+            report_fail(
+                nodes["leaf0"],
+                "IPv6 H2->H4 traffic not traversing VXLAN tunnel",
+            )
+
+        ################################################################
+        # Phase 3: L3 routed -- leaf2 host to MH host (ECMP)
+        ################################################################
+        banner("Phase 3: L3 inter-subnet IPv6 -- leaf2 to MH host (ECMP)")
+
+        stream_ecmp = _build_stream("T1D4P1", const.lag_name, "ipv6")
+        vxlan_utils.clear_counters()
+        get_cli_out()
+        stream_id = vxlan_utils.create_udp_traffic_stream(
+            lag_handle_v6, const.spytest_data, stream_ecmp
+        )
+        result = vxlan_utils.send_udp_traffic(
+            lag_handle_v6, const.spytest_data, stream_ecmp, stream_id
+        )
+        vxlan_utils.delete_udp_traffic_stream(lag_handle_v6, stream_ecmp)
+        if not result:
+            report_fail(
+                nodes["leaf2"],
+                "IPv6 L3: H3(v6)->H2(v6) unicast ECMP traffic failed",
+            )
+
+        intf_cmd = "show interface counters"
+        leaf0_counters = vxlan_utils.get_counters(
+            nodes["leaf0"], cmd=intf_cmd,
+            target_iface=traffic_setup["D2T1P2"], r_t_key="tx_ok",
+        )
+        leaf1_counters = vxlan_utils.get_counters(
+            nodes["leaf1"], cmd=intf_cmd,
+            target_iface=traffic_setup["D3T1P1"], r_t_key="tx_ok",
+        )
+        log("ECMP: leaf0 TX={}, leaf1 TX={}".format(leaf0_counters, leaf1_counters))
+        if leaf0_counters <= 0.1 * int(const.spytest_data.pkts_per_burst) or \
+           leaf1_counters <= 0.1 * int(const.spytest_data.pkts_per_burst):
+            report_fail(
+                nodes["leaf2"],
+                "IPv6 unicast from leaf2 not load-balanced: leaf0={}, leaf1={}".format(
+                    leaf0_counters, leaf1_counters
+                ),
+            )
+
+        ################################################################
+        # Phase 4: VRF route and NDP verification
+        ################################################################
+        banner("Phase 4: IPv6 VRF route and NDP verification")
+
+        vrf_prefix = const.leaf2_vrf_prefix_v6
+        if not verify_vrf_route_l3vni_v6(nodes, vrf_prefix, "leaf0", "Vrf01"):
+            report_fail(
+                nodes["leaf0"],
+                "IPv6 VRF route {} not found on leaf0".format(vrf_prefix),
+            )
+        if not verify_vrf_route_l3vni_v6(nodes, vrf_prefix, "leaf1", "Vrf01"):
+            report_fail(
+                nodes["leaf1"],
+                "IPv6 VRF route {} not found on leaf1".format(vrf_prefix),
+            )
+
+        mh_prefix = const.spytest_data.lag_ip6
+        if not verify_ipv6_route_multihomed_host(nodes, mh_prefix, "leaf2", "Vrf01"):
+            report_fail(
+                nodes["leaf2"],
+                "ECMP not installed for {} on leaf2".format(mh_prefix),
+            )
+
+        lag_check_ip = const.spytest_data.lag_ip6
+        if not verify_ndp(nodes, lag_check_ip, "leaf0") and \
+           not verify_ndp(nodes, lag_check_ip, "leaf1"):
+            report_fail(
+                "",
+                "NDP verification failed for {} on both leaf0 and leaf1".format(
+                    lag_check_ip
+                ),
+            )
+
+        ################################################################
+        # Phase 5: L2 BUM broadcast from leaf2
+        ################################################################
+        banner("Phase 5: L2 BUM broadcast IPv6 with DF/NDF check")
+
+        const.spytest_data.circuit_endpoint_type = saved_cet
+
+        df_node, ndf_node = evpn_mh_obj.get_df_ndf_node(
+            nodes["leaf0"], nodes["leaf1"], const.ESI1
+        )
+        if not df_node:
+            report_fail(nodes["leaf0"], "Incorrect DF/NDF selection")
+
+        cmd_intf = "show interface counters"
+        if df_node == nodes["leaf0"]:
+            df_downlink = traffic_setup["D2T1P2"]
+            ndf_downlink = traffic_setup["D3T1P1"]
+        else:
+            df_downlink = traffic_setup["D3T1P1"]
+            ndf_downlink = traffic_setup["D2T1P2"]
+
+        stream_bcast = _build_stream("T1D4P1", "T1D2P1", "ipv6")
+        verify_bum_traffic(
+            lag_handle_v6, stream_bcast, "T1D4P1", "broadcast", "T1D2P1"
+        )
+
+        df_downlink_curr = vxlan_utils.get_counters(
+            node=df_node, cmd=cmd_intf, target_iface=df_downlink, r_t_key="tx_ok"
+        )
+        ndf_downlink_curr = vxlan_utils.get_counters(
+            node=ndf_node, cmd=cmd_intf, target_iface=ndf_downlink, r_t_key="tx_ok"
+        )
+        log("Broadcast: DF downlink={}, NDF downlink={}".format(
+            df_downlink_curr, ndf_downlink_curr
+        ))
+
+        if not (
+            df_downlink_curr >= 0.98 * int(const.spytest_data.pkts_per_burst)
+            and df_downlink_curr <= 1.1 * int(const.spytest_data.pkts_per_burst)
+            and ndf_downlink_curr <= 0.1 * int(const.spytest_data.pkts_per_burst)
+        ):
+            report_fail(
+                ndf_node,
+                "IPv6 broadcast: DF/NDF filtering incorrect -- DF={}, NDF={}".format(
+                    df_downlink_curr, ndf_downlink_curr
+                ),
+            )
+
+        ################################################################
+        # Phase 6: L2 BUM unknown unicast from leaf2
+        ################################################################
+        banner("Phase 6: L2 BUM unknown unicast IPv6 with DF/NDF + ingress replication")
+
+        stream_unk = _build_stream("T1D4P1", "T1D2P1", "ipv6")
+        verify_bum_traffic(
+            lag_handle_v6, stream_unk, "T1D4P1", "unknownunicast", "T1D2P1"
+        )
+
+        cmd_vxlan = "show vxlan counters"
+        leaf2_df_vxlan_rx = vxlan_utils.get_counters(
+            node=df_node, cmd=cmd_vxlan,
+            target_iface="EVPN_{}".format(const.LEAF2_VXLAN_IP),
+            r_t_key="rx_pkts",
+        )
+        leaf2_ndf_vxlan_rx = vxlan_utils.get_counters(
+            node=ndf_node, cmd=cmd_vxlan,
+            target_iface="EVPN_{}".format(const.LEAF2_VXLAN_IP),
+            r_t_key="rx_pkts",
+        )
+        log("Unknown unicast ingress replication: DF VXLAN RX={}, NDF VXLAN RX={}".format(
+            leaf2_df_vxlan_rx, leaf2_ndf_vxlan_rx
+        ))
+
+        df_downlink_curr = vxlan_utils.get_counters(
+            node=df_node, cmd=cmd_intf, target_iface=df_downlink, r_t_key="tx_ok"
+        )
+        ndf_downlink_curr = vxlan_utils.get_counters(
+            node=ndf_node, cmd=cmd_intf, target_iface=ndf_downlink, r_t_key="tx_ok"
+        )
+        log("Unknown unicast: DF downlink={}, NDF downlink={}".format(
+            df_downlink_curr, ndf_downlink_curr
+        ))
+
+        if not (
+            df_downlink_curr >= 0.98 * int(const.spytest_data.pkts_per_burst)
+            and df_downlink_curr <= 1.1 * int(const.spytest_data.pkts_per_burst)
+            and ndf_downlink_curr <= 0.1 * int(const.spytest_data.pkts_per_burst)
+        ):
+            report_fail(
+                ndf_node,
+                "IPv6 unknown unicast: NDF not dropping -- DF={}, NDF={}".format(
+                    df_downlink_curr, ndf_downlink_curr
+                ),
+            )
+        elif vxlan_utils.tunnel_counters_supported(nodes["leaf2"]) and not (
+            leaf2_df_vxlan_rx >= int(const.spytest_data.pkts_per_burst)
+            and leaf2_ndf_vxlan_rx >= int(const.spytest_data.pkts_per_burst)
+        ):
+            report_fail(
+                nodes["leaf2"],
+                "IPv6 unknown unicast: not ingress replicated to DF and NDF",
+            )
+
+        report_pass("test_case_passed", "test_ipv6_traffic")
+
+    except Exception as e:
+        report_fail("", msg=e)
+    finally:
+        const.spytest_data.circuit_endpoint_type = "ipv4"
+        for leaf, cmds in ipv6_svi_cmds_del.items():
+            for cmd in cmds:
+                host_configure_cmd(nodes[leaf], cmd)
+        if lag_handle_v6:
+            banner("Teardown: destroying IPv6 LAG and restoring IPv4 LAG")
+            _destroy_lag(lag_handle_v6)
+            restored = _create_ipv4_lag()
+            traffic_setup["lag_handle"] = restored

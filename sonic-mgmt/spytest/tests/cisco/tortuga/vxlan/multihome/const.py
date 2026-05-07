@@ -27,6 +27,10 @@ leaf0_vrf_prefix = "10.212.10.0"
 leaf1_vrf_prefix = "10.212.10.0"
 leaf2_vrf_prefix = "10.212.20.0"
 
+leaf0_vrf_prefix_v6 = "2001:db8:10::"
+leaf1_vrf_prefix_v6 = "2001:db8:10::"
+leaf2_vrf_prefix_v6 = "2001:db8:20::"
+
 # some fileds of spytest_data will be updated as part of traffic fixture
 # values set remain constant throughout the test
 spytest_data = SpyTestDict()
@@ -45,6 +49,15 @@ spytest_data.t1d4p1_mac_addr = "00:00:00:00:02:03"  # Host3 Mac
 spytest_data.d4t1_ip_addr = "10.212.20.10"  # Host3 GW
 spytest_data.t1d4p2_ip_addr = "10.212.20.1"  # Host4 IP
 spytest_data.t1d4p2_mac_addr = "00:00:00:00:02:04"  # Host4 Mac
+
+spytest_data.t1d2p1_ip6_addr = "2001:db8:10::1"
+spytest_data.d2t1_ip6_addr = "2001:db8:10::10"
+spytest_data.lag_ip6 = "2001:db8:10::2"
+spytest_data.lag_gateway_ip6 = "2001:db8:10::10"
+spytest_data.t1d3p2_ip6_addr = "2001:db8:10::5"
+spytest_data.t1d4p1_ip6_addr = "2001:db8:10::3"
+spytest_data.t1d4p2_ip6_addr = "2001:db8:20::1"
+spytest_data.d4t1_ip6_addr = "2001:db8:20::10"
 lag_ports = ["T1D2P2", "T1D3P1"]
 lag_name = "LAG1"
 phy_int_map = {
@@ -87,4 +100,35 @@ port_name_map = {
     "H3": "T1D4P1",
     "H4": "T1D4P2",
     "H5": "T1D3P2",
+}
+
+phy_int_map_v6 = {
+    "T1D2P1": {
+        "host_ip": spytest_data.t1d2p1_ip6_addr,
+        "gateway": spytest_data.d2t1_ip6_addr,
+        "mac": spytest_data.t1d2p1_mac_addr,
+    },
+    "T1D3P2": {
+        "host_ip": spytest_data.t1d3p2_ip6_addr,
+        "gateway": spytest_data.d2t1_ip6_addr,
+        "mac": spytest_data.t1d3p2_mac_addr,
+    },
+    "T1D4P1": {
+        "host_ip": spytest_data.t1d4p1_ip6_addr,
+        "gateway": spytest_data.d2t1_ip6_addr,
+        "mac": spytest_data.t1d4p1_mac_addr,
+    },
+    "T1D4P2": {
+        "host_ip": spytest_data.t1d4p2_ip6_addr,
+        "gateway": spytest_data.d4t1_ip6_addr,
+        "mac": spytest_data.t1d4p2_mac_addr,
+    },
+}
+
+interface_map_v6 = {}
+interface_map_v6.update(phy_int_map_v6)
+interface_map_v6[lag_name] = {
+    "host_ip": spytest_data.lag_ip6,
+    "gateway": spytest_data.lag_gateway_ip6,
+    "mac": spytest_data.lag_mac,
 }

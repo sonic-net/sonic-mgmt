@@ -4,6 +4,7 @@ import yaml
 import os
 import re
 import time
+from retry import retry
 
 NO_OF_RETRIES = 6 
 REMOTE_VTEP_COUNT = '1'
@@ -325,7 +326,7 @@ def traffic_test_burst(_mode,handles, timeout=30):
         flag = False
     return flag
 
-def config_lag_interface(lag_name, ports, lag_ip, lag_gateway_ip, lag_mac):
+def config_lag_interface(lag_name, ports, lag_ip, lag_gateway_ip, lag_mac, addr_family='ipv4'):
     lag_vport_list = ""
     port_list = ""
     handles = {}
@@ -371,17 +372,30 @@ def config_lag_interface(lag_name, ports, lag_ip, lag_gateway_ip, lag_mac):
     if _result_['status'] != '1':
         st.log('Ethernet stack creation failed {}'.format(_result_))
     ethernet_1_handle = _result_['ethernet_handle']
-    st.log("Creating IPv4 stack for the first Device Group")
-    _result_ = tg.tg_interface_config(
-        protocol_name     = 'IPv4 1',
-        protocol_handle   = ethernet_1_handle,
-        gateway           = lag_gateway_ip,
-        intf_ip_addr      = lag_ip,
-        netmask           = "255.255.255.0"
-    )
-    if _result_['status'] != '1':
-        st.log('IPv4 stack creation failed {}'.format(_result_))
-    ipv4_1_handle = _result_['ipv4_handle']
+
+    if addr_family == 'ipv6':
+        st.log("Creating IPv6 stack for the first Device Group")
+        _result_ = tg.tg_interface_config(
+            protocol_name     = 'IPv6 1',
+            protocol_handle   = ethernet_1_handle,
+            ipv6_intf_addr    = lag_ip,
+            ipv6_prefix_length = '64',
+            ipv6_gateway      = lag_gateway_ip,
+        )
+        if _result_['status'] != '1':
+            st.log('IPv6 stack creation failed {}'.format(_result_))
+    else:
+        st.log("Creating IPv4 stack for the first Device Group")
+        _result_ = tg.tg_interface_config(
+            protocol_name     = 'IPv4 1',
+            protocol_handle   = ethernet_1_handle,
+            gateway           = lag_gateway_ip,
+            intf_ip_addr      = lag_ip,
+            netmask           = "255.255.255.0"
+        )
+        if _result_['status'] != '1':
+            st.log('IPv4 stack creation failed {}'.format(_result_))
+
     int_handle = _result_['interface_handle']
     st.wait(10)
     tg.tg_test_control(action='start_protocol', handle=topology_1_handle)
@@ -733,6 +747,69 @@ def configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vla
     '''
     st.config(nodes['leaf0'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf0_vlan, leaf0_vlan_ip))
     st.config(nodes['leaf1'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf1_vlan, leaf1_vlan_ip))
+
+def _check_bgp_v6_once(nodes, prefix, src_vtep, expected_l3vni='1000'):
+    """Single-attempt IPv6 BGP check. Returns True if prefix is valid/best."""
+    cmd = 'show bgp l2vpn evpn {}'.format(prefix)
+    output = st.show(nodes[src_vtep], cmd, type='vtysh',
+                     skip_tmpl=True, skip_error_check=True) or ""
+    out_l = output.lower()
+    prefix_l = prefix.lower()
+    if (prefix_l in out_l
+            and 'valid' in out_l
+            and 'best' in out_l
+            and '[5]' in out_l
+            and 'vni {}'.format(expected_l3vni).lower() in out_l):
+        st.log("BGP IPv6 prefix {} validated on {} (l3vni={})"
+               .format(prefix, src_vtep, expected_l3vni))
+        return True
+    st.error(msg='IPv6 prefix {} not (yet) valid/best on {}'.format(
+        prefix, src_vtep))
+    return False
+
+
+@retry(tries=NO_OF_BGP_RETRIES, delay=10)
+def _check_bgp_v6_with_retry(nodes, prefix, src_vtep, expected_l3vni='1000'):
+    """Retryable wrapper that raises on failure so the decorator retries."""
+    if not _check_bgp_v6_once(nodes, prefix, src_vtep, expected_l3vni):
+        raise Exception('IPv6 prefix {} not yet valid/best on {}'.format(
+            prefix, src_vtep))
+
+
+def verify_bgp_v6(nodes, prefix, src_vtep, expected_l3vni='1000', single_run=False):
+    """IPv6-aware variant of verify_bgp.
+
+    The TextFSM template `show_bgp_l2vpn_evpn_prefix.tmpl` uses an IPv4-only
+    PREFIXIP regex (`[\\d\\.]+`) and assumes a `prefix:N:[type]:...` header
+    that does not match FRR's IPv6 prefix output reliably. Rather than
+    re-tooling the template (and risking regressions for the v4 callers),
+    this helper inspects the raw vtysh output and asserts:
+      1. The prefix is present in the BGP RIB
+      2. At least one path is `valid` and `best`
+      3. The expected L3VNI label is associated with a Type-5 (RT-5) route
+
+    Args:
+        nodes (dict)         : node name -> spytest device handle
+        prefix (str)         : IPv6 prefix (e.g. "2001:db8:20::")
+        src_vtep (str)       : node key to query
+        expected_l3vni (str) : expected VNI/label (default "1000")
+        single_run (bool)    : if True, only attempt once (no retries)
+
+    On failure, calls report_fail.
+    """
+    st.log("Start IPv6 BGP verification on {} for {}".format(src_vtep, prefix))
+    try:
+        if single_run:
+            if not _check_bgp_v6_once(nodes, prefix, src_vtep, expected_l3vni):
+                raise Exception('IPv6 prefix {} not valid/best on {}'.format(
+                    prefix, src_vtep))
+        else:
+            _check_bgp_v6_with_retry(nodes, prefix, src_vtep, expected_l3vni)
+    except Exception:
+        report_fail(nodes[src_vtep],
+                    msg='IPv6 prefix {} not advertised/valid on {}'.format(
+                        prefix, src_vtep))
+
 
 def verify_bgp(nodes, prefix, src_vtep, expected_l3vni='1000', single_run=False):
     st.log("Start BGP verification check on {}" .format(src_vtep))
