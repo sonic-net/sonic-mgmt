@@ -1059,6 +1059,7 @@ PFC: #Alpesh Patel / Sonum Mathur
         - pfcwd/test_pfcwd_function.py
         - pfcwd/test_pfcwd_timer_accuracy.py
         - cisco/platform_tests/test_serviceability_pfc.py
+        - qos/test_qos_sai.py
         
   t1-64-lag:
     mth64:
