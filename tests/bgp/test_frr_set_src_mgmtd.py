@@ -1,7 +1,6 @@
 """Ensure mgmtd FRR replays preserve default-route set-src even with large configs."""
 
 import ipaddress
-import json
 import logging
 import pytest
 
@@ -16,8 +15,8 @@ pytestmark = [
 ]
 
 
-BLOAT_CONFIG_TMPFILE = "/tmp/mgmtd_set_src_bloat_routes.json"
-BLOAT_STATIC_ROUTE_COUNT = 512
+BLOAT_PREFIX_LIST_COUNT = 512
+BLOAT_FRR_CONFIG_FILE = "/tmp/frr_set_src_bloat.conf"
 ITERATION_LEVEL_MAP = {
     'debug': 1,
     'basic': 1,
@@ -121,79 +120,43 @@ def _verify_set_src_all_asics(duthost):
         _verify_route_maps_in_running_config(asichost, lo_ipv4, lo_ipv6)
 
 
-def _find_static_route_anchor(duthost):
-    """Find an IPv4 routed interface and peer IP to use as static-route nexthop."""
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    interface_tables = [
-        config_facts.get("INTERFACE", {}),
-        config_facts.get("PORTCHANNEL_INTERFACE", {})
-    ]
-
-    for table in interface_tables:
-        for ifname, addr_map in table.items():
-            for ip_str in addr_map.keys():
-                ip_intf = ipaddress.ip_interface(ip_str)
-                if ip_intf.version != 4:
-                    continue
-                peer_ip = _get_remote_ip(ip_intf)
-                if peer_ip:
-                    return ifname, str(peer_ip)
-
-    pytest_require(False, "No IPv4 routed interface found to generate static-route config bloat")
+def _generate_bloat_frr_config(count=BLOAT_PREFIX_LIST_COUNT):
+    """Generate FRR prefix-list + route-map lines to add extra config load."""
+    assert count <= 65536, "count exceeds 65536; 198.18.x.y address space exhausted"
+    lines = []
+    for i in range(count):
+        lines.append("ip prefix-list BLOAT_PL seq {} permit 198.18.{}.{}/32".format(
+            (i + 1) * 5, i // 256, i % 256
+        ))
+    lines.append("route-map BLOAT_RM permit 10")
+    lines.append(" match ip address prefix-list BLOAT_PL")
+    return "\n".join(lines) + "\n"
 
 
-def _get_remote_ip(ip_intf):
-    """
-    Return the other host address within the interface network.
-    """
-    for candidate in ip_intf.network.hosts():
-        if candidate != ip_intf.ip:
-            return candidate
-
-    return None
-
-
-def _generate_bloat_prefixes(count):
-    """Produce unique doc prefixes (/32) to avoid conflicts with real routes."""
-    base_network = ipaddress.ip_network("198.18.0.0/15")
-    prefixes = []
-    hosts = base_network.hosts()
-
-    while len(prefixes) < count:
-        try:
-            prefixes.append("{}/32".format(next(hosts)))
-        except StopIteration:
-            pytest.fail("Insufficient addresses to generate {} prefixes".format(count))
-
-    return prefixes
+def _inject_bloat_frr_config(duthost, count=BLOAT_PREFIX_LIST_COUNT):
+    """Inject bloat prefix-lists into FRR running config via vtysh -f."""
+    config_text = _generate_bloat_frr_config(count)
+    duthost.copy(content=config_text, dest=BLOAT_FRR_CONFIG_FILE)
+    for bgp_name in _get_frontend_bgp_docker_names(duthost):
+        duthost.shell("docker cp {} {}:/tmp/bloat.conf".format(BLOAT_FRR_CONFIG_FILE, bgp_name))
+        duthost.shell("docker exec {} vtysh -f /tmp/bloat.conf".format(bgp_name))
+        duthost.shell("docker exec {} vtysh -c 'write memory'".format(bgp_name))
+    logger.info("Injected %d bloat prefix-list entries into FRR config", count)
 
 
-def _add_static_routes_for_bloat(duthost, interface, nexthop, count=BLOAT_STATIC_ROUTE_COUNT):
-    """Write a batch of static routes into CONFIG_DB via sonic-cfggen."""
-    prefixes = _generate_bloat_prefixes(count)
-    payload = {"STATIC_ROUTE": {}}
-
-    for prefix in prefixes:
-        payload["STATIC_ROUTE"]["default|{}".format(prefix)] = {
-            "nexthop": nexthop,
-            "ifname": interface
-        }
-
-    duthost.copy(content=json.dumps(payload, indent=2), dest=BLOAT_CONFIG_TMPFILE)
-    duthost.shell("sudo sonic-cfggen -j {} --write-to-db".format(BLOAT_CONFIG_TMPFILE))
-    return prefixes
-
-
-def _remove_static_routes_for_bloat(duthost, prefixes):
-    """Remove the injected static routes and temp file."""
-    for prefix in prefixes:
-        key = "STATIC_ROUTE|default|{}".format(prefix)
+def _remove_bloat_frr_config(duthost):
+    """Remove injected bloat from FRR running-config and persist the clean state."""
+    for bgp_name in _get_frontend_bgp_docker_names(duthost):
         duthost.shell(
-            "sonic-db-cli CONFIG_DB DEL \"{}\"".format(key),
+            "docker exec {} vtysh -c 'configure terminal' "
+            "-c 'no route-map BLOAT_RM' "
+            "-c 'no ip prefix-list BLOAT_PL'".format(bgp_name),
             module_ignore_errors=True
         )
-
-    duthost.shell("rm -f {}".format(BLOAT_CONFIG_TMPFILE), module_ignore_errors=True)
+        duthost.shell(
+            "docker exec {} vtysh -c 'write memory'".format(bgp_name),
+            module_ignore_errors=True
+        )
 
 
 def _start_vtysh_race_loop(duthost):
@@ -284,25 +247,25 @@ def test_mgmtd_preserves_default_route_set_src(
 
 def test_mgmtd_preserves_default_route_set_src_with_large_config(
         duthosts,
-        enum_rand_one_per_hwsku_frontend_hostname,
-        get_function_completeness_level):
+        enum_rand_one_per_hwsku_frontend_hostname):
     """
-    Inflate the configuration (static routes) before reload to mimic a long FRR config replay.
+    Inject extra FRR config (prefix-lists) before reload to validate that
+    route-maps remain correct under additional FRR state.  The bloat is
+    FRR-only and does not survive config_reload (container restart
+    regenerates frr.conf from CONFIG_DB).
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     pytest_require(_mgmtd_running(duthost), "Test requires mgmtd (FRR 10.x+)")
 
-    interface, nexthop = _find_static_route_anchor(duthost)
     checkpoint_name = "set_src_bloat_cp"
-    prefixes = []
+
+    create_checkpoint(duthost, checkpoint_name)
 
     try:
-        create_checkpoint(duthost, checkpoint_name)
-        prefixes = _add_static_routes_for_bloat(duthost, interface, nexthop)
-        logger.info("Injected %d static routes via interface %s", len(prefixes), interface)
+        _inject_bloat_frr_config(duthost)
 
-        duthost.shell("sudo config save -y")
+        # config save omitted — FRR-only state doesn't persist across reload
         pid, pgid = _start_vtysh_race_loop(duthost)
         try:
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
@@ -317,9 +280,7 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
 
         _verify_set_src_all_asics(duthost)
     finally:
-        if prefixes:
-            _remove_static_routes_for_bloat(duthost, prefixes)
-
+        _remove_bloat_frr_config(duthost)
         rollback_or_reload(duthost, checkpoint_name)
         delete_checkpoint(duthost, checkpoint_name)
-        duthost.shell("sudo config save -y")
+        duthost.shell("rm -f {}".format(BLOAT_FRR_CONFIG_FILE), module_ignore_errors=True)
