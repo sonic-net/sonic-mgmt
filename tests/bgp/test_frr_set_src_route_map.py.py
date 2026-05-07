@@ -232,13 +232,12 @@ def _race_loop_alive(duthost, pid):
 
 
 def test_mgmtd_preserves_default_route_set_src(
-        duthosts,
-        enum_rand_one_per_hwsku_frontend_hostname,
+        dut_with_default_route,
         get_function_completeness_level):
     """
     Regress the mgmtd replay bug by forcing a config reload and ensuring FRR keeps the set src route-maps.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = dut_with_default_route
 
     pytest_require(_mgmtd_running(duthost), "Test requires mgmtd (FRR 10.x+)")
 
@@ -274,15 +273,14 @@ def test_mgmtd_preserves_default_route_set_src(
 
 
 def test_mgmtd_preserves_default_route_set_src_with_large_config(
-        duthosts,
-        enum_rand_one_per_hwsku_frontend_hostname):
+        dut_with_default_route):
     """
     Inject extra FRR config (prefix-lists) before reload to validate that
     route-maps remain correct under additional FRR state.  The bloat is
     FRR-only and does not survive config_reload (container restart
     regenerates frr.conf from CONFIG_DB).
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = dut_with_default_route
 
     pytest_require(_mgmtd_running(duthost), "Test requires mgmtd (FRR 10.x+)")
 
