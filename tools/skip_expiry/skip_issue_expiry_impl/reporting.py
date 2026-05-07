@@ -524,8 +524,12 @@ class ProjectV2Reporter:
                 break
 
         if not option_id:
-            logger.warning("No single-select option found for field '%s' value '%s'", field_name, value)
-            self._update_text_field(item_id, field_name, value)
+            logger.warning(
+                "No single-select option found for field '%s' value '%s'; clearing field instead",
+                field_name,
+                value,
+            )
+            self._clear_field_value(item_id, field_name)
             return
 
         if self.dry_run:

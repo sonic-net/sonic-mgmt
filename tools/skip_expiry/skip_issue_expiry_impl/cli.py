@@ -99,6 +99,19 @@ def _parse_github_timestamp(raw_ts: object) -> Optional[datetime]:
         return None
 
 
+def _truncate_timestamp_to_date(timestamp_str: Optional[str]) -> Optional[str]:
+    """Convert ISO-8601 timestamp to YYYY-MM-DD format for GraphQL Date scalar.
+
+    GitHub's GraphQL Date scalar only accepts YYYY-MM-DD format.
+    Strips time portion and timezone from ISO-8601 timestamps.
+    """
+    if not timestamp_str or not isinstance(timestamp_str, str):
+        return None
+    # Extract date portion (everything before 'T')
+    date_part = timestamp_str.split("T")[0]
+    return date_part if date_part else None
+
+
 def _compute_days_delta(target: Optional[datetime], now: datetime) -> Optional[int]:
     if target is None:
         return None
@@ -106,10 +119,10 @@ def _compute_days_delta(target: Optional[datetime], now: datetime) -> Optional[i
 
 
 def _expiry_bucket(days_to_expiry: Optional[int], current_status: str) -> str:
-    if current_status == "expired":
-        return "expired"
     if days_to_expiry is None:
         return "unknown"
+    if days_to_expiry < 0:
+        return "0-1d"
     if days_to_expiry <= 1:
         return "0-1d"
     if days_to_expiry <= 7:
@@ -216,8 +229,8 @@ def _build_report_row(
             "issue_number": issue_ref.number if issue_ref else None,
             "issue_repository": repository,
             "issue_state": issue_state or None,
-            "issue_created_at": issue_created_at_raw,
-            "issue_closed_at": issue_closed_at_raw,
+            "issue_created_at": _truncate_timestamp_to_date(issue_created_at_raw),
+            "issue_closed_at": _truncate_timestamp_to_date(issue_closed_at_raw),
             "age_days": age_days,
             "days_to_expiry": days_to_expiry,
             "expiry_bucket": expiry_bucket,
@@ -227,8 +240,8 @@ def _build_report_row(
             "condition_file": _normalize_condition_file(str(entry.get("condition_file") or ""), repo_root),
             "test_category": test_category,
             "is_permanent_skip": bool(entry.get("is_permanent_skip")),
-            "last_updated_at": issue_updated_at_raw,
-            "last_comment_at": last_comment_ts.isoformat() if last_comment_ts else None,
+            "last_updated_at": _truncate_timestamp_to_date(issue_updated_at_raw),
+            "last_comment_at": _truncate_timestamp_to_date(last_comment_ts.isoformat() if last_comment_ts else None),
             "days_since_last_activity": days_since_last_activity,
             "is_cross_repo": is_cross_repo,
             "source_repo": source_repo,
