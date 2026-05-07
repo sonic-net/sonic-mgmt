@@ -17,7 +17,6 @@ from tests.smartswitch.common.device_utils_dpu import (  # noqa: F401
     dpus_shutdown_and_check, dpus_startup_and_check, check_dpus_module_status,
     check_dpu_module_status, num_dpu_modules, check_dpus_are_not_pingable,
     check_dpus_reboot_cause, get_dpuhost_for_dpu, get_all_dpu_uptimes,
-    verify_all_dpus_rebooted
 )
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
