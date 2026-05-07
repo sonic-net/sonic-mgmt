@@ -106,10 +106,18 @@ def _verify_route_maps_in_running_config(asichost, lo_ipv4, lo_ipv6):
         "set src {}".format(lo_ipv4.ip) in running_cfg,
         "RM_SET_SRC missing the Loopback0 IPv4 address {}".format(lo_ipv4.ip)
     )
+    pytest_assert(
+        "ip protocol bgp route-map RM_SET_SRC" in running_cfg,
+        "RM_SET_SRC not bound to 'ip protocol bgp'"
+    )
     pytest_assert("route-map RM_SET_SRC6 permit 10" in running_cfg, "RM_SET_SRC6 missing from running-config")
     pytest_assert(
         "set src {}".format(lo_ipv6.ip) in running_cfg,
         "RM_SET_SRC6 missing the Loopback0 IPv6 address {}".format(lo_ipv6.ip)
+    )
+    pytest_assert(
+        "ipv6 protocol bgp route-map RM_SET_SRC6" in running_cfg,
+        "RM_SET_SRC6 not bound to 'ipv6 protocol bgp'"
     )
 
 
