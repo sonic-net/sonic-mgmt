@@ -103,7 +103,7 @@ def _build_report_entries_for_test(test_id: str, entry: Dict[str, Any], conditio
             continue
 
         issue_refs = _collect_mark_issue_refs(mark_config)
-        is_permanent_skip = mark_type == "skip" and not issue_refs
+        is_permanent_skip = not issue_refs
         if not issue_refs:
             entries.append(
                 {

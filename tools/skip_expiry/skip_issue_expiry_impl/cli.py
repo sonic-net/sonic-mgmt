@@ -211,7 +211,8 @@ def _build_report_row(
     if latest_activity is not None:
         days_since_last_activity = max(0, int((now - latest_activity).total_seconds() // 86400))
 
-    no_issue_linked = bool(entry.get("no_issue_linked"))
+    no_issue_linked = bool(entry.get("no_issue_linked") or issue_ref is None)
+    is_permanent_skip = bool(entry.get("is_permanent_skip") or no_issue_linked)
     needs_cleanup = bool(issue_ref is not None and issue_state == "closed")
     needs_attention = bool(issue_state == "open" and current_status == "expired")
     approaching_expiry = bool(days_to_expiry is not None and 0 <= days_to_expiry <= warning_days)
@@ -241,7 +242,7 @@ def _build_report_row(
             "issue_author": issue_author,
             "condition_file": _normalize_condition_file(str(entry.get("condition_file") or ""), repo_root),
             "test_category": test_category,
-            "is_permanent_skip": bool(entry.get("is_permanent_skip")),
+            "is_permanent_skip": is_permanent_skip,
             "last_updated_at": _truncate_timestamp_to_date(issue_updated_at_raw),
             "last_comment_at": _truncate_timestamp_to_date(last_comment_ts.isoformat() if last_comment_ts else None),
             "days_since_last_activity": days_since_last_activity,
