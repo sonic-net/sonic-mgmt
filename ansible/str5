@@ -53,6 +53,12 @@ all:
         vms94-2-b:
           ansible_host: 10.64.247.175
           ansible_hostv6: 2a01:111:e210:b000::a40:f7af
+        vms94-3:
+          ansible_host: 10.64.247.166
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7a6
+        vms94-4:
+          ansible_host: 10.64.247.167
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7a7
         vms95-1:
           ansible_host: 10.64.247.176
           ansible_hostv6: 2a01:111:e210:b000::a40:f7b0
@@ -65,6 +71,7 @@ all:
         vms96-2:
           ansible_host: 10.64.247.162
           ansible_hostv6: 2a01:111:e210:b000::a40:f7a2
+
 
     pdu:
       hosts:
@@ -869,7 +876,7 @@ sonic_arista_7280r4_400G:
       serial: SSN25462008
       base_mac: b8:a1:b8:a4:37:a2
       ansible_host: 10.3.152.115
-      ansible_hostv6:
+      ansible_hostv6: ::ffff:0a03:9873
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
         "0x21": "DCS-7280R4K-32QF-32DF"
@@ -892,7 +899,7 @@ sonic_arista_7280r4_400G:
       serial: SSN25462010
       base_mac: b8:a1:b8:a4:39:23
       ansible_host: 10.3.152.116
-      ansible_hostv6:
+      ansible_hostv6: ::ffff:0a03:9874
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
         "0x21": "DCS-7280R4K-32QF-32DF"

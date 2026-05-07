@@ -5657,14 +5657,14 @@
   comment: vvolam
 
 - conf-name: vmstr-ut2-7280r4-1
-  group-name:
-  topo: t2_single_node_min_nexthop_ut2
+  group-name: vms67-1
+  topo: t2_single_node_min_first_6ports
   ptf_image_name: docker-ptf
-  ptf:
-  ptf_ip:
-  ptf_ipv6:
-  server:
-  vm_base:
+  ptf: vms67-1
+  ptf_ip: 10.64.247.91/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f758/122
+  server: server_67
+  vm_base: VM67232
   dut:
   - str3-7280r4-ut2-1
   inv_name: str3
@@ -5672,14 +5672,14 @@
   comment: yatishkoul
 
 - conf-name: vmstr-ut2-7280r4-2
-  group-name:
-  topo: t2_single_node_min_nexthop_ut2
+  group-name: vms67-2
+  topo: t2_single_node_min_first_6ports
   ptf_image_name: docker-ptf
-  ptf:
-  ptf_ip:
-  ptf_ipv6:
-  server:
-  vm_base:
+  ptf: vms67-2
+  ptf_ip: 10.64.247.92/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f759/122
+  server: server_67
+  vm_base: VM67233
   dut:
   - str3-7280r4-ut2-2
   inv_name: str3
@@ -5687,14 +5687,14 @@
   comment: yatishkoul
 
 - conf-name: vmstr-ut2-7280r4-3
-  group-name:
-  topo: t2_single_node_min_nexthop_ut2
+  group-name: vms94-3
+  topo: t2_single_node_min_first_6ports
   ptf_image_name: docker-ptf
-  ptf:
-  ptf_ip:
-  ptf_ipv6:
-  server:
-  vm_base:
+  ptf: vms94-3
+  ptf_ip: 10.64.247.166/25
+  ptf_ipv6: 2a01:111:e210:b000::a40:f7a6/122
+  server: server_94
+  vm_base: VM94520
   dut:
   - str5-7280r4-ut2-3
   inv_name: str5
@@ -5702,14 +5702,14 @@
   comment: yatishkoul
 
 - conf-name: vmstr-ut2-7280r4-4
-  group-name:
-  topo: t2_single_node_min_nexthop_ut2
+  group-name: vms94-4
+  topo: t2_single_node_min_first_6ports
   ptf_image_name: docker-ptf
-  ptf:
-  ptf_ip:
-  ptf_ipv6:
-  server:
-  vm_base:
+  ptf: vms94-4
+  ptf_ip: 10.64.247.167/25
+  ptf_ipv6: 2a01:111:e210:b000::a40:f7a7/122
+  server: server_94
+  vm_base: VM94525
   dut:
   - str5-7280r4-ut2-4
   inv_name: str5

@@ -2,24 +2,24 @@ topology:
   VMs:
     VM01T3:
       vlans:
-        - 1
+        - 0
       vm_offset: 0
     VM02T3:
       vlans:
-        - 2
+        - 1
       vm_offset: 1
     VM03T3:
       vlans:
-        - 3
+        - 2
       vm_offset: 2
     VM05LT2:
       vlans:
+        - 3
         - 4
-        - 5
       vm_offset: 3
     VM07LT2:
       vlans:
-        - 6
+        - 5
       vm_offset: 4
 
   DUT:

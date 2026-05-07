@@ -112,6 +112,12 @@ all:
         vms67-1:
           ansible_host: 10.64.247.98
           ansible_hostv6: 2a01:111:e210:b000::a40:f762
+        vms67-2:
+          ansible_host: 10.64.247.202
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7ca
+        vms67-3:
+          ansible_host: 10.64.247.203
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7cb
         vms68-1:
           ansible_host: 10.64.247.101
           ansible_hostv6: 2a01:111:e210:b000::a40:f765
@@ -2867,12 +2873,12 @@ sonic_arista_7280r4_400G:
       sonic_hwsku: Arista-7280R4K-32QF-32DF-64O
       sonic_hw_platform: Arista-7280R4K-32QF-32DF-64O
       mgmt_subnet_mask_length: 26
-      mgmt_subnet_v6_mask_length: 121
+      mgmt_subnet_v6_mask_length: 122
       switchids: [0]
       serial: SSN25462003
       base_mac: b8:a1:b8:a4:30:1d
       ansible_host: 10.3.152.113
-      ansible_hostv6:
+      ansible_hostv6: 2a01:111:e210:86::85
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
         "0x21": "DCS-7280R4K-32QF-32DF"
@@ -2897,7 +2903,7 @@ sonic_arista_7280r4_400G:
       serial: SSN25462004
       base_mac: b8:a1:b8:a4:31:9e
       ansible_host: 10.3.152.114
-      ansible_hostv6:
+      ansible_hostv6: 2a01:111:e210:86::86
       model: 'DCS-7280R4K-32QF-32DF'
       syseeprom_info:
         "0x21": "DCS-7280R4K-32QF-32DF"
