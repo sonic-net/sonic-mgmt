@@ -38,7 +38,6 @@ def collect_lldp_diagnostics(duthost):
         logger.warning("[{}]: {}".format(label, output if output else "<empty>"))
     logger.warning("=== End LLDP diagnostics ===")
 
-
 @pytest.fixture(scope="module", autouse="True")
 def lldp_setup(duthosts, enum_rand_one_per_hwsku_hostname, patch_lldpctl, unpatch_lldpctl, localhost):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
