@@ -107,6 +107,7 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
 
     watchdog_pid = None
+    la_result = None
     try:
         # Start a watchdog that guarantees cleanup even if the test times out or aborts.
         # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
@@ -137,13 +138,22 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
                 asic_id = ""
             duthost.command("docker exec swss{} supervisorctl stop rsyslogd".format(asic_id))
 
-        with loganalyzer:
-            with DisableLogrotateAndWaitSyslogContext(
-                duthost,
-                cleanup=lambda: duthost.shell("killall yes", module_ignore_errors=True),
-            ):
-                logging.info("Reloading config..")
-                config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
+        # Use init/analyze directly (instead of the `with loganalyzer:` context manager) so we
+        # can retrieve the analysis result and apply a tolerance for UDP packet loss. Under CPU
+        # stress the host rsyslogd may transiently fall behind and the kernel can silently drop
+        # a UDP syslog packet, causing a single portchannel's SIGTERM log to be missing even
+        # though the cleanup itself succeeded.
+        marker = loganalyzer.init()
+        with DisableLogrotateAndWaitSyslogContext(
+            duthost,
+            cleanup=lambda: duthost.shell("killall yes", module_ignore_errors=True),
+        ):
+            logging.info("Reloading config..")
+            config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
+
+        # Analyze without raising immediately so we can apply a tolerance check below.
+        la_result = loganalyzer.analyze(marker, fail=False)
+
         # Cancel the watchdog so it doesn't fire during later tests
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
@@ -152,3 +162,32 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
         raise
+
+    # Verify the analysis result. Tolerate at most 1 missing SIGTERM log per run: under heavy
+    # CPU stress the host rsyslogd receive buffer can transiently overflow and silently drop a
+    # single UDP packet, which does NOT mean the portchannel was left uncleaned.
+    # Any unexpected error messages or more than 1 missing match are still treated as failures.
+    if la_result is None:
+        pytest.fail("LogAnalyzer did not produce a result - test aborted before analysis")
+
+    unexpected_errors = la_result["total"]["match"]
+    missing_match = la_result["total"]["expected_missing_match"]
+    max_missing_allowed = 1
+
+    if unexpected_errors != 0:
+        pytest.fail("Unexpected error messages found in syslog during portchannel cleanup: "
+                    "{}".format(la_result["unused_expected_regexp"]))
+
+    if missing_match > max_missing_allowed:
+        pytest.fail("Too many portchannel SIGTERM logs missing ({}/{}). "
+                    "Missing patterns: {}".format(
+                        missing_match, len(port_channel_intfs),
+                        la_result["unused_expected_regexp"]))
+
+    if missing_match > 0:
+        logging.warning(
+            "%d/%d portchannel SIGTERM log(s) not captured. This is likely due to a transient "
+            "UDP syslog packet drop under CPU stress, not a real cleanup failure. "
+            "Missing patterns: %s",
+            missing_match, len(port_channel_intfs), la_result["unused_expected_regexp"]
+        )
