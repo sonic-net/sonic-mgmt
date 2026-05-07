@@ -609,7 +609,8 @@ class TestQosProbe(QosSaiBase):
         # Allow expected_xon_offset for assertion (if test author knows expected value)
         expected_xon = qosConfig[xonProfile].get("pkts_num_dismiss_pfc", None)
         if expected_xon is not None:
-            # For 4-step path the effective offset includes hysteresis
+            # Effective offset = pkts_num_dismiss_pfc + pkts_num_hysteresis
+            # (same for both Step and Binary algorithms; matches legacy PFCXonTest formula)
             hyst = qosConfig[xonProfile].get("pkts_num_hysteresis", 0)
             testParams["expected_xon_offset"] = int(expected_xon) + int(hyst)
 
