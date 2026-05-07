@@ -12,7 +12,7 @@ from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
 from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
-         verify_ha_state, set_dead_dash_ha_scope
+         verify_ha_state, set_dash_ha_scope
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set primary to dead")
-        set_dead_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key)
+        set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner)
 
     t = threading.Thread(target=primary_ha_action, name="primary_ha_action_thread")
     t.start()
@@ -157,7 +157,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set standby to dead")
-        set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key)
+        set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner)
 
     t = threading.Thread(target=standby_ha_action, name="standby_ha_action_thread")
     t.start()

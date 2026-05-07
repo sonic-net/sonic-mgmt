@@ -21,7 +21,7 @@ class TestBfdTraffic:
     PACKET_COUNT = 10000
 
     @pytest.fixture(scope="class")
-    def get_src_dst_asic(self, request, duthosts):
+    def get_src_dst_asic(self, duthosts):
         if not duthosts.frontend_nodes:
             pytest.skip("DUT does not have any frontend nodes")
 
@@ -103,7 +103,7 @@ class TestBfdTraffic:
             "version": version,
         }
 
-    def test_bfd_traffic_remote_port_channel_shutdown(self, request, tbinfo, ptfadapter,
+    def test_bfd_traffic_remote_port_channel_shutdown(self, tbinfo, ptfadapter,
                                                       prepare_traffic_test_variables, bfd_cleanup_db):
         src_dut = prepare_traffic_test_variables["src_dut"]
         src_asic = prepare_traffic_test_variables["src_asic"]
@@ -148,7 +148,7 @@ class TestBfdTraffic:
             dst_port_channel_before_shutdown,
             dst_dut,
             dst_asic,
-            request,
+            bfd_cleanup_db,
             "shutdown",
         )
 
@@ -196,7 +196,7 @@ class TestBfdTraffic:
             dst_port_channel_before_shutdown,
             dst_dut,
             dst_asic,
-            request,
+            bfd_cleanup_db,
             "startup",
         )
 
@@ -207,7 +207,7 @@ class TestBfdTraffic:
             ]:
                 executor.submit(verify_bfd_only, dut, next_hops, asic, "Up")
 
-    def test_bfd_traffic_local_port_channel_shutdown(self, request, tbinfo, ptfadapter,
+    def test_bfd_traffic_local_port_channel_shutdown(self, tbinfo, ptfadapter,
                                                      prepare_traffic_test_variables, bfd_cleanup_db):
         src_dut = prepare_traffic_test_variables["src_dut"]
         src_asic = prepare_traffic_test_variables["src_asic"]
@@ -252,7 +252,7 @@ class TestBfdTraffic:
             src_port_channel_before_shutdown,
             src_dut,
             src_asic,
-            request,
+            bfd_cleanup_db,
             "shutdown",
         )
 
@@ -300,7 +300,7 @@ class TestBfdTraffic:
             src_port_channel_before_shutdown,
             src_dut,
             src_asic,
-            request,
+            bfd_cleanup_db,
             "startup",
         )
 
@@ -311,7 +311,7 @@ class TestBfdTraffic:
             ]:
                 executor.submit(verify_bfd_only, dut, next_hops, asic, "Up")
 
-    def test_bfd_traffic_remote_port_channel_member_shutdown(self, request, tbinfo, ptfadapter,
+    def test_bfd_traffic_remote_port_channel_member_shutdown(self, tbinfo, ptfadapter,
                                                              prepare_traffic_test_variables, bfd_cleanup_db):
         src_dut = prepare_traffic_test_variables["src_dut"]
         src_asic = prepare_traffic_test_variables["src_asic"]
@@ -361,7 +361,7 @@ class TestBfdTraffic:
             dst_bp_iface_before_shutdown,
             dst_dut,
             dst_asic,
-            request,
+            bfd_cleanup_db,
             "shutdown",
         )
 
@@ -404,7 +404,7 @@ class TestBfdTraffic:
             dst_bp_iface_before_shutdown,
             dst_dut,
             dst_asic,
-            request,
+            bfd_cleanup_db,
             "startup",
         )
 
@@ -415,7 +415,7 @@ class TestBfdTraffic:
             ]:
                 executor.submit(verify_bfd_only, dut, next_hops, asic, "Up")
 
-    def test_bfd_traffic_local_port_channel_member_shutdown(self, request, tbinfo, ptfadapter,
+    def test_bfd_traffic_local_port_channel_member_shutdown(self, tbinfo, ptfadapter,
                                                             prepare_traffic_test_variables, bfd_cleanup_db):
         src_dut = prepare_traffic_test_variables["src_dut"]
         src_asic = prepare_traffic_test_variables["src_asic"]
@@ -465,7 +465,7 @@ class TestBfdTraffic:
             src_bp_iface_before_shutdown,
             src_dut,
             src_asic,
-            request,
+            bfd_cleanup_db,
             "shutdown",
         )
 
@@ -508,7 +508,7 @@ class TestBfdTraffic:
             src_bp_iface_before_shutdown,
             src_dut,
             src_asic,
-            request,
+            bfd_cleanup_db,
             "startup",
         )
 

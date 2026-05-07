@@ -83,6 +83,10 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
             )
     else:
         ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+        # Remove the arp_responder config that add_ipaddr() wrote earlier so it
+        # cannot be picked up by a later test invoking arp_responder with its
+        # default config path.
+        ptfhost.file(path="/tmp/from_t1.json", state="absent")
 
 
 def clear_arp_ndp(duthost, ipv6=False):
