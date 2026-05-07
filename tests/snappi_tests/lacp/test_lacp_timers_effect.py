@@ -1,6 +1,6 @@
-from tests.common.snappi_tests.snappi_fixtures import snappi_api         # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import (               # noqa: F401
-    snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
+from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
+    snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports,
+    get_snappi_ports_single_dut, get_snappi_ports, setup_bgp_testbed)
 from tests.snappi_tests.lacp.files.lacp_physical_helper import run_lacp_timers_effect
 from tests.common.fixtures.conn_graph_facts import (            # noqa: F401
     conn_graph_facts, fanout_graph_facts)
@@ -17,6 +17,8 @@ pytestmark = [pytest.mark.topology('tgen')]
 def test_lacp_timers(snappi_api,                       # noqa: F811
                      duthost,
                      tgen_ports,                    # noqa: F811
+                     setup_bgp_testbed,   # noqa: F811
+                     get_snappi_ports,   # noqa: F811
                      iterations,
                      conn_graph_facts,              # noqa: F811
                      fanout_graph_facts,            # noqa: F811
