@@ -99,6 +99,11 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode):
 
     all_active_ports = minigraph_data['minigraph_ports'].keys()
     all_active_fp_ports = [x for x in all_active_ports if "-BP" not in x]
+
+    # By default it is nochange.
+    interfaces_to_remove = []
+    interfaces_not_to_remove = all_active_fp_ports
+
     if rsb_mode == "no_front_panel_ports":
         interfaces_to_remove = all_active_fp_ports
         interfaces_not_to_remove = []
@@ -106,10 +111,6 @@ def modify_minigraph(minigraph_file, minigraph_data, rsb_mode):
         if len(all_active_fp_ports) > 1:
             interfaces_to_remove = all_active_fp_ports[1:]
             interfaces_not_to_remove = [all_active_fp_ports[0]]
-        else:
-            # This becomes a no-op.
-            interfaces_to_remove = []
-            interfaces_not_to_remove = all_active_fp_ports
 
     remove_count = 0
     for entry in interfaces_to_remove:
