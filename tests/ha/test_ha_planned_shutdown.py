@@ -13,7 +13,7 @@ from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
 from ha_dash_flow_utils import compare_flow_tables_pdsctl
 from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
-         verify_ha_state, set_dead_dash_ha_scope
+         verify_ha_state, set_dash_ha_scope
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,6 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     setup_ha_config,
-    setup_dash_ha_from_json,
     ha_owner,
     setup_gnmi_server,
     set_vxlan_udp_sport_range,
@@ -106,52 +105,55 @@ def test_ha_planned_shutdown(
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
     rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
 
-    packet_sending_flag = queue.Queue(1)
 
-    def primary_ha_action():
-        # wait for packets sending started, then set primary to dead
-        while packet_sending_flag.empty() or (not packet_sending_flag.get()):
-            time.sleep(0.2)
-        logging.info("Set primary to dead")
-        set_dead_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key)
+    if ha_owner == "dpu":
+        # shutdown active HA Scope is only applicable to DPU-driven HA
+        packet_sending_flag = queue.Queue(1)
 
-    t = threading.Thread(target=primary_ha_action, name="primary_ha_action_thread")
-    t.start()
-    t_max = time.time() + 60
-    # Calculate the delay between packets based on the desired rate
-    reached_max_time = False
-    ptfadapter.dataplane.flush()
-    time.sleep(1)
-    send_count = 0
-    while not reached_max_time:
-        testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
-        testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
-        if send_count == 0:
-            logger.info("First outbound packet received - compare flows")
-            flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
-            pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
-        send_count += 1
-        # After we send initial_send_count packets, awake perform_ha_action thread
-        if send_count == initial_send_count:
-            logging.info("Awake HA action thread")
-            packet_sending_flag.put(True)
+        def primary_ha_action():
+            # wait for packets sending started, then set primary to dead
+            while packet_sending_flag.empty() or (not packet_sending_flag.get()):
+                time.sleep(0.2)
+            logging.info("Set primary to dead")
+            set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner)
 
-        time.sleep(delay)
-        reached_max_time = time.time() > t_max
+        t = threading.Thread(target=primary_ha_action, name="primary_ha_action_thread")
+        t.start()
+        t_max = time.time() + 60
+        # Calculate the delay between packets based on the desired rate
+        reached_max_time = False
+        ptfadapter.dataplane.flush()
+        time.sleep(1)
+        send_count = 0
+        while not reached_max_time:
+            testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
+            testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
+            if send_count == 0:
+                logger.info("First outbound packet received - compare flows")
+                flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+            send_count += 1
+            # After we send initial_send_count packets, awake perform_ha_action thread
+            if send_count == initial_send_count:
+                logging.info("Awake HA action thread")
+                packet_sending_flag.put(True)
 
-    t.join()
-    time.sleep(2)
+            time.sleep(delay)
+            reached_max_time = time.time() > t_max
 
-    pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "dead"),
-                  "Primary HA state is not dead")
-    pytest_assert(verify_ha_state(duthosts[1], standby_vdpu_key, "standalone"),
-                  "Standby HA state is not standalone")
+        t.join()
+        time.sleep(2)
 
-    logging.info("Primary shutdown all {} packets received".format(send_count))
+        pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "dead"),
+                      "Primary HA state is not dead")
+        pytest_assert(verify_ha_state(duthosts[1], standby_vdpu_key, "standalone"),
+                      "Standby HA state is not standalone")
 
-    # Re-activate primary
-    pytest_assert(activate_primary_dash_ha(localhost, duthosts[0], ptfhost, primary_vdpu_key, "activate_role"),
-                  "Failed to re-activate HA on primary")
+        logging.info("Primary shutdown all {} packets received".format(send_count))
+
+        # Re-activate primary
+        pytest_assert(activate_primary_dash_ha(localhost, duthosts[0], ptfhost, primary_vdpu_key, "activate_role"),
+                      "Failed to re-activate HA on primary")
 
     packet_sending_flag = queue.Queue(1)
 
@@ -160,7 +162,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set standby to dead")
-        set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key)
+        set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=False)
 
     t = threading.Thread(target=standby_ha_action, name="standby_ha_action_thread")
     t.start()

@@ -16,7 +16,7 @@ from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
 from tests.common.helpers.assertions import pytest_assert
 from ha_dash_flow_utils import compare_flow_tables_pdsctl
-from ha_utils import set_dead_dash_ha_scope, activate_secondary_dash_ha
+from ha_utils import set_dash_ha_scope, activate_secondary_dash_ha
 from ha_link_utils import add_acl_link_drop, remove_acl_link_drop
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ RATE_PPS = 20  # packets per second
 
 def restore_ha_state(localhost, ptfhost, duthost, standby_vdpu_key="vdpu1_0:haset0_0"):
     try:
-        set_dead_dash_ha_scope(localhost, duthost, ptfhost, standby_vdpu_key)
+        set_dash_ha_scope(localhost, duthost, ptfhost, standby_vdpu_key, "dead", "dpu")
         activate_secondary_dash_ha(localhost, duthost, ptfhost, standby_vdpu_key, "activate_role")
     except Exception as e:
         logger.error(f"HA state restoration on {duthost.hostname} exception: {e}")
