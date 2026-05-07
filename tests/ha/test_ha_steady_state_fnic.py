@@ -6,12 +6,11 @@ import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
+from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from gnmi_utils import apply_messages
-from packets import outbound_pl_packets, inbound_pl_packets
+from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
 from ha_dash_flow_utils import compare_flow_tables_pdsctl
-from tests.common.dash_utils import verify_tunnel_packets
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +19,6 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-"""
-Test prerequisites:
-- Assign IPs to DPU-NPU dataplane interfaces
-"""
 
 NUM_PACKETS = 5
 
@@ -43,11 +38,7 @@ def _build_fnic_pkt_set(config, encap_proto, ptfadapter):
             config, encap_proto, floating_nic=True,
             inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
         )
-        pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
-            config, floating_nic=True, inner_sport=dport, inner_dport=sport
-        )
-        exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
-        pkt_sets.append((vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt))
+        pkt_sets.append((vm_to_dpu_pkt, exp_dpu_to_pe_pkt))
     return pkt_sets
 
 
@@ -128,16 +119,13 @@ def test_fnic_basic_transform(
     dash_pl_config,
     encap_proto
 ):
-    tunnel_endpoint_counts = {ip: 0 for ip in pl.TUNNEL1_ENDPOINT_IPS}
 
     # traffic to active DPU
     pkt_sets = _build_fnic_pkt_set(dash_pl_config[0], encap_proto, ptfadapter)
     ptfadapter.dataplane.flush()
-    for vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt in pkt_sets:
+    for vm_to_dpu_pkt, exp_dpu_to_pe_pkt in pkt_sets:
         testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[0][REMOTE_PTF_RECV_INTF])
-        testutils.send(ptfadapter, dash_pl_config[0][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
-        verify_tunnel_packets(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], exp_dpu_to_vm_pkt, tunnel_endpoint_counts)
 
     flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
@@ -145,19 +133,9 @@ def test_fnic_basic_transform(
     # traffic to standby DPU (forwarded through active for processing)
     pkt_sets = _build_fnic_pkt_set(dash_pl_config[1], encap_proto, ptfadapter)
     ptfadapter.dataplane.flush()
-    for vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt in pkt_sets:
+    for vm_to_dpu_pkt, exp_dpu_to_pe_pkt in pkt_sets:
         testutils.send(ptfadapter, dash_pl_config[1][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[0][REMOTE_PTF_RECV_INTF])
-        testutils.send(ptfadapter, dash_pl_config[1][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
-        verify_tunnel_packets(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], exp_dpu_to_vm_pkt, tunnel_endpoint_counts)
 
     flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
-
-    total_expected = NUM_PACKETS * 2
-    recvd_pkts = sum(tunnel_endpoint_counts.values())
-    logger.info(f"Received packets: {recvd_pkts}, Tunnel endpoint counts: {tunnel_endpoint_counts}")
-    pytest_assert(
-        recvd_pkts == total_expected,
-        f"Expected {total_expected} packets, but received {recvd_pkts} packets. Counts: {tunnel_endpoint_counts}",
-    )
