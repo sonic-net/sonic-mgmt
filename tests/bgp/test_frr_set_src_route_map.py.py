@@ -6,7 +6,7 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gcu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
 
@@ -257,7 +257,7 @@ def test_mgmtd_preserves_default_route_set_src(
         logger.info("Iteration %s/%s: issuing config reload with race amplification", iteration, iterations)
         pid, pgid = _start_vtysh_race_loop(duthost)
         try:
-            config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
             if not _race_loop_alive(duthost, pid):
                 logger.warning(
                     "vtysh race loop (PID %s) died during config_reload — "
@@ -302,7 +302,7 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
         # config save omitted — FRR-only state doesn't persist across reload
         pid, pgid = _start_vtysh_race_loop(duthost)
         try:
-            config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
             if not _race_loop_alive(duthost, pid):
                 logger.warning(
                     "vtysh race loop (PID %s) died during config_reload — "
