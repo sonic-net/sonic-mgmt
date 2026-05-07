@@ -64,7 +64,7 @@ def duthost_bgp_config(duthost, tgen_ports):
     """
     global temp_tg_port
     temp_tg_port = tgen_ports
-    for i in range(1, 4):
+    for i in range(0, 3):
         intf_config = (
             "sudo config interface ip remove %s %s/%s \n"
             "sudo config interface ip remove %s %s/%s \n"
@@ -84,9 +84,9 @@ def duthost_bgp_config(duthost, tgen_ports):
         'sudo config interface ip add Vlan1000 192.168.1.1/16\n'
         'sudo config interface ip add Vlan1000 5001::1/64\n'
     )
-    vlan_config %= (tgen_ports[3]['peer_port'], tgen_ports[2]['peer_port'])
+    vlan_config %= (tgen_ports[2]['peer_port'], tgen_ports[1]['peer_port'])
     logger.info('Adding %s and %s to Vlan 1000' %
-                (tgen_ports[3]['peer_port'], tgen_ports[2]['peer_port']))
+                (tgen_ports[2]['peer_port'], tgen_ports[1]['peer_port']))
     duthost.shell(vlan_config)
     portchannel_config = (
         "sudo config portchannel add PortChannel1 \n"
@@ -94,14 +94,15 @@ def duthost_bgp_config(duthost, tgen_ports):
         "sudo config interface ip add PortChannel1 %s/%s\n"
         "sudo config interface ip add PortChannel1 %s/%s\n"
     )
-    portchannel_config %= (tgen_ports[1]['peer_port'],
-                           tgen_ports[1]['peer_ip'],
-                           tgen_ports[1]['prefix'],
-                           tgen_ports[1]['peer_ipv6'], 64)
+    portchannel_config %= (tgen_ports[0]['peer_port'],
+                           tgen_ports[0]['peer_ip'],
+                           tgen_ports[0]['prefix'],
+                           tgen_ports[0]['peer_ipv6'],
+                           tgen_ports[0]['ipv6_prefix'])
     logger.info('Configuring %s to PortChannel1' %
-                (tgen_ports[1]['peer_port']))
+                (tgen_ports[0]['peer_port']))
     logger.info('Portchannel1 (IPv4,IPv6)  : ({},{})'.format(
-        tgen_ports[1]['peer_ip'], tgen_ports[1]['peer_ipv6']))
+        tgen_ports[0]['peer_ip'], tgen_ports[0]['peer_ipv6']))
     duthost.shell(portchannel_config)
     loopback = (
         "sudo config interface ip add Loopback0 1.1.1.1/32\n"
@@ -118,22 +119,22 @@ def duthost_bgp_config(duthost, tgen_ports):
     device_neighbor_metadatas = dict()
     bgp_neighbor = \
         {
-            tgen_ports[1]['ip']:
+            tgen_ports[0]['ip']:
             {
                 "asn": TGEN_AS_NUM,
                 "holdtime": "180",
                 "keepalive": "60",
-                "local_addr": tgen_ports[1]['peer_ip'],
+                "local_addr": tgen_ports[0]['peer_ip'],
                 "name": "snappi-sonic",
                 "nhopself": "0",
                 "rrclient": "0"
             },
-            tgen_ports[1]['ipv6']:
+            tgen_ports[0]['ipv6']:
             {
                 "asn": TGEN_AS_NUM,
                 "holdtime": "180",
                 "keepalive": "60",
-                "local_addr": tgen_ports[1]['peer_ipv6'],
+                "local_addr": tgen_ports[0]['peer_ipv6'],
                 "name": "snappi-sonic",
                 "nhopself": "0",
                 "rrclient": "0"
@@ -231,9 +232,9 @@ def __tgen_bgp_config(snappi_api, ):
     snappi_api.enable_scaling(True)
 
     p1, p2, p3 = (
-        config.ports.port(name="t1", location=temp_tg_port[1]['location'])
-        .port(name="server2", location=temp_tg_port[2]['location'])
-        .port(name="server1", location=temp_tg_port[3]['location'])
+        config.ports.port(name="t1", location=temp_tg_port[0]['location'])
+        .port(name="server2", location=temp_tg_port[1]['location'])
+        .port(name="server1", location=temp_tg_port[2]['location'])
     )
     lag3 = config.lags.lag(name="lag1")[-1]
     lp3 = lag3.ports.port(port_name=p1.name)[-1]
@@ -246,10 +247,10 @@ def __tgen_bgp_config(snappi_api, ):
     layer1.name = 'port settings'
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = False
-    layer1.auto_negotiation.link_training = False
-    layer1.speed = temp_tg_port[1]['speed']
-    layer1.auto_negotiate = False
+    layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
+    layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
+    layer1.speed = temp_tg_port[0]['speed']
+    layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
     conf_values = dict()
     num_of_devices = 1000
@@ -304,23 +305,23 @@ def __tgen_bgp_config(snappi_api, ):
     eth_3.mac = "00:14:01:00:00:01"
     ipv4_3 = eth_3.ipv4_addresses.add()
     ipv4_3.name = 'IPv4 3'
-    ipv4_3.address = temp_tg_port[1]['ip']
-    ipv4_3.gateway = temp_tg_port[1]['peer_ip']
-    ipv4_3.prefix = 24
+    ipv4_3.address = temp_tg_port[0]['ip']
+    ipv4_3.gateway = temp_tg_port[0]['peer_ip']
+    ipv4_3.prefix = temp_tg_port[0]['prefix']
     ipv6_3 = eth_3.ipv6_addresses.add()
     ipv6_3.name = 'IPv6 3'
-    ipv6_3.address = temp_tg_port[1]['ipv6']
-    ipv6_3.gateway = temp_tg_port[1]['peer_ipv6']
-    ipv6_3.prefix = 64
+    ipv6_3.address = temp_tg_port[0]['ipv6']
+    ipv6_3.gateway = temp_tg_port[0]['peer_ipv6']
+    ipv6_3.prefix = temp_tg_port[0]['ipv6_prefix']
 
     bgpv4_stack = d3.bgp
-    bgpv4_stack.router_id = temp_tg_port[1]['peer_ip']
+    bgpv4_stack.router_id = temp_tg_port[0]['peer_ip']
     bgpv4_int = bgpv4_stack.ipv4_interfaces.add()
     bgpv4_int.ipv4_name = ipv4_3.name
     bgpv4_peer = bgpv4_int.peers.add()
     bgpv4_peer.name = 'BGP 3'
     bgpv4_peer.as_type = BGP_TYPE
-    bgpv4_peer.peer_address = temp_tg_port[1]['peer_ip']
+    bgpv4_peer.peer_address = temp_tg_port[0]['peer_ip']
     bgpv4_peer.as_number = int(TGEN_AS_NUM)
     route_range1 = bgpv4_peer.v4_routes.add(name="Network Group 1")
     route_range1.addresses.add(address='200.1.0.1', prefix=32, count=4000)
@@ -330,13 +331,13 @@ def __tgen_bgp_config(snappi_api, ):
     as_path_segment.as_numbers = aspaths
 
     bgpv6_stack = d3.bgp
-    bgpv6_stack.router_id = temp_tg_port[1]['peer_ip']
+    bgpv6_stack.router_id = temp_tg_port[0]['peer_ip']
     bgpv6_int = bgpv6_stack.ipv6_interfaces.add()
     bgpv6_int.ipv6_name = ipv6_3.name
     bgpv6_peer = bgpv6_int.peers.add()
     bgpv6_peer.name = 'BGP+ 3'
     bgpv6_peer.as_type = BGP_TYPE
-    bgpv6_peer.peer_address = temp_tg_port[1]['peer_ipv6']
+    bgpv6_peer.peer_address = temp_tg_port[0]['peer_ipv6']
     bgpv6_peer.as_number = int(TGEN_AS_NUM)
     route_range2 = bgpv6_peer.v6_routes.add(name="Network Group 2")
     route_range2.addresses.add(address='3000::1', prefix=128, count=3000)
@@ -509,10 +510,10 @@ def get_convergence_for_reboot_test(duthost,
         bgp_config: __tgen_bgp_config
         reboot_type: Type of reboot
     """
-    global bgp_up_start_timer
-    global bgp_down_start_timer
-    global loopback_up_start_timer
-    global loopback_down_start_timer
+    global bgp_up_start_timer    # noqa: F824
+    global bgp_down_start_timer   # noqa: F824
+    global loopback_up_start_timer  # noqa: F824
+    global loopback_down_start_timer  # noqa: F824
     table, dp = [], []
     bgp_config.events.cp_events.enable = True
     bgp_config.events.dp_events.enable = True
