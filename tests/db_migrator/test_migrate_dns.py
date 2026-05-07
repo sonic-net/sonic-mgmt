@@ -65,7 +65,7 @@ def setup_env(duthost):
     restore_config(duthost, DNS_TEMPLATE, DNS_TEMPLATE_BACKUP)
 
     # Restore config
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 def get_nameserver_from_config_db(duthost):

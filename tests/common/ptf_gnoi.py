@@ -12,6 +12,14 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 
+# Signal types as defined in gNOI system.proto
+# https://github.com/openconfig/gnoi/blob/main/system/system.proto#L352
+SIGNAL_TERM = "SIGNAL_TERM"  # Terminate the process gracefully
+SIGNAL_KILL = "SIGNAL_KILL"  # Terminate the process immediately
+SIGNAL_HUP = "SIGNAL_HUP"    # Reload the process configuration
+SIGNAL_ABRT = "SIGNAL_ABRT"  # Terminate immediately and dump core
+
+
 class PtfGnoi:
     """
     High-level gNOI client wrapper.
@@ -105,6 +113,61 @@ class PtfGnoi:
                 raise FileNotFoundError(f"File not found: {remote_file}") from e
             raise
 
+    def kill_process(self, name: str, restart: bool = False, signal=SIGNAL_TERM) -> Dict:
+        """
+        Kill (and optionally restart) a process/service via gNOI System.KillProcess.
+
+        Signal types (as defined in gNOI system.proto):
+            - SIGNAL_TERM: Terminate the process gracefully (default)
+            - SIGNAL_KILL: Terminate the process immediately
+            - SIGNAL_HUP: Reload the process configuration
+            - SIGNAL_ABRT: Terminate immediately and dump a core file
+
+        NOTE:
+            Current SONiC implementation only supports SIGNAL_TERM. Other signal
+            types will be rejected with an error. Use the module-level constants
+            (SIGNAL_TERM, SIGNAL_KILL, SIGNAL_HUP, SIGNAL_ABRT) for signal values.
+
+        Technical note:
+            grpcurl JSON->proto mapping is most reliable when enums are passed as
+            their string names (e.g., "SIGNAL_TERM"), not numeric values.
+
+        Args:
+            name: Process/service name to kill
+            restart: Whether to restart the process after killing
+            signal: Signal type (use SIGNAL_* constants from this module)
+
+        Returns:
+            Dictionary response from gNOI server (typically empty on success)
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails (e.g., unsupported signal)
+            GrpcTimeoutError: If the call times out
+
+        Example:
+            >>> from tests.common.ptf_gnoi import PtfGnoi, SIGNAL_TERM
+            >>> ptf_gnoi = PtfGnoi(grpc_client)
+            >>> ptf_gnoi.kill_process("snmp", restart=True, signal=SIGNAL_TERM)
+        """
+        # Normalize TERM representations to the enum name expected by grpcurl mapping.
+        if isinstance(signal, int):
+            # Keep non-1 ints as-is for negative tests, but map 1 => SIGNAL_TERM
+            signal = "SIGNAL_TERM" if signal == 1 else signal
+        elif isinstance(signal, str):
+            low = signal.strip().lower()
+            if low in ("sigterm", "term", "signal_term", "1"):
+                signal = "SIGNAL_TERM"
+
+        logger.debug(
+            "Calling gNOI System.KillProcess: name=%s restart=%s signal=%s",
+            name,
+            restart,
+            signal,
+        )
+        request = {"name": name, "restart": restart, "signal": signal}
+        return self.grpc_client.call_unary("gnoi.system.System", "KillProcess", request)
+
     def __str__(self):
         return f"PtfGnoi(grpc_client={self.grpc_client})"
 
@@ -187,6 +250,7 @@ class PtfGnoi:
             "remote_download": remote_download,
         }
 
+        self.grpc_client.configure_max_time(3600)   # image download can take a long time
         response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request, metadata=metadata)
         logger.info("TransferToRemote completed: %s -> %s", url, local_path)
         return response
@@ -298,4 +362,75 @@ class PtfGnoi:
 
         response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request, metadata=metadata)
         logger.info("Reboot request sent: method=%s delay=%s force=%s", method, delay, force)
+        return response
+
+    def os_verify(self) -> Dict:
+        """
+        Verify the current OS version on the device.
+
+        Returns:
+            Dictionary containing:
+            - version: Current OS version string
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        try:
+            response = self.grpc_client.call_unary("gnoi.os.OS", "Verify")
+            return response
+
+        except Exception as e:
+            logger.error(f"Failed to verify OS version: {e}")
+            raise
+
+    def os_activate(self, version: str) -> Dict:
+        """
+        Activate an OS version on the device.
+
+        Args:
+            version: OS version string to activate
+
+        Returns:
+            Dictionary containing activation response:
+            - activateOk: {} on success
+            - activateError: {"detail": "..."} on failure
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        request = {"version": version}
+
+        try:
+            response = self.grpc_client.call_unary("gnoi.os.OS", "Activate", request)
+            return response
+
+        except Exception as e:
+            logger.error(f"Failed to activate OS version {version}: {e}")
+            raise
+
+    def reboot_status(self, metadata=None) -> Dict:
+        """
+        Get the reboot status from the DUT using gNOI System.RebootStatus.
+
+        Returns:
+            Dictionary containing:
+            - active: Boolean indicating if a reboot is in progress
+            - when: Unix timestamp of when the reboot will occur
+            - reason: Reason string for the pending reboot
+            - count: Number of reboots since last power cycle
+            - method: RebootMethod enum value of the pending reboot
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        logger.debug("Getting reboot status via gNOI System.RebootStatus")
+
+        response = self.grpc_client.call_unary("gnoi.system.System", "RebootStatus", metadata=metadata)
+        logger.debug(f"Reboot status: {response}")
         return response

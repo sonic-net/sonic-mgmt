@@ -375,6 +375,14 @@ def setup_and_teardown(duthost, vmhost, creds):
 
     yield
 
+    # Disable ctrmgrd k8s retry loop after a failed join. Without this,
+    # ctrmgrd retries indefinitely in the background and emits ERR log lines
+    # into subsequent tests' LogAnalyzer windows, causing false failures
+    # (e.g., test_snmp_queues sees match:2, expected:0 in teardown).
+    # This is idempotent: calling 'disable on' when already disjoined is a no-op.
+    duthost.shell("sudo config kube server disable on", module_ignore_errors=True)
+    time.sleep(5)
+
     # Clean up the k8s table in configdb
     clean_configdb_k8s_table(duthost)
 

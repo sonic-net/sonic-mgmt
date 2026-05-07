@@ -26,7 +26,6 @@ MEMORY_CHECKER_CYCLES = 60
 SUBMODE_ONCHANGE = 1
 CFG_DB_PATH = "/etc/sonic/config_db.json"
 ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
-MAX_UC_CNT = 7
 
 
 def load_new_cfg(duthost, data):
@@ -38,16 +37,13 @@ def load_new_cfg(duthost, data):
 
 
 def get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, interface):
-    cnt = 0
-    for i in range(MAX_UC_CNT):
-        xpath = "COUNTERS_QUEUE_NAME_MAP/{}:{}".format(interface, i)
-        cmd = generate_client_cli(duthost, gnxi_path, "get", xpath, "COUNTERS_DB")
-
-        cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
-
-        if not cmd_output["failed"]:
-            cnt += 1
-
+    xpath = "COUNTERS_QUEUE_NAME_MAP"
+    cmd = generate_client_cli(duthost, gnxi_path, "get", xpath, "COUNTERS_DB")
+    cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
+    if cmd_output["failed"]:
+        return 0
+    output = str(cmd_output["stdout"])
+    cnt = len(re.findall(r'{}:\d+'.format(re.escape(interface)), output))
     return cnt
 
 
@@ -167,6 +163,9 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
 
+    if 'BUFFER_QUEUE' not in data or not data['BUFFER_QUEUE']:
+        pytest.skip("Skipping test as BUFFER_QUEUE table is not present in config db")
+
     buffer_queues = list(data['BUFFER_QUEUE'].keys())
     buffer_queues_interfaces = [bq.split('|')[0] for bq in buffer_queues]
 
@@ -178,7 +177,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     if interface_to_check is None:
         pytest.skip("Skipping test as there are none interfaces in admin'up' state with buffer queues to check")
 
-    interface_buffer_queues = [bq for bq in buffer_queues if any(val in interface_to_check for val in bq.split('|'))]
+    interface_buffer_queues = [bq for bq in buffer_queues if bq.split('|')[0] == interface_to_check]
     if len(interface_buffer_queues) == 0:
         pytest.skip("No valid entry for any interface:queue entry")
 

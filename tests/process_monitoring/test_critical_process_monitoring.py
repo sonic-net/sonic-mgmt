@@ -34,6 +34,33 @@ CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
 
+# Critical processes that are listed in the image's per-container critical_processes
+# file but are not actually runnable on BMC topology (BMC image runs a reduced set
+# of SONiC subsystems, e.g. no SWSS/CONFIG_DB population, so processes like
+# lldp-syncd cannot stay RUNNING). These should be excluded from both the
+# "expected alerting message" generation and the kill loop when running on BMC.
+BMC_UNSUPPORTED_CRITICAL_PROCESSES = {
+    "lldp": ["lldp-syncd"],
+}
+
+
+def _filter_bmc_unsupported(duthost, container_name, critical_process_list):
+    """Remove processes that are not supported on BMC devices from the given list.
+
+    Only filters when running on a BMC device; other devices are unchanged.
+    """
+    if not duthost.is_bmc():
+        return critical_process_list
+    unsupported = BMC_UNSUPPORTED_CRITICAL_PROCESSES.get(container_name, [])
+    if not unsupported:
+        return critical_process_list
+    filtered = [p for p in critical_process_list if p not in unsupported]
+    if filtered != critical_process_list:
+        logger.info(
+            "BMC device: removing unsupported critical processes %s from container '%s'; remaining=%s",
+            unsupported, container_name, filtered)
+    return filtered
+
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, rand_one_dut_hostname):
@@ -233,6 +260,7 @@ def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
         critical_process_list, succeeded = get_critical_process_from_monit(duthost, container_name)
         pytest_assert(succeeded, "Failed to get critical processes of container '{}' from Monit config file"
                       .format(container_name))
+        critical_process_list = _filter_bmc_unsupported(duthost, container_name, critical_process_list)
 
         for namespace_id in namespace_ids:
             namespace_name = "host"
@@ -310,6 +338,7 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
             duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
+        critical_process_list = _filter_bmc_unsupported(duthost, container_name, critical_process_list)
 
         for namespace_id in namespace_ids:
             namespace_name = "host"
@@ -324,6 +353,9 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
+                    continue
+                # Skip 'otel' process since it would autorestart
+                if "otel" in container_name_in_namespace and critical_process == "otel":
                     continue
                 logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                             .format(critical_process, container_name_in_namespace))
@@ -420,6 +452,7 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
+        critical_process_list = _filter_bmc_unsupported(duthost, container_name, critical_process_list)
 
         for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
@@ -428,7 +461,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             if 'lldp' in container_name:
                 # Killing lldpd may impact lldp-syncd process, the next around check for lldp-syncd will probably fail
                 # move lldpd to the end of the list to avoid this issue
-                critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
+                if 'lldpd' in critical_process_list:
+                    critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
                 logger.info("Critical process list for {} after moving lldpd to the end: {}".format(
                     container_name_in_namespace, critical_process_list))
             for critical_process in critical_process_list:
@@ -672,7 +706,8 @@ def test_monitoring_critical_processes(
     if "20191130" in duthost.os_version:
         expected_alerting_messages = get_expected_alerting_messages_monit(duthost, containers_in_namespaces)
     else:
-        expected_alerting_messages = get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
+        expected_alerting_messages = get_expected_alerting_messages_supervisor(
+            duthost, containers_in_namespaces)
 
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
@@ -710,15 +745,24 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     loganalyzer.expect_regex = ["Process \'orchagent\' is stuck in namespace"]
     marker = loganalyzer.init()
 
-    # freeze orchagent for warm-reboot
-    # 'x86_64-mlnx_msn2700-r0' is weaker CPU systems and takes more time to update large-scale routing
-    if duthost.facts['platform'] == 'x86_64-mlnx_msn2700-r0':
-        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -w 5000 -r 6")
-    else:
-        command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
-    exit_code = command_output["rc"]
+    # Retry up to 150 sec to accommodate for flex counter processing delay
+    max_retries = 30
+    retry_delay = 5
+    for retry_count in range(max_retries):
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -n", module_ignore_errors=True)
+        exit_code = command_output["rc"]
+        logger.warning("command_output: {}".format(command_output))
+        if exit_code == 0:
+            break
+        else:
+            logger.warning(f"Attempt {retry_count+1}/{max_retries} failed, retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+
+    command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
     logger.warning("command_output: {}".format(command_output))
-    pytest_assert(exit_code == 0, "Failed to freeze orchagent for warm reboot")
+    exit_code = command_output["rc"]
+    pytest_assert(exit_code == 0,
+                  "Failed to freeze orchagent for warm reboot after {} seconds".format(retry_delay * max_retries))
 
     # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
     time.sleep(120)

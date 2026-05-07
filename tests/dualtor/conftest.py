@@ -113,6 +113,10 @@ def run_arp_responder_ipv6(rand_selected_dut, ptfhost, tbinfo, apply_mock_dual_t
     yield
 
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    # Drop the rendered config so the next test that uses arp_responder cannot
+    # accidentally pick up our IP/MAC mapping (and so /tmp doesn't collect stale
+    # state that misleads diagnostics).
+    ptfhost.file(path='/tmp/from_t1.json', state='absent')
 
 
 @pytest.fixture(scope="module")
@@ -121,6 +125,7 @@ def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
     yield
 
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    ptfhost.file(path='/tmp/from_t1.json', state='absent')
 
 
 @pytest.fixture(scope="module")
@@ -273,7 +278,7 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_devic
     finally:
         upper_tor_host.shell("show arp")
         lower_tor_host.shell("show arp")
-        ptfhost.shell("show ip route")
+        ptfhost.shell("ip route show")
         for conn in list(connections.values()):
             ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"], module_ignore_errors=True)
             ptfhost.shell("ip route del %s" % conn["local_addr"], module_ignore_errors=True)

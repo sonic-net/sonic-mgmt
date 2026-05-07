@@ -78,18 +78,23 @@ def route_config(nbrhosts, tbinfo):
 
 
 @pytest.fixture(scope='function')
-def dscp_config(dscp_mode, duthost, loganalyzer):
+def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     """
     Test setup and teardown
 
     Args:
         request: pytest request
-        duthost (AnsibleHost): The DUT host
+        rand_selected_dut (AnsibleHost): The randomly selected DUT host
     """
+    duthost = rand_selected_dut
     asic_type = duthost.facts['asic_type']
 
     # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
     if asic_type == 'broadcom':
+        hwsku = duthost.facts.get("hwsku", "")
+        if dscp_mode == "pipe" and hwsku.startswith("Arista-7060CX"):
+            pytest.skip("Broadcom TH (Tomahawk 1) does not support IPIP pipe mode"
+                        " -- hardware always uses outer DSCP for egress queue selection")
         apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer)
         yield
         apply_dscp_cfg_teardown(duthost, loganalyzer)
@@ -285,7 +290,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ptf_dst_port_ids = get_stream_ptf_ports(links)
         pytest_assert(ptf_dst_port_ids, f"ptf_dst_port_ids is {ptf_dst_port_ids}")
 
-        ptf_dst_port_ids.remove(ptf_src_port_id)
+        if ptf_src_port_id in ptf_dst_port_ids:
+            ptf_dst_port_ids.remove(ptf_src_port_id)
 
         return {
             'ptf_src_port_id': ptf_src_port_id,
@@ -493,10 +499,11 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
 
+    @pytest.mark.disable_loganalyzer
     def test_dscp_to_queue_mapping(self, ptfadapter, rand_selected_dut, localhost, dscp_config, dscp_mode,
                                    toggle_all_simulator_ports_to_rand_selected_tor, completeness_level,  # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor, route_config,
-                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer):  # noqa F811
+                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer, rotate_syslog):  # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" and "pipe" mode
         """
@@ -504,16 +511,20 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         inner_dst_ip_list = route_config
 
         with allure.step("Prepare test parameter"):
-            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links, loganalyzer)
+            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
 
         with allure.step("Run test"):
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
 
         is_smartswitch = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch", False)
+        # TH5 devices don't support warm reboot; only cold reboot supported during upgrades.
+        # Remove this check if TH5 warm reboot support is added in the future.
+        is_th5_device = duthost.get_asic_name() == 'th5'
         topo_name = tbinfo["topo"]["name"]
         if (
             completeness_level != "basic"
             and not is_smartswitch
+            and not is_th5_device
             and "dualtor" not in topo_name
             and "t1" not in topo_name
         ):

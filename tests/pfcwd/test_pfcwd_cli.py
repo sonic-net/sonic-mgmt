@@ -31,8 +31,18 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     KVMIgnoreRegex = [
         ".*queryStatsCapability: failed to find switch.*",
     ]
+    # Transient TACACS+ noise unrelated to PFCWD. On testbeds where the configured
+    # TACACS+ server is temporarily unreachable, NSS-TACACS+ lookups invoked by
+    # background processes (e.g. iptables) emit ERR-level syslog lines that get
+    # picked up by loganalyzer during teardown. Other tests (srv6, metadata-scripts)
+    # already ignore these same patterns for the same reason.
+    TacacsIgnoreRegex = [
+        r".*tac_connect_single: .*",
+        r".*nss_tacplus: .*",
+    ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
+        loganalyzer[duthost.hostname].ignore_regex.extend(TacacsIgnoreRegex)
         if duthost.facts["asic_type"] == "vs":
             loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
 

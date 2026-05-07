@@ -22,6 +22,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies  # noqa: F401
 
 """
     During vrf testing, a vrf basic configuration need to be setup before any tests,
@@ -289,6 +290,11 @@ def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     vlan_peer_ips = {}
     vlan_peer_vrf2ns_map = {}
 
+    # Defensive: wipe any residue from a previously crashed run so that the
+    # macvlan/netns add commands below cannot fail with EEXIST and leave half
+    # the state behind (which is what produces leaks across runs).
+    cleanup_vlan_peer(ptfhost)
+
     for vlan in list(cfg_facts["VLAN"].keys()):
         ns = "ns" + vlan.strip("Vlan")
         vrf = cfg_facts["VLAN_INTERFACE"][vlan]["vrf_name"]
@@ -324,11 +330,73 @@ def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     return vlan_peer_ips, vlan_peer_vrf2ns_map
 
 
-def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map, vlan_peer_ips):
-    for _, vlan_peer_port in vlan_peer_ips.keys():
-        ptfhost.shell(f"ip link del e{vlan_peer_port}mv1 || true")
-    for vrf, ns in list(vlan_peer_vrf2ns_map.items()):
-        ptfhost.shell(f"ip netns del {ns}")
+def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map=None, vlan_peer_ips=None):
+    """Tear down VRF VLAN-peer state that setup_vlan_peer / gen_vrf_*_file create
+    on the PTF host.
+
+    Failure to clean up macvlan children (e<N>mv1) and their namespaces (ns<vid>)
+    leaks an extra L3 endpoint that holds the same IP as the VLAN SVI's first
+    neighbor (e.g. 192.168.0.2/21 on Vlan1000). Because macvlan-bridge mode
+    forwards ARP requests for that IP to the child interface, the in-namespace
+    kernel answers with the macvlan's auto-assigned locally-administered MAC.
+    Any later test on the same testbed that legitimately uses the same neighbor
+    IP (e.g. tests/bgp/test_bgp_update_replication.py's route_injector pinned to
+    192.168.0.2) will then race two ARP answerers on every DUT probe and see
+    intermittent BGP flaps when the DUT's neighbor entry is overwritten.
+
+    This function is intentionally defensive:
+      * idempotent: missing interfaces/namespaces/files are not errors;
+      * discovery-based: it sweeps any e<N>mv<N>/ns<N> residue that this run
+        didn't track (e.g. left over from a previously killed run), so leaks
+        cannot accumulate across runs;
+      * file-aware: it removes the rendered /tmp/vrf*_neigh.txt and
+        /tmp/vrf*_fib.txt artifacts so they cannot be misread as live state by
+        the next test or by an operator triaging the PTF.
+    """
+    # 1) Remove tracked macvlan children + namespaces from this run.
+    if vlan_peer_ips:
+        for _, vlan_peer_port in vlan_peer_ips.keys():
+            ptfhost.shell("ip link del e{}mv1 || true".format(vlan_peer_port),
+                          module_ignore_errors=True)
+    if vlan_peer_vrf2ns_map:
+        for _, ns in list(vlan_peer_vrf2ns_map.items()):
+            ptfhost.shell("ip netns del {} || true".format(ns),
+                          module_ignore_errors=True)
+
+    # 2) Defensive sweep: any residue from a previously crashed/killed run.
+    ptfhost.shell(
+        "for d in $(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' "
+        "| awk -F'@' '{print $1}' | grep -E '^e[0-9]+mv[0-9]+$'); do "
+        "ip link del \"$d\" || true; done",
+        module_ignore_errors=True,
+    )
+    ptfhost.shell(
+        "for n in $(ip -o netns list 2>/dev/null | awk '{print $1}' "
+        "| grep -E '^ns[0-9]+$'); do ip netns del \"$n\" || true; done",
+        module_ignore_errors=True,
+    )
+
+    # 3) Remove generated PTF state files so stale neigh files cannot poison
+    # the next test's IP plan or mislead diagnostics. This list is the union of
+    # everything any class in tests/vrf/* writes under /tmp via gen_vrf_neigh_file,
+    # gen_vrf_fib_file, gen_specific_neigh_file, and the per-class shell scripts.
+    ptfhost.shell(
+        "rm -f "
+        # gen_vrf_neigh_file / gen_vrf_fib_file (test_vrf.py + test_vrf_attr.py)
+        "/tmp/vrf1_neigh.txt /tmp/vrf2_neigh.txt "
+        "/tmp/vrf1_fib.txt /tmp/vrf2_fib.txt "
+        # vrf_capacity tests
+        "/tmp/vrf_capability_fwd.txt "
+        # TestVrfAclRedirect (test_vrf.py)
+        "/tmp/pc01_neigh_ipv4.txt /tmp/pc01_neigh_ipv6.txt "
+        "/tmp/redirect_pc01_neigh_ipv4.txt /tmp/redirect_pc01_neigh_ipv6.txt "
+        # TestVrfUnbindIntf (test_vrf.py)
+        "/tmp/unbindvrf_neigh_1.txt /tmp/unbindvrf_neigh_2.txt "
+        "/tmp/unbindvrf_fib_1.txt /tmp/unbindvrf_fib_2.txt "
+        # TestVrfRebindIntf (test_vrf.py)
+        "/tmp/rebindvrf_vrf1_fib.txt",
+        module_ignore_errors=True,
+    )
 
 
 def gen_vrf_fib_file(
@@ -479,6 +547,18 @@ def cfg_facts(duthosts, rand_one_dut_hostname):
 
 
 def restore_config_db(localhost, duthost, ptfhost):
+    # PTF-side cleanup is independent of the DUT and is the source of cross-test
+    # ARP/MAC pollution if it leaks (see cleanup_vlan_peer docstring). Run it in
+    # a try/finally so a slow or failing DUT reboot below cannot skip it.
+    try:
+        cleanup_vlan_peer(
+            ptfhost,
+            g_vars.get('vlan_peer_vrf2ns_map', {}),
+            g_vars.get('vlan_peer_ips', {}),
+        )
+    except Exception as e:
+        logger.warning("PTF VRF cleanup raised an exception (continuing to DUT restore): %s", e)
+
     # In case something went wrong in previous reboot, wait until the DUT is accessible to ensure that
     # the `mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json` is executed on DUT.
     # If the DUT is still inaccessible after timeout, we may have already lose the DUT. Something sad happened.
@@ -488,17 +568,12 @@ def restore_config_db(localhost, duthost, ptfhost):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
     reboot(duthost, localhost)
 
-    cleanup_vlan_peer(
-        ptfhost,
-        g_vars["vlan_peer_vrf2ns_map"] if "vlan_peer_vrf2ns_map" in g_vars else {},
-        g_vars["vlan_peer_ips"] if "vlan_peer_ips" in g_vars else {},
-    )
-
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vrf(
-    tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost, skip_test_module_over_backend_topologies
-):  # noqa: F811
+    tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
+    skip_test_module_over_backend_topologies  # noqa: F811
+):
     duthost = duthosts[rand_one_dut_hostname]
 
     # backup config_db.json
@@ -1102,7 +1177,14 @@ class TestVrfLoopbackIntf:
         ptfhost.shell("pgrep exabgp")
 
         # make sure routes announced to bgp neighbors
-        time.sleep(10)
+        def _bgp_speaker_routes_announced():
+            bgp_facts = duthost.bgp_facts()['ansible_facts']
+            for nbr, info in bgp_facts['bgp_neighbors'].items():
+                if info.get('state') != 'established':
+                    return False
+            return True
+
+        wait_until(30, 2, 0, _bgp_speaker_routes_announced)
 
         # -------- Testing ----------
 
@@ -1492,7 +1574,12 @@ class TestVrfUnbindIntf:
         duthost.shell("config interface vrf unbind {}".format(PORTCHANNEL_TEMP_1))
 
         # wait for neigh/route flush
-        time.sleep(5)
+        def _pc1_ip_flushed():
+            output = duthost.shell("ip addr show {}".format(PORTCHANNEL_TEMP_1),
+                                   module_ignore_errors=True)['stdout']
+            return 'inet ' not in output
+
+        wait_until(30, 2, 0, _pc1_ip_flushed)
 
         # -------- Testing ----------
         yield
@@ -1656,7 +1743,12 @@ class TestVrfDeletion:
         gen_vrf_neigh_file("Vrf2", ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         duthost.shell("config vrf del Vrf1")
-        time.sleep(5)
+
+        def _vrf1_deleted():
+            output = duthost.shell("ip link show type vrf", module_ignore_errors=True)['stdout']
+            return 'Vrf1' not in output
+
+        wait_until(30, 2, 0, _vrf1_deleted)
 
         # -------- Testing ----------
         yield

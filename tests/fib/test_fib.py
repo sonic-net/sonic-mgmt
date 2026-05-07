@@ -414,6 +414,11 @@ def hash_keys(duthost, tbinfo):
         #  to ensure packets are evenly distributed to all 64 egress ports
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
+    if tbinfo['topo']['name'] in ['t2_single_node_max_64p', 't2_single_node_max_64p_v2']:
+        # Remove ip-proto on topos that have 64 ports as there isn't enough entropy in
+        # the ip-proto field (8-bits) to get a good distribution across that many ports
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
     # In multi asic platform each asic has different hash seed,
     # the same packet coming in different asic
@@ -888,7 +893,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -944,7 +951,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=member_down_log_file,
         qlen=PTF_QLEN,
@@ -994,7 +1003,9 @@ def test_ecmp_group_member_flap(
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "asic_type": asic_type,
-            "skip_src_ports": filtered_ports
+            "skip_src_ports": filtered_ports,
+            "topo_name": updated_tbinfo['topo']['name'],
+            "topo_type": updated_tbinfo['topo']['type'],
         },
         log_file=member_up_log_file,
         qlen=PTF_QLEN,

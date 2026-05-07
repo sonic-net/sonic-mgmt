@@ -480,6 +480,9 @@ def arp_responder(ptfhost, testbed_params, tbinfo):
 
     logging.info("Stopping ARP responder")
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    # Drop the rendered config we wrote earlier in this fixture so the next
+    # arp_responder invocation cannot inherit our IP/MAC mapping by default.
+    ptfhost.file(path="/tmp/from_t1.json", state="absent")
 
 
 @pytest.fixture
