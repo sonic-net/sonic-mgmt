@@ -503,6 +503,7 @@ def privatelink_redirect_fnic_config(
     if 'pensando' not in dpuhost.facts['asic_type']:
         route_rule_messages = {
             **pl.VM_VNI_ROUTE_RULE_CONFIG,
+            **pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
             **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
             **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
         }
@@ -591,6 +592,7 @@ def privatelink_redirect_nsg_config(
     if 'pensando' not in dpuhost.facts['asic_type']:
         route_rule_messages = {
             **pl.VM_VNI_ROUTE_RULE_CONFIG,
+            **pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
             **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
         }
         logger.info(route_rule_messages)
