@@ -6,21 +6,10 @@ from tests.common.helpers.platform_api import chassis, psu
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import skip_release
 from tests.platform_tests.cli.util import get_skip_mod_list
-from .platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform, wait_until
 from tests.platform_tests.api.conftest import skip_absent_psu
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
-
-
-###################################################
-# TODO: Remove this after we transition to Python 3
-import sys
-if sys.version_info.major >= 3:
-    STRING_TYPE = str
-else:
-    STRING_TYPE = basestring    # noqa: F821
-# END Remove this after we transition to Python 3
-###################################################
+from .power_api_test_base import PowerApiTestBase, STRING_TYPE
 
 
 logger = logging.getLogger(__name__)
@@ -35,7 +24,7 @@ STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
 
-class TestPsuApi(PlatformApiTestBase):
+class TestPsuApi(PowerApiTestBase):
     ''' Platform API test cases for the PSU class'''
 
     num_psus = None
