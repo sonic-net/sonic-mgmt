@@ -194,6 +194,11 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: To Verify `DPU console access`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    ignore_regex = [
+        r".*ERR kernel:.*cp210x ttyUSB\d+: failed set request 0x12 status: -110.*",
+    ]
+    if duthost.loganalyzer:
+        duthost.loganalyzer.ignore_regex.extend(ignore_regex)
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
