@@ -110,14 +110,14 @@ Each gate is a session-scoped pytest fixture defined in [`tests/transceiver/conf
 | Fixture | Check | Description |
 |---------|-------|-------------|
 | `presence_verified` | `check_presence_show_cli` | All transceivers in `port_attributes_dict` are detected as Present |
-| `gold_fw_verified` | `check_gold_firmware` | Active firmware matches the expected gold firmware for non-DAC CMIS transceivers |
+| `gold_fw_verified` | `check_gold_firmware` | Active firmware matches the expected gold firmware for CMIS active-optical transceivers |
 | `links_verified` | `check_links_up` | Every transceiver port in `port_attributes_dict` is both admin-up and oper-up |
 
 **Opt-in by category**
 
 | Category (attribute file) | `presence_verified` | `gold_fw_verified` | `links_verified` |
 |---------------------------|:-------------------:|:------------------:|:----------------:|
-| EEPROM (`eeprom.json`)                  | - own reportable test         | - N/A (EEPROM reads independent of FW version) | ✅ |
+| EEPROM (`eeprom.json`)                  | - own reportable test         | - N/A (CLI verification TC will ensure this) | ✅ |
 | System (`system.json`)                  | ✅                            | ✅                                              | ✅ |
 | Physical OIR (`physical_oir.json`)      | ✅                            | ✅                                              | ✅ |
 | Remote Reseat (`remote_reseat.json`)    | ✅                            | ✅                                              | ✅ |

@@ -111,7 +111,7 @@ tests/transceiver/
 │                                            #   (presence and gold-FW are EEPROM's own reportable
 │                                            #   tests, so those gates are intentionally not consumed.)
 │   ├── test_presence.py                     # TC 1-2: Transceiver presence verification (reportable test case;
-│   │                                        #   calls common/prerequisites.py::check_presence)
+│   │                                        #   calls common/prerequisites.py::check_presence_sfputil)
 │   ├── test_eeprom_content.py               # TC 3-4: Basic EEPROM content verification
 │   ├── test_hexdump.py                      # TC 5-7: Hexdump and read-eeprom verification
 │   ├── test_error_handling.py               # TC 8: Error handling - Missing transceiver
@@ -211,26 +211,29 @@ tests/transceiver/
     └── test_pm.py                           # PM specific test cases
 ```
 
-## Module Relationship
+## Module Relationship (Listed only few test categories for brevity)
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        conftest.py (top-level)                         │
-│   Session fixtures: presence_verified, gold_fw_verified                │
+│   Session fixtures: presence_verified, gold_fw_verified, links_verified│
 │   Autouse per-test: health_checks (PID, logs, cores)                   │
 └──────────┬─────────────────────────────┬───────────────────────────────┘
            │ calls                       │ provides fixtures to
            ▼                             ▼
-┌──────────────────────────┐  ┌──────────────────────────────────────────┐
-│       common/             │  │           Category conftest.py            │
-│  health_checks.py         │  │  eeprom/conftest.py  — no prerequisite   │
-│  prerequisites.py         │  │                        gate (TC 1-2 own) │
-│  verification.py          │  │  dom/conftest.py     — requests presence,│
-│                           │  │                        gold_fw           │
-│  state_management.py      │  │  system/conftest.py  — requests presence,│
-│  db_helpers.py            │  │                        gold_fw           │
-│  cli_helpers.py           │  │  cdb_fw/conftest.py  — requests presence │
-└──────────┬───────────────┘  └──────────────────┬───────────────────────┘
+┌───────────────────────────┐  ┌──────────────────────────────────────────┐
+│       common/             │  │           Category conftest.py           │
+│  health_checks.py         │  │  eeprom/conftest.py  — requests links_   │
+│  prerequisites.py         │  │                        verified only     │
+│  verification.py          │  │                        (TC 1-2 own       │
+│                           │  │                        presence/gold_fw) │
+│  state_management.py      │  │  dom/conftest.py     — requests presence,│
+│  db_helpers.py            │  │                        gold_fw, links    │
+│  cli_helpers.py           │  │  system/conftest.py  — requests presence,│
+│                           │  │                        gold_fw, links    │
+│                           │  │  cdb_fw/conftest.py  — requests presence,│
+│                           │  │                        links             │
+└──────────┬────────────────┘  └──────────────────┬───────────────────────┘
            │ uses                                 │ uses
            ▼                                      ▼
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -243,7 +246,7 @@ tests/transceiver/
                                │ uses
                                ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                         attribute_parser/                               │
+│                         attribute_parser/                              │
 │   attribute_manager.py, config_parser.py, dut_info_loader.py,          │
 │   port_spec.py, utils.py, exceptions.py, paths.py                      │
 └──────────────────────────────┬─────────────────────────────────────────┘
