@@ -326,11 +326,12 @@ def test_snmp_queue_counters(duthosts,
             queue_counters_cnt_post, expected_snmp_cnt_post,
             queue_counts_post['unicast'], queue_counts_post['multicast']))
 
-    # For broadcom-dnx voq chassis, number of voq are fixed (static), which
-    # cannot be modified dynamically. Hence, make sure the queue counters
-    # before deletion and after deletion are same for broadcom-dnx voq chassis
+    # For voq chassis and voq switches, number of queues are fixed (static),
+    # which cannot be modified dynamically. Hence, make sure the queue counters
+    # before deletion and after deletion are same for these platforms.
     platform_asic = duthost.facts.get("platform_asic")
-    if platform_asic == "broadcom-dnx":
+    switch_type = duthost.facts.get("switch_type", "")
+    if platform_asic == "broadcom-dnx" or switch_type == "voq":
         pytest_assert(
             (queue_counters_cnt_pre == queue_counters_cnt_post),
             "Queue counters actual count {} differs from expected values {}"
