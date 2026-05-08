@@ -20,6 +20,10 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('bmc')
+]
+
 
 @pytest.fixture(scope="class")
 def skip_if_no_watchdog(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -128,7 +132,8 @@ class TestBmcWatchdog:
 
             # Check service configuration (petting interval, timeout)
             result = self.duthost.shell(
-                "grep -E 'ExecStart|Interval|Timer' /etc/systemd/system/*watchdog*.service 2>/dev/null || echo 'no-config'",
+                "grep -E 'ExecStart|Interval|Timer' "
+                "/etc/systemd/system/*watchdog*.service 2>/dev/null || echo 'no-config'",
                 module_ignore_errors=True
             )
             if 'no-config' not in result['stdout']:

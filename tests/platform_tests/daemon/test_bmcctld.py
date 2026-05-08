@@ -19,7 +19,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('bmc'),
     pytest.mark.disable_loganalyzer
 ]
 

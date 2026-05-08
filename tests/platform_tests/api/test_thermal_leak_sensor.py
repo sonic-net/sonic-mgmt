@@ -22,7 +22,7 @@ from .platform_api_test_base import PlatformApiTestBase
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('bmc')
 ]
 
 
