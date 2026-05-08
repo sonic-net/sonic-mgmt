@@ -396,6 +396,31 @@ def fetch_vendor_specific_diagnosis_re(duthost):
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
 
 
+def is_pfcwd_hw_recovery_enabled(duthost):
+    """
+    Check if PFC watchdog is using hardware-based recovery mechanism.
+
+    Hardware-based recovery uses ASIC-level PFC DLR which controls egress/TX
+    traffic by ignoring PFC XOFF. The per-queue TX OK/DROP cells surfaced by
+    'show pfcwd stats' are sourced from the software-recovery code path and
+    stay at 0 on HW-recovery platforms even when silicon is dropping.
+
+    Returns:
+        bool: True if RECOVERY_MECHANISM is "hardware", False otherwise.
+    """
+    try:
+        cmd = 'sonic-db-cli STATE_DB HGET "PFC_WD_STATE_TABLE|PFC_WD" "RECOVERY_MECHANISM"'
+        result = duthost.shell(cmd, module_ignore_errors=True)
+        output = result.get('stdout', '').strip().strip('"').strip("'").lower()
+        is_hardware = (output == "hardware")
+        logger.info("PFC watchdog recovery mechanism: {} (hardware={})".format(
+            output or "not set", is_hardware))
+        return is_hardware
+    except Exception as e:
+        logger.error("Exception while checking recovery mechanism: {}".format(str(e)))
+        return False
+
+
 @pytest.fixture(scope='class', autouse=False)
 def start_background_traffic(
         duthosts,
