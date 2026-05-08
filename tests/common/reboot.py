@@ -568,7 +568,7 @@ def get_reboot_cause(dut):
 
     # On Arista-7260CX3 platforms, power-loss detection hardware occasionally
     # reports "Hardware - Other (gpi-2, ...)" instead of "Power Loss".
-    # This is a confirmed hardware limitation (aristanetworks/sonic-qual.msft#1181).
+    # This is a confirmed hardware limitation. See https://github.com/sonic-net/sonic-mgmt/issues/24475
     if "7260CX3" in dut.facts.get("platform", "") and re.search(r"Hardware - Other.*gpi", cause):
         return REBOOT_TYPE_POWEROFF
 
