@@ -373,3 +373,102 @@ class TestPfcXonIntegration:
 
         assert lower is None
         assert upper is None
+
+
+class TestHardwareModelBehavior:
+    """Direct unit tests for HardwareModel physics.
+
+    Parallel to executor UT 8850-8853 which exercise the executor's
+    _drain_phase boundary logic with bare counter values. These cases
+    validate the IT HardwareModel itself — the assumptions every
+    algorithm-level IT in TestPfcXonIntegration above implicitly relies on.
+
+    Why this coverage matters (drain-bug post-mortem, 2026-05-08):
+      The original buggy _drain_phase relied on PAUSE counter GROWTH as
+      the xon signal, but the counter grows continuously while xoff is
+      active (real DUT emits PAUSE frames periodically per IEEE 802.1Qbb).
+      The fix detects counter STOP instead. The IT model has to match
+      that physics: pump while in xoff, freeze after xon. If the model
+      drifts (e.g., someone "optimizes" away periodic emission), the
+      drain-bug regression would silently re-emerge in algorithm IT.
+      These tests pin the model behavior directly.
+
+    Scope:
+      N1 — Counter pumps periodically while in xoff (regression guard).
+      N2 — Counter freezes after drain crosses true_xon_offset (the
+           release event the new _drain_phase detects).
+      N3 — Cleanup branch resets _in_xoff when queues fully drain even
+           if total_drained < true_xon_offset (defense against
+           multi-port partial-drain edge cases).
+    """
+
+    @pytest.mark.order(9100)
+    def test_hwmodel_pumps_counter_while_in_xoff(self):
+        """While _in_xoff is True, every read_counter() bumps
+        pause_counter by pause_rate_per_read. This is the periodic-PAUSE
+        physics that the original buggy _drain_phase mistook for "xon
+        not yet fired"."""
+        hw = HardwareModel(pfcxoff_point=100, true_xon_offset=10,
+                           pause_rate_per_read=10)
+
+        # Trigger xoff: queue fills above threshold.
+        hw.send_traffic(src_port=0, dst_port=1, pkts=100)
+        assert hw._in_xoff is True
+        assert hw.pause_counter == 1  # initial xoff-fire event
+
+        # 5 reads while still in xoff -> +50 (5 * pause_rate_per_read).
+        for _ in range(5):
+            hw.read_counter()
+        assert hw.pause_counter == 1 + 5 * 10
+        assert hw._in_xoff is True  # still xoff (no drain yet)
+
+    @pytest.mark.order(9101)
+    def test_hwmodel_freezes_counter_after_drain_crosses_xon(self):
+        """drain_buffer with total_drained >= true_xon_offset releases
+        PFC. Subsequent read_counter() calls must NOT bump (counter
+        frozen). This is what the new _drain_phase detects via its
+        2-sample observation window."""
+        hw = HardwareModel(pfcxoff_point=100, true_xon_offset=50,
+                           pause_rate_per_read=10)
+
+        hw.send_traffic(src_port=0, dst_port=1, pkts=100)  # xoff
+        # Let counter pump while in xoff.
+        for _ in range(3):
+            hw.read_counter()
+        snapshot = hw.pause_counter  # 1 + 3 * 10 = 31
+
+        # Drain 100 pkts (>> true_xon_offset=50) -> xon released.
+        hw.drain_buffer([1])
+        assert hw._in_xoff is False
+
+        # After release, reads must not bump anymore.
+        for _ in range(5):
+            hw.read_counter()
+        assert hw.pause_counter == snapshot  # frozen at 31
+
+    @pytest.mark.order(9102)
+    def test_hwmodel_resets_xoff_when_queues_empty_below_xon(self):
+        """If queues drain to empty but cumulative drain count is below
+        true_xon_offset, the cleanup branch in drain_buffer (queues
+        empty -> _in_xoff = False) still resets state so the next fill
+        cycle starts clean. Defends against multi-port partial-drain
+        scenarios where additive criterion alone might not fire."""
+        # true_xon_offset > pfcxoff_point so additive criterion can't fire
+        # by the buffer alone (pathological config — model invariant only).
+        hw = HardwareModel(pfcxoff_point=100, true_xon_offset=200,
+                           pause_rate_per_read=10)
+
+        hw.send_traffic(src_port=0, dst_port=1, pkts=100)  # xoff
+        assert hw._in_xoff is True
+
+        # Drain 100 < true_xon_offset 200 -> additive criterion does NOT
+        # fire. But queues become empty -> cleanup branch fires.
+        hw.drain_buffer([1])
+        assert hw.queues == {}
+        assert hw._in_xoff is False  # cleanup branch reset
+
+        # Next fill cycle is clean: xoff fires again, counter += 1.
+        snapshot = hw.pause_counter
+        hw.send_traffic(src_port=0, dst_port=2, pkts=100)
+        assert hw._in_xoff is True
+        assert hw.pause_counter == snapshot + 1
