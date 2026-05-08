@@ -1573,7 +1573,6 @@
             "sonic_mgmt_container_master": "cicd_prod_master",
             "sonic_mgmt_container_202405": "cicd_prod_202405",
             "sonic_mgmt_container_202411": "cicd_prod_202411",
-            "sonic_mgmt_container_202405c": "cicd_prod_202405",
             "sonic_mgmt_container_202505": "202505-sonic-mgmt",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "run_type_check": "run_tests",
