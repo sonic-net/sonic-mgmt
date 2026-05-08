@@ -27,6 +27,7 @@ SYSTEM_LEAK_STATUS_TABLE = 'SYSTEM_LEAK_STATUS'
 LIQUID_COOLING_INFO_TABLE = 'LIQUID_COOLING_INFO'
 LEAK_PROFILE_TABLE = 'LEAK_PROFILE'
 
+
 class TestThermalctldDaemon:
     """
     Integration tests for thermalctld daemon leak detection
@@ -73,7 +74,7 @@ class TestThermalctldDaemon:
         if result['rc'] == 0:
             exists = result['stdout'].strip() == '1'
             if exists:
-                logger.info(f"SYSTEM_LEAK_STATUS:system initialized")
+                logger.info("SYSTEM_LEAK_STATUS:system initialized")
             else:
                 logger.info("No SYSTEM_LEAK_STATUS - expected on non-liquid-cooled platforms")
 
@@ -132,7 +133,7 @@ class TestThermalctldDaemon:
                 if result['rc'] == 0 and result['stdout'].strip():
                     leaking = result['stdout'].strip()
                     pytest_assert(leaking in ['Yes', 'No', 'N/A'],
-                                 f"leaking '{leaking}' not in ['Yes', 'No', 'N/A']")
+                                  f"leaking '{leaking}' not in ['Yes', 'No', 'N/A']")
 
                 # leak_sensor_status: "Good"|"Fault"
                 result = self.duthost.shell(
@@ -142,7 +143,8 @@ class TestThermalctldDaemon:
                 if result['rc'] == 0 and result['stdout'].strip():
                     sensor_status = result['stdout'].strip()
                     pytest_assert(sensor_status in ['Good', 'Fault'],
-                                 f"leak_sensor_status '{sensor_status}' not in ['Good', 'Fault']")
+                                  f"leak_sensor_status '{sensor_status}' "
+                                  f"not in ['Good', 'Fault']")
 
                 # severity: str(LeakSeverity) → "MINOR"|"CRITICAL"
                 result = self.duthost.shell(
@@ -152,7 +154,7 @@ class TestThermalctldDaemon:
                 if result['rc'] == 0 and result['stdout'].strip():
                     severity = result['stdout'].strip()
                     pytest_assert(severity in ['MINOR', 'CRITICAL'],
-                                 f"severity '{severity}' not in ['MINOR', 'CRITICAL']")
+                                  f"severity '{severity}' not in ['MINOR', 'CRITICAL']")
 
                 result = self.duthost.shell(
                     f"redis-cli -n 6 HGET '{sensor}' type",
@@ -180,7 +182,7 @@ class TestThermalctldDaemon:
             if result['rc'] == 0 and result['stdout'].strip():
                 try:
                     timeout = float(result['stdout'].strip())
-                    pytest_assert(timeout > 0, f"Timeout should be positive")
+                    pytest_assert(timeout > 0, "Timeout should be positive")
                     logger.info(f"Escalation timeout: {timeout}s")
                 except ValueError:
                     logger.warning("Could not parse timeout")
@@ -213,14 +215,15 @@ class TestThermalctldDaemon:
         """
         # Measure STATE_DB update latency
         start = time.time()
-        result = self.duthost.shell(
+        query_result = self.duthost.shell(
             f"redis-cli -n 6 HGET '{SYSTEM_LEAK_STATUS_TABLE}:system' timestamp",
             module_ignore_errors=True
         )
         elapsed = time.time() - start
 
         logger.info(f"Notification latency: {elapsed:.3f}s")
-        pytest_assert(elapsed < 5.0, f"Latency {elapsed}s is excessive")
+        pytest_assert(query_result['rc'] == 0 and elapsed < 5.0,
+                      f"Query failed or latency {elapsed}s is excessive")
 
         # Check sensor state persistence
         states1 = []
@@ -242,7 +245,7 @@ class TestThermalctldDaemon:
 
         if len(states1) > 1:
             pytest_assert(states1[0] == states1[1],
-                         f"Sensor count unstable: {states1}")
+                          f"Sensor count unstable: {states1}")
 
         # Check CPU usage
         result = self.duthost.shell(
@@ -310,7 +313,7 @@ class TestThermalctldDaemon:
                 f" name test_sensor_leaking leaking Yes leak_sensor_status Good severity MINOR",
                 module_ignore_errors=True
             )
-            logger.info(f"Trigger 1 [leaking sensor]: leaking=Yes leak_sensor_status=Good")
+            logger.info("Trigger 1 [leaking sensor]: leaking=Yes leak_sensor_status=Good")
             logger.info("Expected syslog: 'Liquid cooling leakage sensor test_sensor_leaking reported leaking'")
 
             in_db = wait_until(15, 2, 0, sensor_has_value, LEAKING_SENSOR_KEY, 'leaking', 'Yes')
@@ -335,7 +338,7 @@ class TestThermalctldDaemon:
                 f" name test_sensor_faulty leaking N/A leak_sensor_status Fault severity CRITICAL",
                 module_ignore_errors=True
             )
-            logger.info(f"Trigger 2 [faulty sensor]: leaking=N/A leak_sensor_status=Fault")
+            logger.info("Trigger 2 [faulty sensor]: leaking=N/A leak_sensor_status=Fault")
             logger.info("Expected syslog: 'Liquid cooling leakage sensor test_sensor_faulty reported faulty'")
 
             in_db = wait_until(15, 2, 0, sensor_has_value, FAULTY_SENSOR_KEY, 'leak_sensor_status', 'Fault')
@@ -440,7 +443,7 @@ class TestThermalctldDaemon:
             for line in result['stdout'].strip().split('\n'):
                 if 'reported faulty' in line.lower():
                     pytest_assert('leakage sensor' in line.lower() or 'liquid' in line.lower(),
-                                 f"Unexpected faulty sensor log format: {line}")
+                                  f"Unexpected faulty sensor log format: {line}")
         else:
             logger.info("No faulty sensor syslog events found - liquid cooling hardware not present or all sensors ok")
 
@@ -475,9 +478,9 @@ class TestThermalctldDaemon:
             status_dict = {lines[i]: lines[i+1] for i in range(0, len(lines), 2) if i+1 < len(lines)}
 
             pytest_assert('device_leak_status' in status_dict,
-                         "SYSTEM_LEAK_STATUS missing device_leak_status")
+                          "SYSTEM_LEAK_STATUS missing device_leak_status")
             pytest_assert('timestamp' in status_dict,
-                         "SYSTEM_LEAK_STATUS missing timestamp")
+                          "SYSTEM_LEAK_STATUS missing timestamp")
             logger.info(f"SYSTEM_LEAK_STATUS fields: {list(status_dict.keys())}")
         else:
             logger.info("Platform has no liquid cooling - skipping SYSTEM_LEAK_STATUS validation")
@@ -501,7 +504,7 @@ class TestThermalctldDaemon:
                 required = {'leaking', 'leak_sensor_status'}
                 missing = required - set(sensor_data.keys())
                 pytest_assert(not missing,
-                             f"LIQUID_COOLING_INFO missing required fields: {missing}")
+                              f"LIQUID_COOLING_INFO missing required fields: {missing}")
                 logger.info(f"LIQUID_COOLING_INFO fields: {list(sensor_data.keys())}")
         else:
             logger.info("No LIQUID_COOLING_INFO sensors found - non-liquid-cooled platform")
@@ -527,7 +530,7 @@ class TestThermalctldDaemon:
                     required = {'type', 'max_minor_duration_sec'}
                     missing = required - set(profile_data.keys())
                     pytest_assert(not missing,
-                                 f"LEAK_PROFILE missing required fields: {missing}")
+                                  f"LEAK_PROFILE missing required fields: {missing}")
                     logger.info(f"LEAK_PROFILE fields: {list(profile_data.keys())}")
         else:
             logger.info("No LEAK_PROFILE found - expected on non-liquid-cooled platforms")
@@ -553,7 +556,7 @@ class TestThermalctldDaemon:
             # device_leak_status = LeakSeverity.value ("MINOR"|"CRITICAL") or "None"
             valid_statuses = ['MINOR', 'CRITICAL', 'None']
             pytest_assert(device_status in valid_statuses,
-                         f"device_leak_status '{device_status}' not in {valid_statuses}")
+                          f"device_leak_status '{device_status}' not in {valid_statuses}")
             logger.info(f"System leak status: {device_status}")
 
         # Test LIQUID_COOLING_INFO values
@@ -575,7 +578,7 @@ class TestThermalctldDaemon:
                 if result['rc'] == 0 and result['stdout'].strip():
                     leaking = result['stdout'].strip()
                     pytest_assert(leaking in ['Yes', 'No', 'N/A'],
-                                 f"leaking field '{leaking}' not in ['Yes', 'No', 'N/A']")
+                                  f"leaking field '{leaking}' not in ['Yes', 'No', 'N/A']")
 
                 # leak_sensor_status: "Good" (sensor ok), "Fault" (sensor unreadable)
                 result = self.duthost.shell(
@@ -586,7 +589,8 @@ class TestThermalctldDaemon:
                 if result['rc'] == 0 and result['stdout'].strip():
                     sensor_status = result['stdout'].strip()
                     pytest_assert(sensor_status in ['Good', 'Fault'],
-                                 f"leak_sensor_status '{sensor_status}' not in ['Good', 'Fault']")
+                                  f"leak_sensor_status '{sensor_status}' "
+                                  f"not in ['Good', 'Fault']")
 
                 # severity: str(LeakSeverity) → "MINOR" or "CRITICAL"
                 result = self.duthost.shell(
@@ -598,7 +602,7 @@ class TestThermalctldDaemon:
                     severity = result['stdout'].strip()
                     valid_severities = ['MINOR', 'CRITICAL']
                     pytest_assert(severity in valid_severities,
-                                 f"severity '{severity}' not in {valid_severities}")
+                                  f"severity '{severity}' not in {valid_severities}")
 
         # Test LEAK_PROFILE values
         result = self.duthost.shell(
@@ -620,7 +624,7 @@ class TestThermalctldDaemon:
                     try:
                         timeout = float(result['stdout'].strip())
                         pytest_assert(timeout > 0,
-                                     f"Timeout should be positive, got {timeout}")
+                                      f"Timeout should be positive, got {timeout}")
                         logger.info(f"Profile {profile_key}: escalation timeout = {timeout}s")
                     except ValueError:
-                        logger.warning(f"Could not parse timeout value")
+                        logger.warning("Could not parse timeout value")

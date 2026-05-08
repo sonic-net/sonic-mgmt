@@ -39,7 +39,7 @@ def skip_if_no_watchdog(duthosts, enum_rand_one_per_hwsku_hostname):
         pytest.skip("watchdogutil not found on this platform")
 
     result = duthost.shell("test -d /host/bmc && echo 'bmc' || echo 'no-bmc'",
-                          module_ignore_errors=True)
+                           module_ignore_errors=True)
     if 'no-bmc' in result['stdout']:
         logger.info("BMC not detected - some watchdog tests will be limited")
 
@@ -74,12 +74,12 @@ class TestBmcWatchdog:
         elapsed = time.time() - start
 
         self.expect(result['rc'] == 0,
-                   f"watchdogutil status failed: {result['stderr']}")
+                    f"watchdogutil status failed: {result['stderr']}")
 
         output = result['stdout'].strip()
         self.expect(len(output) > 0, "watchdogutil status returned empty output")
         self.expect("Armed" in output or "Unarmed" in output,
-                   f"watchdogutil output format unexpected: {output}")
+                    f"watchdogutil output format unexpected: {output}")
 
         logger.info(f"Watchdog status: {output}, latency: {elapsed:.3f}s")
         self.expect(elapsed < 5.0, f"watchdogutil took too long: {elapsed:.3f}s")
@@ -91,9 +91,9 @@ class TestBmcWatchdog:
                 remaining = int(match.group(1))
                 logger.info(f"Watchdog remaining time: {remaining}s (target: 180s)")
                 self.expect(remaining <= 180,
-                           f"Remaining time {remaining}s exceeds 180s timeout")
+                            f"Remaining time {remaining}s exceeds 180s timeout")
                 self.expect(remaining >= 30,
-                           f"Remaining time {remaining}s below minimum 30s")
+                            f"Remaining time {remaining}s below minimum 30s")
             else:
                 logger.warning("Could not parse remaining time from watchdogutil output")
         else:
@@ -101,10 +101,10 @@ class TestBmcWatchdog:
 
         # Verify service stays responsive after invalid command
         self.duthost.shell("watchdogutil invalid_command 2>&1 || true",
-                          module_ignore_errors=True)
+                           module_ignore_errors=True)
         result = self.duthost.shell("watchdogutil status", module_ignore_errors=True)
         self.expect(result['rc'] == 0,
-                   "watchdogutil status failed after invalid command")
+                    "watchdogutil status failed after invalid command")
 
     def test_watchdog_bmc_integration(self):
         """
@@ -136,12 +136,12 @@ class TestBmcWatchdog:
 
         # Check persistent log storage in /host/bmc
         result = self.duthost.shell("test -d /host/bmc && echo 'exists' || echo 'missing'",
-                                   module_ignore_errors=True)
+                                    module_ignore_errors=True)
         if 'missing' in result['stdout']:
             logger.info("BMC directory not found - skipping persistent log check")
         else:
             result = self.duthost.shell("ls -la /host/bmc/ | grep -i watch || echo 'no-logs'",
-                                       module_ignore_errors=True)
+                                        module_ignore_errors=True)
             if 'no-logs' in result['stdout']:
                 logger.info("No watchdog logs in /host/bmc yet - expected on new systems")
             else:
@@ -149,9 +149,9 @@ class TestBmcWatchdog:
 
             # Warn if watchdog logs exist in /var/log (should be in /host/bmc)
             result = self.duthost.shell("ls /var/log/watchdog* 2>/dev/null | wc -l",
-                                       module_ignore_errors=True)
+                                        module_ignore_errors=True)
             if result['rc'] == 0 and int(result['stdout'].strip()) > 0:
-                logger.warning(f"Found watchdog logs in /var/log (expected in /host/bmc)")
+                logger.warning("Found watchdog logs in /var/log (expected in /host/bmc)")
 
         # Reboot reason detection (user vs watchdog reset)
         result = self.duthost.shell(

@@ -11,9 +11,11 @@ Tests cover:
 import logging
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401
+from tests.common.platform.device_utils import (  # noqa: F401
+    platform_api_conn,
+    start_platform_api_service
+)
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -23,16 +25,16 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 class TestSwitchHostModuleApi(PlatformApiTestBase):
     """
     Tests for ModuleBase SWITCH-HOST control API
     """
 
     @pytest.fixture(scope="function", autouse=True)
-    def skip_if_no_switch_host(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
+    def skip_if_no_switch_host(self, enum_rand_one_per_hwsku_hostname,
+                               platform_api_conn):  # noqa: F811
         """Skip tests if device doesn't support SWITCH-HOST module control"""
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
         try:
             module = chassis.get_module_by_name(platform_api_conn, 'SWITCH-HOST')
             if module is None:
@@ -62,14 +64,15 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         # Test description
         description = chassis.get_module_description(platform_api_conn, 'SWITCH-HOST')
         self.expect(description is None or isinstance(description, str),
-                   "SWITCH-HOST description should be str or None")
+                    "SWITCH-HOST description should be str or None")
 
         # Test serial
         serial = chassis.get_module_serial(platform_api_conn, 'SWITCH-HOST')
         self.expect(serial is None or isinstance(serial, str),
-                   "SWITCH-HOST serial should be str or None")
+                    "SWITCH-HOST serial should be str or None")
 
-    def test_switch_host_status_control(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
+    def test_switch_host_status_control(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                                        platform_api_conn):  # noqa: F811
         """
         Test SWITCH-HOST status attributes and control operations
 
@@ -102,12 +105,16 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         # When admin is 'up', oper should reflect operational state
         if admin_status.lower() == 'up':
             valid_oper_states = ['PRESENT', 'ONLINE', 'PoweredOn']
-            self.expect(any(s in oper_status for s in valid_oper_states) or len(oper_status) > 0,
-                       f"oper_status '{oper_status}' should reflect admin status 'up'")
+            self.expect(any(s in oper_status for s in valid_oper_states) or
+                        len(oper_status) > 0,
+                        f"oper_status '{oper_status}' should reflect "
+                        f"admin status 'up'")
         elif admin_status.lower() == 'down':
             valid_oper_states = ['PoweredDown', 'OFFLINE', 'POWERED_DOWN']
-            self.expect(any(s in oper_status for s in valid_oper_states) or len(oper_status) > 0,
-                       f"oper_status '{oper_status}' should reflect admin status 'down'")
+            self.expect(any(s in oper_status for s in valid_oper_states) or
+                        len(oper_status) > 0,
+                        f"oper_status '{oper_status}' should reflect "
+                        f"admin status 'down'")
 
         # Test set_admin_status (read-only verification - don't actually change)
         logger.info(f"Current SWITCH-HOST status: admin={admin_status}, oper={oper_status}")

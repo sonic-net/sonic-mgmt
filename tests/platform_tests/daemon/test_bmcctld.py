@@ -31,6 +31,7 @@ RACK_MANAGER_COMMAND_TABLE = 'RACK_MANAGER_COMMAND'
 RACK_MANAGER_ALERT_TABLE = 'RACK_MANAGER_ALERT'
 HOST_STATE_KEY = 'switch-host'
 
+
 class TestBmcctldDaemon:
     """
     Integration tests for bmcctld daemon
@@ -77,7 +78,7 @@ class TestBmcctldDaemon:
             info_dict = {lines[i]: lines[i+1] for i in range(0, len(lines), 2) if i+1 < len(lines)}
 
             pytest_assert('name' in info_dict or 'slot' in info_dict,
-                         "CHASSIS_MODULE_INFO missing required identity fields")
+                          "CHASSIS_MODULE_INFO missing required identity fields")
             logger.info(f"CHASSIS_MODULE_INFO initialized: {list(info_dict.keys())}")
         else:
             logger.info("CHASSIS_MODULE_INFO not populated - expected on some platforms")
@@ -93,12 +94,12 @@ class TestBmcctldDaemon:
             state_dict = {lines[i]: lines[i+1] for i in range(0, len(lines), 2) if i+1 < len(lines)}
 
             pytest_assert('device_status' in state_dict,
-                         "HOST_STATE missing device_status field")
+                          "HOST_STATE missing device_status field")
 
             valid_states = ['OFFLINE', 'ONLINE', 'POWERING_ON', 'POWERING_OFF', 'POWER_CYCLE']
             status = state_dict.get('device_status', '')
             pytest_assert(status in valid_states,
-                         f"device_status '{status}' not valid")
+                          f"device_status '{status}' not valid")
         else:
             logger.info("HOST_STATE not populated - expected on some platforms")
 
@@ -144,7 +145,7 @@ class TestBmcctldDaemon:
         if result['rc'] == 0 and result['stdout'].strip():
             admin_status = result['stdout'].strip()
             pytest_assert(admin_status.lower() in ['up', 'down'],
-                         f"admin_status '{admin_status}' should be 'up' or 'down'")
+                          f"admin_status '{admin_status}' should be 'up' or 'down'")
 
         # Verify timestamps
         result = self.duthost.shell(
@@ -159,7 +160,7 @@ class TestBmcctldDaemon:
                 age = current - ts
 
                 pytest_assert(age < 3600,
-                             f"Timestamp age {age}s exceeds 1 hour")
+                              f"Timestamp age {age}s exceeds 1 hour")
                 logger.info(f"Timestamp is {age:.1f}s old - OK")
             except ValueError:
                 logger.warning("Could not parse timestamp")
@@ -193,7 +194,7 @@ class TestBmcctldDaemon:
             if result['rc'] == 0:
                 host_status = result['stdout'].strip()
                 pytest_assert(host_status not in ['ONLINE', 'POWERING_ON'],
-                             f"Critical leak should prevent online: {host_status}")
+                              f"Critical leak should prevent online: {host_status}")
 
         # Check event logging
         result = self.duthost.shell(
@@ -243,14 +244,14 @@ class TestBmcctldDaemon:
         import time
 
         start = time.time()
-        result = self.duthost.shell(
+        query_result = self.duthost.shell(
             f"redis-cli -n 6 HGET '{HOST_STATE_TABLE}:{HOST_STATE_KEY}' device_status",
             module_ignore_errors=True
         )
         elapsed = time.time() - start
 
-        pytest_assert(elapsed < 5.0,
-                     f"Query latency {elapsed:.3f}s is excessive")
+        pytest_assert(query_result['rc'] == 0 and elapsed < 5.0,
+                      f"Query failed or latency {elapsed:.3f}s is excessive")
         logger.info(f"STATE_DB query latency: {elapsed:.3f}s")
 
         # Verify daemon responsiveness
@@ -260,7 +261,7 @@ class TestBmcctldDaemon:
         )
 
         pytest_assert(result['rc'] == 0,
-                     "bmcctld should remain active after queries")
+                      "bmcctld should remain active after queries")
 
         # Verify consistency across reads
         values = []
@@ -277,7 +278,7 @@ class TestBmcctldDaemon:
             # All values should be identical (no state drift)
             unique_values = set(values)
             pytest_assert(len(unique_values) <= 2,
-                         f"State unstable: {unique_values}")
+                          f"State unstable: {unique_values}")
 
     def test_bmcctld_event_log(self):
         """
@@ -445,10 +446,10 @@ class TestBmcctldDaemon:
                 f" command TEST_TRIGGER status ''",
                 module_ignore_errors=True
             )
-            logger.info(f"Trigger 3 [STATE_DB RACK_MANAGER_COMMAND]: command=TEST_TRIGGER (unknown)")
+            logger.info("Trigger 3 [STATE_DB RACK_MANAGER_COMMAND]: command=TEST_TRIGGER (unknown)")
             found = wait_until(30, 3, 0, log_contains, 'rack.*manager\\|rack_mgr\\|RACK_MGR')
             trigger_results['RACK_MANAGER_COMMAND'] = found
-            logger.info(f"Trigger 3: {'logged' if found else 'no log within 30s'}")
+            logger.info("Trigger 3: logged" if found else "no log within 30s")
         finally:
             self.duthost.shell(
                 f"redis-cli -n 6 DEL '{RACK_MANAGER_COMMAND_TABLE}:{cmd_key}'",
@@ -465,10 +466,10 @@ class TestBmcctldDaemon:
                 f" severity MINOR",
                 module_ignore_errors=True
             )
-            logger.info(f"Trigger 4 [STATE_DB RACK_MANAGER_ALERT]: severity=MINOR")
+            logger.info("Trigger 4 [STATE_DB RACK_MANAGER_ALERT]: severity=MINOR")
             found = wait_until(30, 3, 0, log_contains, 'rack.*alert\\|rack_mgr\\|RACK_MGR')
             trigger_results['RACK_MANAGER_ALERT'] = found
-            logger.info(f"Trigger 4: {'logged' if found else 'no log within 30s'}")
+            logger.info("Trigger 4: logged" if found else "no log within 30s")
         finally:
             self.duthost.shell(
                 f"redis-cli -n 6 DEL '{RACK_MANAGER_ALERT_TABLE}:{alert_key}'",

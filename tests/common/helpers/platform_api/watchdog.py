@@ -72,5 +72,5 @@ def check_watchdog_logs_in_bmc_dir(duthost):
 def check_bmc_directory_exists(duthost):
     """Check if BMC directory exists for log storage"""
     result = duthost.shell("test -d /host/bmc && echo 'exists' || echo 'missing'",
-                          module_ignore_errors=True)
+                           module_ignore_errors=True)
     return "exists" in result['stdout']

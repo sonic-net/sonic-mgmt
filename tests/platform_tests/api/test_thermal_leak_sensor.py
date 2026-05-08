@@ -11,9 +11,11 @@ Tests cover:
 import logging
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401
+from tests.common.platform.device_utils import (  # noqa: F401
+    platform_api_conn,
+    start_platform_api_service
+)
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -23,6 +25,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 class TestLeakSensorApi(PlatformApiTestBase):
     """
     Tests for LeakageSensorBase platform API
@@ -31,10 +34,9 @@ class TestLeakSensorApi(PlatformApiTestBase):
     num_leak_sensors = 0
 
     @pytest.fixture(scope="function", autouse=True)
-    def skip_if_no_leak_sensors(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
+    def skip_if_no_leak_sensors(self, enum_rand_one_per_hwsku_hostname,
+                                platform_api_conn):  # noqa: F811
         """Skip tests if device has no leak sensors"""
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
         try:
             liquid_cooling = chassis.get_liquid_cooling(platform_api_conn)
             if liquid_cooling is None:
@@ -46,7 +48,8 @@ class TestLeakSensorApi(PlatformApiTestBase):
         except Exception as e:
             pytest.skip(f"Could not determine leak sensor count: {e}")
 
-    def test_leak_sensor_identity_attributes(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
+    def test_leak_sensor_identity_attributes(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                                             platform_api_conn):  # noqa: F811
         """
         Test LeakageSensorBase identity attributes: name, type, location
 
@@ -69,18 +72,21 @@ class TestLeakSensorApi(PlatformApiTestBase):
             # Test type
             sensor_type = chassis.get_leak_sensor_type(platform_api_conn, sensor_index)
             self.expect(sensor_type is None or isinstance(sensor_type, str),
-                       f"Sensor {sensor_index} type should be str or None")
+                        f"Sensor {sensor_index} type should be str or None")
             if sensor_type is not None:
-                self.expect(len(sensor_type) > 0, f"Sensor {sensor_index} type should not be empty")
+                self.expect(len(sensor_type) > 0,
+                            f"Sensor {sensor_index} type should not be empty")
 
             # Test location
             location = chassis.get_leak_sensor_location(platform_api_conn, sensor_index)
             self.expect(location is None or isinstance(location, str),
-                       f"Sensor {sensor_index} location should be str or None")
+                        f"Sensor {sensor_index} location should be str or None")
             if location is not None:
-                self.expect(len(location) > 0, f"Sensor {sensor_index} location should not be empty")
+                self.expect(len(location) > 0,
+                            f"Sensor {sensor_index} location should not be empty")
 
-    def test_leak_sensor_status_attributes(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
+    def test_leak_sensor_status_attributes(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                                           platform_api_conn):  # noqa: F811
         """
         Test LeakageSensorBase status attributes: is_leak, is_leak_sensor_ok, severity
 

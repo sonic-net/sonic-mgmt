@@ -20,6 +20,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 class TestBmcCliCommands:
     """
     Test BMC-related CLI commands
@@ -48,7 +49,7 @@ class TestBmcCliCommands:
 
         if result['rc'] == 0:
             pytest_assert(len(result['stdout']) > 0, "show bmc returned empty output")
-            logger.info(f"show bmc: {result['stdout'][:100]}")
+            logger.info("show bmc output available")
         else:
             logger.info("show bmc not available")
 
@@ -59,8 +60,9 @@ class TestBmcCliCommands:
         )
 
         if result['rc'] == 0:
-            pytest_assert(len(result['stdout']) > 0, "show chassis module returned empty")
-            logger.info(f"show chassis module available")
+            pytest_assert(len(result['stdout']) > 0,
+                          "show chassis module returned empty")
+            logger.info("show chassis module available")
         else:
             logger.info("show chassis module not available")
 
@@ -214,5 +216,5 @@ class TestBmcCliCommands:
                 import json
                 json.loads(result['stdout'])
                 logger.info("JSON output supported")
-            except:
-                logger.info("JSON parsing not supported")
+            except (ValueError, json.JSONDecodeError) as e:
+                logger.info(f"JSON parsing not supported: {e}")
