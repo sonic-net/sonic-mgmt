@@ -755,9 +755,9 @@ crm/test_crm_available.py:
 #######################################
 dash:
   skip:
-    reason: "Not supported on this DUT topology."
+    reason: "Dash tests are only supported on smartswitch platforms"
     conditions:
-      - "'dpu' not in topo_name"
+      - "is_smartswitch == False"
 
 dash/crm/test_dash_crm.py:
   skip:
