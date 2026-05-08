@@ -58,19 +58,20 @@ class HardwareModel:
     """
     Stateful PFC_PAUSE_RX counter model.
 
-    ⚠️ MODEL FIDELITY (per code review I4): This model uses ADDITIVE drain
-    semantics — XOn fires when total_drained >= true_xon_offset. Real ASIC
-    behavior is OCCUPANCY-CROSSING (XOn fires when buffer occupancy drops
-    below pfcxoff_point - xon_offset). The two are equivalent only for the
-    perfectly clean fill-then-drain-once scenario tested here. The model is
-    fine for validating algorithm logic + counter-read ordering, but it does
-    NOT model overshoot semantics, multi-drain accumulation, or counter
-    update latency. Physical validation remains required.
+    ⚠️ MODEL FIDELITY (per code review I4 + drain-bug fix 2026-05-08):
+    This model uses ADDITIVE drain semantics — XOn fires when total_drained
+    >= true_xon_offset. Real ASIC behavior is OCCUPANCY-CROSSING (XOn fires
+    when buffer occupancy drops below pfcxoff_point - xon_offset). The two
+    are equivalent only for the perfectly clean fill-then-drain-once
+    scenario tested here. The model is fine for validating algorithm logic
+    + counter-read ordering, but it does NOT model overshoot semantics,
+    multi-drain accumulation, or counter update latency. Physical
+    validation remains required.
 
     Models a single ingress PG with:
       - pfcxoff_point: how many packets fill the buffer to xoff threshold.
       - true_xon_offset: how many packets must drain after xoff for xon to fire.
-      - Internal state: current_buffer_pkts, pause_counter.
+      - Internal state: queues per dst port, pause_counter, _in_xoff flag.
 
     Methods called by the executor (via patches):
       - send_traffic(src, dst, pkts, **kw): pkts go to the dst's queue;
@@ -79,71 +80,95 @@ class HardwareModel:
         egress queue (effectively empties their egress buffer; ingress
         usage drops by their queue depth).
       - hold_buffer(ports): tx_disable; queue stays.
-      - read counter for src_port: returns current pause_counter.
+      - read_counter(): returns (counters, queue_counters) where
+        counters[cnt_pg_idx] = pause_counter.
 
     XOff trigger logic:
-      When ingress buffer >= pfcxoff_point, increment pause_counter.
+      When ingress buffer >= pfcxoff_point AND not yet in xoff state,
+      increment pause_counter once (the "first xoff fire" event) and set
+      _in_xoff = True.
+
+    Periodic PAUSE emission (drain-bug fix 2026-05-08):
+      While _in_xoff is True, every call to read_counter() increments
+      pause_counter by `pause_rate_per_read`. This models the real
+      DUT behavior — IEEE 802.1Qbb specifies PAUSE frames are emitted
+      periodically (~every 100µs) for as long as xoff is asserted, so
+      the counter naturally accumulates pauses over time. The new
+      _drain_phase logic relies on this: it reads the counter twice
+      with an observation_window between them and detects xon by
+      observing the counter STOP incrementing (delta < tolerance).
 
     XOn trigger logic (additive — see disclaimer above):
-      After xoff, if cumulative drain count >= true_xon_offset,
-      we model that src is resumed -> next "send" from src will trigger xoff
-      again -> pause_counter increments.
-
-    Simplification: We collapse the "src resumes -> sends -> xoff fires
-    again" into a single +1 to the counter when the drain crosses the
-    xon threshold. This matches what the real executor observes at the
-    counter level, but abstracts away ASIC counter latency and overshoot.
+      After xoff, if cumulative drain count >= true_xon_offset, set
+      _in_xoff = False. The counter freezes — no more pauses emitted —
+      which is what the new _drain_phase detects. Note: the original
+      (buggy) model incremented counter +1 here to simulate src refilling
+      and re-triggering xoff. The fixed model reflects physical reality:
+      the PTF test sends only a bounded burst of pfcxoff_point packets,
+      so after PFC release there is no source-side refill — the counter
+      simply stops.
     """
 
-    def __init__(self, pfcxoff_point: int, true_xon_offset: int, cnt_pg_idx: int = 5):
+    def __init__(self, pfcxoff_point: int, true_xon_offset: int, cnt_pg_idx: int = 5,
+                 pause_rate_per_read: int = 10):
         self.pfcxoff_point = pfcxoff_point
         self.true_xon_offset = true_xon_offset
         self.cnt_pg_idx = cnt_pg_idx
         self.pause_counter = 0
         self.queues = {}    # port_id -> queued packets
         self.tx_disabled = set()
-        self.last_xoff_pause_count = None  # snapshot when xoff fired
+        self._in_xoff = False
+        # Per-read PAUSE counter increment while in xoff. Default 10 ensures
+        # delta in the executor's 2-sample window exceeds the default
+        # pause_stop_tolerance of 5. Real-hw measured ~40 pauses per 100ms
+        # window on TH2 7260CX3.
+        self.pause_rate_per_read = pause_rate_per_read
 
     def send_traffic(self, src_port, dst_port, pkts, **traffic_keys):
-        """Add pkts to dst's queue. If total ingress >= xoff_point, fire xoff."""
+        """Add pkts to dst's queue. If total ingress >= xoff_point, fire xoff
+        (one-time event)."""
         # Treat src_port as identifier; only count buffer at dst level
         self.queues.setdefault(dst_port, 0)
         self.queues[dst_port] += pkts
 
         total = sum(self.queues.values())
-        # XOff fires whenever total crosses pfcxoff_point upward
-        # (and the crossing wasn't recorded yet)
-        if total >= self.pfcxoff_point and self.last_xoff_pause_count != self.pause_counter:
+        # XOff fires the FIRST time total crosses pfcxoff_point upward.
+        # Subsequent reads (while still in xoff) will pump the counter via
+        # read_counter's periodic-pause modeling.
+        if total >= self.pfcxoff_point and not self._in_xoff:
             self.pause_counter += 1
-            self.last_xoff_pause_count = self.pause_counter
+            self._in_xoff = True
 
     def drain_buffer(self, ports):
         """Drain (tx_enable + flush) the listed ports.
 
         For each port, snapshot its queue depth, clear it, and check if
-        the resulting drop crosses the xon threshold (causing xon resume,
-        which we model as immediate xoff re-trigger via implicit src resume).
+        the resulting drop crosses the xon threshold. If yes, set
+        _in_xoff = False (PFC released, pauses stop). The counter is NOT
+        incremented here — this is the key change from the original buggy
+        model. See class docstring "XOn trigger logic" for rationale.
         """
         if not isinstance(ports, list):
             ports = [ports]
 
-        # If we're in xoff state, draining may trigger xon
-        in_xoff = self.last_xoff_pause_count == self.pause_counter
+        # Track xoff state at entry; xon-crossing requires we WERE in xoff
+        was_in_xoff = self._in_xoff
 
         total_drained = 0
         for p in ports:
             q = self.queues.pop(p, 0)
             total_drained += q
 
-        if in_xoff and total_drained >= self.true_xon_offset:
-            # Buffer dropped past xon threshold -> src resumes -> refills past xoff
-            # Model: pause counter increments again (xoff fires again)
-            self.pause_counter += 1
+        if was_in_xoff and total_drained >= self.true_xon_offset:
+            # Buffer dropped past xon threshold -> PFC releases, periodic
+            # PAUSE stream stops. Counter freezes (no +1 here, unlike the
+            # original buggy model).
+            self._in_xoff = False
 
         # If we drained EVERYTHING from queues, also clear xoff state
-        # (so next fill cycle starts fresh)
+        # (so next fill cycle starts fresh).
         if not self.queues:
-            self.last_xoff_pause_count = None
+            self._in_xoff = False
 
     def hold_buffer(self, ports):
         """tx_disable. We don't need to model this explicitly — packets
@@ -154,7 +179,10 @@ class HardwareModel:
 
     def read_counter(self):
         """Return (counters, queue_counters) tuple. counters[cnt_pg_idx]
-        is the pause counter."""
+        is the pause counter. While in xoff, increment the counter on
+        every read to model periodic PFC PAUSE emission."""
+        if self._in_xoff:
+            self.pause_counter += self.pause_rate_per_read
         counters = [0] * 20
         counters[self.cnt_pg_idx] = self.pause_counter
         return counters, [0] * 10

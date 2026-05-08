@@ -100,12 +100,27 @@ class TestPfcXonProbingExecutorInit:
             max_fill_attempts=5,
             fill_retry_margin=4,
             drain_settle_delay=1.0,
+            pause_observation_window=0.25,
+            pause_stop_tolerance=10,
         )
         assert ex.verbose is True
         assert ex.name == "step3"
         assert ex.max_fill_attempts == 5
         assert ex.fill_retry_margin == 4
         assert ex.drain_settle_delay == 1.0
+        assert ex.pause_observation_window == 0.25
+        assert ex.pause_stop_tolerance == 10
+
+    @pytest.mark.order(8805)
+    def test_init_default_pause_window_and_tolerance(self):
+        """Defaults: pause_observation_window=0.1s, pause_stop_tolerance=5."""
+        from pfc_xon_probing_executor import PfcXonProbingExecutor
+
+        ex = PfcXonProbingExecutor(
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
+        )
+        assert ex.pause_observation_window == 0.1
+        assert ex.pause_stop_tolerance == 5
 
 
 class TestPfcXonExecutorPrepare:
@@ -177,20 +192,30 @@ class TestPfcXonExecutorCheckFlow:
     @patch('pfc_xon_probing_executor.sai_thrift_read_port_counters')
     @patch('pfc_xon_probing_executor.time.sleep')
     def test_check_xon_fires(self, mock_sleep, mock_read):
-        """xon fires: pre-fill PAUSE=10, post-fill PAUSE=11 (xoff fired),
-        post-drain PAUSE=12 (xoff re-fired = xon was triggered)."""
+        """xon fires: pre-fill=10, post-fill=11 (xoff fired). After drain,
+        PAUSE counter has STOPPED (pause_t1=11, pause_t2=11, growth=0 <
+        tolerance=5) — PFC released, xon fired.
+
+        Note on counter values: physical hardware would show pause_t1 grow
+        substantially during drain_settle_delay (~2200 pauses/sec on TH2,
+        so ~4400 over 2s). These mocked values represent the IDEALIZED
+        post-xon-fired state where periodic PAUSE has already stopped. The
+        executor's decision logic depends only on pause_t2 - pause_t1, so
+        this UT correctly exercises the xon-fired path with stable counter."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         # cnt_pg_idx=5
         pre_cnt = [10 if i == 5 else 0 for i in range(20)]
         post_fill_cnt = [11 if i == 5 else 0 for i in range(20)]   # xoff fired
-        post_drain_cnt = [12 if i == 5 else 0 for i in range(20)]  # xon resumed
+        drain_t1_cnt = [11 if i == 5 else 0 for i in range(20)]    # counter froze
+        drain_t2_cnt = [11 if i == 5 else 0 for i in range(20)]    # delta=0 < tolerance=5
 
-        # Order of reads: pre-fill, post-fill, post-drain
+        # Order of reads: pre-fill, post-fill, drain_t1, drain_t2
         mock_read.side_effect = [
             (pre_cnt, [0] * 10),
             (post_fill_cnt, [0] * 10),
-            (post_drain_cnt, [0] * 10),
+            (drain_t1_cnt, [0] * 10),
+            (drain_t2_cnt, [0] * 10),
         ]
 
         ex = PfcXonProbingExecutor(
@@ -212,17 +237,20 @@ class TestPfcXonExecutorCheckFlow:
     @patch('pfc_xon_probing_executor.sai_thrift_read_port_counters')
     @patch('pfc_xon_probing_executor.time.sleep')
     def test_check_xon_does_not_fire(self, mock_sleep, mock_read):
-        """xon does not fire: post-drain counter stays at baseline."""
+        """xon does not fire: PAUSE counter still incrementing in observation
+        window (delta=20 > tolerance=5) — PFC still asserted, xon not fired."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         pre_cnt = [10 if i == 5 else 0 for i in range(20)]
         post_fill_cnt = [11 if i == 5 else 0 for i in range(20)]    # xoff fired
-        post_drain_cnt = [11 if i == 5 else 0 for i in range(20)]   # no change = xon NOT fired
+        drain_t1_cnt = [11 if i == 5 else 0 for i in range(20)]
+        drain_t2_cnt = [31 if i == 5 else 0 for i in range(20)]     # delta=20 > tolerance=5
 
         mock_read.side_effect = [
             (pre_cnt, [0] * 10),
             (post_fill_cnt, [0] * 10),
-            (post_drain_cnt, [0] * 10),
+            (drain_t1_cnt, [0] * 10),
+            (drain_t2_cnt, [0] * 10),
         ]
 
         ex = PfcXonProbingExecutor(
@@ -238,25 +266,28 @@ class TestPfcXonExecutorCheckFlow:
     @patch('pfc_xon_probing_executor.time.sleep')
     def test_fill_retry_succeeds_on_second_attempt(self, mock_sleep, mock_read):
         """First fill attempt: xoff doesn't fire. Second attempt: fires
-        (extra margin packets pushed it over)."""
+        (extra margin packets pushed it over). Drain then sees PAUSE
+        counter freeze (xon fired)."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         pre_cnt = [10 if i == 5 else 0 for i in range(20)]
 
         # Attempt 1: pre=10, post=10 (no xoff)
         # Attempt 2: pre=10, post=11 (xoff fired with margin=2 extra)
-        # After fill: drain phase reads post_drain=12 (xon)
+        # After fill: drain phase reads pause_t1=11, pause_t2=11 (frozen = xon fired)
         attempt1_post_fill = [10 if i == 5 else 0 for i in range(20)]   # not fired
         attempt2_pre = [10 if i == 5 else 0 for i in range(20)]
         attempt2_post_fill = [11 if i == 5 else 0 for i in range(20)]   # fired
-        post_drain = [12 if i == 5 else 0 for i in range(20)]           # xon
+        drain_t1 = [11 if i == 5 else 0 for i in range(20)]
+        drain_t2 = [11 if i == 5 else 0 for i in range(20)]              # frozen = xon
 
         mock_read.side_effect = [
             (pre_cnt, [0] * 10),                # attempt 1 pre
             (attempt1_post_fill, [0] * 10),     # attempt 1 post
             (attempt2_pre, [0] * 10),           # attempt 2 pre
             (attempt2_post_fill, [0] * 10),     # attempt 2 post
-            (post_drain, [0] * 10),             # drain phase
+            (drain_t1, [0] * 10),               # drain pause_t1
+            (drain_t2, [0] * 10),               # drain pause_t2
         ]
 
         ex = PfcXonProbingExecutor(
@@ -327,17 +358,22 @@ class TestPfcXonExecutorMultipleAttempts:
     @patch('pfc_xon_probing_executor.sai_thrift_read_port_counters')
     @patch('pfc_xon_probing_executor.time.sleep')
     def test_attempts_2_consistent_xon(self, mock_sleep, mock_read):
-        """2 attempts both report xon -> success."""
+        """2 attempts both report xon -> success.
+
+        Per-attempt read order: pre, post-fill, drain_t1, drain_t2.
+        xon means PAUSE counter is frozen between t1 and t2."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
-        # Pattern per attempt: pre, post-fill (xoff fired), post-drain (xon)
         pre = [10 if i == 5 else 0 for i in range(20)]
         post_fill = [11 if i == 5 else 0 for i in range(20)]
-        post_drain = [12 if i == 5 else 0 for i in range(20)]
+        drain_t1 = [11 if i == 5 else 0 for i in range(20)]
+        drain_t2 = [11 if i == 5 else 0 for i in range(20)]    # frozen = xon
 
         mock_read.side_effect = [
-            (pre, [0] * 10), (post_fill, [0] * 10), (post_drain, [0] * 10),  # attempt 1
-            (pre, [0] * 10), (post_fill, [0] * 10), (post_drain, [0] * 10),  # attempt 2
+            (pre, [0] * 10), (post_fill, [0] * 10),
+            (drain_t1, [0] * 10), (drain_t2, [0] * 10),         # attempt 1
+            (pre, [0] * 10), (post_fill, [0] * 10),
+            (drain_t1, [0] * 10), (drain_t2, [0] * 10),         # attempt 2
         ]
 
         ex = PfcXonProbingExecutor(
@@ -352,17 +388,26 @@ class TestPfcXonExecutorMultipleAttempts:
     @patch('pfc_xon_probing_executor.sai_thrift_read_port_counters')
     @patch('pfc_xon_probing_executor.time.sleep')
     def test_attempts_2_inconsistent(self, mock_sleep, mock_read):
-        """2 attempts disagree -> success=False."""
+        """2 attempts disagree -> success=False.
+
+        Attempt 1: PAUSE frozen (xon fired). Attempt 2: PAUSE still
+        incrementing (xon NOT fired). Inconsistent -> success=False."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         pre = [10 if i == 5 else 0 for i in range(20)]
         post_fill = [11 if i == 5 else 0 for i in range(20)]
-        post_drain_xon = [12 if i == 5 else 0 for i in range(20)]      # xon fired
-        post_drain_no_xon = [11 if i == 5 else 0 for i in range(20)]   # no xon
+        # Attempt 1: drain frozen (xon)
+        a1_drain_t1 = [11 if i == 5 else 0 for i in range(20)]
+        a1_drain_t2 = [11 if i == 5 else 0 for i in range(20)]
+        # Attempt 2: drain still counting (no xon)
+        a2_drain_t1 = [11 if i == 5 else 0 for i in range(20)]
+        a2_drain_t2 = [40 if i == 5 else 0 for i in range(20)]   # delta=29 > tol=5
 
         mock_read.side_effect = [
-            (pre, [0] * 10), (post_fill, [0] * 10), (post_drain_xon, [0] * 10),     # attempt 1: xon
-            (pre, [0] * 10), (post_fill, [0] * 10), (post_drain_no_xon, [0] * 10),  # attempt 2: no xon
+            (pre, [0] * 10), (post_fill, [0] * 10),
+            (a1_drain_t1, [0] * 10), (a1_drain_t2, [0] * 10),     # attempt 1: xon
+            (pre, [0] * 10), (post_fill, [0] * 10),
+            (a2_drain_t1, [0] * 10), (a2_drain_t2, [0] * 10),     # attempt 2: no xon
         ]
 
         ex = PfcXonProbingExecutor(
@@ -371,3 +416,139 @@ class TestPfcXonExecutorMultipleAttempts:
         success, xon_fired = ex.check(24, 28, 29, value=5, pg=3, attempts=2)
         assert success is False
         assert xon_fired is False
+
+
+class TestPfcXonExecutorDrainStopDetection:
+    """New UT (drain-bug fix 2026-05-08): boundary cases for the
+    counter-stop detection logic."""
+
+    def setup_method(self):
+        self.observer = _make_observer()
+        self.ptf = _make_ptftest()
+
+    @pytest.mark.order(8850)
+    @patch('pfc_xon_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xon_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xon_probing_executor.time.sleep')
+    def test_drain_growth_below_tolerance_is_xon_fired(self, mock_sleep, mock_read):
+        """Counter delta within tolerance (small noise) still counts as
+        xon fired. tol=5, delta=4 -> xon fired."""
+        from pfc_xon_probing_executor import PfcXonProbingExecutor
+
+        pre = [10 if i == 5 else 0 for i in range(20)]
+        post_fill = [11 if i == 5 else 0 for i in range(20)]
+        drain_t1 = [11 if i == 5 else 0 for i in range(20)]
+        drain_t2 = [15 if i == 5 else 0 for i in range(20)]   # delta=4 < tol=5 -> xon
+
+        mock_read.side_effect = [
+            (pre, [0] * 10), (post_fill, [0] * 10),
+            (drain_t1, [0] * 10), (drain_t2, [0] * 10),
+        ]
+
+        ex = PfcXonProbingExecutor(
+            ptftest=self.ptf, observer=self.observer,
+            pfcxoff_point=1000, pause_stop_tolerance=5,
+        )
+        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3)
+        assert success is True
+        assert xon_fired is True
+
+    @pytest.mark.order(8851)
+    @patch('pfc_xon_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xon_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xon_probing_executor.time.sleep')
+    def test_drain_growth_equal_tolerance_is_xoff_active(self, mock_sleep, mock_read):
+        """Boundary: delta == tolerance means PFC still active (xon NOT
+        fired). The condition is strict: growth < tolerance."""
+        from pfc_xon_probing_executor import PfcXonProbingExecutor
+
+        pre = [10 if i == 5 else 0 for i in range(20)]
+        post_fill = [11 if i == 5 else 0 for i in range(20)]
+        drain_t1 = [11 if i == 5 else 0 for i in range(20)]
+        drain_t2 = [16 if i == 5 else 0 for i in range(20)]   # delta=5 == tol=5 -> xoff active
+
+        mock_read.side_effect = [
+            (pre, [0] * 10), (post_fill, [0] * 10),
+            (drain_t1, [0] * 10), (drain_t2, [0] * 10),
+        ]
+
+        ex = PfcXonProbingExecutor(
+            ptftest=self.ptf, observer=self.observer,
+            pfcxoff_point=1000, pause_stop_tolerance=5,
+        )
+        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3)
+        assert success is True
+        assert xon_fired is False
+
+    @pytest.mark.order(8852)
+    @patch('pfc_xon_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xon_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xon_probing_executor.time.sleep')
+    def test_drain_high_growth_is_pfc_still_active(self, mock_sleep, mock_read):
+        """Counter delta way above tolerance (PFC at full periodic rate) ->
+        xon NOT fired. This is the SCENARIO THAT EXPOSED THE ORIGINAL BUG
+        on physical TH2: counter grew ~40 in 100ms window from periodic
+        PFC PAUSE frames while xoff was still asserted."""
+        from pfc_xon_probing_executor import PfcXonProbingExecutor
+
+        pre = [10 if i == 5 else 0 for i in range(20)]
+        post_fill = [4080 if i == 5 else 0 for i in range(20)]   # high baseline (real-hw rate)
+        drain_t1 = [4090 if i == 5 else 0 for i in range(20)]
+        drain_t2 = [4130 if i == 5 else 0 for i in range(20)]    # delta=40 -> PFC active
+
+        mock_read.side_effect = [
+            (pre, [0] * 10), (post_fill, [0] * 10),
+            (drain_t1, [0] * 10), (drain_t2, [0] * 10),
+        ]
+
+        ex = PfcXonProbingExecutor(
+            ptftest=self.ptf, observer=self.observer,
+            pfcxoff_point=1000, pause_stop_tolerance=5,
+        )
+        success, xon_fired = ex.check(24, 28, 29, value=1, pg=3)
+        # With the OLD buggy logic, this would have returned xon_fired=True
+        # because post_drain (4130) > baseline (4080). The new logic
+        # correctly identifies that the PAUSE counter is still ramping
+        # and reports xon_NOT fired.
+        assert success is True
+        assert xon_fired is False
+
+    @pytest.mark.order(8853)
+    @patch('pfc_xon_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xon_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xon_probing_executor.time.sleep')
+    def test_drain_phase_uses_observation_window_sleep(self, mock_sleep, mock_read):
+        """Verify _drain_phase actually waits pause_observation_window
+        between the two PAUSE samples — exact count and ordering."""
+        from pfc_xon_probing_executor import PfcXonProbingExecutor
+
+        pre = [10 if i == 5 else 0 for i in range(20)]
+        post_fill = [11 if i == 5 else 0 for i in range(20)]
+        drain_t1 = [11 if i == 5 else 0 for i in range(20)]
+        drain_t2 = [11 if i == 5 else 0 for i in range(20)]
+
+        mock_read.side_effect = [
+            (pre, [0] * 10), (post_fill, [0] * 10),
+            (drain_t1, [0] * 10), (drain_t2, [0] * 10),
+        ]
+
+        ex = PfcXonProbingExecutor(
+            ptftest=self.ptf, observer=self.observer,
+            pfcxoff_point=1000,
+            drain_settle_delay=0.5,
+            pause_observation_window=0.25,
+        )
+        ex.check(24, 28, 29, value=5, pg=3)
+
+        # Tighten beyond mere `in` membership: verify exact count + ordering.
+        # This locks in the contract that _drain_phase calls each sleep
+        # exactly once and in the documented order (settle BEFORE window).
+        sleep_args = [c.args[0] for c in mock_sleep.call_args_list]
+        assert sleep_args.count(0.5) == 1, \
+            f"drain_settle_delay (0.5) should be slept exactly once: {sleep_args}"
+        assert sleep_args.count(0.25) == 1, \
+            f"pause_observation_window (0.25) should be slept exactly once: {sleep_args}"
+        i_settle = sleep_args.index(0.5)
+        i_window = sleep_args.index(0.25)
+        assert i_settle < i_window, \
+            f"drain_settle_delay must precede observation window: {sleep_args}"
