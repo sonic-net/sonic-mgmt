@@ -199,3 +199,87 @@ def is_inband_port(port):
     if re.match(INBAND_PORT_REGEX, port):
         return True
     return False
+
+
+# ===== Leak Sensor Methods =====
+
+def get_num_leak_sensors(conn):
+    """Get the number of leak sensors from liquid cooling device"""
+    return chassis_api(conn, 'get_num_leak_sensors')
+
+
+def get_liquid_cooling(conn):
+    """Get the liquid cooling device"""
+    return chassis_api(conn, 'get_liquid_cooling')
+
+
+def get_leak_sensor_name(conn, index):
+    """Get leak sensor name"""
+    return chassis_api(conn, 'get_leak_sensor_name', [index])
+
+
+def get_leak_sensor_type(conn, index):
+    """Get leak sensor type"""
+    return chassis_api(conn, 'get_leak_sensor_type', [index])
+
+
+def get_leak_sensor_location(conn, index):
+    """Get leak sensor location"""
+    return chassis_api(conn, 'get_leak_sensor_location', [index])
+
+
+def get_leak_status(conn, index):
+    """Get leak status (is_leak)"""
+    return chassis_api(conn, 'get_leak_status', [index])
+
+
+def get_leak_sensor_ok(conn, index):
+    """Get leak sensor ok status (is_leak_sensor_ok)"""
+    return chassis_api(conn, 'get_leak_sensor_ok', [index])
+
+
+def get_leak_severity(conn, index):
+    """Get leak severity level"""
+    return chassis_api(conn, 'get_leak_severity', [index])
+
+
+# ===== Module Methods (SWITCH-HOST, etc.) =====
+
+def get_module_by_name(conn, module_name):
+    """Get a module by name (e.g., 'SWITCH-HOST')"""
+    return chassis_api(conn, 'get_module_by_name', [module_name])
+
+
+def get_module_name(conn, module_name):
+    """Get module name"""
+    return chassis_api(conn, 'get_module_name', [module_name])
+
+
+def get_module_description(conn, module_name):
+    """Get module description"""
+    return chassis_api(conn, 'get_module_description', [module_name])
+
+
+def get_module_slot(conn, module_name):
+    """Get module slot number"""
+    return chassis_api(conn, 'get_module_slot', [module_name])
+
+
+def get_module_serial(conn, module_name):
+    """Get module serial number"""
+    return chassis_api(conn, 'get_module_serial', [module_name])
+
+
+def get_module_admin_status(conn, module_name):
+    """Get module admin status (up/down)"""
+    return chassis_api(conn, 'get_module_admin_status', [module_name])
+
+
+def get_module_oper_status(conn, module_name):
+    """Get module operational status"""
+    return chassis_api(conn, 'get_module_oper_status', [module_name])
+
+
+def set_module_admin_status(conn, module_name, status):
+    """Set module admin status"""
+    return chassis_api(conn, 'set_module_admin_status', [module_name, status])
