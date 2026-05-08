@@ -24,7 +24,7 @@ This test plan covers:
 
 ### 1.3 References
 
-- SONiC Link Event Damping HLD
+- SONiC Link Event Damping HLD (https://github.com/sonic-net/SONiC/blob/master/doc/link_event_damping/Link-event-damping-HLD.md)
 - SONiC SWSS / OrchAgent design
 
 ## 2. Test Environment
