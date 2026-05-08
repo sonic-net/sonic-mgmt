@@ -5003,8 +5003,6 @@ snappi_tests/pfc/test_global_pause_with_snappi.py:
 snappi_tests/pfc/warm_reboot/test_pfc_pause_lossless_warm_reboot.py:
   skip:
     reason: "Warm and fast reboots will be aborted if there is a queue in stormed state. https://github.com/sonic-net/sonic-utilities/pull/3969"
-    conditions:
-      - "True"
 
 snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_90_10:
   skip:
