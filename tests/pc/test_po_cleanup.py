@@ -198,7 +198,6 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         # Cancel the watchdog now that cleanup has been done.
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
-            watchdog_pid = None
     except Exception:
         duthost.shell("killall yes", module_ignore_errors=True)
         if watchdog_pid:
