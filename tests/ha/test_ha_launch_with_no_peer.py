@@ -134,8 +134,8 @@ def activate_dash_ha(duthost, dpuhost, localhost, ptfhost, setup_gnmi_server, ha
     logger.info(f"HA: Activate completed for {duthost.hostname}")
 
 
-def test_ha_launch_with_no_peer(request, duthosts, dpuhosts, localhost, ptfhost, setup_ha_config,
-                                ha_owner, setup_gnmi_server, primary_vdpu_key, standby_vdpu_key):
+def test_ha_launch_with_no_peer_and_standalone_peer(request, duthosts, dpuhosts, localhost, ptfhost, setup_ha_config,
+                                                    ha_owner, setup_gnmi_server, primary_vdpu_key, standby_vdpu_key):
 
     logger.info("HA: activate only primary")
     setup_dash_ha(duthosts[0], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=0)
