@@ -317,7 +317,11 @@ def run_pfc_test(api,
     # Verify PFC pause frames
     if valid_pfc_frame_test:
         if not is_cisco_device(duthost):
-            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+            # Capture window ~2s.
+            # Derive SAMPLE_SIZE from port speed to reflect capturable frames rather than total DUT generation.
+            pfc_sample_size = int(calc_pfc_pause_flow_rate(speed_gbps) * 2)
+            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng",
+                                                               SAMPLE_SIZE=pfc_sample_size)
         else:
             is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
                                                             snappi_extra_params.packet_capture_file + ".pcapng")
