@@ -241,8 +241,8 @@ def image_install(args):
     if 'extra_onie_check' in testbed_info_dict and install_mode == "onie":
         log.debug("Image installed, check for lldp count")
         for telnet in testbed_info_dict['telnet_details']:
-            [host, port] = telnet.split(" ")
-            p = telnetConnection(host, port, None, sys.stdout, 'latin-1', False, testbed_info_dict)
+            [telnet_host, port] = telnet.split(" ")
+            p = telnetConnection(telnet_host, port, None, sys.stdout, 'latin-1', False, testbed_info_dict)
             if telnetLoginUtil(p, stream, True) == -1:
                 return -1
             checklldpCount(p, testbed_info_dict)
@@ -515,7 +515,7 @@ def onie_install(args, index):
         for cmd in cmds_list:
             log.debug(f"Executing extra ONIE command: {cmd}")
             time.sleep(2)
-            if cmd.startswith("scp"):
+            if cmd.startswith("scp") or cmd.startswith("sudo scp"):
                 scpUtil(p, cmd, testbed_info_dict["ucs_password"])
                 p.expect(sonic_prompt)
             elif cmd == "show lldp table":
