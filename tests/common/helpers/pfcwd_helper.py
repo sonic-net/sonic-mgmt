@@ -648,7 +648,7 @@ def _parse_pfcwd_stats(dut):
     Returns:
         dict: {(port, queue): {'status': str, 'storm_detect_count': int, 'restored_count': int}}
     """
-    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stats')
     stats_dict = {}
 
     for item in pfcwd_stat_output:
@@ -779,7 +779,7 @@ def parser_show_pfcwd_stat(dut, select_port, select_queue):
     admin@bjw-can-7060-1:~$
     """
     logger.info("port {} queue {}".format(select_port, select_queue))
-    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stats')
 
     pfcwd_stat = []
     for item in pfcwd_stat_output:
@@ -873,25 +873,35 @@ def send_tx_egress(traffic_inst, action, verify, async_mode=False, pkt_count=Non
 
 def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
     """Shut down all LAG members except the selected port so that PFC watchdog
-    testing runs over a single link while keeping the port-channel up (min-links=1)."""
+    testing runs over a single link while keeping the port-channel up
+    (min-links=1).
+
+    Multi-asic-aware: uses minigraph_portchannels (frontend port names on both
+    single-asic and multi-asic) instead of config_facts['PORTCHANNEL_MEMBER']
+    (which on multi-asic is keyed by asic-internal names like Ethernet1/1
+    that don't match the frontend names in test_ports/vm_neighbors). All DUT
+    config edits go through namespace-aware CLI/sonic-db-cli; no on-disk
+    config_db.json edits, so restore can revert via config_reload.
+    """
     if ports[selected_port]['test_port_type'] != 'portchannel':
         return None, None, None
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    portChannels = config_facts['PORTCHANNEL_MEMBER']
-    portChannel = None
-    portChannelMembers = None
-    for intf in portChannels:
-        if selected_port in portChannels[intf]:
-            portChannel = intf
-            portChannelMembers = portChannels[intf]
-            break
-
     dst_mgfacts = duthost.get_extended_minigraph_facts(tbinfo)
+    portChannel = None
+    portChannelMembers = []
+    for pc_name, pc_meta in dst_mgfacts['minigraph_portchannels'].items():
+        if selected_port in pc_meta.get('members', []):
+            portChannel = pc_name
+            portChannelMembers = list(pc_meta['members'])
+            break
+    if portChannel is None:
+        return None, None, None
+
     vm_neighbors = dst_mgfacts['minigraph_neighbors']
-    peer_device = vm_neighbors[list(portChannelMembers.keys())[0]]['name']
-    peer_port = vm_neighbors[list(portChannelMembers.keys())[0]]['port']
+    peer_device = vm_neighbors[portChannelMembers[0]]['name']
+    peer_port = vm_neighbors[portChannelMembers[0]]['port']
     vm_host = nbrhosts[peer_device]['host']
+
     neigh_port_channel = None
     min_links = None
     if isinstance(vm_host, EosHost):
@@ -903,27 +913,29 @@ def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
                     neigh_port_channel = po_name
                     min_links = len(po_config['activePorts'])
                     break
+        vm_host.eos_config(lines=['port-channel min-links 1'],
+                           parents=[f'int {neigh_port_channel}'])
 
-        vm_host.eos_config(lines=['port-channel min-links 1'], parents=[f'int {neigh_port_channel}'])
-
-    cmd_data = f'.PORTCHANNEL.{portChannel}.min_links = "1"'
-
+    # Namespace-aware CLI option: '' on single-asic, '-n asicN' on multi-asic.
+    ns = duthost.get_port_asic_instance(selected_port).cli_ns_option
+    # Drop min-links to 1 so the LAG stays up while N-1 members are shut.
+    duthost.shell(
+        f"sonic-db-cli {ns} CONFIG_DB hset 'PORTCHANNEL|{portChannel}' min_links 1")
     for port in portChannelMembers:
         if port == selected_port:
             continue
-        cmd_data += f' | .PORT.{port}.admin_status="down"'
+        duthost.shell(f"sudo config interface {ns} shutdown {port}")
 
-    cmd = f"""jq '{cmd_data}' /etc/sonic/config_db.json > /tmp/config_db.json"""
-
-    duthost.command("cp /etc/sonic/config_db.json /tmp/config_db_backup.json", _uses_shell=True)
-    duthost.command(cmd, _uses_shell=True)
-    duthost.command("sudo cp /tmp/config_db.json /etc/sonic/config_db.json", _uses_shell=True)
-    config_reload(duthost, config_source='config_db', safe_reload=True,
-                  check_intf_up_ports=True, wait_for_bgp=True)
     return vm_host, neigh_port_channel, min_links
 
 
 def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel, min_links, ports):
+    """Revert LAG/min-links edits made by shutdown_lag_members.
+
+    Since shutdown_lag_members modifies running CONFIG_DB only (no on-disk
+    edits), config_reload from the on-disk config_db is sufficient to bring
+    members back up and restore the original min_links.
+    """
     if ports[selected_port]['test_port_type'] != 'portchannel':
         return
 
@@ -931,6 +943,5 @@ def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel,
         vm_host.eos_config(lines=[f'port-channel min-links {min_links}'],
                            parents=[f'int {neigh_port_channel}'])
 
-    duthost.command("sudo mv /tmp/config_db_backup.json /etc/sonic/config_db.json", _uses_shell=True)
     config_reload(duthost, config_source='config_db', safe_reload=True,
                   check_intf_up_ports=True, wait_for_bgp=True)

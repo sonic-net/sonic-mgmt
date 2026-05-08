@@ -10,7 +10,8 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
+    shutdown_lag_members, restore_original_config
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
     fetch_vendor_specific_diagnosis_re
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
@@ -1287,6 +1288,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def run_pfcwd_storm_with_active_traffic(self, dut, port, action):
         restore_time = self.timers['pfc_wd_restore_time_large']
+        # Hardware PFCwd platforms (e.g., Broadcom DNX) cap pfcwd
+        # restoration-time at 100-1000 ms; clamp to keep the CLI happy.
+        if is_pfcwd_hw_recovery_enabled(dut):
+            restore_time = min(restore_time, 1000)
         detect_time = self.timers['pfc_wd_detect_time']
         queue = self.pfc_wd['queue_index']
         rx_port = self.pfc_wd['rx_port'][0]
@@ -1387,6 +1392,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         port = list(self.ports.keys())[0]
 
+        # Force traffic over a single LAG member when test_port is a portchannel
+        # so the per-port tx_drop_count assertion is hashing-deterministic.
+        # No-op when test_port_type != 'portchannel'.
+        vm_host, neigh_port_channel, min_links = shutdown_lag_members(
+            duthost, port, tbinfo, nbrhosts, self.ports)
+
         logger.info("--- Testing pfcwd storm during traffic on {} ---".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
         self.traffic_inst = SendVerifyTraffic(
@@ -1402,16 +1413,20 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         else:
             actions = ['drop', 'forward']
 
-        for action in actions:
-            logger.info("########## Pfcwd storm during traffic: port={} action={} ##########".format(
-                port, action))
-            try:
-                self.set_traffic_action(duthost, action)
-                self.run_pfcwd_storm_with_active_traffic(self.dut, port, action)
-            finally:
-                if self.storm_hndle:
-                    self.storm_hndle.stop_storm()
-                self.dut.command("pfcwd stop")
+        try:
+            for action in actions:
+                logger.info("########## Pfcwd storm during traffic: port={} action={} ##########".format(
+                    port, action))
+                try:
+                    self.set_traffic_action(duthost, action)
+                    self.run_pfcwd_storm_with_active_traffic(self.dut, port, action)
+                finally:
+                    if self.storm_hndle:
+                        self.storm_hndle.stop_storm()
+                    self.dut.command("pfcwd stop")
+        finally:
+            restore_original_config(
+                duthost, port, vm_host, neigh_port_channel, min_links, self.ports)
 
     def test_pfcwd_no_traffic(
             self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
