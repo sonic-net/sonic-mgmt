@@ -305,6 +305,20 @@ class PfcXonProbingExecutor:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _read_pause_count(self, src_port: int) -> int:
+        """
+        Read the current PFC PAUSE_RX counter for src_port at the
+        configured PG index. Single seam between the executor and the
+        underlying counter source — overridden by SimPfcXonProbingExecutor
+        to read from a HardwareModel instead of SAI.
+        """
+        cnt, _ = sai_thrift_read_port_counters(
+            self.ptftest.src_client,
+            self.ptftest.asic_type,
+            port_list["src"][src_port],
+        )
+        return cnt[self.ptftest.cnt_pg_idx]
+
     def _fill_phase(
         self,
         src_port: int,
@@ -332,12 +346,7 @@ class PfcXonProbingExecutor:
             time.sleep(PORT_TX_CTRL_DELAY)
 
             # Snapshot pre-fill PAUSE counter
-            pre_cnt, _ = sai_thrift_read_port_counters(
-                self.ptftest.src_client,
-                self.ptftest.asic_type,
-                port_list["src"][src_port],
-            )
-            pre_pause = pre_cnt[self.ptftest.cnt_pg_idx]
+            pre_pause = self._read_pause_count(src_port)
 
             # Send the two streams
             if pkts_to_a > 0:
@@ -353,12 +362,7 @@ class PfcXonProbingExecutor:
             time.sleep(PFC_TRIGGER_DELAY)
 
             # Did xoff fire?
-            post_cnt, _ = sai_thrift_read_port_counters(
-                self.ptftest.src_client,
-                self.ptftest.asic_type,
-                port_list["src"][src_port],
-            )
-            post_pause = post_cnt[self.ptftest.cnt_pg_idx]
+            post_pause = self._read_pause_count(src_port)
 
             xoff_fired = post_pause > pre_pause
             if self.verbose:
@@ -410,24 +414,14 @@ class PfcXonProbingExecutor:
         time.sleep(self.drain_settle_delay)
 
         # Sample 1: just after drain settles.
-        cnt1, _ = sai_thrift_read_port_counters(
-            self.ptftest.src_client,
-            self.ptftest.asic_type,
-            port_list["src"][src_port],
-        )
-        pause_t1 = cnt1[self.ptftest.cnt_pg_idx]
+        pause_t1 = self._read_pause_count(src_port)
 
         # Wait observation window for periodic PAUSE frames to register
         # (if any are still being sent).
         time.sleep(self.pause_observation_window)
 
         # Sample 2: end of observation window.
-        cnt2, _ = sai_thrift_read_port_counters(
-            self.ptftest.src_client,
-            self.ptftest.asic_type,
-            port_list["src"][src_port],
-        )
-        pause_t2 = cnt2[self.ptftest.cnt_pg_idx]
+        pause_t2 = self._read_pause_count(src_port)
 
         pause_growth = pause_t2 - pause_t1
         xon_fired = pause_growth < self.pause_stop_tolerance
