@@ -30,9 +30,14 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
 
     if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
         # Limit listening to the mgmt interface, to prevent socket allocation
-        # exhaustion
+        # exhaustion. Detect the actual management interface name since PTF
+        # containers may use 'mgmt' or 'eth0' depending on the testbed setup.
+        mgmt_iface = "mgmt"
+        iface_check = ptfhost.shell("ip link show mgmt", module_ignore_errors=True)
+        if iface_check.get("rc", 1) != 0:
+            mgmt_iface = "eth0"
         ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
-        ptfhost.lineinfile(path=ntp_conf_path, line="interface listen mgmt")
+        ptfhost.lineinfile(path=ntp_conf_path, line="interface listen {}".format(mgmt_iface))
 
     ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
@@ -102,7 +107,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
 
     if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
         ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.ignore.wildcard")
-        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
+        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen")
 
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
