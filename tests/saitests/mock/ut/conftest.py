@@ -47,6 +47,7 @@ def reset_executor_registry():
         'threshold_point_probing_algorithm',
         'iteration_outcome',
         'pfc_xon_probing_executor',
+        'sim_pfc_xon_probing_executor',
         'xon_drain_step_algorithm',
         'xon_drain_binary_algorithm'
     ]
