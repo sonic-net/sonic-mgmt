@@ -93,6 +93,12 @@ parameters:
     type: string
     default: "platform_tests/test_advanced_reboot.py,platform_tests/link_flap/test_cont_link_flap.py,platform_tests/test_reboot.py,qos/test_qos_sai.py,bgp/test_bgp_stress_link_flap.py,platform_tests/test_power_off_reboot.py,platform_tests/link_flap/test_link_flap.py"
 
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "upgrade_path/test_upgrade_smart_switch_gnoi.py", "param": "--upgrade_type=cold --base_image_list=http://10.1.3.6/pipelines/Networking-acs-buildimage-Official/nvidia-bluefield/internal-202511/tagged/sonic-nvidia-bluefield-20251110.22.bin --target_image_list=http://10.1.3.6/pipelines/Networking-acs-buildimage-Official/nvidia-bluefield/internal-202511/tagged/sonic-nvidia-bluefield-20251110.23.bin --target_version=SONiC-OS-20251110.23"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 stages:
 - stage: Test
 
@@ -114,6 +120,7 @@ stages:
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
         COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}

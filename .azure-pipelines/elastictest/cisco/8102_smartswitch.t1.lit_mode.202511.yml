@@ -77,7 +77,8 @@ parameters:
     type: string
     default: '[
       {"name": "tacacs/test_ro_user.py", "param": "--deselect=tacacs/test_ro_user.py::test_ro_user_ipv6"},
-      {"name": "tacacs/test_rw_user.py", "param": "--deselect=tacacs/test_rw_user.py::test_rw_user_ipv6"}
+      {"name": "tacacs/test_rw_user.py", "param": "--deselect=tacacs/test_rw_user.py::test_rw_user_ipv6"},
+      {"name": "upgrade_path/test_upgrade_smart_switch_gnoi.py", "param": "--upgrade_type=cold --base_image_list=http://10.1.3.6/pipelines/Networking-acs-buildimage-Official/pensando/internal-202511/tagged/sonic-pensando-20251110.22.bin --target_image_list=http://10.1.3.6/pipelines/Networking-acs-buildimage-Official/pensando/internal-202511/tagged/sonic-pensando-20251110.23.bin --target_version=SONiC-OS-20251110.23"}
     ]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
