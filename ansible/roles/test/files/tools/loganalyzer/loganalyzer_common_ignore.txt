@@ -252,6 +252,18 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatc
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/27327
+# Mellanox SDK new log format (with client_pid prefix) - FEC_ALIGNMENT_LOCK polling on ports without FEC support
+# and sai_get_attributes failures in the new format
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] client_pid=\d+, .\/src\/mlnx_sai_utils.c\[\d+\]- get_dispatch_attribs_handler: Failed Get #\d+, FEC_ALIGNMENT_LOCK, key:PORT.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] client_pid=\d+, .\/src\/mlnx_sai_utils.c\[\d+\]- sai_get_attributes: Failed to get attribute.*"
+
+# Mellanox SAI_PORT FEC alignment lock not supported on pre-SPC4 platforms (SN2700, SN4600C, SN4700)
+r, ".* ERR syncd#SDK: \[SAI_PORT.ERR\].*mlnx_sai_port.c\[\d+\]- mlnx_port_state_get: FEC alignment lock only supported on SPC4\+.*"
+
+# Orchagent PORT_PHY_SERDES_ATTR counter map errors for ports without serdes objects
+r, ".* ERR swss\d*#orchagent: :- clearPortPhySerdesAttrCounterMap: PORT_PHY_SERDES_ATTR: Port .* has no serdes object"
+
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
 r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
 
