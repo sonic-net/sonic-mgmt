@@ -182,6 +182,25 @@ FWD:
         - ipfwd/test_nhop_group.py
         - ip/test_ip_packet.py
         - cisco/platform_tests/test_serviceability_packet_capture.py
+  t1:
+    superbolt:
+      sim:
+        - fib/test_fib.py
+        - acl/test_acl.py
+        - acl/test_stress_acl.py
+        - bfd/test_bfd.py
+        - crm/test_crm.py
+        - crm/test_crm_available.py
+        - drop_packets/test_drop_counters.py
+        - everflow/test_everflow_testbed.py
+        - everflow/test_everflow_ipv6.py
+        - everflow/test_everflow_per_interface.py
+        - hash/test_generic_hash.py
+        - ipfwd/test_dip_sip.py
+        - ipfwd/test_nhop_group.py
+        - ip/test_ip_packet.py
+        - cisco/platform_tests/test_serviceability_basic.py
+        - cisco/platform_tests/test_serviceability_s1cli.py
   t2-min:
     sfd:
       sim:
