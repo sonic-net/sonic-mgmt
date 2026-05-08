@@ -465,6 +465,79 @@ def test_show_platform_fan(duthosts, rand_one_dut_hostname, is_support_fan):  # 
                   " No Fans are displayed with OK status on '{}'".format(duthost.hostname))
 
 
+def check_show_platform_sensor_output(cmd, duthost):
+    """
+    @summary: Run and verify output of `show platform [voltage|current]`. Expected output
+              is "Sensor not detected" or a table of sensor status data with 8 columns.
+              Verify that the `Warning` column only shows `False`.
+    """
+    num_expected_cols = 8
+
+    logging.info("Verifying output of '{}' on '{}'...".format(cmd, duthost.hostname))
+    raw_output_lines = duthost.command(cmd)["stdout_lines"]
+
+    pytest_assert(len(raw_output_lines) > 0,
+                  "There must be at least one line of output on '{}'".format(duthost.hostname))
+    if len(raw_output_lines) == 1:
+        pytest_assert(raw_output_lines[0].strip().lower() == "sensor not detected",
+                      "Unexpected sensor status output on '{}'".format(duthost.hostname))
+    else:
+        pytest_assert(len(raw_output_lines) > 2,
+                      "There must be at least two lines of output if any sensor is detected "
+                      "on '{}'".format(duthost.hostname))
+        second_line = raw_output_lines[1]
+        field_ranges = util.get_field_range(second_line)
+        pytest_assert(len(field_ranges) == num_expected_cols, "Output should consist of {} columns on '{}'".
+                      format(num_expected_cols, duthost.hostname))
+
+        header_fields = util.get_fields(raw_output_lines[0], field_ranges)
+        warning_col_idx = None
+        for i, name in enumerate(header_fields):
+            if isinstance(name, bytes):
+                name = name.decode('utf-8', errors='ignore')
+            if str(name).strip().lower() == "warning":
+                warning_col_idx = i
+                break
+        pytest_assert(warning_col_idx is not None,
+                      "Output is missing the 'Warning' column on '{}' (header: {})".
+                      format(duthost.hostname, header_fields))
+
+        for line in raw_output_lines[2:]:
+            if not line.strip():
+                continue
+            row_fields = util.get_fields(line, field_ranges)
+            pytest_assert(len(row_fields) == num_expected_cols,
+                          "Unexpected number of fields in output row on '{}' (row: {})".
+                          format(duthost.hostname, row_fields))
+
+            warning_value = row_fields[warning_col_idx]
+            if isinstance(warning_value, bytes):
+                warning_value = warning_value.decode('utf-8', errors='ignore')
+            warning_value = str(warning_value).strip()
+
+            pytest_assert(warning_value.lower() == "false",
+                          "Expected Warning to be False for sensor '{}' on '{}', got '{}' (cmd: '{}')".
+                          format(row_fields[0], duthost.hostname, warning_value, cmd))
+
+
+def test_show_platform_voltage(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of `show platform voltage`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = " ".join([CMD_SHOW_PLATFORM, "voltage"])
+    check_show_platform_sensor_output(cmd, duthost)
+
+
+def test_show_platform_current(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of `show platform current`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = " ".join([CMD_SHOW_PLATFORM, "current"])
+    check_show_platform_sensor_output(cmd, duthost)
+
+
 def verify_show_platform_temperature_output(raw_output_lines, hostname):
     """
     @summary: Verify output of `show platform temperature`. Expected output is

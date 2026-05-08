@@ -219,6 +219,14 @@
 {% set dev_type = 'FabricSpineRouter' %}
 {% elif 'UT2' in dev %}
 {% set dev_type = 'UpperSpineRouter' %}
+{% elif 'LRH' in dev %}
+{% set dev_type = 'LowerRegionalHub' %}
+{% elif 'FRH' in dev %}
+{% set dev_type = 'FabricRegionalHub' %}
+{% elif 'URH' in dev %}
+{% set dev_type = 'UpperRegionalHub' %}
+{% elif 'RWA' in dev %}
+{% set dev_type = 'RegionalWANAggregator' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
 {% elif 'Snappi_T3' in dev %}

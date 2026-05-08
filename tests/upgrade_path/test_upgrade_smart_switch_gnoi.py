@@ -125,6 +125,8 @@ def test_upgrade_one_dpu_via_gnoi(
         tbinfo=tbinfo,
         ptf_gnoi=ptf_gnoi,
         cfg=cfg,
+        localhost=localhost,
+        duthosts=duthosts,
     )
 
 
@@ -168,6 +170,7 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
             protocol="HTTP",
             allow_fail=False,
             to_version=to_version,
+            ss_target_index=idx,
             metadata=_build_dpu_metadata(idx),
             ss_reboot_ready_timeout=reboot_ready_timeout,
             ss_reboot_message="Rebooting DPU for maintenance (gNOI upgrade parallel)",
@@ -179,6 +182,8 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
         ptf_gnoi=ptf_gnoi,
         cfgs=cfgs,
         max_workers=workers,
+        localhost=localhost,
+        duthosts=duthosts,
     )
 
 
