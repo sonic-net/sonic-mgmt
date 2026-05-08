@@ -1092,9 +1092,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             logger.info('Skip checking rule counters for vs platform')
             return True
 
-        reboot_dict = get_plt_reboot_ctrl(duthost, "acl/test_acl.py", None)        
+        reboot_dict = get_plt_reboot_ctrl(duthost, "acl/test_acl.py", None)
         wait = reboot_dict.get("wait", 300)
-        logger.info('Wait for {} to ensure all rule counters are ready'.format(wait))  
+        logger.info('Wait for {} to ensure all rule counters are ready'.format(wait))
         return wait_until(wait, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
