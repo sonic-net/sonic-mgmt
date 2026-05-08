@@ -105,7 +105,6 @@ def test_ha_planned_shutdown(
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
     rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
 
-
     if ha_owner == "dpu":
         # shutdown active HA Scope is only applicable to DPU-driven HA
         packet_sending_flag = queue.Queue(1)
