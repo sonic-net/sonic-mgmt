@@ -10,6 +10,22 @@ CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 DUT_CHECK_NAMESPACE = "dut_check_result"
 PTF_TIMEOUT = 60
 
+# Canonical default config path for the PTF arp_responder helper
+# (ansible/roles/test/files/helpers/arp_responder.py and tests/scripts/arp_responder.py).
+# It is the argparse default for the responder's --conf flag, so any test fixture that
+# pre-renders the responder config without overriding --conf must write to exactly this
+# path on the PTF. Use this constant in test-side code instead of hardcoding the literal
+# so the canonical value lives in one place.
+ARP_RESPONDER_DEFAULT_CONFIG = "/tmp/from_t1.json"
+
+# Per-suffix variant used by the advanced-reboot family of tests when a logfile suffix
+# differentiates one run's responder config from another (e.g. preboot/inboot operations).
+# The format takes a single %s placeholder for the suffix and is consumed both inside the
+# PTF runner (ansible/roles/test/files/ptftests/py3/advanced-reboot.py) and by the host-
+# side fixture that passes `-c <path>` to the responder. Update both sides together if
+# the file naming scheme ever changes; the PTF runner keeps a module-local mirror.
+ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT = "/tmp/from_t1_%s.json"
+
 # Describe upstream neighbor of dut in different topos
 UPSTREAM_NEIGHBOR_MAP = {
     "t0": "t1",
