@@ -525,9 +525,14 @@ class TestQosProbe(QosSaiBase):
             probing_port_ids[0], probing_port_ids[1], probing_port_ids[2], xonProfile,
         )
 
-        # pfcxoff_point: required input for the executor.
-        # Per design v3 it's typically obtained from a prior PfcXoff probe;
-        # for now we read it from the same yaml field (pkts_num_trig_pfc).
+        # pfcxoff_point: yaml hint of PFC Xoff trigger packet count.
+        # Per design v3 §2 Step 1+2 (implemented 2026-05-09), the PTF orchestrator
+        # `pfc_xon_probing.PfcXonProbing.probe()` runs a fresh 4-phase PfcXoff
+        # probe at run time and uses the MEASURED xoff_point for the XOn drain
+        # phase. The yaml value is only a fallback if the chain fails (or a
+        # sanity-check seed). UT/IT paths that want to skip the chain set
+        # test_params['enable_xoff_chain_probe']=False; physical runs leave
+        # this at its default True.
         pfcxoff_point = qosConfig[xonProfile].get("pkts_num_trig_pfc", None)
         if pfcxoff_point is None:
             pytest.skip(

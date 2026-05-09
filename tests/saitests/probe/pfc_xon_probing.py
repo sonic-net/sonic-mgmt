@@ -62,6 +62,12 @@ from stream_manager import PortInfo, FlowConfig, StreamManager, determine_traffi
 from xon_drain_step_algorithm import XonDrainStepAlgorithm  # noqa: E402
 from xon_drain_binary_algorithm import XonDrainBinaryAlgorithm  # noqa: E402
 
+# Algorithm imports - PfcXoff chain (Step 1+2 of design v3, 2026-05-09)
+from upper_bound_probing_algorithm import UpperBoundProbingAlgorithm  # noqa: E402
+from lower_bound_probing_algorithm import LowerBoundProbingAlgorithm  # noqa: E402
+from threshold_range_probing_algorithm import ThresholdRangeProbingAlgorithm  # noqa: E402
+from threshold_point_probing_algorithm import ThresholdPointProbingAlgorithm  # noqa: E402
+
 # Observer imports
 from probing_observer import ProbingObserver  # noqa: E402
 from observer_config import ObserverConfig  # noqa: E402
@@ -117,13 +123,24 @@ class PfcXonProbing(ProbingBase):
         Parse PfcXonProbing-specific parameters.
 
         Required testParams:
-        - pfcxoff_point (int): Known PFC Xoff threshold from prior probe (or yaml).
-            The fill phase uses this as total fill (dst_A + dst_B = pfcxoff_point).
+        - pfcxoff_point (int): YAML hint of PFC Xoff threshold. With Step 1+2 chain
+            enabled (default), this is used only as a sanity-check seed; the
+            actual value comes from a fresh PfcXoff probe (see _run_pfcxoff_chain).
+            With chain disabled (enable_xoff_chain_probe=False), this becomes the
+            value the executor uses directly (legacy / pre-design-v3 behavior).
         - dscp, pg, ecn: traffic identification (parsed by base class)
 
         Optional testParams:
-        - enable_xon_range_probe (bool): True -> binary algorithm (4-step path)
-                                         False -> step algorithm (3-step path, default)
+        - enable_xoff_chain_probe (bool, default True): when True, run Step 1+2 of
+            design v3 (4-phase PfcXoff probe -> measured xoff_point) before the
+            XOn drain probe. When False, skip the chain and use yaml pfcxoff_point
+            directly. Default True ensures real-hardware execution measures xoff
+            instead of trusting yaml; False is for UT/IT mocking and as an escape
+            hatch when the PfcXoff probe path is unhealthy.
+        - enable_xon_range_probe (bool): True -> binary algorithm (4-step path,
+            i.e., Step 1+2 chain + Step 2.5 + Step 3)
+                                         False -> step algorithm (3-step path,
+            i.e., Step 1+2 chain + Step 3 default)
         - xon_step_max_iter (int): Override DEFAULT_STEP_MAX_ITER
         - xon_binary_range_limit (int): Override DEFAULT_BINARY_RANGE_LIMIT
         - xon_binary_max_iter (int): Override DEFAULT_BINARY_MAX_ITER
@@ -145,6 +162,13 @@ class PfcXonProbing(ProbingBase):
         # Algorithm dispatch flag (default: step algorithm)
         self.enable_xon_range_probe = bool(
             self.test_params.get("enable_xon_range_probe", False)
+        )
+
+        # Step 1+2 chain flag (design v3, 2026-05-09): default True so real-hardware
+        # execution measures xoff_point instead of trusting the yaml hint. UT/IT
+        # paths set this to False to avoid driving an extra 4-phase PfcXoff probe.
+        self.enable_xoff_chain_probe = bool(
+            self.test_params.get("enable_xoff_chain_probe", True)
         )
 
         # Tunables with defaults
@@ -269,16 +293,179 @@ class PfcXonProbing(ProbingBase):
     # Abstract Method Implementation: probe
     #
 
+    def _run_pfcxoff_chain(self, src_port, dst_port, **traffic_keys):
+        """Step 1+2 of design v3: probe PfcXoff threshold to obtain exact xoff_point.
+
+        Runs a 4-phase PfcXoff probe on (src_port, dst_port):
+          - Phase 1 (UpperBound):       discover an upper bound for xoff threshold
+          - Phase 2 (LowerBound):       narrow the lower bound
+          - Phase 3 (ThresholdRange):   binary-search the [lower, upper] window
+          - Phase 4 (ThresholdPoint):   step-by-step within the narrowed window
+
+        Returns:
+            int: measured xoff_point (smallest packet count that fires xoff) on
+                 full success.
+            int: range_upper as approximation when Phase 4 is skipped (window
+                 too wide) or fails — still much better than yaml.
+            None: when any earlier phase fails — caller should fall back to the
+                 yaml hint.
+
+        Why design v3 mandates this:
+            yaml `pkts_num_trig_pfc` is a per-platform NOMINAL value; real
+            hardware can differ by a few packets due to per-port noise, ASIC
+            occupancy quantization, or buffer pool sizing variation. Using yaml
+            directly forces the XOn drain phase to compensate via
+            `fill_retry_margin` (a hack), and the resulting offset is biased
+            by that margin. Running a fresh PfcXoff probe right before XOn
+            drain produces a precise xoff_point that the XOn drain phase can
+            consume directly.
+        """
+        pool_size = self.get_pool_size()
+
+        ProbingObserver.console("=" * 80)
+        ProbingObserver.console(
+            f"[{self.PROBE_TARGET}] Step 1+2 — PfcXoff chain probe (design v3)"
+        )
+        ProbingObserver.console(
+            f"  src_port={src_port}  dst_port={dst_port}  pool_size={pool_size}"
+        )
+        ProbingObserver.console(
+            f"  yaml pfcxoff_point hint = {self.pfcxoff_point} "
+            "(used as fallback if chain fails)"
+        )
+        ProbingObserver.console("=" * 80)
+
+        XOFF_TARGET = "pfc_xoff"
+
+        # Per-phase observers (iteration_prefix offset 10..13 to keep XOff chain
+        # logs distinct from XOn drain phase prefix=1 used below).
+        def _make_obs(name, prefix, algo_name, strategy, completion_tpl, fmt_type, mapping):
+            return ProbingObserver(
+                name=name,
+                iteration_prefix=prefix,
+                verbose=True,
+                observer_config=ObserverConfig(
+                    probe_target=XOFF_TARGET,
+                    algorithm_name=algo_name,
+                    strategy=strategy,
+                    check_column_title="PfcXoff",
+                    completion_template=completion_tpl,
+                    completion_format_type=fmt_type,
+                    table_column_mapping=mapping,
+                ),
+            )
+
+        upper_obs = _make_obs(
+            "step1_upper", 10, "Upper Bound Probing", "exponential growth",
+            "Upper bound = {value}", "value",
+            {"lower_bound": None, "upper_bound": "value",
+             "candidate_threshold": None, "range_step": None},
+        )
+        lower_obs = _make_obs(
+            "step1_lower", 11, "Lower Bound Probing", "logarithmic reduction",
+            "Lower bound = {value}", "value",
+            {"lower_bound": "value", "upper_bound": "window_upper",
+             "candidate_threshold": None, "range_step": None},
+        )
+        range_obs = _make_obs(
+            "step1_range", 12, "Threshold Range Probing", "binary search",
+            "Range = [{lower}, {upper}]", "range",
+            {"lower_bound": "window_lower", "upper_bound": "window_upper",
+             "candidate_threshold": "value", "range_step": "range_size"},
+        )
+        point_obs = _make_obs(
+            "step2_point", 13, "Threshold Point Probing", "sequential scan",
+            None, "value",
+            {"lower_bound": "value", "upper_bound": "window_upper",
+             "candidate_threshold": "value", "range_step": 1},
+        )
+
+        # Per-phase executors via factory (handles real vs sim dispatch consistently
+        # with the existing PfcXonProbing executor — same EXECUTOR_ENV).
+        upper_exec = self.create_executor(XOFF_TARGET, upper_obs, "step1_upper")
+        lower_exec = self.create_executor(XOFF_TARGET, lower_obs, "step1_lower")
+        range_exec = self.create_executor(XOFF_TARGET, range_obs, "step1_range")
+        point_exec = self.create_executor(XOFF_TARGET, point_obs, "step2_point")
+
+        # Phase 1: Upper bound discovery (exponential)
+        upper_bound, _ = UpperBoundProbingAlgorithm(
+            executor=upper_exec, observer=upper_obs,
+            verification_attempts=1,
+        ).run(src_port, dst_port, pool_size, **traffic_keys)
+        if upper_bound is None:
+            ProbingObserver.console(
+                "[Step 1+2] Upper bound discovery failed; falling back to yaml hint"
+            )
+            return None
+
+        # Phase 2: Lower bound (logarithmic reduction within [0, upper_bound])
+        lower_bound, _ = LowerBoundProbingAlgorithm(
+            executor=lower_exec, observer=lower_obs,
+            verification_attempts=1,
+        ).run(src_port, dst_port, upper_bound, **traffic_keys)
+        if lower_bound is None:
+            ProbingObserver.console(
+                "[Step 1+2] Lower bound detection failed; falling back to yaml hint"
+            )
+            return None
+
+        # Phase 3: Range narrowing (binary search within [lower, upper])
+        range_lower, range_upper, _ = ThresholdRangeProbingAlgorithm(
+            executor=range_exec, observer=range_obs,
+            precision_target_ratio=self.PRECISION_TARGET_RATIO,
+            verification_attempts=2,
+            enable_precise_detection=True,
+            precise_detection_range_limit=self.PRECISE_DETECTION_RANGE_LIMIT,
+        ).run(src_port, dst_port, lower_bound, upper_bound, **traffic_keys)
+        if range_lower is None or range_upper is None:
+            ProbingObserver.console(
+                "[Step 1+2] Range narrowing failed; falling back to yaml hint"
+            )
+            return None
+
+        # Phase 4: Exact point (step-by-step within narrowed window)
+        range_size = range_upper - range_lower
+        if range_size > self.PRECISE_DETECTION_RANGE_LIMIT:
+            ProbingObserver.console(
+                f"[Step 2] Range width {range_size} exceeds limit "
+                f"{self.PRECISE_DETECTION_RANGE_LIMIT}; using range_upper={range_upper} "
+                "as xoff_point approximation (skip Phase 4)."
+            )
+            return range_upper
+
+        point_lower, point_upper, _ = ThresholdPointProbingAlgorithm(
+            executor=point_exec, observer=point_obs,
+            verification_attempts=1,
+            step_size=self.POINT_PROBING_STEP_SIZE,
+        ).run(
+            src_port=src_port, dst_port=dst_port,
+            lower_bound=range_lower, upper_bound=range_upper,
+            **traffic_keys,
+        )
+        if point_lower is None or point_upper is None:
+            ProbingObserver.console(
+                f"[Step 2] Point detection failed; using range_upper={range_upper} "
+                "as xoff_point approximation."
+            )
+            return range_upper
+
+        # point_upper is the smallest packet count that fires xoff: that IS
+        # xoff_point per design v3 §2 Step 2 definition.
+        return point_upper
+
     def probe(self) -> ThresholdResult:
         """
         Execute PFC XOn offset probing.
 
         Workflow:
-        1. Create executor (PfcXonProbingExecutor) via factory
-        2. Dispatch algorithm based on enable_xon_range_probe flag:
-           - True  -> XonDrainBinaryAlgorithm (binary then step within window)
-           - False -> XonDrainStepAlgorithm (step from D=1)
-        3. Run algorithm; report result
+        1. (Step 1+2 of design v3, default) Run PfcXoff chain to measure exact
+           xoff_point on this port; override yaml hint when chain succeeds.
+           Disabled via test_params['enable_xoff_chain_probe']=False (UT/IT paths).
+        2. Create XOn executor via factory.
+        3. Dispatch algorithm based on enable_xon_range_probe flag:
+           - True  -> XonDrainBinaryAlgorithm (Step 2.5+3, "binary then step within window")
+           - False -> XonDrainStepAlgorithm   (Step 3, "step from D=1")
+        4. Run algorithm; report result.
 
         Returns:
             ThresholdResult: Probing result with XOn offset
@@ -287,6 +474,30 @@ class PfcXonProbing(ProbingBase):
         dst_a = self.probing_port_ids[1]
         dst_b = self.probing_port_ids[2]
         traffic_keys = {"pg": self.pg}
+
+        # Step 1+2: PfcXoff chain probe to obtain exact xoff_point (design v3,
+        # 2026-05-09). Single dst is sufficient for Step 1+2 since PfcXoff probe
+        # is a 1-src/1-dst protocol; we use dst_a (the same port that'll be the
+        # drain target in Step 3 for occupancy continuity).
+        if self.enable_xoff_chain_probe:
+            measured_xoff = self._run_pfcxoff_chain(src_port, dst_a, **traffic_keys)
+            if measured_xoff is not None and measured_xoff > 0:
+                yaml_hint = self.pfcxoff_point
+                self.pfcxoff_point = int(measured_xoff)
+                ProbingObserver.console(
+                    f"[Step 1+2] xoff_point = {self.pfcxoff_point} (measured); "
+                    f"yaml hint was {yaml_hint} (delta={self.pfcxoff_point - yaml_hint})"
+                )
+            else:
+                ProbingObserver.console(
+                    f"[Step 1+2] chain returned no measurement; falling back to "
+                    f"yaml pfcxoff_point={self.pfcxoff_point}"
+                )
+        else:
+            ProbingObserver.console(
+                f"[Step 1+2] chain disabled (enable_xoff_chain_probe=False); "
+                f"using yaml pfcxoff_point={self.pfcxoff_point} directly"
+            )
 
         # Single observer for the dispatched algorithm
         observer = ProbingObserver(

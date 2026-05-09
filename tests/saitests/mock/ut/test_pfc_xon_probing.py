@@ -52,6 +52,11 @@ class _PfcXonProbingFixture(PfcXonProbing):
         self.cnt_pg_idx = None
         self.pfcxoff_point = 0
         self.enable_xon_range_probe = False
+        # Step 1+2 chain default = True per design v3 (added 2026-05-09); UT
+        # fixtures default to False so existing dispatch / parsing tests don't
+        # need to mock the 4-phase PfcXoff probe. Tests that DO exercise the
+        # chain explicitly flip this to True.
+        self.enable_xoff_chain_probe = False
         self.xon_step_max_iter = 50
         self.xon_binary_range_limit = 32
         self.xon_binary_max_iter = 20
@@ -222,7 +227,14 @@ class TestPfcXonProbingDispatch:
     def test_probe_dispatches_to_step_when_flag_false(self):
         """probe() routes to XonDrainStepAlgorithm when enable_xon_range_probe=False."""
         pfc = _PfcXonProbingFixture()
-        pfc.test_params = {"pfcxoff_point": 1000, "enable_xon_range_probe": False}
+        # enable_xoff_chain_probe=False -> skip Step 1+2 chain (existing tests
+        # cover dispatch of Step 3 / Step 2.5+3 only; Step 1+2 chain has
+        # dedicated tests in TestPfcXonProbingXoffChain).
+        pfc.test_params = {
+            "pfcxoff_point": 1000,
+            "enable_xon_range_probe": False,
+            "enable_xoff_chain_probe": False,
+        }
         pfc.parse_param()
         pfc.create_executor = MagicMock(return_value=MagicMock())
 
@@ -244,7 +256,11 @@ class TestPfcXonProbingDispatch:
     def test_probe_dispatches_to_binary_when_flag_true(self):
         """probe() routes to XonDrainBinaryAlgorithm when enable_xon_range_probe=True."""
         pfc = _PfcXonProbingFixture()
-        pfc.test_params = {"pfcxoff_point": 100000, "enable_xon_range_probe": True}
+        pfc.test_params = {
+            "pfcxoff_point": 100000,
+            "enable_xon_range_probe": True,
+            "enable_xoff_chain_probe": False,
+        }
         pfc.parse_param()
         pfc.create_executor = MagicMock(return_value=MagicMock())
 
@@ -267,6 +283,7 @@ class TestPfcXonProbingDispatch:
         pfc.test_params = {
             "pfcxoff_point": 1000,
             "enable_xon_range_probe": False,
+            "enable_xoff_chain_probe": False,
             "xon_step_max_iter": 30,
             "xon_verification_attempts": 3,
         }
@@ -291,6 +308,7 @@ class TestPfcXonProbingDispatch:
         pfc.test_params = {
             "pfcxoff_point": 100000,
             "enable_xon_range_probe": True,
+            "enable_xoff_chain_probe": False,
             "xon_binary_range_limit": 16,
             "xon_binary_max_iter": 25,
             "xon_binary_step_max_iter": 80,
@@ -311,3 +329,161 @@ class TestPfcXonProbingDispatch:
         assert kwargs['binary_max_iter'] == 25
         assert kwargs['step_max_iter'] == 80
         assert kwargs['verification_attempts'] == 3
+
+
+class TestPfcXonProbingXoffChain:
+    """Test Step 1+2 chain (PfcXoff range probe + exact point) per design v3.
+
+    Per L020 NON-REGRESSION (2026-05-09 PfcXon design conformance fix):
+    pfc_xon_probing.PfcXonProbing.probe() MUST run a 4-phase PfcXoff probe
+    BEFORE the XOn drain phase whenever enable_xoff_chain_probe is True
+    (the default). The measured xoff_point overrides the yaml hint, so the
+    XOn drain phase consumes a precise hardware-measured threshold instead
+    of yaml's nominal value.
+
+    Coverage:
+      1360 — chain disabled: yaml hint flows through unchanged
+      1361 — chain succeeds: self.pfcxoff_point updated to measured value
+      1362 — chain Phase 1 fails: falls back to yaml hint
+      1363 — chain Phase 4 skipped (range too wide): uses range_upper
+    """
+
+    @pytest.mark.order(1360)
+    def test_probe_skips_chain_when_disabled(self):
+        """enable_xoff_chain_probe=False -> no PfcXoff algorithms instantiated;
+        yaml hint flows directly to the XOn drain phase."""
+        pfc = _PfcXonProbingFixture()
+        pfc.test_params = {
+            "pfcxoff_point": 12345,
+            "enable_xon_range_probe": False,
+            "enable_xoff_chain_probe": False,
+        }
+        pfc.parse_param()
+        pfc.create_executor = MagicMock(return_value=MagicMock())
+
+        with patch('pfc_xon_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+                patch('pfc_xon_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+                patch('pfc_xon_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+                patch('pfc_xon_probing.ThresholdPointProbingAlgorithm') as mock_point, \
+                patch('pfc_xon_probing.XonDrainStepAlgorithm') as mock_step, \
+                patch('pfc_xon_probing.ThresholdResult'), \
+                patch('pfc_xon_probing.ProbingObserver'):
+            mock_step.return_value.run.return_value = (5, 6, 0.1)
+            pfc.probe()
+
+        # No PfcXoff phase algorithms should be instantiated at all
+        mock_upper.assert_not_called()
+        mock_lower.assert_not_called()
+        mock_range.assert_not_called()
+        mock_point.assert_not_called()
+        # pfcxoff_point unchanged from yaml hint
+        assert pfc.pfcxoff_point == 12345
+
+    @pytest.mark.order(1361)
+    def test_probe_chain_overrides_yaml_when_phase4_succeeds(self):
+        """enable_xoff_chain_probe=True + all 4 phases succeed:
+        self.pfcxoff_point updates to the Phase 4 measured value."""
+        pfc = _PfcXonProbingFixture()
+        pfc.test_params = {
+            "pfcxoff_point": 20035,  # yaml hint
+            "enable_xon_range_probe": False,
+            "enable_xoff_chain_probe": True,
+        }
+        pfc.parse_param()
+        pfc.create_executor = MagicMock(return_value=MagicMock())
+        pfc.get_pool_size = MagicMock(return_value=1000000)
+
+        with patch('pfc_xon_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+                patch('pfc_xon_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+                patch('pfc_xon_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+                patch('pfc_xon_probing.ThresholdPointProbingAlgorithm') as mock_point, \
+                patch('pfc_xon_probing.XonDrainStepAlgorithm') as mock_step, \
+                patch('pfc_xon_probing.ThresholdResult'), \
+                patch('pfc_xon_probing.ProbingObserver'):
+            # Each phase returns a value; final answer is point_upper = 20037
+            # (matches the TH2 7260CX3 observation: yaml says 20035, real hw 20037).
+            mock_upper.return_value.run.return_value = (40000, 0.1)
+            mock_lower.return_value.run.return_value = (10000, 0.1)
+            mock_range.return_value.run.return_value = (20000, 20040, 0.1)
+            mock_point.return_value.run.return_value = (20036, 20037, 0.1)
+            mock_step.return_value.run.return_value = (5, 6, 0.1)
+            pfc.probe()
+
+        # All 4 phases ran exactly once
+        mock_upper.return_value.run.assert_called_once()
+        mock_lower.return_value.run.assert_called_once()
+        mock_range.return_value.run.assert_called_once()
+        mock_point.return_value.run.assert_called_once()
+        # pfcxoff_point updated from yaml 20035 to measured 20037
+        assert pfc.pfcxoff_point == 20037
+
+    @pytest.mark.order(1362)
+    def test_probe_chain_falls_back_to_yaml_when_phase1_fails(self):
+        """If Phase 1 (UpperBound) returns None, the chain aborts and the
+        yaml hint is preserved (no late-stage corruption of pfcxoff_point)."""
+        pfc = _PfcXonProbingFixture()
+        pfc.test_params = {
+            "pfcxoff_point": 8800,
+            "enable_xon_range_probe": False,
+            "enable_xoff_chain_probe": True,
+        }
+        pfc.parse_param()
+        pfc.create_executor = MagicMock(return_value=MagicMock())
+        pfc.get_pool_size = MagicMock(return_value=1000000)
+
+        with patch('pfc_xon_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+                patch('pfc_xon_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+                patch('pfc_xon_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+                patch('pfc_xon_probing.ThresholdPointProbingAlgorithm') as mock_point, \
+                patch('pfc_xon_probing.XonDrainStepAlgorithm') as mock_step, \
+                patch('pfc_xon_probing.ThresholdResult'), \
+                patch('pfc_xon_probing.ProbingObserver'):
+            # Phase 1 fails -> chain aborts
+            mock_upper.return_value.run.return_value = (None, 0.1)
+            mock_step.return_value.run.return_value = (5, 6, 0.1)
+            pfc.probe()
+
+        # Phase 1 ran; later phases never reached
+        mock_upper.return_value.run.assert_called_once()
+        mock_lower.return_value.run.assert_not_called()
+        mock_range.return_value.run.assert_not_called()
+        mock_point.return_value.run.assert_not_called()
+        # pfcxoff_point preserved from yaml
+        assert pfc.pfcxoff_point == 8800
+
+    @pytest.mark.order(1363)
+    def test_probe_chain_uses_range_upper_when_phase4_skipped(self):
+        """If the range_upper - range_lower window is wider than the precise-
+        detection limit, Phase 4 (Point) is skipped; range_upper is used as
+        the xoff_point approximation. Still a substantial improvement over
+        the yaml hint."""
+        pfc = _PfcXonProbingFixture()
+        pfc.test_params = {
+            "pfcxoff_point": 388047,  # Cisco-scale yaml hint
+            "enable_xon_range_probe": True,
+            "enable_xoff_chain_probe": True,
+        }
+        pfc.parse_param()
+        pfc.create_executor = MagicMock(return_value=MagicMock())
+        pfc.get_pool_size = MagicMock(return_value=1500000)
+        # PRECISE_DETECTION_RANGE_LIMIT inherited as 100 from ProbingBase
+        pfc.PRECISE_DETECTION_RANGE_LIMIT = 100
+
+        with patch('pfc_xon_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+                patch('pfc_xon_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+                patch('pfc_xon_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+                patch('pfc_xon_probing.ThresholdPointProbingAlgorithm') as mock_point, \
+                patch('pfc_xon_probing.XonDrainBinaryAlgorithm') as mock_binary, \
+                patch('pfc_xon_probing.ThresholdResult'), \
+                patch('pfc_xon_probing.ProbingObserver'):
+            mock_upper.return_value.run.return_value = (500000, 0.1)
+            mock_lower.return_value.run.return_value = (300000, 0.1)
+            # Range width 200 > precise_detection_range_limit 100 -> Phase 4 skipped
+            mock_range.return_value.run.return_value = (388000, 388200, 0.1)
+            mock_binary.return_value.run.return_value = (3244, 3245, 0.5)
+            pfc.probe()
+
+        # Phase 4 should NOT run because range width > limit
+        mock_point.return_value.run.assert_not_called()
+        # pfcxoff_point updated to range_upper as approximation
+        assert pfc.pfcxoff_point == 388200
