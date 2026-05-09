@@ -38,6 +38,7 @@ class XonDrainStepAlgorithm:
         observer: ProbingObserver,
         verification_attempts: int = 1,
         max_iter: int = 50,
+        max_consecutive_failures: int = 3,
     ):
         """
         Args:
@@ -47,11 +48,24 @@ class XonDrainStepAlgorithm:
                 executor.check). 1 = fast; 2 = noise-resilient.
             max_iter: Hard cap on D values to test. Defaults to 50 (covers
                 all known Broadcom values comfortably).
+            max_consecutive_failures: Number of consecutive ``check()``
+                failures (success=False) allowed at the same D before
+                aborting the search and returning (None, None). Default 3
+                mirrors XonDrainBinaryAlgorithm's noise tolerance pattern
+                (see commit b3f8313aad I2 / b1549014a6 N1+N2).
+
+                Why retry-same-D rather than advance-on-failure (per code
+                review I1, 2026-05-09): if D=k has a noise-only failure
+                but D=k actually fires xon, advancing to D=k+1 misses k
+                and reports (k, k+1) when the true answer is (k-1, k) --
+                a +1 systematic bias. Retrying the same D up to N times
+                preserves the search invariant.
         """
         self.executor = executor
         self.observer = observer
         self.verification_attempts = verification_attempts
         self.max_iter = max_iter
+        self.max_consecutive_failures = max_consecutive_failures
 
     def run(
         self,
@@ -68,7 +82,9 @@ class XonDrainStepAlgorithm:
               - xon_lower = D - 1 (largest drain that does NOT trigger xon)
               - xon_upper = D     (smallest drain that DOES trigger xon)
               - elapsed_seconds = wall-clock time of the run.
-            Returns (None, None, elapsed) if max_iter reached.
+            Returns (None, None, elapsed) if max_iter reached OR if
+            consecutive check failures exceed max_consecutive_failures
+            at any D.
         """
         t0 = time.time()
         ProbingObserver.console(
@@ -79,7 +95,13 @@ class XonDrainStepAlgorithm:
 
         self.executor.prepare(src_port, dst_port_a, dst_port_b)
 
-        for d in range(1, self.max_iter + 1):
+        # Per-D retry-on-failure (I1 fix mirroring Binary's pattern). The loop
+        # iterates D from 1..max_iter; for each D, retry up to
+        # max_consecutive_failures times on success=False before moving on
+        # (or aborting if the cap is hit).
+        d = 1
+        consecutive_failures = 0
+        while d <= self.max_iter:
             success, xon_fired = self.executor.check(
                 src_port=src_port,
                 dst_port_a=dst_port_a,
@@ -89,10 +111,25 @@ class XonDrainStepAlgorithm:
                 **traffic_keys,
             )
             if not success:
+                consecutive_failures += 1
                 ProbingObserver.trace(
-                    f"[XOn Drain Step] D={d}: check FAILED (inconsistent verification)"
+                    f"[XOn Drain Step] D={d}: check FAILED (inconsistent "
+                    f"verification) {consecutive_failures}/{self.max_consecutive_failures}"
                 )
+                if consecutive_failures >= self.max_consecutive_failures:
+                    elapsed = time.time() - t0
+                    ProbingObserver.console(
+                        f"[XOn Drain Step] ABORTED at D={d}: "
+                        f"{consecutive_failures} consecutive check failures "
+                        f"(>= max_consecutive_failures={self.max_consecutive_failures})"
+                    )
+                    return None, None, elapsed
+                # Retry the SAME D (do not advance). This is the key correctness
+                # difference from the original implementation -- see I1 docstring.
                 continue
+
+            # Success path -- reset the consecutive-failure counter.
+            consecutive_failures = 0
 
             ProbingObserver.trace(
                 f"[XOn Drain Step] D={d}: xon_fired={xon_fired}"
@@ -105,6 +142,8 @@ class XonDrainStepAlgorithm:
                     f"(after {d} iterations, {elapsed:.1f}s)"
                 )
                 return d - 1, d, elapsed
+
+            d += 1
 
         elapsed = time.time() - t0
         ProbingObserver.console(

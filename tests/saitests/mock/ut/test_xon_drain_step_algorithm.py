@@ -95,22 +95,91 @@ class TestXonDrainStepAlgorithm:
         assert executor.check.call_count == 10
 
     @pytest.mark.order(8903)
-    def test_failed_check_continues_to_next_d(self):
-        """If executor.check returns success=False (inconsistent), skip
-        and continue trying next D."""
+    def test_failed_check_retries_same_d_then_advances(self):
+        """If executor.check returns success=False (inconsistent), retry the
+        SAME D up to max_consecutive_failures times. Per I1 fix (2026-05-09):
+        advancing on failure causes off-by-one bias when noise hits at the
+        true threshold; retry-same-D preserves the search invariant."""
         from xon_drain_step_algorithm import XonDrainStepAlgorithm
 
         executor = _make_executor()
-        # D=1: failed, D=2: not fired, D=3: failed, D=4: fired
-        responses = [(False, False), (True, False), (False, False), (True, True)]
+        # D=1: 1 failure then success-not-fired; D=2: success-not-fired;
+        # D=3: 2 failures then success-fired (success after retries on same D=3)
+        responses = [
+            (False, False),  # D=1 attempt 1: fail
+            (True, False),   # D=1 attempt 2 (retry SAME D=1): success, not fired
+            (True, False),   # D=2: success, not fired
+            (False, False),  # D=3 attempt 1: fail
+            (False, False),  # D=3 attempt 2 (retry SAME D=3): fail again
+            (True, True),    # D=3 attempt 3 (retry SAME D=3): success, fired
+        ]
         executor.check.side_effect = responses
 
-        algo = XonDrainStepAlgorithm(executor=executor, observer=self.observer, max_iter=20)
+        algo = XonDrainStepAlgorithm(
+            executor=executor, observer=self.observer, max_iter=20,
+            max_consecutive_failures=3,
+        )
         lower, upper, elapsed = algo.run(24, 28, 29, pg=3)
 
-        assert lower == 3
-        assert upper == 4
-        assert executor.check.call_count == 4
+        # Answer is (D-1, D) = (2, 3) since D=3 fired (NOT (3, 4) which would
+        # be the buggy behavior of advancing on failure -- the bug I1 fixes).
+        assert lower == 2
+        assert upper == 3
+        assert executor.check.call_count == 6
+
+    @pytest.mark.order(8906)
+    def test_aborts_when_consecutive_failures_exceed_cap(self):
+        """When max_consecutive_failures consecutive check failures hit at
+        the SAME D, algorithm aborts and returns (None, None). Mirrors
+        XonDrainBinaryAlgorithm's abort-on-repeated-failure pattern."""
+        from xon_drain_step_algorithm import XonDrainStepAlgorithm
+
+        executor = _make_executor()
+        # All checks fail at D=1 -> 3 consecutive failures -> abort
+        executor.check.return_value = (False, False)
+
+        algo = XonDrainStepAlgorithm(
+            executor=executor, observer=self.observer, max_iter=20,
+            max_consecutive_failures=3,
+        )
+        lower, upper, elapsed = algo.run(24, 28, 29, pg=3)
+
+        assert lower is None
+        assert upper is None
+        # Exactly max_consecutive_failures=3 calls made before abort
+        assert executor.check.call_count == 3
+
+    @pytest.mark.order(8907)
+    def test_consecutive_failure_counter_resets_on_success(self):
+        """If D=k fails once but succeeds on retry, the failure counter must
+        reset so D=k+1's first failure doesn't push past the cap due to
+        carry-over from D=k. Critical correctness property."""
+        from xon_drain_step_algorithm import XonDrainStepAlgorithm
+
+        executor = _make_executor()
+        # D=1: fail, retry -> success-not-fired (counter reset after success).
+        # D=2: fail, retry -> success-not-fired (counter reset).
+        # D=3: success-fired.
+        # Without counter reset, D=2's first failure would be the 3rd
+        # cumulative failure -> incorrect abort.
+        responses = [
+            (False, False),  # D=1 attempt 1: fail (counter=1)
+            (True, False),   # D=1 attempt 2: success not fired (counter reset)
+            (False, False),  # D=2 attempt 1: fail (counter=1, NOT 2)
+            (True, False),   # D=2 attempt 2: success not fired (counter reset)
+            (True, True),    # D=3 attempt 1: success fired
+        ]
+        executor.check.side_effect = responses
+
+        algo = XonDrainStepAlgorithm(
+            executor=executor, observer=self.observer, max_iter=20,
+            max_consecutive_failures=3,
+        )
+        lower, upper, elapsed = algo.run(24, 28, 29, pg=3)
+
+        assert lower == 2
+        assert upper == 3
+        assert executor.check.call_count == 5
 
     @pytest.mark.order(8904)
     def test_passes_traffic_keys_to_executor(self):
