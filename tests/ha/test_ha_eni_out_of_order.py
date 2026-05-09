@@ -5,7 +5,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import (
-    _apply_dash_pl_pipeline_config,
+    apply_dash_pl_pipeline_config,
     setup_dash_ha_from_json_util,
     remove_setup_dash_ha_from_json_util,
     activate_dash_ha_from_json_util,
