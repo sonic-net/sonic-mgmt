@@ -114,9 +114,16 @@ class PfcXonProbing(ProbingBase):
 
         1. Call super().setUp() for common initialization
         2. Parse subclass-specific parameters (pfcxoff_point, enable_xon_range_probe)
+        3. Override ENABLE_PRECISE_DETECTION = True so Step 1+2 chain's
+           ThresholdRangeProbingAlgorithm + ThresholdPointProbingAlgorithm produces
+           an exact xoff_point (mirrors PfcXoffProbing / HeadroomPoolProbing pattern).
         """
         super().setUp()
         self.parse_param()
+        # Step 1+2 chain (design v3 §2 Step 2) requires precise xoff_point detection
+        # to remove the fill_retry_margin systematic bias. Mirrors peer probing
+        # classes — pfc_xoff_probing.py:100, ingress_drop_probing.py same pattern.
+        self.ENABLE_PRECISE_DETECTION = True
 
     def parse_param(self):
         """
@@ -414,7 +421,7 @@ class PfcXonProbing(ProbingBase):
             executor=range_exec, observer=range_obs,
             precision_target_ratio=self.PRECISION_TARGET_RATIO,
             verification_attempts=2,
-            enable_precise_detection=True,
+            enable_precise_detection=self.ENABLE_PRECISE_DETECTION,
             precise_detection_range_limit=self.PRECISE_DETECTION_RANGE_LIMIT,
         ).run(src_port, dst_port, lower_bound, upper_bound, **traffic_keys)
         if range_lower is None or range_upper is None:
@@ -423,7 +430,12 @@ class PfcXonProbing(ProbingBase):
             )
             return None
 
-        # Phase 4: Exact point (step-by-step within narrowed window)
+        # Phase 4: Exact point (step-by-step within narrowed window).
+        # Conditional on ENABLE_PRECISE_DETECTION class attribute -- mirrors
+        # HeadroomPoolProbing.probe() pattern (headroom_pool_probing.py:366-374).
+        if not self.ENABLE_PRECISE_DETECTION:
+            return range_upper
+
         range_size = range_upper - range_lower
         if range_size > self.PRECISE_DETECTION_RANGE_LIMIT:
             ProbingObserver.console(

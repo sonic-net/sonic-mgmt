@@ -66,6 +66,11 @@ class _PfcXonProbingFixture(PfcXonProbing):
         self.router_mac = "00:11:22:33:44:55"
         self.is_dualtor = False
         self.def_vlan_mac = None
+        # ENABLE_PRECISE_DETECTION = True is set in setUp() per design v3 §2 Step 2
+        # (precise xoff_point detection); fixture matches that since dispatch tests
+        # exercise probe() which would have already run setUp.
+        self.ENABLE_PRECISE_DETECTION = True
+        self.PRECISE_DETECTION_RANGE_LIMIT = 100
 
         def mock_get_rx_port(src_port, dst_port):
             return dst_port
