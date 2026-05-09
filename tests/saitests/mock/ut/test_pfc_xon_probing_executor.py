@@ -138,7 +138,7 @@ class TestPfcXonExecutorPrepare:
         ex = PfcXonProbingExecutor(
             ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
         )
-        ex.prepare(src_port=24, dst_port_a=28, dst_port_b=29)
+        ex.prepare(src_port=24, drain_port=28, holder_port=29)
 
         # Both ports should be drained then held
         self.ptf.buffer_ctrl.drain_buffer.assert_called_once_with([28, 29])

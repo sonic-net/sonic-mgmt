@@ -17,7 +17,7 @@ without physical hardware via:
         true_xon_offset=13,
     )
     algo = XonDrainStepAlgorithm(executor=executor, ...)
-    algo.run(src, dst_A, dst_B, pg=3)
+    algo.run(src, dst_drain, dst_holder, pg=3)
 
 Drift-zero design (per drain-bug post-mortem 2026-05-08):
   Inherits real PfcXonProbingExecutor and overrides ONLY the

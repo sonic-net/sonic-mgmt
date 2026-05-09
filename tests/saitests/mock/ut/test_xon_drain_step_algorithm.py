@@ -50,7 +50,7 @@ class TestXonDrainStepAlgorithm:
         executor = _make_executor()
 
         # check returns (success, xon_fired). xon fires when D=5.
-        def check_side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
+        def check_side(src_port, drain_port, holder_port, value, attempts, **kw):
             return (True, value >= 5)
         executor.check.side_effect = check_side
 

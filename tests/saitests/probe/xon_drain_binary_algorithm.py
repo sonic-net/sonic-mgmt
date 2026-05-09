@@ -71,8 +71,8 @@ class XonDrainBinaryAlgorithm:
     def run(
         self,
         src_port: int,
-        dst_port_a: int,
-        dst_port_b: int,
+        drain_port: int,
+        holder_port: int,
         **traffic_keys,
     ) -> Tuple[Optional[int], Optional[int], float]:
         """
@@ -86,17 +86,17 @@ class XonDrainBinaryAlgorithm:
 
         ProbingObserver.console(
             f"[XOn Drain Binary] Starting binary-then-step "
-            f"src={src_port} dst_A={dst_port_a} dst_B={dst_port_b} "
+            f"src={src_port} drain={drain_port} holder={holder_port} "
             f"pfcxoff_point={pfcxoff_point} range_limit={self.range_limit}"
         )
 
-        self.executor.prepare(src_port, dst_port_a, dst_port_b)
+        self.executor.prepare(src_port, drain_port, holder_port)
 
         # ----------------- Phase 1: binary search -----------------
         # Initial bounds:
         #   D=1   -> almost certainly xon does NOT fire (only 1 packet drained)
-        #   D=pfcxoff_point -> xon definitely fires (everything drained from A
-        #     and B's portion is 0 means nothing held back)
+        #   D=pfcxoff_point -> xon definitely fires (everything drained from
+        #     dst_drain and dst_holder's portion is 0 means nothing held back)
         # We don't actually probe these endpoints — we use them as logical
         # bounds and probe midpoints.
         lower = 0                    # D where xon does NOT fire
@@ -112,8 +112,8 @@ class XonDrainBinaryAlgorithm:
 
             success, xon_fired = self.executor.check(
                 src_port=src_port,
-                dst_port_a=dst_port_a,
-                dst_port_b=dst_port_b,
+                drain_port=drain_port,
+                holder_port=holder_port,
                 value=mid,
                 attempts=self.verification_attempts,
                 **traffic_keys,
@@ -180,8 +180,8 @@ class XonDrainBinaryAlgorithm:
 
             success, xon_fired = self.executor.check(
                 src_port=src_port,
-                dst_port_a=dst_port_a,
-                dst_port_b=dst_port_b,
+                drain_port=drain_port,
+                holder_port=holder_port,
                 value=d,
                 attempts=self.verification_attempts,
                 **traffic_keys,

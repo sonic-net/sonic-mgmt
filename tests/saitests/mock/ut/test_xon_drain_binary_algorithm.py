@@ -37,7 +37,7 @@ def _make_executor_with_threshold(pfcxoff_point, true_threshold):
     ex = MagicMock()
     ex.pfcxoff_point = pfcxoff_point
 
-    def check_side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
+    def check_side(src_port, drain_port, holder_port, value, attempts, **kw):
         return (True, value >= true_threshold)
     ex.check.side_effect = check_side
     return ex
@@ -132,7 +132,7 @@ class TestXonDrainBinaryAlgorithm:
         # Pattern: first check fails (success=False), then normal threshold=500
         call_count = [0]
 
-        def side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
+        def side(src_port, drain_port, holder_port, value, attempts, **kw):
             call_count[0] += 1
             if call_count[0] == 1:
                 return (False, False)
@@ -179,7 +179,7 @@ class TestXonDrainBinaryAlgorithm:
         # Track number of times we've been called for value=500
         first_500_call_done = [False]
 
-        def side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
+        def side(src_port, drain_port, holder_port, value, attempts, **kw):
             # First call to value=500 is the noisy one
             if value == 500 and not first_500_call_done[0]:
                 first_500_call_done[0] = True
@@ -220,7 +220,7 @@ class TestXonDrainBinaryAlgorithm:
         # Strategy: count failures, fail first 3 calls, then return (True, value>=50).
         fail_counter = [0]
 
-        def side(src_port, dst_port_a, dst_port_b, value, attempts, **kw):
+        def side(src_port, drain_port, holder_port, value, attempts, **kw):
             if fail_counter[0] < 3:
                 fail_counter[0] += 1
                 return (False, False)

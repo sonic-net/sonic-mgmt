@@ -4,15 +4,16 @@
 """
 PfcXonProbing - PFC XOn Threshold (XOn offset) Probing Test
 
-Traffic Pattern: 1 src -> 2 dst (dst_A is drain target, dst_B is the holder)
+Traffic Pattern: 1 src -> 2 dst (dst_drain is the drain target, dst_holder
+holds back its share of the buffer fill).
 Both dst flows enter the SAME ingress PG (same source port + same DSCP).
 
 Detects pkts_num_dismiss_pfc + pkts_num_hysteresis (XOn offset) via
 "drain after xoff" protocol:
-  1. Fill: send N packets to dst_A and (pfcxoff_point - N) packets to dst_B
-     so they accumulate on the same ingress PG. xoff fires.
-  2. Drain: tx_enable(dst_A) drains its portion. If buffer level fell past
-     xon threshold, src is resumed -> sends more -> next xoff fires
+  1. Fill: send N packets to dst_drain and (pfcxoff_point - N) packets to
+     dst_holder so they accumulate on the same ingress PG. xoff fires.
+  2. Drain: tx_enable(dst_drain) drains its portion. If buffer level fell
+     past xon threshold, src is resumed -> sends more -> next xoff fires
      -> PFC_PAUSE_RX increments AGAIN. Detect this re-fire to find XOn offset.
 
 Algorithm dispatch (per design v3):
@@ -77,7 +78,7 @@ class PfcXonProbing(ProbingBase):
     """
     PFC XOn Threshold (XOn offset) Probing Test Case
 
-    Traffic Pattern: 1 src -> 2 dst (dst_A is drain target, dst_B is holder)
+    Traffic Pattern: 1 src -> 2 dst (dst_drain is drain target, dst_holder holds back)
     Probe Target: Detect pkts_num_dismiss_pfc + pkts_num_hysteresis (XOn offset)
                   by observing PFC_PAUSE_RX re-fire after partial drain
 
@@ -87,7 +88,7 @@ class PfcXonProbing(ProbingBase):
     - tearDown(): PTF cleanup
 
     Diverges from PfcXoff/IngressDrop pattern in:
-    - 2 dst ports instead of N dst (dst_A drain target, dst_B holder)
+    - 2 dst ports instead of N dst (dst_drain target, dst_holder buffer-share holder)
     - Single-phase probing (step OR binary, no upper/lower/range/point cascade)
     - Requires pfcxoff_point as input (typically from prior PfcXoff probe)
     """
@@ -246,8 +247,11 @@ class PfcXonProbing(ProbingBase):
 
         Uses probing_port_ids:
         - First port is src
-        - Second port is dst_A (drain target)
-        - Third port is dst_B (holder)
+        - Second port is dst_drain (the drain target — opened during drain
+          phase to release packets and observe xon)
+        - Third port is dst_holder (the buffer-share holder — stays held
+          during drain to keep ingress occupancy above xon threshold until
+          the dst_drain queue's release crosses it)
 
         Both flows go to the SAME ingress PG.
         """
@@ -264,7 +268,8 @@ class PfcXonProbing(ProbingBase):
         asic_idx = next(iter(self.test_port_ips[dut_idx]))
         port_ips = self.test_port_ips[dut_idx][asic_idx]
 
-        # 1 src -> 2 dst: First is src, [1] is dst_A, [2] is dst_B
+        # 1 src -> 2 dst: [0] is src, [1] is dst_drain (drain target),
+        # [2] is dst_holder (holds back its share of the buffer).
         srcport = PortInfo(
             self.probing_port_ids[0],
             mac=self.dataplane.get_mac(0, self.probing_port_ids[0]),
@@ -272,19 +277,19 @@ class PfcXonProbing(ProbingBase):
             vlan=port_ips[self.probing_port_ids[0]].get("vlan_id", None),
         )
 
-        dst_a_id = self.probing_port_ids[1]
-        dst_b_id = self.probing_port_ids[2]
-        dst_a = PortInfo(
-            dst_a_id,
-            mac=self.dataplane.get_mac(0, dst_a_id),
-            ip=port_ips[dst_a_id]["peer_addr"],
-            vlan=port_ips[dst_a_id].get("vlan_id", None),
+        drain_port_id = self.probing_port_ids[1]
+        holder_port_id = self.probing_port_ids[2]
+        dst_drain = PortInfo(
+            drain_port_id,
+            mac=self.dataplane.get_mac(0, drain_port_id),
+            ip=port_ips[drain_port_id]["peer_addr"],
+            vlan=port_ips[drain_port_id].get("vlan_id", None),
         )
-        dst_b = PortInfo(
-            dst_b_id,
-            mac=self.dataplane.get_mac(0, dst_b_id),
-            ip=port_ips[dst_b_id]["peer_addr"],
-            vlan=port_ips[dst_b_id].get("vlan_id", None),
+        dst_holder = PortInfo(
+            holder_port_id,
+            mac=self.dataplane.get_mac(0, holder_port_id),
+            ip=port_ips[holder_port_id]["peer_addr"],
+            vlan=port_ips[holder_port_id].get("vlan_id", None),
         )
 
         # Platform-independent: 64-byte packets = 1 cell
@@ -300,8 +305,8 @@ class PfcXonProbing(ProbingBase):
             rx_port_resolver=self.get_rx_port,
         )
 
-        # Add 2 flows: src->dst_A and src->dst_B (same ingress PG)
-        for dstport in (dst_a, dst_b):
+        # Add 2 flows: src->dst_drain and src->dst_holder (same ingress PG)
+        for dstport in (dst_drain, dst_holder):
             self.stream_mgr.add_flow(
                 FlowConfig(
                     srcport,
@@ -319,8 +324,8 @@ class PfcXonProbing(ProbingBase):
 
         log_message(
             f"[PfcXonProbing] Traffic setup: src={self.probing_port_ids[0]} "
-            f"dst_A={dst_a_id} dst_B={dst_b_id} pfcxoff_point={self.pfcxoff_point} "
-            f"pg={self.pg} dscp={self.dscp}",
+            f"dst_drain={drain_port_id} dst_holder={holder_port_id} "
+            f"pfcxoff_point={self.pfcxoff_point} pg={self.pg} dscp={self.dscp}",
             to_stderr=True,
         )
 
@@ -521,16 +526,16 @@ class PfcXonProbing(ProbingBase):
             ThresholdResult: Probing result with XOn offset
         """
         src_port = self.probing_port_ids[0]
-        dst_a = self.probing_port_ids[1]
-        dst_b = self.probing_port_ids[2]
+        drain_port = self.probing_port_ids[1]
+        holder_port = self.probing_port_ids[2]
         traffic_keys = {"pg": self.pg}
 
         # Step 1+2: PfcXoff chain probe to obtain exact xoff_point (design v3,
         # 2026-05-09). Single dst is sufficient for Step 1+2 since PfcXoff probe
-        # is a 1-src/1-dst protocol; we use dst_a (the same port that'll be the
-        # drain target in Step 3 for occupancy continuity).
+        # is a 1-src/1-dst protocol; we use drain_port (the same port that'll
+        # be the drain target in Step 3 for occupancy continuity).
         if self.enable_xoff_chain_probe:
-            measured_xoff = self._run_pfcxoff_chain(src_port, dst_a, **traffic_keys)
+            measured_xoff = self._run_pfcxoff_chain(src_port, drain_port, **traffic_keys)
             if measured_xoff is not None and measured_xoff > 0:
                 yaml_hint = self.pfcxoff_point
                 self.pfcxoff_point = int(measured_xoff)
@@ -622,7 +627,9 @@ class PfcXonProbing(ProbingBase):
         # Log probing start
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting XOn offset probing")
-        ProbingObserver.console(f"  src_port={src_port}, dst_A={dst_a}, dst_B={dst_b}")
+        ProbingObserver.console(
+            f"  src_port={src_port}, dst_drain={drain_port}, dst_holder={holder_port}"
+        )
         ProbingObserver.console(f"  pfcxoff_point={self.pfcxoff_point} pg={self.pg}")
         ProbingObserver.console(f"  algorithm={algo_label}")
         ProbingObserver.console(f"  enable_xon_range_probe={self.enable_xon_range_probe}")
@@ -630,7 +637,7 @@ class PfcXonProbing(ProbingBase):
         ProbingObserver.console("=" * 80)
 
         # Run probing
-        lower, upper, elapsed = algorithm.run(src_port, dst_a, dst_b, **traffic_keys)
+        lower, upper, elapsed = algorithm.run(src_port, drain_port, holder_port, **traffic_keys)
 
         # Build result
         result = ThresholdResult.from_bounds(lower, upper)

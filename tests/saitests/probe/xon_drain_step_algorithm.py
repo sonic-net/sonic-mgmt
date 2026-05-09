@@ -24,7 +24,7 @@ class XonDrainStepAlgorithm:
     Step-by-step XOn drain probing — for small effective_xon_offset.
 
     For each candidate D in [1, max_iter]:
-      1. Call executor.check(src, dst_A, dst_B, value=D, **traffic_keys)
+      1. Call executor.check(src, drain_port, holder_port, value=D, **traffic_keys)
       2. If xon_fired -> answer is (D-1, D); return.
       3. Else continue.
 
@@ -70,8 +70,8 @@ class XonDrainStepAlgorithm:
     def run(
         self,
         src_port: int,
-        dst_port_a: int,
-        dst_port_b: int,
+        drain_port: int,
+        holder_port: int,
         **traffic_keys,
     ) -> Tuple[Optional[int], Optional[int], float]:
         """
@@ -89,11 +89,11 @@ class XonDrainStepAlgorithm:
         t0 = time.time()
         ProbingObserver.console(
             f"[XOn Drain Step] Starting step-by-step search "
-            f"src={src_port} dst_A={dst_port_a} dst_B={dst_port_b} "
+            f"src={src_port} drain={drain_port} holder={holder_port} "
             f"max_iter={self.max_iter}"
         )
 
-        self.executor.prepare(src_port, dst_port_a, dst_port_b)
+        self.executor.prepare(src_port, drain_port, holder_port)
 
         # Per-D retry-on-failure (I1 fix mirroring Binary's pattern). The loop
         # iterates D from 1..max_iter; for each D, retry up to
@@ -104,8 +104,8 @@ class XonDrainStepAlgorithm:
         while d <= self.max_iter:
             success, xon_fired = self.executor.check(
                 src_port=src_port,
-                dst_port_a=dst_port_a,
-                dst_port_b=dst_port_b,
+                drain_port=drain_port,
+                holder_port=holder_port,
                 value=d,
                 attempts=self.verification_attempts,
                 **traffic_keys,

@@ -139,9 +139,9 @@ def test_sim_executor_check_drain_above_offset_fires_xon(mock_observer):
             pfcxoff_point=100,
             true_xon_offset=10,
         )
-        # Drain 50 packets from dst_A: 50 >= 10 (true_xon_offset) -> xon fires.
+        # Drain 50 packets from dst_drain: 50 >= 10 (true_xon_offset) -> xon fires.
         success, xon_fired = executor.check(
-            src_port=24, dst_port_a=28, dst_port_b=29,
+            src_port=24, drain_port=28, holder_port=29,
             value=50, attempts=1, pg=3,
         )
 
@@ -162,13 +162,13 @@ def test_sim_executor_check_drain_below_offset_xoff_active(mock_observer):
             pfcxoff_point=100,
             true_xon_offset=50,
         )
-        # Drain 5 packets from dst_A: 5 < 50 (true_xon_offset) -> xon NOT fired.
-        # (The 95 remaining packets in dst_B's queue keep total ingress
+        # Drain 5 packets from dst_drain: 5 < 50 (true_xon_offset) -> xon NOT fired.
+        # (The 95 remaining packets in dst_holder's queue keep total ingress
         # well above pfcxoff_point, so xoff stays asserted; counter pumps
         # via pause_rate_per_read=10 each read; window_growth >=
         # pause_stop_tolerance=5 -> xoff_active.)
         success, xon_fired = executor.check(
-            src_port=24, dst_port_a=28, dst_port_b=29,
+            src_port=24, drain_port=28, holder_port=29,
             value=5, attempts=1, pg=3,
         )
 

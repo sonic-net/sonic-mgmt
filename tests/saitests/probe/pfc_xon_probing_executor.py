@@ -3,18 +3,18 @@ PFC XOn Probing Executor — 2-dst topology with fill+drain protocol
 
 Detects pkts_num_dismiss_pfc + pkts_num_hysteresis (XOn offset) using
 "drain after xoff" protocol:
-  - fill phase: send packets via 2 flows (src->dst_A, src->dst_B) so they
-    accumulate at the SAME ingress PG (same source port + same DSCP).
+  - fill phase: send packets via 2 flows (src->dst_drain, src->dst_holder)
+    so they accumulate at the SAME ingress PG (same source port + same DSCP).
     Total = pfcxoff_point. Verify PFC_PAUSE_RX incremented (xoff fired).
-  - drain phase: tx_enable(dst_A) drains its portion. Wait. If buffer
+  - drain phase: tx_enable(dst_drain) drains its portion. Wait. If buffer
     level fell past xon threshold, src is resumed -> sends more -> next
     xoff fires -> PFC_PAUSE_RX increments AGAIN.
   - decision: PAUSE counter incremented past baseline+1 = xon resumed.
 
 Differs from PfcXoffProbingExecutor:
-  - Takes (src, dst_A, dst_B) instead of (src, dst).
-  - check(D) means: with D packets routed to dst_A and (pfcxoff_point-D)
-    routed to dst_B, after opening dst_A's tx, did xon fire?
+  - Takes (src, dst_drain, dst_holder) instead of (src, dst).
+  - check(D) means: with D packets routed to dst_drain and (pfcxoff_point-D)
+    routed to dst_holder, after opening dst_drain's tx, did xon fire?
   - Returns (success, xon_fired).
 
 Reference: legacy PFCXonTest (sai_qos_tests.py L2868) which uses 3-port
@@ -27,8 +27,8 @@ Usage:
         pfcxoff_point=N,        # known from prior PfcXoff probe
         verbose=True,
     )
-    executor.prepare(src, dst_A, dst_B)
-    success, xon_fired = executor.check(src, dst_A, dst_B, value=D, **traffic_keys)
+    executor.prepare(src, drain_port, holder_port)
+    success, xon_fired = executor.check(src, drain_port, holder_port, value=D, **traffic_keys)
 """
 
 import sys
@@ -95,37 +95,39 @@ class PfcXonProbingExecutor:
     """
     PFC XOn (XOn offset) Probing Executor.
 
-    Topology: 1 src -> 2 dst (dst_A is drain target, dst_B is the holder).
+    Topology: 1 src -> 2 dst (dst_drain is the drain target, dst_holder
+    holds back its share of the buffer fill).
     Both dst flows enter the SAME ingress PG (same source port + same DSCP).
 
     Protocol divergence from peer executors (intentional):
       Peer executors (PfcXoffProbingExecutor, IngressDropProbingExecutor,
       Sim*ProbingExecutor) use `check(src_port, dst_port, value, ...)` — 2 ports.
-      This executor uses `check(src_port, dst_port_a, dst_port_b, value, ...)` —
-      3 ports. The divergence is required because XOn is a fill-then-drain protocol
-      that needs two destination queues: dst_A is drained to test the XOn trigger
-      while dst_B holds back its share of the buffer fill. Algorithms paired with
-      this executor (XonDrainStepAlgorithm, XonDrainBinaryAlgorithm) are aware
-      of and use the 3-port signature explicitly.
+      This executor uses `check(src_port, drain_port, holder_port, value, ...)` —
+      3 ports. The divergence is required because XOn is a fill-then-drain
+      protocol that needs two destination queues: dst_drain is drained to test
+      the XOn trigger while dst_holder holds back its share of the buffer fill.
+      Algorithms paired with this executor (XonDrainStepAlgorithm,
+      XonDrainBinaryAlgorithm) are aware of and use the 3-port signature
+      explicitly.
 
     The constructor takes pfcxoff_point obtained from a prior PfcXoff probe
     so the executor knows the buffer fill level needed to trigger xoff.
 
     The check(value=D) logic:
-      1. tx_disable both dst_A, dst_B
+      1. tx_disable both dst_drain, dst_holder
       2. drain residual buffer
-      3. send D packets via flow(src->dst_A); send (pfcxoff_point - D) via
-         flow(src->dst_B). Total = pfcxoff_point. xoff fires.
+      3. send D packets via flow(src->dst_drain); send (pfcxoff_point - D) via
+         flow(src->dst_holder). Total = pfcxoff_point. xoff fires.
       4. (verify) read PFC_PAUSE_RX baseline. If not incremented from
          pre-fill snapshot, retry up to MAX_FILL_ATTEMPTS with margin.
-      5. tx_enable(dst_A) -> drain D packets out
+      5. tx_enable(dst_drain) -> drain D packets out
       6. wait DRAIN_SETTLE_DELAY (let buffer settle and PFC react)
       7. sample PFC_PAUSE_RX twice over PAUSE_OBSERVATION_WINDOW.
          - If counter delta < PAUSE_STOP_TOLERANCE => PFC has released
            (xon fired). Return (True, True).
          - Else (counter still incrementing because PFC is still asserted)
            => xon NOT fired at this D. Return (True, False).
-      8. cleanup: tx_enable(dst_B) so next iteration has clean state.
+      8. cleanup: tx_enable(dst_holder) so next iteration has clean state.
 
     NOTE (drain-bug fix 2026-05-08, on real TH2 7260CX3): the original
     rule "PAUSE counter > baseline => xon fired" was based on a wrong
@@ -162,7 +164,7 @@ class PfcXonProbingExecutor:
                 fire (noise tolerance, like ThresholdRange's verification_attempts).
             fill_retry_margin: Extra packets to add to total when retrying
                 fill verification. Compensates for Step2 being slightly off.
-            drain_settle_delay: Seconds between tx_enable(dst_A) and the
+            drain_settle_delay: Seconds between tx_enable(dst_drain) and the
                 first PAUSE counter sample. Allows drain to complete and
                 PFC to react.
             pause_observation_window: Seconds between the two PAUSE counter
@@ -201,39 +203,39 @@ class PfcXonProbingExecutor:
     # use this signature)
     # ------------------------------------------------------------------
 
-    def prepare(self, src_port: int, dst_port_a: int, dst_port_b: int) -> None:
+    def prepare(self, src_port: int, drain_port: int, holder_port: int) -> None:
         """
         Prepare the 2-dst topology: drain residual buffer on both dst ports,
         then hold both (tx_disable) so the next fill phase starts clean.
         """
-        self.ptftest.buffer_ctrl.drain_buffer([dst_port_a, dst_port_b])
+        self.ptftest.buffer_ctrl.drain_buffer([drain_port, holder_port])
         time.sleep(PORT_TX_CTRL_DELAY)
-        self.ptftest.buffer_ctrl.hold_buffer([dst_port_a, dst_port_b])
+        self.ptftest.buffer_ctrl.hold_buffer([drain_port, holder_port])
         time.sleep(PORT_TX_CTRL_DELAY)
 
         if self.verbose and self.observer:
             self.observer.trace(
-                f"[PfcXon Executor] Prepare: src={src_port} dst_A={dst_port_a} "
-                f"dst_B={dst_port_b} pfcxoff_point={self.pfcxoff_point}"
+                f"[PfcXon Executor] Prepare: src={src_port} drain={drain_port} "
+                f"holder={holder_port} pfcxoff_point={self.pfcxoff_point}"
             )
 
     def check(
         self,
         src_port: int,
-        dst_port_a: int,
-        dst_port_b: int,
+        drain_port: int,
+        holder_port: int,
         value: int,
         attempts: int = 1,
         **traffic_keys,
     ) -> Tuple[bool, bool]:
         """
-        Check if draining `value` packets from dst_A causes XOn to fire.
+        Check if draining `value` packets from dst_drain causes XOn to fire.
 
         Args:
             src_port: source port (single PG, single DSCP).
-            dst_port_a: drain target — receives `value` packets in fill phase,
+            drain_port: drain target — receives `value` packets in fill phase,
                 then tx_enabled to drain.
-            dst_port_b: holder — receives (pfcxoff_point - value) packets;
+            holder_port: holder — receives (pfcxoff_point - value) packets;
                 stays tx_disabled during the check.
             value: drain count D (how many packets we test as the XOn offset).
                 Must satisfy 1 <= value <= pfcxoff_point.
@@ -262,7 +264,7 @@ class PfcXonProbingExecutor:
             for attempt in range(attempts):
                 # ===== Phase 1: FILL =====
                 fill_ok, baseline_pause_count = self._fill_phase(
-                    src_port, dst_port_a, dst_port_b, value, **traffic_keys
+                    src_port, drain_port, holder_port, value, **traffic_keys
                 )
                 if not fill_ok:
                     # Could not reliably trigger xoff after retries — abort
@@ -275,12 +277,12 @@ class PfcXonProbingExecutor:
 
                 # ===== Phase 2: DRAIN =====
                 xon_fired = self._drain_phase(
-                    src_port, dst_port_a, baseline_pause_count
+                    src_port, drain_port, baseline_pause_count
                 )
                 results.append(xon_fired)
 
                 # ===== Phase 3: CLEANUP =====
-                self._cleanup_phase(dst_port_a, dst_port_b)
+                self._cleanup_phase(drain_port, holder_port)
 
                 if self.verbose:
                     self.observer.trace(
@@ -322,8 +324,8 @@ class PfcXonProbingExecutor:
     def _fill_phase(
         self,
         src_port: int,
-        dst_port_a: int,
-        dst_port_b: int,
+        drain_port: int,
+        holder_port: int,
         value: int,
         **traffic_keys,
     ) -> Tuple[bool, int]:
@@ -336,26 +338,26 @@ class PfcXonProbingExecutor:
         """
         for attempt in range(self.max_fill_attempts):
             extra = attempt * self.fill_retry_margin
-            pkts_to_a = value
-            pkts_to_b = (self.pfcxoff_point - value) + extra
+            pkts_to_drain = value
+            pkts_to_holder = (self.pfcxoff_point - value) + extra
 
             # Reset state — drain everything, then hold both
-            self.ptftest.buffer_ctrl.drain_buffer([dst_port_a, dst_port_b])
+            self.ptftest.buffer_ctrl.drain_buffer([drain_port, holder_port])
             time.sleep(PORT_TX_CTRL_DELAY)
-            self.ptftest.buffer_ctrl.hold_buffer([dst_port_a, dst_port_b])
+            self.ptftest.buffer_ctrl.hold_buffer([drain_port, holder_port])
             time.sleep(PORT_TX_CTRL_DELAY)
 
             # Snapshot pre-fill PAUSE counter
             pre_pause = self._read_pause_count(src_port)
 
             # Send the two streams
-            if pkts_to_a > 0:
+            if pkts_to_drain > 0:
                 self.ptftest.buffer_ctrl.send_traffic(
-                    src_port, dst_port_a, pkts_to_a, **traffic_keys
+                    src_port, drain_port, pkts_to_drain, **traffic_keys
                 )
-            if pkts_to_b > 0:
+            if pkts_to_holder > 0:
                 self.ptftest.buffer_ctrl.send_traffic(
-                    src_port, dst_port_b, pkts_to_b, **traffic_keys
+                    src_port, holder_port, pkts_to_holder, **traffic_keys
                 )
 
             # Allow PFC counter to update
@@ -368,7 +370,7 @@ class PfcXonProbingExecutor:
             if self.verbose:
                 self.observer.trace(
                     f"[PfcXon Executor] Fill attempt {attempt + 1}/{self.max_fill_attempts}: "
-                    f"A={pkts_to_a} B={pkts_to_b} (extra={extra}); "
+                    f"drain={pkts_to_drain} holder={pkts_to_holder} (extra={extra}); "
                     f"PAUSE pre={pre_pause} post={post_pause} fired={xoff_fired}"
                 )
 
@@ -380,11 +382,11 @@ class PfcXonProbingExecutor:
     def _drain_phase(
         self,
         src_port: int,
-        dst_port_a: int,
+        drain_port: int,
         baseline_pause_count: int,
     ) -> bool:
         """
-        Open dst_A's tx so its queued packets drain. Detect XOn fire by
+        Open dst_drain's tx so its queued packets drain. Detect XOn fire by
         observing whether the PFC PAUSE counter STOPS incrementing.
 
         Background: while buffer is in xoff state, DUT periodically (~every
@@ -400,7 +402,7 @@ class PfcXonProbingExecutor:
 
         Args:
             src_port: source port — pause counter is read here.
-            dst_port_a: drain target — opened (tx_enable) to release D
+            drain_port: drain target — opened (tx_enable) to release D
                 queued packets.
             baseline_pause_count: post-fill PAUSE count (for trace logging
                 and consistency checks; the new logic does not use it for
@@ -410,7 +412,7 @@ class PfcXonProbingExecutor:
             True if PAUSE counter has effectively stopped incrementing
             within the observation window (delta < pause_stop_tolerance).
         """
-        self.ptftest.buffer_ctrl.drain_buffer([dst_port_a])
+        self.ptftest.buffer_ctrl.drain_buffer([drain_port])
         time.sleep(self.drain_settle_delay)
 
         # Sample 1: just after drain settles.
@@ -447,7 +449,7 @@ class PfcXonProbingExecutor:
 
         return xon_fired
 
-    def _cleanup_phase(self, dst_port_a: int, dst_port_b: int) -> None:
+    def _cleanup_phase(self, drain_port: int, holder_port: int) -> None:
         """Drain everything and reset both dst ports for next iteration."""
-        self.ptftest.buffer_ctrl.drain_buffer([dst_port_a, dst_port_b])
+        self.ptftest.buffer_ctrl.drain_buffer([drain_port, holder_port])
         time.sleep(PORT_TX_CTRL_DELAY)

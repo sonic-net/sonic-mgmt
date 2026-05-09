@@ -195,7 +195,7 @@ class TestPfcXonProbingTrafficSetup:
     @pytest.mark.order(1320)
     def test_setup_traffic_skips_when_insufficient_ports(self):
         """setup_traffic returns early when fewer than 3 probing ports
-        (1 src + dst_A + dst_B is the minimum)."""
+        (1 src + dst_drain + dst_holder is the minimum)."""
         pfc = _PfcXonProbingFixture()
         pfc.probing_port_ids = [24, 28]  # only 2 ports — need 3
         # Should return without raising and without setting up flows
@@ -278,7 +278,7 @@ class TestPfcXonProbingDispatch:
 
         mock_step.assert_called_once()
         mock_binary.assert_not_called()
-        # Verify run() received correct args: (src=24, dst_a=28, dst_b=29, pg=3)
+        # Verify run() received correct args: (src=24, drain_port=28, holder_port=29, pg=3)
         mock_step.return_value.run.assert_called_once_with(24, 28, 29, pg=3)
         # Verify ThresholdResult.from_bounds got (lower, upper) in correct order
         mock_result.from_bounds.assert_called_once_with(5, 6)
