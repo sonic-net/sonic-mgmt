@@ -200,12 +200,28 @@ class PfcXonProbing(ProbingBase):
         # ⇒ ~220 in a 100ms window, well above tolerance=5). Surface as
         # test_params so cross-platform V9 runs (Mellanox SPC1/SPC2/SPC3, Cisco,
         # Brcm GB) can tune without code change. None means "use executor default".
+        # Per r2 N2 (2026-05-09): validate > 0 to fail loudly on bad input
+        # (test_params=0 silently produced wrong results; both
+        # pause_observation_window=0.0 and pause_stop_tolerance=0 break
+        # detection in different ways without crashing).
         self.pause_observation_window = self.test_params.get(
             "pause_observation_window", None
         )
+        if self.pause_observation_window is not None and self.pause_observation_window <= 0:
+            raise ValueError(
+                f"pause_observation_window must be > 0 (got "
+                f"{self.pause_observation_window}); zero or negative breaks "
+                "the 2-sample counter-stop detection in _drain_phase."
+            )
         self.pause_stop_tolerance = self.test_params.get(
             "pause_stop_tolerance", None
         )
+        if self.pause_stop_tolerance is not None and self.pause_stop_tolerance <= 0:
+            raise ValueError(
+                f"pause_stop_tolerance must be > 0 (got "
+                f"{self.pause_stop_tolerance}); zero or negative makes "
+                "`growth < tolerance` always False (xon never detected)."
+            )
 
     def get_probe_config(self):
         """Return standardized probe configuration."""
@@ -445,7 +461,16 @@ class PfcXonProbing(ProbingBase):
         # Phase 4: Exact point (step-by-step within narrowed window).
         # Conditional on ENABLE_PRECISE_DETECTION class attribute -- mirrors
         # HeadroomPoolProbing.probe() pattern (headroom_pool_probing.py:366-374).
+        # Per r2 N3 (2026-05-09): both Phase-4-skip paths log explicitly so
+        # V9 log scrubbing can distinguish "Phase 4 skipped because the class
+        # is configured for fast/imprecise mode" from "Phase 4 skipped because
+        # the range is too wide".
         if not self.ENABLE_PRECISE_DETECTION:
+            ProbingObserver.console(
+                f"[Step 2] ENABLE_PRECISE_DETECTION=False; using "
+                f"range_upper={range_upper} as xoff_point. "
+                "Phase 4 (exact point) SKIPPED."
+            )
             return range_upper
 
         range_size = range_upper - range_lower

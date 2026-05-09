@@ -250,18 +250,24 @@ class SimPfcXonProbingExecutor(PfcXonProbingExecutor):
             **kwargs,
         )
 
-        # Sim-side coupling guard (per code review S5, 2026-05-09): the
-        # HardwareModel must increment the counter by MORE than the executor's
-        # pause_stop_tolerance per read, otherwise during xoff the 2-sample
-        # observation window's growth (= pause_rate_per_read for one read in
-        # between the two reads) would not exceed tolerance, and the executor
-        # would falsely conclude "xon fired" while the model is still in xoff.
-        # Catch the misconfiguration at construction time rather than reading
-        # silently-wrong test results.
-        if self.hw_model.pause_rate_per_read <= self.pause_stop_tolerance:
+        # Sim-side coupling guard (per code review S5, 2026-05-09; tightened
+        # per r2 N1, 2026-05-09): the HardwareModel must increment the counter
+        # by STRICTLY MORE than the executor's pause_stop_tolerance per read,
+        # so that during xoff the 2-sample observation window's growth (=
+        # pause_rate_per_read for the one read between t1 and t2) exceeds
+        # tolerance and the executor correctly reads "still in xoff".
+        #
+        # Strict `<` matches the executor's xon_fired predicate
+        # (pfc_xon_probing_executor.py: `xon_fired = pause_growth <
+        # self.pause_stop_tolerance`). At the boundary rate == tolerance,
+        # `growth < tolerance` is False -> "still in xoff" (correct), so
+        # rate == tolerance is technically safe; but matching the exact
+        # comparison removes the ambiguity. Catch the misconfiguration at
+        # construction rather than reading silently-wrong test results.
+        if self.hw_model.pause_rate_per_read < self.pause_stop_tolerance:
             raise ValueError(
                 f"HardwareModel.pause_rate_per_read={self.hw_model.pause_rate_per_read} "
-                f"must exceed executor.pause_stop_tolerance={self.pause_stop_tolerance}; "
+                f"must be >= executor.pause_stop_tolerance={self.pause_stop_tolerance}; "
                 "otherwise sim cannot model 'still in xoff' correctly."
             )
 

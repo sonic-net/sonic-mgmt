@@ -132,6 +132,32 @@ class TestPfcXonProbingParameterParsing:
         assert pfc.xon_binary_step_max_iter == 80
         assert pfc.xon_verification_attempts == 3
 
+    @pytest.mark.order(1305)
+    def test_parse_param_rejects_zero_pause_observation_window(self):
+        """Per r2 N2: pause_observation_window must be > 0; 0 silently
+        breaks 2-sample counter-stop detection (no real wait between
+        reads -> growth=0 -> always reads xon_fired=True at every D)."""
+        pfc = _PfcXonProbingFixture()
+        pfc.test_params = {
+            "pfcxoff_point": 1000,
+            "pause_observation_window": 0.0,
+        }
+        with pytest.raises(ValueError, match="pause_observation_window must be > 0"):
+            pfc.parse_param()
+
+    @pytest.mark.order(1306)
+    def test_parse_param_rejects_zero_pause_stop_tolerance(self):
+        """Per r2 N2: pause_stop_tolerance must be > 0; 0 makes
+        `growth < tolerance` always False -> xon never detected ->
+        algorithm exhausts max_iter and returns None."""
+        pfc = _PfcXonProbingFixture()
+        pfc.test_params = {
+            "pfcxoff_point": 1000,
+            "pause_stop_tolerance": 0,
+        }
+        with pytest.raises(ValueError, match="pause_stop_tolerance must be > 0"):
+            pfc.parse_param()
+
 
 class TestPfcXonProbingConfiguration:
     """Test get_probe_config + get_expected_threshold."""
