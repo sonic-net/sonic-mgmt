@@ -538,11 +538,22 @@ class TestQosProbe(QosSaiBase):
             pytest.skip(
                 "PfcXonProbe: pkts_num_trig_pfc missing in yaml for {}".format(xonProfile))
 
-        # Algorithm dispatch flag (per design v3 platform decision matrix).
-        # Read from yaml (per-platform / per-profile); default False = step algorithm.
-        # Platforms with high effective_offset (Brcm GB, Mlx SPC3, Cisco) should set
-        # this to True in their qos_params.{platform}.yaml.
-        enable_xon_range_probe = qosConfig[xonProfile].get("enable_xon_range_probe", False)
+        # Algorithm dispatch flag (per design v3 §1 platform decision matrix).
+        # Per design v3 §1 footnote: derive at runtime from existing yaml fields,
+        # not a separate `enable_xon_range_probe` yaml entry. Rule:
+        #   true (4-step / Binary)  if  pkts_num_hysteresis > 0   (Brcm GB, Mlx PAC)
+        #                           OR  pkts_num_dismiss_pfc > 30 (Cisco J2C/JR2/Q3D)
+        #   false (3-step / Step)   otherwise (Brcm TD2/TD3/TH/TH2/TH3/TH5, Mlx SPC1/SPC2)
+        #
+        # This routes Cisco/GB/PAC to the Binary algorithm without yaml edits;
+        # platform yamls already encode the relevant facts (hysteresis on Mlx
+        # PAC + Brcm GB; dismiss_pfc 200..12985 on Cisco). The 30-cell cutoff
+        # for dismiss_pfc separates 3-step (≤30 effective offset) from 4-step
+        # (>30 effective offset) per the design's "binary search budget"
+        # rationale (3-step is bounded ≤30 iter; >30 needs binary).
+        hysteresis = qosConfig[xonProfile].get("pkts_num_hysteresis", 0) or 0
+        dismiss_pfc = qosConfig[xonProfile].get("pkts_num_dismiss_pfc", 0) or 0
+        enable_xon_range_probe = (hysteresis > 0) or (dismiss_pfc > 30)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
