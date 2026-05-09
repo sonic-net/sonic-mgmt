@@ -8,6 +8,7 @@ import sys
 from collections import Counter
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import \
@@ -144,7 +145,7 @@ def ptf_teardown(ptfhost, ptf_ports):
     # Remove the arp_responder config rendered during setup_ptf_lag so it cannot
     # be re-used by a subsequent test that starts arp_responder with the default
     # config path.
-    ptfhost.file(path="/tmp/from_t1.json", state="absent")
+    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
 
 
 def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
@@ -228,9 +229,9 @@ def setup_arp_responder(ptf_ports, ptfhost):
     arp_responder_conf[PTF_LAG_NAME] = [ptf_ports["ip"]["lag"].split("/")[0]]
     arp_responder_conf[ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]] = \
         [ptf_ports["ip"]["port_not_behind_lag"].split("/")[0]]
-    with open("/tmp/from_t1.json", "w") as ar_config:
+    with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
         json.dump(arp_responder_conf, ar_config)
-    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 

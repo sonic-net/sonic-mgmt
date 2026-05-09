@@ -19,7 +19,7 @@ from tests.common.utilities import wait_until, get_intf_by_sub_intf, is_ipv6_onl
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 from tests.common.reboot import reboot
 import ptf.testutils as testutils
@@ -62,9 +62,9 @@ def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interface
         for port in vlan_host_map:
             arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
 
-        with open("/tmp/from_t1.json", "w") as ar_config:
+        with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
             json.dump(arp_responder_conf, ar_config)
-        ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+        ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
         ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
         ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
@@ -86,7 +86,7 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
         # Remove the arp_responder config that add_ipaddr() wrote earlier so it
         # cannot be picked up by a later test invoking arp_responder with its
         # default config path.
-        ptfhost.file(path="/tmp/from_t1.json", state="absent")
+        ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
 
 
 def clear_arp_ndp(duthost, ipv6=False):

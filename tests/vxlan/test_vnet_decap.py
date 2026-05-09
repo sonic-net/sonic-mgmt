@@ -10,7 +10,7 @@ from ptf.mask import Mask
 
 
 pytestmark = [
-    pytest.mark.topology("t1", "t1-64-lag", "t1-56-lag", "t1-lag"),
+    pytest.mark.topology("t0", "t1", "t1-64-lag", "t1-56-lag", "t1-lag"),
     pytest.mark.disable_loganalyzer
 ]
 
