@@ -195,6 +195,18 @@ class PfcXonProbing(ProbingBase):
             self.test_params.get("xon_verification_attempts", self.DEFAULT_VERIFICATION_ATTEMPTS)
         )
 
+        # Periodic-PAUSE counter-stop detection tunables (per code review I3,
+        # 2026-05-09). Defaults are calibrated for TH2 7260CX3 (~2200 pauses/sec
+        # ⇒ ~220 in a 100ms window, well above tolerance=5). Surface as
+        # test_params so cross-platform V9 runs (Mellanox SPC1/SPC2/SPC3, Cisco,
+        # Brcm GB) can tune without code change. None means "use executor default".
+        self.pause_observation_window = self.test_params.get(
+            "pause_observation_window", None
+        )
+        self.pause_stop_tolerance = self.test_params.get(
+            "pause_stop_tolerance", None
+        )
+
     def get_probe_config(self):
         """Return standardized probe configuration."""
         return ProbeConfig(
@@ -439,9 +451,10 @@ class PfcXonProbing(ProbingBase):
         range_size = range_upper - range_lower
         if range_size > self.PRECISE_DETECTION_RANGE_LIMIT:
             ProbingObserver.console(
-                f"[Step 2] Range width {range_size} exceeds limit "
-                f"{self.PRECISE_DETECTION_RANGE_LIMIT}; using range_upper={range_upper} "
-                "as xoff_point approximation (skip Phase 4)."
+                f"[Step 2] ⚠️ APPROXIMATION: Range width {range_size} exceeds "
+                f"limit {self.PRECISE_DETECTION_RANGE_LIMIT}; using "
+                f"range_upper={range_upper} as xoff_point. "
+                "Phase 4 (exact point) SKIPPED."
             )
             return range_upper
 
@@ -496,9 +509,16 @@ class PfcXonProbing(ProbingBase):
             if measured_xoff is not None and measured_xoff > 0:
                 yaml_hint = self.pfcxoff_point
                 self.pfcxoff_point = int(measured_xoff)
+                delta = self.pfcxoff_point - yaml_hint
+                if delta == 0:
+                    delta_msg = "matches yaml exactly"
+                elif delta > 0:
+                    delta_msg = f"measured exceeds yaml by +{delta} pkts"
+                else:
+                    delta_msg = f"measured is below yaml by {delta} pkts"
                 ProbingObserver.console(
                     f"[Step 1+2] xoff_point = {self.pfcxoff_point} (measured); "
-                    f"yaml hint was {yaml_hint} (delta={self.pfcxoff_point - yaml_hint})"
+                    f"yaml hint was {yaml_hint}; {delta_msg}"
                 )
             else:
                 ProbingObserver.console(
@@ -535,11 +555,23 @@ class PfcXonProbing(ProbingBase):
         )
 
         # Create executor via factory (handles env-specific dispatch: physical vs sim)
+        # Build executor kwargs: only pass periodic-PAUSE tunables when
+        # explicitly set via test_params (None = use executor's defaults).
+        # This keeps the surface compatible while letting V9 cross-platform
+        # runs override per-platform without code change (per code review I3).
+        executor_kwargs = {"pfcxoff_point": self.pfcxoff_point}
+        if self.pause_observation_window is not None:
+            executor_kwargs["pause_observation_window"] = float(
+                self.pause_observation_window
+            )
+        if self.pause_stop_tolerance is not None:
+            executor_kwargs["pause_stop_tolerance"] = int(self.pause_stop_tolerance)
+
         executor = self.create_executor(
             self.PROBE_TARGET,
             observer,
             "xon_probe",
-            pfcxoff_point=self.pfcxoff_point,
+            **executor_kwargs,
         )
 
         # Dispatch algorithm based on flag
