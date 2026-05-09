@@ -275,7 +275,7 @@ def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, toleran
     Returns:
         N/A
     """
-    data_flow_rate_percent = int(100 / len(rows))
+    data_flow_rate_percent = (100 - len(rows) * WARM_UP_TRAFFIC_RATE_PERCENT) / len(rows)
 
     for row in rows:
         flow_name = row.name
