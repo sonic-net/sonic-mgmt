@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms18-t1-msn4600c-acs-1, vms63-t1-4600-5"
+    default: "vms18-t1-msn4600c-acs-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER

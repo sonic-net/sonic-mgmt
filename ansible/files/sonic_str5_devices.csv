@@ -33,8 +33,8 @@ str5-sn5640-2,10.64.246.74/25,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str5-sn5640-fan-2,10.64.246.77/25,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str5-sn5640-3,10.64.247.164/25,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str5-sn5640-fan-3,10.64.247.165/25,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
-str5-sn5640-5,10.64.247.169/25,Mellanox-SN5640-C448O16,DevSonic,,sonic
-str5-sn5640-fan-5,10.64.247.170/25,Mellanox-SN5640-C448O16,FanoutLeafSonic,,sonic
+str5-sn5640-5,10.64.247.169/25,Mellanox-SN5640-C512S2,DevSonic,,sonic
+str5-sn5640-fan-5,10.64.247.170/25,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str5-sn5640-6,10.64.246.33/25,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str5-sn5640-fan-6,10.64.246.32/25,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str5-7260cx3-acs-fan-20,10.64.247.109/26,Arista-7260CX3,FanoutLeaf,,
