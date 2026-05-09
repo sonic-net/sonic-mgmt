@@ -23,7 +23,7 @@ from tests.common import config_reload
 from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
     BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
     BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
-from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 from tests.common.devices.eos import EosHost
@@ -257,7 +257,7 @@ def _setup_arp_responder(duthost, ptfhost, tbinfo, is_v6_topo):
         "eth%s" % minigraph_ptf_indices[port]: [config[ip_type].split("/")[0]]
         for port, config in list(mux_config.items())
     }
-    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest="/tmp/from_t1.json")
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest=ARP_RESPONDER_DEFAULT_CONFIG)
     ptfhost.copy(src="scripts/arp_responder.py", dest="/opt")
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2",
