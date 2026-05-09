@@ -13,7 +13,7 @@ import pytest
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
-from tests.common.reboot import check_reboot_cause,\
+from tests.common.reboot import check_reboot_cause, get_reboot_cause,\
     check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
     wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_WATCHDOG
@@ -159,8 +159,20 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             check_determine_reboot_cause_service(dut)
 
         logging.info("Check reboot cause")
-        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
-            "got reboot-cause failed after rebooted by %s" % reboot_type
+        if not wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30,
+                          check_reboot_cause, dut, reboot_type):
+            actual_type = get_reboot_cause(dut)
+            raw_output = dut.shell('show reboot-cause')['stdout']
+            expected_pattern = reboot_ctrl_dict.get(
+                reboot_type, {}
+            ).get('cause', 'N/A')
+            pytest.fail(
+                "Reboot cause mismatch after '{}' reboot. "
+                "Expected pattern: '{}', actual type: '{}', "
+                "raw 'show reboot-cause' output: '{}'"
+                .format(reboot_type, expected_pattern,
+                        actual_type, raw_output)
+            )
 
         if "201811" in dut.os_version or "201911" in dut.os_version:
             logging.info(
