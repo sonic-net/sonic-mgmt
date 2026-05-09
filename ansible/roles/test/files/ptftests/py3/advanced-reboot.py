@@ -89,6 +89,15 @@ from host_device import HostDevice
 
 PHYSICAL_PORT = "physical_port"
 
+# Canonical default config path for the arp_responder helper. These are kept in
+# lock-step with tests.common.helpers.constants.ARP_RESPONDER_DEFAULT_CONFIG and
+# ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT; we don't import them here because this
+# module runs inside the PTF container, where the sonic-mgmt test tree is not on
+# sys.path. The per-suffix variant adds the logfile suffix between the stem and
+# the extension.
+ARP_RESPONDER_CONFIG_PATH = "/tmp/from_t1.json"
+ARP_RESPONDER_CONFIG_PATH_FMT = "/tmp/from_t1_%s.json"
+
 
 class StateMachine():
     def __init__(self, init_state='init'):
@@ -483,7 +492,8 @@ class ReloadTest(BaseTest):
 
     def dump_arp_responder_config(self, dump):
         # save data for arp_replay process
-        filename = "/tmp/from_t1.json" if self.logfile_suffix is None else "/tmp/from_t1_%s.json" % self.logfile_suffix
+        filename = ARP_RESPONDER_CONFIG_PATH if self.logfile_suffix is None \
+            else ARP_RESPONDER_CONFIG_PATH_FMT % self.logfile_suffix
         with open(filename, "w") as fp:
             json.dump(dump, fp)
 
