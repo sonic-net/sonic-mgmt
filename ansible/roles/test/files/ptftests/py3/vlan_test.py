@@ -14,6 +14,13 @@ from ptf.testutils import test_params_get, send, simple_icmp_packet, verify_pack
 from ptf.mask import Mask
 
 
+# Canonical default config path for the arp_responder helper. Kept in lock-step
+# with tests.common.helpers.constants.ARP_RESPONDER_DEFAULT_CONFIG; we don't
+# import that here because this module runs inside the PTF container, where the
+# sonic-mgmt test tree is not on sys.path.
+ARP_RESPONDER_CONFIG_PATH = '/tmp/from_t1.json'
+
+
 class VlanTest(BaseTest):
     def __init__(self):
         BaseTest.__init__(self)
@@ -78,7 +85,7 @@ class VlanTest(BaseTest):
                         vlan_port["port_index"], permit_vlanid)
                 d[iface].append(vlan_port["permit_vlanid"]
                                 [str(permit_vlanid)]["peer_ip"])
-        with open('/tmp/from_t1.json', 'w') as file:
+        with open(ARP_RESPONDER_CONFIG_PATH, 'w') as file:
             json.dump(d, file)
 
     # --------------------------------------------------------------------------
