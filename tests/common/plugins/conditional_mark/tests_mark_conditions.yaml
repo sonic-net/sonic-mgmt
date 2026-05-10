@@ -1279,15 +1279,6 @@ disk/test_disk_exhaustion.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20759 and '-v6-' in topo_name"
 
 #######################################
-#####             dns             #####
-#######################################
-dns/static_dns/test_static_dns.py::test_static_dns_basic:
-  skip:
-    reason: "Found regression issue on multi-asic platform, need to skip for multi-asic platform until the issue is fixed."
-    conditions:
-      - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/23880"
-
-#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
@@ -3886,13 +3877,12 @@ pc/test_lag_member.py:
 
 pc/test_lag_member_forwarding.py:
   xfail:
-    reason: "Not supported on BRCM before SDK 13.x, found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed"
+    reason: "Not supported on BRCM before SDK 13.x"
     conditions_logical_operator: or
     conditions:
         - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
         - "asic_type in ['mellanox', 'nvidia'] and https://github.com/sonic-net/sonic-mgmt/issues/17095"
         - "asic_gen in ['q3d'] and https://github.com/sonic-net/sonic-mgmt/issues/22942"
-        - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/26741"
 
 pc/test_po_cleanup.py:
   skip:
@@ -4086,12 +4076,6 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     reason: "Testcase ignored on nvidia sn4700 and sn4280 due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23426"
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
-
-platform_tests/test_reboot.py:
-  skip:
-    reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
-    conditions:
-      - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/26743"
 
 platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
