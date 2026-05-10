@@ -1455,7 +1455,7 @@ sudo sfputil show fwversion <port>
 Download firmware
 
 ```
-sudo sfputil download <port> <fwfile>
+sudo sfputil firmware download <port> <fwfile>
 ```
 
 Run firmware
