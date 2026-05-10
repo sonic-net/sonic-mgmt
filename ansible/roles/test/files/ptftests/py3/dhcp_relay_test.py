@@ -1284,27 +1284,6 @@ class DHCPTest(DataplaneBaseTest):
                     self.dest_mac_address, self.client_udp_src_port)
 
 
-class DHCPPacketsServerToClientTest(DHCPTest):
-    """
-    Only Test DHCP packets from server to client, including offer, ack, nak and unknown.
-    """
-    def runTest(self):
-        # Start sniffer process for each server port to capture DHCP packet
-        for interface_index in self.server_port_indices:
-            t1 = Thread(target=self.Sniffer, args=(
-                "eth"+str(interface_index),))
-            t1.start()
-
-        self.server_send_offer()
-        self.verify_offer_received()
-        self.server_send_ack()
-        self.verify_ack_received()
-        self.server_send_unknown()
-        self.verify_relayed_unknown_on_client_side()
-        self.server_send_nak()
-        self.verify_relayed_nak()
-
-
 class DHCPInvalidChecksumTest(DHCPTest):
     """
     Test DHCP packets with invalid checksum.

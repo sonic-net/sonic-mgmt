@@ -1342,6 +1342,7 @@ def capture_and_check_packet_on_dut(
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
+        duthost.shell("kill -9 %s || true" % tcpdump_pid, module_ignore_errors=True)
         duthost.file(path=pcap_save_path, state="absent")
 
 
@@ -1509,7 +1510,8 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
-        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
+                      wait_for_bgp=True)
     finally:
         # Cleanup golden config because some other test or device recover may reload config with golden config
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
