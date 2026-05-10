@@ -30,7 +30,7 @@ _avm.load_extra_vars = _safe_load_extra_vars
 logger = logging.getLogger(__name__)
 
 
-def ansible_tqm_registers_signals():
+def ansible_tqm_has_signal_registration():
     version = getattr(ansible, "__version__", "0.0.0")
     try:
         major, minor = version.split(".")[:2]
@@ -47,7 +47,7 @@ _original_signal = None
 @contextmanager
 def suppress_signal_registration_for_non_main_thread():
     """Temporarily bypass signal registration from worker threads for ansible-core 2.19+."""
-    if not ansible_tqm_registers_signals() or threading.current_thread() is threading.main_thread():
+    if not ansible_tqm_has_signal_registration() or threading.current_thread() is threading.main_thread():
         yield
         return
 
