@@ -359,6 +359,50 @@ class PfcXonProbing(ProbingBase):
             by that margin. Running a fresh PfcXoff probe right before XOn
             drain produces a precise xoff_point that the XOn drain phase can
             consume directly.
+
+        =====================================================================
+        Architectural note (review C2, 2026-05-10)
+        =====================================================================
+        This method composes the same 4-phase probing chain
+        (UpperBound -> LowerBound -> ThresholdRange -> ThresholdPoint) that
+        already exists in 3 other places in the probe framework:
+
+          - PfcXoffProbing.probe() / _create_algorithms() / _run_algorithms()
+            (pfc_xoff_probing.py:202-433)
+          - HeadroomPoolProbing — PFC threshold block
+            (headroom_pool_probing.py:351-371)
+          - HeadroomPoolProbing — Drop threshold block
+            (headroom_pool_probing.py:444-475)
+
+        Why we do NOT directly invoke PfcXoffProbing.probe() here:
+          1. PfcXoffProbing is a PTF test entry class (extends
+             sai_base_test.ThriftInterfaceDataPlane via ProbingBase). Its
+             setUp/probe() are coupled to PTF runner state, not callable as
+             a standalone helper.
+          2. probe() reads self.probing_port_ids[0] and
+             self.stream_mgr.get_port_ids("dst")[0] — there is no public API
+             to override which (src, dst) pair to probe.
+          3. probe() returns ThresholdResult; we would still need to convert
+             it into the integer xoff_point we consume below.
+          4. ProbingObserver iteration_prefix would collide: PfcXoffProbing
+             uses 1..4; PfcXonProbing uses prefix=1 for the XOn drain phase.
+             This method explicitly uses prefix 10..13 to keep the chain
+             logs distinguishable from XOn drain logs.
+
+        Why we do NOT extract a shared helper here:
+          A helper would need to live in either ProbingBase or a new module
+          AND PfcXoffProbing.probe() / HeadroomPoolProbing.probe() would
+          need to be migrated to use it. Modifying those proven peer probes
+          is explicitly out of scope for this PR — the rule is "new probes
+          must not perturb existing probes' code or executors". HeadroomPool
+          itself observed the same rule when it composed PfcXoff + drop
+          algorithms without modifying PfcXoffProbing.
+
+        Follow-up: extracting a reusable run_4phase_chain() helper that
+        consolidates all 4 sites is best done as a dedicated refactor PR
+        that touches PfcXoff + HeadroomPool×2 + PfcXon at once, with full
+        physical regression on each. Tracked in
+        cortex/sessions/mmu-probe-status-0507/STATUS.md follow-ups.
         """
         pool_size = self.get_pool_size()
 
