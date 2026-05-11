@@ -49,7 +49,7 @@ def setup_c0(request, duthost, tbinfo):
 
 
 def get_console_fanout(duthost, fanouthosts, tbinfo):
-    console_fanouts = None
+    console_fanout = None
     if tbinfo["topo"]["name"] == "c0":
         console_fanouts = list(filter(lambda fh: fh.get_fanout_os() == 'sonic' and fh.is_console_switch(),
                                       fanouthosts.values()))
