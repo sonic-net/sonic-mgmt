@@ -247,6 +247,9 @@ def run_sanity(topology, platform, script_file):
         cmd = "cd /data; pip install monotonic\n"
         execute_command_on_chan(chan, cmd, show_output=True)
 
+        cmd = "pip install retry\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
+
         cmd = "unset https_proxy http_proxy\n"
         execute_command_on_chan(chan, cmd, show_output=True)
 

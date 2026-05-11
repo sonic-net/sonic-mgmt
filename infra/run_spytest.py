@@ -631,9 +631,8 @@ def run_sanity(topology, platform, script_file, test_bed=None):
             cmd = "cd /data; pip install monotonic\n"
             execute_command_on_chan(chan, cmd, show_output=True)
 
-            if is_dci or is_mh:
-                cmd = "pip install retry\n"
-                execute_command_on_chan(chan, cmd, show_output=True)
+            cmd = "pip install retry\n"
+            execute_command_on_chan(chan, cmd, show_output=True)
 
             # Install additional packages for DCI if DCI topology is detected
             if is_dci:
