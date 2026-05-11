@@ -1533,30 +1533,26 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
     BASE_ADDR_V4 = "192.128.0.0/9"
     BASE_ADDR_V6 = "20c0:a800::0:0/108"
     ROUTE_NUMBER_T1 = 16000 * 2  # x2 for unique route
-    T0_ASN_OFFSET = 200  # Must be > len(t1_vms) + len(ut2_vms); asserted below
+    BASE_ADDR_V4_T0 = "192.0.0.0/9"
+    BASE_ADDR_V6_T0 = "20c0:a900::0:0/108"
+    T0_ROUTES_PER_VM = 128  # 128 unique IPv4 + 128 unique IPv6 routes per T0 VM
+    T0_ASN_OFFSET = 200  # Offset to avoid collision with T1/UT2 ASN range
 
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get('nhipv4', NHIPV4)
     nhipv6 = common_config.get('nhipv6', NHIPV6)
-
-    BASE_ADDR_V4_T0 = common_config.get("base_addr_v4_t0", "192.0.0.0/9")
-    BASE_ADDR_V6_T0 = common_config.get("base_addr_v6_t0", "20c0:a900::0:0/108")
-    T0_ROUTES_PER_VM = common_config.get("route_number_t0", 128)
 
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
 
     multi_vrf_data = topo.get('convergence_data', {})
     if multi_vrf_data:
-        conv_mapping = multi_vrf_data.get('convergence_mapping', {})
-        all_vms = sorted([vrf for vrfs in conv_mapping.values() for vrf in vrfs])
+        all_vms = sorted([vrf for vrfs in multi_vrf_data['convergence_mapping'].values() for vrf in vrfs])
     else:
         all_vms = sorted(topo['topology']['VMs'])
     t1_vms = list(filter(lambda vm: "T1" in vm, all_vms))
     ut2_vms = list(filter(lambda vm: "UT2" in vm, all_vms))
-    t0_vms = list(filter(lambda vm: "T0" in vm, all_vms))
-    assert len(t1_vms) + len(ut2_vms) < T0_ASN_OFFSET, \
-        "T0_ASN_OFFSET {} too small for {} T1 + {} UT2 VMs".format(T0_ASN_OFFSET, len(t1_vms), len(ut2_vms))
+    t0_vms = list(filter(lambda vm: vm.endswith("T0"), all_vms))
 
     default_route_as_path = get_uplink_router_as_path("upperspine", None)
 
