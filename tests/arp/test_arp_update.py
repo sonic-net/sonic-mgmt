@@ -5,7 +5,8 @@ import ptf.testutils as testutils
 import pytest
 import random
 
-from tests.arp.arp_utils import clear_dut_arp_cache, fdb_cleanup, get_dut_mac, fdb_has_mac, get_vlan_last_ipv4
+from tests.arp.arp_utils import (clear_dut_arp_cache, fdb_cleanup, get_dut_mac,
+                                 fdb_has_mac, get_vlan_last_ipv4, get_vlan_ipv4_for_subnet)
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import setup_vlan_arp_responder, run_icmp_responder  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -55,19 +56,28 @@ def ptf_interface_info(ip_and_intf_info, ptfadapter):
 
 
 @pytest.fixture
-def dut_interface_info(rand_selected_dut, config_facts, tbinfo):
+def dut_interface_info(rand_selected_dut, config_facts, tbinfo, ptf_interface_info):
     """
-    Get DUT interface information
+    Get DUT interface information, matching the VLAN subnet that contains the PTF IP.
     """
     duthost = rand_selected_dut
     dut_mac = get_dut_mac(duthost, config_facts, tbinfo)
-    vlan_name, dut_ipv4 = get_vlan_last_ipv4(config_facts)
+
+    # Find the VLAN IP in the same subnet as PTF
+    vlan_name, dut_ipv4, prefix_len = get_vlan_ipv4_for_subnet(config_facts, ptf_interface_info['ip'])
+    if vlan_name is None:
+        # Fallback if no matching subnet found
+        vlan_name, dut_ipv4 = get_vlan_last_ipv4(config_facts)
+        prefix_len = 24
+        logger.warning("No VLAN subnet match for PTF IP %s, falling back to %s/%s",
+                       ptf_interface_info['ip'], dut_ipv4, prefix_len)
 
     return {
         'host': duthost,
         'mac': dut_mac,
         'vlan_name': vlan_name,
-        'ipv4': dut_ipv4
+        'ipv4': dut_ipv4,
+        'prefix_len': prefix_len
     }
 
 
@@ -89,19 +99,22 @@ def clean_environment(rand_selected_dut, ptfadapter):
 
 
 @pytest.fixture
-def ptf_with_ip_config(ptf_interface_info, ptfhost):
+def ptf_with_ip_config(ptf_interface_info, dut_interface_info, ptfhost):
     """
-    Configure IP on PTF interface and cleanup afterwards
+    Configure IP on PTF interface using the correct prefix length from the DUT VLAN subnet.
     """
     ptf_info = ptf_interface_info
+    prefix_len = dut_interface_info.get('prefix_len', 24)
 
     # Configure IP on PTF interface
-    ptfhost.shell(f"ip addr add {ptf_info['ip']}/21 dev {ptf_info['interface']}", module_ignore_errors=True)
+    ptfhost.shell(f"ip addr add {ptf_info['ip']}/{prefix_len} dev {ptf_info['interface']}",
+                  module_ignore_errors=True)
 
     yield ptf_info
 
     # Cleanup: remove IP from PTF interface
-    ptfhost.shell(f"ip addr del {ptf_info['ip']}/21 dev {ptf_info['interface']}", module_ignore_errors=True)
+    ptfhost.shell(f"ip addr del {ptf_info['ip']}/{prefix_len} dev {ptf_info['interface']}",
+                  module_ignore_errors=True)
 
 
 def neighbor_learned(dut, target_ip):
