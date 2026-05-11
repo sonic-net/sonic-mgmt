@@ -342,7 +342,7 @@ def test_snmp_queue_counters(duthosts,
     # cannot be modified dynamically. Hence, make sure the queue counters
     # before deletion and after deletion are same for broadcom-dnx voq chassis
     platform_asic = duthost.facts.get("platform_asic")
-    if platform_asic == "broadcom-dnx" and duthost.sonichost.is_multi_asic:
+    if platform_asic == "broadcom-dnx":
         pytest_assert(
             (queue_counters_cnt_pre == queue_counters_cnt_post),
             "Queue counters actual count {} differs from expected values {}"
