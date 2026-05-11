@@ -163,13 +163,13 @@ def _build_report_row(
     issue_state = str(issue_payload.get("state") or "").lower() if issue_payload else ""
     current_status = "unknown"
     if bool(entry.get("no_issue_linked")):
-        current_status = "no_issue_linked"
+        current_status = "no-issue-linked"
     elif issue_state == "closed":
-        current_status = "skip_closed"
+        current_status = "skip-closed"
     elif evaluation and evaluation.expired_now:
         current_status = "expired"
     elif issue_state == "open":
-        current_status = "not expired"
+        current_status = "not-expired"
 
     issue_created_at_raw = issue_payload.get("created_at") if issue_payload else None
     issue_closed_at_raw = issue_payload.get("closed_at") if issue_payload else None
