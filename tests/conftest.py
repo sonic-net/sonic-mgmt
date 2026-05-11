@@ -3353,10 +3353,10 @@ def temporarily_disable_route_check(request, tbinfo, duthosts):
             check_flag = True
             break
 
-    allowed_topologies = {"t2", "ut2", "lt2"}
-    topo_name = tbinfo['topo']['name']
-    if check_flag and topo_name not in allowed_topologies:
-        logger.info("Topology {} is not allowed for temporarily_disable_route_check fixture".format(topo_name))
+    allowed_topo_types = {"t2", "ut2", "lt2"}
+    topo_type = tbinfo['topo']['type']
+    if check_flag and topo_type not in allowed_topo_types:
+        logger.info("Topology type {} is not allowed for temporarily_disable_route_check fixture".format(topo_type))
         check_flag = False
 
     def wait_for_route_check_to_pass(dut):
