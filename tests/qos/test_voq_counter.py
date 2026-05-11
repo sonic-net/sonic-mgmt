@@ -2,9 +2,7 @@
 SAI thrift-based test for the VOQ Credit-WD-Del counter on SONiC broadcom-dnx devices.
 
 This test case verifies that the VOQ Credit-WD-Del counter increments as expected on
-a broadcom-dnx VOQ device. It uses the SAI thrift library to disable TX on a destination
-port, sends traffic via PTF to back up the VOQ, and waits for the credit watchdog to fire
-and increment the Credit-WD-Del/pkts counter.
+a broadcom-dnx VOQ device. 
 """
 
 import logging
@@ -53,10 +51,6 @@ class TestVoqCreditWDCounter(QosSaiBase):
     ):
         """
         Test that the VOQ Credit-WD-Del counter increments on a broadcom-dnx device.
-
-        The test disables TX on a destination port via SAI thrift (without disabling the
-        credit watchdog), sends traffic to back up the VOQ, and waits for the credit
-        watchdog to fire and increment Credit-WD-Del/pkts.
 
         Args:
             ptfhost (AnsibleHost): Packet Test Framework (PTF)
