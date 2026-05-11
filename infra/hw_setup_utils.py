@@ -134,7 +134,9 @@ streams_list = ["202205",
                 ]
 
 # overrides must use full stream names like "cisco.202511.1.signed"
-STREAM_BRANCH_OVERRIDE = {}
+STREAM_BRANCH_OVERRIDE = {
+    "cisco.202505c.ztp": "c-master",  # MIGSOFTWAR-41568
+}
 
 BIN_FILE = "sonic-cisco-8000.bin"
 
