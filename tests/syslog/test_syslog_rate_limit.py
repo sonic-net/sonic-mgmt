@@ -262,6 +262,10 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
 
     with loganalyzer:
         duthost.command(run_generator_cmd)
+        # Wait for rsyslogd to forward the rate-limiting notification from the container
+        # to the host syslog. Without this, the notification may arrive after the
+        # LogAnalyzer end marker, causing intermittent test failures.
+        time.sleep(5)
 
 
 def get_host_rsyslogd_pid(duthost):
