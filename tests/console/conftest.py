@@ -51,6 +51,7 @@ def setup_c0(request, duthost, tbinfo):
 
 
 def get_console_fanout(duthost, fanouthosts, tbinfo):
+    console_fanout = None
     if tbinfo["topo"]["name"] == "c0":
         console_fanouts = list(filter(
             lambda fh: fh.get_fanout_os() == 'sonic' and fh.is_console_switch(),
@@ -63,7 +64,10 @@ def get_console_fanout(duthost, fanouthosts, tbinfo):
     else:
         pytest.fail("Test requires c0 or c0-lo topology")
 
-    return console_fanout
+    if console_fanout:
+        return console_fanout
+    else:
+        pytest.fail("No console fanout was found. Pls setup the ansible files correctly.")
 
 
 @pytest.fixture(scope='module')
