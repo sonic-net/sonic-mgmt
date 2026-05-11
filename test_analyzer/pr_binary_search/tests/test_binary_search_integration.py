@@ -26,7 +26,10 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from binary_plan import DynamicParallelBisect, choose_optimal_segments, compute_indices  # noqa: E402
-from pr_binary_search import execute_binary_search, derive_include_jobs, remap_test_scripts_for_pipeline  # noqa: E402
+from pr_binary_search import (  # noqa: E402
+    execute_binary_search, derive_include_jobs, remap_test_scripts_for_pipeline,
+    get_pr_url_for_commit, _commit_pr_cache,
+)
 from schemas import PipelineRunParameters  # noqa: E402
 
 
@@ -1275,3 +1278,91 @@ class TestFetchFailureInfoFromKusto:
         assert "12h" not in query, "Lookback filter should be absent when exact batch ID is provided"
         assert "AnalyzerRunId ==" in query
         assert "take 1" not in query, "No row limit — all failures in the batch should be returned"
+
+
+# ──────────────────────────────────────────
+# get_pr_url_for_commit tests
+# ──────────────────────────────────────────
+
+class TestGetPrUrlForCommit:
+    """Tests for get_pr_url_for_commit() caching and error handling."""
+
+    def setup_method(self):
+        _commit_pr_cache.clear()
+
+    @patch("pr_binary_search.GIT_API_TOKEN", "fake-token")
+    @patch("pr_binary_search.requests.get")
+    def test_caches_pr_url_on_success(self, mock_get):
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=MagicMock(return_value=[{"html_url": "https://github.com/org/repo/pull/42"}]),
+        )
+        result = get_pr_url_for_commit("org/repo", "abc123")
+        assert result == "https://github.com/org/repo/pull/42"
+        assert _commit_pr_cache[("org/repo", "abc123")] == "https://github.com/org/repo/pull/42"
+        # Second call should use cache, not API
+        result2 = get_pr_url_for_commit("org/repo", "abc123")
+        assert result2 == "https://github.com/org/repo/pull/42"
+        assert mock_get.call_count == 1
+
+    @patch("pr_binary_search.GIT_API_TOKEN", "fake-token")
+    @patch("pr_binary_search.requests.get")
+    def test_caches_none_for_empty_pr_list(self, mock_get):
+        """200 with empty list should cache None to avoid repeated API calls."""
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=MagicMock(return_value=[]),
+        )
+        result = get_pr_url_for_commit("org/repo", "no-pr-commit")
+        assert result is None
+        assert ("org/repo", "no-pr-commit") in _commit_pr_cache
+        assert _commit_pr_cache[("org/repo", "no-pr-commit")] is None
+        # Second call should use cache
+        get_pr_url_for_commit("org/repo", "no-pr-commit")
+        assert mock_get.call_count == 1
+
+    @patch("pr_binary_search.GIT_API_TOKEN", "fake-token")
+    @patch("pr_binary_search.requests.get")
+    def test_does_not_cache_on_403_rate_limit(self, mock_get):
+        """403 is often a GitHub rate-limit response and should not be cached."""
+        mock_get.return_value = MagicMock(status_code=403)
+        result = get_pr_url_for_commit("org/repo", "rate-limited")
+        assert result is None
+        assert ("org/repo", "rate-limited") not in _commit_pr_cache
+
+    @patch("pr_binary_search.GIT_API_TOKEN", "fake-token")
+    @patch("pr_binary_search.requests.get")
+    def test_does_not_cache_on_429(self, mock_get):
+        mock_get.return_value = MagicMock(status_code=429)
+        result = get_pr_url_for_commit("org/repo", "throttled")
+        assert result is None
+        assert ("org/repo", "throttled") not in _commit_pr_cache
+
+    @patch("pr_binary_search.GIT_API_TOKEN", "fake-token")
+    @patch("pr_binary_search.requests.get")
+    def test_caches_none_on_404(self, mock_get):
+        """404 is a permanent error — commit doesn't exist — should be cached."""
+        mock_get.return_value = MagicMock(status_code=404)
+        result = get_pr_url_for_commit("org/repo", "missing-commit")
+        assert result is None
+        assert _commit_pr_cache[("org/repo", "missing-commit")] is None
+
+    @patch("pr_binary_search.GIT_API_TOKEN", "fake-token")
+    @patch("pr_binary_search.requests.get")
+    def test_does_not_cache_on_server_error(self, mock_get):
+        for code in [500, 502, 503, 504]:
+            _commit_pr_cache.clear()
+            mock_get.return_value = MagicMock(status_code=code)
+            result = get_pr_url_for_commit("org/repo", "server-err")
+            assert result is None
+            assert ("org/repo", "server-err") not in _commit_pr_cache
+
+    def test_returns_none_without_token(self):
+        with patch("pr_binary_search.GIT_API_TOKEN", ""):
+            result = get_pr_url_for_commit("org/repo", "abc123")
+            assert result is None
+
+    def test_returns_none_for_none_inputs(self):
+        with patch("pr_binary_search.GIT_API_TOKEN", "fake-token"):
+            assert get_pr_url_for_commit(None, "abc123") is None
+            assert get_pr_url_for_commit("org/repo", None) is None

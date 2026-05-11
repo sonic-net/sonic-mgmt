@@ -3,6 +3,7 @@ import os
 import logging
 import argparse
 import uuid
+import requests
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pipeline_triggers import AzureDevOpsClient, trigger_pipeline  # ThreadPoolExecutor kept for prebuild
@@ -47,6 +48,45 @@ PRE_DEFINED_PR_TEST_PIPELINE_ID = 3320
 BASE_URL = "https://dev.azure.com/"
 ORGANIZATION = "mssonic"
 PROJECT = "build"
+GIT_API_TOKEN = os.getenv("GIT_API_TOKEN", "")
+
+# Cache for commit→PR URL lookups to avoid repeated API calls
+_commit_pr_cache = {}
+
+
+def get_pr_url_for_commit(repo, commit_sha):
+    """
+    Look up the PR that introduced a commit via GitHub API.
+    Returns the PR HTML URL string, or None if not found.
+    """
+    if not repo or not commit_sha or not GIT_API_TOKEN:
+        return None
+    cache_key = (repo, commit_sha)
+    if cache_key in _commit_pr_cache:
+        return _commit_pr_cache[cache_key]
+
+    url = f"https://api.github.com/repos/{repo}/commits/{commit_sha}/pulls"
+    headers = {
+        "Authorization": f"token {GIT_API_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            pulls = resp.json()
+            if pulls:
+                pr_url = pulls[0].get("html_url")
+                _commit_pr_cache[cache_key] = pr_url
+                return pr_url
+            # No associated PR — cache to avoid repeated API calls
+            _commit_pr_cache[cache_key] = None
+        elif resp.status_code not in {403, 429, 500, 502, 503, 504}:
+            # Only cache None for non-transient errors (403 can be rate-limit)
+            _commit_pr_cache[cache_key] = None
+    except Exception as e:
+        logger.warning(f"Failed to look up PR for {repo}@{commit_sha}: {e}")
+
+    return None
 
 
 def parse_bool_arg(value):
@@ -1124,6 +1164,9 @@ def build_summary_records(results, search_run_id):
             "IssueNumber": issue_number,
             "IssueClosedAt": confirmed_issue.get("closed_at") if confirmed_issue else None,
             "BadCommit": result.get("bad_commit"),
+            "PRLink": get_pr_url_for_commit(
+                metadata.get("repo"), result.get("bad_commit")
+            ),
             "TotalRounds": result.get("total_rounds"),
             "SearchCompleted": result.get("search_completed"),
             "FinalRange": list(final_range) if final_range is not None else None,

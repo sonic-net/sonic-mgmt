@@ -34,7 +34,17 @@ from kusto_uploader import ingest_records_from_env
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-PR_SUMMARY_TABLE = "PRTestCaseResultSummary"
+# CheckerType derivation from TestPlanName — matches pr_test_result_summary.py logic
+CHECKER_TYPE_CASE_EXPR = '''case(
+    TestPlanName matches regex ("kvmtest-t0_"), "t0_checker",
+    TestPlanName matches regex ("kvmtest-t0-sonic_"), "t0-sonic_checker",
+    TestPlanName matches regex ("kvmtest-t0-2vlans_"), "t0-2vlans_checker",
+    TestPlanName matches regex ("kvmtest-t1-lag_"), "t1_checker",
+    TestPlanName matches regex ("kvmtest-multi-asic-t1_"), "t1-multi-asic_checker",
+    TestPlanName matches regex ("kvmtest-dualtor-t0_"), "dualtor_checker",
+    TestPlanName matches regex ("kvmtest-dpu_"), "dpu_checker",
+    TestPlanName matches regex ("kvmtest-t2_"), "t2_checker",
+    "other")'''
 DATABASE = KUSTO_DATABASE
 ingest_cluster = os.environ.get("KUSTO_CLUSTER_INGEST_URL", None)
 cluster = ingest_cluster.replace("ingest-", "") if ingest_cluster else None
@@ -275,19 +285,39 @@ def build_kusto_records(all_failure_entries, all_commit_info, run_id):
 
 
 def get_pr_result_summary(kusto, start, end):
-    # time series for baseline tests
+    """
+    Query V2TestCases directly (joined with TestPlans) to detect test regressions.
+    This replaces the previous approach of querying the pre-aggregated
+    PRTestCaseResultSummary table, eliminating the 4-hour delay.
+    """
+    supported_repos = ', '.join(f'"{repo}"' for repo in SUPPORTED_PUBLIC_REPOS)
     query = f'''
-    {PR_SUMMARY_TABLE}
-    | where RunDate between (datetime({isoformat_kusto(start)}) .. datetime({isoformat_kusto(end)}))
-    | where TotalCount > {TOTAL_COUNT_THRESHOLD}
-    | where SourceRepo in ({', '.join(f'"{repo}"' for repo in SUPPORTED_PUBLIC_REPOS)})
-    | summarize Success=sum(SuccessCount), Total=sum(TotalCount), Skip=sum(SkipCount), Failure=sum(FailureCount), \
-        Error=sum(ErrorCount) by RunDate, SourceRepo, Branch, CheckerType, FilePath, ModulePath, TestCase, TriggerType
-    | where Total != Skip
-    | project RunDate, TriggerType, SourceRepo, Branch, CheckerType, TestCase, FilePath, ModulePath, \
-        Success, Failure, Error, Skip, Total
+    TestPlans
+    | where EndTime between (datetime({isoformat_kusto(start)}) .. datetime({isoformat_kusto(end)}))
+    | where TriggerType in ("PRTest", "BaselineTest")
+    | where TestPlanName !contains "optional"
+    | where SourceRepo in ({supported_repos})
+    | extend CheckerType = {CHECKER_TYPE_CASE_EXPR}
+    | where CheckerType != "other"
+    | extend Branch = TestBranch
+    | project TestPlanId, TriggerType, CheckerType, Branch, SourceRepo
+    | join kind=inner (
+        V2TestCases
+        | where EndTime between (datetime({isoformat_kusto(start)}) .. datetime({isoformat_kusto(end)}))
+        | where Result in ("success", "failure", "error", "skipped")
+        | extend TestCase = extract("^(.+?)(\\\\[|$)", 1, TestCase)
+        | project TestPlanId, FilePath, ModulePath, TestCase, Result
+    ) on TestPlanId
+    | summarize
+        Success = countif(Result == "success"),
+        Failure = countif(Result == "failure"),
+        Error = countif(Result == "error"),
+        Skip = countif(Result == "skipped"),
+        Total = count()
+        by SourceRepo, Branch, CheckerType, FilePath, ModulePath, TestCase, TriggerType
+    | where (Total - Skip) > {TOTAL_COUNT_THRESHOLD}
     | extend SuccessRate = todouble(Success) / todouble(Success + Failure + Error)
-    | project TriggerType, SourceRepo, Branch, CheckerType, FilePath, ModulePath, TestCase, SuccessRate, RunDate
+    | project TriggerType, SourceRepo, Branch, CheckerType, FilePath, ModulePath, TestCase, SuccessRate
     '''
     query_result = execute_kusto_query_rows(kusto, query, "get_pr_result_summary")
     baseline_failures = []
@@ -317,40 +347,56 @@ def is_likely_unskipped_by_issue_close(kusto, row, trigger_type, first_bad_time)
     - first bad day has non-zero Failure/Error
     This pattern likely indicates the test was unskipped due to issue close.
     """
-    prev_day = first_bad_time - timedelta(days=1)
-    bad_day = first_bad_time
+    prev_day_start = first_bad_time - timedelta(days=1)
+    bad_day_start = first_bad_time
+    bad_day_end = first_bad_time + timedelta(days=1)
+    prev_start_str = isoformat_kusto(prev_day_start)
+    bad_end_str = isoformat_kusto(bad_day_end)
     query = f'''
-    {PR_SUMMARY_TABLE}
-    | where RunDate between (datetime({isoformat_kusto(prev_day)}) .. datetime({isoformat_kusto(bad_day)}))
+    let test_plans = TestPlans
+    | where EndTime between (datetime({prev_start_str}) .. datetime({bad_end_str}))
     | where TriggerType == "{trigger_type}"
     | where SourceRepo == "{row['SourceRepo']}"
-    | where Branch == "{row['Branch']}"
+    | where TestBranch == "{row['Branch']}"
+    | extend CheckerType = {CHECKER_TYPE_CASE_EXPR}
     | where CheckerType == "{row['CheckerType']}"
-    | where FilePath == "{row['FilePath']}"
-    | where ModulePath == "{row['ModulePath']}"
-    | where TestCase == "{row['TestCase']}"
-    | summarize Success=sum(SuccessCount), Failure=sum(FailureCount), \
-        Error=sum(ErrorCount), TotalRows=count() by RunDate
-    | order by RunDate asc
+    | project TestPlanId, EndTime;
+    test_plans
+    | join kind=inner (
+        V2TestCases
+        | where EndTime between (datetime({prev_start_str}) .. datetime({bad_end_str}))
+        | where Result in ("success", "failure", "error")
+        | extend TestCase = extract("^(.+?)(\\\\[|$)", 1, TestCase)
+        | where FilePath == "{row['FilePath']}"
+        | where ModulePath == "{row['ModulePath']}"
+        | where TestCase == "{row['TestCase']}"
+        | project TestPlanId, Result, EndTime
+    ) on TestPlanId
+    | extend Day = format_datetime(EndTime1, "yyyy-MM-dd")
+    | summarize Success=countif(Result == "success"), Failure=countif(Result == "failure"),
+        Error=countif(Result == "error"), TotalRows=count() by Day
+    | order by Day asc
     '''
     result = execute_kusto_query_rows(kusto, query, "is_likely_unskipped_by_issue_close")
-    logger.info(f"Checking if likely unskipped by issue close for {row['TestCase']} with query: {query}")
+    logger.info(f"Checking if likely unskipped by issue close for {row['TestCase']}")
     logger.info(f"Result: {result}")
 
     day_stats = {}
     for item in result:
-        run_date = item.get("RunDate")
-        if not run_date:
+        day_key = item.get("Day")
+        if not day_key:
             continue
-        day_stats[run_date.date()] = {
+        day_stats[day_key] = {
             "Success": int(item.get("Success") or 0),
             "Failure": int(item.get("Failure") or 0),
             "Error": int(item.get("Error") or 0),
             "TotalRows": int(item.get("TotalRows") or 0),
         }
 
-    prev = day_stats.get(prev_day.date(), {"Success": 0, "Failure": 0, "Error": 0, "TotalRows": 0})
-    bad = day_stats.get(bad_day.date(), {"Success": 0, "Failure": 0, "Error": 0, "TotalRows": 0})
+    prev_day_key = prev_day_start.strftime("%Y-%m-%d")
+    bad_day_key = bad_day_start.strftime("%Y-%m-%d")
+    prev = day_stats.get(prev_day_key, {"Success": 0, "Failure": 0, "Error": 0, "TotalRows": 0})
+    bad = day_stats.get(bad_day_key, {"Success": 0, "Failure": 0, "Error": 0, "TotalRows": 0})
 
     prev_all_zero = prev["Success"] == 0 and prev["Failure"] == 0 and prev["Error"] == 0
     bad_has_fail_or_error = (bad["Failure"] > 0) or (bad["Error"] > 0)
@@ -363,6 +409,7 @@ def find_last_good_time_before_first_bad(kusto, row, trigger_type, first_bad_tim
                                          max_lookback_days=None):
     """
     Find the nearest historical healthy point before first_bad_time with expanded lookback.
+    Queries V2TestCases + TestPlans directly for precise time-based detection.
     """
     end = first_bad_time
     remaining_days = max(0, max_lookback_days if max_lookback_days is not None else LAST_GOOD_MAX_LOOKBACK_DAYS)
@@ -372,26 +419,42 @@ def find_last_good_time_before_first_bad(kusto, row, trigger_type, first_bad_tim
         days = min(step_days, remaining_days)
         start = end - timedelta(days=days)
         query = f'''
-        {PR_SUMMARY_TABLE}
-        | where RunDate between (datetime({isoformat_kusto(start)}) .. datetime({isoformat_kusto(end)}))
+        let test_plans = TestPlans
+        | where EndTime between (datetime({isoformat_kusto(start)}) .. datetime({isoformat_kusto(end)}))
         | where TriggerType == "{trigger_type}"
         | where SourceRepo == "{row['SourceRepo']}"
-        | where Branch == "{row['Branch']}"
+        | where TestBranch == "{row['Branch']}"
+        | extend CheckerType = {CHECKER_TYPE_CASE_EXPR}
         | where CheckerType == "{row['CheckerType']}"
-        | where FilePath == "{row['FilePath']}"
-        | where ModulePath == "{row['ModulePath']}"
-        | where TestCase == "{row['TestCase']}"
-        | summarize Success=sum(SuccessCount), Total=sum(TotalCount), Skip=sum(SkipCount), Failure=sum(FailureCount), \
-            Error=sum(ErrorCount) by RunDate
-        | where Total != Skip and Total > 0
+        | project TestPlanId, EndTime;
+        test_plans
+        | join kind=inner (
+            V2TestCases
+            | where EndTime between (datetime({isoformat_kusto(start)}) .. datetime({isoformat_kusto(end)}))
+            | where Result in ("success", "failure", "error")
+            | extend TestCase = extract("^(.+?)(\\\\[|$)", 1, TestCase)
+            | where FilePath == "{row['FilePath']}"
+            | where ModulePath == "{row['ModulePath']}"
+            | where TestCase == "{row['TestCase']}"
+            | project TestPlanId, Result, EndTime
+        ) on TestPlanId
+        | extend Day = format_datetime(EndTime1, "yyyy-MM-dd")
+        | summarize
+            Success = countif(Result == "success"),
+            Failure = countif(Result == "failure"),
+            Error = countif(Result == "error"),
+            Total = count(),
+            LatestEndTime = max(EndTime1)
+            by Day
+        | where Total > 0
         | extend SuccessRate = todouble(Success) / todouble(Success + Failure + Error)
         | where SuccessRate >= {PREVIOUS_SUCCESS_THRESHOLD}
-        | order by RunDate desc
+        | order by Day desc
         | take 1
         '''
         rows = execute_kusto_query_rows(kusto, query, "find_last_good_time_before_first_bad")
         if rows:
-            return rows[0].get("RunDate")
+            return rows[0].get("LatestEndTime")
 
         end = start
         remaining_days -= days
@@ -403,24 +466,36 @@ def get_failure_details(kusto, failure_details, all_failure_entries, failures, t
                         query_start, query_end, max_search_range_days=None):
     for row in failures:
         query_time_range = f'''
-        {PR_SUMMARY_TABLE}
-        | where RunDate between (datetime({isoformat_kusto(query_start)}) .. datetime({isoformat_kusto(query_end)}))
+        let test_plans = TestPlans
+        | where EndTime between (datetime({isoformat_kusto(query_start)}) .. datetime({isoformat_kusto(query_end)}))
         | where TriggerType == "{trigger_type}"
         | where SourceRepo == "{row['SourceRepo']}"
-        | where Branch == "{row['Branch']}"
+        | where TestBranch == "{row['Branch']}"
+        | extend CheckerType = {CHECKER_TYPE_CASE_EXPR}
         | where CheckerType == "{row['CheckerType']}"
-        | where FilePath == "{row['FilePath']}"
-        | where ModulePath == "{row['ModulePath']}"
-        | where TestCase == "{row['TestCase']}"
-        | summarize Success=sum(SuccessCount), Total=sum(TotalCount), Skip=sum(SkipCount), Failure=sum(FailureCount), \
-            Error=sum(ErrorCount) by RunDate, SourceRepo, Branch, CheckerType, \
-            FilePath, ModulePath, TestCase, TriggerType
-        | project RunDate, SourceRepo, Branch, CheckerType, TestCase, FilePath, ModulePath, \
-            Success, Failure, Error, Skip, Total
-        | where Total != Skip and Total > 0
+        | project TestPlanId, EndTime;
+        test_plans
+        | join kind=inner (
+            V2TestCases
+            | where EndTime between (datetime({isoformat_kusto(query_start)}) .. datetime({isoformat_kusto(query_end)}))
+            | where Result in ("success", "failure", "error")
+            | extend TestCase = extract("^(.+?)(\\\\[|$)", 1, TestCase)
+            | where FilePath == "{row['FilePath']}"
+            | where ModulePath == "{row['ModulePath']}"
+            | where TestCase == "{row['TestCase']}"
+            | project TestPlanId, Result, EndTime
+        ) on TestPlanId
+        | extend Day = format_datetime(EndTime1, "yyyy-MM-dd")
+        | summarize
+            Success = countif(Result == "success"),
+            Failure = countif(Result == "failure"),
+            Error = countif(Result == "error"),
+            Total = count()
+            by Day
+        | where Total > 0
         | extend SuccessRate = todouble(Success) / todouble(Success + Failure + Error)
-        | project RunDate, SuccessRate
-        | order by RunDate asc
+        | project Day, SuccessRate
+        | order by Day asc
         '''
         history_rows = execute_kusto_query_rows(kusto, query_time_range, "get_failure_details.query_time_range")
         if len(history_rows) == 0:
@@ -444,7 +519,7 @@ def get_failure_details(kusto, failure_details, all_failure_entries, failures, t
         first_bad_time = None
         for item in history_rows:
             if float(item["SuccessRate"]) < float(PREVIOUS_SUCCESS_THRESHOLD):
-                first_bad_time = item["RunDate"]
+                first_bad_time = dt.datetime.strptime(item["Day"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
                 break
         if not first_bad_time:
             logger.info(f"No first bad point found for {row['TestCase']}, skipping.")
@@ -513,11 +588,11 @@ def get_failure_details(kusto, failure_details, all_failure_entries, failures, t
 
         last_good_time = None
         for item in history_rows:
-            run_time = item["RunDate"]
-            if run_time >= first_bad_time:
+            run_day = dt.datetime.strptime(item["Day"], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            if run_day >= first_bad_time:
                 break
             if float(item["SuccessRate"]) >= float(PREVIOUS_SUCCESS_THRESHOLD):
-                last_good_time = run_time
+                last_good_time = run_day
 
         if not last_good_time:
             last_good_time = find_last_good_time_before_first_bad(
@@ -647,8 +722,8 @@ def analyze_candidates(kusto, lookback_days, failure_info_file, allowed_branches
                        max_search_range_days=None):
     now = dt.datetime.now(tz=timezone.utc)
     # Truncate to the start of today (00:00 UTC) so that lookback_days=1
-    # always includes yesterday's full day.  PRTestCaseResultSummary.RunDate
-    # is midnight-aligned, so "1 day ago" from e.g. 10:16 UTC must reach
+    # always includes yesterday's full day.  V2TestCases results are
+    # bucketed by day, so "1 day ago" from e.g. 10:16 UTC must reach
     # yesterday's 00:00, not just 24 hours back.
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start = today_start - timedelta(days=lookback_days)
