@@ -259,7 +259,7 @@ class SonicTopoConverger:
         # enough OVS bridges are created per prime VM.
         max_vlans = max((len(v["vlans"]) for v in vms.values()), default=0)
         if max_vlans > 0:
-            self.converged_topo["max_fp_num"] = max_vlans
+            new_topo["max_fp_num"] = max_vlans
 
         # The DUT configuration and general configuration properties should be
         # unchanged as well.
@@ -271,7 +271,7 @@ class SonicTopoConverger:
         old_topo = self.topo
 
         # Copy all top-level keys that are not explicitly handled below
-        handled_top_keys = {"topology", "topo_is_multi_vrf", "max_fp_num",
+        handled_top_keys = {"topology", "topo_is_multi_vrf",
                             "configuration_properties", "configuration",
                             "convergence_data"}
         for key in old_topo:
