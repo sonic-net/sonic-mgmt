@@ -300,8 +300,8 @@ class VMTopology(object):
                 vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
                 num_intfs = len([intf for intf in intf_names if re.search(vm_bridge_regx, intf)])
                 if len(attrs['vlans']) > num_intfs:
-                    raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
-                                    % (hostname, vmname, num_intfs))
+                    raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d %s"
+                                    % (hostname, vmname, num_intfs, str(attrs['vlans'])))
 
         self.VM_LINKs = {}
         if 'VM_LINKs' in self.topo:
@@ -649,7 +649,8 @@ class VMTopology(object):
             vlan_id = data.get("vlan")
             if vlan_id:
                 vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
-                VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
+                if VMTopology.intf_exists(vlan_intf_name, pid=self.pid):
+                    VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add unique suffix to int_if to support multiple tasks run concurrently
