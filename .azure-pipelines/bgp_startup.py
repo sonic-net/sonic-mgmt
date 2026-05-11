@@ -12,6 +12,7 @@ import logging
 import os
 import sys
 import yaml
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -53,6 +54,20 @@ def setup_logging(args):
     )
 
 
+def _startup_one_host(sonichost):
+    try:
+        logger.info("Running 'sudo config bgp startup all' on {}".format(sonichost.hostname))
+        sonichost.shell("sudo config bgp startup all")
+        logger.info("BGP startup completed on {}.".format(sonichost.hostname))
+        logger.info("Running 'sudo config save -y' on {}".format(sonichost.hostname))
+        sonichost.shell("sudo config save -y")
+        logger.info("Config saved on {}.".format(sonichost.hostname))
+    except Exception as e:
+        logger.error("Failed on {}: {}".format(sonichost.hostname, repr(e)))
+        return False
+    return True
+
+
 def main(args):
     logger.info("Setting up logging")
     setup_logging(args)
@@ -76,17 +91,18 @@ def main(args):
         logger.error("Failed to initialize hosts: {}".format(npu_names))
         sys.exit(1)
 
-    for sonichost in sonichosts:
-        try:
-            logger.info("Running 'sudo config bgp startup all' on {}".format(sonichost.hostname))
-            sonichost.shell("sudo config bgp startup all")
-            logger.info("BGP startup completed on {}.".format(sonichost.hostname))
-            logger.info("Running 'sudo config save -y' on {}".format(sonichost.hostname))
-            sonichost.shell("sudo config save -y")
-            logger.info("Config saved on {}.".format(sonichost.hostname))
-        except Exception as e:
-            logger.error("Failed on {}: {}".format(sonichost.hostname, repr(e)))
-            sys.exit(1)
+    failed = False
+    with ThreadPoolExecutor(max_workers=len(list(sonichosts))) as executor:
+        futures = [
+            executor.submit(_startup_one_host, sonichost)
+            for sonichost in sonichosts
+        ]
+        for future in as_completed(futures):
+            if not future.result():
+                failed = True
+
+    if failed:
+        sys.exit(1)
 
     logger.info("BGP startup and config save completed on all hosts.")
 
