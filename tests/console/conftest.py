@@ -39,10 +39,22 @@ def setup_c0(request, duthost, tbinfo):
                                                                                       bool(int(flow_control)),
                                                                                       dut_line_config["flow_control"]))
 
+    fanouthosts = request.getfixturevalue("fanouthosts")
+    console_fanout = get_console_fanout(duthost, fanouthosts, tbinfo)
+
+    console_facts = duthost.console_facts()['ansible_facts']['console_facts']
+    if len(console_facts["lines"]) != len(console_lines):
+        pytest.fail("C0 topo test requires DUT with 48 console lines configured, got {}"
+                    .format(len(console_facts["lines"])))
+
+    return duthost, console_fanout
+
+
+def get_console_fanout(duthost, fanouthosts, tbinfo):
     if tbinfo["topo"]["name"] == "c0":
-        fanouthosts = request.getfixturevalue("fanouthosts")
-        console_fanouts = list(filter(lambda fh: fh.get_fanout_os() == 'sonic' and fh.is_console_switch(),
-                                      fanouthosts.values()))
+        console_fanouts = list(filter(
+            lambda fh: fh.get_fanout_os() == 'sonic' and fh.is_console_switch(),
+            fanouthosts.values()))
         if len(console_fanouts) != 1:
             pytest.fail("Test requires exactly one console switch fanout device (could be dut itself)")
         console_fanout = console_fanouts[0].host
@@ -51,12 +63,7 @@ def setup_c0(request, duthost, tbinfo):
     else:
         pytest.fail("Test requires c0 or c0-lo topology")
 
-    console_facts = duthost.console_facts()['ansible_facts']['console_facts']
-    if len(console_facts["lines"]) != len(console_lines):
-        pytest.fail("C0 topo test requires DUT with 48 console lines configured, got {}"
-                    .format(len(console_facts["lines"])))
-
-    return duthost, console_fanout
+    return console_fanout
 
 
 @pytest.fixture(scope='module')
@@ -90,11 +97,16 @@ def cleanup_modules(setup_c0):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def prepare_hosts(setup_c0, localhost):
-    duthost, console_fanout = setup_c0
+def prepare_hosts(duthost, fanouthosts, tbinfo):
+    if tbinfo["topo"]["name"] not in ["c0", "c0-lo"]:
+        pytest.skip(
+            'These tests are not applicable for '
+            f'this topology:{tbinfo["topo"]["name"]}')
+    console_fanout = get_console_fanout(duthost, fanouthosts, tbinfo)
+
     required_hosts = set([duthost, console_fanout])
     for host in required_hosts:
-        host.copy(src="./console/socat", dest="/usr/local/bin/socat", mode=755)
+        host.copy(src="./console/socat", dest="/usr/local/bin/socat", mode='0755')
         assert host.shell("socat -V", module_ignore_errors=True)["rc"] == 0, \
             f"socat installation failed on DUT host:{host}"
 
