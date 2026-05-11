@@ -37,7 +37,7 @@ configuration:
     tornum: {{vm.tornum}}
     {%- elif vm.role == 't2' %}
     - spine
-    {%- elif vm.role == 'pt0' or vm.role == 'pt1' %}
+    {%- elif vm.role == 'pt1' %}
     - leaf
     {%- endif %}
     bgp:
