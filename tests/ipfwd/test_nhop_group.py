@@ -337,6 +337,12 @@ def validate_asic_route(duthost, route, exist=True):
         return exist is False
 
 
+def is_high_scale_platform(duthost) -> bool:
+    duthost_platform = duthost.sonichost.get_facts()['platform'].upper()
+    high_scale_platforms = ("7060X6", "7060XE7")
+    return any(model in duthost_platform for model in high_scale_platforms)
+
+
 def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     """
     Test next hop group resource count. Steps:
@@ -365,6 +371,10 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         default_max_nhop_paths = 8
         polling_interval = 10
         sleep_time = 120
+    elif is_high_scale_platform(duthost):
+        default_max_nhop_paths = 32
+        polling_interval = 10
+        sleep_time = 380
     else:
         default_max_nhop_paths = 32
         polling_interval = 10
@@ -448,7 +458,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
-    if is_cisco_device(duthost) or "7060X6" in duthost.sonichost.get_facts()['platform'].upper():
+    if is_cisco_device(duthost) or is_high_scale_platform(duthost):
         pytest_assert(
             crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
             "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
