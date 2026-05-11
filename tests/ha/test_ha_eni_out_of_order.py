@@ -58,7 +58,7 @@ def test_ha_eni_out_of_order(
 
         logger.info("HA: reprogram HA and ENI")
         setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
-        _apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
+        apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
         activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
         pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "active"),
