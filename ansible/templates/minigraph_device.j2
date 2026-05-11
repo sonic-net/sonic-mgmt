@@ -1,3 +1,8 @@
+{# HWSKUs whose port-alias namespace overlaps the SONiC port-name namespace.
+   Patterns in this list are matched as SUBSTRINGS against the DUT hwsku.
+   See ansible/templates/minigraph_dpg.j2 for the full rationale. #}
+{% set alias_name_collision_hwsku_patterns = ['Arista-7050CX3'] %}
+{% set hwsku_has_alias_name_collision = (alias_name_collision_hwsku_patterns | select('in', hwsku) | list | length > 0) %}
   <DeviceInfos>
     <DeviceInfo>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
@@ -10,7 +15,7 @@
           <AlternateSpeeds i:nil="true"/>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
-          {% if num_asics > 1 %}
+          {% if num_asics > 1 or hwsku_has_alias_name_collision %}
           <InterfaceName>{{ port_alias[index] }}</InterfaceName>
           {% else %}
           <InterfaceName>{{ port_alias_map[port_alias[index]] }}</InterfaceName>
