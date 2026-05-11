@@ -2227,7 +2227,43 @@
                 "vms_count": 72
             }
         },
-        "superbolt-t0-m6-2-10": {
+      
+        "t0-m6-17-1-titan": {
+            "ucs_host_name": "titan-ucs-m6-17-1",
+            "ucs_host": "172.27.179.18",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "titan-t0-dut",
+            "scp_ip":"3.3.1.23",
+            "installer_mode":"sonic",
+            "ucs_tb": "titan-t0",
+            "telnet_host": ["172.27.179.12"],
+            "telnet_port": ["2003"],
+            "telnet_details": ["172.27.179.12 2003"],
+            "dut_ssh": ["3.3.1.23"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_prompt": "@titan-ucs-m6-17-1",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202505": "cicd-prod-2025",
+            "sonic_mgmt_container_202511": "cicd_prod_202511_latest",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
+            ],
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_folder": "ixia pfc_asym",
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
+            "skip_tests": "",
+            "skip_folder": "",
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo titan-t0 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo titan-t0 ./lab",
+            "mtu_hack": {
+                "vms_count": 4
+            }
+        },                               
+	"superbolt-t0-m6-2-10": {
             "ucs_host_name": "sonic-m6-02-10",
             "ucs_host": "172.25.168.48",
             "ucs_username": "sonic",
@@ -2617,12 +2653,9 @@
         "arctos-spytest-plat": [
             "cisco.202505.1.signed"
         ],
-        "t2-m6-30-titan": [
-            "cisco.202505.signed"
-        ],
-        "t0-m6-41-titan": [
-            "cisco.202505.signed"
-        ],
+        "t2-m6-30-titan": "None",
+        "t0-m6-41-titan": "None",
+	"t0-m6-17-1-titan": "None", 
         "superbolt-titan-spytest-plat": [
             "cisco.202511.signed"
         ],
@@ -2631,7 +2664,7 @@
         ]
     },
     "testbeds": {
-        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-16-MtFuji", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2", "t0-m6-41-titan", "superbolt-t0-m6-2-10"],
+        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-16-MtFuji", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2", "t0-m6-41-titan", "t0-m6-17-1-titan", "superbolt-t0-m6-2-10"],
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm", "t1-m6-26-cmono"],
         "t2" : ["aaa14-t2", "t2-m6-30-titan"],
         "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "mathilda-dualtor-t0-1", "mathilda-dualtor-m5-6"],
@@ -2690,6 +2723,7 @@
         "arctos-spytest-plat": "ucs_arctos",
         "t2-m6-30-titan": "ucs_ttan_m6_30",
         "t0-m6-41-titan": "ucs_ttan_m6_41",
+	"t0-m6-17-1-titan":"ucs_m6_17_1_titan",
         "superbolt-titan-spytest-plat": "m6_platform",
         "mtfuji-cmono-spytest-plat": "m6_platform",
         "superbolt-t0-m6-2-10": "ucs_m6_02_bolt"
@@ -2962,6 +2996,15 @@
             "username": "sonic",
             "password": "roZes@123",
             "scp_prompt" : "sonic@172.23.107.7:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+	"ucs_m6_17_1_titan": {
+            "host": "titan-ucs-m6-17-1",
+            "ip": "172.27.179.18",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@172.27.179.18:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "http_proxy= https_proxy= wget"
         },
