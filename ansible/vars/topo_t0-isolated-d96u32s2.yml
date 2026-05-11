@@ -286,7 +286,6 @@ configuration_properties:
   common:
     dut_asn: 65100
     dut_type: ToRRouter
-    swrole: leaf
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
@@ -298,6 +297,10 @@ configuration_properties:
     leaf_asn_start: 64600
     tor_asn_start: 65500
     failure_rate: 0
+  leaf:
+    swrole: leaf
+  tor:
+    swrole: tor
 
 configuration:
   ARISTA01T1:
