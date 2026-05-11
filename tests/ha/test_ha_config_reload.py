@@ -13,6 +13,8 @@ from constants import (
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
+from ha_dash_flow_utils import compare_flow_tables_pdsctl
 
 logger = logging.getLogger(__name__)
 
@@ -165,14 +167,19 @@ def test_ha_dut_config_reload(
                 testutils.send(ptfadapter, dash_pl_config[1][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
-                    logger.info("First packet verified on standby")
+                    logger.info("First packet verified on standby - compare flows")
+                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+
             else:
                 if send_count == 0:
                     logger.info("Send first outbound packet to primary")
                 testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
-                    logger.info("First packet verified on primary")
+                    logger.info("First packet verified on primary - compare flows")
+                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
                 logger.info(f"pkt dropped after {send_count} pkts, exception {e}")
