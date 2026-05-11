@@ -1,22 +1,10 @@
-"""SAI thrift-based test for the VOQ Credit-WD-Del counter on SONiC broadcom-dnx devices.
+"""
+SAI thrift-based test for the VOQ Credit-WD-Del counter on SONiC broadcom-dnx devices.
 
 This test case verifies that the VOQ Credit-WD-Del counter increments as expected on
 a broadcom-dnx VOQ device. It uses the SAI thrift library to disable TX on a destination
 port, sends traffic via PTF to back up the VOQ, and waits for the credit watchdog to fire
 and increment the Credit-WD-Del/pkts counter.
-
-Parameters:
-    --ptf_portmap <filename> (str): file name of port index to DUT interface alias map. Default is None.
-        In case a filename is not provided, a file containing a port indices to aliases map will be generated.
-
-    --qos_swap_syncd (bool): Used to install the RPC syncd image before running the tests. Default is True.
-
-    --qos_dst_ports (list) Indices of available DUT test ports to serve as destination ports. Note: This is not port
-        index on DUT, rather an index into filtered (excludes lag member ports) DUT ports. Plan is to randomize port
-        selection. Default is [0, 1, 3].
-
-    --qos_src_ports (list) Indices of available DUT test ports to serve as source port. Similar note as in
-        qos_dst_ports applies. Default is [2].
 """
 
 import logging
