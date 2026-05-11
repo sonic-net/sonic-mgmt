@@ -649,4 +649,9 @@ def get_bgp_speaker_runningconfig(duthost):
 
 
 def get_gcu_timeout(duthost):
-    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 600)
+    """Return the GCU apply-patch timeout (in seconds) for this platform.
+
+    Platforms listed in GCUTIMEOUT_MAP get a custom value; everything
+    else defaults to 900 s.
+    """
+    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 900)
