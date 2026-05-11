@@ -911,6 +911,7 @@ configuration:
   ARISTA01PT0:
     properties:
     - common
+    - tor
     bgp:
       asn: 65101
       peers:
@@ -930,6 +931,7 @@ configuration:
   ARISTA02PT0:
     properties:
     - common
+    - tor
     bgp:
       asn: 65102
       peers:
