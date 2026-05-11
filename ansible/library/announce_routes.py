@@ -1528,7 +1528,7 @@ def fib_t0_mclag(topo, ptf_ip, action="announce", topo_routes={}):
                 change_routes(action, ptf_ip, port6, routes_v6)
 
 
-def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
+def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes=None):
     T1_GROUP_SIZE = 2
     BASE_ADDR_V4 = "192.128.0.0/9"
     BASE_ADDR_V6 = "20c0:a800::0:0/108"
@@ -1538,6 +1538,8 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
     T0_ROUTES_PER_VM = 128  # 128 unique IPv4 + 128 unique IPv6 routes per T0 VM
     T0_ASN_OFFSET = 200  # Offset to avoid collision with T1/UT2 ASN range
 
+    if topo_routes is None:
+        topo_routes = {}
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get('nhipv4', NHIPV4)
     nhipv6 = common_config.get('nhipv6', NHIPV6)
