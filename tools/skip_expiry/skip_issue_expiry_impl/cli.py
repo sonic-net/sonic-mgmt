@@ -126,14 +126,14 @@ def _expiry_bucket(days_to_expiry: Optional[int], current_status: str) -> str:
     if days_to_expiry < 0:
         return "expired"
     if days_to_expiry <= 1:
-        return "0-1d"
+        return "≤1d"
     if days_to_expiry <= 7:
-        return "1-7d"
+        return "2-7d"
     if days_to_expiry <= 15:
-        return "7-15d"
+        return "8-15d"
     if days_to_expiry <= 30:
-        return "15-30d"
-    return ">30"
+        return "16-30d"
+    return ">30d"
 
 
 def _normalize_condition_file(condition_file: str, repo_root: Path) -> str:
