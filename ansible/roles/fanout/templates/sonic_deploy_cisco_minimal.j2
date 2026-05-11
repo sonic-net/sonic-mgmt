@@ -1,0 +1,71 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "hostname": "{{ inventory_hostname }}"
+        }
+    },
+    "VLAN": {
+        {% set ns = namespace(first=true) -%}
+        {% for vlanid in device_vlan_list | unique -%}
+        {% if not ns.first -%},
+{% endif %}
+        "Vlan{{ vlanid }}": {
+            "vlanid": "{{ vlanid }}"
+        }
+        {% set ns.first = false -%}
+        {% endfor %}
+    },
+    "VLAN_MEMBER": {
+        {% set ns = namespace(first=true) -%}
+        {% for port_name, port_data in device_port_vlans.items() -%}
+            {% if port_data.mode | lower == 'access' -%}
+                {% if not ns.first -%},
+{% endif %}
+        "Vlan{{ port_data.vlanids }}|{{ port_name }}": {
+            "tagging_mode": "untagged"
+        }
+                {% set ns.first = false -%}
+            {% elif port_data.mode | lower == 'trunk' -%}
+                {% for vlanid in port_data.vlanlist -%}
+                {% if not ns.first -%},
+{% endif %}
+        "Vlan{{ vlanid }}|{{ port_name }}": {
+            "tagging_mode": "tagged"
+        }
+                {% set ns.first = false -%}
+                {% endfor -%}
+            {% endif -%}
+        {% endfor %}
+    },
+    "PORT": {
+        {% set ns = namespace(first=true) -%}
+        {% for port_name, port_conf in fanout_port_config.items() -%}
+        {% if not ns.first -%},
+{% endif %}
+        "{{ port_name }}": {
+            "alias": "{{ port_conf.alias }}",
+            "index": "{{ port_conf.index }}",
+            "speed": "{{ port_conf.speed }}",
+            {# Logic: If 100G is requested on an 8-lane port, slice to 4 lanes and set FEC #}
+            {% set lanes_list = port_conf.lanes.split(',') -%}
+            {% if port_conf.speed == '100000' and lanes_list|length == 8 -%}
+            "lanes": "{{ lanes_list[:4] | join(',') }}",
+            "fec": "rs",
+            {% else -%}
+            "lanes": "{{ port_conf.lanes }}",
+            {% endif -%}
+            {% if 'peerdevice' in port_conf -%}
+            "admin_status": "up",
+            "description": "{{ port_conf.peerdevice }}{% if 'peerport' in port_conf %}:{{ port_conf.peerport }}{% endif %}",
+            {% else -%}
+            "admin_status": "down",
+            {% endif -%}
+            "mtu": "{{ port_conf.mtu | default('9100') }}"
+            {% if port_conf.subport is defined -%},
+            "subport": "{{ port_conf.subport }}"
+            {% endif -%}
+        }
+        {% set ns.first = false -%}
+        {% endfor %}
+    }
+}

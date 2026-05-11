@@ -23,6 +23,7 @@ from netaddr import EUI
 
 from . import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -461,9 +462,9 @@ def arp_responder(ptfhost, testbed_params, tbinfo):
         arp_responder_conf = {"eth%s" % k: v for k, v in list(vlan_host_map.items())}
 
     logging.info("Copying ARP responder topology to PTF")
-    with open("/tmp/from_t1.json", "w") as ar_config:
+    with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
         json.dump(arp_responder_conf, ar_config)
-    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
 
     logging.info("Copying ARP responder to PTF container")
 
@@ -482,7 +483,7 @@ def arp_responder(ptfhost, testbed_params, tbinfo):
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
     # Drop the rendered config we wrote earlier in this fixture so the next
     # arp_responder invocation cannot inherit our IP/MAC mapping by default.
-    ptfhost.file(path="/tmp/from_t1.json", state="absent")
+    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
 
 
 @pytest.fixture
