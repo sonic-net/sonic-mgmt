@@ -1680,6 +1680,12 @@ ecmp/test_ecmp_balance.py:
       - "topo_type not in ['t1', 't0']"
       - "asic_type not in ['broadcom']"
 
+ecmp/test_ecmp_group_members_increment.py:
+  skip:
+    reason: "Test only applies to Broadcom DNX platforms"
+    conditions:
+      - "asic_subtype not in ['broadcom-dnx']"
+
 ecmp/test_ecmp_sai_value.py:
   skip:
     reason: "Only support Broadcom T1/T0 topology with 20230531 and above image, 7050cx3 T1 doesn't enable this feature"
