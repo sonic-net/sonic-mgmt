@@ -27,7 +27,6 @@ import logging
 import argparse
 import paramiko
 import requests
-from datetime import datetime
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -158,8 +157,8 @@ def build_payload(args, testbed_info, results_data):
     """Build the payload to send to demyst server."""
     topology = testbed_info.get("topology", "")
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    unique_run_id = f"{args.testbed}_{args.run_id}_{timestamp}"
+    unique_run_id = f"{args.testbed}_{args.run_id}"
+    submitter_cec_id = f"cicd_{args.testbed}"
     
     syslogs_url = get_syslogs_url(results_data["log_tarball_link"])
     if not syslogs_url:
@@ -187,6 +186,7 @@ def build_payload(args, testbed_info, results_data):
     
     return {
         "build_id": args.build_id,
+        "submitter_cec_id": submitter_cec_id,
         "run_id": unique_run_id,
         "sonic_test_commit_id": sonic_test_commit,
         "log_source": "allure_url",
