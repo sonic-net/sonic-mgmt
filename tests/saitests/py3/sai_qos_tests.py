@@ -15,6 +15,8 @@ import math
 import os
 import macsec  # noqa F401
 import concurrent.futures
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from ptf.testutils import (ptf_ports,     # noqa F401
                            dp_poll,
                            simple_arp_packet,
@@ -7948,17 +7950,15 @@ class VoqCreditWDCounterTest(sai_base_test.ThriftInterfaceDataPlane):
                             if item.replace(',', '').strip().isdigit()]
                 return any(num > 0 for num in integers)
 
-            timeout = CREDIT_WD_DEL_TIMEOUT_SECONDS
-            time_elapsed = 0
-            while time_elapsed < timeout:
-                if credit_wd_del_increasing():
-                    break
-                time.sleep(CREDIT_WD_DEL_POLL_INTERVAL_SECONDS)
-                time_elapsed += CREDIT_WD_DEL_POLL_INTERVAL_SECONDS
-
-            qos_test_assert(self, credit_wd_del_increasing(),
-                            "Credit-WD-Del/pkts is not increasing. "
-                            "Ref: https://github.com/sonic-net/sonic-buildimage/issues/21098")
+            pytest_assert(
+                wait_until(
+                    CREDIT_WD_DEL_TIMEOUT_SECONDS,
+                    CREDIT_WD_DEL_POLL_INTERVAL_SECONDS,
+                    0,
+                    credit_wd_del_increasing),
+                "Credit-WD-Del/pkts is not increasing. "
+                "Ref: https://github.com/sonic-net/sonic-buildimage/issues/21098"
+            )
 
         finally:
             sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
