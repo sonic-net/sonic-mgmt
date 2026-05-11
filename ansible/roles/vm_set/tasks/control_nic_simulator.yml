@@ -25,25 +25,13 @@
     - name: Set ip command absolute path
       set_fact:
         ip_command_path: "{{ which_ip_output.stdout }}"
+        python_command: "/opt/sonic-testbed/venv/bin/python3"
 
-    - name: Install pip3
-      apt:
-        name: python3-pip
-        state: present
-      become: yes
-      when: host_distribution_version.stdout == "18.04"
-
-    - name: Set Python version
-      set_fact:
-        python_command: "python3"
-        pip_command: "pip3"
-
-    - name: Install gRPC library
-      pip:
-        name:
-          - grpcio
-          - grpcio-tools
-        executable: "{{ pip_command }}"
+    - name: Install gRPC library in venv
+      command: >-
+        /usr/local/bin/uv pip install
+        --python /opt/sonic-testbed/venv/bin/python
+        grpcio grpcio-tools
       become: yes
       environment: "{{ proxy_env | default({}) }}"
 
@@ -60,7 +48,7 @@
 
     - name: Generate gRPC dependencies from the protocol buffer definitions
       shell:
-        cmd: python3 -m grpc.tools.protoc -I. --python_out=. --grpc_python_out=. {{ item }}
+        cmd: /opt/sonic-testbed/venv/bin/python3 -m grpc.tools.protoc -I. --python_out=. --grpc_python_out=. {{ item }}
         chdir: "{{ remote_nic_simulator_dir }}"
       loop:
        - nic_simulator_grpc_service.proto
