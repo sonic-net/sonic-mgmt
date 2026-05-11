@@ -84,7 +84,7 @@ VALID_PROFILES = [
     '202505_oci',
     'gamut_bringup'
 ]
-VALID_PLATFORMS = ['g200', 'q200', 'p200', 'spectrum4']
+VALID_PLATFORMS = ['g200', 'q200', 'p200', 'spectrum4', 'oci']
 VALID_FABRICS = ['IPv4', 'VXLAN', 'IPv6']
 VALID_TOPOS = ['2x2', 'B2B', '3-tier', 'standalone']
 
@@ -97,6 +97,7 @@ TESTBED_TO_NPU = {
     'siren': 'Q200',
     'gamut': 'SPECTRUM4',
     'laguna': 'G200',
+    'oci': 'G200',
 }
 
 # Platform name normalization (various inputs → canonical NPU name)
@@ -105,6 +106,7 @@ PLATFORM_NORMALIZE = {
     'q200': 'Q200',
     'p200': 'P200',
     'spectrum4': 'SPECTRUM4',
+    'oci': 'G200',
     # Also accept uppercase
     'G200': 'G200',
     'Q200': 'Q200',
@@ -378,6 +380,31 @@ def post_result_direct(data, dashboard_url, password=None):
     return success, stdout, stderr
 
 
+def build_result_view_url(resp, dashboard_url):
+    """Return a browser URL for reviewing a posted result.
+
+    Prefers a URL field returned by the dashboard API (`url`, `view_url`,
+    `result_url`). Falls back to common Flask-style patterns based on
+    `result_id` so users at least get something clickable; if the path
+    differs, the dashboard root is also printed by the caller.
+    """
+    if not isinstance(resp, dict):
+        return None
+    # 1) Honor any URL the API returns
+    for key in ('url', 'view_url', 'result_url'):
+        url = resp.get(key)
+        if url:
+            if url.startswith(('http://', 'https://')):
+                return url
+            # Relative path returned -- join with dashboard base
+            return dashboard_url.rstrip('/') + '/' + url.lstrip('/')
+    # 2) Construct from result_id -- common pattern is /result/<id>
+    rid = resp.get('result_id')
+    if rid is None:
+        return None
+    return f"{dashboard_url.rstrip('/')}/result/{rid}"
+
+
 def classify_test_fabric(test_name):
     """Classify a test as VXLAN or IPv4 based on name patterns."""
     test_lower = test_name.lower()
@@ -530,7 +557,7 @@ def main():
     platform_help = f'''Platform/NPU or testbed name.
   NPU names: {", ".join(VALID_PLATFORMS)}
   Testbed names: gamut (SPECTRUM4), laguna (G200), carib/siren (Q200)'''
-    parser.add_argument('--platform', required=True, choices=valid_platform_inputs, 
+    parser.add_argument('--platform', required=True,
                         metavar='PLATFORM', help=platform_help)
     
     # Optional arguments
@@ -918,6 +945,10 @@ def main():
                             resp = json.loads(stdout)
                             if resp.get('success'):
                                 print(f"    Success! Result ID: {resp.get('result_id')}")
+                                view_url = build_result_view_url(resp, args.dashboard_url)
+                                if view_url:
+                                    print(f"    View URL:  {view_url}")
+                                print(f"    Dashboard: {args.dashboard_url}")
                             else:
                                 print(f"    API Error: {resp.get('error', stdout)}")
                         except json.JSONDecodeError:
@@ -1009,6 +1040,10 @@ def main():
                         if resp.get('success'):
                             print(f"  Success! Result ID: {resp.get('result_id')}")
                             print(f"  Message: {resp.get('message')}")
+                            view_url = build_result_view_url(resp, args.dashboard_url)
+                            if view_url:
+                                print(f"  View URL:  {view_url}")
+                            print(f"  Dashboard: {args.dashboard_url}")
                         else:
                             print(f"  API Error: {resp.get('error', stdout)}")
                     except json.JSONDecodeError:
@@ -1050,6 +1085,10 @@ def main():
                         if resp.get('success'):
                             print(f"  Success! Result ID: {resp.get('result_id')}")
                             print(f"  Message: {resp.get('message')}")
+                            view_url = build_result_view_url(resp, args.dashboard_url)
+                            if view_url:
+                                print(f"  View URL:  {view_url}")
+                            print(f"  Dashboard: {args.dashboard_url}")
                             if 'data' in resp:
                                 data = resp['data']
                                 print(f"  Imported: {data.get('total', 'N/A')} tests")

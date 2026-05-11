@@ -3,38 +3,44 @@
 # Unified QoS Test Runner
 #
 # Usage:
-#   ./run_test.sh --platform <name> --yaml <path> <test_file>  # Run specific test
-#   ./run_test.sh --platform <name> --yaml <path> full         # Run all QoS tests
-#   ./run_test.sh --platform <name> --yaml <path> --env KEY=VAL <test_file>
+#   ./run_test.sh --yaml <path> <test_file>         # Run specific test
+#   ./run_test.sh --yaml <path> full                 # Run all QoS tests
+#   ./run_test.sh --yaml <path> --env KEY=VAL <test_file>
 #
 # Container auto-setup: if the container for the user is not running,
 # the script loads the docker image (if needed) and starts the container.
+#
+# All testbed-specific config (docker image, test path, etc.) is looked up
+# from testbed_config.py using the YAML filename.
 
 set -euo pipefail
 
 # Get script directory (works even if script is sourced or symlinked)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ── Platform registry ─────────────────────────────────────────────────────
-# Each platform defines: docker image, tar path, container name, test base path
-declare -A PLAT_IMAGE PLAT_TAR PLAT_CONTAINER PLAT_TEST_PATH
-
 _USER="${USER:-$(whoami)}"
 
-PLAT_IMAGE[tortuga]="docker.io/library/ixia-container.10.25:latest"
-PLAT_TAR[tortuga]="/ws/shbhatna-rtp/public/ixia-container.10.25.tar.gz"
-PLAT_CONTAINER[tortuga]="ixia_10.25_${_USER}"
-PLAT_TEST_PATH[tortuga]="/data/tests/cisco/tortuga/qos"
-
-PLAT_IMAGE[gamut]="localhost/spytest/keysight-u18:11.00"
-PLAT_TAR[gamut]="/ws/shbhatna-rtp/public/keysight_11.00.tar.gz"
-PLAT_CONTAINER[gamut]="keysight_11.00_${_USER}"
-PLAT_TEST_PATH[gamut]="/data/tests/cisco/tortuga/qos"
-
-PLAT_IMAGE[oci]="localhost/ixia_11.10_rev2:latest"
-PLAT_TAR[oci]="/ws/shbhatna-rtp/public/ixia-11.10-rev2.tar.gz"
-PLAT_CONTAINER[oci]="ixia_11.10_${_USER}"
-PLAT_TEST_PATH[oci]="/data/tests/cisco/qos"
+# ── Read config from testbed_config.py ─────────────────────────────────────
+# Given a YAML filename, prints shell-eval-able variables:
+#   TB_DOCKER_IMAGE, TB_DOCKER_TAR, TB_CONTAINER_PREFIX, TB_TEST_PATH,
+#   TB_RUNNER_PLATFORM, TB_INPUT_FILE, TB_PROFILE_SUFFIX
+read_tb_config() {
+    local yaml_file="$1"
+    local yaml_basename
+    yaml_basename="$(basename "$yaml_file")"
+    python3 - "$yaml_basename" "$SCRIPT_DIR" <<'PYEOF'
+import sys
+sys.path.insert(0, sys.argv[2])
+from testbed_config import get_config
+cfg = get_config(sys.argv[1])
+if not cfg:
+    print(f"ERROR: Unknown testbed YAML: {sys.argv[1]}", file=sys.stderr)
+    sys.exit(1)
+for key in ("docker_image", "docker_tar", "container_prefix", "test_path",
+            "runner_platform", "input_file", "profile_suffix"):
+    print(f"TB_{key.upper()}={cfg[key]}")
+PYEOF
+}
 
 # Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
@@ -62,45 +68,45 @@ check_spytest_directory() {
 }
 
 show_usage() {
-    echo "Usage: $0 --platform <name> --yaml <path> <command> [args]"
-    echo ""
-    echo "Platforms: tortuga, gamut, oci"
+    echo "Usage: $0 --yaml <path> <command> [args]"
     echo ""
     echo "Commands:"
     echo "  <test_file>     Run specific test (e.g., test_ecn.py, test_dwrr.py)"
     echo "  full            Run all QoS tests"
     echo ""
     echo "Options:"
-    echo "  --platform <name>   Platform name (required)"
     echo "  --yaml <path>       Testbed YAML file (required)"
     echo "  --env KEY=VAL       Pass environment variable to container (repeatable)
   --logs-dir <path>   Custom directory for run logs (default: auto-generated)"
     echo ""
-    echo "Container is auto-started if not running."
+    echo "Container/docker config is auto-detected from the YAML filename"
+    echo "(via testbed_config.py in the same directory as this script)."
     echo ""
     echo "NOTE: Run this script from the spytest directory of your repo, e.g.:"
     echo "  cd /path/to/sonic-test/sonic-mgmt/spytest && run_test.sh ..."
     echo ""
     echo "Examples:"
-    echo "  $0 --platform tortuga --yaml /path/to/tb.yaml test_dwrr.py"
-    echo "  $0 --platform gamut --yaml /path/to/tb.yaml full"
-    echo "  $0 --platform oci --yaml /path/to/tb.yaml full"
-    echo "  $0 --platform oci --yaml /path/to/tb.yaml --env input_file=/data/tests/cisco/input_file/rocev2_input_file.yaml test_ecn.py
-  $0 --platform tortuga --yaml /path/to/tb.yaml --logs-dir /data/my_logs test_dwrr.py"
+    echo "  $0 --yaml /path/to/tortuga_2x2_G200_testbed.yaml test_dwrr.py"
+    echo "  $0 --yaml /path/to/gamut_2x2_qos.yaml full"
+    echo "  $0 --yaml /path/to/rocev2_testbed.yaml full"
+    echo "  $0 --yaml /path/to/tortuga_2x2_G200_testbed.yaml --logs-dir /data/my_logs test_dwrr.py"
 }
 
 do_setup() {
     check_spytest_directory
 
-    echo -e "${GREEN}Auto-setup: ensuring container for platform: $PLATFORM${NC}"
+    echo -e "${GREEN}Auto-setup: ensuring container${NC}"
     echo "  Image:     $DOCKER_IMAGE"
     echo "  Container: $CONTAINER_NAME"
 
-    # Copy this script into spytest dir so it's available at /data inside container
+    # Copy this script and testbed_config.py into spytest dir so they're at /data inside container
     SCRIPT_SOURCE="${SCRIPT_DIR}/run_test.sh"
     if [ -f "$SCRIPT_SOURCE" ]; then
         cp "$SCRIPT_SOURCE" ./run_test.sh
         chmod +x ./run_test.sh
+    fi
+    if [ -f "${SCRIPT_DIR}/testbed_config.py" ]; then
+        cp "${SCRIPT_DIR}/testbed_config.py" ./testbed_config.py
     fi
 
     # Copy testbed YAML into spytest dir
@@ -198,8 +204,9 @@ run_tests() {
 
         echo "Executing test inside container '$CONTAINER_NAME'..."
 
-        # Always copy run_test.sh into the container
+        # Always copy run_test.sh and testbed_config.py into the container
         docker cp "${SCRIPT_DIR}/run_test.sh" "$CONTAINER_NAME:/data/run_test.sh"
+        docker cp "${SCRIPT_DIR}/testbed_config.py" "$CONTAINER_NAME:/data/testbed_config.py"
 
         # Copy testbed YAML into container
             local TB_BASE=$(basename "$TESTBED_YAML")
@@ -217,13 +224,13 @@ run_tests() {
                 mkdir -p "$PWD/$LOGS_DIR" 2>/dev/null || mkdir -p "$LOGS_DIR"
                 LOGS_DIR_ARG="--logs-dir $LOGS_DIR"
             else
-                local AUTO_LOGS_DIR="run_logs_${PLATFORM}_$(date '+%Y%m%d_%H%M%S')"
+                local AUTO_LOGS_DIR="run_logs_${PROFILE_SUFFIX_LC}_$(date '+%Y%m%d_%H%M%S')"
                 mkdir -p "$PWD/$AUTO_LOGS_DIR"
                 LOGS_DIR_ARG="--logs-dir /data/$AUTO_LOGS_DIR"
             fi
 
             docker exec -i "${ENV_ARGS[@]}" "$CONTAINER_NAME" \
-                bash /data/run_test.sh --platform "$PLATFORM" --yaml "/data/$TB_BASE" $LOGS_DIR_ARG "${RUN_TEST_PATHS[@]}"
+                bash /data/run_test.sh --yaml "/data/$TB_BASE" $LOGS_DIR_ARG "${RUN_TEST_PATHS[@]}"
             return $?
     fi
 
@@ -247,17 +254,17 @@ run_tests() {
         exit 1
     fi
 
-    # Build extra --env args for OCI
+    # Build extra --env args if input_file is configured for this testbed
     local SPYTEST_EXTRA_ARGS=()
-    if [[ "$PLATFORM" == "oci" ]]; then
-        # OCI needs input_file and tb_cfg_file if not already passed via --env
+    if [[ -n "$INPUT_FILE" ]]; then
+        # Check if input_file was already passed via --env
         local HAS_INPUT_FILE=false
         for arg in "${ENV_ARGS[@]:-}"; do
             [[ "$arg" == *"input_file="* ]] && HAS_INPUT_FILE=true
         done
-        if [[ "$HAS_INPUT_FILE" == "false" && -f "/data/tests/cisco/input_file/rocev2_input_file.yaml" ]]; then
-            SPYTEST_EXTRA_ARGS+=(--env "input_file=/data/tests/cisco/input_file/rocev2_input_file.yaml")
-            SPYTEST_EXTRA_ARGS+=(--env "tb_cfg_file=/data/tests/cisco/input_file/rocev2_input_file.yaml")
+        if [[ "$HAS_INPUT_FILE" == "false" && -f "$INPUT_FILE" ]]; then
+            SPYTEST_EXTRA_ARGS+=(--env "input_file=$INPUT_FILE")
+            SPYTEST_EXTRA_ARGS+=(--env "tb_cfg_file=$INPUT_FILE")
         fi
     fi
 
@@ -265,7 +272,7 @@ run_tests() {
     if [[ -n "$LOGS_DIR" ]]; then
         RUN_LOGS_DIR="$LOGS_DIR"
     else
-        RUN_LOGS_DIR="/data/run_logs_${PLATFORM}_$(date '+%Y%m%d_%H%M%S')"
+        RUN_LOGS_DIR="/data/run_logs_${PROFILE_SUFFIX_LC}_$(date '+%Y%m%d_%H%M%S')"
     fi
     mkdir -p "$RUN_LOGS_DIR"
     # Make logs directory writable for non-root users (container runs as root)
@@ -273,7 +280,6 @@ run_tests() {
 
     echo ""
     echo "Starting test run: ${RUN_TEST_PATHS[*]}"
-    echo "Platform:  $PLATFORM"
     echo "Testbed:   $TESTBED_YAML"
     echo "Logs:      $RUN_LOGS_DIR"
     echo "========================================"
@@ -295,13 +301,11 @@ run_tests() {
 }
 
 # ── Parse args ────────────────────────────────────────────────────────────
-PLATFORM=""
 TESTBED_YAML=""
 LOGS_DIR=""
 ENV_ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --platform) PLATFORM="$2"; shift 2 ;;
         --yaml)     TESTBED_YAML="$2"; shift 2 ;;
         --logs-dir) LOGS_DIR="$2"; shift 2 ;;
         --env)      ENV_ARGS+=(-e "$2"); export "$2"; shift 2 ;;
@@ -310,14 +314,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ -z "$PLATFORM" ]] && { show_usage; echo -e "\n${RED}Error: --platform is required${NC}"; exit 1; }
-[[ -z "${PLAT_IMAGE[$PLATFORM]:-}" ]] && { echo -e "${RED}Unknown platform: $PLATFORM (valid: tortuga gamut oci)${NC}"; exit 1; }
+[[ -z "$TESTBED_YAML" ]] && { show_usage; echo -e "\n${RED}Error: --yaml is required${NC}"; exit 1; }
 
-# Resolve platform config
-DOCKER_IMAGE="${PLAT_IMAGE[$PLATFORM]}"
-DOCKER_IMAGE_TAR="${PLAT_TAR[$PLATFORM]}"
-CONTAINER_NAME="${PLAT_CONTAINER[$PLATFORM]}"
-TEST_PATH="${PLAT_TEST_PATH[$PLATFORM]}"
+# Look up testbed config from YAML filename
+TB_CONFIG_OUTPUT=$(read_tb_config "$TESTBED_YAML") || exit 1
+eval "$TB_CONFIG_OUTPUT"
+
+# Set runtime variables from config
+DOCKER_IMAGE="$TB_DOCKER_IMAGE"
+DOCKER_IMAGE_TAR="$TB_DOCKER_TAR"
+CONTAINER_NAME="${TB_CONTAINER_PREFIX}_${_USER}"
+TEST_PATH="$TB_TEST_PATH"
+INPUT_FILE="$TB_INPUT_FILE"
+PROFILE_SUFFIX_LC=$(echo "$TB_PROFILE_SUFFIX" | tr '[:upper:]' '[:lower:]')
 
 [[ $# -lt 1 ]] && { show_usage; exit 0; }
 
@@ -335,17 +344,27 @@ case "$COMMAND" in
         ;;
     *)
         [[ -z "$TESTBED_YAML" ]] && { echo -e "${RED}Error: --yaml is required${NC}"; exit 1; }
-        # Build test paths: handle space-separated tests in COMMAND plus any additional args
+        # Build test paths: handle space-separated tests in COMMAND plus any additional args.
+        # Once we encounter a flag (arg starting with '-'), forward it AND all remaining args
+        # verbatim to spytest/pytest (handles things like: -k "expr", -m mark, --collect-only).
         TEST_FILES=()
+        EXTRA_ARGS=()
+        passthrough=0
         for t in $COMMAND "$@"; do
             [[ -z "$t" ]] && continue
-            # Only prepend TEST_PATH if not already an absolute path
-            if [[ "$t" == /* ]]; then
+            if [[ "$passthrough" -eq 1 ]]; then
+                EXTRA_ARGS+=("$t")
+                continue
+            fi
+            if [[ "$t" == -* ]]; then
+                passthrough=1
+                EXTRA_ARGS+=("$t")
+            elif [[ "$t" == /* ]]; then
                 TEST_FILES+=("$t")
             else
                 TEST_FILES+=("$TEST_PATH/$t")
             fi
         done
-        run_tests "${TEST_FILES[@]}"
+        run_tests "${TEST_FILES[@]}" "${EXTRA_ARGS[@]}"
         ;;
 esac

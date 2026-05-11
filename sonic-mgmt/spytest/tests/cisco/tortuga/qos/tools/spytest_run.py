@@ -2,22 +2,17 @@
 """
 SPYtest Job Runner
 
-Upgrades DUTs, pushes base configs, runs tests via run_test.sh, transfers logs to server.
-Supports a sequential testbed queue (e.g. g200 → q200).
+Upgrades DUTs, pushes base configs, runs tests via run_test.sh, transfers logs
+to server, and publishes results to dashboard.
 
 Usage:
-    ./spytest_run.py                                       # Use default config
-    ./spytest_run.py --config spytest_job.yaml             # Custom config
-    ./spytest_run.py --testbed 10001 10000 --url <url>     # By ID: g200 then q200
-    ./spytest_run.py --testbed g200 q200 --url <url>       # By name (still works)
-    ./spytest_run.py --skip-upgrade --testbed 10002        # Gamut, test only
-    ./spytest_run.py --schedule 2 --testbed 10001          # g200, 2 hours from now
+    ./spytest_run.py --yaml <testbed.yaml> --url <image_url>
+    ./spytest_run.py --yaml <testbed.yaml> --skip-upgrade --test test_dwrr.py
+    ./spytest_run.py --yaml <testbed.yaml> --url <url> --schedule 2
 
-Testbed IDs:
-    10000 = q200   (Carib/Siren, Q200 ASIC)
-    10001 = g200   (Laguna, G200 ASIC)
-    10002 = gamut  (Gamut, Spectrum4 ASIC)
-    10003 = oci    (OCI, G200 ASIC)
+All testbed-specific config (NPU, profile, docker image, base configs, etc.)
+is looked up from testbed_config.py using the YAML filename.
+Repo root is auto-discovered by walking up from the YAML path.
 """
 
 import argparse
@@ -30,26 +25,22 @@ import shutil
 import subprocess
 import sys
 import time
-import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
 import yaml
+from testbed_config import get_config as get_tb_config, discover_repo
 
 # ── Constants ────────────────────────────────────────────────────────────
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_CONF = Path.home() / "spytest" / "spytest_jobs.yaml"
 UPGRADE_SCRIPT = SCRIPT_DIR / "upgrade_on_dut.sh"
 RUNNER_SCRIPT = SCRIPT_DIR / "run_test.sh"
 TO_DUT_SCRIPT = SCRIPT_DIR / "to_dut.py"
 PUBLISH_SCRIPT = SCRIPT_DIR / "spytest_publish.py"
 BASE_CONFIGS_DIR = SCRIPT_DIR.parent / "base_configs"
-# Derive repo_base from script location: tools/ -> qos/ -> tortuga/ -> cisco/ -> tests/ -> spytest/ -> sonic-mgmt/ -> sonic-test/ -> REPO_BASE
-DEFAULT_REPO_BASE = SCRIPT_DIR.parents[7]
-DEFAULT_LOG_DIR = DEFAULT_REPO_BASE / "logs"
-LOCK_FILE = Path("/tmp/spytest_run.lock")
+DEFAULT_LOG_DIR = Path.home() / "spytest" / "logs"
 
 # ── Log server and dashboard (hardcoded for simplicity) ──
 import base64 as _b64
@@ -61,64 +52,8 @@ LOG_SERVER = {
 }
 DASHBOARD_URL = "http://sonic-ucs-m6-51:5005"
 
-# Testbed integer ID mapping (for --testbed shorthand)
-TESTBED_ID_MAP = {
-    "10000": "q200",     # Carib/Siren (Q200 ASIC)
-    "10001": "g200",     # Laguna (G200 ASIC)
-    "10002": "gamut",    # Gamut (Spectrum4 ASIC)
-    "10003": "oci",      # OCI (G200 ASIC)
-}
-
-# Testbed to base config directory mapping
-BASE_CONFIG_MAP = {
-    "g200": "laguna_2x2_configs",
-    "laguna": "laguna_2x2_configs",
-    "q200": "carib_siren_2x2_configs",
-    "carib": "carib_siren_2x2_configs",
-    "siren": "carib_siren_2x2_configs",
-    "gamut": "gamut_2x2_configs",
-}
-
 os.environ["TZ"] = "America/New_York"
 time.tzset()
-
-
-def build_testbed_registry(repo_base):
-    """Build testbed registry from a base directory containing repo clones."""
-    base = Path(repo_base)
-    sonic_test = base / "sonic-test"
-    oci_repo = base / "oci-sonic-mgmt"
-
-    return {
-        "q200": {
-            "spytest": sonic_test / "sonic-mgmt" / "spytest",
-            "tb_dir":  sonic_test / "spytest_tb_files",
-            "yaml":    "tortuga_2x2_Q200_testbed.yaml",
-            "repo":    sonic_test,
-            "runner_platform": "tortuga",
-        },
-        "g200": {
-            "spytest": sonic_test / "sonic-mgmt" / "spytest",
-            "tb_dir":  sonic_test / "spytest_tb_files",
-            "yaml":    "tortuga_2x2_G200_testbed.yaml",
-            "repo":    sonic_test,
-            "runner_platform": "tortuga",
-        },
-        "gamut": {
-            "spytest": sonic_test / "sonic-mgmt" / "spytest",
-            "tb_dir":  sonic_test / "spytest_tb_files",
-            "yaml":    "gamut_2x2_qos.yaml",
-            "repo":    sonic_test,
-            "runner_platform": "gamut",
-        },
-        "oci": {
-            "spytest": oci_repo / "spytest",
-            "tb_dir":  oci_repo / "spytest" / "testbeds",
-            "yaml":    "rocev2_testbed.yaml",
-            "repo":    oci_repo,
-            "runner_platform": "oci",
-        },
-    }
 
 # ── Logging setup ────────────────────────────────────────────────────────
 
@@ -405,7 +340,7 @@ def wait_for_containers(dut, max_wait=180, interval=10):
 
 # ── Log transfer ─────────────────────────────────────────────────────────
 
-def transfer_and_cleanup_logs(tb, local_log_dir, branch, build_id, log_server, testbed_registry):
+def transfer_and_cleanup_logs(tb, local_log_dir, branch, build_id, log_server, tb_config):
     """SCP run logs to central server.
 
     If the build directory already contains logs from a previous run,
@@ -420,7 +355,8 @@ def transfer_and_cleanup_logs(tb, local_log_dir, branch, build_id, log_server, t
 
     # Path: <base>/<profile>/<platform>/<build_id>/
     # e.g. /home/sonic/test_logs_central/spytest_logs/202405c-Tortuga/g200/40506/
-    profile = f"{branch}-Tortuga" if branch != "unknown" else "Tortuga"
+    profile_suffix = tb_config.get("profile_suffix", "Unknown")
+    profile = f"{branch}-{profile_suffix}" if branch != "unknown" else profile_suffix
     base_remote_path = f"{srv['base_path']}/{profile}/{tb}/{build_id}"
 
     # Check if the directory already has content from a previous run
@@ -487,22 +423,27 @@ def cleanup_local_logs(local_log_dir):
 
 # ── Run one testbed ──────────────────────────────────────────────────────
 
-def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
-    """Run full pipeline for one testbed. Returns (success: bool, duration_min: int)."""
+def run_one_testbed(yaml_file, cfg, tb_config):
+    """Run full pipeline for one testbed. Returns (success: bool, duration_min: int).
+
+    Args:
+        yaml_file: Path to testbed YAML.
+        cfg: Dict with keys: image_url, spine_image_url, test, skip_upgrade,
+             skip_config, branch.
+        tb_config: Dict from testbed_config.get_config() with runner_platform,
+                   profile_suffix, npu, base_config_dir, etc.
+    """
     start = time.time()
+    yaml_file = Path(yaml_file).resolve()
+    tb = yaml_file.stem  # for log messages
 
-    reg = testbed_registry.get(tb)
-    if not reg:
-        log.error("Unknown testbed: %s", tb)
+    # Auto-discover repo and spytest dir from YAML path
+    try:
+        repo_dir, spytest_dir = discover_repo(yaml_file)
+    except ValueError as e:
+        log.error("%s", e)
         return False, 0
 
-    spytest_dir = reg["spytest"]
-    yaml_file = reg["tb_dir"] / reg["yaml"]
-
-    # Pre-flight checks
-    if not spytest_dir.is_dir():
-        log.error("Spytest dir not found: %s", spytest_dir)
-        return False, 0
     if not yaml_file.is_file():
         log.error("Testbed YAML not found: %s", yaml_file)
         return False, 0
@@ -511,29 +452,19 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
     spine_url = cfg.get("spine_image_url", "")
     test = cfg.get("test", "full")
     skip_upgrade = cfg.get("skip_upgrade", False)
-    log_server = LOG_SERVER
-
-    # Per-testbed overrides (testbeds can be a dict with per-tb config)
-    tb_cfg = cfg.get("_tb_config", {})
-    if tb_cfg:
-        image_url = tb_cfg.get("image_url", image_url)
-        spine_url = tb_cfg.get("spine_image_url", spine_url)
-        test = tb_cfg.get("test", test)
-        skip_upgrade = tb_cfg.get("skip_upgrade", skip_upgrade)
 
     # Empty image_url handling:
-    # - If skip_upgrade=false and no image_url → skip this testbed (no-op)
+    # - If skip_upgrade=false and no image_url → skip (no-op)
     # - If skip_upgrade=true and no image_url → run tests with existing image
     if not image_url and not skip_upgrade:
-        log.info("Skipping testbed %s (no image_url configured)", tb)
-        return True, 0  # Success, 0 duration - just skip
+        log.info("Skipping %s (no --url and --skip-upgrade not set)", yaml_file.name)
+        return True, 0
 
-    # Parse branch/build_id from this testbed's image URL
-    tb_branch, tb_build_id = parse_image_url(image_url) if image_url else (branch, build_id)
+    tb_branch, tb_build_id = parse_image_url(image_url) if image_url else ("unknown", "unknown")
 
     log.info("=" * 64)
-    log.info("  Testbed: %s", tb)
-    log.info("  YAML:    %s", yaml_file.name)
+    log.info("  YAML:    %s", yaml_file)
+    log.info("  Repo:    %s", repo_dir)
     log.info("  Test:    %s", test)
     if not skip_upgrade:
         log.info("  Image:   %s", os.path.basename(image_url))
@@ -544,7 +475,7 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
     # ── Phase 0: Update repo ──
     log.info("═══ Phase 0: Updating repo ═══")
     branch = cfg.get("branch", "")
-    git_pull_repo(reg["repo"], branch=branch if branch else None)
+    git_pull_repo(repo_dir, branch=branch if branch else None)
 
     # Apply pre-patch if configured
     pre_patch = cfg.get("pre_patch", "")
@@ -552,7 +483,7 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
         log.info("  Applying pre-patch: %s", pre_patch)
         r = subprocess.run(
             ["git", "apply", pre_patch],
-            cwd=reg["repo"], capture_output=True, text=True, timeout=30,
+            cwd=repo_dir, capture_output=True, text=True, timeout=30,
         )
         if r.returncode == 0:
             log.info("  ✓ Patch applied")
@@ -568,7 +499,7 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
         log.info("  DUT: %s (%s)", d["name"], d["ip"])
 
     # HACK: On gamut testbed, skip upgrading spine1 (Superbolt) — only upgrade spine0, leaf0, leaf1
-    if tb == "gamut":
+    if tb_config.get("runner_platform") == "gamut":
         upgrade_duts = [d for d in duts if d["name"] != "spine1"]
         log.info("  [HACK] Gamut: skipping spine1 upgrade. Upgrading: %s",
                  [d["name"] for d in upgrade_duts])
@@ -645,8 +576,9 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
 
     # ── Phase 1.5: Push base configs ──
     skip_config = cfg.get("skip_config", False)
-    if not skip_config and tb in BASE_CONFIG_MAP:
-        config_dir = BASE_CONFIGS_DIR / BASE_CONFIG_MAP[tb]
+    base_config_dir_name = tb_config.get("base_config_dir", "")
+    if not skip_config and base_config_dir_name:
+        config_dir = BASE_CONFIGS_DIR / base_config_dir_name
         if config_dir.is_dir():
             log.info("═══ Phase 1.5: Pushing base configs ═══")
             log.info("  Config dir: %s", config_dir)
@@ -693,10 +625,10 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
     # ── Phase 2: Run tests ──
     log.info("═══ Phase 2: Running tests (%s) on %s ═══", test, tb)
 
-    runner_plat = reg["runner_platform"]
+    profile_suffix = tb_config.get("profile_suffix", "unknown")
     # Split test string into separate arguments for multiple tests
     test_args = test.split() if test else ["full"]
-    cmd = [str(RUNNER_SCRIPT), "--platform", runner_plat, "--yaml", str(yaml_file)] + test_args
+    cmd = [str(RUNNER_SCRIPT), "--yaml", str(yaml_file)] + test_args
     log.info("Running: %s", " ".join(cmd))
 
     test_proc = subprocess.run(cmd, cwd=spytest_dir)
@@ -704,35 +636,43 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
 
     # ── Phase 3: Transfer logs ──
     log.info("═══ Phase 3: Transferring logs ═══")
-    # run_test.sh names the log dir using the runner_platform (e.g. "tortuga"), not the testbed name
-    # Logs are created in the spytest_dir (which is mounted as /data inside the container)
-    run_log_dirs = sorted(glob.glob(str(spytest_dir / f"run_logs_{runner_plat}_*")), reverse=True)
+    # run_test.sh names the log dir using profile_suffix (lowercase)
+    run_log_dirs = sorted(glob.glob(str(spytest_dir / f"run_logs_{profile_suffix.lower()}_*")), reverse=True)
     latest_log_dir = None
     remote_logs_path = None
     if run_log_dirs:
         latest_log_dir = run_log_dirs[0]
-        if log_server:
-            remote_logs_path = transfer_and_cleanup_logs(tb, latest_log_dir, tb_branch, tb_build_id, log_server, testbed_registry)
+        if LOG_SERVER:
+            remote_logs_path = transfer_and_cleanup_logs(
+                tb, latest_log_dir, tb_branch, tb_build_id, LOG_SERVER, tb_config)
         else:
             log.warning("No log_server configured; logs remain at %s", latest_log_dir)
     else:
-        log.warning("No run_logs directory found for %s (platform=%s) under /data/", tb, runner_plat)
+        log.warning("No run_logs directory found for %s (suffix=%s) under %s",
+                    tb, profile_suffix.lower(), spytest_dir)
 
     # ── Phase 4: Publish to dashboard (before local cleanup) ──
     if latest_log_dir and os.path.isdir(latest_log_dir):
         log.info("═══ Phase 4: Publishing to dashboard ═══")
-        # Build profile from branch + testbed (e.g., "202405c-Tortuga", "202505c-Gamut")
-        profile_suffix = "Gamut" if tb == "gamut" else "Tortuga"
-        profile = f"{tb_branch}-{profile_suffix}" if tb_branch != "unknown" else profile_suffix
+        # Profile and NPU come from testbed_config — no hardcoded mappings
+        pub_profile_suffix = tb_config.get("profile_suffix", "Unknown")
+        pub_profile = f"{tb_branch}-{pub_profile_suffix}" if tb_branch != "unknown" else pub_profile_suffix
+        pub_npu = tb_config.get("npu", "G200")
+        pub_fabrics = tb_config.get("fabric", ["IPv4", "VXLAN"])
+
         publish_cmd = [
             sys.executable, str(PUBLISH_SCRIPT),
-            "--profile", profile,
-            "--platform", tb,
+            "--profile", pub_profile,
+            "--platform", pub_npu.lower(),
             "--topo", "2x2",
             "--build", tb_build_id,
             "--skip-upload",  # Phase 3 already transferred logs; just generate XML + import
             "--no-cleanup",
         ]
+        # Single fabric (e.g. ["IPv6"]) → pass explicit --fabric and disable split
+        # Multiple fabrics (e.g. ["IPv4", "VXLAN"]) → let publish split automatically
+        if len(pub_fabrics) == 1:
+            publish_cmd += ["--fabric", pub_fabrics[0], "--no-split-fabric"]
         # Pass actual remote path so publish records the correct log location
         if remote_logs_path:
             publish_cmd += ["--logs-path", remote_logs_path]
@@ -769,63 +709,18 @@ def run_one_testbed(tb, cfg, branch, build_id, testbed_registry):
 
     return test_rc == 0, duration
 
-# ── Email notification ────────────────────────────────────────────────
-
-def send_summary_email(email_to, testbed_names, results, master_log):
-    """Send a summary email via curl + SMTP relay."""
-    all_pass = all(r["pass"] for r in results.values())
-    status = "ALL PASSED" if all_pass else "SOME FAILED"
-    subject = f"SPYtest Run — {status} — {datetime.now().strftime('%Y-%m-%d')}"
-    sender = f"{os.environ.get('USER', 'spytest')}@cisco.com"
-
-    lines = [f"SPYtest Job Runner — {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}\n"]
-    for tb in testbed_names:
-        r = results[tb]
-        mark = "PASS" if r["pass"] else "FAIL"
-        lines.append(f"  {mark}  {tb}  ({r['duration']}m)")
-    lines.append(f"\nOverall: {status}")
-    lines.append(f"Log: {master_log}")
-    body = "\n".join(lines)
-
-    # Build RFC 5322 message
-    msg = f"From: {sender}\r\nTo: {email_to}\r\nSubject: {subject}\r\n\r\n{body}\r\n"
-
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".eml", delete=False) as f:
-            f.write(msg)
-            msg_file = f.name
-
-        r = subprocess.run(
-            ["curl", "--url", "smtp://outbound.cisco.com:25",
-             "--mail-from", sender, "--mail-rcpt", email_to,
-             "-T", msg_file, "--silent", "--show-error"],
-            capture_output=True, text=True, timeout=30,
-        )
-        os.unlink(msg_file)
-
-        if r.returncode == 0:
-            log.info("Summary email sent to %s", email_to)
-        else:
-            log.warning("Failed to send email: %s", r.stderr.strip())
-    except Exception as e:
-        log.warning("Failed to send email: %s", e)
-
 
 def schedule_run(args):
     """Create a crontab entry to run the script N hours from now."""
     from datetime import timedelta
-    
+
     hours = args.schedule
     run_time = datetime.now() + timedelta(hours=hours)
-    
-    # Build the command to schedule (exclude --schedule itself)
+
     script_path = Path(__file__).resolve()
     cmd_parts = [sys.executable, str(script_path)]
-    
-    if args.config != str(DEFAULT_CONF):
-        cmd_parts.extend(["--config", args.config])
-    if args.testbed:
-        cmd_parts.extend(["--testbed"] + args.testbed)
+
+    cmd_parts.extend(["--yaml", args.yaml])
     if args.branch:
         cmd_parts.extend(["--branch", args.branch])
     if args.url:
@@ -885,96 +780,67 @@ def schedule_run(args):
 
 # ── Main ─────────────────────────────────────────────────────────────────
 
-def load_config(config_path):
-    """Load YAML config file."""
-    with open(config_path) as f:
-        return yaml.safe_load(f)
-
-
 def main():
     parser = argparse.ArgumentParser(
-        description="SPYtest Job Runner",
+        description="SPYtest Job Runner — run QoS tests on a single testbed",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Testbeds run sequentially in listed order. If one fails, the next still runs.
-
-Testbed IDs:  10000=q200 (Carib/Siren)  10001=g200 (Laguna)  10002=gamut (Spectrum4)  10003=oci
+Testbed config (NPU, docker image, profile, etc.) is looked up from
+testbed_config.py using the YAML filename. Repo root is auto-discovered
+from the YAML path.
 
 Examples:
-  %(prog)s --testbed 10001 10000 --url <url>        # g200 then q200
-  %(prog)s --testbed g200 q200 --url <url>          # Same, by name
-  %(prog)s --skip-upgrade --testbed 10002 --test test_dwrr.py
-  %(prog)s --schedule 2 --testbed 10001 --url <url> # Run 2 hours from now
-  %(prog)s --schedule 0.5 --testbed q200            # Run 30 minutes from now
+  %(prog)s --yaml /path/to/gamut_2x2_qos.yaml --url <image_url>
+  %(prog)s --yaml /path/to/tortuga_2x2_G200_testbed.yaml --skip-upgrade --test test_dwrr.py
+  %(prog)s --yaml /path/to/rocev2_testbed.yaml --url <url> --test full
+  %(prog)s --yaml /path/to/gamut_2x2_qos.yaml --url <url> --schedule 2
 """,
     )
-    parser.add_argument("--config", default=str(DEFAULT_CONF), help="Config YAML file")
-    parser.add_argument("--testbed", nargs="+",
-                        help="Testbed queue (names or IDs: 10000=q200, 10001=g200, 10002=gamut, 10003=oci)")
+    parser.add_argument("--yaml", required=True, help="Testbed YAML file path")
     parser.add_argument("--branch", help="Git branch to checkout before running")
-    parser.add_argument("--url", help="Image URL (overrides config)")
+    parser.add_argument("--url", help="Image URL for DUT upgrade")
     parser.add_argument("--spine-url", help="Separate image URL for spines")
     parser.add_argument("--skip-upgrade", action="store_true", help="Skip DUT upgrade")
     parser.add_argument("--skip-config", action="store_true", help="Skip pushing base configs")
-    parser.add_argument("--test", help="Test file or 'full'")
+    parser.add_argument("--test", default="full", help="Test file(s) or 'full' (default: full)")
     parser.add_argument("--schedule", type=float, metavar="HOURS",
                         help="Schedule run N hours from now (creates crontab entry and exits)")
 
-    # If no arguments given, print help and exit
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(0)
 
     args = parser.parse_args()
 
-    # Handle --schedule: create crontab entry and exit
+    # Validate YAML exists
+    yaml_path = Path(args.yaml).resolve()
+    if not yaml_path.is_file():
+        parser.error(f"YAML file not found: {args.yaml}")
+
+    # Look up testbed config
+    tb_config = get_tb_config(yaml_path)
+    if not tb_config:
+        parser.error(
+            f"Unknown testbed YAML: {yaml_path.name}\n"
+            f"Add an entry to testbed_config.py for this file."
+        )
+
+    # Handle --schedule
     if args.schedule is not None:
         schedule_run(args)
         return
 
-    # Load config
-    cfg = {}
-    if os.path.isfile(args.config):
-        cfg = load_config(args.config)
-    else:
-        print(f"Warning: Config not found: {args.config}", file=sys.stderr)
-
-    # CLI overrides
-    if args.testbed:
-        cfg["_cli_testbeds"] = args.testbed
-    if args.branch:
-        cfg["branch"] = args.branch
+    # Build config dict from CLI args
+    cfg = {
+        "image_url": args.url or "",
+        "spine_image_url": args.spine_url or "",
+        "test": args.test,
+        "skip_upgrade": args.skip_upgrade,
+        "skip_config": args.skip_config,
+        "branch": args.branch or "",
+    }
     if args.url:
-        cfg["_cli_url"] = args.url
-    if args.spine_url:
-        cfg["_cli_spine_url"] = args.spine_url
-    if args.skip_upgrade:
-        cfg["skip_upgrade"] = True
-    if args.skip_config:
-        cfg["skip_config"] = True
-    if args.test:
-        cfg["_cli_test"] = args.test
-
-    # Resolve testbed list and per-testbed configs
-    # Config testbeds can be a dict (per-testbed config) or list (simple names)
-    raw_testbeds = cfg.get("testbeds", {})
-    if isinstance(raw_testbeds, dict):
-        # Dict style: {g200: {image_url: ...}, q200: {image_url: ...}}
-        all_tb_names = list(raw_testbeds.keys())
-        per_tb_config = raw_testbeds
-    else:
-        # List style: [g200, q200] — legacy, uses global image_url
-        all_tb_names = list(raw_testbeds)
-        per_tb_config = {}
-
-    # --testbed CLI selects which testbeds to run (subset of config)
-    # Resolve integer IDs to testbed names
-    raw_cli_tbs = cfg.get("_cli_testbeds", all_tb_names)
-    testbed_names = [TESTBED_ID_MAP.get(t, t) for t in raw_cli_tbs]
-    if not testbed_names:
-        parser.error("No testbeds specified. Use --testbed or set in config.")
-
-    # Note: empty image_url is allowed - testbed will be skipped unless skip_upgrade=true
+        cfg["skip_upgrade"] = False
 
     # Setup logging
     log_dir = Path(str(DEFAULT_LOG_DIR))
@@ -983,107 +849,48 @@ Examples:
     master_log = log_dir / f"master_{ts}.log"
     setup_logging(master_log)
 
-    # Build testbed registry - always use script's own location as repo_base
-    # This prevents running tests in wrong workspace when yaml has stale repo_base
-    repo_base = str(DEFAULT_REPO_BASE)
-    yaml_repo_base = cfg.get("repo_base")
-    if yaml_repo_base and str(Path(yaml_repo_base).resolve()) != str(Path(repo_base).resolve()):
-        log.warning("Ignoring repo_base from config (%s) — using script location: %s",
-                    yaml_repo_base, repo_base)
-    testbed_registry = build_testbed_registry(repo_base)
-    log.info("Repo base: %s", repo_base)
-
     # Banner
     log.info("=" * 64)
     log.info("  SPYtest Job Runner")
     log.info("  %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z"))
     log.info("")
-    log.info("  Queue:        %s", " → ".join(testbed_names))
-    cli_skip_upgrade = cfg.get("skip_upgrade", False)
-    for tb in testbed_names:
-        tb_c = per_tb_config.get(tb, {})
-        url = cfg.get("_cli_url") or tb_c.get("image_url") or cfg.get("image_url", "")
-        surl = cfg.get("_cli_spine_url") or tb_c.get("spine_image_url", "")
-        tst = cfg.get("_cli_test") or tb_c.get("test") or cfg.get("test", "full")
-        tb_skip = cli_skip_upgrade or tb_c.get("skip_upgrade", False)
-        if url:
-            b, bid = parse_image_url(url)
-            log.info("  [%s] image=%s (branch=%s build=%s) test=%s", tb, os.path.basename(url), b, bid, tst)
-            if surl:
-                log.info("  [%s] spine=%s", tb, os.path.basename(surl))
-        elif tb_skip:
-            log.info("  [%s] test=%s (existing image, skip_upgrade=true)", tb, tst)
-        else:
-            log.info("  [%s] SKIP (no image_url)", tb)
+    log.info("  YAML:     %s", yaml_path)
+    log.info("  Profile:  %s", tb_config["profile_suffix"])
+    log.info("  NPU:      %s", tb_config["npu"])
+    log.info("  Test:     %s", cfg["test"])
+    if cfg["image_url"]:
+        b, bid = parse_image_url(cfg["image_url"])
+        log.info("  Image:    %s (branch=%s build=%s)", os.path.basename(cfg["image_url"]), b, bid)
+        if cfg["spine_image_url"]:
+            log.info("  Spine:    %s", os.path.basename(cfg["spine_image_url"]))
+    elif cfg["skip_upgrade"]:
+        log.info("  Image:    (existing, skip_upgrade=true)")
+    else:
+        log.info("  Image:    (none — will skip)")
+    log.info("  Log:      %s", master_log)
+    log.info("=" * 64)
+
+    # Per-testbed lock
+    lock_name = yaml_path.stem
+    lock_file = Path(f"/tmp/spytest_run_{lock_name}.lock")
+    try:
+        fd = os.open(str(lock_file), os.O_WRONLY | os.O_CREAT, 0o666)
+        fd = os.fdopen(fd, "w")
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (IOError, PermissionError):
+        log.error("Testbed '%s' is locked (already running). Exiting.", lock_name)
+        sys.exit(1)
+
+    # Run
+    success, duration = run_one_testbed(yaml_path, cfg, tb_config)
+
+    log.info("")
+    log.info("=" * 64)
+    log.info("  %s  %s  (%dm)", "✓ PASS" if success else "✗ FAIL", yaml_path.stem, duration)
     log.info("  Log: %s", master_log)
     log.info("=" * 64)
 
-    # Run testbed queue
-    results = {}
-    lock_fds = []
-    for i, tb in enumerate(testbed_names, 1):
-        log.info("━━━ Queue [%d/%d]: %s ━━━", i, len(testbed_names), tb)
-
-        # Per-testbed lock: skip this testbed if already running elsewhere
-        lock_file = Path(f"/tmp/spytest_run_{tb}.lock")
-        lock_file.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fd = os.open(str(lock_file), os.O_WRONLY | os.O_CREAT, 0o666)
-            fd = os.fdopen(fd, "w")
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            lock_fds.append(fd)
-        except (IOError, PermissionError):
-            log.warning("Testbed '%s' is locked (already running). Skipping.", tb)
-            results[tb] = {"pass": True, "duration": 0, "skipped_locked": True}
-            continue
-
-        # Build effective config for this testbed: per-tb overrides → CLI overrides → global
-        run_cfg = dict(cfg)  # shallow copy of global
-        tb_c = per_tb_config.get(tb, {})
-        run_cfg["image_url"] = cfg.get("_cli_url") or tb_c.get("image_url") or cfg.get("image_url", "")
-        run_cfg["spine_image_url"] = cfg.get("_cli_spine_url") or tb_c.get("spine_image_url") or cfg.get("spine_image_url", "")
-        run_cfg["test"] = cfg.get("_cli_test") or tb_c.get("test") or cfg.get("test", "full")
-        # If --url was passed on CLI, force upgrade (override yaml skip_upgrade)
-        if cfg.get("_cli_url"):
-            run_cfg["skip_upgrade"] = False
-        else:
-            run_cfg["skip_upgrade"] = cfg.get("skip_upgrade") or tb_c.get("skip_upgrade", False)
-        run_cfg["pre_patch"] = tb_c.get("pre_patch", "")
-        run_cfg["_tb_config"] = {}  # already merged, clear to avoid double-read
-
-        branch, build_id = parse_image_url(run_cfg["image_url"]) if run_cfg["image_url"] else ("unknown", "unknown")
-        success, duration = run_one_testbed(tb, run_cfg, branch, build_id, testbed_registry)
-        results[tb] = {"pass": success, "duration": duration}
-
-    # Summary
-    log.info("")
-    log.info("=" * 64)
-    log.info("  RUN SUMMARY — %s", datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z"))
-    log.info("")
-    all_pass = True
-    for tb in testbed_names:
-        r = results[tb]
-        if r.get("skipped_locked"):
-            status = "⊘ LOCKED"
-        elif r["pass"] and r["duration"] == 0:
-            status = "○ SKIP"
-        elif r["pass"]:
-            status = "✓ PASS"
-        else:
-            status = "✗ FAIL"
-            all_pass = False
-        log.info("    %s  %s  (%dm)", status, tb, r["duration"])
-    log.info("")
-    log.info("  Overall: %s", "ALL PASSED" if all_pass else "SOME FAILED")
-    log.info("  Log: %s", master_log)
-    log.info("=" * 64)
-
-    # Send email notification
-    email_to = cfg.get("email_to", "")
-    if email_to:
-        send_summary_email(email_to, testbed_names, results, master_log)
-
-    sys.exit(0 if all_pass else 1)
+    sys.exit(0 if success else 1)
 
 
 if __name__ == "__main__":

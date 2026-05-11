@@ -38,6 +38,7 @@ import re
 import time
 
 from spytest import st, tgapi
+from utilities.parallel import exec_foreach
 from tests.cisco.tortuga.common import tortuga_common_utils as common_util
 
 # PFC TC table - EXACTLY same as test_pfc_stream.py which works
@@ -786,7 +787,7 @@ ECN_ECT_1 = 0b01    # ECT(1): ECN-Capable Transport
 ECN_ECT_0 = 0b10    # ECT(0): ECN-Capable Transport (default for ECN-capable)
 ECN_CE = 0b11       # Congestion Experienced
 
-# Platform detection cache: {dut_id: 'hf6100' | 'n9164e' | 'generic'}
+# Platform detection cache: {dut_id: 'laguna' | 'carib' | 'n9164e' | 'generic'}
 _platform_cache = {}
 
 
@@ -954,6 +955,798 @@ def validate_ecn_testbed_topology():
     st.log(f"  Egress uplinks: {result['egress_uplinks']}")
 
     return result
+
+
+def build_node_topology(vars=None):
+    """
+    Build a role-aware per-node descriptor for the 2-spine + 2-leaf VXLAN ECN testbed.
+
+    Each node entry describes its role and which physical ports are used as
+    ingress (where traffic enters this node) and egress (where traffic leaves
+    this node toward the next hop). For our linear path:
+
+        T1D3P1 -> leaf0 -> spine0/spine1 -> leaf1 -> T1D4P1
+                  ^^^^^                     ^^^^^
+                  ingress=tgen              ingress=uplinks
+                  egress=uplinks            egress=tgen
+
+    Args:
+        vars: Optional st.get_testbed_vars() result. Fetched if not provided.
+
+    Returns:
+        dict: {
+            <node_name>: {
+                'role':           'ingress_leaf' | 'spine' | 'egress_leaf',
+                'tgen_port':      str | None,           # facing TGEN, if any
+                'ingress_ports':  [str, ...],           # where traffic enters
+                'egress_ports':   [str, ...],           # where traffic leaves
+                'all_ports':      [str, ...],           # union, deduped
+            }
+        }
+
+    Notes:
+        - Spine1 ports are optional (single-spine deployments still work).
+        - Returns only entries for nodes whose required ports are present;
+          missing optional links are silently skipped.
+    """
+    if vars is None:
+        vars = st.get_testbed_vars()
+
+    def _g(name):
+        """Return getattr(vars, name) or None when missing."""
+        return getattr(vars, name, None)
+
+    # leaf0 = ingress leaf (D3): TGEN ingress, uplinks toward spine0/spine1 are egress
+    leaf0_uplinks = [p for p in [_g('D3D1P1'), _g('D3D2P1')] if p]
+    leaf0_tgen    = _g('D3T1P1')
+
+    # leaf1 = egress leaf (D4): uplinks from spine0/spine1 are ingress, TGEN is egress
+    leaf1_uplinks = [p for p in [_g('D4D1P1'), _g('D4D2P1')] if p]
+    leaf1_tgen    = _g('D4T1P1')
+
+    # spine0 (D1): ingress = link from leaf0, egress = link to leaf1
+    spine0_ingress = [p for p in [_g('D1D3P1')] if p]
+    spine0_egress  = [p for p in [_g('D1D4P1')] if p]
+
+    # spine1 (D2): ingress = link from leaf0, egress = link to leaf1
+    spine1_ingress = [p for p in [_g('D2D3P1')] if p]
+    spine1_egress  = [p for p in [_g('D2D4P1')] if p]
+
+    topology = {}
+
+    if leaf0_tgen and leaf0_uplinks:
+        topology['leaf0'] = {
+            'role':          'ingress_leaf',
+            'tgen_port':     leaf0_tgen,
+            'ingress_ports': [leaf0_tgen],
+            'egress_ports':  list(leaf0_uplinks),
+        }
+
+    if spine0_ingress or spine0_egress:
+        topology['spine0'] = {
+            'role':          'spine',
+            'tgen_port':     None,
+            'ingress_ports': list(spine0_ingress),
+            'egress_ports':  list(spine0_egress),
+        }
+
+    if spine1_ingress or spine1_egress:
+        topology['spine1'] = {
+            'role':          'spine',
+            'tgen_port':     None,
+            'ingress_ports': list(spine1_ingress),
+            'egress_ports':  list(spine1_egress),
+        }
+
+    if leaf1_tgen and leaf1_uplinks:
+        topology['leaf1'] = {
+            'role':          'egress_leaf',
+            'tgen_port':     leaf1_tgen,
+            'ingress_ports': list(leaf1_uplinks),
+            'egress_ports':  [leaf1_tgen],
+        }
+
+    # Compute deduped all_ports (preserving order: ingress then egress)
+    for entry in topology.values():
+        seen = set()
+        all_ports = []
+        for p in entry['ingress_ports'] + entry['egress_ports']:
+            if p not in seen:
+                seen.add(p)
+                all_ports.append(p)
+        entry['all_ports'] = all_ports
+
+    return topology
+
+
+def nodes_by_role(topology, role):
+    """
+    Return list of node names from a topology that match the given role.
+
+    Args:
+        topology: dict from build_node_topology()
+        role:     'ingress_leaf' | 'spine' | 'egress_leaf'
+
+    Returns:
+        list[str]: node names with matching role, in insertion order.
+    """
+    return [n for n, e in (topology or {}).items() if e.get('role') == role]
+
+
+def populate_topology_speeds(topology, nodes):
+    """
+    Stamp per-port link speeds (Gbps) onto an existing topology dict.
+
+    For every node in `topology`, queries each port in `all_ports` and
+    sets ``topology[node]['port_speeds'] = {port: speed_gbps}``. Speeds
+    that fail to query are stored as 0.
+
+    This is idempotent and safe to call repeatedly. It must be called
+    after build_node_topology() and before snapshot rendering if you want
+    speed annotations like "Ethernet1_64_1 (400G)" in the snapshot logs
+    or speeds available to validators.
+
+    Args:
+        topology: dict from build_node_topology()
+        nodes:    dict mapping node names to DUT handles (from get_nodes())
+
+    Returns:
+        dict: topology (same object), with 'port_speeds' populated per node.
+    """
+    if not topology:
+        return topology
+    for node_name, entry in topology.items():
+        dut = nodes.get(node_name) if isinstance(nodes, dict) else None
+        ports = entry.get('all_ports', []) or []
+        speeds = {}
+        if dut and ports:
+            for p in ports:
+                try:
+                    sp = common_util.get_if_speed(dut, p)
+                    speeds[p] = int(sp) if sp else 0
+                except Exception as e:
+                    st.log("populate_topology_speeds: {} {} failed: {}".format(
+                        node_name, p, e))
+                    speeds[p] = 0
+        entry['port_speeds'] = speeds
+        st.log("Speeds {}: {}".format(node_name, speeds))
+    return topology
+
+
+def _get_port_counters_simple(dut, port):
+    """
+    Lightweight scrape of `show interface counters` for a single port.
+
+    Column layout (click CLI):
+        IFACE STATE RX_OK RX_BPS_VAL RX_BPS_UNIT RX_UTIL RX_ERR RX_DRP RX_OVR
+              TX_OK TX_BPS_VAL TX_BPS_UNIT TX_UTIL TX_ERR TX_DRP TX_OVR
+
+    Returns:
+        dict: {'rx_ok': int, 'rx_drp': int, 'tx_ok': int, 'tx_drp': int}
+              All zeros on parse failure.
+    """
+    result = {'rx_ok': 0, 'rx_drp': 0, 'tx_ok': 0, 'tx_drp': 0}
+    try:
+        out = st.show(dut, f"show interface counters | grep -w {port}",
+                      skip_tmpl=True, skip_error_check=True)
+        if not out:
+            return result
+        line = next((ln for ln in out.splitlines() if port in ln.split()), None)
+        if not line:
+            return result
+        parts = line.split()
+        # Need at least 16 tokens for full row
+        if len(parts) >= 15:
+            def _ival(s):
+                try:
+                    return int(s.replace(',', ''))
+                except (ValueError, AttributeError):
+                    return 0
+            result['rx_ok']  = _ival(parts[2])
+            result['rx_drp'] = _ival(parts[7])
+            result['tx_ok']  = _ival(parts[9])
+            result['tx_drp'] = _ival(parts[14])
+    except Exception as e:
+        st.log(f"_get_port_counters_simple({dut},{port}) failed: {e}")
+    return result
+
+
+def _get_pg_watermark_simple(dut, port):
+    """
+    Scrape `show priority-group watermark shared` for one port.
+
+    Expected row: <Port> PG0 PG1 PG2 PG3 PG4 PG5 PG6 PG7
+
+    Returns:
+        dict: {0: int, 1: int, ..., 7: int}  (zeros on parse failure)
+    """
+    result = {i: 0 for i in range(8)}
+    try:
+        out = st.show(dut, f"show priority-group watermark shared | grep -w {port}",
+                      skip_tmpl=True, skip_error_check=True)
+        if not out:
+            return result
+        line = next((ln for ln in out.splitlines() if port in ln.split()), None)
+        if not line:
+            return result
+        parts = line.split()
+        # Expect: port PG0..PG7  -> 9 tokens
+        if len(parts) >= 9:
+            for i in range(8):
+                tok = parts[1 + i]
+                try:
+                    result[i] = int(tok.replace(',', ''))
+                except (ValueError, AttributeError):
+                    result[i] = 0
+    except Exception as e:
+        st.log(f"_get_pg_watermark_simple({dut},{port}) failed: {e}")
+    return result
+
+
+def _get_pg_drop_counters_simple(dut, port):
+    """
+    Scrape `show priority-group drop counters` for one port.
+
+    Expected row: <Port> PG0 PG1 PG2 PG3 PG4 PG5 PG6 PG7
+
+    Returns:
+        dict: {0: int, 1: int, ..., 7: int}  (zeros on parse failure)
+    """
+    result = {i: 0 for i in range(8)}
+    try:
+        out = st.show(dut, f"show priority-group drop counters | grep -w {port}",
+                      skip_tmpl=True, skip_error_check=True)
+        if not out:
+            return result
+        line = next((ln for ln in out.splitlines() if port in ln.split()), None)
+        if not line:
+            return result
+        parts = line.split()
+        if len(parts) >= 9:
+            for i in range(8):
+                tok = parts[1 + i]
+                try:
+                    result[i] = int(tok.replace(',', ''))
+                except (ValueError, AttributeError):
+                    result[i] = 0
+    except Exception as e:
+        st.log(f"_get_pg_drop_counters_simple({dut},{port}) failed: {e}")
+    return result
+
+
+def capture_node_snapshot(nodes, topology, tc=3):
+    """
+    Capture a unified per-node, per-port snapshot of QoS-relevant counters.
+
+    Wraps existing helpers so callers can do a single 'before' / 'after'
+    capture instead of orchestrating multiple sources.
+
+    Args:
+        nodes:    Dict {node_name: dut} from get_nodes()
+        topology: Dict from build_node_topology()
+        tc:       Traffic class (default 3) -- drives PFC priority lookups
+                  and identifies the "primary" queue (UC<tc>) for tests.
+                  All queues found in WRED output are still included.
+
+    Returns:
+        dict: {
+            <node_name>: {
+                'role': str,
+                'buffer_pool_watermark': {pool_name: int|str},
+                'ports': {
+                    <port>: {
+                        'rx_packets': int,    # show interface counters RX_OK
+                        'tx_packets': int,    # show interface counters TX_OK
+                        'rx_drops':   int,    # RX_DRP
+                        'tx_drops':   int,    # TX_DRP
+                        'pfc_rx':     {tc: int},
+                        'pfc_tx':     {tc: int},
+                        'pg_watermark': {0..7: int},
+                        'queues': {
+                            'UC<n>': {
+                                'packets':         int,
+                                'drop_pkts':       int,
+                                'ecn_marked_pkts': int,
+                                'watermark':       int|str,  # only for UC<tc>
+                            }, ...
+                        }
+                    }
+                }
+            }
+        }
+
+    Notes:
+        - Tolerant of missing data: any failed lookup produces 0/empty
+          rather than raising.
+        - Watermark per queue is only populated for the UC<tc> entry
+          (existing capture_queue_watermark_values returns a single value
+          per port for the requested TC).
+    """
+    primary_queue = f"UC{tc}"
+
+    # Build interfaces_map from topology for the bulk helpers
+    interfaces_map = {
+        node_name: list(entry.get('all_ports', []))
+        for node_name, entry in topology.items()
+        if node_name in nodes
+    }
+
+    # Bulk captures -- these helpers already loop internally and now also
+    # parallelize across DUTs.
+    wred = {}
+    watermarks = {}
+    try:
+        wred = capture_wred_counters(nodes, interfaces_map, tc=tc)
+    except Exception as e:
+        st.log(f"capture_node_snapshot: capture_wred_counters failed: {e}")
+    try:
+        watermarks = capture_queue_watermark_values(nodes, interfaces_map, tc=tc)
+    except Exception as e:
+        st.log(f"capture_node_snapshot: capture_queue_watermark_values failed: {e}")
+
+    # Per-node worker -- runs sequential per-port show commands on a single
+    # DUT (one SSH session). Multiple DUTs are dispatched in parallel below.
+    def _snapshot_one_node(item):
+        node_name, entry = item
+        dut = nodes[node_name]
+
+        # Per-node buffer pool watermark
+        pool_data = {}
+        try:
+            raw = get_buffer_pool_watermark(dut)
+            if raw:
+                parsed = parse_buffer_pool_watermark(raw)
+                # parse_buffer_pool_watermark returns string values; coerce
+                for k, v in parsed.items():
+                    try:
+                        pool_data[k] = int(str(v).replace(',', ''))
+                    except (ValueError, AttributeError):
+                        pool_data[k] = v
+        except Exception as e:
+            st.log(f"capture_node_snapshot: buffer pool capture failed on {node_name}: {e}")
+
+        ports_data = {}
+        for port in entry.get('all_ports', []):
+            # Per-port basic counters
+            pc = _get_port_counters_simple(dut, port)
+
+            # PFC per-priority (just tc for now)
+            try:
+                pfc_rx = get_pfc_rx_count(dut, port, tc)
+            except Exception:
+                pfc_rx = 0
+            try:
+                pfc_tx = get_pfc_tx_count(dut, port, tc)
+            except Exception:
+                pfc_tx = 0
+
+            # Priority-group watermark (PG0..PG7)
+            pg_wm = _get_pg_watermark_simple(dut, port)
+
+            # Priority-group drop counters (PG0..PG7) -- non-zero indicates
+            # ingress drops at the PG (e.g. headroom exhausted).
+            pg_drop = _get_pg_drop_counters_simple(dut, port)
+
+            # All queues from wred capture (UC0..UC7)
+            queues_dict = {}
+            port_wred = wred.get(node_name, {}).get(port, {})
+            wm_val = watermarks.get(node_name, {}).get(port, 'N/A')
+            for q_name, q_entry in port_wred.items():
+                queues_dict[q_name] = {
+                    'packets':         q_entry.get('packets', 0),
+                    'drop_pkts':       q_entry.get('wred_drop_pkts', 0),
+                    'ecn_marked_pkts': q_entry.get('ecn_marked_pkts', 0),
+                    'watermark':       wm_val if q_name == primary_queue else None,
+                }
+            # Ensure primary_queue always present even if WRED capture missed it
+            if primary_queue not in queues_dict:
+                queues_dict[primary_queue] = {
+                    'packets':         0,
+                    'drop_pkts':       0,
+                    'ecn_marked_pkts': 0,
+                    'watermark':       wm_val,
+                }
+
+            ports_data[port] = {
+                'rx_packets':   pc['rx_ok'],
+                'tx_packets':   pc['tx_ok'],
+                'rx_drops':     pc['rx_drp'],
+                'tx_drops':     pc['tx_drp'],
+                'pfc_rx':       {tc: pfc_rx},
+                'pfc_tx':       {tc: pfc_tx},
+                'pg_watermark': pg_wm,
+                'pg_drop':      pg_drop,
+                'queues':       queues_dict,
+            }
+
+        return (node_name, {
+            'role':                  entry.get('role', ''),
+            'buffer_pool_watermark': pool_data,
+            'ports':                 ports_data,
+        })
+
+    items = [(node_name, entry) for node_name, entry in topology.items()
+             if node_name in nodes]
+    retvals, _ = exec_foreach(True, items, _snapshot_one_node)
+
+    snapshot = {}
+    for rv in retvals:
+        if rv:
+            name, node_dict = rv
+            snapshot[name] = node_dict
+
+    return snapshot
+
+
+def clear_node_snapshot_counters(nodes, topology, tc=3, wait_after=3):
+    """
+    Clear all counters/watermarks needed for a clean snapshot 'before' baseline.
+
+    Iterates topology nodes (skipping any not present in `nodes`) and for each
+    DUT clears: interface counters, queue counters, PFC, queue watermarks,
+    priority-group watermarks, buffer-pool watermarks, drop counters and WRED
+    counters. Delegates to existing per-DUT helpers; no new CLI surface.
+
+    Args:
+        nodes:       Dict {node_name: dut} from get_nodes()
+        topology:    Dict from build_node_topology()
+        tc:          Traffic class (passed through to clear_all_wred_counters)
+        wait_after:  Seconds to wait after clearing (default 3) so counters
+                     settle before the 'before' snapshot is taken.
+
+    Returns:
+        list: Node names that were successfully cleared.
+    """
+    cleared = []
+    interfaces_map = {
+        node_name: list(entry.get('all_ports', []))
+        for node_name, entry in topology.items()
+        if node_name in nodes
+    }
+
+    # Per-DUT clear_all_counters in parallel (one thread per DUT)
+    items = [(node_name, nodes[node_name])
+             for node_name in topology if node_name in nodes]
+
+    def _clear_one(item):
+        node_name, dut = item
+        try:
+            clear_all_counters(dut, wait_time=0)
+            return node_name
+        except Exception as e:
+            st.log(f"clear_node_snapshot_counters: clear_all_counters failed on "
+                   f"{node_name}: {e}")
+            return None
+
+    retvals, _ = exec_foreach(True, items, _clear_one)
+    cleared = [n for n in retvals if n]
+
+    # Bulk WRED clear (matches existing test pattern: per-port wredcounters)
+    try:
+        clear_all_wred_counters(nodes, interfaces_map, tc=tc)
+    except Exception as e:
+        st.log(f"clear_node_snapshot_counters: clear_all_wred_counters failed: {e}")
+
+    # Bulk queue-watermark clear (idempotent with per-DUT clears above, but
+    # ensures the dedicated path is exercised; cheap)
+    try:
+        clear_all_queue_watermarks(nodes, wait_after=0)
+    except Exception as e:
+        st.log(f"clear_node_snapshot_counters: clear_all_queue_watermarks failed: {e}")
+
+    if wait_after:
+        st.wait(wait_after)
+    return cleared
+
+
+def print_node_snapshot_deltas(before, after, topology, tc=3,
+                                label="Per-Node Snapshot Deltas",
+                                port_speed_gbps=None,
+                                traffic_duration=None,
+                                frame_size=None):
+    """
+    Compute, log, and return per-node deltas between two snapshots produced
+    by capture_node_snapshot().
+
+    For each node and each port in `topology`, computes deltas for:
+      - Port: rx_packets, tx_packets, rx_drops, tx_drops
+      - PFC : pfc_rx[tc], pfc_tx[tc]
+      - PG  : pg_watermark[0..7]   (watermarks are reported as 'after' value;
+                                    deltas don't make sense for high-water marks)
+      - Queue UC<n>: packets, drop_pkts, ecn_marked_pkts (delta);
+                    watermark for primary UC<tc> reported as after value.
+
+    Buffer pool watermarks are reported as 'after' values (high-water marks).
+
+    Args:
+        before, after: snapshots from capture_node_snapshot()
+        topology:      from build_node_topology() -- used to drive iteration
+                       order (ingress_leaf -> spine -> egress_leaf) and to
+                       pick up `role` for the summary.
+        tc:            primary traffic class (used for queue/PFC summary keys)
+        label:         banner label for the log block
+        port_speed_gbps: Per-port line speed in Gbps. When provided together
+                       with `traffic_duration` and `frame_size`, the deltas
+                       output includes a `tx_util%` column estimating each
+                       port's TX utilization as a percent of line rate.
+                       Values <= 0.1%% are reported as 0.
+        traffic_duration: Traffic duration in seconds (typically 60).
+        frame_size:    L2 frame size in bytes (excluding preamble + IPG).
+                       The on-wire size used for utilization is
+                       (frame_size + 20) bytes.
+
+    Returns:
+        dict: {
+            <node_name>: {
+                'role': str,
+                'buffer_pool_watermark': {pool: int|str},   # after values
+                'totals': {                                 # node-aggregated
+                    'rx_packets': int, 'tx_packets': int,
+                    'rx_drops':   int, 'tx_drops':   int,
+                    'pfc_rx':     int, 'pfc_tx':     int,
+                    'queue_packets':       int,    # UC<tc> across ports
+                    'queue_drop_pkts':     int,    # UC<tc> across ports
+                    'ecn_marked_pkts':     int,    # UC<tc> across ports
+                },
+                'ports': {
+                    <port>: {
+                        'rx_packets': int, 'tx_packets': int,
+                        'rx_drops':   int, 'tx_drops':   int,
+                        'pfc_rx':     int, 'pfc_tx':     int,
+                        'pg_watermark': {0..7: int|str},   # after
+                        'queues': {
+                            'UC<n>': {
+                                'packets':         int,
+                                'drop_pkts':       int,
+                                'ecn_marked_pkts': int,
+                                'watermark':       int|str|None,  # after
+                            }, ...
+                        }
+                    }
+                }
+            }
+        }
+    """
+    st.banner(label)
+    primary_queue = f"UC{tc}"
+    summary = {}
+
+    # ---- Line-rate setup for tx utilization ----
+    line_rate_bps = 0.0
+    on_wire_bytes = 0
+    util_enabled = False
+    try:
+        if traffic_duration and frame_size:
+            if port_speed_gbps:
+                line_rate_bps = float(port_speed_gbps) * 1e9
+            # Add 20B (8B preamble/SFD + 12B IPG) to L2 frame for on-wire size
+            on_wire_bytes = int(frame_size) + 20
+            # Per-port speeds in topology can also drive utilization; we
+            # enable display whenever frame/duration are valid.
+            util_enabled = (on_wire_bytes > 0 and float(traffic_duration) > 0)
+    except (TypeError, ValueError):
+        util_enabled = False
+
+    def _util_pct(pkts, speed_gbps=None):
+        """Return utilization % of line rate; 0 when <= 0.1% or disabled.
+
+        If speed_gbps is provided and > 0, it overrides the default
+        port_speed_gbps from the function args (used for per-port
+        utilization in mixed-speed topologies).
+        """
+        if pkts <= 0 or on_wire_bytes <= 0 or float(traffic_duration or 0) <= 0:
+            return 0.0
+        rate_bps = float(speed_gbps) * 1e9 if speed_gbps else line_rate_bps
+        if rate_bps <= 0:
+            return 0.0
+        bits = pkts * on_wire_bytes * 8.0
+        pct = (bits / (rate_bps * float(traffic_duration))) * 100.0
+        return pct if pct > 0.1 else 0.0
+
+    def _tx_util_pct(tx_pkts, speed_gbps=None):
+        return _util_pct(tx_pkts, speed_gbps)
+
+    def _rx_util_pct(rx_pkts, speed_gbps=None):
+        return _util_pct(rx_pkts, speed_gbps)
+
+    def _d(a, b):
+        try:
+            return int(a) - int(b)
+        except (TypeError, ValueError):
+            return 0
+
+    # Iterate in topology order so logs read ingress -> egress
+    for node_name in topology.keys():
+        b_node = before.get(node_name, {}) if isinstance(before, dict) else {}
+        a_node = after.get(node_name, {})  if isinstance(after,  dict) else {}
+        if not a_node:
+            continue
+
+        b_ports = b_node.get('ports', {}) or {}
+        a_ports = a_node.get('ports', {}) or {}
+
+        node_summary = {
+            'role':                  a_node.get('role', topology[node_name].get('role', '')),
+            'buffer_pool_watermark': a_node.get('buffer_pool_watermark', {}),
+            'totals': {
+                'rx_packets': 0, 'tx_packets': 0,
+                'rx_drops':   0, 'tx_drops':   0,
+                'pfc_rx':     0, 'pfc_tx':     0,
+                'queue_packets':   0,
+                'queue_drop_pkts': 0,
+                'ecn_marked_pkts': 0,
+                'pg_drop':         0,    # sum of all PG drop deltas
+                'pg_drop_per_pg':  {i: 0 for i in range(8)},
+            },
+            'ports': {},
+        }
+
+        st.log(f"--- {node_name} (role={node_summary['role']}) ---")
+        if node_summary['buffer_pool_watermark']:
+            st.log(f"  buffer_pool_watermark (after): {node_summary['buffer_pool_watermark']}")
+
+        for port in topology[node_name].get('all_ports', []):
+            b_p = b_ports.get(port, {})
+            a_p = a_ports.get(port, {})
+            if not a_p:
+                continue
+
+            # Port-level deltas
+            rx_d  = _d(a_p.get('rx_packets', 0), b_p.get('rx_packets', 0))
+            tx_d  = _d(a_p.get('tx_packets', 0), b_p.get('tx_packets', 0))
+            rxdr  = _d(a_p.get('rx_drops',   0), b_p.get('rx_drops',   0))
+            txdr  = _d(a_p.get('tx_drops',   0), b_p.get('tx_drops',   0))
+
+            # PFC per primary tc
+            pfc_rx_d = _d(a_p.get('pfc_rx', {}).get(tc, 0),
+                          b_p.get('pfc_rx', {}).get(tc, 0))
+            pfc_tx_d = _d(a_p.get('pfc_tx', {}).get(tc, 0),
+                          b_p.get('pfc_tx', {}).get(tc, 0))
+
+            # PG watermarks (after values)
+            pg_after = a_p.get('pg_watermark', {}) or {}
+
+            # PG drop counters -- delta per PG (non-zero indicates ingress
+            # drops, e.g. headroom exhausted).
+            a_pg_drop = a_p.get('pg_drop', {}) or {}
+            b_pg_drop = b_p.get('pg_drop', {}) or {}
+            pg_drop_delta = {
+                i: _d(a_pg_drop.get(i, 0), b_pg_drop.get(i, 0))
+                for i in range(8)
+            }
+
+            # Queue deltas -- iterate union of queues seen in either snapshot
+            queues_summary = {}
+            queue_names = set((a_p.get('queues') or {}).keys()) | \
+                          set((b_p.get('queues') or {}).keys())
+            for q in queue_names:
+                a_q = (a_p.get('queues') or {}).get(q, {}) or {}
+                b_q = (b_p.get('queues') or {}).get(q, {}) or {}
+                queues_summary[q] = {
+                    'packets':         _d(a_q.get('packets', 0),
+                                          b_q.get('packets', 0)),
+                    'drop_pkts':       _d(a_q.get('drop_pkts', 0),
+                                          b_q.get('drop_pkts', 0)),
+                    'ecn_marked_pkts': _d(a_q.get('ecn_marked_pkts', 0),
+                                          b_q.get('ecn_marked_pkts', 0)),
+                    'watermark':       a_q.get('watermark'),
+                }
+
+            # Per-port speed (Gbps) from topology -- used for accurate
+            # utilization in mixed-speed (e.g. 400G TGEN + 800G fabric)
+            # topologies. Falls back to 0 (-> uses global port_speed_gbps).
+            _port_speed = (topology[node_name].get('port_speeds') or {}).get(port, 0)
+
+            node_summary['ports'][port] = {
+                'rx_packets':   rx_d,
+                'tx_packets':   tx_d,
+                'rx_drops':     rxdr,
+                'tx_drops':     txdr,
+                'pfc_rx':       pfc_rx_d,
+                'pfc_tx':       pfc_tx_d,
+                'pg_watermark': pg_after,
+                'pg_drop':      pg_drop_delta,
+                'rx_util_pct':  _rx_util_pct(rx_d, _port_speed),
+                'tx_util_pct':  _tx_util_pct(tx_d, _port_speed),
+                'speed_gbps':   _port_speed,
+                'queues':       queues_summary,
+            }
+
+            # Aggregate node totals (use primary queue for queue/ecn totals)
+            node_summary['totals']['rx_packets'] += rx_d
+            node_summary['totals']['tx_packets'] += tx_d
+            node_summary['totals']['rx_drops']   += rxdr
+            node_summary['totals']['tx_drops']   += txdr
+            node_summary['totals']['pfc_rx']     += pfc_rx_d
+            node_summary['totals']['pfc_tx']     += pfc_tx_d
+            pq = queues_summary.get(primary_queue, {})
+            node_summary['totals']['queue_packets']   += pq.get('packets', 0)
+            node_summary['totals']['queue_drop_pkts'] += pq.get('drop_pkts', 0)
+            node_summary['totals']['ecn_marked_pkts'] += pq.get('ecn_marked_pkts', 0)
+            for pg_idx, pg_v in pg_drop_delta.items():
+                node_summary['totals']['pg_drop'] += pg_v
+                node_summary['totals']['pg_drop_per_pg'][pg_idx] += pg_v
+
+            # Per-port log line -- keep tight
+            pq_str = (
+                f"{primary_queue}[pkts={pq.get('packets', 0)}, "
+                f"drop={pq.get('drop_pkts', 0)}, "
+                f"ecn={pq.get('ecn_marked_pkts', 0)}, "
+                f"wm={pq.get('watermark')}]"
+            )
+            tx_util = node_summary['ports'][port]['tx_util_pct']
+            rx_util = node_summary['ports'][port]['rx_util_pct']
+            rx_util_str = (f" rx_util={rx_util:.2f}%" if util_enabled else "")
+            tx_util_str = (f" tx_util={tx_util:.2f}%" if util_enabled else "")
+            # Look up per-port speed (Gbps) from the topology, if populated.
+            port_speed = (topology[node_name].get('port_speeds') or {}).get(port, 0)
+            if port_speed:
+                speed_str = " ({})".format(format_speed(port_speed))
+            else:
+                speed_str = ""
+            port_label = "{}{}".format(port, speed_str)
+            st.log(
+                f"  {port_label:<22} rx={rx_d}{rx_util_str} tx={tx_d}{tx_util_str} "
+                f"rx_drp={rxdr} tx_drp={txdr} "
+                f"pfc_rx={pfc_rx_d} pfc_tx={pfc_tx_d} "
+                f"{pq_str}"
+            )
+            # Log other queues only if non-zero, to avoid noise
+            for q, qd in sorted(queues_summary.items()):
+                if q == primary_queue:
+                    continue
+                if qd['packets'] or qd['drop_pkts'] or qd['ecn_marked_pkts']:
+                    st.log(
+                        f"      {q}: pkts={qd['packets']} "
+                        f"drop={qd['drop_pkts']} ecn={qd['ecn_marked_pkts']}"
+                    )
+            if any(pg_after.values()):
+                st.log(f"      pg_wm(after)={pg_after}")
+            # Log only non-zero PG drop deltas (headroom-exhausted, etc.)
+            nz_pg_drops = {pg: v for pg, v in pg_drop_delta.items() if v}
+            if nz_pg_drops:
+                st.log(f"      pg_drop(delta)={nz_pg_drops}")
+
+        # Node-total log line
+        t = node_summary['totals']
+        nz_node_pg_drops = {pg: v for pg, v in t['pg_drop_per_pg'].items() if v}
+        # Average tx/rx utilization across ports that actually moved traffic.
+        # (Summing pkts vs single-port line rate would be misleading.)
+        per_port_tx_utils = [
+            p['tx_util_pct'] for p in node_summary['ports'].values()
+            if p.get('tx_util_pct', 0) > 0
+        ]
+        per_port_rx_utils = [
+            p['rx_util_pct'] for p in node_summary['ports'].values()
+            if p.get('rx_util_pct', 0) > 0
+        ]
+        if util_enabled and per_port_tx_utils:
+            avg_tx_util = sum(per_port_tx_utils) / len(per_port_tx_utils)
+            t['tx_util_pct_avg'] = avg_tx_util
+            tx_util_total_str = f" tx_util_avg={avg_tx_util:.2f}%"
+        else:
+            t['tx_util_pct_avg'] = 0.0
+            tx_util_total_str = ""
+        if util_enabled and per_port_rx_utils:
+            avg_rx_util = sum(per_port_rx_utils) / len(per_port_rx_utils)
+            t['rx_util_pct_avg'] = avg_rx_util
+            rx_util_total_str = f" rx_util_avg={avg_rx_util:.2f}%"
+        else:
+            t['rx_util_pct_avg'] = 0.0
+            rx_util_total_str = ""
+        st.log(
+            f"  TOTAL  rx={t['rx_packets']}{rx_util_total_str} "
+            f"tx={t['tx_packets']}{tx_util_total_str} "
+            f"rx_drp={t['rx_drops']} tx_drp={t['tx_drops']} "
+            f"pfc_rx={t['pfc_rx']} pfc_tx={t['pfc_tx']} "
+            f"{primary_queue}_pkts={t['queue_packets']} "
+            f"{primary_queue}_drop={t['queue_drop_pkts']} "
+            f"ecn_marked={t['ecn_marked_pkts']} "
+            f"pg_drop={t['pg_drop']}{(' ' + str(nz_node_pg_drops)) if nz_node_pg_drops else ''}"
+        )
+        summary[node_name] = node_summary
+
+    return summary
 
 
 # ---------------------------------------------------------------------------
@@ -1441,10 +2234,14 @@ def detect_platform(dut):
     """
     Detect DUT platform type by running 'show version' and caching the result.
 
+    Recognized platform tags:
+        'laguna'  -- 'x86_64-hf6100_64ed' (G200 NPU)
+        'carib'   -- 'x86_64-hf6100_32d'  (Q200 NPU)
+        'n9164e'  -- 'x86_64-n9164e'       (Gamut)
+        'generic' -- anything else
+
     Returns:
-        str: 'hf6100' if Platform contains 'x86_64-hf6100',
-             'n9164e' if Platform contains 'x86_64-n9164e',
-             else 'generic'
+        str: one of the platform tags above.
     """
     dut_key = str(dut)
     if dut_key in _platform_cache:
@@ -1454,15 +2251,18 @@ def detect_platform(dut):
     platform = 'generic'
     for line in (output or '').splitlines():
         if 'Platform:' in line:
-            if 'x86_64-hf6100' in line:
-                platform = 'hf6100'
+            if 'x86_64-hf6100_64ed' in line:
+                platform = 'laguna'
+                break
+            elif 'x86_64-hf6100_32d' in line:
+                platform = 'carib'
                 break
             elif 'x86_64-n9164e' in line:
                 platform = 'n9164e'
                 break
 
     _platform_cache[dut_key] = platform
-    st.log(f"Detected platform for {dut_key}: {platform}")
+    st.log("Detected platform for {}: {}".format(dut_key, platform))
     return platform
 
 
@@ -1492,15 +2292,23 @@ def clear_all_wred_counters(nodes, interfaces_map=None, tc=3):
     """
     Clear WRED/ECN counters on all nodes.
 
+    Runs per-node clears in parallel (one thread per DUT) since each DUT
+    has its own SSH session.
+
     Args:
         nodes: Dict mapping node names to DUT objects
         interfaces_map: Optional dict mapping node names to list of interfaces
-                        (needed for HF6100 per-port clear)
+                        (needed for laguna/carib per-port clear)
         tc: Traffic class (default 3)
     """
-    for name, dut in nodes.items():
+    items = list(nodes.items())  # [(name, dut), ...]
+
+    def _clear_one(item):
+        name, dut = item
         intfs = (interfaces_map or {}).get(name)
         clear_wred_counters(dut, interfaces=intfs, tc=tc)
+
+    exec_foreach(True, items, _clear_one)
 
 
 def parse_queue_counters(raw_output, interfaces):
@@ -1619,7 +2427,7 @@ def capture_wred_counters(nodes, interfaces_map, tc=3):
     Capture WRED/ECN counters for specified interfaces on each node.
 
     Auto-detects platform:
-      - HF6100: uses 'show platform npu voq queue_counters -t <tc> -i <intf>'
+      - laguna/carib: uses 'show platform npu voq queue_counters -t <tc> -i <intf>'
       - N9164E (Gamut) and Generic: uses 'show queue wredcounters <intf>'
         for ECN marked counters, and BOTH 'show queue counters <intf>' and
         'show queue wredcounters <intf>' for WRED drops.
@@ -1636,7 +2444,7 @@ def capture_wred_counters(nodes, interfaces_map, tc=3):
     Args:
         nodes: Dictionary mapping node names to DUT objects
         interfaces_map: Dict mapping node names to list of interfaces
-        tc: Traffic class (default 3, used for HF6100 NPU command and
+        tc: Traffic class (default 3, used for laguna/carib NPU command and
             legacy queue name UC<tc>)
 
     Returns:
@@ -1652,15 +2460,19 @@ def capture_wred_counters(nodes, interfaces_map, tc=3):
     counters = {}
     queue_name = f"UC{tc}"
 
-    for node_name, interfaces in interfaces_map.items():
-        if node_name not in nodes:
-            continue
+    # Process each node in a worker thread so 4 DUTs run concurrently.
+    items = [(node_name, interfaces)
+             for node_name, interfaces in interfaces_map.items()
+             if node_name in nodes]
+
+    def _capture_one(item):
+        node_name, interfaces = item
         dut = nodes[node_name]
         node_counters = {}
         platform = detect_platform(dut)
 
         for intf in interfaces:
-            if platform == 'hf6100':
+            if platform in ('laguna', 'carib'):
                 npu = get_ecn_counters_on_port(dut, intf, tc)
                 # Wrap in queue-keyed dict matching legacy format
                 node_counters[intf] = {
@@ -1721,7 +2533,13 @@ def capture_wred_counters(nodes, interfaces_map, tc=3):
                         'dropped_packets': drop_pkts,  # Alias for compatibility
                     }
 
-        counters[node_name] = node_counters
+        return (node_name, node_counters)
+
+    retvals, _ = exec_foreach(True, items, _capture_one)
+    for rv in retvals:
+        if rv:
+            name, nc = rv
+            counters[name] = nc
 
     return counters
 
@@ -2347,12 +3165,21 @@ def capture_queue_watermark_values(nodes, interfaces_map, tc=3):
         dict: {node_name: {interface: watermark_bytes}}
     """
     watermarks = {}
-    for node_name, interfaces in interfaces_map.items():
-        if node_name not in nodes:
-            continue
+    items = [(node_name, interfaces)
+             for node_name, interfaces in interfaces_map.items()
+             if node_name in nodes]
+
+    def _capture_one(item):
+        node_name, interfaces = item
         dut = nodes[node_name]
         output = st.show(dut, "show queue watermark unicast", skip_tmpl=True)
-        watermarks[node_name] = parse_queue_watermark_unicast(output, interfaces, tc)
+        return (node_name, parse_queue_watermark_unicast(output, interfaces, tc))
+
+    retvals, _ = exec_foreach(True, items, _capture_one)
+    for rv in retvals:
+        if rv:
+            name, parsed = rv
+            watermarks[name] = parsed
     return watermarks
 
 
@@ -2952,7 +3779,7 @@ def dump_vxlan_debug_info(nodes, context=""):
 def clear_queue_watermark(dut):
     """Clear queue watermark unicast on specified DUT.
     
-    On some platforms (like HF6100), watermarks may not be cleared immediately.
+    On some platforms (like laguna/carib), watermarks may not be cleared immediately.
     This function clears and then does a read to ensure the clear takes effect.
     """
     st.log(f"Clearing queue watermark unicast on DUT={dut}")
@@ -2963,18 +3790,22 @@ def clear_queue_watermark(dut):
 def clear_all_queue_watermarks(nodes, wait_after=3):
     """
     Clear queue watermarks on all nodes with robust verification.
+
+    Per-node clears run in parallel (one thread per DUT).
     
     Args:
         nodes: Dict mapping node names to DUT objects
         wait_after: Additional wait time after all clears (seconds)
     """
     st.log("Clearing queue watermarks on all nodes...")
-    
-    # Clear watermarks on all nodes
-    for node_name, dut in nodes.items():
+
+    def _clear_one(item):
+        node_name, dut = item
         st.log(f"  Clearing queue watermark unicast on {node_name}")
         st.config(dut, 'sonic-clear queue watermark unicast', skip_tmpl=True, trace_log=1)
-    
+
+    exec_foreach(True, list(nodes.items()), _clear_one)
+
     st.wait(wait_after)
     st.log("Queue watermarks cleared on all nodes")
 
@@ -3240,6 +4071,9 @@ def clear_all_counters(dut, wait_time=3):
     
     st.log("Clearing priority-group watermark shared...")
     st.config(dut, 'sonic-clear priority-group watermark shared', skip_tmpl=True, trace_log=1)
+
+    st.log("Clearing priority-group drop counters...")
+    st.config(dut, 'sonic-clear priority-group drop counters', skip_tmpl=True, skip_error_check=True, trace_log=1)
     
     st.log("Clearing buffer pool watermark...")
     st.config(dut, 'watermarkstat -t buffer_pool -c', skip_tmpl=True, trace_log=1)
