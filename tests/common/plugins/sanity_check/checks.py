@@ -402,6 +402,7 @@ def _check_monit_services_status(check_result, monit_services_status):
              and the status of each service.
     """
     check_result["services_status"] = {}
+    monit_failures = []
     for service_name, service_info in list(monit_services_status.items()):
         check_result["services_status"].update({service_name: service_info["service_status"]})
         if service_info["service_status"] == "Not monitored":
@@ -413,6 +414,23 @@ def _check_monit_services_status(check_result, monit_services_status):
                 or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
                 or (service_info["service_type"] == "Program" and service_info["service_status"] != "Status ok")):
             check_result["failed"] = True
+            monit_failures.append({
+                "service": service_name,
+                "service_type": service_info["service_type"],
+                "service_status": service_info["service_status"],
+            })
+
+    if monit_failures:
+        check_result["monit_failures"] = monit_failures
+        check_result["failed_reason"] = "; ".join(
+            "{} ({}) is '{}'".format(m["service"], m["service_type"], m["service_status"])
+            for m in monit_failures
+        )
+        logger.error(
+            "Monit sanity check failed on %s: %s",
+            check_result.get("host", ""),
+            check_result["failed_reason"],
+        )
 
     return check_result
 
