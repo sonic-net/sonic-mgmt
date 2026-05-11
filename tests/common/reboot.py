@@ -571,13 +571,26 @@ def get_reboot_cause(dut):
 
 def check_reboot_cause(dut, reboot_cause_expected):
     """
-    @summary: Check the reboot cause on DUT. Can be used with wailt_until
+    @summary: Check the reboot cause on DUT. Can be used with wait_until
     @param dut: The AnsibleHost object of DUT.
     @param reboot_cause_expected: The expected reboot cause.
     """
     reboot_cause_got = get_reboot_cause(dut)
-    logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
-    return reboot_cause_got == reboot_cause_expected
+    logger.info("dut %s last reboot-cause: got '%s', expected '%s'",
+                dut.hostname, reboot_cause_got, reboot_cause_expected)
+    if reboot_cause_got != reboot_cause_expected:
+        cause_output = dut.shell('show reboot-cause')['stdout']
+        expected_pattern = reboot_ctrl_dict.get(
+            reboot_cause_expected, {}
+        ).get('cause', reboot_cause_expected)
+        logger.warning(
+            "dut %s reboot-cause mismatch: expected type='%s' "
+            "(pattern='%s'), got type='%s', raw output='%s'",
+            dut.hostname, reboot_cause_expected, expected_pattern,
+            reboot_cause_got, cause_output
+        )
+        return False
+    return True
 
 
 def sync_reboot_history_queue_with_dut(dut):
