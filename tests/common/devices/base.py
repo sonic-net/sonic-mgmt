@@ -2,7 +2,11 @@ import inspect
 import json
 import logging
 import collections
+import signal
+import threading
+from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
+import ansible
 from pytest_ansible.results import AdHocResult, ModuleResult
 
 from tests.common.errors import RunAnsibleModuleFail
@@ -24,6 +28,56 @@ _avm.load_extra_vars = _safe_load_extra_vars
 
 
 logger = logging.getLogger(__name__)
+
+
+def ansible_tqm_has_signal_registration():
+    version = getattr(ansible, "__version__", "0.0.0")
+    try:
+        major, minor = version.split(".")[:2]
+        return (int(major), int(minor)) >= (2, 19)
+    except (TypeError, ValueError):
+        return False
+
+
+_signal_patch_lock = threading.RLock()
+_signal_patch_ref_count = 0
+_original_signal = None
+
+
+@contextmanager
+def suppress_signal_registration_for_non_main_thread():
+    """Temporarily bypass signal registration from worker threads for ansible-core 2.19+."""
+    if not ansible_tqm_has_signal_registration() or threading.current_thread() is threading.main_thread():
+        yield
+        return
+
+    global _signal_patch_ref_count, _original_signal
+    with _signal_patch_lock:
+        if _signal_patch_ref_count == 0:
+            _original_signal = signal.signal
+
+            def _thread_safe_signal(signum, handler):
+                if threading.current_thread() is threading.main_thread():
+                    return _original_signal(signum, handler)
+                logger.warning(
+                    "Skipping signal.signal(%s, %s) from non-main thread %s; "
+                    "ansible-core 2.19+ restricts signal handling to main thread. "
+                    "Returning default handler instead.",
+                    signum, handler, threading.current_thread().name
+                )
+                return signal.getsignal(signum)
+
+            signal.signal = _thread_safe_signal
+        _signal_patch_ref_count += 1
+
+    try:
+        yield
+    finally:
+        with _signal_patch_lock:
+            _signal_patch_ref_count -= 1
+            if _signal_patch_ref_count == 0 and _original_signal is not None:
+                signal.signal = _original_signal
+                _original_signal = None
 
 
 # HACK: This is a hack for issue https://github.com/sonic-net/sonic-mgmt/issues/1941 and issue
@@ -153,7 +207,8 @@ class AnsibleHostBase(object):
 
         if module_async:
             def run_module(module_args, complex_args):
-                return module(*module_args, **complex_args)[self.hostname]
+                with suppress_signal_registration_for_non_main_thread():
+                    return module(*module_args, **complex_args)[self.hostname]
             pool = ThreadPool()
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
@@ -161,7 +216,8 @@ class AnsibleHostBase(object):
         module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
         complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
 
-        adhoc_res: AdHocResult = module(*module_args, **complex_args)
+        with suppress_signal_registration_for_non_main_thread():
+            adhoc_res: AdHocResult = module(*module_args, **complex_args)
 
         if module_name == "meta":
             # The meta module is special in Ansible - it doesn't execute on remote hosts, it controls Ansible's behavior
