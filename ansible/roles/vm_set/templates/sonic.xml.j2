@@ -80,6 +80,7 @@
       <source host='127.0.0.1' mode='bind' service='{{ serial_port }}'/>
       <target port='0'/>
       <protocol type='telnet'/>
+      <log file='/var/log/libvirt/qemu/boot-serial-{{ dut_name }}.log' append='on'/>
     </serial>
     <interface type='ethernet'>
         <target dev='{{ dut_name }}-0' />
