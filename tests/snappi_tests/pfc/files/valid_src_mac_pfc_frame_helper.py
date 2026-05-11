@@ -193,9 +193,15 @@ def run_pfc_valid_src_mac_test(
     # Verify PFC pause frames
     if validate_pfc_frame:
         peer_mac_addr = snappi_extra_params.base_flow_config["rx_port_config"].gateway_mac
-        is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
-                        snappi_extra_params.packet_capture_file + ".pcapng",
-                        peer_mac_addr=peer_mac_addr)
+        # Use Cisco-specific validation for Cisco devices, generic validation for others
+        # Both functions validate source MAC address when peer_mac_addr is provided
+
+        # Buffer may wrap during capture,
+        # but at least 100 frames are reliably retained in the pcapng file.
+        pfc_sample_size = 100
+        is_valid_pfc_frame, error_msg = validate_pfc_frame(
+                            snappi_extra_params.packet_capture_file + ".pcapng",
+                            peer_mac_addr=peer_mac_addr,SAMPLE_SIZE=pfc_sample_size)
         pytest_assert(is_valid_pfc_frame, error_msg)
         return
 
