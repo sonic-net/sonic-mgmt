@@ -1631,12 +1631,12 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes=None):
     all_subnetv6_t0 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_ADDR_V6_T0)).subnets(new_prefix=124))
 
     for t0_group, vm_name in enumerate(t0_vms):
-        selected_v4 = all_subnetv4_t0[t0_group * T0_ROUTES_PER_VM:
-                                       t0_group * T0_ROUTES_PER_VM + T0_ROUTES_PER_VM]
-        selected_v6 = all_subnetv6_t0[t0_group * T0_ROUTES_PER_VM:
-                                       t0_group * T0_ROUTES_PER_VM + T0_ROUTES_PER_VM]
+        selected_v4 = all_subnetv4_t0[
+            t0_group * T0_ROUTES_PER_VM:t0_group * T0_ROUTES_PER_VM + T0_ROUTES_PER_VM]
+        selected_v6 = all_subnetv6_t0[
+            t0_group * T0_ROUTES_PER_VM:t0_group * T0_ROUTES_PER_VM + T0_ROUTES_PER_VM]
         as_path = "{} {}".format(leaf_asn_start + T0_ASN_OFFSET + t0_group,
-                                  tor_asn_start + T0_ASN_OFFSET + t0_group)
+                                 tor_asn_start + T0_ASN_OFFSET + t0_group)
         port, port6 = get_change_routes_ports(vm_name, topo)
 
         ipv4_routes = [(str(s), nhipv4, as_path) for s in selected_v4]
