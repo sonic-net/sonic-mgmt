@@ -10,7 +10,17 @@ import time
 
 
 @pytest.fixture(scope="module")
-def trap_copp_ospf(duthosts, rand_one_dut_hostname):
+def trap_copp_ospf(duthosts, rand_one_dut_hostname, request):
+    """Load OSPF COPP trap + matching COPP_GROUP so CONFIG_DB stays YANG-valid.
+
+    This fixture must skip before touching the DUT when neighbors are not sonic:
+    ospf_Bfd_setup previously skipped after this fixture ran, leaving only
+    COPP_TRAP|ospf (trap_group queue4_group1) without COPP_GROUP|queue4_group1,
+    which breaks ``config apply-patch`` / libyang leafref validation.
+    """
+    if request.config.getoption("neighbor_type") != "sonic":
+        pytest.skip("Neighbor type must be sonic")
+
     duthost = duthosts[rand_one_dut_hostname]
 
     copp_trap_ospf_rule_json = "/tmp/copp_trap_ospf.json"
@@ -18,6 +28,18 @@ def trap_copp_ospf(duthosts, rand_one_dut_hostname):
     cmd_copp_trap_group = '''
 cat << EOF >  %s
 {
+    "COPP_GROUP": {
+        "queue4_group1": {
+            "trap_action": "trap",
+            "trap_priority": "4",
+            "queue": "4",
+            "meter_type": "packets",
+            "mode": "sr_tcm",
+            "cir": "6000",
+            "cbs": "6000",
+            "red_action": "drop"
+        }
+    },
     "COPP_TRAP": {
         "ospf": {
             "trap_ids": "ospf,ospfv6",
@@ -36,19 +58,18 @@ EOF
 
     duthost.command("sudo config load {} -y".format(copp_config_file))
 
-    yield
-
-    duthost.command(f"sudo rm {copp_trap_ospf_rule_json}")
-    config_reload(duthost, config_source='config_db', safe_reload=True)
-    time.sleep(10)
-    return duthost
+    try:
+        yield
+    finally:
+        # Restore DUT from saved config_db (drops COPP_FRAGMENT from this fixture).
+        # Runs even if ospf_Bfd_setup fails before yield (so its teardown never runs).
+        config_reload(duthost, config_source='config_db', safe_reload=True)
+        time.sleep(10)
+        duthost.shell(f"sudo rm -f {copp_trap_ospf_rule_json}", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
-def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf, request):
-    if request.config.getoption("neighbor_type") != "sonic":
-        pytest.skip("Neighbor type must be sonic")
-
+def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf):
     duthost = duthosts[rand_one_dut_hostname]
     setup_info = {}
 
@@ -77,9 +98,7 @@ def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf, re
 
     yield setup_info
 
-    config_reload(duthost, config_source='config_db', safe_reload=True)
-    time.sleep(10)
-
+    # DUT restore runs in trap_copp_ospf teardown (finally), which executes after this block.
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for nbr_name in list(nbrhosts.keys()):
             executor.submit(config_reload, nbrhosts[nbr_name]["host"], is_dut=False)
