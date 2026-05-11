@@ -24,8 +24,8 @@ configuration_properties:
     swrole: spine
   tor:
     swrole: tor
-  leaf:
-    swrole: leaf
+  pleaf:
+    swrole: pleaf
 
 configuration:
 {%- for vm in vm_list %}
@@ -38,7 +38,7 @@ configuration:
     {%- elif vm.role == 't2' %}
     - spine
     {%- elif vm.role == 'pt1' %}
-    - leaf
+    - pleaf
     {%- endif %}
     bgp:
       asn: {{vm.asn}}
