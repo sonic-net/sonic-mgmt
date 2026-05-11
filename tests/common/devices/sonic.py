@@ -291,7 +291,7 @@ class SonicHost(AnsibleHostBase):
             True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
             node. If we add more types of nodes, then we need to exclude them from this method as well.
         """
-        return not self.is_supervisor_node()
+        return not self.is_supervisor_node() and not self.is_bmc()
 
     def is_console_switch(self):
         """
