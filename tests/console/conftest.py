@@ -68,6 +68,7 @@ def get_console_fanout(duthost, fanouthosts, tbinfo):
         return console_fanout
     else:
         pytest.fail("No console fanout was found. Pls setup the ansible files correctly.")
+        return None
 
 
 @pytest.fixture(scope='module')
