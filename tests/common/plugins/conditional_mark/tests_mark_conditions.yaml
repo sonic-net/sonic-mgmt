@@ -2850,6 +2850,12 @@ gnmi/test_gnmi.py:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
+gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
+  skip:
+    reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
@@ -2868,10 +2874,11 @@ gnmi/test_gnmi_configdb.py:
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
   skip:
@@ -2882,10 +2889,11 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
   skip:
@@ -2893,6 +2901,12 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
     conditions:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_polling_01:
+  skip:
+    reason: "Test relies on DEVICE_METADATA bgp_asn; not configured on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
   skip:
@@ -2910,10 +2924,11 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no DEVICE_METADATA bgp_asn)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
   skip:
@@ -2928,26 +2943,41 @@ gnmi/test_gnmi_countersdb.py:
     conditions:
       - "is_multi_asic==True"
 
+gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_01:
+  skip:
+    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_02:
+  skip:
+    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_output:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
   skip:
@@ -2959,6 +2989,12 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
 gnmi/test_gnmi_smartswitch.py:
   skip:
     reason: 'SmartSwitch gNMI tests require SmartSwitch platform, not applicable to BMC'
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
+  skip:
+    reason: "Test relies on PORT table in CONFIG_DB; not configured on BMC"
     conditions:
       - "'bmc' in topo_type"
 
@@ -5263,6 +5299,10 @@ sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[
 #####             syslog          #####
 #######################################
 syslog/test_logrotate.py::test_orchagent_logrotate:
+  skip:
+    reason: "BMC has no orchagent service; not applicable"
+    conditions:
+      - "'bmc' in topo_type"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -5362,6 +5402,12 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
+telemetry/test_telemetry.py::test_on_change_updates:
+  skip:
+    reason: "Test relies on BGP neighbors; none configured on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 telemetry/test_telemetry.py::test_osbuild_version:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
@@ -5378,10 +5424,11 @@ telemetry/test_telemetry.py::test_sysuptime:
 
 telemetry/test_telemetry.py::test_telemetry_ouput:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no Ethernet0/COUNTERS_DB)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
