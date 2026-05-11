@@ -34,7 +34,11 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
     duthost_mgmt_info = duthost.get_mgmt_ip()
     use_v6 = duthost_mgmt_info["version"] == "v6"
     with setup_ntp_context(ptfhost, duthost, use_v6):
+        # Persist NTP config so it survives DUT reboot (gNOI reboot tests)
+        duthost.shell("config save -y", module_ignore_errors=True)
         yield
+    # After teardown restores original NTP servers, save again
+    duthost.shell("config save -y", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
