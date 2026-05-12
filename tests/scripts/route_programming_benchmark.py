@@ -16,13 +16,12 @@ import argparse
 import ipaddress
 import json
 import os
-import re
 import subprocess
 import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Optional
 
 
 class RouteStatistics:
@@ -264,32 +263,6 @@ class RouteProgrammingBenchmark:
             return int(result)
 
         return 0
-
-        # COMMENTED OUT: Original fibOffLoaded logic
-        # cmd = "vtysh -c 'show ip route summary json'"
-        # result = self.run_command(cmd, "bgp")
-        # if result:
-        #     try:
-        #         data = json.loads(result)
-        #         if isinstance(data, dict) and 'routes' in data:
-        #             # Sum up all fibOffLoaded routes from all types
-        #             total_offloaded = 0
-        #             for route_type in data['routes']:
-        #                 if 'fibOffLoaded' in route_type:
-        #                     total_offloaded += int(route_type['fibOffLoaded'])
-        #             return total_offloaded
-        #         elif isinstance(data, dict) and 'routesTotalFib' in data:
-        #             # Alternative: use total FIB routes
-        #             return int(data['routesTotalFib'])
-        #     except Exception as e:
-        #         print(f"Error parsing route summary JSON: {e}")
-        #         pass
-        #
-        # # Fallback: Count routes in kernel
-        # cmd = "ip route show | grep -v 'linkdown\\|unreachable' | wc -l"
-        # result = self.run_command(cmd)
-        # if result.isdigit():
-        #     return int(result)
 
     def get_hardware_route_count_non_local(self) -> int:
         """Get number of non-local routes programmed in hardware"""
