@@ -37,24 +37,28 @@ def test_ha_eni_out_of_order(
     primary_vdpu_key,
     standby_vdpu_key
 ):
+    """
+    This test executes these steps:
+    - configure ENI  - setup_dash_pl_pipeline_module_scope fixture
+    - configure HA_SET - setup_dash_ha_from_json_util
+    - configure HA_SCOPE [activate] - activate_dash_ha_from_json_util
+    - delete HA_SCOPE - deactivate_dash_ha_from_json_util
+    - delete HA_SET - remove_setup_dash_ha_from_json_util
+    - delete ENI - config_reload on DPU
+    - normal order of creation.
+    """
     try:
         setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
         logger.info("HA: setup successful")
-        ha_failed = False
         try:
             activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
         except AssertionError as e:
             logger.warning(f"HA: activation failed: {e}")
-            ha_failed = True
-
-        if ha_failed:
-            logger.warning("HA: activation failed - cleanup ENIs and retrying activation")
-        else:
-            logger.info("HA: activation successful")
-            deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+        deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+        remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+        # cleanup the ENI
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
             executor.map(reload_config_for_host, dpuhosts)
-        remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
         logger.info("HA: reprogram HA and ENI")
         setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
