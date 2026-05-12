@@ -21,6 +21,7 @@ svcstr-7260cx3-acs-5,Ethernet14/1,svcstr-7260cx3-acs-13,Ethernet36/1,100000,"669
 svcstr-7260cx3-acs-5,Ethernet15/1,svcstr-7260cx3-acs-14,Ethernet36/1,100000,"701-732",Trunk,
 svcstr-7260cx3-acs-5,Ethernet24/1,svcstr-7260cx3-acs-16,Ethernet65,10000,"785-816,849-880",Trunk,
 svcstr-7260cx3-acs-5,Ethernet25/1,svcstr-7260cx3-acs-15,Ethernet65,10000,"817-848",Trunk,
+svcstr-7260cx3-acs-5,Ethernet31/1,svcstr-7060x6-64pe-1,Ethernet513,10000,"940-947",Trunk,
 svcstr-7260cx3-acs-5,Ethernet62/1,svcstr-nh5010-fanout-2,Ethernet260,100000,"899-930,948-971",Trunk,
 svcstr-7260cx3-acs-5,Ethernet61/1,svcstr-nh5010-fanout-3,Ethernet260,100000,"881-886,972-1000,2000-2033",Trunk,
 svcstr-n3164-acs-1,Ethernet0,svcstr-7260cx3-acs-1,Ethernet1/1,40000,201,Access,

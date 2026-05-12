@@ -311,6 +311,7 @@ validators:
       # E7003/E7007 VLAN issues - exclude groups with problematic devices
       - str2         # str2-7260cx3-acs-root02 has VLAN duplicate issues
       - str3         # str3-7260cx3-acs-root03 has multiple VLAN duplicate issues
+      - strsvc       # svcstr-7260cx3-acs-15 has trunk/access VLAN overlap (valid fanout design)
       - strsvc2      # svcstr2-7260cx3-acs-1 has VLAN duplicate issues
       - bjw2         # bjw2-can-7260-* devices have invalid VLAN ranges and duplicates
     min_vlan_id: 1
