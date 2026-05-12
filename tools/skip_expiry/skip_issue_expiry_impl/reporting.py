@@ -473,8 +473,9 @@ class ProjectV2Reporter:
                 if text:
                     return text
 
-        title = ((((item.get("content") or {}).get("title")) or "").strip())
-        return title
+        # Do not fall back to title — only rows that opted in via the test_id
+        # text field are managed; hand-created items are left untouched.
+        return ""
 
     def find_existing_item(self, test_id: str) -> Optional[str]:
         return self.existing_items.get((test_id or "").strip())

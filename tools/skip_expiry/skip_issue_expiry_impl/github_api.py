@@ -111,8 +111,14 @@ class GitHubApiClient:
                 remaining = response.headers.get("X-RateLimit-Remaining")
                 if remaining == "0" and attempt < self.max_retries:
                     reset_time = response.headers.get("X-RateLimit-Reset")
-                    sleep_secs = float(reset_time) - time.time() if reset_time else self._cap_backoff(
-                        self.backoff_factor * (2 ** attempt)
+                    try:
+                        raw_reset = float(reset_time) if reset_time else None
+                    except ValueError:
+                        raw_reset = None
+                    sleep_secs = (
+                        self._cap_backoff(self.backoff_factor * (2 ** attempt))
+                        if raw_reset is None
+                        else max(0.0, min(self.max_backoff_seconds, raw_reset - time.time()))
                     )
                     logger.warning(
                         "GitHub API %s %s rate limited (403, limit exhausted), retrying after %.1fs",
