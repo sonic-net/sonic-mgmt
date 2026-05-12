@@ -18,7 +18,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
     get_ipv6_addrs_in_subnet, parse_override
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location, \
-    get_macs, get_ip_addresses, subnet_mask_from_hosts   # noqa: F401
+    get_macs, get_ip_addresses, subnet_mask_from_hosts, get_dut_port_id   # noqa: F401
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert, pytest_require   # noqa: F811
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
@@ -940,6 +940,21 @@ def setup_dut_ports(
 def get_tgen_peer_ports(snappi_ports, hostname):
     ports = [(port['location'], port['peer_port']) for port in snappi_ports if port['peer_device'] == hostname]
     return ports
+
+
+def _get_snappi_connected_dut_port(duthost, port_config_list, conn_graph_facts, fanout_graph_facts):
+    for port_cfg in port_config_list:
+        peer_port = getattr(port_cfg, "peer_port", None)
+        if peer_port is None:
+            continue
+        if get_dut_port_id(
+            dut_hostname=duthost.hostname,
+            dut_port=peer_port,
+            conn_data=conn_graph_facts,
+            fanout_data=fanout_graph_facts,
+        ) is not None:
+            return peer_port
+    return None
 
 
 def __intf_config(config, port_config_list, duthost, snappi_ports):
@@ -2105,7 +2120,8 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
 
 @pytest.fixture(scope="function")
 def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_snappi_ports,
-                   number_of_tx_rx_ports, duthosts, snappi_api):
+                   number_of_tx_rx_ports, duthosts, snappi_api,
+                   conn_graph_facts, fanout_graph_facts):   # noqa: F811
     testbed = request.config.getoption("--testbed")
 
     is_override, _ = parse_override(
@@ -2145,6 +2161,18 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
             )
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
             duthosts, snappi_ports, snappi_api, setup=True)
+
+        connected_peer_port = _get_snappi_connected_dut_port(
+            duthost=duthosts[0],
+            port_config_list=port_config_list,
+            conn_graph_facts=conn_graph_facts,
+            fanout_graph_facts=fanout_graph_facts,
+        )
+        if connected_peer_port is None:
+            logger.warning("Unable to map any generated Snappi port to a connected DUT port")
+        else:
+            logger.info("Selected Snappi-connected DUT port: %s", connected_peer_port)
+
         yield (testbed_config, port_config_list, snappi_ports)
         logger.info('Snappi cleanup after test')
         setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
@@ -2160,7 +2188,21 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
         if not snappi_ports:
             pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-        return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, snappi_ports, snappi_api, setup=True)
+
+        connected_peer_port = _get_snappi_connected_dut_port(
+            duthost=duthosts[0],
+            port_config_list=port_config_list,
+            conn_graph_facts=conn_graph_facts,
+            fanout_graph_facts=fanout_graph_facts,
+        )
+        if connected_peer_port is None:
+            logger.warning("Unable to map any generated Snappi port to a connected DUT port")
+        else:
+            logger.info("Selected Snappi-connected DUT port: %s", connected_peer_port)
+
+        return testbed_config, port_config_list, snappi_ports
 
 
 def flatten_list(lst):
