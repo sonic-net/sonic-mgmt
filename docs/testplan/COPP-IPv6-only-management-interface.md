@@ -30,7 +30,7 @@ It ensures:
   * ICMPv6
   * BGP (optional if mgmt used)
 
-### Testbed Requirements
+### Testbed
 
 * DUT with management interface configured IPv6-only
 * PTF or test host capable of generating IPv6 traffic toward mgmt interface
