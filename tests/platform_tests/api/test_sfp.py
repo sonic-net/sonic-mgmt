@@ -309,13 +309,22 @@ class TestSfpApi(PlatformApiTestBase):
     #
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
-        # For QSFP-DD specification compliance will return type as passive or active
+        spec_compliance = xcvr_info_dict["specification_compliance"]
+        # For QSFP-DD/OSFP/CMIS-based transceivers, specification_compliance is a plain string.
+        # Some transceivers may report type_abbrv_name as "Unknown" while still being CMIS-based,
+        # so first try to parse as a dict; if that fails, treat as a plain string.
         if xcvr_info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP", "SFP"]:
-            if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable" or \
-                    xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
+            if spec_compliance in ["Passive Copper Cable", "passive_copper_media_interface"]:
                 return False
         else:
-            spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
+            try:
+                spec_compliance_dict = ast.literal_eval(spec_compliance)
+            except (ValueError, SyntaxError):
+                # specification_compliance is a plain string (e.g. for CMIS-based transceivers
+                # with type_abbrv_name reported as "Unknown"), handle like QSFP-DD
+                if spec_compliance in ["Passive Copper Cable", "passive_copper_media_interface"]:
+                    return False
+                return True
             if xcvr_info_dict["type_abbrv_name"] == "SFP":
                 compliance_code = spec_compliance_dict.get("SFP+CableTechnology")
                 if compliance_code == "Passive Cable":
