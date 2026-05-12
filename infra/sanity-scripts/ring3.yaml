@@ -129,6 +129,8 @@ FWD:
     titan:
       sim:
         - acl/test_acl.py
+        - cisco/platform_tests/test_serviceability_basic.py
+        - cisco/platform_tests/test_serviceability_s1cli.py
     superbolt:
       hw:
         - acl/test_acl.py
