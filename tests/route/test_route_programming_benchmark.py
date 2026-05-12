@@ -147,8 +147,8 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
             r".* ERR swss\d*#orchagent: :- wait: failed to get response for .*",
 
             # Priority group initialization errors for virtual interfaces
-            r".* ERR swss\d*#orchagent: :- initializePriorityGroups: Failed to get number of priority groups "
-            r"for port .* rv:-1",
+            (r".* ERR swss\d*#orchagent: :- initializePriorityGroups: Failed to get number of priority groups "
+             r"for port .* rv:-1"),
 
             # Common config reload related errors
             r".* ERR swss\d*#orchagent: :- getPort: Failed to get cached bridge port ID.*",
@@ -156,24 +156,24 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
             # Route already exists errors - race condition during bulk route programming
             # These can be ignored as the focus of this test is to just measure route programming rate
             # and not do any scale route correctness testing.
-            r".* ERR swss\d*#orchagent: :- meta_sai_validate_route_entry: object key "
-            r"SAI_OBJECT_TYPE_ROUTE_ENTRY:.*already exists",
-            r".* ERR swss\d*#orchagent: :- meta_generic_validation_create: object key "
-            r"SAI_OBJECT_TYPE_ROUTE_ENTRY:.*already exists",
-            r".* ERR syncd\d*#syncd:.*SAI_API_ROUTE:_brcm_sai_l3_route_config:\d+ L3 route add failed with error "
-            r"Entry exists.*",
+            (r".* ERR swss\d*#orchagent: :- meta_sai_validate_route_entry: object key "
+             r"SAI_OBJECT_TYPE_ROUTE_ENTRY:.*already exists"),
+            (r".* ERR swss\d*#orchagent: :- meta_generic_validation_create: object key "
+             r"SAI_OBJECT_TYPE_ROUTE_ENTRY:.*already exists"),
+            (r".* ERR syncd\d*#syncd:.*SAI_API_ROUTE:_brcm_sai_l3_route_config:\d+ L3 route add failed with error "
+             r"Entry exists.*"),
             r".* ERR syncd\d*#syncd:.*SAI_API_ROUTE:brcm_sai_xgs_route_create:\d+ L3 route add failed with error -6\.?",
-            r".* ERR syncd\d*#syncd:.*SAI_API_ROUTE:_?brcm_sai_create_route_entry:\d+ pd route create failed "
-            r"failed with error -6\.?",
-            r".* ERR syncd\d*#syncd: :- sendApiResponse: api SAI_COMMON_API_BULK_CREATE failed in syncd mode: "
-            r"SAI_STATUS_FAILURE",
-            r".* ERR swss\d*#orchagent: :- flush_creating_entries: EntityBulker.flush create entries failed, "
-            r"number of entries to create: \d+, status: SAI_STATUS_FAILURE",
+            (r".* ERR syncd\d*#syncd:.*SAI_API_ROUTE:_?brcm_sai_create_route_entry:\d+ pd route create failed "
+             r"failed with error -6\.?"),
+            (r".* ERR syncd\d*#syncd: :- sendApiResponse: api SAI_COMMON_API_BULK_CREATE failed in syncd mode: "
+             r"SAI_STATUS_FAILURE"),
+            (r".* ERR swss\d*#orchagent: :- flush_creating_entries: EntityBulker.flush create entries failed, "
+             r"number of entries to create: \d+, status: SAI_STATUS_FAILURE"),
             r".* ERR swss\d*#orchagent: :- addRoutePost: Failed to create route .* with next hop\(s\) .*",
-            r".* ERR swss\d*#orchagent: :- flush_creating_entries: EntityBulker.flush create entries failed, "
-            r"number of entries to create: \d+, status: SAI_STATUS_ITEM_ALREADY_EXISTS",
-            r".* ERR swss\d*#orchagent: :- handleSaiFailure: Encountered failure in create operation, "
-            r"SAI API: SAI_API_ROUTE, status: SAI_STATUS_NOT_EXECUTED",
+            (r".* ERR swss\d*#orchagent: :- flush_creating_entries: EntityBulker.flush create entries failed, "
+             r"number of entries to create: \d+, status: SAI_STATUS_ITEM_ALREADY_EXISTS"),
+            (r".* ERR swss\d*#orchagent: :- handleSaiFailure: Encountered failure in create operation, "
+             r"SAI API: SAI_API_ROUTE, status: SAI_STATUS_NOT_EXECUTED"),
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
@@ -669,6 +669,7 @@ def run_benchmark_script(duthost, route_count, prefix=DEFAULT_PREFIX, nexthop=DE
     except json.JSONDecodeError as e:
         logger.error(f"Raw results file content: {cat_result['stdout']}")
         pytest.fail(f"Could not parse benchmark results JSON: {e}")
+        return None
 
 
 def test_route_programming_performance(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
