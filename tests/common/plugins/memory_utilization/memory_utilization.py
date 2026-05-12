@@ -133,7 +133,6 @@ class MemoryMonitor:
             "proceeding with possibly stale output".format(MONIT_STATUS_FRESHNESS_MAX_RETRIES))
         return output
 
-
     def check_memory_thresholds(self, current_values, previous_values):
         """Check memory usage against thresholds. """
         logger.debug("Starting memory threshold check")
