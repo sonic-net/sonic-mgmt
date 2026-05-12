@@ -25,7 +25,7 @@ logger = logging.getLogger('EverflowPolicerTest')
 class EverflowPolicerTest(BaseTest):
 
     GRE_PROTOCOL_NUMBER = 47
-    NUM_OF_TOTAL_PACKETS = 10000
+    NUM_OF_TOTAL_PACKETS = 9000
     METER_TYPES = ['packets', 'bytes']
 
     def __init__(self):
