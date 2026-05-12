@@ -603,7 +603,7 @@ sonic_cisco_8102_smartswitch:
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0x5F3581D"
+        "0xFE": "0x5F3581D2"
       plt_reboot_dict:
         cold:
           timeout: 700
