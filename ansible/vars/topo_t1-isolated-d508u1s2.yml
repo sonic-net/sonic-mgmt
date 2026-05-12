@@ -2060,6 +2060,8 @@ configuration_properties:
     swrole: spine
   tor:
     swrole: tor
+  pt:
+    swrole: pt
 
 configuration:
   ARISTA01T0:
@@ -12753,6 +12755,7 @@ configuration:
   ARISTA01PT1:
     properties:
     - common
+    - pt
     bgp:
       asn: 65101
       peers:
@@ -12772,6 +12775,7 @@ configuration:
   ARISTA02PT1:
     properties:
     - common
+    - pt
     bgp:
       asn: 65102
       peers:
