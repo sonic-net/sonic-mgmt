@@ -3,24 +3,21 @@
 Unified spytest results processor: Generate XML, upload logs, and import to dashboard.
 
 Usage:
-    python spytest_publish.py <results_dir> --profile <profile> --platform <platform> [options]
+    python spytest_publish.py <results_dir> --yaml <testbed.yaml> [options]
 
 Examples:
     # Full workflow: generate XML, upload logs, import to dashboard
-    python spytest_publish.py /path/to/gamut_full_run_4_29_image_40442 \\
-        --profile 202405c_tortuga --platform g200
+    python spytest_publish.py /path/to/results --yaml tortuga_2x2_G200_testbed.yaml
 
-    # Just generate XML locally
-    python spytest_publish.py /path/to/results --profile 202405c_tortuga --platform g200 \\
-        --xml-only -o results.xml
-
-    # Upload logs but skip dashboard import
-    python spytest_publish.py /path/to/results --profile 202405c_tortuga --platform g200 \\
-        --skip-import
+    # Override auto-detected branch
+    python spytest_publish.py /path/to/results --yaml tortuga_2x2_G200_testbed.yaml --branch 202505c
 
     # Dry run (preview all steps)
-    python spytest_publish.py /path/to/results --profile 202405c_tortuga --platform g200 \\
-        --dry-run
+    python spytest_publish.py /path/to/results --yaml tortuga_2x2_G200_testbed.yaml --dry-run
+
+    # Just generate XML locally
+    python spytest_publish.py /path/to/results --yaml tortuga_2x2_G200_testbed.yaml \\
+        --xml-only -o results.xml
 
 Workflow:
     1. Parse spytest results (*_summary.txt, *_functions.csv)
@@ -51,6 +48,7 @@ from spytest_lib import (
     parse_summary, parse_functions, count_results, 
     format_duration, STATUS_SYMBOLS
 )
+from testbed_config import get_config as get_testbed_config, TESTBED_CONFIGS
 
 # ============================================================================
 # Configuration
@@ -69,50 +67,8 @@ UPLOAD_XML_ENDPOINT = '/api/upload-xml'  # For uploading XML from local machine
 RESULTS_ENDPOINT = '/api/results'  # Direct results posting
 
 # Valid options (for validation and help) - from dashboard UI dropdowns
-VALID_PROFILES = [
-    '202511-Community',
-    '202505-OCI', 
-    '202405c-Tortuga',
-    '202405-T2',
-    '202505-Community',
-    '202505c-Gamut',
-    '202511.2-Titan',
-    'LinkedIn-202505',
-    # Also accept underscore variants used in directory structure
-    '202405c_tortuga',
-    '202505c_tortuga', 
-    '202505_oci',
-    'gamut_bringup'
-]
-VALID_PLATFORMS = ['g200', 'q200', 'p200', 'spectrum4', 'oci']
 VALID_FABRICS = ['IPv4', 'VXLAN', 'IPv6']
 VALID_TOPOS = ['2x2', 'B2B', '3-tier', 'standalone']
-
-# Testbed to NPU mapping (from base_configs directories)
-# - carib/siren testbed → Q200
-# - gamut testbed → SPECTRUM4
-# - laguna testbed → G200
-TESTBED_TO_NPU = {
-    'carib': 'Q200',
-    'siren': 'Q200',
-    'gamut': 'SPECTRUM4',
-    'laguna': 'G200',
-    'oci': 'G200',
-}
-
-# Platform name normalization (various inputs → canonical NPU name)
-PLATFORM_NORMALIZE = {
-    'g200': 'G200',
-    'q200': 'Q200',
-    'p200': 'P200',
-    'spectrum4': 'SPECTRUM4',
-    'oci': 'G200',
-    # Also accept uppercase
-    'G200': 'G200',
-    'Q200': 'Q200',
-    'P200': 'P200',
-    'SPECTRUM4': 'SPECTRUM4',
-}
 
 # Profiles that don't use platform subdirectory (e.g., gamut_bringup/<build>/ instead of gamut_bringup/g200/<build>/)
 PROFILES_WITHOUT_PLATFORM_DIR = ['202505c-Gamut', 'gamut_bringup']
@@ -120,24 +76,6 @@ PROFILES_WITHOUT_PLATFORM_DIR = ['202505c-Gamut', 'gamut_bringup']
 # Test name patterns for fabric classification
 VXLAN_PATTERNS = ['vxlan', 'l2vni', 'l3vni']
 IPV4_PATTERNS = ['congestion', 'dwrr', 'strict_priority', 'wred', 'ecn_marking', 'mmu_config', 'breakout', 'pfc_stream', 'compare_three', '4stream_tc3']
-
-
-def detect_npu_from_path(path):
-    """Auto-detect NPU from path based on testbed naming conventions.
-    
-    Looks for testbed names (gamut, laguna, carib, siren) in the path
-    and returns the corresponding NPU.
-    """
-    path_lower = path.lower()
-    for testbed, npu in TESTBED_TO_NPU.items():
-        if testbed in path_lower:
-            return npu
-    return None
-
-
-def normalize_platform(platform):
-    """Normalize platform/NPU name to canonical form (uppercase)."""
-    return PLATFORM_NORMALIZE.get(platform, platform.upper())
 
 
 # ============================================================================
@@ -496,32 +434,108 @@ def print_summary(tests, counts, subtests_pass, subtests_fail):
 
 def print_brief_usage():
     """Print brief usage when required arguments are missing."""
-    print("Usage: spytest_publish.py <results_dir> --profile PROFILE --platform PLATFORM [options]")
+    print("Usage: spytest_publish.py <results_dir> --yaml <testbed.yaml> [options]")
     print("")
     print("Required:")
     print("  results_dir           Path to spytest results directory")
-    print("  --profile PROFILE     Profile name")
-    print("  --platform PLATFORM   Platform/NPU or testbed name")
+    print("  --yaml YAML           Testbed YAML filename (derives profile, platform, fabric)")
     print("")
-    print("Profiles:  202505c-Gamut | gamut_bringup | 202405c_tortuga | 202505c_tortuga")
-    print("Platforms: spectrum4 | g200 | q200 | p200")
-    print("Testbeds:  gamut (SPECTRUM4) | laguna (G200) | carib/siren (Q200)")
+    print("Available testbed YAMLs:")
+    for name, cfg in TESTBED_CONFIGS.items():
+        print(f"  {name:45s}  npu={cfg['npu']:10s}  profile=*-{cfg['profile_suffix']}")
     print("")
-    print("Dashboard Fields:")
-    print("  --fabric FABRIC       Fabric type: IPv4 | VXLAN | IPv6")
-    print("  --topo TOPO           Topology: 2x2 | B2B | 3-tier | standalone")
-    print("  --notes NOTES         Notes / failed tests (auto-generated if not specified)")
-    print("  --jira URL            Jira link")
-    print("  --no-confluence       Don't save to Confluence (default)")
-    print("")
-    print("Defaults (use --no-* to disable):")
-    print("  --direct-api          Use /api/results POST (default: ON)")
-    print("  --split-fabric        Split into VXLAN and IPv4 entries (default: ON)")
-    print("")
-    print("Options:   --dry-run  --xml-only  --skip-upload  --skip-import  --no-cleanup")
-    print("           Local logs are removed after successful upload (use --no-cleanup to keep)")
+    print("Options:   --branch X  --dry-run  --xml-only  --skip-upload  --skip-import")
     print("")
     print("Use --help for full documentation.")
+
+
+def _read_version_info(results_dir):
+    """Read version_info.txt written by spytest_run.py. Returns (branch, build) or (None, None)."""
+    info_file = os.path.join(results_dir, 'version_info.txt')
+    if not os.path.exists(info_file):
+        return None, None
+    try:
+        vals = {}
+        with open(info_file) as f:
+            for line in f:
+                if '=' in line:
+                    k, v = line.strip().split('=', 1)
+                    vals[k] = v
+        branch = vals.get('branch') or None
+        build = vals.get('build') or None
+        return branch, build
+    except Exception:
+        return None, None
+
+
+def _extract_branch_from_dir(results_dir):
+    """Try to extract branch name (e.g. '202405c') from results directory name.
+    
+    Checks in order:
+    1. version_info.txt (written by spytest_run.py)
+    2. Directory name patterns (e.g. '202405c_tortuga_results')
+    3. build.txt or *_summary.txt (SONiC version string)
+    """
+    # Try version_info.txt first (written by spytest_run.py)
+    results_dir_abs = os.path.abspath(results_dir)
+    branch, _ = _read_version_info(results_dir_abs)
+    if branch:
+        return branch
+
+    # Match 6-digit branch optionally + letter and/or dot-release, NOT followed by more digits (dates)
+    # Order matters: try most specific first (with letter/dot), then plain 6-digit
+    branch_re = r'(?<!\d)(20\d{4}(?:[a-z](?:\.\d+)?|\.\d+))(?!\d)'  # 202405c, 202405c.2, 202511.2
+    branch_re_plain = r'(?<!\d)(20\d{4})(?![a-z\d])'                 # 202505 (not followed by letter or digit)
+    
+    for pattern in [branch_re, branch_re_plain]:
+        basename = os.path.basename(results_dir.rstrip('/'))
+        m = re.search(pattern, basename)
+        if m:
+            return m.group(1)
+        # Also try parent directory
+        parent = os.path.basename(os.path.dirname(results_dir.rstrip('/')))
+        m = re.search(pattern, parent)
+        if m:
+            return m.group(1)
+    
+    # Fall back to build.txt or *_summary.txt
+    # Version string may be: SONiC-OS-202505c.1.0.0-..., SONiC-OS-Enterprise_Base-202505c.1.0.0-..., etc.
+    results_dir_abs = os.path.abspath(results_dir)
+    version_str = _read_version_from_logs(results_dir_abs)
+    if version_str:
+        # Extract branch (20XXYY + optional letter) followed by dot-version
+        m = re.search(r'(?:^|[.\-_])(20\d{4}[a-z]?)\.', version_str)
+        if m:
+            return m.group(1)
+    
+    return None
+
+
+def _read_version_from_logs(results_dir):
+    """Read SONiC version string from build.txt or *_summary.txt in results_dir."""
+    # Try build.txt first
+    build_txt = os.path.join(results_dir, 'build.txt')
+    if os.path.exists(build_txt):
+        try:
+            with open(build_txt, encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            if 'SONiC' in content:
+                return content
+        except Exception:
+            pass
+    
+    # Try summary file
+    summary_files = glob.glob(os.path.join(results_dir, '*_summary.txt'))
+    for sf in sorted(summary_files, reverse=True):
+        try:
+            with open(sf, encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if 'Software Version' in line and 'SONiC' in line:
+                        return line
+        except Exception:
+            pass
+    
+    return None
 
 
 def main():
@@ -531,9 +545,10 @@ def main():
         print_brief_usage()
         sys.exit(1)
     
-    # Check for missing --profile or --platform
+    # Check for --yaml
     if '--help' not in sys.argv and '-h' not in sys.argv:
-        if '--profile' not in sys.argv or '--platform' not in sys.argv:
+        if '--yaml' not in sys.argv:
+            print("Error: --yaml <testbed.yaml> is required\n")
             print_brief_usage()
             sys.exit(1)
     
@@ -546,19 +561,13 @@ def main():
     # Required arguments
     parser.add_argument('results_dir', help='Path to spytest results directory')
     
-    profile_help = '''Profile name. Available profiles:
-  Gamut:    202505c-Gamut, gamut_bringup
-  Tortuga:  202405c_tortuga, 202505c_tortuga
-  Other:    202511-Community, 202505-OCI, 202505-Community, 202511.2-Titan'''
-    parser.add_argument('--profile', required=True, metavar='PROFILE', help=profile_help)
-    
-    # Accept both NPU names and testbed names
-    valid_platform_inputs = VALID_PLATFORMS + list(TESTBED_TO_NPU.keys())
-    platform_help = f'''Platform/NPU or testbed name.
-  NPU names: {", ".join(VALID_PLATFORMS)}
-  Testbed names: gamut (SPECTRUM4), laguna (G200), carib/siren (Q200)'''
-    parser.add_argument('--platform', required=True,
-                        metavar='PLATFORM', help=platform_help)
+    yaml_names = ', '.join(TESTBED_CONFIGS.keys())
+    parser.add_argument('--yaml', required=True, metavar='TESTBED_YAML',
+                        help=f'Testbed YAML filename. Auto-derives profile, platform, fabric. '
+                             f'Available: {yaml_names}')
+    parser.add_argument('--branch', metavar='BRANCH',
+                        help='Branch/release name for profile (e.g. 202405c). '
+                             'Auto-detected from results dir name if not specified.')
     
     # Optional arguments
     parser.add_argument('--build', help='Build ID (auto-detected from dir name if not specified)')
@@ -608,7 +617,7 @@ def main():
     args = parser.parse_args()
     
     # ========================================================================
-    # Step 0: Validate inputs
+    # Step 0: Validate inputs & resolve config
     # ========================================================================
     print(f"\n{'='*60}")
     print(f"SPYTEST RESULTS PUBLISHER")
@@ -619,11 +628,6 @@ def main():
         print(f"Error: {results_dir} is not a directory")
         sys.exit(1)
     
-    # Normalize platform/NPU name
-    # - npu: canonical uppercase name for API (G200, Q200, SPECTRUM4)
-    # - platform_dir: lowercase for directory paths (g200, q200, spectrum4)
-    platform_input = args.platform.lower()
-    
     # NPU to directory name mapping
     NPU_TO_DIR = {
         'G200': 'g200',
@@ -632,28 +636,39 @@ def main():
         'SPECTRUM4': 'spectrum4',
     }
     
-    if platform_input in PLATFORM_NORMALIZE:
-        npu = normalize_platform(platform_input)
-        platform_dir = NPU_TO_DIR.get(npu, platform_input)
-    elif platform_input in TESTBED_TO_NPU:
-        # User provided testbed name instead of platform
-        npu = TESTBED_TO_NPU[platform_input]
-        # Use testbed name as directory (matches spytest_run.py Phase 3 transfer path)
-        platform_dir = platform_input
-        print(f"  (Mapped testbed '{platform_input}' -> NPU '{npu}', dir '{platform_dir}')")
-    else:
-        # Try auto-detection from profile or path
-        detected = detect_npu_from_path(args.profile) or detect_npu_from_path(results_dir)
-        if detected:
-            npu = detected
-            platform_dir = NPU_TO_DIR.get(npu, platform_input)
-            print(f"  (Auto-detected NPU '{npu}' from path)")
-        else:
-            npu = platform_input.upper()
-            platform_dir = platform_input
-            print(f"Warning: Platform '{platform_input}' not recognized, using '{npu}'")
+    # ── Resolve profile, platform, fabric from testbed YAML ──
+    tb_config = get_testbed_config(args.yaml)
+    if not tb_config:
+        print(f"Error: Unknown testbed YAML '{args.yaml}'")
+        print(f"Available:")
+        for name in TESTBED_CONFIGS:
+            print(f"  {name}")
+        sys.exit(1)
     
-    profile = args.profile
+    # Derive NPU
+    npu = tb_config['npu']
+    platform_dir = NPU_TO_DIR.get(npu, npu.lower())
+    
+    # Derive profile: <branch>-<suffix>
+    profile_suffix = tb_config['profile_suffix']
+    branch = args.branch or _extract_branch_from_dir(results_dir)
+    if branch:
+        profile = f"{branch}-{profile_suffix}"
+    else:
+        profile = profile_suffix
+        print(f"  Warning: Could not detect branch from dir name, using profile '{profile}'")
+        print(f"  Hint: use --branch 202405c to set explicitly")
+    
+    # Derive fabric split behavior from config
+    tb_fabrics = tb_config.get('fabric', ['IPv4', 'VXLAN'])
+    if len(tb_fabrics) == 1 and not args.fabric:
+        # Single fabric (e.g. ["IPv6"]) -> set --fabric and disable split
+        args.fabric = tb_fabrics[0]
+        args.no_split_fabric = True
+    # Multi-fabric (e.g. ["IPv4", "VXLAN"]) -> default split behavior is correct
+    
+    print(f"  Testbed YAML: {args.yaml}")
+    print(f"  Derived: profile={profile}, npu={npu}, fabric={tb_fabrics}")
     
     # Extract or use provided build ID
     build_id = args.build or extract_build_id(results_dir)

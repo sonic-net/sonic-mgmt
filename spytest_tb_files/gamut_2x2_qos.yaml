@@ -16,7 +16,7 @@ devices:
     spine0: # Gamut Spine-0 (SJ02-112-AAL-11)
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.25.168.173, port: 22}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     spine1:  # Superbolt Spine-1
         device_type: DevSonic
@@ -26,12 +26,12 @@ devices:
     leaf0:  # Gamut Leaf-0 (SJ02-112-AAL-11)
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.25.168.174, port: 22}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf1:  # Gamut Leaf-1 (SJ02-112-AAL-11)
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.25.168.175, port: 22}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
         device_type: TGEN

@@ -29,13 +29,29 @@ def time_to_seconds(time_str):
 
 
 def extract_build_id(results_dir):
-    """Extract build ID from results directory name or build.txt file.
+    """Extract build ID from results directory name or version_info/build.txt file.
     
     Checks in order:
-    1. Directory name pattern: *_image_<build_id>
-    2. Directory name pattern: *_<build_id> (4+ digits at end)
-    3. build.txt file: SONiC.*..<build_id>-*
+    1. version_info.txt (written by spytest_run.py)
+    2. Directory name pattern: *_image_<build_id>
+    3. Directory name pattern: *_<build_id> at end (4+ digits, but NOT
+       for run_logs_* dirs where trailing digits are timestamps HHMMSS)
+    4. build.txt file: SONiC.<branch>.<ver>-<NI>-<build_id>-<date>
+    5. *_summary.txt: Software Version = SONiC.<branch>...
     """
+    # Try version_info.txt first (written by spytest_run.py)
+    info_file = os.path.join(results_dir, 'version_info.txt')
+    if os.path.exists(info_file):
+        try:
+            with open(info_file) as f:
+                for line in f:
+                    if line.startswith('build='):
+                        val = line.strip().split('=', 1)[1]
+                        if val and val != 'unknown':
+                            return val
+        except Exception:
+            pass
+
     dirname = os.path.basename(results_dir.rstrip('/'))
     
     # Try pattern: *_image_<build_id>
@@ -44,28 +60,56 @@ def extract_build_id(results_dir):
         return match.group(1)
     
     # Try pattern: *_<build_id> at end (4+ digits)
-    match = re.search(r'_(\d{4,})$', dirname)
-    if match:
-        return match.group(1)
+    # Skip run_logs_* dirs — trailing digits are timestamps (YYYYMMDD_HHMMSS)
+    if not dirname.startswith('run_logs_'):
+        match = re.search(r'_(\d{4,})$', dirname)
+        if match:
+            return match.group(1)
     
-    # Try reading build.txt file
+    # Try reading build.txt file (written by spytest framework)
     build_txt = os.path.join(results_dir, 'build.txt')
-    if os.path.exists(build_txt):
+    build_id = _extract_build_from_version_file(build_txt)
+    if build_id:
+        return build_id
+    
+    # Try reading *_summary.txt (has "Software Version = SONiC.xxx...")
+    summary_files = glob.glob(os.path.join(results_dir, '*_summary.txt'))
+    for sf in sorted(summary_files, reverse=True):
         try:
-            with open(build_txt, 'r') as f:
-                content = f.read()
-            # Pattern: SONiC.202405c.2.2.6-359I-40123-20260423.210228
-            # Extract the build number (40123 in this case)
-            match = re.search(r'SONiC\.[^-]+-\d+[A-Z]*-(\d+)-', content)
-            if match:
-                return match.group(1)
-            # Also try simpler pattern: build: ... <digits> ...
-            match = re.search(r'-(\d{4,})-\d{8}', content)
-            if match:
-                return match.group(1)
+            with open(sf, encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if 'Software Version' in line and 'SONiC' in line:
+                        build_id = _extract_build_from_version_string(line)
+                        if build_id:
+                            return build_id
         except Exception:
             pass
     
+    return None
+
+
+def _extract_build_from_version_file(filepath):
+    """Extract build ID from a file containing a SONiC version string."""
+    if not os.path.exists(filepath):
+        return None
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+        return _extract_build_from_version_string(content)
+    except Exception:
+        return None
+
+
+def _extract_build_from_version_string(text):
+    """Extract build ID from a SONiC version string.
+    
+    Matches: SONiC.202505c.1.0.0-3I-41146-20260511.014954
+    Returns: '41146'
+    """
+    # Pattern: -<NI>-<build_id>-<date>  (build_id is 4+ digits)
+    match = re.search(r'-\d+[A-Z]*-(\d{4,})-\d{8}', text)
+    if match:
+        return match.group(1)
     return None
 
 

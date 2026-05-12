@@ -176,6 +176,16 @@ def get_version_info_from_dut(dut):
         pass
     return None, None
 
+
+def _write_version_info(log_dir, branch, build_id):
+    """Write branch/build to version_info.txt so publish can read it standalone."""
+    try:
+        path = os.path.join(log_dir, "version_info.txt")
+        with open(path, "w") as f:
+            f.write(f"branch={branch}\nbuild={build_id}\n")
+    except Exception:
+        pass
+
 # ── URL parsing ──────────────────────────────────────────────────────────
 
 def parse_image_url(url):
@@ -642,6 +652,8 @@ def run_one_testbed(yaml_file, cfg, tb_config):
     remote_logs_path = None
     if run_log_dirs:
         latest_log_dir = run_log_dirs[0]
+        # Write version info so standalone spytest_publish.py can find it
+        _write_version_info(latest_log_dir, tb_branch, tb_build_id)
         if LOG_SERVER:
             remote_logs_path = transfer_and_cleanup_logs(
                 tb, latest_log_dir, tb_branch, tb_build_id, LOG_SERVER, tb_config)
@@ -654,25 +666,16 @@ def run_one_testbed(yaml_file, cfg, tb_config):
     # ── Phase 4: Publish to dashboard (before local cleanup) ──
     if latest_log_dir and os.path.isdir(latest_log_dir):
         log.info("═══ Phase 4: Publishing to dashboard ═══")
-        # Profile and NPU come from testbed_config — no hardcoded mappings
-        pub_profile_suffix = tb_config.get("profile_suffix", "Unknown")
-        pub_profile = f"{tb_branch}-{pub_profile_suffix}" if tb_branch != "unknown" else pub_profile_suffix
-        pub_npu = tb_config.get("npu", "G200")
-        pub_fabrics = tb_config.get("fabric", ["IPv4", "VXLAN"])
 
         publish_cmd = [
             sys.executable, str(PUBLISH_SCRIPT),
-            "--profile", pub_profile,
-            "--platform", pub_npu.lower(),
+            "--yaml", yaml_file.name,
+            "--branch", tb_branch,
             "--topo", "2x2",
             "--build", tb_build_id,
             "--skip-upload",  # Phase 3 already transferred logs; just generate XML + import
             "--no-cleanup",
         ]
-        # Single fabric (e.g. ["IPv6"]) → pass explicit --fabric and disable split
-        # Multiple fabrics (e.g. ["IPv4", "VXLAN"]) → let publish split automatically
-        if len(pub_fabrics) == 1:
-            publish_cmd += ["--fabric", pub_fabrics[0], "--no-split-fabric"]
         # Pass actual remote path so publish records the correct log location
         if remote_logs_path:
             publish_cmd += ["--logs-path", remote_logs_path]
