@@ -285,6 +285,33 @@ def repo_update(data):
         logging.info(resp.decode("utf-8", errors="replace"))
     time.sleep(3)
 
+    chan.send("echo __SONIC_MGMT_COMMIT__$(git rev-parse HEAD 2>/dev/null || echo unknown)\n")
+    buff = ''
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("utf-8", errors="replace")
+    commit_match = re.search(r'__SONIC_MGMT_COMMIT__([a-fA-F0-9]{40}|unknown)', buff)
+    sonic_mgmt_commit = commit_match.group(1) if commit_match else "unknown"
+    time.sleep(3)
+
+    chan.send("echo __SONIC_MGMT_BRANCH__$(git symbolic-ref --short -q HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)\n")
+    buff = ''
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("utf-8", errors="replace")
+    branch_match = re.search(r'__SONIC_MGMT_BRANCH__([a-zA-Z0-9_./-]+)', buff)
+    sonic_mgmt_branch = branch_match.group(1).strip() if branch_match else "unknown"
+    time.sleep(3)
+
+    golden_code_info = {
+        "sonic_mgmt_git_commit": sonic_mgmt_commit,
+        "sonic_mgmt_git_branch": sonic_mgmt_branch,
+    }
+    data['golden_code_info'] = golden_code_info
+    logging.info(
+        f"sonic-mgmt git info -- branch: {sonic_mgmt_branch}, commit: {sonic_mgmt_commit}"
+    )
+
     chan.send("mkdir ansible/vars/docker-ptf\n")
     buff = ''
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
