@@ -786,6 +786,12 @@ def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request, enable_n
 
 
 @pytest.fixture(scope="session")
+def all_dpuhosts(dpuhosts):
+    """All DPU hosts unfiltered. Use this when a conftest overrides dpuhosts with a subset."""
+    return dpuhosts
+
+
+@pytest.fixture(scope="session")
 def dpuhost(dpuhosts, request):
     '''
     @summary: Shortcut fixture for getting DPU host. For a lengthy test case, test case module can

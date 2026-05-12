@@ -38,6 +38,13 @@ from tests.ha.ha_utils import (
 ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
 
+
+@pytest.fixture(scope="session")
+def dpuhosts(dpuhosts):
+    """Limit to the first 2 DPU hosts for all HA tests."""
+    return dpuhosts.nodes[:2]
+
+
 ha_scope_per_dut = [
     (
         "vdpu0_0:haset0_0",
