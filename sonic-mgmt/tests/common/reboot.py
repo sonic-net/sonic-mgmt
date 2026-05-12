@@ -390,14 +390,19 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
     time.sleep(wait_conlsole_connection)
     # Perform reboot
-    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
+            and invocation_type != "gnoi_based":
         reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
                                                   reboot_kwargs, reboot_type, invocation_type, localhost,
                                                   ptf_gnoi=ptf_gnoi)
 
-    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+    is_dpu_reboot = (invocation_type == "gnoi_based"
+                     and ptf_gnoi is not None
+                     and ptf_gnoi.grpc_client.ss_target_index is not None)
+    if not is_dpu_reboot:
+        wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
 
     # Release event to proceed poweron for PDU.
     power_on_event.set()
@@ -566,13 +571,26 @@ def get_reboot_cause(dut):
 
 def check_reboot_cause(dut, reboot_cause_expected):
     """
-    @summary: Check the reboot cause on DUT. Can be used with wailt_until
+    @summary: Check the reboot cause on DUT. Can be used with wait_until
     @param dut: The AnsibleHost object of DUT.
     @param reboot_cause_expected: The expected reboot cause.
     """
     reboot_cause_got = get_reboot_cause(dut)
-    logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
-    return reboot_cause_got == reboot_cause_expected
+    logger.info("dut %s last reboot-cause: got '%s', expected '%s'",
+                dut.hostname, reboot_cause_got, reboot_cause_expected)
+    if reboot_cause_got != reboot_cause_expected:
+        cause_output = dut.shell('show reboot-cause')['stdout']
+        expected_pattern = reboot_ctrl_dict.get(
+            reboot_cause_expected, {}
+        ).get('cause', reboot_cause_expected)
+        logger.warning(
+            "dut %s reboot-cause mismatch: expected type='%s' "
+            "(pattern='%s'), got type='%s', raw output='%s'",
+            dut.hostname, reboot_cause_expected, expected_pattern,
+            reboot_cause_got, cause_output
+        )
+        return False
+    return True
 
 
 def sync_reboot_history_queue_with_dut(dut):

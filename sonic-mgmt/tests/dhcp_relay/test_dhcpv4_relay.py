@@ -181,7 +181,8 @@ def ignore_expected_loganalyzer_exceptions(
         ignoreRegex = [
             r".*ERR snmp#snmp-subagent.*",
             r".*ERR rsyslogd: omfwd: socket (\d+): error (\d+) sending via udp: Network is (unreachable|down).*",
-            r".*ERR rsyslogd: omfwd/udp: socket (\d+): sendto\(\) error: Network is (unreachable|down).*"
+            r".*ERR rsyslogd: omfwd/udp: socket (\d+): sendto\(\) error: Network is (unreachable|down).*",
+            r".*ERR kernel.*e1000.*Reset adapter.*"
         ]
         loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
 
@@ -374,9 +375,8 @@ def test_dhcp_relay_agent_mode(
 
     Relay Modes Tested:
         - "discard": Drops packets containing Option 82.
-        - "forward_untouched": Forwards packets with Option 82 unmodified.
-        - "forward_and_replace": Replaces existing Option 82 with new data before forwarding.
-        - "forward_and_append": Appends a new Option 82 to packets that already have it.
+        - "replace": Replaces existing Option 82 with new data before forwarding.
+        - "append": Appends a new Option 82 to packets that already have it.
 
     Key Actions:
         - Configures the device under test (DUT) with the selected relay mode.

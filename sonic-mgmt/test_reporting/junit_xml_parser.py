@@ -178,10 +178,7 @@ def validate_junit_xml_archive(directory_name, strict=False):
     roots = []
     metadata_source = None
     metadata = {}
-    doc_list = glob.glob(os.path.join(directory_name, "tr.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "*test*.xml"))
-    doc_list += glob.glob(os.path.join(directory_name, "**", "*test*.xml"), recursive=True)
-    doc_list = set(doc_list)
+    doc_list = set(glob.glob(os.path.join(directory_name, "**", "*.xml"), recursive=True))
 
     total_size = 0
     for document in doc_list:
@@ -443,7 +440,7 @@ def _extract_test_summary(test_cases):
     name = case['file']
     #print("{},{},{},{},{},{},{},{}".format(name,test_result_summary["tests"],passed,test_result_summary["failures"],test_result_summary["skipped"],test_result_summary["errors"],test_result_summary["xfails"],test_result_summary["time"]))
     return test_result_summary
-  
+
 def _parse_test_metadata(root):
     properties_element = root.find(PROPERTIES_TAG)
 
