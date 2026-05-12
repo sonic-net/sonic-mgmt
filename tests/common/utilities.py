@@ -873,6 +873,7 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
 
     return reboot_dict
 
+
 def get_plt_wait_time(duthost, tc_name):
     """
     @summary: utility function returns platform specific wait dict for each
@@ -888,7 +889,7 @@ def get_plt_wait_time(duthost, tc_name):
             wait: 60
     """
 
-    wait_dict= dict()
+    wait_dict = dict()
     im = duthost.sonichost.host.options['inventory_manager']
     inv_files = im._sources
     dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
@@ -900,6 +901,7 @@ def get_plt_wait_time(duthost, tc_name):
                     wait_dict[mod_id] = dut_vars['plt_wait_time'][key][mod_id]
 
     return wait_dict
+
 
 def pdu_reboot(pdu_controller):
     """Power-cycle the DUT by turning off and on the PDU outlets.
