@@ -462,8 +462,9 @@ class TestChassisApi(PlatformApiTestBase):
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
             interface_facts = duthost.show_interface(command='status')['ansible_facts']['int_status']
-            if duthost.facts.get("platform") == 'x86_64-nvidia_sn2201-r0':
-                # On SN2201, there are 48 RJ45 ports which are also counted in SFP object lists
+            if (duthost.facts.get("platform") == 'x86_64-nvidia_sn2201-r0' or
+                    duthost.facts.get("platform").startswith('arm64-c8220tg_48a_o')):
+                # On SN2201 and cisco-console, there are 48 RJ45 ports which are also counted in SFP object lists
                 # So we need to adjust test case accordingly
                 for port, data in list(interface_facts.items()):
                     if data['type'] == 'RJ45':
@@ -475,10 +476,6 @@ class TestChassisApi(PlatformApiTestBase):
         sfp_list = chassis.get_all_sfps(platform_api_conn)
         pytest_assert(sfp_list is not None, "Failed to retrieve SFPs")
         pytest_assert(isinstance(sfp_list, list) and len(sfp_list) == num_sfps, "SFPs appear to be incorrect")
-
-        if duthost.facts.get("platform").startswith('arm64-c8220tg_48a_o'):
-            # Index 0 is not SFP in cisco-console.
-            list_sfps.pop(0)
 
         for i in range(len(list_sfps)):
             index = list_sfps[i]
