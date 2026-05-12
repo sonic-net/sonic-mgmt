@@ -19,7 +19,8 @@ def add_erspan_mirror_session(duthost, session_name, src_port, dst_ip,
         dst_ip: Destination IP address to mirror traffic to
     """
     cmd = (
-        f"config mirror_session erspan add {session_name} {src_ip} {dst_ip} {dscp} {ttl} {ERSPAN_GRE_TYPE} {queue} {src_port} {direction}"
+        f"config mirror_session erspan add {session_name} {src_ip} {dst_ip} "
+        f"{dscp} {ttl} {ERSPAN_GRE_TYPE} {queue} {src_port} {direction}"
     )
     duthost.command(cmd)
     logger.info(

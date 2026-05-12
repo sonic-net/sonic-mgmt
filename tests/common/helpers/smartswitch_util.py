@@ -5,19 +5,14 @@ import json
 logger = logging.getLogger(__name__)
 
 
-def get_dpu_physical_port(duthost, dpu_index):
-    """Return the physical midplane port for a DPU (e.g. ``Ethernet224``)."""
+def get_dpu_dataplane_port(duthost, dpu_index):
     platform = duthost.facts["platform"]
     platform_json = json.loads(duthost.shell(f"cat /usr/share/sonic/device/{platform}/platform.json")["stdout"])
     try:
-        return list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
+        interface = list(platform_json["DPUS"][f"dpu{dpu_index}"]["interface"].keys())[0]
     except KeyError:
         if_dpu_index = 224 + dpu_index*8
-        return f"Ethernet{if_dpu_index}"
-
-
-def get_dpu_dataplane_port(duthost, dpu_index):
-    interface = get_dpu_physical_port(duthost, dpu_index)
+        interface = f"Ethernet{if_dpu_index}"
 
     for vlan_interface, vlan_info in duthost.get_vlan_brief().items():
         if interface in vlan_info.get("members", []):
@@ -48,7 +43,6 @@ def correlate_dpu_info_with_dpuhost(dpuhosts, duthost):
         dpuhost.dpu_mgmt_ip = dpuhost_ip
         logger.info(f"dpuhost.dpu_mgmt_ip:{dpuhost.dpu_mgmt_ip}, dpu_index: {dpuhost.dpu_index}")
 
-        physical_port = get_dpu_physical_port(duthost, dpuhost.dpu_index)
         data_port_on_npu = get_dpu_dataplane_port(duthost, dpuhost.dpu_index)
         data_port_on_dpu = get_data_port_on_dpu(npu_lldp_info, data_port_on_npu)
         dpuhost.npu_data_port_ip = npu_ip_intf_facts[data_port_on_npu]['ipv4'] if \
@@ -56,7 +50,6 @@ def correlate_dpu_info_with_dpuhost(dpuhosts, duthost):
         dpuhost.dpu_data_port_ip = dpu_ip_intf_facts[data_port_on_dpu]['ipv4'] if \
             data_port_on_dpu in dpu_ip_intf_facts else ''
 
-        dpuhost.npu_dataplane_physical_port = physical_port
         dpuhost.npu_dataplane_port = data_port_on_npu
         dpuhost.dpu_dataplane_port = data_port_on_dpu
         dpuhost.npu_dataplane_mac = duthost.get_dut_iface_mac(data_port_on_npu)
