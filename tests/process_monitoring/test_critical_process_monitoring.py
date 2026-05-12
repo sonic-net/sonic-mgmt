@@ -10,7 +10,8 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common import config_reload
-from tests.common.constants import KVM_PLATFORM
+from tests.common.vs_data import is_vs_device
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import wait_for_startup
@@ -596,10 +597,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     if is_testing_database:
         logger.info("Database container was tested - performing power cycle...")
 
-        # Check if this is a KVM testbed (no PDU available)
-        is_kvm = duthost.facts.get('platform') == KVM_PLATFORM
-
-        if is_kvm:
+        # Check if this is a virtual switch (KVM) testbed (no PDU available)
+        if is_vs_device(duthost):
             # For KVM testbed, use kernel-level reboot since config DB is corrupted
             # and normal reboot commands won't work
             logger.info("KVM testbed detected - using kernel SysRq trigger for immediate reboot...")
@@ -728,8 +727,8 @@ def test_monitoring_critical_processes(
     stop_critical_processes(duthost, non_database_containers)
 
     wait_time = 70
-    # For KVM DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
-    if duthost.facts['platform'] == KVM_PLATFORM:
+    # For VS (KVM) DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
+    if is_vs_device(duthost):
         wait_time = 90
 
     # Wait for sometime such that Supervisord/Monit has a chance to write alerting message into syslog.
