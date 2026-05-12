@@ -130,7 +130,7 @@ class GenerateGoldenConfigDBModule(object):
         profile['asic_cnt'] = self.num_asics
 
         with open(GOLDEN_CONFIG_TEMPLATE_PATH) as template_file:
-            return Template(template_file.read()).render(profile)
+            return json.loads(Template(template_file.read()).render(profile))
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -1052,6 +1052,11 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for drh"
         elif "ft2" in self.topo_name or "lt2" in self.topo_name:
             config = self.generate_lt2_ft2_golden_config_db()
+        elif "t2_single_node" in self.topo_name:
+            config = self.generate_ut2_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
+            self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
+            module_msg = module_msg + " for ut2 device"
         elif "t2" in self.topo_name and self.macsec_profile:
             config = self.generate_t2_golden_config_db()
             module_msg = module_msg + " for t2"
