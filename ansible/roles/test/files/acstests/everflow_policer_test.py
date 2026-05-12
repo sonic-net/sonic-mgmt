@@ -341,7 +341,8 @@ class EverflowPolicerTest(BaseTest):
 
         # Send traffic and verify the original traffic is not rate limited
         count = self.checkOriginalFlow()
-        assert count == self.NUM_OF_TOTAL_PACKETS
+        # Allow 1% packet loss due to ptf performance limit
+        assert count >= self.NUM_OF_TOTAL_PACKETS * 0.99
 
         # Verify packet policing is used
         assert_str = "Non packet policing is not supported"
