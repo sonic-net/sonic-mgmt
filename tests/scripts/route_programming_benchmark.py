@@ -131,6 +131,10 @@ class RouteProgrammingBenchmark:
         self.start_time = None
         self.zmq_enabled = None
         self.is_vs = self.check_if_vs()
+        # Snapshot whether sharpd was already running before this script ran.
+        # If yes, leave it alone (don't start, don't stop). If no, start it
+        # before route injection and stop it during cleanup.
+        self.is_sharpd_started = self._is_sharpd_running()
 
         # Parse base prefix to generate route prefixes
         self.base_ip, self.base_mask = prefix.split("/")
@@ -178,23 +182,6 @@ class RouteProgrammingBenchmark:
         except subprocess.TimeoutExpired:
             print(f"Command timed out after {timeout}s: {cmd}")
             return ""
-
-            last_timestamp = None
-            last_count = 0
-
-            for line in syslog_output.split("\n"):
-                match = re.search(count_pattern, line)
-                if match:
-                    last_timestamp = match.group(1)
-                    last_count = int(match.group(2))
-
-            if last_timestamp:
-                return (last_timestamp, last_count)
-            return None
-
-        except Exception as e:
-            print(f"Error getting last RouteCounter timestamp: {e}")
-            return None
 
     def check_zmq_enabled(self) -> bool:
         """Check if ZMQ is enabled for route programming"""
@@ -309,75 +296,6 @@ class RouteProgrammingBenchmark:
         # Use bcmcmd to get hardware routes (includes all routes)
         return self.get_hardware_route_count()  # Use bcmcmd route count
 
-            # Parse cutoff timestamp if provided
-            cutoff_dt = None
-            if baseline_timestamp:
-                try:
-                    cutoff_dt = datetime.strptime(baseline_timestamp, "%Y %b %d %H:%M:%S.%f")
-                except ValueError:
-                    print(f"Warning: Could not parse baseline timestamp: {baseline_timestamp}")
-
-            first_new_timestamp = None
-            last_qualifying_timestamp = None
-            last_qualifying_count = baseline_count
-
-            # Parse syslog lines
-            for line in syslog_output.split("\n"):
-                # Skip lines before cutoff timestamp
-                if cutoff_dt:
-                    line_match = re.search(r"(\d{4} \w+ \d+ \d{2}:\d{2}:\d{2}\.\d+)", line)
-                    if line_match:
-                        try:
-                            line_dt = datetime.strptime(line_match.group(1), "%Y %b %d %H:%M:%S.%f")
-                            if line_dt <= cutoff_dt:
-                                continue
-                        except ValueError:
-                            continue
-
-                # Check for count messages
-                count_match = re.search(count_pattern, line)
-                if count_match:
-                    timestamp = count_match.group(1)
-                    route_count = int(count_match.group(2))
-
-                    # Record first new message after baseline
-                    if first_new_timestamp is None and route_count > baseline_count:
-                        first_new_timestamp = timestamp
-                        print(f"Found first new message: {route_count} routes at {timestamp}")
-
-                    # Update if this count meets target and is the latest
-                    if route_count >= baseline_count + target_routes and route_count >= last_qualifying_count:
-                        last_qualifying_timestamp = timestamp
-                        last_qualifying_count = route_count
-                        print(f"Found qualifying message: {route_count} routes at {timestamp}")
-
-            # Calculate time difference if both timestamps found
-            if first_new_timestamp and last_qualifying_timestamp:
-                try:
-                    first_dt = datetime.strptime(first_new_timestamp, "%Y %b %d %H:%M:%S.%f")
-                    last_dt = datetime.strptime(last_qualifying_timestamp, "%Y %b %d %H:%M:%S.%f")
-
-                    time_diff = (last_dt - first_dt).total_seconds()
-                    actual_new_routes = last_qualifying_count - baseline_count
-
-                    print(f"✓ {feature} timing: {time_diff:.3f}s for {actual_new_routes} new routes")
-                    return (first_new_timestamp, last_qualifying_timestamp, time_diff)
-
-                except ValueError as e:
-                    print(f"Error parsing timestamps: {e}")
-                    return None
-            else:
-                if not first_new_timestamp:
-                    print(f"Warning: Could not find new RouteCounter messages after baseline ({baseline_count} routes)")
-                if not last_qualifying_timestamp:
-                    expected_total = baseline_count + target_routes
-                    print(f"Warning: Could not find message with >= {expected_total} total routes")
-                return None
-
-        except Exception as e:
-            print(f"Error parsing syslog: {e}")
-            return None
-
     def clear_injected_routes(self):
         """Clear the routes that were injected during this test run"""
         print("Clearing injected test routes...")
@@ -397,28 +315,45 @@ class RouteProgrammingBenchmark:
         # Wait for cleanup
         time.sleep(2)
 
+    def _is_sharpd_running(self) -> bool:
+        """Return True if sharpd is running in the BGP container"""
+        # The grep sharpd | grep -v grep pipeline guarantees any non-empty
+        # output is a sharpd process line.
+        return bool(self.run_command("ps aux | grep sharpd | grep -v grep", "bgp"))
+
     def wait_for_bgp_ready(self, timeout: int = 60) -> bool:
         """Wait for BGP/SHARP to be ready by checking if sharpd daemon is running"""
         print("Waiting for BGP/SHARP to be ready...")
         start_time = time.time()
+        start_attempted = False
 
         while time.time() - start_time < timeout:
-            # Check if sharpd process is running in the BGP container
-            cmd = "ps aux | grep sharpd | grep -v grep"
-            result = self.run_command(cmd, "bgp")
-
-            if result and "sharpd" in result:
+            if self._is_sharpd_running():
                 # sharpd is running, wait a bit for it to fully initialize
                 print("  sharpd is running, waiting for initialization...")
                 time.sleep(5)
                 print(f"BGP/SHARP is ready (took {time.time() - start_time:.1f}s)")
                 return True
 
+            if not self.is_sharpd_started and not start_attempted:
+                # sharpd was not running at construction time; upstream
+                # supervisord has it with autostart=false, so start it.
+                print("  sharpd not running, starting via supervisorctl...")
+                self.run_command("supervisorctl start sharpd", "bgp")
+                start_attempted = True
+
             print(f"  sharpd daemon not running yet (elapsed: {time.time() - start_time:.1f}s)")
             time.sleep(5)
 
         print(f"WARNING: BGP/SHARP not ready after {timeout}s")
         return False
+
+    def stop_sharpd(self):
+        """Stop sharpd only if this script started it and it is still running"""
+        we_started_sharpd = not self.is_sharpd_started
+        if we_started_sharpd and self._is_sharpd_running():
+            print("Stopping sharpd...")
+            self.run_command("supervisorctl stop sharpd", "bgp")
 
     def generate_nexthop_group(self) -> str:
         """Generate nexthop group and return group name"""
@@ -434,27 +369,8 @@ class RouteProgrammingBenchmark:
         """Inject routes using SHARP and return time taken"""
         print(f"Injecting {self.num_routes} routes using SHARP...")
 
-        # Check if SHARP is available
-        print("Checking if SHARP daemon is available...")
-        check_cmd = "pgrep sharpd"
-        sharp_check = self.run_command(check_cmd, "bgp")
-
-        if not sharp_check or "sharpd" not in sharp_check:
-            error_msg = (
-                "ERROR: SHARP daemon (sharpd) is not running in the BGP container.\n"
-                "SHARP is required for route injection in this benchmark.\n"
-                "Please ensure FRR is compiled with SHARP support and sharpd is enabled.\n"
-                "To enable SHARP:\n"
-                "  1. Check if sharpd is available: docker exec bgp which sharpd\n"
-                "  2. Enable it in BGP container's supervisord.conf\n"
-                "  3. If not available, FRR needs to be rebuilt with --enable-sharpd"
-            )
-            print(error_msg)
-            sys.exit(1)
-
-        print("  SHARP daemon is available")
-
-        # Wait for BGP/SHARP to be ready (important after container restarts)
+        # Wait for BGP/SHARP to be ready. wait_for_bgp_ready() will start
+        # sharpd via supervisorctl if it wasn't already running.
         if not self.wait_for_bgp_ready():
             print("ERROR: BGP/SHARP not ready, route injection may fail")
             sys.exit(1)
@@ -555,34 +471,39 @@ class RouteProgrammingBenchmark:
         dt_object = datetime.fromtimestamp(total_start_time)
         pretty_start_time = dt_object.strftime("%Y-%m-%d %H:%M:%S.%f")
 
-        # Inject routes with SHARP (Zebra receives them)
-        injection_time = self.inject_routes_with_sharp()
-        print(f"Route injection time: {injection_time:.3f}s")
+        try:
+            # Inject routes with SHARP (Zebra receives them)
+            injection_time = self.inject_routes_with_sharp()
+            print(f"Route injection time: {injection_time:.3f}s")
 
-        # Wait for routes in FRR
-        target_stats = RouteStatistics(
-            frr_sharp=initial_stats["FRR SHARP"] + self.num_routes,
-            frr_fib=initial_stats["FRR FIB"] + self.num_routes,
-            appl_db=initial_stats["APPL_DB"] + self.num_routes,
-            asic_db=initial_stats["APPL_DB"] + self.num_routes,
-            hardware=initial_stats["Hardware"] if self.is_vs else initial_stats["Hardware"] + self.num_routes,
-        )
+            # Wait for routes in FRR
+            target_stats = RouteStatistics(
+                frr_sharp=initial_stats["FRR SHARP"] + self.num_routes,
+                frr_fib=initial_stats["FRR FIB"] + self.num_routes,
+                appl_db=initial_stats["APPL_DB"] + self.num_routes,
+                asic_db=initial_stats["APPL_DB"] + self.num_routes,
+                hardware=initial_stats["Hardware"] if self.is_vs else initial_stats["Hardware"] + self.num_routes,
+            )
 
-        # Dynamic timeout based on route count: ~1500 routes/sec observed throughput
-        # with 120s minimum for small route counts
-        hw_timeout = max(120, self.num_routes // 1500)
+            # Dynamic timeout based on route count: ~1500 routes/sec observed throughput
+            # with 120s minimum for small route counts
+            hw_timeout = max(120, self.num_routes // 1500)
 
-        # Wait for routes in Hardware (using bcmcmd)
-        # This measures routes actually programmed and available for forwarding
-        asic_to_hw_time = self.wait_for_routes_in_stage(
-            "Hardware", self.is_vs, target_stats, initial_stats, timeout=hw_timeout
-        )
+            # Wait for routes in Hardware (using bcmcmd)
+            # This measures routes actually programmed and available for forwarding
+            asic_to_hw_time = self.wait_for_routes_in_stage(
+                "Hardware", self.is_vs, target_stats, initial_stats, timeout=hw_timeout
+            )
 
-        total_time = time.time() - total_start_time
+            total_time = time.time() - total_start_time
 
-        # Clean up test routes
-        print("\nCleaning up test routes...")
-        self.clear_injected_routes()
+            # Clean up test routes
+            print("\nCleaning up test routes...")
+            self.clear_injected_routes()
+        finally:
+            # Restore the autostart=false default for sharpd, even if the
+            # benchmark raised mid-run.
+            self.stop_sharpd()
 
         return BenchmarkResults(
             total_routes=self.num_routes,
