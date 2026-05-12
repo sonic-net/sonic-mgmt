@@ -745,6 +745,21 @@
         ]
     },
     {
+        "feature": "high_frequency_telemetry",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "high_frequency_telemetry.test_hft_end_to_end",
+                    "high_frequency_telemetry.test_high_frequency_telemetry"
+                ],
+                "owner": "Ze Gan",
+                "email": "zegan@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "http",
         "owner": "Qi Luo",
         "email": "qiluo@microsoft.com",
