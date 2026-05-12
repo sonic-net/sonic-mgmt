@@ -703,16 +703,29 @@ def test_monitoring_critical_processes(
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
+    # Separate database from other containers.  Killing redis in the database
+    # container destabilizes the entire DUT (config DB is emptied), so we use
+    # a two-phase approach:
+    #   Phase 1 - kill non-database processes, wait, verify syslog alerts
+    #   Phase 2 - kill database processes last; the recover_critical_processes
+    #             fixture handles DUT recovery via reboot
+    database_containers = {k: v for k, v in containers_in_namespaces.items() if k == "database"}
+    non_database_containers = {k: v for k, v in containers_in_namespaces.items() if k != "database"}
+
+    # Generate expected alerting messages only for non-database containers.
+    # Database alerting cannot be reliably verified via syslog because killing
+    # redis destabilizes the system before all messages can be written.
     if "20191130" in duthost.os_version:
-        expected_alerting_messages = get_expected_alerting_messages_monit(duthost, containers_in_namespaces)
+        expected_alerting_messages = get_expected_alerting_messages_monit(duthost, non_database_containers)
     else:
         expected_alerting_messages = get_expected_alerting_messages_supervisor(
-            duthost, containers_in_namespaces)
+            duthost, non_database_containers)
 
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
 
-    stop_critical_processes(duthost, containers_in_namespaces)
+    # Phase 1: Kill non-database critical processes and verify syslog alerts.
+    stop_critical_processes(duthost, non_database_containers)
 
     wait_time = 70
     # For KVM DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
@@ -726,6 +739,18 @@ def test_monitoring_critical_processes(
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
+
+    # Phase 2: Kill database critical processes last.  The DUT will become
+    # unstable after this, so no further syslog verification is performed.
+    # The recover_critical_processes fixture handles DUT recovery via
+    # SysRq reboot (KVM) or PDU power-cycle (physical).
+    if database_containers:
+        logger.info("Killing database container critical processes (DUT will become unstable)...")
+        try:
+            stop_critical_processes(duthost, database_containers)
+            logger.info("Database critical processes killed successfully.")
+        except Exception as e:
+            logger.warning("Exception during database process kill (expected due to DUT instability): %s", str(e))
 
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
