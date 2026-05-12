@@ -251,8 +251,8 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
     Check ecmp HASH_SEED
     """
     pytest_require(
-        not (parameter == "warm-reboot" and ("dualtor" in tbinfo["topo"]["name"] or "t0" in tbinfo["topo"]["type"])),
-        "Skip warm reboot test on t0 and dualtor topologies"
+        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip warm reboot test on dualtor topology"
     )
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -306,8 +306,8 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     Check ecmp HASH_OFFSET
     """
     pytest_require(
-        not (parameter == "warm-reboot" and ("dualtor" in tbinfo["topo"]["name"] or "t0" in tbinfo["topo"]["type"])),
-        "Skip warm reboot test on t0 and dualtor topologies"
+        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
+        "Skip warm reboot test on dualtor topology"
     )
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
