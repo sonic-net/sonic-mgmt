@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "any"),
+    pytest.mark.topology("t0", "t1"),
 ]
 
 # Default test parameters
