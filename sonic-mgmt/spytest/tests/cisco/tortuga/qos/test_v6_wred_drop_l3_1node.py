@@ -312,7 +312,9 @@ def test_l3_wred_drop_rate_sweep():
                 queue_name = f"UC{tc}"
                 q_data_before = wred_before.get('dut', {}).get(egress_intf, {}).get(queue_name, {})
                 wred_before_val = q_data_before.get('wred_drop_pkts', 0)
-                st.log(f"WRED counters BEFORE traffic: wred_drop_pkts={wred_before_val}")
+                transmitted_before = q_data_before.get('packets', 0)
+                st.log(f"WRED counters BEFORE traffic: wred_drop_pkts={wred_before_val}, "
+                       f"transmitted={transmitted_before}")
 
                 # Capture interface counters BEFORE traffic
                 intf_before = st.show(dut, "show interface counters",
@@ -340,12 +342,14 @@ def test_l3_wred_drop_rate_sweep():
                 transmitted = q_data.get('packets', 0)
                 st.log(f"WRED counters AFTER traffic: wred_drop_pkts={wred_after_val}, transmitted={transmitted}")
 
-                # Calculate DELTA (AFTER - BEFORE)
+                # Calculate DELTA (AFTER - BEFORE) for both drops and transmitted
                 wred_dropped = wred_after_val - wred_before_val
-                st.log(f"WRED DELTA: {wred_after_val} - {wred_before_val} = {wred_dropped}")
+                transmitted_delta = transmitted - transmitted_before
+                st.log(f"WRED DELTA: drops={wred_after_val}-{wred_before_val}={wred_dropped}, "
+                       f"transmitted={transmitted}-{transmitted_before}={transmitted_delta}")
 
-                # total_pkts = transmitted + dropped (all packets that entered the queue)
-                total_pkts = transmitted + wred_dropped
+                # total_pkts = transmitted_delta + dropped (all packets that entered the queue this iteration)
+                total_pkts = transmitted_delta + wred_dropped
 
                 # Queue watermark (counterpoll interval set to 1s in fixture)
                 st.wait(1, "Wait for queue watermark counterpoll to update")
@@ -424,15 +428,18 @@ def test_l3_wred_drop_rate_sweep():
                 f"No WRED drops at {r['total_rate']}% "
                 f"(expected drops  --  egress is oversubscribed)")
 
-    # 3) Monotonicity: drop_rate[i] >= drop_rate[i-1]
+    # 3) Monotonicity: drop_rate[i] >= drop_rate[i-1] (with tolerance for
+    #    WRED probabilistic noise at low congestion levels).
+    MONO_TOL = 0.2  # allow up to 0.2 pct-point dip between adjacent steps
     for i in range(1, len(results)):
         prev = results[i - 1]
         curr = results[i]
-        if curr['drop_rate'] < prev['drop_rate']:
+        if curr['drop_rate'] < prev['drop_rate'] - MONO_TOL:
             st.report_fail('msg',
                 f"WRED drop rate decreased: "
                 f"{prev['sweep_rate']}%->{prev['drop_rate']:.3f}% > "
-                f"{curr['sweep_rate']}%->{curr['drop_rate']:.3f}%")
+                f"{curr['sweep_rate']}%->{curr['drop_rate']:.3f}% "
+                f"(tolerance {MONO_TOL}%)")
 
     st.report_pass('test_case_passed')
 
@@ -528,6 +535,14 @@ def test_l3_wred_drop_continuous_traffic():
                 qos_utils.clear_all_counters(dut)
                 qos_utils.clear_wred_counters(dut, [egress_intf], tc)
 
+                # Capture WRED counters BEFORE traffic (baseline for NPU counters
+                # that are not cleared by sonic-clear)
+                wred_before = qos_utils.capture_wred_counters(nodes, intf_map, tc)
+                queue_name = f"UC{tc}"
+                q_data_before = wred_before.get('dut', {}).get(egress_intf, {}).get(queue_name, {})
+                wred_before_val = q_data_before.get('wred_drop_pkts', 0)
+                transmitted_before = q_data_before.get('packets', 0)
+
                 # (c) Run continuous traffic for CONT_TRAFFIC_RUN_SECS
                 tg.tg_traffic_control(action='run')
                 st.wait(CONT_TRAFFIC_RUN_SECS)
@@ -538,12 +553,15 @@ def test_l3_wred_drop_continuous_traffic():
 
                 # ---- Collect data ----
                 wred_after = qos_utils.capture_wred_counters(nodes, intf_map, tc)
-                queue_name = f"UC{tc}"
                 q_data = wred_after.get('dut', {}).get(egress_intf, {}).get(queue_name, {})
-                wred_dropped = q_data.get('wred_drop_pkts', 0)
+                wred_after_val = q_data.get('wred_drop_pkts', 0)
                 transmitted = q_data.get('packets', 0)
-                # total_pkts = transmitted + dropped (all packets that entered the queue)
-                total_pkts = transmitted + wred_dropped
+
+                # Calculate DELTA (AFTER - BEFORE) for both drops and transmitted
+                wred_dropped = wred_after_val - wred_before_val
+                transmitted_delta = transmitted - transmitted_before
+                # total_pkts = transmitted_delta + dropped (all packets that entered the queue this iteration)
+                total_pkts = transmitted_delta + wred_dropped
 
                 st.wait(1, "Wait for queue watermark counterpoll to update")
                 q_wm = qos_utils.capture_queue_watermark_values(

@@ -3000,7 +3000,7 @@
             "wget" : "http_proxy= https_proxy= wget"
         },
 	"ucs_m6_17_1_titan": {
-            "host": "titan-ucs-m6-17-1",
+            "host": "sonic-m6-17-1",
             "ip": "172.27.179.18",
             "username": "sonic",
             "password": "roZes@123",
