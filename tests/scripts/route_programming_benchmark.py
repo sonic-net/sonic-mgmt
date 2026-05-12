@@ -376,7 +376,6 @@ class RouteProgrammingBenchmark:
 
         start_time = time.time()
         previous = baseline
-        current = baseline
         last_update_time = start_time
 
         while time.time() - start_time < timeout:
