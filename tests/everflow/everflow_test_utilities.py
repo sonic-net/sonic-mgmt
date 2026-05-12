@@ -20,7 +20,7 @@ from scapy.packet import Raw
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, check_msg_in_syslog, get_plt_reboot_ctrl
+from tests.common.utilities import wait_until, check_msg_in_syslog, get_plt_wait_time
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
@@ -633,13 +633,13 @@ def wait_for_acl_rules_in_asic_db(duthost):
     """
     Wait until the ACL rules in ASIC DB match CONFIG DB and RIDs are valid.
 
-    Uses the platform-specific wait time from get_plt_reboot_ctrl (key "everflow"),
+    Uses the platform-specific wait time from get_plt_wait_time (key "everflow"),
     defaulting to 120 seconds if not configured.
 
     Args:
         duthost: DUT host object
     """
-    acl_rule_wait_time = get_plt_reboot_ctrl(duthost, "everflow", None).get("wait", 120)
+    acl_rule_wait_time = get_plt_wait_time(duthost, "everflow").get("wait", 120)
     pytest_assert(
         wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost),
         "ACL rules in ASIC DB did not match CONFIG DB within {} seconds".format(acl_rule_wait_time)
