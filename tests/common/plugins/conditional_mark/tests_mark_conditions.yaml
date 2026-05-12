@@ -2767,15 +2767,19 @@ generic_config_updater/test_multiasic_linkcrc.py:
 
 generic_config_updater/test_packet_trimming_config_asymmetric.py:
     skip:
-        reason: "Packet trim is not supported in 202505 image"
+        reason: "Packet trim is not supported in 202505 image and it is only supported on certain platforms."
+        conditions_logical_operator: or
         conditions:
         - "release in ['202505']"
+        - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
 
 generic_config_updater/test_packet_trimming_config_symmetric:
   skip:
-    reason: "Packet trim is not supported in 202505 image"
+    reason: "Packet trim is not supported in 202505 image and it is only supported on certain platforms."
+    conditions_logical_operator: or
     conditions:
       - "release in ['202505']"
+      - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
 
 generic_config_updater/test_pfcwd_interval.py:
   skip:
