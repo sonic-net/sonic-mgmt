@@ -67,6 +67,7 @@
       name: libvirtd
       state: restarted
     become: yes
+  when: host_distribution_version.stdout is version("24.04", ">=") or force_qemu_root | default(false) | bool
 
 - name: Install br_netfilter kernel module
   become: yes

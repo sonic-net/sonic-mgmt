@@ -3,7 +3,7 @@
 # and always runs (not gated by the host_setup flag).
 
 - name: Check if uv is installed
-  command: /usr/local/bin/uv --version
+  command: uv --version
   register: uv_check
   ignore_errors: yes
   changed_when: false
@@ -29,13 +29,13 @@
   register: venv_stat
 
 - name: Create Python venv with system site-packages
-  command: /usr/local/bin/uv venv --python /usr/bin/python3 --system-site-packages /opt/sonic-testbed/venv
+  command: uv venv --python /usr/bin/python3 --system-site-packages /opt/sonic-testbed/venv
   become: yes
   when: not venv_stat.stat.exists
 
 - name: Install Python packages in venv
   command: >-
-    /usr/local/bin/uv pip install
+    uv pip install
     --python /opt/sonic-testbed/venv/bin/python
     requests==2.32.3 docker==7.1.0
   become: yes

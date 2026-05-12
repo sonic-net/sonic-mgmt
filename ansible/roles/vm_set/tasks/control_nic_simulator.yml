@@ -29,7 +29,7 @@
 
     - name: Install gRPC library in venv
       command: >-
-        /usr/local/bin/uv pip install
+        uv pip install
         --python /opt/sonic-testbed/venv/bin/python
         grpcio grpcio-tools
       become: yes

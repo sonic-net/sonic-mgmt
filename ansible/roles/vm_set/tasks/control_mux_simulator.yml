@@ -17,11 +17,11 @@
       werkzeug_version: "2.3.7"
       python_command: "/opt/sonic-testbed/venv/bin/python3"
 
-  - name: Install Flask, Werkzeug, and blinker in venv
+  - name: Install Flask and Werkzeug in venv
     command: >-
-      /usr/local/bin/uv pip install
+      uv pip install
       --python /opt/sonic-testbed/venv/bin/python
-      blinker flask=={{ flask_version }} werkzeug=={{ werkzeug_version }}
+      flask=={{ flask_version }} werkzeug=={{ werkzeug_version }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
 
