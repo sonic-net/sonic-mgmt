@@ -665,7 +665,12 @@ def test_memory_checker_recover(memory_checker_dut_and_container, test_setup_and
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     marker = loganalyzer.init()
 
-    timeout_status_change = 30  # monit has a 5s cycle interval per test parameters
+    platform = duthost.facts["platform"]
+
+    if platform in ["armhf-nokia_ixs7215_52x-r0"]:
+        timeout_status_change = 60  # these platforms have longer time to change status
+    else:
+        timeout_status_change = 30  # monit has a 5s cycle interval per test parameters
 
     container.start_consume_memory()
     container.wait_monit_mem_last_failed(timeout_status_change)
