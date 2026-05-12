@@ -15,7 +15,6 @@ It ensures:
 
 * Control-plane traffic over IPv6 is permitted as expected
 * CoPP policies are enforced correctly for IPv6 traffic
-* No regression due to lack of IPv4 on management interface
 
 ### Scope
 
