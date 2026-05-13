@@ -16,6 +16,9 @@
 
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
+  - set_fact:
+      base_topo: "{{ base_topo.split('-') | first }}"
+    when: base_topo not in topologies
 
   - debug: msg="base_topo = {{ base_topo }}"
 
