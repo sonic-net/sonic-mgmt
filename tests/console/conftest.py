@@ -99,7 +99,7 @@ def cleanup_modules(setup_c0):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def prepare_hosts(duthost, fanouthosts, tbinfo):
+def install_socat_on_c0_hosts(duthost, fanouthosts, tbinfo):
     if tbinfo["topo"]["name"] not in ["c0", "c0-lo"]:
         pytest.skip(
             'These tests are not applicable for '
