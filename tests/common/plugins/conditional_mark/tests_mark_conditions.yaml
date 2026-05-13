@@ -5704,10 +5704,10 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 vxlan/test_vnet_bgp_route_precedence.py:
   skip:
-    reason: "test_vnet_bgp_route_precedence can only run on cisco and mnlx platforms. Also skip in 202411"
+    reason: "test_vnet_bgp_route_precedence can only run on cisco, mnlx and VPP platforms. Also skip in 202411"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000', 'mellanox']"
+      - "asic_type not in ['cisco-8000', 'mellanox', 'vpp']"
       - "release in ['202411']"
   xfail:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23824"
@@ -5936,7 +5936,7 @@ vxlan/test_vxlan_route_advertisement.py:
   skip:
     reason: "VxLAN route advertisement can only run on cisco , mnlx and marvell-teralynx platforms. "
     conditions:
-      - "asic_type not in ['cisco-8000', 'mellanox' , 'marvell-teralynx' , 'vs']"
+      - "asic_type not in ['cisco-8000', 'mellanox' , 'marvell-teralynx' , 'vs', 'vpp']"
 
 vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_basic_route_advertisement[v4_in_v4]:
   xfail:
