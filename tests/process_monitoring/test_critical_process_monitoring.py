@@ -15,7 +15,6 @@ from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import wait_for_startup
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
@@ -638,7 +637,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                 raise
 
         logger.info("Waiting for DUT to boot up after power cycle...")
-        # Wait for DUT to come back up after PDU power cycle
+        # Wait for DUT to come back up after power cycle
         # Get timeout values based on chassis type
         timeout = 300
         wait_time = 120
@@ -648,16 +647,15 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # Wait for SSH to come back up
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
-        logger.info("SSH is up, waiting for critical processes...")
+        logger.info("SSH is up, performing config reload to ensure clean state...")
 
-        # Wait for all critical processes to be healthy
+        # After a dirty reboot (SysRq/PDU), use config_reload to properly
+        # initialize the system.  On multi-ASIC devices the per-namespace
+        # database config files may not be ready immediately after boot,
+        # so a config_reload is more reliable than manual process/interface checks.
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-        logger.info("All critical processes are running")
-
-        # Wait for interfaces to come up
-        logger.info("Checking interface status...")
-        check_interface_status_of_up_ports(duthost)
-        logger.info("All interfaces are up")
 
         logger.info("DUT recovered successfully after power cycle!")
     else:
