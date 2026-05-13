@@ -1,6 +1,7 @@
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa: F401
+from tests.common.helpers.assertions import pytest_assert
 
 
 console_lines = list(map(str, range(1, 49)))
@@ -60,11 +61,6 @@ def get_console_fanout(duthost, fanouthosts, tbinfo):
         console_fanout = duthost
     else:
         pytest.fail("Test requires c0 or c0-lo topology")
-    if console_fanout is None:
-        pytest.fail(
-            f"Couldnot find the console fanout for the DUT:{duthost}. "
-            "Pls fix the ansible files, there should be atleast one "
-            "console fanout.")
     return console_fanout
 
 
@@ -108,7 +104,8 @@ def install_socat_on_c0_hosts(duthost, fanouthosts, tbinfo):
     required_hosts = set([duthost, console_fanout])
     for host in required_hosts:
         host.copy(src="./console/socat", dest="/usr/local/bin/socat", mode='0755')
-        assert host.shell("socat -V", module_ignore_errors=True)["rc"] == 0, \
-            f"socat installation failed on DUT host:{host}"
+        pytest_assert(
+            host.shell("socat -V", module_ignore_errors=True)["rc"] == 0,
+            f"socat installation failed on DUT host:{host}")
 
     yield
