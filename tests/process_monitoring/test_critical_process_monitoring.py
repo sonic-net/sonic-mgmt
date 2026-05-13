@@ -670,7 +670,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "Not all ports that are admin up on are operationally up after reboot")
         else:
-            logger.warning("database_config.json not ready after %ds, skipping interface check", wait_time)
+            pytest_assert(False, "database_config.json not ready after %ds — DUT recovery incomplete" % wait_time)
 
         logger.info("DUT recovered successfully after power cycle!")
     else:
