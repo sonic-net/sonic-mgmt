@@ -29,6 +29,17 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
+# Python 3.6 compat: capture_output and text were added in 3.7
+_subprocess_run = subprocess.run
+def _run(*args, **kwargs):
+    if kwargs.pop('capture_output', False):
+        kwargs.setdefault('stdout', subprocess.PIPE)
+        kwargs.setdefault('stderr', subprocess.PIPE)
+    if 'text' in kwargs:
+        kwargs['universal_newlines'] = kwargs.pop('text')
+    return _subprocess_run(*args, **kwargs)
+subprocess.run = _run
+
 import yaml
 from testbed_config import get_config as get_tb_config, discover_repo
 

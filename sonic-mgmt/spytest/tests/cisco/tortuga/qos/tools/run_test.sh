@@ -42,6 +42,51 @@ for key in ("docker_image", "docker_tar", "container_prefix", "test_path",
 PYEOF
 }
 
+# Read container server config from testbed_config.py
+read_container_server() {
+    python3 - "$SCRIPT_DIR" <<'PYEOF'
+import sys
+sys.path.insert(0, sys.argv[1])
+from testbed_config import CONTAINER_SERVER
+for key in ("host", "user", "password", "path"):
+    print(f"CS_{key.upper()}={CONTAINER_SERVER[key]}")
+PYEOF
+}
+
+# Fetch docker tar from container server if not cached locally
+# Usage: fetch_docker_tar <tar_filename>
+# Sets DOCKER_IMAGE_TAR to the local path
+fetch_docker_tar() {
+    local tar_name="$1"
+    local cache_dir="${PWD}/.containers"
+    local local_tar="${cache_dir}/${tar_name}"
+    DOCKER_IMAGE_TAR="$local_tar"
+
+    if [ -f "$local_tar" ]; then
+        echo "Container tar cached: $local_tar"
+        return 0
+    fi
+
+    echo "Fetching container tar from server..."
+    mkdir -p "$cache_dir"
+
+    # Read server config
+    local CS_OUTPUT
+    CS_OUTPUT=$(read_container_server) || { echo -e "${RED}Failed to read container server config${NC}"; exit 1; }
+    eval "$CS_OUTPUT"
+
+    local remote_path="${CS_PATH}/${tar_name}"
+    echo "  SCP: ${CS_USER}@${CS_HOST}:${remote_path} -> ${local_tar}"
+    sshpass -p "$CS_PASSWORD" scp -o StrictHostKeyChecking=no \
+        "${CS_USER}@${CS_HOST}:${remote_path}" "$local_tar"
+    if [[ $? -ne 0 ]]; then
+        rm -f "$local_tar"
+        echo -e "${RED}Failed to fetch container tar from server${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}Container tar downloaded to: ${local_tar}${NC}"
+}
+
 # Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
@@ -121,10 +166,8 @@ do_setup() {
 
     # Load docker image if needed
     if ! docker image inspect "$DOCKER_IMAGE" &>/dev/null; then
-        if [ ! -f "$DOCKER_IMAGE_TAR" ]; then
-            echo -e "${RED}Error: Docker tar not found: $DOCKER_IMAGE_TAR${NC}"
-            exit 1
-        fi
+        # Fetch tar from server if not cached locally
+        fetch_docker_tar "$DOCKER_IMAGE_TAR"
         echo "Loading docker image from $DOCKER_IMAGE_TAR..."
         TMPDIR="${TMPDIR:-/tmp}" docker load -i "$DOCKER_IMAGE_TAR"
         [[ $? -ne 0 ]] && { echo -e "${RED}Failed to load docker image${NC}"; exit 1; }

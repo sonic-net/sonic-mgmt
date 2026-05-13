@@ -24,12 +24,21 @@ REPO_LAYOUT = {
 #   npu              : NPU/ASIC name for dashboard (e.g. "G200", "Q200", "SPECTRUM4")
 #   base_config_dir  : subdirectory under base_configs/ to push; empty string = skip
 #   docker_image     : docker image name (without tag) for container
-#   docker_tar       : path to docker tar on disk
+#   docker_tar       : filename of docker tar (fetched from CONTAINER_SERVER)
 #   container_prefix : container name = <prefix>_$USER
 #   test_path        : test directory inside the container
 #   fabric           : list of fabric types for dashboard, e.g. ["IPv4", "VXLAN"] or ["IPv6"]
 #   input_file       : extra --env input_file=... for spytest (empty string = none)
 #
+
+# Server hosting container tar files (SCP'd to dev machine on first use)
+CONTAINER_SERVER = {
+    "host": "sonic-ucs-m6-51",
+    "user": "sonic",
+    "password": "roZes@123",
+    "path": "/home/sonic/containers",
+}
+
 TESTBED_CONFIGS = {
     "tortuga_2x2_G200_testbed.yaml": {
         "runner_platform": "tortuga",
@@ -37,7 +46,7 @@ TESTBED_CONFIGS = {
         "npu":             "G200",
         "base_config_dir": "laguna_2x2_configs",
         "docker_image":    "docker.io/library/ixia-container.10.25:latest",
-        "docker_tar":      "/ws/shbhatna-rtp/public/ixia-container.10.25.tar.gz",
+        "docker_tar":      "ixia-container.10.25.tar.gz",
         "container_prefix": "ixia_10.25",
         "test_path":       "/data/tests/cisco/tortuga/qos",
         "fabric":          ["IPv4", "VXLAN"],
@@ -49,7 +58,7 @@ TESTBED_CONFIGS = {
         "npu":             "Q200",
         "base_config_dir": "carib_siren_2x2_configs",
         "docker_image":    "docker.io/library/ixia-container.10.25:latest",
-        "docker_tar":      "/ws/shbhatna-rtp/public/ixia-container.10.25.tar.gz",
+        "docker_tar":      "ixia-container.10.25.tar.gz",
         "container_prefix": "ixia_10.25",
         "test_path":       "/data/tests/cisco/tortuga/qos",
         "fabric":          ["IPv4", "VXLAN"],
@@ -61,7 +70,7 @@ TESTBED_CONFIGS = {
         "npu":             "SPECTRUM4",
         "base_config_dir": "gamut_2x2_configs",
         "docker_image":    "localhost/spytest/keysight-u18:11.00",
-        "docker_tar":      "/ws/shbhatna-rtp/public/keysight_11.00.tar.gz",
+        "docker_tar":      "keysight_11.00.tar.gz",
         "container_prefix": "keysight_11.00",
         "test_path":       "/data/tests/cisco/tortuga/qos",
         "fabric":          ["IPv4", "VXLAN"],
@@ -73,7 +82,7 @@ TESTBED_CONFIGS = {
         "npu":             "G200",
         "base_config_dir": "",
         "docker_image":    "localhost/ixia_11.10_rev2:latest",
-        "docker_tar":      "/ws/shbhatna-rtp/public/ixia-11.10-rev2.tar.gz",
+        "docker_tar":      "ixia-11.10-rev2.tar.gz",
         "container_prefix": "ixia_11.10",
         "test_path":       "/data/tests/cisco/qos",
         "fabric":          ["IPv6"],

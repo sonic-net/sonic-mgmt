@@ -14,9 +14,12 @@ import sys
 import os
 import re
 import argparse
+import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import paramiko
+SSH_OPTS = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "PubkeyAuthentication=no", "-o", "PreferredAuthentications=password",
+            "-o", "ConnectTimeout=10", "-o", "LogLevel=ERROR"]
 
 
 def parse_testbed_yaml(yaml_path):
@@ -54,49 +57,38 @@ def resolve_path(path):
     return os.path.join(os.getcwd(), path)
 
 
-def ssh_connect(dut):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(
-        dut["ip"], username=dut["user"], password=dut["pass"],
-        look_for_keys=False, allow_agent=False
-    )
-    return ssh
-
-
-def run_cmd(ssh, cmd):
-    _, stdout, stderr = ssh.exec_command(cmd, get_pty=True)
-    out = stdout.read().decode().strip()
-    err = stderr.read().decode().strip()
-    rc = stdout.channel.recv_exit_status()
-    return rc, out, err
+def run_cmd(dut, cmd):
+    """Run a command on a DUT via sshpass + ssh."""
+    full_cmd = ["sshpass", "-p", dut["pass"], "ssh"] + SSH_OPTS + [
+        f"{dut['user']}@{dut['ip']}", cmd
+    ]
+    r = subprocess.run(full_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                       universal_newlines=True, timeout=60)
+    return r.returncode, r.stdout.strip(), r.stderr.strip()
 
 
 def push_to_tmp(dut, src_path):
     """Copy config to /tmp on a single DUT. Returns (name, success, message)."""
-    ssh = ssh_connect(dut)
-    sftp = ssh.open_sftp()
-    sftp.put(src_path, "/tmp/config_db.json")
-    sftp.close()
-    ssh.close()
+    full_cmd = ["sshpass", "-p", dut["pass"], "scp"] + SSH_OPTS + [
+        src_path, f"{dut['user']}@{dut['ip']}:/tmp/config_db.json"
+    ]
+    r = subprocess.run(full_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                       universal_newlines=True, timeout=60)
+    if r.returncode != 0:
+        return dut["name"], False, f"scp failed: {r.stderr.strip()}"
     return dut["name"], True, "OK"
 
 
 def activate_config(dut):
     """Activate config on a single DUT. Returns (name, success, message)."""
-    ssh = ssh_connect(dut)
-
-    rc, _, err = run_cmd(ssh, "sudo cp /tmp/config_db.json /etc/sonic/config_db.json")
+    rc, _, err = run_cmd(dut, "sudo cp /tmp/config_db.json /etc/sonic/config_db.json")
     if rc != 0:
-        ssh.close()
         return dut["name"], False, f"cp failed: {err}"
 
-    rc, _, err = run_cmd(ssh, "sudo config reload -y")
+    rc, _, err = run_cmd(dut, "sudo config reload -y")
     if rc != 0:
-        ssh.close()
         return dut["name"], False, f"config reload failed: {err}"
 
-    ssh.close()
     return dut["name"], True, "OK"
 
 

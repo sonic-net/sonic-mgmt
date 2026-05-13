@@ -4,6 +4,7 @@ __pycache__/
 *~
 *.log
 *.csv
+.containers/
 
 # Created by https://www.gitignore.io/api/pycharm
 # Edit at https://www.gitignore.io/?templates=pycharm
