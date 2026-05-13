@@ -662,23 +662,6 @@ def verify_dpu_rebooted(dpuhosts, dpu_name, pre_boot_time):
     return rebooted
 
 
-def verify_all_dpus_rebooted(dpuhosts, dpu_on_list, pre_boot_times):
-    """
-    Verify all online DPUs rebooted by comparing boot times.
-    Args:
-        dpuhosts: DPU host handles
-        dpu_on_list: List of DPU names that were online before reboot
-        pre_boot_times: dict mapping dpu_name -> pre-reboot boot datetime
-    """
-    failed = []
-    for dpu_name in dpu_on_list:
-        pre_time = pre_boot_times.get(dpu_name)
-        if not verify_dpu_rebooted(dpuhosts, dpu_name, pre_time):
-            failed.append(dpu_name)
-    pytest_assert(not failed,
-                  "DPUs {} did not reboot as expected (boot time unchanged)".format(failed))
-
-
 def post_test_dpu_check(duthost, dpuhosts, dpu_name,
                         reboot_cause, extra_dpu_online_timeout=0,
                         pre_boot_times=None):

@@ -13,6 +13,8 @@ def dpu_loganalyzer_ignore_patterns(dpuhosts, loganalyzer):
     for all DPU hosts so that known/expected syslog errors are suppressed
     automatically when loganalyzer runs with --dpu-pattern.
     """
+    if not dpuhosts:
+        return
     if not loganalyzer:
         return
     for dpuhost in dpuhosts:
