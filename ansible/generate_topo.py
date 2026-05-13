@@ -204,6 +204,13 @@ hw_port_cfg = {
                          "peer_ports": [509, 510],
                          "skip_ports": [],
                          "panel_port_step": 1},
+    'd32u1s2':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [508],
+                         "peer_ports": [509, 510],
+                         # Reduced from d508u1s2: keep only the 1st and 25th downlink port of every
+                         # 32-port block (i.e. p % 32 in {0, 24}), giving 32 T0 downlinks total.
+                         "skip_ports": [p for p in range(508) if p % 32 not in (0, 24)],
+                         "panel_port_step": 1},
 }
 
 overwrite_file_name = {
@@ -734,6 +741,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd508u1s2'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd32u1s2'  # 509 matches d508u1s2 IPs
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
     - ./generate_topo.py -r t0 -k f2 -t t0 -c 64 -l 'p32v128f2'
