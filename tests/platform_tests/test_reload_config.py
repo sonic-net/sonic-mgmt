@@ -187,7 +187,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     config_reload_timeout = 120
     if hwsku in ["Nokia-M0-7215", "Nokia-7215"]:
-        config_reload_timeout = 180
+        config_reload_timeout = 240
 
     if not config_force_option_supported(duthost):
         return
