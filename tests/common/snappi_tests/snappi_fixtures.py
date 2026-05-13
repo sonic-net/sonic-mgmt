@@ -1793,7 +1793,6 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
             'switchover_port': has_switchover
         }
 
-        # uhdSettings = NetworkConfigSettings(vxlan_endpoint_vni)  # noqa: F405
         uhdSettings = NetworkConfigSettings(vxlan_endpoint_vni)  # noqa: F405
         uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
         total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards

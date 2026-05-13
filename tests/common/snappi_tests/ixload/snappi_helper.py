@@ -1007,6 +1007,32 @@ def assignPorts(api, ports_list):
     return
 
 
+def checkPorts(api, ports_list):
+
+    # Expected port tuples
+    expected_ports = [port for ports in ports_list.values() for port in ports]
+    logger.info(f"Expected ports: {expected_ports}")
+
+    # Check both client and server
+    for objectID, url in [(0, "ixload/test/activeTest/communityList/0/network/portList"),
+                          (1, "ixload/test/activeTest/communityList/1/network/portList")]:
+        port_ids = get_objectIDs(api, url)
+        logger.info(f"Community {objectID} portListIDs: {port_ids}")
+
+        for port_id in port_ids:
+            payload = {}
+            port_details = api.ixload_configure("get", f"{url}/{port_id}", payload)
+            port_tuple = (port_details.chassisId,
+                          port_details.cardId,
+                          port_details.portId)
+
+            if port_tuple not in expected_ports:
+                logger.info(f"Removing port {port_tuple} (objectID: {port_id})")
+                api.ixload_configure("delete", f"{url}/{port_id}", {})
+
+    return
+
+
 def build_node_ips(count, vpc, nw_config, service_type='vnet2vnet', nodetype="client"):
 
     if service_type == 'vnet2vnet':
@@ -1921,6 +1947,7 @@ def l47_trafficgen_main(ports_list, tbinfo, connection_dict, nw_config, service_
     logger.info("Configuring custom port settings")
     time_assignPort_time = time.time()
     assignPorts(api, ports_list)
+    checkPorts(api, ports_list)
     time_assignPort_finish = time.time()
     logger.info("Custom port settings completed: {}".format(time_assignPort_finish - time_assignPort_time))
 
