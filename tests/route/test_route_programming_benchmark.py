@@ -677,6 +677,16 @@ def test_route_programming_performance(duthosts, enum_rand_one_per_hwsku_fronten
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     dut_name = duthost.hostname
 
+    # The benchmark script targets a single FRR/BGP container named "bgp" and a
+    # single host-side redis. On multi-ASIC platforms the BGP containers are
+    # per-namespace (bgp0/bgp1/...), redis is per-ASIC, and vtysh on the host
+    # requires "-n N". Per-ASIC benchmarking is a follow-up; skip until then.
+    # The topology marker keeps the test out of t2 chassis testbeds, but
+    # multi-ASIC variants also exist on t1 (e.g. vms-kvm-four-asic-t1-lag),
+    # so a runtime guard is still required.
+    if duthost.sonichost.is_multi_asic:
+        pytest.skip("Route programming benchmark does not support multi-ASIC platforms yet")
+
     # Get parameters from command line arguments
     route_scale = request.config.getoption("--route_scale")
     perf_policy_str = request.config.getoption("--perf_policy")
