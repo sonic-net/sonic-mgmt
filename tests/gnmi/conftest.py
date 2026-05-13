@@ -1,1 +1,108 @@
-aW1wb3J0IHB5dGVzdAppbXBvcnQgbG9nZ2luZwoKZnJvbSB0ZXN0cy5jb21tb24uaGVscGVycy5hc3NlcnRpb25zIGltcG9ydCBweXRlc3RfcmVxdWlyZSBhcyBweXJlcXVpcmUKZnJvbSB0ZXN0cy5jb21tb24uaGVscGVycy5kdXRfdXRpbHMgaW1wb3J0IGNoZWNrX2NvbnRhaW5lcl9zdGF0ZQpmcm9tIHRlc3RzLmdubWkuaGVscGVyIGltcG9ydCBnbm1pX2NvbnRhaW5lciwgYXBwbHlfY2VydF9jb25maWcsIHJlY292ZXJfY2VydF9jb25maWcKZnJvbSB0ZXN0cy5nbm1pLmhlbHBlciBpbXBvcnQgR05NSV9TRVJWRVJfU1RBUlRfV0FJVF9USU1FLCBjaGVja19udHBfc3luY19zdGF0dXMKZnJvbSB0ZXN0cy5jb21tb24uZ3VfdXRpbHMgaW1wb3J0IGNyZWF0ZV9jaGVja3BvaW50LCByb2xsYmFjawpmcm9tIHRlc3RzLmNvbW1vbi5oZWxwZXJzLmdubWlfdXRpbHMgaW1wb3J0IGNyZWF0ZV9yZXZva2VkX2NlcnRfYW5kX2NybCwgY3JlYXRlX2dubWlfY2VydHMsIFwKICAgIGRlbGV0ZV9nbm1pX2NlcnRzLCBwcmVwYXJlX3Jvb3RfY2VydCwgcHJlcGFyZV9zZXJ2ZXJfY2VydCwgcHJlcGFyZV9jbGllbnRfY2VydCwgY29weV9jZXJ0aWZpY2F0ZV90b19kdXQsIFwKICAgIGNvcHlfY2VydGlmaWNhdGVfdG9fcHRmCmZyb20gdGVzdHMuY29tbW9uLmhlbHBlcnMubnRwX2hlbHBlciBpbXBvcnQgc2V0dXBfbnRwX2NvbnRleHQKCgpsb2dnZXIgPSBsb2dnaW5nLmdldExvZ2dlcihfX25hbWVfXykKU0VUVVBfRU5WX0NQID0gInRlc3Rfc2V0dXBfY2hlY2twb2ludCIKCgpAcHl0ZXN0LmZpeHR1cmUoc2NvcGU9Im1vZHVsZSIpCmRlZiBzZXR1cF9nbm1pX250cF9jbGllbnRfc2VydmVyKGR1dGhvc3RzLCByYW5kX29uZV9kdXRfaG9zdG5hbWUsIHB0Zmhvc3QpOgogICAgIiIiQXV0by1zZXR1cCBOVFAgZm9yIGFsbCBnTk1JIHRlc3RzIHVzaW5nIGV4aXN0aW5nIGhlbHBlci4iIiIKICAgIGR1dGhvc3QgPSBkdXRob3N0c1tyYW5kX29uZV9kdXRfaG9zdG5hbWVdCgogICAgaWYgZHV0aG9zdC5mYWN0c1sncGxhdGZvcm0nXSA9PSAneDg2XzY0LWt2bV94ODZfNjQtcjAnOgogICAgICAgIGxvZ2dlci5pbmZvKCJjaGVja19zeXN0ZW1fdGltZV9zeW5jIGlzIHNraXBwZWQgZm9yIHRoaXMgcGxhdGZvcm0sIHNvIHNraXAgbnRwIHNldHVwIikKICAgICAgICB5aWVsZAogICAgICAgIHJldHVybgoKICAgIGlmIGNoZWNrX250cF9zeW5jX3N0YXR1cyhkdXRob3N0KSBpcyBUcnVlOgogICAgICAgIGxvZ2dlci5pbmZvKCJEVVQgaXMgYWxyZWFkeSBpbiBzeWNuIHdpdGggTlRQIHNlcnZlciwgc28gc2tpcCBudHAgc2V0dXAiKQogICAgICAgIHlpZWxkCiAgICAgICAgcmV0dXJuCgogICAgZHV0aG9zdF9tZ210X2luZm8gPSBkdXRob3N0LmdldF9tZ210X2lwKCkKICAgIHVzZV92NiA9IGR1dGhvc3RfbWdtdF9pbmZvWyJ2ZXJzaW9uIl0gPT0gInY2IgogICAgd2l0aCBzZXR1cF9udHBfY29udGV4dChwdGZob3N0LCBkdXRob3N0LCB1c2VfdjYpOgogICAgICAgIHlpZWxkCgoKQHB5dGVzdC5maXh0dXJlKHNjb3BlPSJtb2R1bGUiKQpkZWYgc2V0dXBfZ25taV9zZXJ2ZXIoZHV0aG9zdHMsIHJhbmRfb25lX2R1dF9ob3N0bmFtZSwgbG9jYWxob3N0LCBwdGZob3N0KToKICAgICcnJwogICAgU2V0dXAgR05NSSBzZXJ2ZXIgd2l0aCBjbGllbnQgY2VydGlmaWNhdGVzCiAgICAnJycKICAgIGR1dGhvc3QgPSBkdXRob3N0c1tyYW5kX29uZV9kdXRfaG9zdG5hbWVdCgogICAgIyBDaGVjayBpZiBHTk1JIGlzIGVuYWJsZWQgb24gdGhlIGRldmljZQogICAgcHlyZXF1aXJlKAogICAgICAgIGNoZWNrX2NvbnRhaW5lcl9zdGF0ZShkdXRob3N0LCBnbm1pX2NvbnRhaW5lcihkdXRob3N0KSwgc2hvdWxkX2JlX3J1bm5pbmc9VHJ1ZSksCiAgICAgICAgIlRlc3Qgd2FzIG5vdCBzdXBwb3J0ZWQgb24gZGV2aWNlcyB3aGljaCBkbyBub3Qgc3VwcG9ydCBHTk1JISIpCgogICAgY3JlYXRlX2dubWlfY2VydHMoZHV0aG9zdCwgbG9jYWxob3N0LCBwdGZob3N0KQoKICAgIGNyZWF0ZV9jaGVja3BvaW50KGR1dGhvc3QsIFNFVFVQX0VOVl9DUCkKICAgIHN0b3BwZWRfcHJvZ3JhbXMgPSBhcHBseV9jZXJ0X2NvbmZpZyhkdXRob3N0KQoKICAgIHlpZWxkCgogICAgZGVsZXRlX2dubWlfY2VydHMobG9jYWxob3N0KQoKICAgICMgUm9sbGJhY2sgY29uZmlndXJhdGlvbgogICAgcm9sbGJhY2soZHV0aG9zdCwgU0VUVVBfRU5WX0NQKQogICAgIyBTYXZlIHRoZSBjb25maWd1cmF0aW9uCiAgICBjbWQgPSAiY29uZmlnIHNhdmUgLXkiCiAgICBkdXRob3N0LnNoZWxsKGNtZCwgbW9kdWxlX2lnbm9yZV9lcnJvcnM9VHJ1ZSkKICAgIHJlY292ZXJfY2VydF9jb25maWcoZHV0aG9zdCwgc3RvcHBlZF9wcm9ncmFtcykKCgpAcHl0ZXN0LmZpeHR1cmUoc2NvcGU9Im1vZHVsZSIpCmRlZiBzZXR1cF9nbm1pX3JvdGF0ZWRfc2VydmVyKGR1dGhvc3RzLCByYW5kX29uZV9kdXRfaG9zdG5hbWUsIGxvY2FsaG9zdCwgcHRmaG9zdCk6CiAgICAnJycKICAgIENyZWF0ZSBHTk1JIGNsaWVudCBjZXJ0aWZpY2F0ZXMKICAgICcnJwogICAgZHV0aG9zdCA9IGR1dGhvc3RzW3JhbmRfb25lX2R1dF9ob3N0bmFtZV0KCiAgICAjIENoZWNrIGlmIEdOTUkgaXMgZW5hYmxlZCBvbiB0aGUgZGV2aWNlCiAgICBweXJlcXVpcmUoCiAgICAgICAgY2hlY2tfY29udGFpbmVyX3N0YXRlKGR1dGhvc3QsIGdubWlfY29udGFpbmVyKGR1dGhvc3QpLCBzaG91bGRfYmVfcnVubmluZz1UcnVlKSwKICAgICAgICAiVGVzdCB3YXMgbm90IHN1cHBvcnRlZCBvbiBkZXZpY2VzIHdoaWNoIGRvIG5vdCBzdXBwb3J0IEdOTUkhIgogICAgKQogICAgcHJlcGFyZV9yb290X2NlcnQobG9jYWxob3N0KQogICAgcHJlcGFyZV9zZXJ2ZXJfY2VydChkdXRob3N0LCBsb2NhbGhvc3QpCiAgICBwcmVwYXJlX2NsaWVudF9jZXJ0KGxvY2FsaG9zdCkKICAgIGNvcHlfY2VydGlmaWNhdGVfdG9fcHRmKHB0Zmhvc3QpCiAgICBjcmVhdGVfcmV2b2tlZF9jZXJ0X2FuZF9jcmwobG9jYWxob3N0LCBwdGZob3N0KQogICAgY29weV9jZXJ0aWZpY2F0ZV90b19kdXQoZHV0aG9zdCkKCgpAcHl0ZXN0LmZpeHR1cmUoc2NvcGU9Im1vZHVsZSIpCmRlZiBjaGVja19kdXRfdGltZXN0YW1wKGR1dGhvc3RzLCByYW5kX29uZV9kdXRfaG9zdG5hbWUsIGxvY2FsaG9zdCk6CiAgICAnJycKICAgIENoZWNrIERVVCB0aW1lIHRvIGRldGVjdCBOVFAgaXNzdWUKICAgICcnJwogICAgZHV0aG9zdCA9IGR1dGhvc3RzW3JhbmRfb25lX2R1dF9ob3N0bmFtZV0KICAgICMgU2Vjb25kcyBzaW5jZSAxOTcwLTAxLTAxIDAwOjAwOjAwIFVUQwogICAgdGltZV9jbWQgPSAiZGF0ZSArJXMiCiAgICBkdXRfcmVzID0gZHV0aG9zdC5zaGVsbCh0aW1lX2NtZCwgbW9kdWxlX2lnbm9yZV9lcnJvcnM9VHJ1ZSkKICAgIGxvY2FsX3JlcyA9IGxvY2FsaG9zdC5zaGVsbCh0aW1lX2NtZCwgbW9kdWxlX2lnbm9yZV9lcnJvcnM9VHJ1ZSkKICAgIGxvY2FsX3RpbWUgPSBpbnQobG9jYWxfcmVzWyJzdGRvdXQiXSkKICAgIGR1dF90aW1lID0gaW50KGR1dF9yZXNbInN0ZG91dCJdKQogICAgbG9nZ2VyLmluZm8oIkxvY2FsIHRpbWUgJWQsIERVVCB0aW1lICVkIiAlIChsb2NhbF90aW1lLCBkdXRfdGltZSkpCiAgICB0aW1lX2RpZmYgPSBsb2NhbF90aW1lIC0gZHV0X3RpbWUKICAgIGlmIHRpbWVfZGlmZiA+PSBHTk1JX1NFUlZFUl9TVEFSVF9XQUlUX1RJTUU6CiAgICAgICAgbG9nZ2VyLndhcm5pbmcoIkRVVCB0aW1lIGlzIHdyb25nICglZCksIHBsZWFzZSBjaGVjayBOVFAiICUgKC10aW1lX2RpZmYpKQ==
+import pytest
+import logging
+
+from tests.common.helpers.assertions import pytest_require as pyrequire
+from tests.common.helpers.dut_utils import check_container_state
+from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
+from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
+from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.helpers.gnmi_utils import create_revoked_cert_and_crl, create_gnmi_certs, \
+    delete_gnmi_certs, prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_dut, \
+    copy_certificate_to_ptf
+from tests.common.helpers.ntp_helper import setup_ntp_context
+
+
+logger = logging.getLogger(__name__)
+SETUP_ENV_CP = "test_setup_checkpoint"
+
+
+@pytest.fixture(scope="module")
+def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
+    """Auto-setup NTP for all gNMI tests using existing helper."""
+    duthost = duthosts[rand_one_dut_hostname]
+
+    if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+        logger.info("check_system_time_sync is skipped for this platform, so skip ntp setup")
+        yield
+        return
+
+    if check_ntp_sync_status(duthost) is True:
+        logger.info("DUT is already in sycn with NTP server, so skip ntp setup")
+        yield
+        return
+
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    use_v6 = duthost_mgmt_info["version"] == "v6"
+    with setup_ntp_context(ptfhost, duthost, use_v6):
+        # Persist NTP config so it survives DUT reboot (gNOI reboot tests)
+        duthost.shell("config save -y", module_ignore_errors=True)
+        yield
+    # After teardown restores original NTP servers, save again
+    duthost.shell("config save -y", module_ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+    '''
+    Setup GNMI server with client certificates
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Check if GNMI is enabled on the device
+    pyrequire(
+        check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
+        "Test was not supported on devices which do not support GNMI!")
+
+    create_gnmi_certs(duthost, localhost, ptfhost)
+
+    create_checkpoint(duthost, SETUP_ENV_CP)
+    stopped_programs = apply_cert_config(duthost)
+
+    yield
+
+    delete_gnmi_certs(localhost)
+
+    # Rollback configuration
+    rollback(duthost, SETUP_ENV_CP)
+    # Save the configuration
+    cmd = "config save -y"
+    duthost.shell(cmd, module_ignore_errors=True)
+    recover_cert_config(duthost, stopped_programs)
+
+
+@pytest.fixture(scope="module")
+def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+    '''
+    Create GNMI client certificates
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Check if GNMI is enabled on the device
+    pyrequire(
+        check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
+        "Test was not supported on devices which do not support GNMI!"
+    )
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
+    copy_certificate_to_ptf(ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost)
+    copy_certificate_to_dut(duthost)
+
+
+@pytest.fixture(scope="module")
+def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
+    '''
+    Check DUT time to detect NTP issue
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    # Seconds since 1970-01-01 00:00:00 UTC
+    time_cmd = "date +%s"
+    dut_res = duthost.shell(time_cmd, module_ignore_errors=True)
+    local_res = localhost.shell(time_cmd, module_ignore_errors=True)
+    local_time = int(local_res["stdout"])
+    dut_time = int(dut_res["stdout"])
+    logger.info("Local time %d, DUT time %d" % (local_time, dut_time))
+    time_diff = local_time - dut_time
+    if time_diff >= GNMI_SERVER_START_WAIT_TIME:
+        logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
