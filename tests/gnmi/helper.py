@@ -1,547 +1,122 @@
-import time
-import logging
-import pytest
-import json
-from tests.common.utilities import wait_until
-from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
-from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
-                                            dump_gnmi_log, dump_system_status
-from tests.common.helpers.gnmi_utils import gnmi_container   # noqa: F401
-from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
-from tests.common.helpers.dut_utils import check_container_state
-
-
-logger = logging.getLogger(__name__)
-GNMI_CONTAINER_NAME = ''
-GNMI_PROGRAM_NAME = ''
-GNMI_PORT = 0
-# Wait 15 seconds after starting GNMI server
-GNMI_SERVER_START_WAIT_TIME = 15
-
-
-def apply_cert_config(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    # Get subtype
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    metadata = cfg_facts["DEVICE_METADATA"]["localhost"]
-    subtype = metadata.get('subtype', None)
-    # Stop all running program
-    dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    for line in output['stdout_lines']:
-        res = line.split()
-        if len(res) < 3:
-            continue
-        program = res[0]
-        status = res[1]
-        if status == "RUNNING":
-            dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, program)
-            duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
-    duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s bash -c " % env.gnmi_container
-    dut_command += "\"/usr/bin/nohup /usr/sbin/%s -logtostderr --port %s " % (env.gnmi_process, env.gnmi_port)
-    dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /etc/sonic/telemetry/gnmiserver.key "
-    dut_command += "--config_table_name GNMI_CLIENT_CERT "
-    dut_command += "--client_auth cert "
-    dut_command += "--enable_crl=true "
-    if subtype == 'SmartSwitch':
-        dut_command += "--zmq_address=tcp://127.0.0.1:8100 "
-    dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
-    duthost.shell(dut_command)
-
-    # Setup gnmi client cert common name
-    role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
-    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
-
-    time.sleep(GNMI_SERVER_START_WAIT_TIME)
-    dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
-        is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
-        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
-    if env.gnmi_process not in output['stdout']:
-        # Dump tcp port status and gnmi log
-        logger.info("TCP port status: " + output['stdout'])
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        pytest.fail("Failed to start gnmi server")
-
-
-def check_gnmi_process(duthost):
-    """
-    Make sure there's no GNMI process running.
-    """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s pgrep -f %s" % (env.gnmi_container, env.gnmi_process)
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    return output['stdout'].strip() == ""
-
-
-def check_gnmi_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    return "RUNNING" in output['stdout']
-
-
-def _check_monit_container_checker(duthost):
-    """Check if monit container_checker service is healthy.
-
-    After gNMI cert config recovery, monit needs time to re-evaluate
-    container status. This function checks if container_checker has
-    returned to a healthy state (OK or Status ok).
-    """
-    monit_services = duthost.get_monit_services_status()
-    if not monit_services:
-        return False
-    container_checker = monit_services.get("container_checker", {})
-    status = container_checker.get("service_status", "")
-    return status in ("OK", "Status ok")
-
-
-def recover_cert_config(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    # Kill the GNMI process
-    dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
-    duthost.shell(dut_command, module_ignore_errors=True)
-    wait_until(60, 1, 0, check_gnmi_process, duthost)
-    # Recover all stopped program
-    dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.debug("recover_cert_config: supervisorctl status output: %s", output["stdout"])
-    for line in output["stdout_lines"]:
-        res = line.split()
-        if len(res) < 3:
-            continue
-        program = res[0]
-        status = res[1]
-        logger.debug("recover_cert_config: program=%s status=%s", program, status)
-        if status == "STOPPED":
-            logger.info("recover_cert_config: starting stopped program %s in container %s", program, env.gnmi_container)
-            dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, program)
-            start_output = duthost.shell(dut_command, module_ignore_errors=True)
-            logger.debug("recover_cert_config: start %s result: %s", program, start_output["stdout"])
-
-    # Remove gnmi client cert common name
-    del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-    del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    ret = wait_until(300, 3, 0, check_gnmi_status, duthost)
-    if not ret:
-        dut_command = "tail /var/log/gnmi.log"
-        output = duthost.shell(dut_command, module_ignore_errors=True)
-        logger.error("GNMI service failed to start. GNMI log: {}".format(output['stdout']))
-        pytest.fail("Failed to recover GNMI client cert configuration.")
-
-    # Restart telemetry container if it was stopped during cert config change
-    # apply_cert_config may trigger ctrmgrd to stop the telemetry container
-    if not check_container_state(duthost, "telemetry", should_be_running=True):
-        logger.info("Telemetry container is not running after cert config recovery, restarting it")
-        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
-
-    # Wait for monit container_checker to report healthy status.
-    # After restarting processes/containers, monit needs time to re-evaluate
-    # service status. Without this wait, post-test sanity check may see stale
-    # "Status failed" from container_checker and fail the test on teardown.
-    if not wait_until(120, 10, 30, _check_monit_container_checker, duthost):
-        logger.warning("Monit container_checker did not recover to healthy status after cert config recovery")
-
-
-def check_ntp_sync_status(duthost):
-    """
-    Checks if the DUT's time is synchronized with the NTP server.
-    """
-
-    ntp_daemon = get_ntp_daemon_in_use(duthost)
-
-    if ntp_daemon == NtpDaemon.CHRONY:
-        ntp_status_cmd = "chronyc -c tracking"
-    else:
-        ntp_status_cmd = "ntpstat"
-
-    ntp_status = duthost.command(ntp_status_cmd, module_ignore_errors=True)
-    if (ntp_daemon == NtpDaemon.CHRONY and "Not synchronised" not in ntp_status["stdout"]) or \
-            (ntp_daemon != NtpDaemon.CHRONY and "unsynchronised" not in ntp_status["stdout"]):
-        logger.info("DUT %s is synchronized with NTP server.", duthost)
-        return True
-    else:
-        logger.info("DUT %s is NOT synchronized.", duthost)
-        return False
-
-
-def check_system_time_sync(duthost):
-    """
-    Checks if the DUT's time is synchronized with the NTP server.
-    If not synchronized, it attempts to restart the NTP service.
-    """
-
-    if check_ntp_sync_status(duthost) is True:
-        return True
-
-    ntp_daemon = get_ntp_daemon_in_use(duthost)
-
-    if ntp_daemon == NtpDaemon.CHRONY:
-        restart_ntp_cmd = "sudo systemctl restart chrony"
-    else:
-        restart_ntp_cmd = "sudo systemctl restart ntp"
-
-    logger.info("DUT %s is NOT synchronized. Restarting NTP service...", duthost)
-    duthost.command(restart_ntp_cmd)
-    time.sleep(5)
-    # Rechecking status after restarting NTP
-    ntp_status = check_ntp_sync_status(duthost)
-    if ntp_status is True:
-        logger.info("DUT %s is now synchronized with NTP server.", duthost)
-        return True
-    else:
-        logger.error("DUT %s: NTP synchronization failed. Please check manually.", duthost)
-        return False
-
-
-def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None):
-    """
-    Send GNMI set request with GNMI client
-
-    Args:
-        duthost: fixture for duthost
-        ptfhost: fixture for ptfhost
-        delete_list: list for delete operations
-        update_list: list for update operations
-        replace_list: list for replace operations
-
-    Returns:
-    """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
-    port = env.gnmi_port
-    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
-    cmd += '--timeout 30 '
-    cmd += '-t %s -p %u ' % (ip, port)
-    cmd += '-xo sonic-db '
-    cmd += '-rcert /root/gnmiCA.pem '
-    if cert:
-        cmd += '-pkey /root/{}.key '.format(cert)
-        cmd += '-cchain /root/{}.crt '.format(cert)
-    else:
-        cmd += '-pkey /root/gnmiclient.key '
-        cmd += '-cchain /root/gnmiclient.crt '
-    if len(replace_list) >= 1:
-        cmd += '-m set-replace '
-    elif len(update_list) >= 1:
-        cmd += '-m set-update '
-    elif len(delete_list) >= 1:
-        cmd += '-m set-delete '
-    else:
-        raise Exception("SET operation must have at least one entry to modify")
-    xpath = ''
-    xvalue = ''
-    for path in delete_list:
-        path = path.replace('sonic-db:', '')
-        xpath += ' ' + path
-        xvalue += ' ""'
-    for update in update_list:
-        update = update.replace('sonic-db:', '')
-        result = update.rsplit(':', 1)
-        xpath += ' ' + result[0]
-        xvalue += ' ' + result[1]
-    for replace in replace_list:
-        replace = replace.replace('sonic-db:', '')
-        result = replace.rsplit(':', 1)
-        xpath += ' ' + result[0]
-        if '#' in result[1]:
-            xvalue += ' ""'
-        else:
-            xvalue += ' ' + result[1]
-    cmd += '--xpath ' + xpath
-    cmd += ' '
-    cmd += '--value ' + xvalue
-    # There is a chance that the network connection lost between PTF and switch due to table entry timeout
-    # It would lead to execution failure of py_gnmicli.py. The ping action would trigger arp and mac table refresh.
-    if ":" in ip:
-        ptfhost.shell(f"ping6 {ip} -c 3", module_ignore_errors=True)
-    else:
-        ptfhost.shell(f"ping {ip} -c 3", module_ignore_errors=True)
-
-    # Health check to make sure the gnmi server is listening on port
-    health_check_cmd = f"sudo ss -ltnp | grep {env.gnmi_port} | grep {env.gnmi_process}"
-
-    wait_until(120, 1, 5,
-               lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0)
-
-    output = ptfhost.shell(cmd, module_ignore_errors=True)
-
-    stdout = output.get("stdout") or ""
-    stderr = output.get("stderr") or ""
-    rc = output.get("rc", 1)
-    combined = f"{stdout}\n{stderr}"
-
-    if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
-
-
-def gnmi_get(duthost, ptfhost, path_list):
-    """
-    Send GNMI get request with GNMI client
-
-    Args:
-        duthost: fixture for duthost
-        ptfhost: fixture for ptfhost
-        path_list: list for get path
-
-    Returns:
-        msg_list: list for get result
-    """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
-    port = env.gnmi_port
-    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
-    cmd += '--timeout 30 '
-    cmd += '-t %s -p %u ' % (ip, port)
-    cmd += '-xo sonic-db '
-    cmd += '-rcert /root/gnmiCA.pem '
-    cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
-    cmd += '--encoding 4 '
-    cmd += '-m get '
-    cmd += '--xpath '
-    for path in path_list:
-        path = path.replace('sonic-db:', '')
-        cmd += " " + path
-    output = ptfhost.shell(cmd, module_ignore_errors=True)
-    msg = output['stdout'].replace('\\', '')
-    error = "GRPC error\n"
-    if error in msg:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        result = msg.split(error, 1)
-        raise Exception("GRPC error:" + result[1])
-    mark = 'The GetResponse is below\n' + '-'*25 + '\n'
-    if mark in msg:
-        result = msg.split(mark, 1)
-        msg_list = result[1].split('-'*25)[0:-1]
-        return [msg.strip("\n") for msg in msg_list]
-    else:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        raise Exception("error:" + msg)
-
-
-# py_gnmicli does not fully support POLLING mode
-# Use gnmi_cli instead
-def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
-    """
-    Send GNMI subscribe request with GNMI client
-
-    Args:
-        duthost: fixture for duthost
-        ptfhost: fixture for ptfhost
-        path_list: list for get path
-        interval_ms: interval, unit is ms
-        count: update count
-
-    Returns:
-        msg: gnmi client output
-    """
-    if path_list is None:
-        logger.error("path_list is None")
-        return "", ""
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-    ip = f"[{duthost.mgmt_ip}]" if dut_facts.get('is_mgmt_ipv6_only', False) else duthost.mgmt_ip
-    port = env.gnmi_port
-    interval = interval_ms / 1000.0
-    # Run gnmi_cli in gnmi container as workaround
-    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
-    cmd += "-logtostderr "
-    # Use sonic-db as default origin
-    cmd += '-origin=sonic-db '
-    cmd += '-query_type=polling '
-    cmd += '-polling_interval %us -count %u ' % (int(interval), count)
-    for path in path_list:
-        path = path.replace('sonic-db:', '')
-        cmd += '-q %s ' % (path)
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    return output['stdout'], output['stderr']
-
-
-def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, count, origin=None, target=None):
-    """
-    Send GNMI subscribe request with GNMI client
-
-    Args:
-        duthost: fixture for duthost
-        ptfhost: fixture for ptfhost
-        path_list: list for get path
-        interval_ms: interval, unit is ms
-        count: update count
-
-    Returns:
-        msg: gnmi client output
-    """
-    if path_list is None:
-        logger.error("path_list is None")
-        return "", ""
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
-    port = env.gnmi_port
-    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
-    cmd += '--timeout 30 '
-    cmd += '-t %s -p %u ' % (ip, port)
-    if origin:
-        cmd += f'-xo {origin} '
-    if target:
-        cmd += f'-xt {target} '
-    cmd += '-rcert /root/gnmiCA.pem '
-    cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
-    cmd += '--encoding 4 '
-    cmd += '-m subscribe '
-    cmd += '--subscribe_mode 0 --submode 2 --create_connections 1 '
-    cmd += '--interval %u --update_count %u ' % (interval_ms, count)
-    cmd += '--xpath '
-    for path in path_list:
-        path = path.replace('sonic-db:', '')
-        cmd += " " + path
-    output = ptfhost.shell(cmd, module_ignore_errors=True)
-    msg = output['stdout'].replace('\\', '')
-    return msg, output['stderr']
-
-
-def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
-    """
-    Send GNMI subscribe request with GNMI client
-
-    Args:
-        duthost: fixture for duthost
-        ptfhost: fixture for ptfhost
-        path_list: list for get path
-        count: update count
-
-    Returns:
-        msg: gnmi client output
-    """
-    if path_list is None:
-        logger.error("path_list is None")
-        return "", ""
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
-    port = env.gnmi_port
-    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
-    cmd += '--timeout 120 '
-    cmd += '-t %s -p %u ' % (ip, port)
-    cmd += '-xo sonic-db '
-    cmd += '-rcert /root/gnmiCA.pem '
-    cmd += '-pkey /root/gnmiclient.key '
-    cmd += '-cchain /root/gnmiclient.crt '
-    cmd += '--encoding 4 '
-    cmd += '-m subscribe '
-    cmd += '--subscribe_mode 0 --submode 1 --create_connections 1 '
-    cmd += '--update_count %u ' % count
-    cmd += '--xpath '
-    for path in path_list:
-        path = path.replace('sonic-db:', '')
-        cmd += " " + path
-    output = ptfhost.shell(cmd, module_ignore_errors=True)
-    msg = output['stdout'].replace('\\', '')
-    return msg, output['stderr']
-
-
-def gnoi_reboot(duthost, method, delay, message):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-    ip = f"[{duthost.mgmt_ip}]" if dut_facts.get('is_mgmt_ipv6_only', False) else duthost.mgmt_ip
-    port = env.gnmi_port
-    # Run gnoi_client in gnmi container as workaround
-    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
-    cmd += "-logtostderr -rpc Reboot "
-    cmd += '-jsonin "{\\\"method\\\":%d, \\\"delay\\\":%d, \\\"message\\\":\\\"%s\\\"}"' % (method, delay, message)
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        logger.error(output['stderr'])
-        return -1, output['stderr']
-    else:
-        return 0, output['stdout']
-
-
-def gnoi_request(duthost, localhost, module, rpc, request_json_data):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-    ip = f"[{duthost.mgmt_ip}]" if dut_facts.get('is_mgmt_ipv6_only', False) else duthost.mgmt_ip
-    port = env.gnmi_port
-    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
-    cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
-    cmd += f'-jsonin \'{request_json_data}\''
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        logger.error(output['stderr'])
-        return -1, output['stderr']
-    else:
-        return 0, output['stdout']
-
-
-def extract_gnoi_response(output):
-    """
-    Extract the JSON response from the gNOI client output
-
-    Args:
-        output: gNOI client output, the output is in the form of
-                "Module RPC: <JSON response>", e.g. "System Time\n {"time":1735921221909617549}"
-
-    Returns:
-        json response: JSON response extracted from the output
-    """
-    try:
-        if '\n' not in output:
-            logging.error("Invalid output format: {}, expecting 'Module RPC: <JSON response>'.".format(output))
-            return None
-        response_line = output.split('\n')[1]
-        return json.loads(response_line)
-    except json.JSONDecodeError:
-        logging.error("Failed to parse JSON: {}".format(response_line))
-        return None
-
-
-def is_reboot_inactive(duthost, localhost):
-    ret, msg = gnoi_request(duthost, localhost, "System", "RebootStatus", "")
-    if ret != 0:
-        return False
-    status = extract_gnoi_response(msg)
-    return status and not status.get("active", True)
-
-
-def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_data):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-
-    ip = get_dpu_ip(duthost, dpu_index)
-    if ip is None:
-        return -1, "Failed to get DPU IP address"
-
-    port = get_dpu_port(duthost, dpu_index)
-    if port is None:
-        return -1, "Failed to get DPU gNMI port"
-
-    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
-    cmd += "-insecure "
-    cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
-    cmd += f'-jsonin \'{request_json_data}\''
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        logging.error(output['stderr'])
-        return -1, output['stderr']
-    else:
-        return 0, output['stdout']
+aW1wb3J0IGxvZ2dpbmcKaW1wb3J0IHRpbWUKaW1wb3J0IHB5dGVzdAoKZnJvbSB0ZXN0cy5jb21t
+b24udXRpbGl0aWVzLmhvc3RuYW1lX2NoZWNrIGltcG9ydCBjaGVja19ob3N0bmFtZQpmcm9tIHRl
+c3RzLmNvbW1vbi5oZWxwZXJzLmR1dF91dGlscyBpbXBvcnQgY2hlY2tfY29udGFpbmVyX3N0YXRl
+CmZyb20gdGVzdHMuY29tbW9uLnV0aWxpdGllcy53YWl0X3VudGlsIGltcG9ydCB3YWl0X3VudGls
+CmZyb20gZ25taV9lbnYgaW1wb3J0IEdOTUlFbnZpcm9ubWVudApmcm9tIHRlc3RzLmNvbW1vbi5o
+ZWxwZXJzLm50cF9oZWxwZXIgaW1wb3J0IEdldE50cERhZW1vbkluVXNlIGFzIGdldF9udHBfZGFl
+bW9uX2luX3VzZSwgTnRwRGFlbW9uCgpsb2dnZXIgPSBsb2dnaW5nLmdldExvZ2dlcihfX25hbWVf
+XykKCkdOTUlfU0VSVkVSX1NUQVJUX1dBSVRfVElNRSA9IDYwCgoKZGVmIGdubWlfY29udGFpbmVy
+KGR1dGhvc3QpOgogICAgZW52ID0gR05NSUVudmlyb25tZW50KGR1dGhvc3QsIEdOTUlFbnZpcm9u
+bWVudC5HTk1JX01PREUpCiAgICByZXR1cm4gZW52LmdubWlfY29udGFpbmVyCgoKZGVmIGFwcGx5
+X2NlcnRfY29uZmlnKGR1dGhvc3QpOgogICAgZW52ID0gR05NSUVudmlyb25tZW50KGR1dGhvc3Qs
+IEdOTUlFbnZpcm9ubWVudC5HTk1JX01PREUpCiAgICAjIEdldCBzdWJ0eXBlCiAgICBjZmdfZmFj
+dHMgPSBkdXRob3N0LmNvbmZpZ19mYWN0cyhob3N0PWR1dGhvc3QuaG9zdG5hbWUsIHNvdXJjZT0i
+cnVubmluZyIpWydhbnNpYmxlX2ZhY3RzJ10KICAgIG1ldGFkYXRhID0gY2ZnX2ZhY3RzWyJERVZJ
+Q0VfTUVUQURBVEEiXVsibG9jYWxob3N0Il0KICAgIHN1YnR5cGUgPSBtZXRhZGF0YS5nZXQoJ3N1
+YnR5cGUnLCBOb25lKQogICAgIyBTdG9wIGFsbCBydW5uaW5nIHByb2dyYW1zIGFuZCB0cmFjayB3
+aGljaCBvbmVzIHdlIHN0b3BwZWQKICAgIHN0b3BwZWRfcHJvZ3JhbXMgPSBbXQogICAgZHV0X2Nv
+bW1hbmQgPSAiZG9ja2VyIGV4ZWMgJXMgc3VwZXJ2aXNvcmN0bCBzdGF0dXMiICUgKGVudi5nbm1p
+X2NvbnRhaW5lcikKICAgIG91dHB1dCA9IGR1dGhvc3Quc2hlbGwoZHV0X2NvbW1hbmQsIG1vZHVs
+ZV9pZ25vcmVfZXJyb3JzPVRydWUpCiAgICBmb3IgbGluZSBpbiBvdXRwdXRbJ3N0ZG91dF9saW5l
+cyddOgogICAgICAgIHJlcyA9IGxpbmUuc3BsaXQoKQogICAgICAgIGlmIGxlbihyZXMpIDwgMzoK
+ICAgICAgICAgICAgY29udGludWUKICAgICAgICBwcm9ncmFtID0gcmVzWzBdCiAgICAgICAgc3Rh
+dHVzID0gcmVzWzFdCiAgICAgICAgaWYgc3RhdHVzID09ICJSVU5OSU5HIjoKICAgICAgICAgICAg
+ZHV0X2NvbW1hbmQgPSAiZG9ja2VyIGV4ZWMgJXMgc3VwZXJ2aXNvcmN0bCBzdG9wICVzIiAlIChv
+bnYuZ25taV9jb250YWluZXIsIHByb2dyYW0pCiAgICAgICAgICAgIGR1dGhvc3Quc2hlbGwoZHV0
+X2NvbW1hbmQsIG1vZHVsZV9pZ25vcmVfZXJyb3JzPVRydWUpCiAgICAgICAgICAgIHN0b3BwZWRf
+cHJvZ3JhbXMuYXBwZW5kKHByb2dyYW0pCiAgICBkdXRfY29tbWFuZCA9ICJkb2NrZXIgZXhlYyAl
+cyBwa2lsbCAlcyIgJSAoZW52LmdubWlfY29udGFpbmVyLCBlbnYuZ25taV9wcm9jZXNzKQogICAg
+ZHV0aG9zdC5zaGVsbChkdXRfY29tbWFuZCwgbW9kdWxlX2lnbm9yZV9lcnJvcnM9VHJ1ZSkKICAg
+IGR1dF9jb21tYW5kID0gImRvY2tlciBleGVjICVzIGJhc2ggLWMgIiAlIGVudi5nbm1pX2NvbnRh
+aW5lcgogICAgZHV0X2NvbW1hbmQgKz0gIlwiL3Vzci9iaW4vbm9odXAgL3Vzci9zYmluLyVzIC1s
+b2d0b3N0ZGVyciAtLXBvcnQgJXMgIiAlIChlbnYuZ25taV9wcm9jZXNzLCBlbnYuZ25taV9wb3J0
+KQogICAgZHV0X2NvbW1hbmQgKz0gIi0tc2VydmVyX2NydCAvZXRjL3NvbmljL3RlbGVtZXRyeS9n
+bm1pc2VydmVyLmNydCAtLXNlcnZlcl9rZXkgL2V0Yy9zb25pYy90ZWxlbWV0cnkvZ25taXNlcnZl
+ci5rZXkgIgogICAgZHV0X2NvbW1hbmQgKz0gIi0tY29uZmlnX3RhYmxlX25hbWUgR05NSV9DTElF
+TlRfQ0VSVCAiCiAgICBkdXRfY29tbWFuZCArPSAiLS1jbGllbnRfYXV0aCBjZXJ0ICIKICAgIGR1
+dF9jb21tYW5kICs9ICItLWVuYWJsZV9jcmw9dHJ1ZSAiCiAgICBpZiBzdWJ0eXBlID09ICdTbWFy
+dFN3aXRjaCc6CiAgICAgICAgZHV0X2NvbW1hbmQgKz0gIi0tem1xX2FkZHJlc3M9dGNwOi8vMTI3
+LjAuMC4xOjgxMDAgIgogICAgZHV0X2NvbW1hbmQgKz0gIi0tY2FfY3J0IC9ldGMvc29uaWMvdGVs
+ZW1ldHJ5L2dubWlDQS5wZW0gLWdubWlfbmF0aXZlX3dyaXRlPXRydWUgLXY9MTAgPi9yb290L2du
+bWkubG9nIDI+JjEgJlwiIgogICAgZHV0aG9zdC5zaGVsbChkdXRfY29tbWFuZCkKCiAgICAjIFNl
+dHVwIGdubWkgY2xpZW50IGNlcnQgY29tbW9uIG5hbWUKICAgIHJvbGUgPSAiZ25taV9yZWFkd3Jp
+dGUsZ25taV9jb25maWdfZGJfcmVhZHdyaXRlLGdubWlfYXBwbF9kYl9yZWFkd3JpdGUsZ25taV9k
+cHVfYXBwbF9kYl9yZWFkd3JpdGUsZ25vaV9yZWFkd3JpdGUiCiAgICBhZGRfZ25taV9jbGllbnRf
+Y29tbW9uX25hbWUoZHV0aG9zdCwgInRlc3QuY2xpZW50LmdubWkuc29uaWMiLCByb2xlKQogICAg
+YWRkX2dub2lfY2xpZW50X2NvbW1vbl9uYW1lKGR1dGhvc3QsICJ0ZXN0LmNsaWVudC5nbnVpLnNv
+bmljIiwgcm9sZSkKCiAgICB0aW1lLnNsZWVwKEdOTUlfU0VSVkVSX1NUQVJUX1dBSVRfVElNRSkK
+ICAgIGR1dF9jb21tYW5kID0gInN1ZG8gbmV0c3RhdCAtbmFwIHwgZ3JlcCAlZCIgJSBlbnYuZ25t
+aV9wb3J0CiAgICBvdXRwdXQgPSBkdXRob3N0LnNoZWxsKGR1dF9jb21tYW5kLCBtb2R1bGVfaWdu
+b3JlX2Vycm9ycz1UcnVlKQogICAgaWYgZHV0aG9zdC5mYWN0c1sncGxhdGZvcm0nXSAhPSAneDg2
+XzY0LWt2bV94ODZfNjQtcjAnOgogICAgICAgIGlzX3RpbWVfc3luY2VkID0gd2FpdF91bnRpbCg4
+MCwgMywgMCwgY2hlY2tfc3lzdGVtX3RpbWVfc3luYywgZHV0aG9zdCkKICAgICAgICBhc3NlcnQg
+aXNfdGltZV9zeW5jZWQsICJGYWlsZWQgdG8gc3luY2hyb25pemUgRFVUIHN5c3RlbSB0aW1lIHdp
+dGggTlRQIFNlcnZlciIKICAgIGlmIGVudi5nbm1pX3Byb2Nlc3Mgbm90IGluIG91dHB1dFsnc3Rk
+b3V0J106CiAgICAgICAgIyBEdW1wIHRjcCBwb3J0IHN0YXR1cyBhbmQgZ25taSBsb2cKICAgICAg
+ICBsb2dnZXIuaW5mbygiVENQIHBvcnQgc3RhdHVzOiAiICsgb3V0cHV0WydzdGRvdXQnXSkKICAg
+ICAgICBkdW1wX2dubWlfbG9nKGR1dGhvc3QpCiAgICAgICAgZHVtcF9zeXN0ZW1fc3RhdHVzKGR1
+dGhvc3QpCiAgICAgICAgcHl0ZXN0LmZhaWwoIkZhaWxlZCB0byBzdGFydCBnbm1pIHNlcnZlciIp
+CiAgICByZXR1cm4gc3RvcHBlZF9wcm9ncmFtcwoKCmRlZiBjaGVja19nbm1pX3Byb2Nlc3MoZHV0
+aG9zdCk6CiAgICAiIiIKICAgIE1ha2Ugc3VyZSB0aGVyZSdzIG5vIEdOTUkgcHJvY2VzcyBydW5u
+aW5nLgogICAgIiIiCiAgICBlbnYgPSBHTk1JRW52aXJvbm1lbnQoZHV0aG9zdCwgR05NSUVudmly
+b25tZW50LkdOTUlfTU9ERSkKICAgIGR1dF9jb21tYW5kID0gImRvY2tlciBleGVjICVzIHBncmVw
+IC1mICVzIiAlIChlbnYuZ25taV9jb250YWluZXIsIGVudi5nbm1pX3Byb2Nlc3MpCiAgICBvdXRw
+dXQgPSBkdXRob3N0LnNoZWxsKGR1dF9jb21tYW5kLCBtb2R1bGVfaWdub3JlX2Vycm9ycz1UcnVl
+KQogICAgcmV0dXJuIG91dHB1dFsnc3Rkb3V0J10uc3RyaXAoKSA9PSAiIgoKCmRlZiBjaGVja19n
+bm1pX3N0YXR1cyhkdXRob3N0KToKICAgIGVudiA9IEdOTUlFbnZpcm9ubWVudChkdXRob3N0LCBH
+Tk1JRW52aXJvbm1lbnQuR05NSV9NT0RFKQogICAgZHV0X2NvbW1hbmQgPSAiZG9ja2VyIGV4ZWMg
+JXMgc3VwZXJ2aXNvcmN0bCBzdGF0dXMgJXMiICUgKGVudi5nbm1pX2NvbnRhaW5lciwgZW52Lmdu
+bWlfcHJvZ3JhbSkKICAgIG91dHB1dCA9IGR1dGhvc3Quc2hlbGwoZHV0X2NvbW1hbmQsIG1vZHVs
+ZV9pZ25vcmVfZXJyb3JzPVRydWUpCiAgICByZXR1cm4gIlJVTk5JTkciIGluIG91dHB1dFsnc3Rk
+b3V0J10KCgpkZWYgX2NoZWNrX21vbml0X2NvbnRhaW5lcl9jaGVja2VyKGR1dGhvc3QpOgogICAg
+IiIiQ2hlY2sgaWYgbW9uaXQgY29udGFpbmVyX2NoZWNrZXIgc2VydmljZSBpcyBoZWFsdGh5LgoK
+ICAgIEFmdGVyIGdOTUkgY2VydCBjb25maWcgcmVjb3ZlcnksIG1vbml0IG5lZWRzIHRpbWUgdG8g
+cmUtZXZhbHVhdGUKICAgIGNvbnRhaW5lciBzdGF0dXMuIFRoaXMgZnVuY3Rpb24gY2hlY2tzIGlm
+IGNvbnRhaW5lcl9jaGVja2VyIGhhcwogICAgcmV0dXJuZWQgdG8gYSBoZWFsdGh5IHN0YXRlIChP
+SyBvciBTdGF0dXMgb2spLgogICAgIiIiCiAgICBtb25pdF9zZXJ2aWNlcyA9IGR1dGhvc3QuZ2V0
+X21vbml0X3NlcnZpY2VzX3N0YXR1cygpCiAgICBpZiBub3QgbW9uaXRfc2VydmljZXM6CiAgICAg
+ICAgcmV0dXJuIEZhbHNlCiAgICBjb250YWluZXJfY2hlY2tlciA9IG1vbml0X3NlcnZpY2VzLmdl
+dCgiY29udGFpbmVyX2NoZWNrZXIiLCB7fSkKICAgIHN0YXR1cyA9IGNvbnRhaW5lcl9jaGVja2Vy
+LmdldCgic2VydmljZV9zdGF0dXMiLCAiIikKICAgIHJldHVybiBzdGF0dXMgaW4gKCJPSyIsICJT
+dGF0dXMgb2siKQoKCmRlZiByZWNvdmVyX2NlcnRfY29uZmlnKGR1dGhvc3QsIHN0b3BwZWRfcHJv
+Z3JhbXM9Tm9uZSk6CiAgICBlbnYgPSBHTk1JRW52aXJvbm1lbnQoZHV0aG9zdCwgR05NSUVudmly
+b25tZW50LkdOTUlfTU9ERSkKICAgICMgS2lsbCB0aGUgR05NSSBwcm9jZXNzCiAgICBkdXRfY29t
+bWFuZCA9ICJkb2NrZXIgZXhlYyAlcyBwa2lsbCAlcyIgJSAoZW52LmdubWlfY29udGFpbmVyLCBl
+bnYuZ25taV9wcm9jZXNzKQogICAgZHV0aG9zdC5zaGVsbChkdXRfY29tbWFuZCwgbW9kdWxlX2ln
+bm9yZV9lcnJvcnM9VHJ1ZSkKICAgIHdhaXRfdW50aWwoNjAsIDEsIDAsIGNoZWNrX2dubWlfcHJv
+Y2VzcywgZHV0aG9zdCkKICAgICMgUmVzdG9yZSBvbmx5IHRoZSBwcm9ncmFtcyB0aGF0IGFwcGx5
+X2NlcnRfY29uZmlnIGV4cGxpY2l0bHkgc3RvcHBlZAogICAgaWYgc3RvcHBlZF9wcm9ncmFtczoK
+ICAgICAgICBmb3IgcHJvZ3JhbSBpbiBzdG9wcGVkX3Byb2dyYW1zOgogICAgICAgICAgICBsb2dn
+ZXIuaW5mbygicmVjb3Zlcl9jZXJ0X2NvbmZpZzogc3RhcnRpbmcgc3RvcHBlZCBwcm9ncmFtICVz
+IGluIGNvbnRhaW5lciAlcyIsIHByb2dyYW0sIGVudi5nbm1pX2NvbnRhaW5lcikKICAgICAgICAg
+ICAgZHV0X2NvbW1hbmQgPSAiZG9ja2VyIGV4ZWMgJXMgc3VwZXJ2aXNvcmN0bCBzdGFydCAlcyIg
+JSAoZW52LmdubWlfY29udGFpbmVyLCBwcm9ncmFtKQogICAgICAgICAgICBzdGFydF9vdXRwdXQg
+PSBkdXRob3N0LnNoZWxsKGR1dF9jb21tYW5kLCBtb2R1bGVfaWdub3JlX2Vycm9ycz1UcnVlKQog
+ICAgICAgICAgICBsb2dnZXIuZGVidWcoInJlY292ZXJfY2VydF9jb25maWc6IHN0YXJ0ICVzIHJl
+c3VsdDogJXMiLCBwcm9ncmFtLCBzdGFydF9vdXRwdXRbInN0ZG91dCJdKQoKICAgICMgUmVtb3Zl
+IGdubWkgY2xpZW50IGNlcnQgY29tbW9uIG5hbWUKICAgIGRlbF9nbm1pX2NsaWVudF9jb21tb25f
+bmFtZShkdXRob3N0LCAidGVzdC5jbGllbnQuZ25taS5zb25pYyIpCiAgICBkZWxfZ25taV9jbGll
+bnRfY29tbW9uX25hbWUoZHV0aG9zdCwgInRlc3QuY2xpZW50LnJldm9rZWQuZ25taS5zb25pYyIp
+CiAgICByZXQgPSB3YWl0X3VudGlsKDMwMCwgMywgMCwgY2hlY2tfZ25taV9zdGF0dXMsIGR1dGhv
+c3QpCiAgICBpZiBub3QgcmV0OgogICAgICAgIGR1dF9jb21tYW5kID0gInRhaWwgL3Zhci9sb2cv
+Z25taS5sb2ciCiAgICAgICAgb3V0cHV0ID0gZHV0aG9zdC5zaGVsbChkdXRfY29tbWFuZCwgbW9k
+dWxlX2lnbm9yZV9lcnJvcnM9VHJ1ZSkKICAgICAgICBsb2dnZXIuZXJyb3IoIkdOTUkgc2Vydmlj
+ZSBmYWlsZWQgdG8gc3RhcnQuIEdOTUkgbG9nOiB7fSIuZm9ybWF0KG91dHB1dFsnc3Rkb3V0J10p
+KQogICAgICAgIHB5dGVzdC5mYWlsKCJGYWlsZWQgdG8gcmVjb3ZlciBHTk1JIGNsaWVudCBjZXJ0
+IGNvbmZpZ3VyYXRpb24uIikKCiAgICAjIFJlc3RhcnQgdGVsZW1ldHJ5IGNvbnRhaW5lciBpZiBp
+dCB3YXMgc3RvcHBlZCBkdXJpbmcgY2VydCBjb25maWcgY2hhbmdlCiAgICAjIGFwcGx5X2NlcnRf
+Y29uZmlnIG1heSB0cmlnZ2VyIGN0cm1ncmQgdG8gc3RvcCB0aGUgdGVsZW1ldHJ5IGNvbnRhaW5l
+cgogICAgaWYgbm90IGNoZWNrX2NvbnRhaW5lcl9zdGF0ZShkdXRob3N0LCAidGVsZW1ldHJ5Iiwg
+c2hvdWxkX2JlX3J1bm5pbmc9VHJ1ZSk6CiAgICAgICAgbG9nZ2VyLmluZm8oIlRlbGVtZXRyeSBj
+b250YWluZXIgaXMgbm90IHJ1bm5pbmcgYWZ0ZXIgY2VydCBjb25maWcgcmVjb3ZlcnksIHJlc3Rh
+cnRpbmcgaXQiKQogICAgICAgIGR1dGhvc3Quc2hlbGwoInN1ZG8gc3lzdGVtY3RsIHJlc3RhcnQg
+dGVsZW1ldHJ5IiwgbW9kdWxlX2lnbm9yZV9lcnJvcnM9VHJ1ZSkKCiAgICAjIFdhaXQgZm9yIG1v
+bml0IGNvbnRhaW5lcl9jaGVja2VyIHRvIHJlcG9ydCBoZWFsdGh5IHN0YXR1cy4KICAgICMgQWZ0
+ZXIgcmVzdGFydGluZyBwcm9jZXNzZXMvY29udGFpbmVycywgbW9uaXQgbmVlZHMgdGltZSB0byBy
+ZS1ldmFsdWF0ZQogICAgIyBzZXJ2aWNlIHN0YXR1cy4gV2l0aG91dCB0aGlzIHdhaXQsIHBvc3Qt
+dGVzdCBzYW5pdHkgY2hlY2sgbWF5IHNlZSBzdGFsZQogICAgIyAiU3RhdHVzIGZhaWxlZCIgZnJv
+bSBjb250YWluZXJfY2hlY2tlciBhbmQgZmFpbCB0aGUgdGVzdCBvbiB0ZWFyZG93bi4KICAgIGlm
+IG5vdCB3YWl0X3VudGlsKDEyMCwgMTAsIDMwLCBfY2hlY2tfbW9uaXRfY29udGFpbmVyX2NoZWNr
+ZXIsIGR1dGhvc3QpOgogICAgICAgIGxvZ2dlci53YXJuaW5nKCJNb25pdCBjb250YWluZXJfY2hl
+Y2tlciBkaWQgbm90IHJlY292ZXIgdG8gaGVhbHRoeSBzdGF0dXMgYWZ0ZXIgY2VydCBjb25maWcg
+cmVjb3ZlcnkiKQo=
