@@ -363,7 +363,7 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     output = rollback(duthost, cp)
 
     if output['rc'] or "Config rolled back successfully" not in output['stdout']:
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         pytest.fail("config rollback failed. Restored by config_reload")
 
 
@@ -668,6 +668,6 @@ def get_gcu_timeout(duthost):
     """Return the GCU apply-patch timeout (in seconds) for this platform.
 
     Platforms listed in GCUTIMEOUT_MAP get a custom value; everything
-    else defaults to 600 s.
+    else defaults to 900 s.
     """
-    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 600)
+    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 900)

@@ -1680,6 +1680,12 @@ ecmp/test_ecmp_balance.py:
       - "topo_type not in ['t1', 't0']"
       - "asic_type not in ['broadcom']"
 
+ecmp/test_ecmp_group_members_increment.py:
+  skip:
+    reason: "Test only applies to Broadcom DNX platforms"
+    conditions:
+      - "asic_subtype not in ['broadcom-dnx']"
+
 ecmp/test_ecmp_sai_value.py:
   skip:
     reason: "Only support Broadcom T1/T0 topology with 20230531 and above image, 7050cx3 T1 doesn't enable this feature"
@@ -3001,7 +3007,7 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
 #######################################
 #####           ha              #####
 #######################################
-ha/test_ha_bfd_pin.py:
+ha/:
   skip:
     conditions_logical_operator: or
     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
@@ -3009,96 +3015,6 @@ ha/test_ha_bfd_pin.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
       - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_bgp_down.py:
-  skip:
-    conditions_logical_operator: or
-    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-      - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_config_reload.py:
-  skip:
-    conditions_logical_operator: or
-    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-      - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_dpu_power_down.py:
-  skip:
-    conditions_logical_operator: or
-    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-      - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_dpu_process_crash.py:
-  skip:
-    conditions_logical_operator: or
-    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-      - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_link_failure.py:
-  skip:
-    conditions_logical_operator: or
-    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-      - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_npu_process_crash.py:
-  skip:
-    conditions_logical_operator: or
-    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-      - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_npu_reboot.py:
-  skip:
-    conditions_logical_operator: or
-    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-      - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_planned_shutdown.py:
-  skip:
-    conditions_logical_operator: or
-    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-      - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_reconfigure.py:
-  skip:
-     conditions_logical_operator: or
-     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-     conditions:
-       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-       - "topo_name not in 't1-smartswitch-ha'"
-
-ha/test_ha_steady_state_pl.py:
-   skip:
-     conditions_logical_operator: or
-     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
-     conditions:
-       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
-       - "topo_name not in 't1-smartswitch-ha'"
 
 #######################################
 #####           hash              #####
@@ -4019,7 +3935,7 @@ pc/test_po_voq.py:
   skip:
     reason: "Skip for non t2 or Skip since there is no portchannel configured or no portchannel member exists in current topology."
     conditions:
-      - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
+      - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
 pc/test_retry_count.py:
   skip:
@@ -4856,11 +4772,12 @@ route/test_route_flap.py:
 
 route/test_route_flow_counter.py:
   skip:
-    reason: "Test not supported for cisco-8122 platform / Route flow counter is not supported on vs platform."
+    reason: "Test not supported for cisco-8122 platform / Route flow counter is not supported on vs platform / VPP platform is skipped while route flow counter issues are active."
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs']"
+      - "asic_type in ['vpp'] and (https://github.com/sonic-net/sonic-mgmt/issues/24467 or https://github.com/sonic-net/sonic-platform-vpp/issues/229)"
   xfail:
     reason: "xfail for IPv6-only topologies, didn't use IPv6 when should"
     conditions:
@@ -5445,18 +5362,6 @@ telemetry/test_events.py:
     conditions:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-buildimage/issues/19943
-
-telemetry/test_events.py::test_events:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20758"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20758 and '-v6-' in topo_name"
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions_logical_operator: and
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 telemetry/test_telemetry.py:
   skip:
