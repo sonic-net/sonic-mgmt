@@ -35,11 +35,13 @@ def run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigg
         thread = threading.Thread(target=_listen)
         thread.start()
         time.sleep(pre_trigger_wait)  # let gNMI subscription establish before triggering
-        if ptfadapter is None:
-            trigger(duthost, tbinfo)
-        else:
-            trigger(duthost, tbinfo, ptfadapter)
-        thread.join()
+        try:
+            if ptfadapter is None:
+                trigger(duthost, tbinfo)
+            else:
+                trigger(duthost, tbinfo, ptfadapter)
+        finally:
+            thread.join()  # always join, even if trigger raises, to avoid thread leak
         if errors:
             raise errors[0]
     else:
