@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def collect_lldp_diagnostics(duthost):
     """
-    Collect LLDP stack diagnostics on every test run.
+    Collect LLDP stack diagnostics when chassis data is missing from SNMP.
     """
     logger.warning("=== LLDP stack diagnostics ===")
     cmds = [
@@ -81,9 +81,12 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
 
     logger.info('snmp_lldp: {}'.format(snmp_facts['snmp_lldp']))
 
-    collect_lldp_diagnostics(duthost)
+    chassis_keys = ['lldpLocChassisIdSubtype', 'lldpLocChassisId', 'lldpLocSysName', 'lldpLocSysDesc']
+    if any(k not in snmp_facts['snmp_lldp'] or "No Such Instance" in snmp_facts['snmp_lldp'][k]
+           for k in chassis_keys):
+        collect_lldp_diagnostics(duthost)
 
-    for k in ['lldpLocChassisIdSubtype', 'lldpLocChassisId', 'lldpLocSysName', 'lldpLocSysDesc']:
+    for k in chassis_keys:
         assert snmp_facts['snmp_lldp'][k], (
             "LLDP fact not found for key: {}. "
             "SNMP facts: {}"
