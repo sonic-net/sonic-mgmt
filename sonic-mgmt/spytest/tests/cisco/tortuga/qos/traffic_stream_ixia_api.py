@@ -908,3 +908,160 @@ def compute_ip_tos(dscp, ect=ECN_ECT_0):
         raise ValueError(f"ECT must be 0-3, got {ect}")
     return (dscp << 2) | ect
 
+
+
+# ---------------------------------------------------------------------------
+# PFC XOFF stream creation (moved here from qos_test_utils.py)
+# ---------------------------------------------------------------------------
+
+# PFC TC table - one entry per TC (0..7). Used as the data_pattern for raw
+# L2 PFC XOFF frames. Same format as the working test_pfc_stream.py.
+PFC_TC_TABLE = [
+    '0101 0001 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0002 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0004 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0008 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0010 0000 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0020 0000 0000 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0040 0000 0000 0000 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+    '0101 0080 0000 0000 0000 0000 0000 0000 0000 ffff 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000',
+]
+
+
+def create_pfc_xoff_stream(tg_unused, tgen_port, src_mac, rate_fps, tc=3,
+                           frame_count=None, reset_port=True):
+    """
+    Create a PFC XOFF stream for specified TC.
+    Creates raw L2 traffic and directly configures L2 header via IxNetwork API
+    to work around HLTAPI limitations with raw traffic.
+
+    Args:
+        tg_unused: TGEN handle (IGNORED - we get fresh handle)
+        tgen_port: TGEN port name (e.g., 'T1D4P1')
+        src_mac: Source MAC address in format 'xx:xx:xx:xx:xx:xx'
+        rate_fps: Frame rate in frames per second
+        tc: Traffic class (0-7), default 3
+        frame_count: If None (default), stream is continuous and must be
+            stopped explicitly. If an integer, the stream is configured as
+            a single_burst that transmits exactly ``frame_count`` frames
+            and self-terminates -- recommended for short bursts since
+            IxNetwork's stop on a continuous PFC stream can take many
+            seconds to take effect.
+        reset_port: If True (default), reset the TGEN port to clear any
+            existing traffic items before creating the stream. Set to
+            False if a peer traffic stream (e.g. a data stream with this
+            port as its destination) is already active on this port --
+            the reset would otherwise wipe it.
+
+    Returns:
+        str: Stream ID
+    """
+    from spytest.tgen.tg import get_ixnet
+
+    PFC_DST_MAC = '01:80:C2:00:00:01'
+    PFC_ETHERTYPE = '8808'
+
+    # Get tg_handle from the target port
+    tg_handle, port_handle = tgapi.get_handle_byname(tgen_port)
+
+    st.log(f"create_pfc_xoff_stream: port={tgen_port}, port_handle={port_handle}")
+    st.log(f"  src_mac: {src_mac}, rate_fps: {rate_fps}, tc: {tc}")
+
+    # Reset/clear any existing traffic items on this port (caller can
+    # opt-out when peer streams targeting this port must be preserved).
+    if reset_port:
+        st.banner("Resetting port to clear existing traffic items")
+        tg_handle.tg_traffic_control(action='reset', port_handle=port_handle)
+    else:
+        st.log("Skipping port reset (reset_port=False) to preserve peer streams")
+
+    st.banner("Creating raw L2 PFC stream")
+    tx_kwargs = dict(
+        mode='create',
+        port_handle=port_handle,
+        l2_encap='ethernet_ii',
+        mac_src=src_mac,
+        mac_dst=PFC_DST_MAC,
+        ether_type=PFC_ETHERTYPE,
+        data_pattern=PFC_TC_TABLE[tc],
+        data_pattern_mode='fixed',
+        rate_pps=rate_fps,
+        high_speed_result_analysis=1,
+    )
+    if frame_count is None:
+        tx_kwargs['transmit_mode'] = 'continuous'
+    else:
+        tx_kwargs['transmit_mode'] = 'single_burst'
+        tx_kwargs['pkts_per_burst'] = int(frame_count)
+        st.log(f"  Using single_burst with pkts_per_burst={int(frame_count)}")
+    result = tg_handle.tg_traffic_config(**tx_kwargs)
+
+    stream_id = result.get('stream_id')
+    st.log(f"Created PFC stream: {stream_id}")
+
+    # WORKAROUND: HLTAPI doesn't properly set L2 fields for raw traffic.
+    # We must directly configure via IxNetwork API.
+    st.banner("Fixing L2 header via IxNetwork API")
+    try:
+        ixnet = get_ixnet()
+
+        # Find the traffic item we just created
+        traffic_items = ixnet.getList('/traffic', 'trafficItem')
+        if not traffic_items:
+            st.error("No traffic items found!")
+            return stream_id
+
+        # Get the last traffic item (the one we just created)
+        ti = traffic_items[-1]
+        st.log(f"Configuring traffic item: {ti}")
+
+        # Get config element and ethernet stack
+        ce = ixnet.getList(ti, 'configElement')[0]
+        stacks = ixnet.getList(ce, 'stack')
+        eth_stack = stacks[0]  # First stack is ethernet
+        fields = ixnet.getList(eth_stack, 'field')
+
+        # Find and set L2 fields
+        # Check field path (not -name attribute) as it contains the field identifier
+        for f in fields:
+            st.log(f"Processing field: {f}")
+            if 'destinationAddress' in f:
+                ixnet.setAttribute(f, '-singleValue', PFC_DST_MAC)
+                st.log(f"Set dst_mac: {PFC_DST_MAC}")
+            elif 'sourceAddress' in f:
+                ixnet.setAttribute(f, '-singleValue', src_mac)
+                st.log(f"Set src_mac: {src_mac}")
+            elif 'etherType' in f:
+                # Must disable 'auto' mode for etherType first, then set value
+                ixnet.setAttribute(f, '-auto', 'false')
+                ixnet.setAttribute(f, '-singleValue', PFC_ETHERTYPE)
+                st.log(f"Set etherType: {PFC_ETHERTYPE} (auto=false)")
+
+        ixnet.commit()
+        st.log("IxNetwork L2 header configuration committed")
+
+        # CRITICAL: After modifying traffic config via low-level API, must regenerate
+        # This is equivalent to "Generate" in the IxNetwork GUI
+        # Must call 'generate' on each traffic item individually, then 'apply' on /traffic
+        st.log("Regenerating all traffic items...")
+        for traffic_item in traffic_items:
+            ti_name = ixnet.getAttribute(traffic_item, '-name')
+            st.log(f"  Generating: {ti_name}")
+            ixnet.execute('generate', traffic_item)
+        st.log("All traffic items regenerated")
+
+        # Apply traffic to push to hardware (equivalent to "Apply" in the GUI)
+        st.log("Applying traffic to hardware...")
+        ixnet.execute('apply', '/traffic')
+        st.log("Traffic applied to hardware")
+
+        # Wait for IxNetwork to fully push to hardware
+        st.wait(3)
+        st.log("Generate/apply complete")
+
+    except Exception as e:
+        st.error(f"Failed to configure L2 header via IxNetwork API: {e}")
+        import traceback
+        st.log(traceback.format_exc())
+
+    return stream_id

@@ -423,7 +423,7 @@ def run_ecn_xoff_test(data, congestion_point, test_name,
         if not skip_pfc_xoff_stream:
             xoff_rate = get_xoff_rate(port_speed_gbps)
             st.banner(f"Creating PFC XOFF stream FIRST: T1D4P1 at {xoff_rate} fps for TC3 (BEFORE NGPF)")
-            xoff_stream_id = qos_utils.create_pfc_xoff_stream(
+            xoff_stream_id = stream_api.create_pfc_xoff_stream(
                 tg_dst, 'T1D4P1', data.t1d4p1_mac_addr, xoff_rate
             )
 
@@ -457,15 +457,19 @@ def run_ecn_xoff_test(data, congestion_point, test_name,
         diagnostics_hook(nodes, "PRE-TRAFFIC")
 
         # Step 4: Clear all DUT counters and watermarks before traffic
-        st.banner("Clearing all DUT counters and watermarks")
-        for dut in st.get_dut_names():
-            qos_utils.clear_all_counters(dut)
-
-        # Clear Gamut-specific port counters on n9164e (Gamut) nodes
+        # IMPORTANT: Reset Gamut hardware counters BEFORE sonic-clear so that
+        # the baselines saved by sonic-clear match the zeroed hardware values.
+        # If sonic-clear runs first, it saves the old hw value as baseline;
+        # then gamut_clear resets hw to 0, making all subsequent reads
+        # negative (clipped to 0).
         for node_name, dut in nodes.items():
             if qos_utils.detect_platform(dut) == 'n9164e':
                 st.log(f"Clearing Gamut port counters on {node_name}")
                 gamut_utils.gamut_clear_port_counters(dut)
+
+        st.banner("Clearing all DUT counters and watermarks")
+        for dut in st.get_dut_names():
+            qos_utils.clear_all_counters(dut)
 
         # Step 5: Optionally clear and then capture WRED/ECN counters BEFORE traffic
         if clear_wred_pre_traffic:
