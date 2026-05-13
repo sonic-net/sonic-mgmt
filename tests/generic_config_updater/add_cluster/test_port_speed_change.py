@@ -181,7 +181,8 @@ def get_target_speed(duthost, cli_namespace_prefix, selected_random_port):
     return target_speed
 
 
-def get_target_speed_by_direction(duthost, cli_namespace_prefix, selected_random_port, direction, skip_unavailable=True):
+def get_target_speed_by_direction(duthost, cli_namespace_prefix, selected_random_port, direction,
+                                  skip_unavailable=True):
     """
     Pick speed B based on required direction from current speed A.
     downgrade: choose nearest lower speed.
@@ -511,23 +512,11 @@ def apply_patch_change_port_cluster(config_facts,
         "path": f"{json_namespace}/PORT/{selected_random_port}/admin_status",
         "value": "down"
     }
-    if operation == "add":
-        port_change_list.append(admin_status_down_op)
     current_lanes = get_port_lanes(duthost, cli_namespace_prefix, selected_random_port)
     start_lane = int(current_lanes[0])
     target_num_lanes = get_num_lanes_per_speed(duthost, target_speed)
     pytest_assert(target_num_lanes is not None, f"Could not determine num lanes for speed {target_speed}")
     new_lanes = ",".join(str(i) for i in range(start_lane, start_lane + target_num_lanes))
-    port_change_list.append({
-        "op": "add",
-        "path": f"{json_namespace}/PORT/{selected_random_port}/lanes",
-        "value": new_lanes
-    })
-    port_change_list.append({
-        "op": "add",
-        "path": f"{json_namespace}/PORT/{selected_random_port}/speed",
-        "value": target_speed
-    })
     current_fec = get_port_fec(duthost, cli_namespace_prefix, selected_random_port)
     # target_fec = get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_speed)
     target_fec = None
@@ -537,18 +526,20 @@ def apply_patch_change_port_cluster(config_facts,
         fec_values = get_fec_for_speed(duthost, target_speed)
         if fec_values:
             target_fec = random.choice(get_fec_for_speed(duthost, target_speed))
+    port_config = dict(config_facts["PORT"][selected_random_port])
+    port_config["admin_status"] = "down"
+    port_config["lanes"] = new_lanes
+    port_config["speed"] = target_speed
     if target_fec == "N/A":
         if current_fec:
-            port_change_list.append({
-                "op": "remove",
-                "path": f"{json_namespace}/PORT/{selected_random_port}/fec"
-            })
+            port_config.pop("fec", None)
     elif target_fec:
-        port_change_list.append({
-            "op": "add",
-            "path": f"{json_namespace}/PORT/{selected_random_port}/fec",
-            "value": target_fec
-        })
+        port_config["fec"] = target_fec
+    port_change_list.append({
+        "op": "add",
+        "path": f"{json_namespace}/PORT/{selected_random_port}",
+        "value": port_config
+    })
 
     # BUFFER_PG
     if operation == "add":
@@ -785,7 +776,8 @@ def setup_port_speed_change(duthosts,
     speed_a = selected_context["speed_a"]
     speed_b = selected_context["speed_b"]
 
-    logger.info(f"Main scenario={direction}: remove current speed A={speed_a}, set temporary B={speed_b}, then restore A")
+    logger.info(
+        f"Main scenario={direction}: remove current speed A={speed_a}, set temporary B={speed_b}, then restore A")
 
     with allure.step("Disabling loganalyzer before removing cluster - changing speeds."):
         if loganalyzer and loganalyzer[duthost.hostname]:
