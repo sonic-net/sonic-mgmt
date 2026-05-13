@@ -67,7 +67,8 @@ class GenerateGoldenConfigDBModule(object):
                                     console_ports=dict(required=False, type='dict', default=None),
                                     bgp_confd_asn=dict(required=False, type='str', default=None),
                                     bgp_confd_peers=dict(required=False, type='str', default=None),
-                                    enabled_dpu_indices=dict(required=False, type='list', elements='int', default=None)),
+                                    enabled_dpu_indices=dict(required=False, type='list',
+                                                             elements='int', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
