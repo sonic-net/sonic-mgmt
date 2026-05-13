@@ -204,6 +204,12 @@ hw_port_cfg = {
                          "peer_ports": [509, 510],
                          "skip_ports": [],
                          "panel_port_step": 1},
+    'd128u64s2':        {"ds_breakout": 2, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [],
+                         'peer_ports': [64, 65],
+                         'skip_ports': [],
+                         'ds_us_combined': True,
+                         "panel_port_step": 1},
 }
 
 overwrite_file_name = {
@@ -566,6 +572,31 @@ def generate_topo(role: str,
             link_step = port_cfg['ds_link_step']
             link_type = 'down'
 
+        if port_cfg.get('ds_us_combined', False) and link_type == 'down':
+            # For t0: vm_role_cfg is None, downlinks become HostInterface
+            ds_end = link_id_start + port_cfg['ds_breakout']
+            for link_id in range(link_id_start, ds_end):
+                if vm_role_cfg is None:
+                    # t0 path: downlinks are host interfaces
+                    hostif = HostInterface(link_id)
+                    downlinkif_list.append(hostif)
+
+            # Process uplinks from same panel port, T1 VMs
+            uplink_role_cfg = dut_role_cfg["uplink"]
+            us_start = ds_end
+            us_end = us_start + port_cfg['us_breakout']
+            for link_id in range(us_start, us_end):
+                per_role_vm_count[uplink_role_cfg["role"]] += 1
+                uplink_role_cfg["asn"] += uplink_role_cfg.get("asn_increment", 1)
+                uplink_role_cfg["asn_v6"] += uplink_role_cfg.get("asn_increment", 1)
+                vm = VM([link_id], len(vm_list), per_role_vm_count[uplink_role_cfg["role"]], tornum,
+                        dut_role_cfg["asn"], dut_role_cfg["asn_v6"], uplink_role_cfg, link_id)
+                vm_list.append(vm)
+                uplinkif_list.append(link_id)
+
+            link_id_start = us_end
+            continue
+
         is_lag_port, lag_port = _find_lag_port(panel_port_id)
 
         if panel_port_id in lag_port_assigned:
@@ -738,6 +769,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
     - ./generate_topo.py -r t0 -k f2 -t t0 -c 64 -l 'p32v128f2'
     - ./generate_topo.py -r t1 -k f2 -t t1 -c 64 -l 'p32o64f2'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'd128u64s2'
     """
     uplink_ports = [int(port) for port in uplinks.split(",")] if uplinks != "" else \
         hw_port_cfg[link_cfg]['uplink_ports']
