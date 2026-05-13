@@ -647,14 +647,15 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # Wait for SSH to come back up
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
-        logger.info("SSH is up, performing config reload to ensure clean state...")
+        logger.info("SSH is up, waiting for critical processes to recover...")
 
-        # After a dirty reboot (SysRq/PDU), use config_reload to properly
-        # initialize the system.  On multi-ASIC devices the per-namespace
-        # database config files may not be ready immediately after boot,
-        # so a config_reload is more reliable than manual process/interface checks.
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-
+        # After a dirty reboot (SysRq/PDU), avoid config_reload here because
+        # /var/run/redis/sonic-db/database_config.json (on tmpfs) may not exist
+        # yet — even "config reload -h" crashes without it.  Instead, just
+        # ensure all critical processes are running (uses docker exec
+        # supervisorctl, which has no database_config dependency).  The
+        # postcheck_critical_processes_status call below will then poll for
+        # up to 10 minutes until BGP sessions are re-established.
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
         logger.info("DUT recovered successfully after power cycle!")
