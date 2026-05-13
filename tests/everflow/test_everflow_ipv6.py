@@ -226,6 +226,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                        config_method, rules=EVERFLOW_V6_RULES)
             self.apply_ip_type_rule(duthost, 6)
 
+        everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
+
         yield
 
         for duthost in duthost_set:
