@@ -218,6 +218,13 @@ class GenerateGoldenConfigDBModule(object):
         # disable bmp feature table first
         return False
 
+    def is_bmc_device(self):
+        # BMC devices (e.g. Aspeed-based management controllers) do not host BGP sessions,
+        # so BGP-monitoring features (bmp, frr_bmp) are not applicable and their containers
+        # are not built/shipped for BMC images. Presence of /etc/sonic/bmc_config.json is
+        # the canonical indicator that the running SONiC image is a BMC build.
+        return device_info.get_bmc_build_config() is not None
+
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
         if rc != 0:
@@ -1097,13 +1104,31 @@ class GenerateGoldenConfigDBModule(object):
 
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
-        if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
+        # Note: BMC devices also do not host BGP sessions, so the BMP feature is not applicable
+        if (self.check_version_for_bmp() is True
+                and device_info.is_supervisor() is False
+                and not self.is_bmc_device()):
             if multi_asic.is_multi_asic():
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
+
+        # Disable swss and syncd features on BMC devices.
+        # BMC platforms (e.g. Aspeed Komodo) have no front-side ASIC; the swss/syncd containers
+        # have nothing to manage. Leaving the features as 'enabled' creates a mismatch
+        # (feature_status enabled vs systemd unit inactive) that breaks tests/tools using
+        # feature_status or swss.service ActiveState as a readiness gate -- e.g.
+        # config_system_checks_passed() in platform_tests/test_reload_config.py waits up to 360s
+        # for swss.service to become active and never succeeds on a BMC.
+        if self.is_bmc_device():
+            if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "swss", "disabled", "disabled")
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "syncd", "disabled", "disabled")
+            else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "swss", "disabled", "disabled")
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "syncd", "disabled", "disabled")
 
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
