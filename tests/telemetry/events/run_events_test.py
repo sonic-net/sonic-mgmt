@@ -21,14 +21,15 @@ def run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigg
         # Monit emits mem-threshold events only on state transitions (healthy→alarm), so the
         # event is published exactly once ~1s after the trigger.  If gNMI subscribes after
         # that point it will miss the event entirely.
-        # update_count=10 keeps gnmi-cli alive across the initial heartbeats (heartbeat=2s)
-        # until the real event arrives, giving a ~20s reception window.
+        # timeout=30 keeps gnmi-cli alive long enough for the event to arrive.
+        # update_count=1 (default) ensures gnmi-cli exits cleanly after the single event.
+        # Heartbeat responses do not count toward update_count, so update_count=1 is correct.
         errors = []
 
         def _listen():
             try:
                 listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file,
-                                  timeout, update_count=10)
+                                  timeout)
             except Exception as e:
                 errors.append(e)
 
