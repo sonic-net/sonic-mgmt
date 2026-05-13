@@ -11,6 +11,7 @@ import pytest
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
@@ -649,14 +650,27 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
         logger.info("SSH is up, waiting for critical processes to recover...")
 
-        # After a dirty reboot (SysRq/PDU), avoid config_reload here because
-        # /var/run/redis/sonic-db/database_config.json (on tmpfs) may not exist
-        # yet — even "config reload -h" crashes without it.  Instead, just
-        # ensure all critical processes are running (uses docker exec
-        # supervisorctl, which has no database_config dependency).  The
-        # postcheck_critical_processes_status call below will then poll for
-        # up to 10 minutes until BGP sessions are re-established.
+        # After a dirty reboot (SysRq/PDU), /var/run/redis/sonic-db/database_config.json
+        # (on tmpfs) may not exist yet — even "config reload -h" crashes without it.
+        # So we avoid config_reload and instead:
+        # 1. Ensure all critical processes are running (docker exec supervisorctl, no db dependency)
+        # 2. Wait for database_config.json to appear (needed for interface/config queries)
+        # 3. Check that all admin-up interfaces are operationally up
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+        # Wait for database config file to be ready before checking interfaces.
+        # On multi-ASIC, also check per-namespace config files (e.g. redis0/sonic-db/database_config.json).
+        logger.info("Waiting for database_config.json to be ready...")
+        db_config_ready = wait_until(wait_time, 5, 0,
+                                     lambda: duthost.shell(
+                                         "test -f /var/run/redis/sonic-db/database_config.json",
+                                         module_ignore_errors=True)["rc"] == 0)
+        if db_config_ready:
+            logger.info("Database config ready, verifying interfaces come up...")
+            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+                          "Not all ports that are admin up on are operationally up after reboot")
+        else:
+            logger.warning("database_config.json not ready after %ds, skipping interface check", wait_time)
 
         logger.info("DUT recovered successfully after power cycle!")
     else:
