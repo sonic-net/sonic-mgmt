@@ -15,6 +15,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch
+from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.generic_config_updater.add_cluster.helpers import get_active_interfaces, \
     remove_dataacl_table_single_dut, send_and_verify_traffic
 
