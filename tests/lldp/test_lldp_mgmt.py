@@ -121,9 +121,9 @@ def lldp_inject(duthost):
     duthost.shell("ip link set {} up".format(VETH_SINK))
 
     # Set up tc on veth_sink: redirect ingress traffic to eth0's ingress
-    duthost.shell("tc qdisc add dev {} ingress".format(VETH_SINK))
+    duthost.shell("/sbin/tc qdisc add dev {} ingress".format(VETH_SINK))
     duthost.shell(
-        "tc filter add dev {} ingress protocol 0x88cc u32 match u32 0 0 "
+        "/sbin/tc filter add dev {} ingress protocol 0x88cc u32 match u32 0 0 "
         "action mirred ingress redirect dev eth0".format(VETH_SINK)
     )
     logger.info(
