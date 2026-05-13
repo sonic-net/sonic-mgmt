@@ -27,18 +27,40 @@ port-channel summary, IPv6 neighbor samples, and APP_DB FDB key listing.
 """
 
 from spytest import st
-import apis.system.basic as basic_obj
-
-# Substring match on basic.show_version(dut)['version'] - must match c-master images only.
-_FABRIC_L2_DEBUG_VERSION_SUBSTRING = "c-master"
+import apis.system.port as papi
 
 
-def _sonic_image_is_c_master(dut):
-    ver = basic_obj.show_version(dut, report=False) or {}
-    vstr = ver.get("version") or ""
-    if not vstr:
-        return False
-    return _FABRIC_L2_DEBUG_VERSION_SUBSTRING in vstr
+def fabric_align_testbed_topo_index():
+    """
+    Align ``Testbed.current_topo_index`` / ``defaut_topo_index`` with a real key in
+    ``self.topologies`` (for example YAML uses ``\"0\"`` while Spytest defaults to int ``0``).
+
+    When they mismatch, ``get_profile()`` can create an empty topology slot and
+    ``ensure_min_topology`` reports ``no_dut``. Call once before ``st.ensure_min_topology``
+    from Tortuga L2 fixtures.
+
+    Defined here so ``test_bvi.py`` does not depend on an older ``tortuga_common_utils``
+    under ``/data/tests`` that lacks ``tortuga_align_testbed_topo_index``.
+    """
+    try:
+        from spytest.framework import get_work_area as getwa
+
+        tb = getwa()._context._tb
+        tops = tb.topologies
+        if not tops:
+            return
+        if tb.current_topo_index in tops:
+            return
+        for cand in (getattr(tb, "defaut_topo_index", 0), 0, "0", 1, "1"):
+            if cand in tops:
+                tb.current_topo_index = cand
+                tb.defaut_topo_index = cand
+                return
+        first_key = next(iter(tops))
+        tb.current_topo_index = first_key
+        tb.defaut_topo_index = first_key
+    except Exception:
+        pass
 
 
 def _fabric_l2_debug_reference_dut(vars):
@@ -52,16 +74,17 @@ def _fabric_l2_debug_reference_dut(vars):
     return dl[0] if dl else None
 
 
-def fabric_l2_debug_enabled(dut=None, vars=None):
+def fabric_l2_debug_enabled(dut=None, vars=None, skip_image_check=True):
     """
-    Return True if fabric L2 debug snapshots should run (c-master image on reference DUT).
+    Return True if fabric L2 debug snapshots should run.
+
+    Enabled whenever a reference DUT exists (D1, else first of D2-D4, else ``dut_list[0]``).
+    ``skip_image_check`` is accepted for call-site clarity; there is no ``show version`` or
+    image substring gate in this module (always off when a reference DUT exists).
     """
     if dut is None:
         dut = _fabric_l2_debug_reference_dut(vars)
-    if not dut:
-        return False
-
-    return _sonic_image_is_c_master(dut)
+    return bool(dut)
 
 
 def _fabric_resolved_duts(vars, role_names=("D1", "D2", "D3", "D4")):
@@ -144,6 +167,252 @@ def fabric_wait_counterpoll_interface_refresh(seconds=10):
     )
 
 
+def fabric_sonic_clear_counters_traffic_stage(vars, log_tag):
+    """
+    Clear interface counters on D1-D4 before ``traffic_start``.
+
+    - When ``show-interfaces-counters-clear-command`` is supported, uses
+      ``papi.clear_interface_counters`` (same as the port API Click path).
+    - On **community** Click builds, ``papi.clear_interface_counters`` calls
+      ``st.community_unsupported("sonic-clear counters")`` and would log ERROR for every
+      DUT; we skip that and run ``sonic-clear counters`` via ``st.config`` with
+      ``skip_error_check`` / ``skip_error_report`` instead (same spirit as
+      ``tortuga_common_utils`` multi-clear helpers).
+
+    Call **before** ``traffic_start`` for each traffic stage so verification runs against a
+    clean counter plane.
+    """
+    st.banner(log_tag)
+    for name in ("D1", "D2", "D3", "D4"):
+        d = getattr(vars, name, None)
+        if not d:
+            continue
+        try:
+            use_papi_clear = bool(
+                st.is_feature_supported(
+                    "show-interfaces-counters-clear-command",
+                    d,
+                )
+            )
+        except Exception:
+            use_papi_clear = False
+        if use_papi_clear:
+            try:
+                papi.clear_interface_counters(d)
+            except Exception as ex:
+                st.log("{} | {} clear_interface_counters: {}".format(log_tag, name, ex))
+        else:
+            try:
+                st.config(
+                    d,
+                    "sonic-clear counters",
+                    skip_tmpl=True,
+                    skip_error_check=True,
+                    skip_error_report=True,
+                )
+            except Exception as ex:
+                st.log("{} | {} sonic-clear counters: {}".format(log_tag, name, ex))
+    st.wait(1, "post interface counter clear settle")
+
+
+def fabric_log_full_counter_stage(
+    vars,
+    log_tag,
+    hdl1,
+    hdl2,
+    wait_sec=0,
+    counterpoll_before_rif=10,
+    node_ports=None,
+):
+    """
+    Full debug dump: ``sudo show platform npu counters`` on fabric DUTs, Tortuga-path
+    ``show interfaces counters`` + ``detailed``, then optional counterpoll wait and
+    ``show interfaces counters`` / detailed / RIF via :func:`fabric_snapshot_post_traffic_counters`.
+
+    Use for **PRE** and **POST** burst logging on both pass and fail paths.
+    """
+    if wait_sec:
+        fabric_wait_counterpoll_interface_refresh(wait_sec)
+    st.banner(log_tag)
+    duts = fabric_snapshot_duts(vars)
+    fabric_snapshot_post_traffic_npu(duts, log_tag=log_tag)
+    fabric_log_iface_counters_tortuga_path(vars, log_tag, hdl1, hdl2)
+    if counterpoll_before_rif:
+        fabric_wait_counterpoll_interface_refresh(counterpoll_before_rif)
+    fabric_snapshot_post_traffic_counters(vars, node_ports=node_ports)
+
+
+def fabric_traffic_stage_pre_clear_and_dump(vars, log_tag, hdl1, hdl2, node_ports=None):
+    """
+    After ``traffic_test_config``, before ``traffic_start``:
+
+    1. Full dump: NPU + Tortuga-path ``show interfaces counters`` / detailed + RIF.
+    2. Interface counter clear on D1-D4 via :func:`fabric_sonic_clear_counters_traffic_stage`.
+    3. Iface Tx/Rx summary + detailed on the path again (baseline after clear, pre-burst).
+    """
+    fabric_log_full_counter_stage(
+        vars,
+        "{} | STAGE pre: iface Tx/Rx + NPU + RIF (before clear)".format(log_tag),
+        hdl1,
+        hdl2,
+        node_ports=node_ports,
+    )
+    fabric_sonic_clear_counters_traffic_stage(
+        vars,
+        "{} | STAGE clear: papi clear + sonic-clear counters".format(log_tag),
+    )
+    fabric_log_iface_counters_tortuga_path(
+        vars,
+        "{} | STAGE baseline: iface Tx/Rx after clear (immediately before traffic_start)".format(
+            log_tag
+        ),
+        hdl1,
+        hdl2,
+    )
+
+
+def fabric_traffic_stage_pass_verdict_dump(
+    vars,
+    log_tag,
+    hdl1,
+    hdl2,
+    handles,
+    data_l2_for_tgen,
+):
+    """
+    After ``traffic_test_check`` **passes**: log iface Tx/Rx on the Tortuga path and bounded
+    TGEN tx/rx (no second full NPU sweep).
+    """
+    st.banner("{} | PASS: iface + TGEN snapshot after traffic_test_check".format(log_tag))
+    fabric_log_iface_counters_tortuga_path(
+        vars,
+        "{} | PASS iface Tx/Rx".format(log_tag),
+        hdl1,
+        hdl2,
+    )
+    if handles is not None and data_l2_for_tgen is not None:
+        fabric_log_bounded_traffic_snapshot(
+            handles,
+            hdl1,
+            hdl2,
+            data_l2_for_tgen,
+            data_l2_for_tgen,
+            "{} | PASS TGEN aggregate tx/rx".format(log_tag),
+        )
+
+
+def fabric_traffic_stage_post_burst_dump(
+    vars,
+    log_tag,
+    hdl1,
+    hdl2,
+    handles=None,
+    data_l2_for_tgen=None,
+    log_tgen_snapshot=False,
+    node_ports=None,
+):
+    """
+    After ``traffic_stop``: same full iface/NPU/RIF dump as :func:`fabric_log_full_counter_stage`.
+    When ``log_tgen_snapshot`` is True, also log bounded TGEN tx/rx (same accounting as
+    ``traffic_test_check``).
+    """
+    fabric_log_full_counter_stage(
+        vars,
+        "{} | STAGE post: iface Tx/Rx + NPU + RIF (after burst)".format(log_tag),
+        hdl1,
+        hdl2,
+        node_ports=node_ports,
+    )
+    if log_tgen_snapshot and handles is not None and data_l2_for_tgen is not None:
+        fabric_log_bounded_traffic_snapshot(
+            handles,
+            hdl1,
+            hdl2,
+            data_l2_for_tgen,
+            data_l2_for_tgen,
+            "{} | STAGE post: TGEN aggregate tx/rx".format(log_tag),
+        )
+
+
+def fabric_log_iface_counters_tortuga_path(
+    vars,
+    log_tag,
+    hdl1,
+    hdl2,
+    include_fabric_trunk=True,
+):
+    """
+    Log ``show interfaces counters`` (per-DUT summary: RX_OK/TX_OK/RX_OVR/TX_OVR/ERR/DRP) and
+    ``show interfaces counters detailed <ifname>`` for Tortuga TGen legs (``T1D*``) and optional
+    spine--leaf fabric ports (``D1D3P1``, ``D1D4P1``, ``D3D1P1``, ``D4D1P1``).
+
+    Use **after** ``traffic_test_config`` / **before** ``traffic_start`` for a baseline (counters were
+    just cleared in config; ``traffic_start`` clears again right before the burst). Use **after**
+    ``traffic_stop`` (optionally after :func:`fabric_wait_counterpoll_interface_refresh`) to capture
+    post-burst overruns/drops on the data path.
+    """
+    if vars is None:
+        return
+
+    def _pair(hdl):
+        key = {
+            "T1D3P1": ("D3", "D3T1P1"),
+            "T1D3P2": ("D3", "D3T1P2"),
+            "T1D4P1": ("D4", "D4T1P1"),
+            "T1D4P2": ("D4", "D4T1P2"),
+        }.get(hdl)
+        if not key:
+            return None
+        dut_name, var_name = key
+        dut = getattr(vars, dut_name, None)
+        intf = getattr(vars, var_name, None)
+        if dut and intf:
+            return (dut, intf, hdl)
+        return None
+
+    pairs = []
+    seen = set()
+    for hdl in (hdl1, hdl2):
+        p = _pair(hdl)
+        if not p:
+            continue
+        k = (p[0], p[1])
+        if k not in seen:
+            seen.add(k)
+            pairs.append(p)
+
+    if include_fabric_trunk:
+        for dut, varn, tag in (
+            (getattr(vars, "D1", None), "D1D3P1", "D1D3P1"),
+            (getattr(vars, "D1", None), "D1D4P1", "D1D4P1"),
+            (getattr(vars, "D3", None), "D3D1P1", "D3D1P1"),
+            (getattr(vars, "D4", None), "D4D1P1", "D4D1P1"),
+        ):
+            intf = getattr(vars, varn, None)
+            if dut and intf:
+                k = (dut, intf)
+                if k not in seen:
+                    seen.add(k)
+                    pairs.append((dut, intf, tag))
+
+    st.banner("{} | iface counters {} <-> {}".format(log_tag, hdl1, hdl2))
+    duts_order = []
+    for dut, _, _ in pairs:
+        if dut not in duts_order:
+            duts_order.append(dut)
+    for dut in duts_order:
+        st.log("{} | DUT {} | show interfaces counters".format(log_tag, dut))
+        st.show(dut, "show interfaces counters", skip_tmpl=True, skip_error_check=True)
+    for dut, intf, tag in pairs:
+        st.log("{} | {} | show interfaces counters detailed {}".format(log_tag, tag, intf))
+        st.show(
+            dut,
+            "show interfaces counters detailed {}".format(intf),
+            skip_tmpl=True,
+            skip_error_check=True,
+        )
+
+
 def fabric_log_bounded_traffic_snapshot(
     handles,
     d3t1port,
@@ -214,13 +483,51 @@ def fabric_post_traffic_counter_snapshot(vars, log_tag="Post-traffic fabric snap
     """
     NPU counters, counterpoll wait, then ``show interfaces counters`` (+ detail + RIF).
 
-    For failure paths after a traffic burst. Call only when :func:`fabric_l2_debug_enabled`.
+    For failure paths after a traffic burst or unconditional post-burst logging.
     Pass ``node_ports`` to override the default fabric port map (e.g. extra uplinks).
     """
     duts = fabric_snapshot_duts(vars)
     fabric_snapshot_post_traffic_npu(duts, log_tag=log_tag)
     fabric_wait_counterpoll_interface_refresh(10)
     fabric_snapshot_post_traffic_counters(vars, node_ports=node_ports)
+
+
+def fabric_dump_traffic_failure_state(
+    vars,
+    log_tag,
+    hdl1,
+    hdl2,
+    handles,
+    data_threshold,
+):
+    """
+    On ``traffic_test_check`` failure: iface summary/detailed counters, TGEN aggregate snapshot,
+    then full fabric NPU + IFACE/RIF counter snapshot (always logged; not gated on image checks).
+    """
+    st.banner("FAILURE CAPTURE | {}".format(log_tag))
+    fabric_wait_counterpoll_interface_refresh(3)
+    fabric_log_iface_counters_tortuga_path(
+        vars,
+        "{} | iface counters (failure)".format(log_tag),
+        hdl1,
+        hdl2,
+    )
+    if handles and data_threshold is not None:
+        try:
+            fabric_log_bounded_traffic_snapshot(
+                handles,
+                hdl1,
+                hdl2,
+                data_threshold,
+                data_threshold,
+                "{} | TGEN aggregate (failure)".format(log_tag),
+            )
+        except Exception as ex:
+            st.log("{} | TGEN failure snapshot skipped: {}".format(log_tag, ex))
+    fabric_post_traffic_counter_snapshot(
+        vars,
+        log_tag="{} | DUT fabric counters (failure)".format(log_tag),
+    )
 
 
 def fabric_snapshot_post_traffic_counters(
@@ -594,11 +901,14 @@ def fabric_failure_bvi_svi_with_counters(
     data_vid_10,
     include_l3_arp=False,
     data_l3=None,
+    include_post_counters=True,
 ):
     """
     BVI SVI/CONFIG_DB/neighbor snapshot for vlan10 SVI on leaf0, then counter snapshot.
 
     Pass ``data_l3`` and ``include_l3_arp=True`` for L2/L3 tests (uses ``data_l3.t1d4_ip_addr``).
+    Set ``include_post_counters=False`` when :func:`fabric_dump_traffic_failure_state` already ran
+    the fabric post snapshot to avoid duplicating NPU/counter waits.
     """
     vintf = data_glob.vlan_intf[0]
     vlan_cidr = data_glob.vlan_ip[0]
@@ -620,4 +930,5 @@ def fabric_failure_bvi_svi_with_counters(
         diag_data_glob=data_glob,
         diag_stream_vid=data_vid_10,
     )
-    fabric_post_traffic_counter_snapshot(vars, log_tag="{} | counters".format(log_tag))
+    if include_post_counters:
+        fabric_post_traffic_counter_snapshot(vars, log_tag="{} | counters".format(log_tag))

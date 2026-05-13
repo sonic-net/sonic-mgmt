@@ -11,12 +11,11 @@ import apis.switching.mac as mac_obj
 
 import tortuga_common_utils as common_obj
 from fabric_l2_debug import (
+    fabric_dump_traffic_failure_state,
     fabric_l2_debug_enabled,
-    fabric_snapshot_duts,
-    fabric_snapshot_pre_traffic_state,
-    fabric_snapshot_post_traffic_npu,
-    fabric_wait_counterpoll_interface_refresh,
-    fabric_snapshot_post_traffic_counters,
+    fabric_traffic_stage_pass_verdict_dump,
+    fabric_traffic_stage_post_burst_dump,
+    fabric_traffic_stage_pre_clear_and_dump,
 )
 
 #TGen Stream Config
@@ -558,17 +557,18 @@ def test_native_vlan(setup_teardown_l2_vlan_test):
     traffic_types = ['unicast', 'multicast', 'broadcast']
 
     st.log('Verify BUM traffic for Native VLAN')
-    fabric_dbg = fabric_l2_debug_enabled(vars=vars)
-    all_duts = fabric_snapshot_duts(vars) if fabric_dbg else []
+    fabric_dbg = fabric_l2_debug_enabled(vars=vars, skip_image_check=True)
 
     for traffic_type in traffic_types:
         handles = common_obj.traffic_test_config(
             data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', traffic_type, True, is_l2=True
         )
         if fabric_dbg:
-            fabric_snapshot_pre_traffic_state(
-                all_duts,
-                log_tag="Native VLAN pre-BUM traffic (traffic_type={})".format(traffic_type),
+            fabric_traffic_stage_pre_clear_and_dump(
+                vars,
+                "Native VLAN BUM traffic_type={}".format(traffic_type),
+                "T1D3P1",
+                "T1D4P1",
             )
         common_obj.traffic_start(handles, data_vid_10, data_vid_10)
         common_obj.traffic_stop(handles, mode='burst')
@@ -576,38 +576,82 @@ def test_native_vlan(setup_teardown_l2_vlan_test):
             "DEBUG: Native VLAN post-traffic snapshots (traffic_type={})".format(traffic_type)
         )
         if fabric_dbg:
-            fabric_snapshot_post_traffic_npu(
-                all_duts,
-                log_tag="Post-traffic NPU counters (native VLAN BUM: {})".format(traffic_type),
+            fabric_traffic_stage_post_burst_dump(
+                vars,
+                "Native VLAN BUM traffic_type={}".format(traffic_type),
+                "T1D3P1",
+                "T1D4P1",
+                handles=handles,
+                data_l2_for_tgen=data_vid_10,
+                log_tgen_snapshot=True,
             )
-            fabric_wait_counterpoll_interface_refresh(10)
-            fabric_snapshot_post_traffic_counters(vars)
         if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
             st.log("Traffic verification for Native Vlan for traffic type {} Passed".format(traffic_type))
+            if fabric_dbg:
+                fabric_traffic_stage_pass_verdict_dump(
+                    vars,
+                    "Native VLAN BUM traffic_type={}".format(traffic_type),
+                    "T1D3P1",
+                    "T1D4P1",
+                    handles,
+                    data_vid_10,
+                )
         else:
+            if fabric_dbg:
+                fabric_dump_traffic_failure_state(
+                    vars,
+                    "Native VLAN BUM FAILED traffic_type={}".format(traffic_type),
+                    "T1D3P1",
+                    "T1D4P1",
+                    handles,
+                    data_vid_10,
+                )
             st.report_fail('failed_traffic_verification', "for Native Vlan for traffic type {} ".format(traffic_type))
         common_obj.traffic_cleanup(handles)
 
     st.log('Verify Trunk Vlan Unicast traffic.')
     handles = common_obj.traffic_test_config(data_vid_20, data_vid_20, 'T1D3P2', 'T1D4P2', 'unicast', True, is_l2=True)
     if fabric_dbg:
-        fabric_snapshot_pre_traffic_state(
-            all_duts,
-            log_tag="Native VLAN: pre-traffic (trunk vlan 20 unicast T1D3P2<->T1D4P2)",
+        fabric_traffic_stage_pre_clear_and_dump(
+            vars,
+            "Native VLAN trunk vlan20 unicast T1D3P2<->T1D4P2",
+            "T1D3P2",
+            "T1D4P2",
         )
     common_obj.traffic_start(handles, data_vid_20, data_vid_20)
     common_obj.traffic_stop(handles, mode='burst')
     st.log("DEBUG: Native VLAN post-traffic (trunk vlan 20 unicast)")
     if fabric_dbg:
-        fabric_snapshot_post_traffic_npu(
-            all_duts,
-            log_tag="Post-traffic NPU (native VLAN TC: trunk vlan20 unicast)",
+        fabric_traffic_stage_post_burst_dump(
+            vars,
+            "Native VLAN trunk vlan20 unicast",
+            "T1D3P2",
+            "T1D4P2",
+            handles=handles,
+            data_l2_for_tgen=data_vid_20,
+            log_tgen_snapshot=True,
         )
-        fabric_wait_counterpoll_interface_refresh(10)
-        fabric_snapshot_post_traffic_counters(vars)
     if common_obj.traffic_test_check(handles, 'T1D3P2', 'T1D4P2', data_vid_20, data_vid_20):
         st.log("Traffic verification for Trunk Vlan Passed")
+        if fabric_dbg:
+            fabric_traffic_stage_pass_verdict_dump(
+                vars,
+                "Native VLAN trunk vlan20 unicast",
+                "T1D3P2",
+                "T1D4P2",
+                handles,
+                data_vid_20,
+            )
     else:
+        if fabric_dbg:
+            fabric_dump_traffic_failure_state(
+                vars,
+                "Native VLAN trunk vlan20 unicast FAILED",
+                "T1D3P2",
+                "T1D4P2",
+                handles,
+                data_vid_20,
+            )
         st.report_fail('failed_traffic_verification', "for Trunk Vlan")
 
     #Set the Dest Mac for inter vlan communication
@@ -617,23 +661,46 @@ def test_native_vlan(setup_teardown_l2_vlan_test):
     st.log('Verify Inter Vlan Traffic should fail.')
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, 'T1D3P1', 'T1D4P2', 'unicast', True, is_l2=True, verify_ping=False)
     if fabric_dbg:
-        fabric_snapshot_pre_traffic_state(
-            all_duts,
-            log_tag="Native VLAN: pre-traffic (inter-vlan unicast T1D3P1<->T1D4P2, expect no forward)",
+        fabric_traffic_stage_pre_clear_and_dump(
+            vars,
+            "Native VLAN inter-vlan T1D3P1<->T1D4P2 (expect no forward)",
+            "T1D3P1",
+            "T1D4P2",
         )
     common_obj.traffic_start(handles, data_vid_10, data_vid_20)
     common_obj.traffic_stop(handles, mode='burst')
     st.log("DEBUG: Native VLAN post-traffic (inter-vlan unicast)")
     if fabric_dbg:
-        fabric_snapshot_post_traffic_npu(
-            all_duts,
-            log_tag="Post-traffic NPU (native VLAN TC: inter-vlan unicast)",
+        fabric_traffic_stage_post_burst_dump(
+            vars,
+            "Native VLAN inter-vlan unicast",
+            "T1D3P1",
+            "T1D4P2",
+            handles=handles,
+            data_l2_for_tgen=data_vid_10,
+            log_tgen_snapshot=True,
         )
-        fabric_wait_counterpoll_interface_refresh(10)
-        fabric_snapshot_post_traffic_counters(vars)
     if not common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_vid_20):
         st.log("Traffic verification for Inter Vlan traffic Passed")
+        if fabric_dbg:
+            fabric_traffic_stage_pass_verdict_dump(
+                vars,
+                "Native VLAN inter-vlan (expect no forward)",
+                "T1D3P1",
+                "T1D4P2",
+                handles,
+                data_vid_10,
+            )
     else:
+        if fabric_dbg:
+            fabric_dump_traffic_failure_state(
+                vars,
+                "Native VLAN inter-vlan UNEXPECTED forward FAILED",
+                "T1D3P1",
+                "T1D4P2",
+                handles,
+                data_vid_10,
+            )
         st.report_fail('failed_traffic_verification', "for Inter Vlan traffic")
 
     data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr

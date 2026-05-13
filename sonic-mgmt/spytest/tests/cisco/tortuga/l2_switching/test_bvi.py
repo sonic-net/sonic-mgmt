@@ -10,7 +10,9 @@ import apis.switching.portchannel as portchannel_obj
 import apis.switching.mac as mac_obj
 import tortuga_common_utils as common_obj
 from fabric_l2_debug import (
+    fabric_align_testbed_topo_index,
     fabric_bvi_log_pre_second_l2_l3_burst,
+    fabric_dump_traffic_failure_state,
     fabric_failure_bvi_svi_with_counters,
     fabric_l2_debug_enabled,
     fabric_log_bounded_traffic_snapshot,
@@ -18,6 +20,9 @@ from fabric_l2_debug import (
     fabric_snapshot_post_traffic_counters,
     fabric_snapshot_post_traffic_npu,
     fabric_snapshot_pre_traffic_state,
+    fabric_traffic_stage_pass_verdict_dump,
+    fabric_traffic_stage_post_burst_dump,
+    fabric_traffic_stage_pre_clear_and_dump,
     fabric_wait_counterpoll_interface_refresh,
 )
 
@@ -146,7 +151,8 @@ def setup_teardown_basic():
     global vars
     global updated_path
     global nodes
-    
+
+    fabric_align_testbed_topo_index()
     st.ensure_min_topology("D1D3:2", "D1D4:2", "D3T1:2", "D4T1:2")
     vars = st.get_testbed_vars()
 
@@ -364,7 +370,7 @@ def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_tear
 # Tgen Stream : 100.0.1.1 (T1D3P1) <------> 11.1.1.2 (T1D4P2)
 def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
     vars = st.get_testbed_vars()
-    fabric_dbg = fabric_l2_debug_enabled(vars=vars)
+    fabric_dbg = fabric_l2_debug_enabled(vars=vars, skip_image_check=True)
     all_duts = fabric_snapshot_duts(vars) if fabric_dbg else []
 
     #leaf0 (100.0.1.1) -----> leaf1(11.1.1.2)
@@ -445,7 +451,6 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
             )
         st.report_fail('config_cmd_error', "{} ipv4 address add".format(data_glob.vlan_intf[0]))
 
-    # c-master only: SVI/ARP + vlan/mac/NPU snapshot before 2nd burst
     if fabric_dbg:
         fabric_bvi_log_pre_second_l2_l3_burst(
             data_glob,
@@ -463,7 +468,6 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
     st.log("BVI L2/L3 v4: starting 2nd traffic burst (post-SVI flap)")
     common_obj.traffic_start(handles, data_vid_10, data_l3)
     common_obj.traffic_stop(handles, mode="burst")
-    # c-master only: NPU + RIF/interface counters + bounded TGEN snapshot before check
     if fabric_dbg:
         fabric_snapshot_post_traffic_npu(
             all_duts,
@@ -485,7 +489,6 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
         st.banner(
             "BVI L2/L3 v4: traffic_test_check FAILED (L2<->L3 after SVI remove/add)"
         )
-        # c-master: TGEN snapshot + full BVI/SVI/neighbor dump on failure (fabric_failure ends with NPU+counters)
         if fabric_dbg:
             fabric_log_bounded_traffic_snapshot(
                 handles,
@@ -556,38 +559,60 @@ def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
 # Tgen Stream : 100.0.1.1 (T1D3P1) <---(multicast)---> 100.0.1.2 (T1D4P1)
 def test_bvi_multicast(setup_teardown_bvi_bd):
     vars = st.get_testbed_vars()
-    fabric_dbg = fabric_l2_debug_enabled(vars=vars)
-    all_duts = fabric_snapshot_duts(vars) if fabric_dbg else []
+    fabric_dbg = fabric_l2_debug_enabled(vars=vars, skip_image_check=True)
 
     #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'multicast', True, verify_ping=False, is_l2=True)
 
     if fabric_dbg:
-        fabric_snapshot_pre_traffic_state(
-            all_duts,
-            log_tag="BVI multicast: pre-traffic",
+        fabric_traffic_stage_pre_clear_and_dump(
+            vars,
+            "BVI multicast",
+            "T1D3P1",
+            "T1D4P1",
         )
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles, mode="burst")
     if fabric_dbg:
-        fabric_snapshot_post_traffic_npu(
-            all_duts,
-            log_tag="BVI multicast: post-traffic NPU",
+        fabric_traffic_stage_post_burst_dump(
+            vars,
+            "BVI multicast",
+            "T1D3P1",
+            "T1D4P1",
+            handles=handles,
+            data_l2_for_tgen=data_vid_10,
+            log_tgen_snapshot=True,
         )
-        fabric_wait_counterpoll_interface_refresh(10)
-        fabric_snapshot_post_traffic_counters(vars)
 
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
         st.log("Traffic verification for L2 traffic with multicast mac Passed")
+        if fabric_dbg:
+            fabric_traffic_stage_pass_verdict_dump(
+                vars,
+                "BVI multicast",
+                "T1D3P1",
+                "T1D4P1",
+                handles,
+                data_vid_10,
+            )
     else:
         if fabric_dbg:
+            fabric_dump_traffic_failure_state(
+                vars,
+                "BVI multicast: traffic_test_check FAILED",
+                "T1D3P1",
+                "T1D4P1",
+                handles,
+                data_vid_10,
+            )
             fabric_failure_bvi_svi_with_counters(
                 vars,
                 "BVI multicast: FAILED traffic_test_check",
                 data_glob,
                 data_vid_10,
                 include_l3_arp=False,
+                include_post_counters=False,
             )
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 traffic with multicast mac")
