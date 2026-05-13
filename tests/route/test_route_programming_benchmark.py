@@ -172,7 +172,10 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
             r".* ERR swss\d*#orchagent: :- addRoutePost: Failed to create route .* with next hop\(s\) .*",
             (r".* ERR swss\d*#orchagent: :- flush_creating_entries: EntityBulker.flush create entries failed, "
              r"number of entries to create: \d+, status: SAI_STATUS_ITEM_ALREADY_EXISTS"),
-            (r".* ERR swss\d*#orchagent: :- handleSaiFailure: Encountered failure in create operation, "
+            # Match any orchagent caller (handleSaiFailure, start, etc.) reporting the same
+            # bulk route-create NOT_EXECUTED rollup. The `.*` after `orchagent:` is to also
+            # match rsyslog "message repeated N times: [ :- <fn>: ... ]" rollup lines.
+            (r".* ERR swss\d*#orchagent:.*Encountered failure in create operation, "
              r"SAI API: SAI_API_ROUTE, status: SAI_STATUS_NOT_EXECUTED"),
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
