@@ -885,6 +885,7 @@
           duts_list: "{{ testbed_facts['duts'] | default([]) }}"
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
+          enabled_dpu_indices: "{{ testbed_facts.get('enabled_dpus', {}).get(inventory_hostname, []) | map(attribute='dpu_index') | list }}"
         become: true
         when: enable_macsec is not defined
 
@@ -1183,6 +1184,7 @@
           host_username: "{{ sonic_login }}"
           host_passwords: "{{ sonic_default_passwords }}"
           npu_index: "{{ dut_index | default(0) | int }}"
+          enabled_dpu_indices: "{{ testbed_facts.get('enabled_dpus', {}).get(inventory_hostname, []) | map(attribute='dpu_index') | list }}"
         become: true
         # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
