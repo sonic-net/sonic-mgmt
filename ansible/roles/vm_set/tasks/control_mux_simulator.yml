@@ -15,12 +15,12 @@
     set_fact:
       flask_version: "2.3.3"
       werkzeug_version: "2.3.7"
-      python_command: "/opt/sonic-testbed/venv/bin/python3"
+      python_command: "{{ sonic_testbed_venv }}/bin/python3"
 
   - name: Install Flask and Werkzeug in venv
     command: >-
       uv pip install
-      --python /opt/sonic-testbed/venv/bin/python
+      --python {{ sonic_testbed_venv }}/bin/python
       flask=={{ flask_version }} werkzeug=={{ werkzeug_version }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"

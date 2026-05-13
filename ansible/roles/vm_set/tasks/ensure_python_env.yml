@@ -1,4 +1,4 @@
-# Ensure uv is installed, venv exists at /opt/sonic-testbed/venv,
+# Ensure uv is installed, venv exists at {{ sonic_testbed_venv }},
 # and required Python packages are present. This file is idempotent
 # and always runs (not gated by the host_setup flag).
 
@@ -16,27 +16,27 @@
   environment: "{{ proxy_env | default({}) }}"
   when: uv_check.rc != 0
 
-- name: Ensure /opt/sonic-testbed directory exists
+- name: Ensure sonic-testbed directory exists
   file:
-    path: /opt/sonic-testbed
+    path: "{{ sonic_testbed_venv | dirname }}"
     state: directory
     mode: '0755'
   become: yes
 
 - name: Check if venv exists
   stat:
-    path: /opt/sonic-testbed/venv/bin/python
+    path: "{{ sonic_testbed_venv }}/bin/python"
   register: venv_stat
 
 - name: Create Python venv with system site-packages
-  command: uv venv --python /usr/bin/python3 --system-site-packages /opt/sonic-testbed/venv
+  command: uv venv --python /usr/bin/python3 --system-site-packages {{ sonic_testbed_venv }}
   become: yes
   when: not venv_stat.stat.exists
 
 - name: Install Python packages in venv
   command: >-
     uv pip install
-    --python /opt/sonic-testbed/venv/bin/python
-    requests==2.32.3 docker==7.1.0
+    --python {{ sonic_testbed_venv }}/bin/python
+    requests==2.33.1 docker==7.1.0
   become: yes
   environment: "{{ proxy_env | default({}) }}"

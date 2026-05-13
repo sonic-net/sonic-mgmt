@@ -44,6 +44,12 @@
     reload: true
     sysctl_file: /etc/sysctl.d/99-pty.conf
 
+# On Ubuntu 24.04+, AppArmor's libvirt profile denies the default
+# libvirt-qemu user access to VM disk images stored outside
+# /var/lib/libvirt/images (e.g. under ~/sonic-vm/).  Running QEMU as
+# root is a pragmatic workaround; a proper AppArmor local override is
+# preferable long-term.  On 22.04 this is not needed unless the user
+# opts in via force_qemu_root=true.
 - name: Update libvirt qemu configuration
   block:
   - name: Set user to root in qemu.conf

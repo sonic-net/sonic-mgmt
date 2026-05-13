@@ -94,12 +94,12 @@
 
 - name: Check if venv python exists
   stat:
-    path: /opt/sonic-testbed/venv/bin/python
+    path: "{{ sonic_testbed_venv }}/bin/python"
   register: venv_python_stat
 
 - name: Set ansible python interpreter to venv
   set_fact:
-    ansible_python_interpreter: "/opt/sonic-testbed/venv/bin/python"
+    ansible_python_interpreter: "{{ sonic_testbed_venv }}/bin/python"
   when: venv_python_stat.stat.exists
 
 # ---- User groups (always run, per-user) ----
