@@ -106,6 +106,10 @@ def get_power_override(conn, index):
     return sfp_api(conn, index, 'get_power_override')
 
 
+def get_power_override_support(conn, index):
+    return sfp_api(conn, index, 'get_power_override_support')
+
+
 def get_temperature(conn, index):
     return sfp_api(conn, index, 'get_temperature')
 
