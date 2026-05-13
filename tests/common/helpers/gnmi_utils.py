@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -6,6 +7,18 @@ logger = logging.getLogger(__name__)
 GNMI_CERT_NAME = "test.client.gnmi.sonic"
 REVOKED_GNMICERT_NAME = "test.client.revoked.gnmi.sonic"
 TELEMETRY_CONTAINER = "telemetry"
+
+# Backdate cert notBefore to absorb clock skew between the sonic-mgmt runner,
+# the DUT, and the PTF docker. Without this, even a few minutes of drift
+# produces TLS handshake failures with "certificate is not yet valid".
+# Requires openssl >= 3.0 (the -not_before flag); sonic-mgmt's Ubuntu 24.04
+# test container ships openssl 3.0.x.
+CERT_BACKDATE_DAYS = 7
+
+
+def _cert_not_before():
+    """Return openssl-formatted UTC timestamp backdated by CERT_BACKDATE_DAYS."""
+    return (datetime.now(timezone.utc) - timedelta(days=CERT_BACKDATE_DAYS)).strftime("%Y%m%d%H%M%SZ")
 
 
 class GNMIEnvironment(object):
@@ -267,6 +280,7 @@ def create_root_key(localhost):
 
 
 def create_root_cert(localhost, days):
+    not_before = _cert_not_before()
     local_command = "openssl req \
                             -x509 \
                             -new \
@@ -274,8 +288,9 @@ def create_root_cert(localhost, days):
                             -key gnmiCA.key \
                             -sha256 \
                             -days {} \
+                            -not_before {} \
                             -subj '/CN=test.gnmi.sonic' \
-                            -out gnmiCA.pem".format(days)
+                            -out gnmiCA.pem".format(days, not_before)
     localhost.shell(local_command)
 
 
@@ -301,6 +316,7 @@ def create_server_csr(localhost):
 
 def sign_server_certificate(duthost, localhost, days):
     create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    not_before = _cert_not_before()
     local_command = "openssl x509 \
                             -req \
                             -in gnmiserver.csr \
@@ -309,9 +325,10 @@ def sign_server_certificate(duthost, localhost, days):
                             -CAcreateserial \
                             -out gnmiserver.crt \
                             -days {} \
+                            -not_before {} \
                             -sha256 \
                             -extensions req_ext \
-                            -extfile extfile.cnf".format(days)
+                            -extfile extfile.cnf".format(days, not_before)
     localhost.shell(local_command)
 
 
@@ -341,6 +358,7 @@ def create_client_csr(localhost, revoke=False):
 def sign_client_certificate(localhost, days="825", revoke=False, extension_file=None):
     revoke_suffix = "revoked." if revoke else ""
     extensions = "-extensions req_ext -extfile {}".format(extension_file) if extension_file else ""
+    not_before = _cert_not_before()
     local_command = "openssl x509 \
                             -req \
                             -in gnmiclient.{}csr \
@@ -349,7 +367,8 @@ def sign_client_certificate(localhost, days="825", revoke=False, extension_file=
                             -CAcreateserial \
                             -out gnmiclient.{}crt \
                             -days {} \
-                            -sha256 {}".format(revoke_suffix, revoke_suffix, days, extensions)
+                            -not_before {} \
+                            -sha256 {}".format(revoke_suffix, revoke_suffix, days, not_before, extensions)
     localhost.shell(local_command)
 
 

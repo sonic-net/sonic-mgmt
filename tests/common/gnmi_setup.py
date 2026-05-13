@@ -6,6 +6,7 @@ that require SAI validation.
 # Move tests/gnmi/helper.py to tests/common/gnmi_helper.py
 # copy of code from tests/gnmi/helper.py
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import logging
@@ -23,6 +24,13 @@ logger = logging.getLogger(__name__)
 
 # Wait time in seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 5
+
+# Backdate cert notBefore to absorb clock skew between the sonic-mgmt runner,
+# the DUT, and the PTF docker. Without this, even a few minutes of drift
+# produces TLS handshake failures with "certificate is not yet valid".
+# Requires openssl >= 3.0 (the -not_before flag); sonic-mgmt's Ubuntu 24.04
+# test container ships openssl 3.0.x.
+CERT_BACKDATE_DAYS = 7
 
 
 def create_ext_conf(ip, filename):
@@ -200,6 +208,9 @@ def create_certificates(localhost, duthost_mgmt_ip, cert_path: Path):
         logger.error(f"Failed to create directory {dest_dir}: {e}")
         raise Exception(f"Failed to create directory {dest_dir}: {e}")
 
+    not_before = (datetime.now(timezone.utc) - timedelta(days=CERT_BACKDATE_DAYS)).strftime("%Y%m%d%H%M%SZ")
+    logger.info(f"Backdating cert notBefore by {CERT_BACKDATE_DAYS} days to {not_before}.")
+
     # Create CA key and certificate
     logger.info("Creating CA key and certificate.")
     key_file = str(dest_dir / 'gnmiCA.key')
@@ -210,6 +221,7 @@ def create_certificates(localhost, duthost_mgmt_ip, cert_path: Path):
     local_command = (
         f"openssl req -x509 -new -nodes -key {key_file} "
         f"-sha256 -days 1825 -subj '/CN=test.gnmi.sonic' "
+        f"-not_before {not_before} "
         f"-out {out_file}"
     )
     out = localhost.shell(local_command)
@@ -254,6 +266,7 @@ def create_certificates(localhost, duthost_mgmt_ip, cert_path: Path):
         f"openssl x509 -req -in {in_file} "
         f"-CA {ca_pem} -CAkey {ca_key} -CAcreateserial "
         f"-out {out_file} -days 825 -sha256 "
+        f"-not_before {not_before} "
         f"-extensions req_ext -extfile {extfile_path}"
     )
     out = localhost.shell(local_command)
@@ -294,7 +307,8 @@ def create_certificates(localhost, duthost_mgmt_ip, cert_path: Path):
     local_command = (
         f"openssl x509 -req -in {in_file} "
         f"-CA {ca_pem} -CAkey {ca_key} "
-        f"-CAcreateserial -out {out_file} -days 825 -sha256"
+        f"-CAcreateserial -out {out_file} -days 825 -sha256 "
+        f"-not_before {not_before}"
     )
     out = localhost.shell(local_command)
     if out['rc'] != 0:

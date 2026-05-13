@@ -2,12 +2,18 @@ import logging
 import pytest
 import json
 import re
+from datetime import datetime, timedelta, timezone
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 logger = logging.getLogger(__name__)
+
+# Backdate rotated telemetry cert notBefore so it survives clock skew
+# between the sonic-mgmt runner and the DUT. Requires openssl >= 3.0
+# (the -not_before flag); sonic-mgmt's Ubuntu 24.04 container ships 3.0.x.
+TELEMETRY_CERT_BACKDATE_DAYS = 7
 
 METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
@@ -176,26 +182,30 @@ def archive_telemetry_certs(duthost):
 
 def rotate_telemetry_certs(duthost, localhost):
     path = "/etc/sonic/telemetry/"
+    not_before = (datetime.now(timezone.utc)
+                  - timedelta(days=TELEMETRY_CERT_BACKDATE_DAYS)).strftime("%Y%m%d%H%M%SZ")
     # Create new certs to rotate
     cmd = "openssl req \
               -x509 \
               -sha256 \
               -nodes \
               -days 365 \
+              -not_before {} \
               -newkey rsa:2048 \
               -keyout streamingtelemetryserver.key \
               -subj '/CN=ndastreamingservertest' \
-              -out streamingtelemetryserver.cer"
+              -out streamingtelemetryserver.cer".format(not_before)
     localhost.shell(cmd)
     cmd = "openssl req \
               -x509 \
               -sha256 \
               -nodes \
               -days 365 \
+              -not_before {} \
               -newkey rsa:2048 \
               -keyout dsmsroot.key \
               -subj '/CN=ndastreamingclienttest' \
-              -out dsmsroot.cer"
+              -out dsmsroot.cer".format(not_before)
     localhost.shell(cmd)
 
     # Rotate certs
