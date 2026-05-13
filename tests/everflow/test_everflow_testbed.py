@@ -318,7 +318,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0])
         )
-        pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, everflow_dut))
+        everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         # Verify that mirrored traffic is sent along the route we installed
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -431,7 +431,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0])
         )
-        pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, everflow_dut))
+        everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         # Verify that mirrored traffic is sent along the route we installed
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -519,7 +519,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0])
         )
-        pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, everflow_dut))
+        everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         tx_port = setup_info[dest_port_type]["dest_port"][1]
         peer_ip_1 = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
@@ -633,7 +633,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0])
         )
-        pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, everflow_dut))
+        everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         # Verify that mirrored traffic is sent along the route we installed
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -827,7 +827,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                        config_method,
                                        rules=EVERFLOW_DSCP_RULES)
 
-            pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, everflow_dut))
+            everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
             # Clear counters before test
             clear_interface_counters(everflow_dut)
             clear_queue_counters(everflow_dut, None)
@@ -892,7 +892,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[0])
         )
-        pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, everflow_dut))
+        everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         # Verify that mirrored traffic is sent along the route we installed
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
@@ -1139,7 +1139,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 everflow_utils.validate_asic_route, remote_dut, session_prefixes[0]
             )
         )
-        pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, remote_dut))
+        everflow_utils.wait_for_acl_rules_in_asic_db(remote_dut)
 
         # Verify that mirrored traffic is sent along the route we installed
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
