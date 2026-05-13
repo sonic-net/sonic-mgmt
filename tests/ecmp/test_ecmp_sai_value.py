@@ -192,7 +192,8 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
                           Expected {}, but got {}.".format(392, offset_count))
     elif topo_type == "t1":
         offset_count = offset_list.count('0xa')
-        if hwsku in ["Arista-7060CX-32S-C32", "Arista-7050QX32S-Q32", "Arista-7050-QX-32S"]:
+        if hwsku in ["Arista-7060CX-32S-C32", "Arista-7050QX32S-Q32", "Arista-7050-QX-32S",
+                     "Arista-7060CX-32S-Q32"]:
             pytest_assert(offset_count >= 33, "the count of 0xa OFFSET_ECMP is not correct. \
                           Expected >= 33, but got {}.".format(offset_count))
         else:
