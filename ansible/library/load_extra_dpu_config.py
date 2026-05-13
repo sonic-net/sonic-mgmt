@@ -36,7 +36,7 @@ class LoadExtraDpuConfigModule(object):
                 host_passwords=dict(type='list', elements='str', required=True, no_log=True),
                 npu_index=dict(type='int', required=False, default=0),
                 target_dpu_index=dict(type='int', required=False, default=-1),
-                enabled_dpu_indices=dict(type='list', elements='int', required=False, default=[])
+                enabled_dpu_indices=dict(type='list', elements='int', required=False, default=None)
             ),
             supports_check_mode=False
         )
@@ -58,13 +58,15 @@ class LoadExtraDpuConfigModule(object):
         except KeyError:
             self.module.fail_json(msg="No DPU configuration found for hwsku: {}".format(self.hwsku))
 
-        # Resolve the set of DPUs that are enabled for this NPU. Falls back to
-        # all DPUs supported by the hwsku when the testbed.yaml entry does not
-        # specify an `enabled_dpus:` mapping for this DUT (backward compatibility).
-        if enabled_dpu_indices_param:
-            self.enabled_dpu_indices = sorted({i for i in enabled_dpu_indices_param if 0 <= i < self.dpu_num})
-        else:
+        # Resolve the set of DPUs that are enabled (admin-up) for this NPU.
+        # `None` means the testbed.yaml entry did not specify an `enabled_dpus`
+        # mapping for this DUT; fall back to all hwsku-supported DPUs for
+        # backward compatibility. An explicit empty list means "no DPUs
+        # enabled" and skips SSH-based DPU configuration entirely.
+        if enabled_dpu_indices_param is None:
             self.enabled_dpu_indices = list(range(self.dpu_num))
+        else:
+            self.enabled_dpu_indices = sorted({i for i in enabled_dpu_indices_param if 0 <= i < self.dpu_num})
 
     def wait_for_dpu_path(self, ssh, dpu_ip, path_to_check):
         try:
