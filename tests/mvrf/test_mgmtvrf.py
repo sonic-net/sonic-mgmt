@@ -196,7 +196,7 @@ def verify_show_command(duthost, mvrf=True):
     mvrf_interfaces = {}
     if mvrf:
         mvrf_interfaces["mgmt"] = r"\d+:\s+mgmt:\s+<NOARP,MASTER,UP,LOWER_UP> mtu\s+\d+\s+qdisc\s+noqueue\s+state\s+UP"
-        mvrf_interfaces["vrf_table"] = "vrf table 5000"
+        mvrf_interfaces["vrf_table"] = "vrf table 6000"
         mvrf_interfaces["eth0"] = r"\d+:\s+eth0+:\s+<BROADCAST,MULTICAST,UP,LOWER_UP>.*master mgmt\s+state\s+UP "
         mvrf_interfaces["lo"] = r"\d+:\s+lo-m:\s+<BROADCAST,NOARP,UP,LOWER_UP>.*master mgmt"
         if "ManagementVRF : Enabled" not in show_mgmt_vrf:
