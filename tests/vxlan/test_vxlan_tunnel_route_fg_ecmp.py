@@ -16,9 +16,15 @@ VNET2_NAME = "Vnet2"
 TUNNEL_NAME = "tunnel_v4"
 VNI = 1000
 VNET2_VNI = 2000
+ROUTE_OVERRIDE_VNI = 5001
 PREFIX = "150.0.3.1/24"
-BUCKET_SIZE = 512 # todo navdhaj: check that should configure 511
+BUCKET_SIZE = 125
+BUCKET_SIZE_LARGE = 2048
+MAX_HW_BUCKET_SIZE = 511
 NUM_INITIAL_ENDPOINTS = 10
+LARGE_ENDPOINT_COUNT = 128
+MAX_ENDPOINT_COUNT = MAX_HW_BUCKET_SIZE       
+OVERFLOW_ENDPOINT_COUNT = MAX_HW_BUCKET_SIZE + 1  
 ENDPOINT_BASE_IP = "100.0.1."
 VNET2_ENDPOINT_BASE_IP = "100.0.2."
 VNET2_DUT_IP = "202.0.1.1"
@@ -42,6 +48,20 @@ ecmp_utils = Ecmp_Utils()
 
 def generate_endpoint_list(base_ip=ENDPOINT_BASE_IP, count=NUM_INITIAL_ENDPOINTS):
     return [f"{base_ip}{i}" for i in range(count)]
+
+
+def generate_large_endpoint_list(count, base_prefix="100.10"):
+    endpoints = []
+    third = 0
+    fourth = 1   # avoid .0
+    while len(endpoints) < count:
+        endpoints.append(f"{base_prefix}.{third}.{fourth}")
+        fourth += 1
+        if fourth > 254:
+            fourth = 1
+            third += 1
+            assert third <= 255, f"Cannot generate {count} endpoints in {base_prefix}.0.0/16"
+    return endpoints
 
 
 def get_loopback_ip(cfg_facts):
@@ -100,8 +120,7 @@ def set_route_tunnel_regular(duthost, endpoints):
         }},
         "route_tunnel",
     )
-    # sonic-cfggen merges fields, so explicitly remove the FG ECMP field
-    # in case it was set previously
+    # sonic-cfggen merges fields, explicitly remove the FG ECMP field
     duthost.shell(
         f"sonic-db-cli CONFIG_DB hdel "
         f"'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' "
@@ -110,15 +129,49 @@ def set_route_tunnel_regular(duthost, endpoints):
     time.sleep(3)
 
 
-def set_route_tunnel(duthost, endpoints):
-    logger.info(f"Programming route {PREFIX} -> {','.join(endpoints)}")
-    vni_str = ",".join([str(VNI)] * len(endpoints))
+def set_route_tunnel(duthost, endpoints, bucket_size=BUCKET_SIZE, vnet_name=VNET_NAME, vni=VNI):
+    logger.info(
+        f"Programming route {vnet_name}|{PREFIX} -> {len(endpoints)} endpoints, "
+        f"buckets={bucket_size}, vni={vni}"
+    )
+    vni_str = ",".join([str(vni)] * len(endpoints))
+    apply_chunk(
+        duthost,
+        {"VNET_ROUTE_TUNNEL": {
+            f"{vnet_name}|{PREFIX}": {
+                "endpoint": ",".join(endpoints),
+                "vni": vni_str,
+                "consistent_hashing_buckets": str(bucket_size),
+            }
+        }},
+        "route_tunnel",
+    )
+    time.sleep(3)
+
+
+def set_route_tunnel_with_mac_vni(duthost, endpoints, mac_list, vni):
+    assert len(mac_list) == len(endpoints), (
+        f"mac_list length {len(mac_list)} must equal endpoints length {len(endpoints)}"
+    )
+    logger.info(
+        f"Programming FG ECMP route {PREFIX} with vni={vni}, "
+        f"endpoints={endpoints}, mac_list={mac_list}"
+    )
+
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB del 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}'"
+    )
+    time.sleep(3)
+
+    vni_str = ",".join([str(vni)] * len(endpoints))
+    mac_str = ",".join(mac_list)
     apply_chunk(
         duthost,
         {"VNET_ROUTE_TUNNEL": {
             f"{VNET_NAME}|{PREFIX}": {
                 "endpoint": ",".join(endpoints),
                 "vni": vni_str,
+                "mac_address": mac_str,
                 "consistent_hashing_buckets": str(BUCKET_SIZE),
             }
         }},
@@ -127,13 +180,24 @@ def set_route_tunnel(duthost, endpoints):
     time.sleep(3)
 
 
-def cleanup(duthost, ptfhost, ptf_port_name):
+def cleanup(duthost, ptfhost):
     duthost.shell(f"mv {CONFIG_DB_PATH}.bak {CONFIG_DB_PATH}")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
     for f in [PERSIST_MAP_FILE, PTF_PARAMS_FILE, PTF_LOG_FILE]:
         ptfhost.shell(f"rm -f {f}")
-    if ptf_port_name:
-        ptfhost.shell(f"ip addr flush dev {ptf_port_name}")
+
+
+def get_t1_facing_ptf_ports(duthost, tbinfo):
+    minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    ptf_indices = minigraph_facts["minigraph_ptf_indices"]
+    neighbors = minigraph_facts["minigraph_neighbors"]
+    t1_ports = sorted({
+        ptf_indices[intf]
+        for intf, info in neighbors.items()
+        if info.get("name", "").endswith("T1") and intf in ptf_indices
+    })
+    logger.info(f"T1-facing PTF port indices: {t1_ports}")
+    return t1_ports
 
 
 def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
@@ -172,15 +236,16 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
     )
 
     ptf_ip = "201.0.1.101"
-    ptfhost.shell(f"ip addr flush dev {ptf_port_name}")
-    ptfhost.shell(f"ip addr add {ptf_ip}/24 dev {ptf_port_name}")
     ptfhost.shell(f"ip link set {ptf_port_name} up")
+
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port,
+                                      dutmac=duthost.facts["router_mac"])
 
     initial_endpoints = generate_endpoint_list()
     set_route_tunnel(duthost, initial_endpoints)
     time.sleep(3)
 
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port)
+    expected_egress_ports = get_t1_facing_ptf_ports(duthost, tbinfo)
 
     return {
         "dut_vtep": dut_vtep,
@@ -191,6 +256,7 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
         "vxlan_port": vxlan_port,
         "ptf_port_name": ptf_port_name,
         "ingress_if": ingress_if,
+        "expected_egress_ports": expected_egress_ports,
     }
 
 
@@ -220,8 +286,6 @@ def setup_second_vnet(duthost, ptfhost, tbinfo, config_facts, dut_indx, first_in
     ptf_port_index2 = port_indexes[ingress_if2]
     ptf_port_name2 = ptf_ports_available_in_topo[ptf_port_index2]
 
-    ptfhost.shell(f"ip addr flush dev {ptf_port_name2}")
-    ptfhost.shell(f"ip addr add {VNET2_PTF_IP}/24 dev {ptf_port_name2}")
     ptfhost.shell(f"ip link set {ptf_port_name2} up")
 
     vnet2_endpoints = generate_endpoint_list(VNET2_ENDPOINT_BASE_IP, NUM_INITIAL_ENDPOINTS)
@@ -242,10 +306,6 @@ def common_setup_teardown(
     tbinfo,
     request,
 ):
-    """
-    Module-level setup:
-    - Configures 1 VNET, 1 VXLAN tunnel, and 1 VNET route with fine-grained ECMP
-    """
     duthost = duthosts[rand_one_dut_hostname]
     duthost.shell(f"cp {CONFIG_DB_PATH} {CONFIG_DB_PATH}.bak")
 
@@ -275,15 +335,10 @@ def common_setup_teardown(
         pytest.fail("Vnet testing setup failed")
 
     finally:
-        ptf_port_name = (setup_params or {}).get("ptf_port_name", "")
-        vnet2_ptf_port_name = ((setup_params or {}).get("vnet2") or {}).get("ptf_port_name", "")
-        cleanup(duthost, ptfhost, ptf_port_name)
-        if vnet2_ptf_port_name:
-            ptfhost.shell(f"ip addr flush dev {vnet2_ptf_port_name}")
+        cleanup(duthost, ptfhost)
 
 
 def run_regular_ecmp_ptf_test(ptfhost, endpoints, params, num_packets):
-    """Run the regular ECMP PTF test (all endpoints hit, no loss)."""
     logger.info(f"Regular ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
     endpoints_file = "/tmp/ptf_endpoints.json"
     ptfhost.copy(content=json.dumps(endpoints), dest=endpoints_file)
@@ -308,11 +363,20 @@ def run_regular_ecmp_ptf_test(ptfhost, endpoints, params, num_packets):
     )
 
 
-def run_vxlan_ptf_test(ptfhost, endpoints, params, test_case, num_packets, **kwargs):
-    logger.info(f"PTF test: test_case={test_case}, endpoints={len(endpoints)}, flows={num_packets}")
+def run_vxlan_ptf_test(ptfhost, endpoints, params, test_case, num_packets,
+                       check_distribution=True, require_all_endpoints_hit=True,
+                       **kwargs):
+    logger.info(
+        f"PTF test: test_case={test_case}, endpoints={len(endpoints)}, "
+        f"flows={num_packets}, check_distribution={check_distribution}, "
+        f"require_all_endpoints_hit={require_all_endpoints_hit}"
+    )
 
-    flows_per_nh = NUM_FLOWS / len(endpoints)
-    exp_flow_count = {ep: flows_per_nh for ep in endpoints}
+    if check_distribution:
+        flows_per_nh = num_packets / len(endpoints)
+        exp_flow_count = {ep: flows_per_nh for ep in endpoints}
+    else:
+        exp_flow_count = {}
 
     ptf_params = params.copy()
 
@@ -321,6 +385,7 @@ def run_vxlan_ptf_test(ptfhost, endpoints, params, test_case, num_packets, **kwa
         "test_case": test_case,
         "num_packets": num_packets,
         "exp_flow_count": exp_flow_count,
+        "require_all_endpoints_hit": require_all_endpoints_hit,
         "persist_map": PERSIST_MAP_FILE,
     })
     ptf_params.update(kwargs)
@@ -330,7 +395,7 @@ def run_vxlan_ptf_test(ptfhost, endpoints, params, test_case, num_packets, **kwa
     ptf_runner(
         ptfhost,
         "ptftests",
-        "vxlan_tunnel_route_fg_ecmp_test.VxlanTunnelFgEcmpTest",
+        "vxlan_tunnel_fg_ecmp_test.VxlanTunnelFgEcmpTest",
         platform_dir="ptftests",
         params={"params_file": PTF_PARAMS_FILE},
         log_file=PTF_LOG_FILE,
@@ -358,6 +423,7 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
         num_packets=NUM_FLOWS, withdraw_endpoint=withdrawn_endpoint,
     )
 
+    # add endpoint back
     new_endpoint = f"{ENDPOINT_BASE_IP}{NUM_INITIAL_ENDPOINTS}"  # 100.0.1.10
     readded_endpoints = remaining_endpoints + [new_endpoint]
     set_route_tunnel(duthost, readded_endpoints)
@@ -366,19 +432,36 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
         num_packets=NUM_FLOWS, add_endpoint=new_endpoint,
     )
 
+    # Simultaneously remove 2 endpoints and add 2 new ones. flows on
+    # unchanged endpoints must remain on the same endpoint, and only flows
+    # whose previous endpoint was withdrawn may redistribute.
+    withdrawn_endpoints = readded_endpoints[:2]
+    kept_endpoints = readded_endpoints[2:]
+    added_endpoints = [
+        f"{ENDPOINT_BASE_IP}{NUM_INITIAL_ENDPOINTS + 1}",  # 100.0.1.11
+        f"{ENDPOINT_BASE_IP}{NUM_INITIAL_ENDPOINTS + 2}",  # 100.0.1.12
+    ]
+    swapped_endpoints = kept_endpoints + added_endpoints
+    set_route_tunnel(duthost, swapped_endpoints)
+    run_vxlan_ptf_test(
+        ptfhost, swapped_endpoints, setup, "swap_endpoints",
+        num_packets=NUM_FLOWS,
+        withdrawn_endpoints=withdrawn_endpoints,
+        added_endpoints=added_endpoints,
+    )
+
     vnet2 = setup["vnet2"]
     vnet2_endpoints = generate_endpoint_list(VNET2_ENDPOINT_BASE_IP, NUM_INITIAL_ENDPOINTS)
     run_vxlan_ptf_test(
         ptfhost,
         endpoints,  # Vnet1 endpoints
         setup,
-        "dual_vnet_isolation",
+        "conflicting_dest_prefix",
         num_packets=NUM_FLOWS,
         vnet2_endpoints=vnet2_endpoints,
         ptf_ingress_port_vnet2=vnet2["ptf_ingress_port"],
         ptf_src_ip_vnet2=vnet2["ptf_src_ip"],
     )
-
 
 def test_transition_regular_to_fg_ecmp(ptfhost, common_setup_teardown):
     """Verify that a regular ECMP route can transition to FG ECMP."""
@@ -417,7 +500,7 @@ def test_transition_fg_to_regular_ecmp(ptfhost, common_setup_teardown):
     setup, duthost, _ = common_setup_teardown
     endpoints = generate_endpoint_list()
 
-    # Phase 1: Ensure FG ECMP is active (defensive — fixture may have been modified by prior test)
+    # Phase 1: Ensure FG ECMP is active
     set_route_tunnel(duthost, endpoints)
 
     # Phase 2: Verify FG ECMP works — create flows, check distribution
@@ -436,3 +519,37 @@ def test_transition_fg_to_regular_ecmp(ptfhost, common_setup_teardown):
     changed_endpoints = [f"{ENDPOINT_BASE_IP}{i}" for i in range(5, 5 + NUM_INITIAL_ENDPOINTS)]
     set_route_tunnel_regular(duthost, changed_endpoints)
     run_regular_ecmp_ptf_test(ptfhost, changed_endpoints, setup, num_packets=NUM_FLOWS)
+
+def test_vxlan_fg_ecmp_mac_vni(ptfhost, common_setup_teardown):
+    """
+    Validate that mac_address and vni configured on a VNET_ROUTE_TUNNEL entry
+    are used as the inner Ethernet dst MAC and outer VXLAN VNI of the
+    encapsulated packets.
+    """
+    logger.info("Running test_vxlan_fg_ecmp_mac_vni")
+    setup, duthost, _ = common_setup_teardown
+
+    endpoints = generate_endpoint_list()
+    # Deterministic, unique MACs (one per endpoint).
+    mac_list = [
+        f"52:54:00:{i // 256:02x}:{i % 256:02x}:aa" for i in range(len(endpoints))
+    ]
+    endpoint_to_mac = dict(zip(endpoints, mac_list))
+
+    set_route_tunnel_with_mac_vni(duthost, endpoints, mac_list, ROUTE_OVERRIDE_VNI)
+    try:
+        run_vxlan_ptf_test(
+            ptfhost,
+            endpoints,
+            setup,
+            "verify_mac_vni",
+            num_packets=NUM_FLOWS,
+            expected_vni=ROUTE_OVERRIDE_VNI,
+            endpoint_to_mac=endpoint_to_mac,
+        )
+    finally:
+        duthost.shell(
+            f"sonic-db-cli CONFIG_DB del "
+            f"'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}'"
+        )
+        time.sleep(3)

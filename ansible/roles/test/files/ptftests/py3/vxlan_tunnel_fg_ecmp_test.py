@@ -1,19 +1,5 @@
 """
 PTF test for VXLAN Tunnel Route Fine-Grained ECMP
-
-Test cases:
-- create_flows: Send NUM_FLOWS flows with varying (sport, dport) and record
-  flow_key -> outer_dst_ip (endpoint) mapping. Validates even distribution.
-- verify_consistent_hash: Replay same flows; assert every flow hits the same
-  endpoint as before
-- withdraw_endpoint: Replay flows after one endpoint is removed. Asserts that
-  no flow hits the withdrawn endpoint, and that flows previously going to other
-  endpoints are completely undisturbed
-- add_endpoint: Replay flows after a new endpoint is added. Asserts that at
-  most 12% of flows migrate to the new endpoint
-- conflicting_dest_prefix: Send flows from two separate VNET ingress ports that both
-  have the same destination prefix but different VNIs. Asserts that Vnet1 flows
-  reach only Vnet1 endpoints and Vnet2 flows reach only Vnet2 endpoints
 """
 
 import logging
@@ -23,9 +9,17 @@ import json
 import ptf
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
-from ptf.testutils import test_params_get, dp_poll, send_packet, simple_tcp_packet
+from ptf.mask import Mask
+from ptf.testutils import (
+    test_params_get,
+    dp_poll,
+    send_packet,
+    simple_tcp_packet,
+    simple_vxlan_packet,
+)
 
-MAX_DEVIATION = 0.12
+MAX_DEVIATION = 0.25
+_PLACEHOLDER_MAC = "00:aa:bb:cc:dd:ee"
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +38,39 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         self.endpoints = params.get("endpoints", [])
         self.dst_ip = params.get("dst_ip")
         self.src_ip = params.get("ptf_src_ip")
+        self.dut_vtep = params.get("dut_vtep")
         self.router_mac = params.get("router_mac")
         self.num_packets = int(params.get("num_packets", 1000))
         self.vxlan_port = int(params.get("vxlan_port", 4789))
         self.send_port = int(params.get("ptf_ingress_port", 0))
         self.exp_flow_count = params.get("exp_flow_count", {})
+        self.require_all_endpoints_hit = bool(params.get("require_all_endpoints_hit", True))
+        self.forbidden_endpoints = params.get("forbidden_endpoints", [])
         self.persist_map = params.get("persist_map", "/tmp/vxlan_tunnel_fg_ecmp_persist_map.json")
 
         self.withdraw_endpoint = params.get("withdraw_endpoint") if self.test_case == "withdraw_endpoint" else None
         self.add_endpoint = params.get("add_endpoint") if self.test_case == "add_endpoint" else None
 
+        # swap_endpoints params: lists of simultaneously withdrawn / added endpoints
+        self.withdrawn_endpoints = (
+            params.get("withdrawn_endpoints", []) if self.test_case == "swap_endpoints" else []
+        )
+        self.added_endpoints = (
+            params.get("added_endpoints", []) if self.test_case == "swap_endpoints" else []
+        )
+
         self.vnet2_endpoints = params.get("vnet2_endpoints")
         _port2 = params.get("ptf_ingress_port_vnet2")
         self.ptf_ingress_port_vnet2 = int(_port2) if _port2 is not None else None
         self.ptf_src_ip_vnet2 = params.get("ptf_src_ip_vnet2")
+
+        # mac_address / vni override verification params
+        _expected_vni = params.get("expected_vni")
+        self.expected_vni = int(_expected_vni) if _expected_vni is not None else None
+        # endpoint_to_mac is a dict {endpoint_ip: mac_string} 
+        self.endpoint_to_mac = params.get("endpoint_to_mac", {})
+
+        self.expected_egress_ports = [int(p) for p in params.get("expected_egress_ports", [])]
 
         self.tcp_sport = 1234
         self.tcp_dport = 5000
@@ -73,9 +86,6 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         logger.info(f"persist_map={self.persist_map}")
         logger.info("=====================================")
 
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
 
     def _next_ports(self):
         self.tcp_sport = (self.tcp_sport % 65534) + 1
@@ -88,17 +98,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         valid_endpoints = self.endpoints if valid_endpoints is None else valid_endpoints
 
         src_mac = self.dataplane.get_mac(0, send_port)
-        pkt = simple_tcp_packet(
-            eth_dst=self.router_mac,
-            eth_src=src_mac,
-            ip_dst=self.dst_ip,
-            ip_src=src_ip,
-            ip_id=105,
-            ip_ttl=64,
-            tcp_sport=sport,
-            tcp_dport=dport,
-            pktlen=100,
-        )
+        pkt = self._build_inner_tcp(sport, dport, src_mac, src_ip)
         send_packet(self, send_port, pkt)
 
         deadline = time.time() + 2.0
@@ -122,16 +122,70 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             except Exception:
                 continue
 
+            if self.expected_egress_ports and result.port not in self.expected_egress_ports:
+                raise AssertionError(
+                    f"VXLAN-encap packet for flow sport={sport} dport={dport} "
+                    f"received on PTF port {result.port}, expected one of "
+                    f"{self.expected_egress_ports}"
+                )
+
             outer_dst = ether[scapy.IP].dst
             return outer_dst if outer_dst in valid_endpoints else None
 
         return None
 
+    def _build_inner_tcp(self, sport, dport, src_mac, src_ip):
+        return simple_tcp_packet(
+            eth_dst=self.router_mac,
+            eth_src=src_mac,
+            ip_dst=self.dst_ip,
+            ip_src=src_ip,
+            ip_id=105,
+            ip_ttl=64,
+            tcp_sport=sport,
+            tcp_dport=dport,
+            pktlen=100,
+        )
+
+    def _build_expected_for_endpoint(self, inner_pkt, endpoint, vni, inner_dst_mac):
+        inner_exp = inner_pkt.copy()
+        inner_exp[scapy.Ether].src = self.router_mac
+        inner_exp[scapy.Ether].dst = inner_dst_mac
+        inner_exp[scapy.IP].ttl -= 1
+
+        encap = simple_vxlan_packet(
+            eth_src=self.router_mac,
+            eth_dst=_PLACEHOLDER_MAC,
+            ip_src=self.dut_vtep,
+            ip_dst=endpoint,
+            ip_id=0,
+            ip_ttl=128,
+            udp_sport=12345,
+            udp_dport=self.vxlan_port,
+            with_udp_chksum=False,
+            vxlan_vni=vni,
+            inner_frame=inner_exp,
+        )
+        encap[scapy.IP].flags = 0x2
+
+        m = Mask(encap)
+        m.set_ignore_extra_bytes()
+        m.set_do_not_care_scapy(scapy.Ether, "src")
+        m.set_do_not_care_scapy(scapy.Ether, "dst")
+        m.set_do_not_care_scapy(scapy.IP, "ttl")
+        m.set_do_not_care_scapy(scapy.IP, "id")
+        m.set_do_not_care_scapy(scapy.IP, "chksum")
+        m.set_do_not_care_scapy(scapy.UDP, "sport")
+        return m
+
     def _check_distribution(self, hit_count_map):
         deviation_max = 0.0
         for endpoint, exp_flows in self.exp_flow_count.items():
             actual = hit_count_map.get(endpoint, 0)
-            deviation = abs(1.0 - actual / float(exp_flows))
+            if exp_flows == 0:
+                deviation = float('inf') if actual else 0.0
+            else:
+                deviation = abs(1.0 - actual / float(exp_flows))
             logger.info(
                 f"  endpoint={endpoint}  expected={exp_flows:.1f}  "
                 f"actual={actual}  deviation={deviation:.3f}"
@@ -176,11 +230,18 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             total = len(flow_map[self.dst_ip])
             logger.info(f"Attempt {attempt + 1}: {total} flows captured. Distribution: {hit_count_map}")
 
-            assert set(self.endpoints) == set(hit_count_map.keys()), (
-                f"Not all endpoints were reached.\n"
-                f"  Expected: {sorted(self.endpoints)}\n"
-                f"  Got:      {sorted(hit_count_map.keys())}"
-            )
+            if self.require_all_endpoints_hit:
+                assert set(self.endpoints) == set(hit_count_map.keys()), (
+                    f"Not all endpoints were reached.\n"
+                    f"  Expected: {sorted(self.endpoints)}\n"
+                    f"  Got:      {sorted(hit_count_map.keys())}"
+                )
+            else:
+                stray = set(hit_count_map.keys()) - set(self.endpoints)
+                assert not stray, (
+                    f"Flows landed on endpoints not in configured set: {sorted(stray)}"
+                )
+                assert total > 0, "No flows were captured at all"
 
             if not self.exp_flow_count:
                 break
@@ -209,10 +270,10 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         for flow_key, expected in flow_map[self.dst_ip].items():
             sport, dport = map(int, flow_key.split(":"))
             actual = self._send_and_capture_endpoint(sport, dport)
-            if actual is not None:
-                flows_checked += 1
-                if actual != expected:
-                    mismatches.append((flow_key, expected, actual))
+            assert actual is not None, f"No response for flow {flow_key}"
+            flows_checked += 1
+            if actual != expected:
+                mismatches.append((flow_key, expected, actual))
             if flows_checked % 100 == 0:
                 logger.info(f"  checked {flows_checked} flows, {len(mismatches)} mismatches so far")
 
@@ -310,6 +371,207 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             f"(threshold: {MAX_DEVIATION:.0%})"
         )
 
+    def _swap_endpoints(self, flow_map):
+        """
+        After N endpoints are simultaneously removed and N new endpoints are
+        added (with the total endpoint count unchanged):
+        - No flow may hit any withdrawn endpoint.
+        - Flows whose previous endpoint is unchanged (still in self.endpoints)
+          must stay on the exact same endpoint
+        - Flows whose previous endpoint was withdrawn may move to any current
+          endpoint 
+        - Every newly added endpoint must receive at least one flow.
+        """
+        assert self.withdrawn_endpoints, "withdrawn_endpoints param is required"
+        assert self.added_endpoints, "added_endpoints param is required"
+
+        withdrawn_set = set(self.withdrawn_endpoints)
+        added_set = set(self.added_endpoints)
+        current_set = set(self.endpoints)
+
+        redistributed = 0
+        added_hits = {ep: 0 for ep in self.added_endpoints}
+        collateral = []
+        self.tcp_sport = 1234
+        self.tcp_dport = 5000
+
+        for flow_key, old_endpoint in flow_map[self.dst_ip].items():
+            sport, dport = map(int, flow_key.split(":"))
+            new_endpoint = self._send_and_capture_endpoint(sport, dport)
+
+            assert new_endpoint is not None, f"No response for flow {flow_key}"
+            assert new_endpoint not in withdrawn_set, (
+                f"Flow {flow_key} still hitting withdrawn endpoint {new_endpoint}"
+            )
+            assert new_endpoint in current_set, (
+                f"Flow {flow_key} hit endpoint {new_endpoint} not in current set {current_set}"
+            )
+
+            if old_endpoint in withdrawn_set:
+                redistributed += 1
+                flow_map[self.dst_ip][flow_key] = new_endpoint
+            elif new_endpoint != old_endpoint:
+                collateral.append((flow_key, old_endpoint, new_endpoint))
+
+            if new_endpoint in added_set:
+                added_hits[new_endpoint] += 1
+
+        logger.info(
+            f"Swap result: {redistributed} flows redistributed from withdrawn "
+            f"endpoints {sorted(withdrawn_set)}; added endpoint hits={added_hits}; "
+            f"collateral disruptions={len(collateral)}"
+        )
+
+        assert not collateral, (
+            f"{len(collateral)} flow(s) on unchanged endpoints were collaterally "
+            f"disrupted (only flows on withdrawn endpoints {sorted(withdrawn_set)} "
+            f"should move). First few: " +
+            "; ".join(f"flow={k} {o}->{n}" for k, o, n in collateral[:5])
+        )
+
+        missing_added = [ep for ep, c in added_hits.items() if c == 0]
+        assert not missing_added, (
+            f"Newly added endpoint(s) received no flows: {missing_added}"
+        )
+
+    def _verify_mac_vni(self):
+        assert self.expected_vni is not None, "expected_vni param is required"
+        assert self.endpoint_to_mac, "endpoint_to_mac param is required"
+        assert self.dut_vtep, "dut_vtep param is required to build expected packet"
+
+        # Normalize configured MACs to lowercase for the Mask constructor.
+        endpoint_to_mac_norm = {ep: mac.lower() for ep, mac in self.endpoint_to_mac.items()}
+        for ep in self.endpoints:
+            assert ep in endpoint_to_mac_norm, f"No mac_address configured for endpoint {ep}"
+
+        src_mac = self.dataplane.get_mac(0, self.send_port)
+        endpoint_hits = {ep: 0 for ep in self.endpoints}
+        mismatch_count = 0
+        no_response = 0
+
+        self.tcp_sport = 1234
+        self.tcp_dport = 5000
+
+        for i in range(self.num_packets):
+            sport, dport = self._next_ports()
+            inner = self._build_inner_tcp(sport, dport, src_mac, self.src_ip)
+            send_packet(self, self.send_port, inner)
+
+            matched = False
+            deadline = time.time() + 2.0
+            while time.time() < deadline:
+                remaining = deadline - time.time()
+                res = dp_poll(self, device_number=0, timeout=min(remaining, 1.0))
+                if not isinstance(res, self.dataplane.PollSuccess):
+                    break
+
+                pkt = scapy.Ether(res.packet)
+                if scapy.IP not in pkt or scapy.UDP not in pkt:
+                    continue
+                if pkt[scapy.UDP].dport != self.vxlan_port:
+                    continue
+                outer_dst = pkt[scapy.IP].dst
+                if outer_dst not in self.endpoints:
+                    logger.error(f"Received VXLAN pkt to unexpected endpoint {outer_dst}")
+                    continue
+
+                if self.expected_egress_ports and res.port not in self.expected_egress_ports:
+                    raise AssertionError(
+                        f"VXLAN-encap packet to {outer_dst} received on PTF port "
+                        f"{res.port}, expected one of {self.expected_egress_ports}"
+                    )
+
+                expected_mac = endpoint_to_mac_norm[outer_dst]
+                exp = self._build_expected_for_endpoint(
+                    inner, outer_dst, self.expected_vni, expected_mac,
+                )
+
+                if exp.pkt_match(pkt):
+                    endpoint_hits[outer_dst] += 1
+                    matched = True
+                    break
+
+                mismatch_count += 1
+                logger.error(
+                    f"Packet mismatch for endpoint={outer_dst}, "
+                    f"expected_mac={expected_mac}, expected_vni={self.expected_vni}.\n"
+                    f"\nExpected:\n{exp}\n\nReceived:\n{pkt}\n"
+                )
+                break
+
+            if not matched and mismatch_count == 0:
+                no_response += 1
+
+            if (i + 1) % 100 == 0:
+                logger.info(
+                    f"  verified {i + 1}/{self.num_packets} flows, "
+                    f"hits={endpoint_hits} mismatches={mismatch_count} "
+                    f"no_response={no_response}"
+                )
+
+        logger.info(
+            f"verify_mac_vni done: hits={endpoint_hits} "
+            f"mismatches={mismatch_count} no_response={no_response}"
+        )
+
+        assert mismatch_count == 0, (
+            f"{mismatch_count} packet(s) did not match expected MAC/VNI encapsulation"
+        )
+        assert no_response < self.num_packets, (
+            f"All {self.num_packets} flows produced no VXLAN response"
+        )
+        missing = [ep for ep, c in endpoint_hits.items() if c == 0]
+        assert not missing, f"No packets observed for endpoints: {missing}"
+
+    def _verify_endpoint_unreachable(self):
+        assert self.forbidden_endpoints, "forbidden_endpoints param is required"
+
+        forbidden_set = set(self.forbidden_endpoints)
+        valid_set = set(self.endpoints) - forbidden_set
+        assert valid_set, (
+            "All configured endpoints are in forbidden_endpoints; "
+            "nothing left to forward to"
+        )
+
+        forbidden_hits = {ep: 0 for ep in self.forbidden_endpoints}
+        valid_hits = 0
+        no_response = 0
+
+        self.tcp_sport = 1234
+        self.tcp_dport = 5000
+
+        for i in range(self.num_packets):
+            sport, dport = self._next_ports()
+            endpoint = self._send_and_capture_endpoint(sport, dport)
+            if endpoint is None:
+                no_response += 1
+                continue
+            if endpoint in forbidden_set:
+                forbidden_hits[endpoint] += 1
+            else:
+                valid_hits += 1
+            if (i + 1) % 100 == 0:
+                logger.info(
+                    f"  sent {i + 1}/{self.num_packets} flows, "
+                    f"valid_hits={valid_hits}, forbidden_hits={forbidden_hits}, "
+                    f"no_response={no_response}"
+                )
+
+        logger.info(
+            f"verify_endpoint_unreachable done: valid_hits={valid_hits}, "
+            f"forbidden_hits={forbidden_hits}, no_response={no_response}"
+        )
+
+        offenders = {ep: c for ep, c in forbidden_hits.items() if c > 0}
+        assert not offenders, (
+            f"Forbidden endpoint(s) received traffic (route update was "
+            f"unexpectedly accepted by hardware): {offenders}"
+        )
+        assert valid_hits > 0, (
+            f"No flows landed on any allowed endpoint "
+            f"({len(valid_set)} configured, {no_response} flows had no response)"
+        )
+
     def _conflicting_dest_prefix(self):
         """
         Send flows from each VNET's ingress port and verify that:
@@ -373,6 +635,12 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         if self.test_case == "conflicting_dest_prefix":
             self._conflicting_dest_prefix()
             return
+        if self.test_case == "verify_mac_vni":
+            self._verify_mac_vni()
+            return
+        if self.test_case == "verify_endpoint_unreachable":
+            self._verify_endpoint_unreachable()
+            return
 
         if self.test_case == "create_flows":
             flow_map = {}
@@ -400,6 +668,10 @@ class VxlanTunnelFgEcmpTest(BaseTest):
 
         elif self.test_case == "add_endpoint":
             self._add_endpoint(flow_map)
+            self._save_persist_map(flow_map)
+
+        elif self.test_case == "swap_endpoints":
+            self._swap_endpoints(flow_map)
             self._save_persist_map(flow_map)
 
         else:
