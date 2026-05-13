@@ -16,12 +16,13 @@ def _cleanup_orphaned_ansible_processes(timed_out_duts):
       sh -c sudo ... 'echo BECOME-SUCCESS-xxx ; /usr/bin/python3'  (has BECOME-SUCCESS)
         -> sudo ...                                                 (has BECOME-SUCCESS)
           -> /usr/bin/python3                                       (no distinguishing args)
-    We match BECOME-SUCCESS on the parent to get the PGID, then kill the entire
+    We match log analyzer commands on the parent to get the PGID, then kill the entire
     process group. etimes > 60 avoids killing the current cleanup session itself.
     """
     kill_cmd = (
         "ps -eo pgid,etimes,args --no-headers"
-        " | awk '$2 > 60 && $1 > 1 && (/AnsiballZ/ || /BECOME-SUCCESS/) {print $1}'"
+        " | awk '$2 > 60 && $1 > 1 && "
+        "(/AnsiballZ_extract_log\\.py/ || /\\/tmp\\/loganalyzer\\.py/) {print $1}'"
         " | sort -un"
         " | xargs -r -I{} kill -9 -{} 2>/dev/null;"
         " true"
