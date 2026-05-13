@@ -94,11 +94,10 @@ steps:
           FINAL_FEATURES="$FINAL_FEATURES,$FEATURE"
         fi
 
-      # If changes related to other folders excpet tests, we also consider them as common part.
-      # The scope of PR testing is all test scripts.
+      # DEBUG ONLY: Ignore non-tests changes so this branch can validate feature-scoped impact.
+      # Restore the broad-impact fallback before merging.
       else
-        FINAL_FEATURES=""
-        break
+        continue
       fi
     done
 

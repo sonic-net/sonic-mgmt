@@ -31,6 +31,8 @@ pytestmark = [
 ]
 
 
+# DEBUG ONLY: Dummy change to validate t1-lag-vpp impacted-area selection
+
 def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
     """Get the PTF port mapping for the duthost or an asic of the duthost"""
     dut_mg_facts = dut.get_extended_minigraph_facts(tbinfo)

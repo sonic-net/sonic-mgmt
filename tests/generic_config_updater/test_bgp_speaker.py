@@ -14,6 +14,8 @@ pytestmark = [
     pytest.mark.topology('t0'),     # BGP Speaker is limited to t0 only
 ]
 
+# DEBUG ONLY: Dummy change to validate existing t0 impacted-area selection.
+
 logger = logging.getLogger(__name__)
 
 BGPSPEAKER_V4 = "BGPSLBPassive"
