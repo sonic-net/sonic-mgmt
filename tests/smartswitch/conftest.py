@@ -2,6 +2,7 @@
 Pytest fixtures for SmartSwitch tests.
 """
 import pytest
+
 from tests.smartswitch.common.device_utils_dpu import DPU_SYSLOG_ERROR_IGNORE_PATTERNS
 
 
