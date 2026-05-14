@@ -25,7 +25,6 @@
     - name: Set ip command absolute path
       set_fact:
         ip_command_path: "{{ which_ip_output.stdout }}"
-        python_command: "{{ sonic_testbed_venv }}/bin/python3"
 
     - name: Install gRPC library in venv
       command: >-

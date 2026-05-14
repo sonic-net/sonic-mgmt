@@ -15,7 +15,6 @@
     set_fact:
       flask_version: "2.3.3"
       werkzeug_version: "2.3.7"
-      python_command: "{{ sonic_testbed_venv }}/bin/python3"
 
   - name: Install Flask and Werkzeug in venv
     command: >-
