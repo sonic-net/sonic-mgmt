@@ -26,23 +26,23 @@ rejects invalid min/max threshold configurations applied via ``ecnconfig``,
 checking both ASIC_DB and DCHAL HW registers remain unchanged.
 
 Platform limits (from sai_wred.h):
-    WRED_MIN_THRESHOLD = 1,048,576  (1 MB) — minimum allowed green min
-    WRED_MAX_THRESHOLD = 3,145,728  (3 MB) — maximum allowed green max
+    WRED_MIN_THRESHOLD = 1,048,576  (1 MB) -- minimum allowed green min
+    WRED_MAX_THRESHOLD = 3,145,728  (3 MB) -- maximum allowed green max
 
-Test 6 — min_threshold > max_threshold (REJECTED)
+Test 6 -- min_threshold > max_threshold (REJECTED)
     SAI enforces min < max on each attribute SET to prevent division-by-zero
     in the HAL.  We test min>max which is rejected regardless of the order
     orchagent applies the two attributes.
 
-Test 7 — min_threshold = 0 (below HAL minimum, REJECTED)
+Test 7 -- min_threshold = 0 (below HAL minimum, REJECTED)
     SAI rejects because the hardware AQM profile requires a minimum
     buffer allocation of 1 MB.
 
-Test 9 — max_threshold above platform limit (REJECTED)
+Test 9 -- max_threshold above platform limit (REJECTED)
     SAI rejects because the ASIC AQM profile has a fixed buffer limit
     of 3 MB; values above this overflow the hardware register.
 
-Test 10 (config) — drop_probability = 0 (ACCEPTED)
+Test 10 (config) -- drop_probability = 0 (ACCEPTED)
     gdrop=0 is a valid configuration that effectively disables WRED
     probabilistic drops.  SAI accepts it and programs the ASIC AQM
     max_prob register to 0.  Thresholds remain at golden values.
@@ -67,12 +67,12 @@ from qos_helpers import (
 GDROP_ZERO_PROFILE = dict(GOLDEN_WRED_PROFILE, green_drop_probability='0')
 
 
-# ── Module state ─────────────────────────────────────────────────────────
+# --- Module state -----------------------------------------------------------
 dut = None
 egress_intf = None
 
 
-# ── Topology fixture ─────────────────────────────────────────────────────
+# --- Topology fixture -------------------------------------------------------
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_topo():
@@ -90,17 +90,18 @@ def setup_topo():
     st.config(dut, "config qos reload", skip_error_check=True)
     st.wait(5)
     ensure_interfaces_admin_up(dut, [egress_intf])
+    _wait_insshell_ready(dut)
 
     st.log("setup_topo: DONE")
     yield
 
-    st.log("setup_topo: teardown — restoring QoS baseline")
+    st.log("setup_topo: teardown -- restoring QoS baseline")
     st.config(dut, "config qos reload", skip_error_check=True)
     st.wait(5)
     st.log("setup_topo: teardown complete")
 
 
-# ── ASIC_DB helpers ──────────────────────────────────────────────────────
+# --- ASIC_DB helpers --------------------------------------------------------
 
 def _get_asic_db_wred_attrs(dut_handle):
     """Return the WRED SAI attribute dict from ASIC_DB, or {} if not found."""
@@ -123,7 +124,7 @@ def _get_asic_db_wred_attrs(dut_handle):
     return parse_redis_hgetall(out)
 
 
-# ── CONFIG_DB / ecnconfig helpers ────────────────────────────────────────
+# --- CONFIG_DB / ecnconfig helpers ------------------------------------------
 
 def _apply_wred_thresholds(dut_handle, gmin, gmax):
     """Set AZURE_LOSSY green min/max thresholds via ecnconfig."""
@@ -143,14 +144,73 @@ def _apply_wred_gdrop(dut_handle, value):
 
 
 def _restore_qos_baseline(dut_handle):
-    """Restore CONFIG_DB to golden values after an invalid ecnconfig write."""
+    """Restore CONFIG_DB to golden values after an invalid ecnconfig write.
+
+    ``config qos reload`` restarts the ``dchalshell`` Thrift sidecar
+    inside ``syncd`` (its ``insshell`` server on 127.0.0.1:9091 takes
+    30-60s to re-bind on slower platforms / breakout topologies).  All
+    tests in this module probe DCHAL HW immediately after this call,
+    so we wait for the sidecar to be ready before returning -- without
+    this gate, the next test's first DCHAL probe can race the restart
+    and fail with ``ConnectionRefusedError``.  Other QoS test modules
+    don't need this because their first DCHAL probe is preceded by
+    minutes of IXIA/topology setup.
+    """
     st.log("  Restoring CONFIG_DB via config qos reload")
     st.config(dut_handle, "config qos reload", skip_error_check=True)
     st.wait(5)
     ensure_interfaces_admin_up(dut_handle, [egress_intf])
+    _wait_insshell_ready(dut_handle)
 
 
-# ── Tests ────────────────────────────────────────────────────────────────
+def _wait_insshell_ready(dut_handle, timeout=60, poll_interval=5):
+    """Poll until ``dchalshell``'s ``insshell`` Thrift server is reachable.
+
+    The server lives at 127.0.0.1:9091 inside the ``syncd`` container
+    and is restarted every time ``config qos reload`` runs.  We probe
+    it with a trivial ``insshell.show_version`` query (any RPC works);
+    a TCP-level ``ConnectionRefusedError`` means the server hasn't
+    re-bound the socket yet.
+
+    Args:
+        dut_handle:    spytest DUT handle.
+        timeout:       Max seconds to wait (default 60 -- enough for
+                       the slowest observed cold start on breakout
+                       topologies).
+        poll_interval: Seconds between probes (default 5).
+
+    Returns:
+        ``True`` if the sidecar answered within ``timeout`` seconds,
+        ``False`` if the timeout expired.  We log a warning on timeout
+        but do NOT fail the fixture: the subsequent DCHAL probe in the
+        test will surface the failure as a real test failure (which is
+        the right behaviour -- a permanently dead ``insshell`` is a
+        device bug, not a test infrastructure issue).
+    """
+    probe = ("sudo docker exec syncd "
+             "python3 -c \"import dchalshell; "
+             "dchalshell.insshell.show_version()\" 2>&1 | head -5")
+    elapsed = 0
+    while elapsed < timeout:
+        out = st.show(dut_handle, probe, skip_tmpl=True,
+                      skip_error_check=True) or ''
+        if ('Connection refused' not in out
+                and "Could not connect" not in out
+                and 'ConnectionRefusedError' not in out):
+            st.log("  insshell ready after {}s".format(elapsed))
+            return True
+        st.log("  insshell not ready after {}s "
+               "(Connection refused on 127.0.0.1:9091); "
+               "waiting {}s".format(elapsed, poll_interval))
+        st.wait(poll_interval)
+        elapsed += poll_interval
+    st.warn("insshell did not become ready within {}s after "
+            "config qos reload; subsequent DCHAL probes may fail".format(
+                timeout))
+    return False
+
+
+# --- Tests ------------------------------------------------------------------
 
 @pytest.mark.smoke_non_breakout
 def test_reject_min_gt_max():
@@ -307,20 +367,20 @@ def test_gdrop_zero_config():
     st.banner("test_gdrop_zero_config STARTED")
     fail_msgs = []
 
-    # ── Step 1: Verify golden baseline ────────────────────────────────────
+    # --- Step 1: Verify golden baseline -------------------------------------
     st.log("Step 1: Verify golden WRED baseline before any changes")
     if not verify_wred_profile(dut, fail_msgs):
         st.report_fail('msg',
                        'test_gdrop_zero_config FAILED: '
-                       'golden baseline not present — '
+                       'golden baseline not present -- '
                        + '; '.join(fail_msgs))
         return
 
-    # ── Step 2: Apply gdrop=0 ─────────────────────────────────────────────
+    # --- Step 2: Apply gdrop=0 ----------------------------------------------
     st.log("Step 2: Applying gdrop=0 via ecnconfig")
     _apply_wred_gdrop(dut, 0)
 
-    # ── Step 3: Log CONFIG_DB state ───────────────────────────────────────
+    # --- Step 3: Log CONFIG_DB state ----------------------------------------
     st.log("Step 3: Logging CONFIG_DB WRED_PROFILE|AZURE_LOSSY")
     out = st.show(
         dut,
@@ -330,7 +390,7 @@ def test_gdrop_zero_config():
     for field in sorted(config_db_attrs):
         st.log("  CONFIG_DB {} = '{}'".format(field, config_db_attrs[field]))
 
-    # ── Step 4: Verify ASIC_DB ────────────────────────────────────────────
+    # --- Step 4: Verify ASIC_DB ---------------------------------------------
     st.log("Step 4: Verify ASIC_DB SAI_WRED_ATTR_GREEN_DROP_PROBABILITY = 0")
     asic_attrs = _get_asic_db_wred_attrs(dut)
     asic_gdrop = asic_attrs.get('SAI_WRED_ATTR_GREEN_DROP_PROBABILITY', '')
@@ -347,7 +407,7 @@ def test_gdrop_zero_config():
                        + '; '.join(fail_msgs))
         return
 
-    # ── Step 5: Verify DCHAL HW ───────────────────────────────────────────
+    # --- Step 5: Verify DCHAL HW --------------------------------------------
     st.log("Step 5: Verify DCHAL HW max_prob register = 0 (Q0)")
     dchal_rc = verify_wred_config_values_prog_in_dchal(
         dut, egress_intf, 0,
@@ -358,7 +418,7 @@ def test_gdrop_zero_config():
         fail_msgs.append(
             "DCHAL HW mismatch after gdrop=0 (rc={})".format(dchal_rc))
 
-    # ── Step 6: Restore ───────────────────────────────────────────────────
+    # --- Step 6: Restore ----------------------------------------------------
     st.log("Step 6: Restoring golden WRED profile")
     _restore_qos_baseline(dut)
 

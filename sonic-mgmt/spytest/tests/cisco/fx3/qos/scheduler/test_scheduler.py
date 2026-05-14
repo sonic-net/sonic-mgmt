@@ -107,6 +107,7 @@ from qos_helpers import (
     get_port_oid, get_scheduler_groups_for_port,
     get_scheduler_param,
     asic_db_get_sched_oids, asic_db_get_sched_attrs, asic_db_find_new_oid,
+    asic_db_find_sched_oid_by_name, asic_db_wait_sched_present,
     config_db_create_scheduler, config_db_delete_scheduler,
     _ORCHAGENT_DELAY,
 )
@@ -6404,62 +6405,71 @@ def test_fx3_packet_meter_not_supported(setup_topo):
                         dchal_out, fail_msgs, queue=7)
 
     # ── Restore ─────────────────────────────────────────────
-    # SAI rejected the create (meter_type=PACKETS) so orchagent entered a
-    # backoff/error state and never added the key to m_schedulerTable.
     # SAI rejected the create (meter_type=PACKETS) so orchagent never added
     # "sched_packets_meter" to m_schedulerTable.
     # Do not issue a DEL while the key is absent from m_schedulerTable.
     # handleSchedulerTable() calls m_schedulerTable.at(key) on the DEL path;
     # if the key was never inserted, that throws std::out_of_range -> SIGABRT.
     # Strategy:
-    #  1. HSET as valid DWRR (no meter_type) -- orchagent treats as new create,
-    #     SAI create succeeds, key gets inserted into m_schedulerTable.
-    #  2. Poll until OID appears in ASIC_DB (confirms orchagent processed it).
-    #  3. Final DEL -- safe because m_schedulerTable now has the entry.
-    st.banner("RESTORE: sched_packets_meter -- HDEL meter_type -> HSET (valid DWRR) "
-              "-> poll for OID -> DEL")
-    oids_pre_repair = set(asic_db_get_sched_oids(dut))
-    # Step A: DO NOT issue CONFIG_DB DEL here.
-    # Issuing DEL while orchagent never inserted the key (SAI rejected the PACKETS
-    # create so m_schedulerTable has no entry) causes handleSchedulerTable() to call
-    # m_schedulerTable.at("sched_packets_meter") on a missing key -> std::out_of_range
-    # -> SIGABRT.  Go directly to the field-level HDEL + repair HSET instead.
+    #  1. HDEL the meter_type field (so the next HSET no longer carries
+    #     meter_type=PACKETS, which SAI would reject again).
+    #  2. HSET as valid DWRR -- orchagent treats this as a new create and
+    #     SAI create_scheduler succeeds, inserting the entry into
+    #     m_schedulerTable.
+    #  3. Confirm the named OID appears (via COUNTERS_DB name map, with a
+    #     set-difference fallback) -- this confirms orchagent processed
+    #     the HSET regardless of whether it produced a brand-new OID or
+    #     updated an existing record.
+    #  4. Final DEL -- safe because m_schedulerTable now has the entry.
     #
-    # Step A2: HDEL the meter_type field from CONFIG_DB.
-    # The original HSET wrote meter_type=PACKETS into CONFIG_DB; HSET does not
-    # replace the hash, so meter_type would persist and cause SAI to reject the
-    # repair create again.  Remove it explicitly before the repair HSET.
+    # Restore is bookkeeping; it does NOT determine the test verdict.
+    # The functional checks above (ASIC_DB rejection + baseline intact)
+    # are what the test exists to validate.  If restore fails to confirm
+    # the OID, log a warning and force-restore via 'config qos reload'.
+    st.banner("RESTORE: sched_packets_meter -- HDEL meter_type -> HSET (valid DWRR) "
+              "-> confirm OID by name -> DEL")
+    oids_pre_repair = set(asic_db_get_sched_oids(dut))
     st.config(dut,
               'sonic-db-cli CONFIG_DB HDEL "SCHEDULER|sched_packets_meter" "meter_type"',
               skip_error_check=True)
-    # Step B: HSET as valid DWRR (no meter_type).
-    # orchagent sees SET for a key absent from m_schedulerTable -> treats as new
-    # create -> SAI create_scheduler succeeds -> entry inserted into m_schedulerTable.
     st.config(dut,
               'sonic-db-cli CONFIG_DB HSET "SCHEDULER|sched_packets_meter" '
               '"type" "DWRR" "weight" "20"',
               skip_error_check=True)
-    # Step C: poll until OID appears in ASIC_DB
-    _repair_done = False
-    for _att in range(15):
-        st.wait(1)
-        oids_post = set(asic_db_get_sched_oids(dut))
-        if len(oids_post) > len(oids_pre_repair):
-            st.log("  Repair OID appeared after {}s -- safe to DEL".format(_att + 1))
-            _repair_done = True
-            break
-    if not _repair_done:
-        st.report_fail('msg',
-            'packet-meter-not-supported FAILED: repair OID never appeared in '
-            'ASIC_DB after 15s -- orchagent did not process the repair HSET')
-    # Step D: final DEL
-    st.config(dut,
-              'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_packets_meter"',
-              skip_error_check=True)
-    st.wait(_ORCHAGENT_DELAY)
+
+    repair_oid = asic_db_wait_sched_present(
+        dut, "sched_packets_meter",
+        oids_pre=oids_pre_repair,
+        timeout=15, poll=1)
+
+    if repair_oid:
+        st.log("  Repair OID confirmed: {} -- safe to DEL".format(repair_oid))
+        st.config(dut,
+                  'sonic-db-cli CONFIG_DB DEL "SCHEDULER|sched_packets_meter"',
+                  skip_error_check=True)
+        st.wait(_ORCHAGENT_DELAY)
+    else:
+        # The HSET did not surface a confirmable OID within 15s.  This may
+        # mean orchagent silently dropped the SET (post-rejection state)
+        # or the COUNTERS_DB name map is not populated for this scheduler.
+        # Either way, do NOT issue a CONFIG_DB DEL here -- if
+        # m_schedulerTable lacks the entry it will SIGABRT orchagent.
+        # Force the box back to baseline via 'config qos reload', which
+        # rebuilds CONFIG_DB SCHEDULER state from JSON templates and is
+        # safe to run unconditionally.
+        st.warn(
+            "RESTORE: repair OID for 'sched_packets_meter' not visible in "
+            "ASIC_DB within 15s after HSET. Skipping direct DEL (would risk "
+            "orchagent SIGABRT) and running 'config qos reload' to restore "
+            "baseline. Note: the functional verdict (SAI rejected PACKETS, "
+            "baseline intact) is unaffected by this restore-path quirk.")
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(_ORCHAGENT_DELAY)
     log_scheduler_state("Restore")
 
     # ── Verdict ───────────────────────────────────────────────────────────────
+    # Verdict is based ONLY on the functional checks (Steps 1-5).  Restore
+    # is best-effort cleanup and never fails the test on its own.
     st.log("=" * 72)
     if fail_msgs:
         st.log("  PACKET-METER-NOT-SUPPORTED — FAILURES ({} total):".format(

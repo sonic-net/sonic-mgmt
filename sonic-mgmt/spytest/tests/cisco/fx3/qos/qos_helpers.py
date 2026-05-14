@@ -2478,16 +2478,14 @@ def get_intf_counters(dut_handle, interfaces):
     return counters
 
 
-def get_intf_speeds(dut_handle, interfaces):
-    """Return {intf: speed_str} from 'show interfaces status'.
+def _parse_show_interfaces_status_speeds(output, intf_list):
+    """Extract {intf: speed_str} from 'show interfaces status' output.
 
-    Parses the Speed column for each requested interface.
-    E.g. {'Ethernet1_49': '100G', 'Ethernet1_1': '10G'}
+    Returns only entries where the Speed column is a recognizable
+    'NNNG' / 'NNNM' / 'NNNK' token.
     """
-    intf_list = list(interfaces)
-    output = st.show(dut_handle, "show interfaces status", skip_tmpl=True)
     speeds = {}
-    for line in output.splitlines():
+    for line in (output or '').splitlines():
         for intf in intf_list:
             if intf not in line:
                 continue
@@ -2498,6 +2496,95 @@ def get_intf_speeds(dut_handle, interfaces):
                 if re.match(r'^\d+[GMK]$', col, re.IGNORECASE):
                     speeds[intf] = col
                     break
+    return speeds
+
+
+def _intf_speeds_from_appl_db(dut_handle, interfaces):
+    """Fallback: read port speed (Mbps int) directly from APPL_DB / CONFIG_DB.
+
+    SONiC stores port speed under PORT_TABLE in APPL_DB and PORT in CONFIG_DB
+    in Mbps (e.g. '100000' for 100G).  This is more robust than parsing
+    'show interfaces status' which can return an empty header during
+    transient interface state changes.
+
+    Returns {intf: 'NNNG' | 'NNNM' | ''} for each requested interface.
+    """
+    intf_list = list(interfaces)
+    speeds = {}
+    for intf in intf_list:
+        for db, key_fmt in (('APPL_DB', 'PORT_TABLE:{}'),
+                            ('CONFIG_DB', 'PORT|{}')):
+            try:
+                out = st.show(
+                    dut_handle,
+                    'sonic-db-cli {} HGET "{}" "speed"'.format(
+                        db, key_fmt.format(intf)),
+                    skip_tmpl=True, skip_error_check=True) or ''
+            except Exception:
+                out = ''
+            for line in out.splitlines():
+                line = line.strip()
+                if not line or not line.isdigit():
+                    continue
+                mbps = int(line)
+                if mbps <= 0:
+                    continue
+                if mbps >= 1000 and mbps % 1000 == 0:
+                    speeds[intf] = '{}G'.format(mbps // 1000)
+                else:
+                    speeds[intf] = '{}M'.format(mbps)
+                break
+            if speeds.get(intf):
+                break
+    return speeds
+
+
+def get_intf_speeds(dut_handle, interfaces, retries=6, retry_delay=2):
+    """Return {intf: speed_str} for the requested interfaces.
+
+    Tries 'show interfaces status' first and retries while the output is
+    incomplete (Speed='N/A' or interface missing).  Falls back to
+    APPL_DB/CONFIG_DB for any interfaces that still have no speed at the
+    end of the retry loop, because port speed is always populated there
+    once the SONiC stack is up.
+
+    E.g. {'Ethernet1_49': '100G', 'Ethernet1_1': '10G'}.
+    Caller must still validate that every required interface received a
+    non-empty speed and fail loudly if not.
+    """
+    intf_list = list(interfaces)
+    speeds = {}
+
+    attempts = max(1, int(retries))
+    for attempt in range(1, attempts + 1):
+        try:
+            output = st.show(dut_handle, "show interfaces status",
+                             skip_tmpl=True) or ''
+        except Exception:
+            output = ''
+        parsed = _parse_show_interfaces_status_speeds(output, intf_list)
+        for intf, sp in parsed.items():
+            if sp:
+                speeds[intf] = sp
+        if all(intf in speeds for intf in intf_list):
+            break
+        missing = [i for i in intf_list if i not in speeds]
+        st.log("get_intf_speeds: attempt {}/{} missing speed for {} - "
+               "retrying after {}s".format(
+                   attempt, attempts, missing, retry_delay))
+        if attempt < attempts:
+            st.wait(retry_delay)
+
+    missing = [i for i in intf_list if i not in speeds]
+    if missing:
+        st.log("get_intf_speeds: 'show interfaces status' did not yield "
+               "speed for {} after {} attempts - falling back to "
+               "APPL_DB/CONFIG_DB".format(missing, attempts))
+        db_speeds = _intf_speeds_from_appl_db(dut_handle, missing)
+        for intf, sp in db_speeds.items():
+            if sp:
+                speeds[intf] = sp
+
     return speeds
 
 
@@ -3269,7 +3356,16 @@ def report_wred_linearity(data_points, egress_speed_mbps=10000,
     Returns True only if every data point passes its zone check and
     WRED Prob increases monotonically with margin.
     """
-    egr_spd = egress_speed_mbps if egress_speed_mbps > 0 else 10000
+    if egress_speed_mbps > 0:
+        egr_spd = egress_speed_mbps
+    else:
+        # Should never happen with current setup_topo_common (which
+        # aborts if egress speed is undetermined).  Warn loudly to make
+        # sure a stale ctx value cannot silently mask an issue.
+        st.warn("report_wred_linearity: egress_speed_mbps={} <= 0; "
+                "falling back to 10000 Mbps for the summary table only".format(
+                    egress_speed_mbps))
+        egr_spd = 10000
     min_th_bytes = int(wred_profile.get('green_min_threshold', '1048576'))
     max_th_bytes = int(wred_profile.get('green_max_threshold', '3145728'))
     max_prob = float(wred_profile.get('green_drop_probability', '5'))
@@ -3312,24 +3408,33 @@ def report_wred_linearity(data_points, egress_speed_mbps=10000,
         depth_mb = avg_depth / (1024.0 * 1024)
         peak_mb = peak / (1024.0 * 1024)
 
-        if depth_mb < min_th_mb:
-            zone = 'A'
-        elif depth_mb <= max_th_mb:
-            zone = 'B'
-        else:
+        # Zone classification: peak_watermark is authoritative for Zone C.
+        # Avg depth oscillates and routinely sits just below max_th when
+        # the queue is repeatedly hitting the ceiling and tail-dropping.
+        # If peak >= max_th the queue did enter Zone C, regardless of avg.
+        peak_in_c = peak >= max_th_bytes
+        all_samples_in_c = (samples and
+                            all(s > max_th_bytes for s in samples))
+
+        if peak_in_c:
             zone = 'C*' if dp.get('rebaselined', False) else 'C'
+        elif depth_mb < min_th_mb:
+            zone = 'A'
+        else:
+            zone = 'B'
 
         if drop_rate > 0:
             any_drops = True
 
         is_zone_c = zone.startswith('C')
 
-        all_samples_in_c = (samples and
-                            all(s > max_th_bytes for s in samples))
-        peak_in_c = dp.get('peak_bytes', 0) >= max_th_bytes
-
-        if is_zone_c and not (all_samples_in_c and peak_in_c
-                              and drop_rate > 0):
+        # Confirm Zone C only when at least one of:
+        #   - all sampled depths > max_th, OR
+        #   - peak >= max_th AND drops were observed
+        # This avoids classifying a single noisy peak (e.g. counter
+        # latching) as a real tail-drop event.
+        if is_zone_c and not (all_samples_in_c
+                              or (peak_in_c and drop_rate > 0)):
             reasons_skip = []
             if not all_samples_in_c:
                 reasons_skip.append("not all depth samples > max_th")
@@ -3341,7 +3446,13 @@ def report_wred_linearity(data_points, egress_speed_mbps=10000,
                 margin, zone, ', '.join(reasons_skip)))
             continue
 
-        if depth_mb <= min_th_mb:
+        # Estimated WRED probability follows the linear ramp between
+        # min_th and max_th.  In Zone C the avg may sit just below
+        # max_th while the queue is in tail drop; pin est_prob to 100%
+        # whenever peak proves the queue reached Zone C.
+        if is_zone_c:
+            wred_prob = 100.0
+        elif depth_mb <= min_th_mb:
             wred_prob = 0.0
         elif depth_mb >= max_th_mb:
             wred_prob = 100.0
@@ -3672,6 +3783,66 @@ def scale_margin(margin_mbps, egress_speed_mbps):
     if egress_speed_mbps == _BASELINE_EGRESS_MBPS or egress_speed_mbps <= 0:
         return margin_mbps
     return int(round(margin_mbps * egress_speed_mbps / _BASELINE_EGRESS_MBPS))
+
+
+def expected_wred_ramp_drop_rate(peak_bytes, min_th_bytes, max_th_bytes,
+                                 gdrop_pct):
+    """Predict integrated WRED-ramp drop rate for a fill-and-drain burst.
+
+    Model: A finite burst at constant over-line-rate causes the egress
+    queue depth to ramp linearly from 0 to ``peak_bytes``, then drain
+    once the burst stops.  Treating the ramp as linear in time, the
+    fraction of the burst window where depth lies in WRED Zone B
+    (min_th <= depth <= max_th) is::
+
+        zone_b_fraction = max(0, peak - min_th) / max(peak, 1)
+
+    Within Zone B, the linear WRED ramp gives instantaneous drop
+    probability ``P_drop(d) = gdrop * (d - min_th) / (max_th - min_th)``.
+    The average over the in-zone-B interval is the midpoint::
+
+        avg_drop_in_zone_b = gdrop * (peak - min_th) / 2 /
+                             (max_th - min_th)
+
+    Integrated drop rate over the whole burst::
+
+        E[drop_rate] = zone_b_fraction * avg_drop_in_zone_b
+
+    Returns drop rate in PERCENT (0 .. gdrop).  Returns 0 for any
+    edge case (peak below min_th, peak above max_th treated as
+    capped by the formula -- caller should handle Zone C separately).
+
+    This formula is an approximation; real device behaviour deviates
+    by ~10-20% due to:
+      - non-linear queue fill (burst start transients, drain effects)
+      - WRED probabilistic variance (expect Poisson-style noise)
+      - peak-watermark counter sampling (adds a small tail-drop floor
+        that this formula does NOT model -- subtract a P2-style
+        baseline before comparing observed vs predicted)
+
+    Args:
+        peak_bytes: Burst peak queue depth in bytes (DCHAL watermark).
+        min_th_bytes: WRED green_min_threshold in bytes (e.g. 1048576).
+        max_th_bytes: WRED green_max_threshold in bytes (e.g. 3145728).
+        gdrop_pct: WRED green_drop_probability in percent (0..100).
+
+    Returns:
+        Expected aggregate drop rate over the burst, in percent.
+    """
+    if peak_bytes <= min_th_bytes or peak_bytes <= 0:
+        return 0.0
+    if max_th_bytes <= min_th_bytes:
+        return 0.0
+    # Cap "effective peak" at max_th -- above that the formula's
+    # linear ramp saturates at gdrop and Zone C tail drops dominate
+    # (out of scope for this estimator).
+    eff_peak = min(peak_bytes, max_th_bytes)
+    zone_b_fraction = (eff_peak - min_th_bytes) / float(peak_bytes)
+    avg_drop_pct = (gdrop_pct
+                    * (eff_peak - min_th_bytes)
+                    / 2.0
+                    / (max_th_bytes - min_th_bytes))
+    return zone_b_fraction * avg_drop_pct
 
 
 def compute_fanin_rate_pct(ctx, margin_mbps):
@@ -4324,6 +4495,617 @@ def wred_fanin_send_and_measure(ctx, af, margin_mbps, duration=None,
     }
 
 
+def wred_fanin_burst_and_measure(ctx, af, pkts_per_port,
+                                 margin_mbps=10000, settle_ms=200,
+                                 drain_seconds=2):
+    """Send a finite burst of fan-in traffic and measure the resulting
+    queue peak and drops.
+
+    Burst mode is the only way to drive the egress queue *into* Zone B
+    (between min_th and max_th) without saturating it.  Under sustained
+    oversubscription with WRED gdrop=0 the queue inevitably fills to
+    max_th -- there is no probabilistic ramp to limit accumulation.
+    A finite burst sized to deliver enough excess packets to push the
+    queue into Zone B, then stops, lets the queue drain naturally and
+    captures the peak depth and any drops cleanly.
+
+    Burst calibration:
+      Each ingress port sends ``pkts_per_port`` packets at line rate
+      (``rate_percent=99``).  With 2 ingress ports fanning into a 100G
+      egress, the offered burst rate is ~2x the egress drain rate.
+      Each excess packet (1 of every 2 offered) accumulates in the
+      egress queue until the burst ends.  Approximate steady-state
+      queue depth at end of burst:
+
+          depth_bytes ~= pkts_per_port * pkt_size / 2
+
+      For a 1024-byte frame and pkts_per_port=4096, the queue peak
+      lands near 2 MB -- well inside Zone B for the golden profile
+      (min_th=1MB, max_th=3MB).
+
+    Args:
+        ctx: Shared WRED context dict (same as wred_fanin_send_and_measure).
+        af: 'ipv4' or 'ipv6'.
+        pkts_per_port: Number of packets to send per ingress port in
+            the burst.  Tune to land the queue peak in the target zone.
+        margin_mbps: Margin (Mbps above line rate) used to compute the
+            per-port IXIA rate.  Defaults to 10000 (~ 55% per port,
+            110% combined).  Higher values pack the burst into a
+            tighter window so the queue depth grows faster than it
+            drains.
+        settle_ms: Milliseconds to wait between burst start and the
+            mid-burst depth sample (default 200ms).  Set high enough
+            that the queue has accumulated to its peak before we
+            sample, but low enough to catch the peak before the burst
+            finishes draining.
+        drain_seconds: Seconds to wait after IXIA stops transmitting
+            before reading final counters (default 2s).  Ensures the
+            queue has fully drained and any drops have been counted.
+
+    Returns:
+        dict with the same keys as wred_fanin_send_and_measure plus:
+            'pkts_per_port':   the burst size requested
+            'mode':            'burst'
+        ``q_depth_bytes`` is the mid-burst sample; ``peak_bytes`` is
+        the watermark observed across the whole burst.  ``drop_pkts``
+        captures only drops that occurred during this burst (counters
+        are cleared right before the burst begins).
+    """
+    _dut = ctx['dut']
+    _tg = ctx['tg']
+    _ph_a = ctx['tg_ph_ingress_a']
+    _ph_b = ctx.get('tg_ph_ingress_b')
+    egress = ctx['port_info']['egress']
+    tq = ctx['target_queue']
+    td = ctx['target_dscp']
+    mac = ctx['router_mac']
+    pkt_sz = ctx['pkt_size']
+    nq = ctx['num_queues']
+    ips = ctx['ips']
+
+    rate_pct = compute_fanin_rate_pct(ctx, margin_mbps)
+
+    if af == "ipv6":
+        src_a, src_b = ips['v6_src_a'], ips['v6_src_b']
+        dst_ip = ips['v6_dst']
+    else:
+        src_a, src_b = ips['v4_src_a'], ips['v4_src_b']
+        dst_ip = ips['v4_dst']
+
+    streams_spec = [('A', _ph_a, src_a)]
+    if _ph_b is not None:
+        streams_spec.append(('B', _ph_b, src_b))
+    num_streams = len(streams_spec)
+
+    # Approximate expected queue peak (informational only).  At
+    # rate_pct% per port across num_streams ingress, combined offered
+    # rate is (rate_pct/100) * num_streams * line_rate.  Excess over
+    # 100% is what accumulates in the queue.
+    combined_offered_pct = rate_pct * num_streams
+    excess_pct = max(0.0, combined_offered_pct - 100.0)
+    if excess_pct > 0 and combined_offered_pct > 0:
+        # Each packet contributes (excess/offered) of itself to the
+        # queue, so total accumulated bytes ~= per_port_burst * excess /
+        # per_port_rate.
+        accumulated_bytes = (pkts_per_port * pkt_sz
+                             * excess_pct / rate_pct)
+    else:
+        accumulated_bytes = 0
+    st.log("Burst fan-in: {} stream(s) x {} pkts/port @ {:.3f}% line "
+           "rate -- combined offered {:.3f}% (excess {:.3f}%), "
+           "~{:.2f}MB total burst, expected queue peak "
+           "~{:.2f}MB".format(
+               num_streams, pkts_per_port, rate_pct,
+               combined_offered_pct, excess_pct,
+               (pkts_per_port * num_streams * pkt_sz) / (1024.0 * 1024),
+               accumulated_bytes / (1024.0 * 1024)))
+
+    clear_dut_counters(_dut)
+    dchal_clear_counters(_dut, egress)
+    intf_before = get_intf_counters(_dut, ctx['port_info'].values())
+    q_before = get_dchal_queue_counters(_dut, egress,
+                                        label="BEFORE WRED fan-in burst")
+
+    # Resolve target queue OID once and snapshot SAI split drop
+    # counters before traffic.  Used after traffic to log
+    # WRED-vs-tail-drop split for diagnostics.
+    target_queue_oid = None
+    sai_split_before = None
+    try:
+        oids_by_q = get_queue_oids_for_port(_dut, egress)
+        target_queue_oid = oids_by_q.get(tq)
+    except Exception as e:
+        st.log("  (SAI split-counter setup: queue OID lookup "
+               "failed: {})".format(e))
+    if target_queue_oid:
+        sai_split_before = get_queue_drop_split(_dut, target_queue_oid)
+        st.log("  SAI Q{} OID: {}, baseline counters available: "
+               "{}".format(tq, target_queue_oid,
+                           sai_split_before.get('available', [])))
+
+    _tg.tg_traffic_control(action='clear_stats')
+
+    stream_ids = []
+    for label, ph, src_ip in streams_spec:
+        if af == "ipv6":
+            tc_val = td << 2
+            result = _tg.tg_traffic_config(
+                mode='create', port_handle=ph,
+                l3_protocol='ipv6',
+                ipv6_src_addr=src_ip, ipv6_dst_addr=dst_ip,
+                mac_dst=mac,
+                ipv6_traffic_class=tc_val, ipv6_hop_limit=64,
+                frame_size=pkt_sz, rate_percent=rate_pct,
+                transmit_mode='single_burst',
+                pkts_per_burst=pkts_per_port,
+                high_speed_result_analysis=0)
+        else:
+            result = _tg.tg_traffic_config(
+                mode='create', port_handle=ph,
+                l3_protocol='ipv4', l4_protocol='icmp',
+                ip_src_addr=src_ip, ip_dst_addr=dst_ip,
+                mac_dst=mac,
+                ip_dscp=td, ip_ttl=64,
+                frame_size=pkt_sz, rate_percent=rate_pct,
+                transmit_mode='single_burst',
+                pkts_per_burst=pkts_per_port,
+                high_speed_result_analysis=0)
+        sid = result.get('stream_id', 'UNKNOWN')
+        stream_ids.append(sid)
+        st.log("  burst stream_{} id={} Q{} DSCP={} pkts={} rate={:.3f}%".format(
+            label, sid, tq, td, pkts_per_port, rate_pct))
+
+    st.log("Starting burst (pkts_per_port={}) ...".format(pkts_per_port))
+    _tg.tg_traffic_control(action='apply')
+    _tg.tg_traffic_control(action='run')
+
+    depth_samples = []
+    try:
+        # Sample queue depth shortly after burst start -- the queue
+        # depth peaks during the burst; sampling mid-burst catches the
+        # peak depth before the queue starts draining.
+        st.wait(settle_ms / 1000.0)
+        for i in range(1, 4):
+            dm = get_mid_traffic_depth(_dut, egress)
+            d = dm.get(tq, 0)
+            depth_samples.append(d)
+            st.log("  Burst depth sample {}/3: Q{} = {:,} bytes "
+                   "({:.2f} MB)".format(i, tq, d, d / (1024.0 * 1024)))
+            if i < 3:
+                # Keep the inter-sample gap short -- the burst is
+                # finite and the queue starts draining as soon as IXIA
+                # stops transmitting.
+                st.wait(0.1)
+    finally:
+        try:
+            _tg.tg_traffic_control(action='stop')
+        except Exception:
+            pass
+        # Wait for any in-flight packets to drain and counters to
+        # latch.  Bursts complete in milliseconds; 'drain_seconds'
+        # gives a wide safety margin for the device-side counter
+        # update cycle.
+        st.wait(drain_seconds)
+
+    q_depth = max(depth_samples) if depth_samples else 0
+    avg_depth = (sum(depth_samples) / len(depth_samples)) \
+        if depth_samples else 0
+    st.log("  Burst depth samples: {} -- max {:,}B ({:.2f} MB) "
+           "avg {:,.0f}B ({:.2f} MB)".format(
+               ', '.join('{:,}'.format(s) for s in depth_samples),
+               q_depth, q_depth / (1024.0 * 1024),
+               avg_depth, avg_depth / (1024.0 * 1024)))
+
+    q_after = get_dchal_queue_counters(_dut, egress,
+                                       label="AFTER WRED fan-in burst")
+    intf_after = get_intf_counters(_dut, ctx['port_info'].values())
+    peak_data = dchal_peak_stats(_dut, egress,
+                                 label="WRED burst peak watermarks")
+    report_peak_stats(peak_data, target_queue=tq)
+
+    # Snapshot SAI split drop counters and log the WRED-vs-tail-drop
+    # split.  If SAI counters are not populated on this build, fall
+    # back to dumping raw dchalshell port stats so a human can read
+    # the per-queue WRED/Tail drop columns directly.  This dump is
+    # only done if there were actually some drops on the target
+    # queue (no point spamming the log with zero-drop dumps).
+    sai_split_delta = None
+    sai_wred_split_available = False
+    if target_queue_oid and sai_split_before is not None:
+        sai_split_after = get_queue_drop_split(_dut, target_queue_oid)
+        sai_split_delta = report_queue_drop_split(
+            "Q{} burst (gdrop=0/5)".format(tq),
+            sai_split_before, sai_split_after)
+        sai_wred_split_available = (
+            'wred_drop_pkts' in sai_split_after.get('available', []))
+
+    for sid in stream_ids:
+        try:
+            _tg.tg_traffic_config(mode='remove', stream_id=sid)
+        except Exception:
+            pass
+
+    report_intf_counters(ctx['port_info'], intf_before, intf_after)
+
+    q_deltas = {}
+    q_drop_deltas = {}
+    all_queues = {}
+    for qi in range(nq):
+        eg = (q_after.get(qi, {}).get('pkts', 0)
+              - q_before.get(qi, {}).get('pkts', 0))
+        dr = (q_after.get(qi, {}).get('drop_pkts', 0)
+              - q_before.get(qi, {}).get('drop_pkts', 0))
+        q_deltas[qi] = eg
+        q_drop_deltas[qi] = dr
+        all_queues[qi] = {'egress': eg, 'drops': dr}
+
+    report_queue_counters(egress, q_deltas, q_drop_deltas,
+                          nq, source="DCHAL (burst)")
+
+    q1_egress = q_deltas.get(tq, 0)
+    q1_drops = q_drop_deltas.get(tq, 0)
+    q1_total = q1_egress + q1_drops
+    drop_rate = (q1_drops / q1_total * 100) if q1_total > 0 else 0.0
+
+    # Diagnostic backstop: when SAI WRED-specific counters are NOT
+    # populated AND there were drops on the target queue, dump raw
+    # dchalshell port stats so a human can read the per-queue
+    # WRED-Pkt-Drop / Tail-Drop columns directly.
+    if (not sai_wred_split_available
+            and q1_drops > 0):
+        try:
+            m = re.search(r'(\d+)$', egress)
+            asic_port_guess = (int(m.group(1)) - 1) if m else 0
+        except Exception:
+            asic_port_guess = 8  # FX3 reasonable default
+        dchalshell_dump_port_stats(
+            _dut, asic_port_guess,
+            label="Q{} burst diagnostics".format(tq))
+
+    peak_cells = 0
+    peak_bytes = 0
+    if peak_data:
+        peak_cells = peak_data['uc_peak'][tq]
+        peak_bytes = peak_cells * _CELL_SIZE
+
+    return {
+        'margin_mbps':    margin_mbps,
+        'rate_pct':       rate_pct * num_streams,
+        'rate_pct_per_port': rate_pct,
+        'q_depth_bytes':  q_depth,
+        'depth_samples':  depth_samples,
+        'peak_cells':     peak_cells,
+        'peak_bytes':     peak_bytes,
+        'egress_pkts':    q1_egress,
+        'drop_pkts':      q1_drops,
+        'total_pkts':     q1_total,
+        'drop_rate_pct':  drop_rate,
+        'all_queues':     all_queues,
+        'pkts_per_port':  pkts_per_port,
+        'mode':           'burst',
+        'iterations':     1,
+        # SAI split drop counters (deltas across the burst):
+        # tx_pkts, total_drop_pkts, wred_drop_pkts,
+        # wred_green_drop_pkts, wred_ecn_marked_pkts,
+        # tail_drop_inferred_pkts, available
+        # If SAI counters are not populated on this build, this is
+        # None or has only a partial 'available' list.
+        'sai_split':      sai_split_delta,
+    }
+
+
+def wred_fanin_burst_iterated(ctx, af, pkts_per_port, iterations,
+                              margin_mbps=10000, settle_ms=200,
+                              drain_seconds=2,
+                              cooldown_between=2):
+    """Run N identical bursts back-to-back with shared IXIA stream config.
+
+    Variance-reduction wrapper around :func:`wred_fanin_burst_and_measure`.
+    Two reasons to use this over calling the single-shot helper N times:
+
+    1. **Identical traffic shape across iterations.**  The IXIA stream
+       config (``transmit_mode='single_burst'`` with ``pkts_per_burst``,
+       per-port rate, frame size, DSCP, MAC) is created ONCE and reused
+       for every iteration.  Recreating streams between iterations
+       could produce subtle pacing/latency differences that show up as
+       measurement noise.  Reusing avoids that entirely.
+
+    2. **Aggregate metrics across iterations.**  Counters (DCHAL queue,
+       SAI split, interface) are snapshotted ONCE before the first
+       iteration and ONCE after the last; the deltas are the totals
+       across all N runs.  Peak watermark is the maximum across the
+       N runs (peak counter latches max).  This averaging eliminates
+       single-run variance for the verdict math while still letting
+       us report per-iteration peak/depth samples for diagnostics.
+
+    Use this for test points where verdict precision matters (e.g.
+    P2 and P3 of test_wred_gdrop_zero, where the WRED ramp's
+    contribution is small relative to test noise).  Use the original
+    single-shot helper for one-off measurements (e.g. CAL probe).
+
+    Args:
+        ctx: Same context dict as wred_fanin_burst_and_measure.
+        af: 'ipv4' or 'ipv6'.
+        pkts_per_port: pkts_per_burst per ingress port (each iteration).
+        iterations: Number of bursts to run back-to-back (e.g. 3).
+        margin_mbps: Margin used to compute per-port rate (default 10000).
+        settle_ms: Per-iteration: ms between burst start and depth sample.
+        drain_seconds: Per-iteration: seconds to wait after burst end
+            before the next iteration's snapshot.
+        cooldown_between: Seconds to wait between iterations (in
+            addition to drain_seconds) so the queue fully drains and
+            counters stabilize.
+
+    Returns:
+        dict shaped like wred_fanin_burst_and_measure's return, with
+        per-burst aggregation:
+            - egress_pkts, drop_pkts, total_pkts: SUM across iterations
+            - drop_rate_pct: (sum drop) / (sum drop + sum egress) * 100
+            - peak_bytes / peak_cells: MAX across iterations
+            - depth_samples: concatenation of per-iteration samples
+            - iterations: N
+            - per_iteration: list of per-iteration metric dicts
+              (peak_bytes, drop_pkts, egress_pkts, drop_rate_pct,
+              depth_samples) for diagnostic logging
+            - sai_split: aggregated SAI split delta (single before/after
+              snapshot pair).
+    """
+    if iterations <= 1:
+        # Degrade to the single-shot helper -- avoids running the
+        # extra setup/teardown cost when the caller asked for 1.
+        return wred_fanin_burst_and_measure(
+            ctx, af, pkts_per_port, margin_mbps,
+            settle_ms=settle_ms, drain_seconds=drain_seconds)
+
+    _dut = ctx['dut']
+    _tg = ctx['tg']
+    _ph_a = ctx['tg_ph_ingress_a']
+    _ph_b = ctx.get('tg_ph_ingress_b')
+    egress = ctx['port_info']['egress']
+    tq = ctx['target_queue']
+    td = ctx['target_dscp']
+    mac = ctx['router_mac']
+    pkt_sz = ctx['pkt_size']
+    nq = ctx['num_queues']
+    ips = ctx['ips']
+
+    rate_pct = compute_fanin_rate_pct(ctx, margin_mbps)
+
+    if af == "ipv6":
+        src_a, src_b = ips['v6_src_a'], ips['v6_src_b']
+        dst_ip = ips['v6_dst']
+    else:
+        src_a, src_b = ips['v4_src_a'], ips['v4_src_b']
+        dst_ip = ips['v4_dst']
+
+    streams_spec = [('A', _ph_a, src_a)]
+    if _ph_b is not None:
+        streams_spec.append(('B', _ph_b, src_b))
+    num_streams = len(streams_spec)
+
+    st.log("Burst iterated: {} stream(s) x {} pkts/port x {} "
+           "iterations @ {:.3f}% line rate".format(
+               num_streams, pkts_per_port, iterations, rate_pct))
+
+    # Counter snapshots BEFORE the first iteration.
+    clear_dut_counters(_dut)
+    dchal_clear_counters(_dut, egress)
+    intf_before = get_intf_counters(_dut, ctx['port_info'].values())
+    q_before = get_dchal_queue_counters(
+        _dut, egress, label="BEFORE WRED burst iter (x{})".format(iterations))
+
+    target_queue_oid = None
+    sai_split_before = None
+    try:
+        oids_by_q = get_queue_oids_for_port(_dut, egress)
+        target_queue_oid = oids_by_q.get(tq)
+    except Exception as e:
+        st.log("  (SAI split-counter setup: queue OID lookup "
+               "failed: {})".format(e))
+    if target_queue_oid:
+        sai_split_before = get_queue_drop_split(_dut, target_queue_oid)
+        st.log("  SAI Q{} OID: {}, baseline counters available: "
+               "{}".format(tq, target_queue_oid,
+                           sai_split_before.get('available', [])))
+
+    _tg.tg_traffic_control(action='clear_stats')
+
+    # Create streams ONCE -- reused for all iterations.
+    stream_ids = []
+    for label, ph, src_ip in streams_spec:
+        if af == "ipv6":
+            tc_val = td << 2
+            result = _tg.tg_traffic_config(
+                mode='create', port_handle=ph,
+                l3_protocol='ipv6',
+                ipv6_src_addr=src_ip, ipv6_dst_addr=dst_ip,
+                mac_dst=mac,
+                ipv6_traffic_class=tc_val, ipv6_hop_limit=64,
+                frame_size=pkt_sz, rate_percent=rate_pct,
+                transmit_mode='single_burst',
+                pkts_per_burst=pkts_per_port,
+                high_speed_result_analysis=0)
+        else:
+            result = _tg.tg_traffic_config(
+                mode='create', port_handle=ph,
+                l3_protocol='ipv4', l4_protocol='icmp',
+                ip_src_addr=src_ip, ip_dst_addr=dst_ip,
+                mac_dst=mac,
+                ip_dscp=td, ip_ttl=64,
+                frame_size=pkt_sz, rate_percent=rate_pct,
+                transmit_mode='single_burst',
+                pkts_per_burst=pkts_per_port,
+                high_speed_result_analysis=0)
+        sid = result.get('stream_id', 'UNKNOWN')
+        stream_ids.append(sid)
+        st.log("  iterated burst stream_{} id={} Q{} DSCP={} "
+               "pkts={} rate={:.3f}%".format(
+                   label, sid, tq, td, pkts_per_port, rate_pct))
+
+    _tg.tg_traffic_control(action='apply')
+
+    # Per-iteration metric collection.
+    per_iteration = []
+    all_depth_samples = []
+    peak_bytes_max = 0
+    peak_cells_max = 0
+
+    try:
+        for it in range(1, iterations + 1):
+            st.log("  --- iter {}/{} burst start ---".format(it, iterations))
+            # Each iteration: take a peak watermark "before" reading so
+            # we can compute per-iteration peak (the watermark counter
+            # latches max across the whole port, so we read-and-clear
+            # by taking a snapshot before).  In practice, dchal_peak_stats
+            # returns the cumulative max since last clear; to get
+            # per-iteration peak we read after each burst and store the
+            # delta.
+            _tg.tg_traffic_control(action='run')
+            iter_depth_samples = []
+            try:
+                st.wait(settle_ms / 1000.0)
+                for s in range(1, 4):
+                    dm = get_mid_traffic_depth(_dut, egress)
+                    d = dm.get(tq, 0)
+                    iter_depth_samples.append(d)
+                    if s < 3:
+                        st.wait(0.1)
+            finally:
+                try:
+                    _tg.tg_traffic_control(action='stop')
+                except Exception:
+                    pass
+                st.wait(drain_seconds)
+
+            # Read peak watermark after this iteration.  Note: the
+            # watermark counter is cumulative max since cleared; we
+            # use it as "peak across all iterations so far" which is
+            # what we want for the aggregated peak metric.
+            iter_peak_data = dchal_peak_stats(
+                _dut, egress,
+                label="iter {} peak watermark".format(it))
+            iter_peak_cells = 0
+            iter_peak_bytes = 0
+            if iter_peak_data:
+                iter_peak_cells = iter_peak_data['uc_peak'][tq]
+                iter_peak_bytes = iter_peak_cells * _CELL_SIZE
+            if iter_peak_bytes > peak_bytes_max:
+                peak_bytes_max = iter_peak_bytes
+                peak_cells_max = iter_peak_cells
+
+            all_depth_samples.extend(iter_depth_samples)
+
+            iter_avg = (sum(iter_depth_samples) / len(iter_depth_samples)
+                        if iter_depth_samples else 0)
+            iter_max_sample = (max(iter_depth_samples)
+                               if iter_depth_samples else 0)
+            st.log("  iter {}/{}: depth_samples=[{}] max_sample={:,}B "
+                   "({:.2f}MB) avg_sample={:.0f}B ({:.2f}MB) "
+                   "cumulative_peak={:,}B ({:.2f}MB)".format(
+                       it, iterations,
+                       ', '.join('{:,}'.format(s)
+                                 for s in iter_depth_samples),
+                       iter_max_sample, iter_max_sample / (1024.0 * 1024),
+                       iter_avg, iter_avg / (1024.0 * 1024),
+                       iter_peak_bytes, iter_peak_bytes / (1024.0 * 1024)))
+
+            per_iteration.append({
+                'iter': it,
+                'depth_samples':         list(iter_depth_samples),
+                'iter_max_sample_bytes': iter_max_sample,
+                'iter_peak_bytes_cum':   iter_peak_bytes,
+            })
+
+            if it < iterations:
+                st.wait(cooldown_between)
+    finally:
+        # Always remove streams even on exception, so subsequent test
+        # points are not polluted by leftover IXIA configs.
+        for sid in stream_ids:
+            try:
+                _tg.tg_traffic_config(mode='remove', stream_id=sid)
+            except Exception:
+                pass
+
+    # Counter snapshots AFTER the last iteration -- these deltas are
+    # the AGGREGATED totals across all N iterations.
+    q_after = get_dchal_queue_counters(
+        _dut, egress, label="AFTER WRED burst iter (x{})".format(iterations))
+    intf_after = get_intf_counters(_dut, ctx['port_info'].values())
+
+    sai_split_delta = None
+    sai_wred_split_available = False
+    if target_queue_oid and sai_split_before is not None:
+        sai_split_after = get_queue_drop_split(_dut, target_queue_oid)
+        sai_split_delta = report_queue_drop_split(
+            "Q{} burst iter (gdrop=0/5)".format(tq),
+            sai_split_before, sai_split_after)
+        sai_wred_split_available = (
+            'wred_drop_pkts' in sai_split_after.get('available', []))
+
+    report_intf_counters(ctx['port_info'], intf_before, intf_after)
+
+    q_deltas = {}
+    q_drop_deltas = {}
+    all_queues = {}
+    for qi in range(nq):
+        eg = (q_after.get(qi, {}).get('pkts', 0)
+              - q_before.get(qi, {}).get('pkts', 0))
+        dr = (q_after.get(qi, {}).get('drop_pkts', 0)
+              - q_before.get(qi, {}).get('drop_pkts', 0))
+        q_deltas[qi] = eg
+        q_drop_deltas[qi] = dr
+        all_queues[qi] = {'egress': eg, 'drops': dr}
+
+    report_queue_counters(egress, q_deltas, q_drop_deltas, nq,
+                          source="DCHAL (burst iter x{})".format(iterations))
+
+    q1_egress = q_deltas.get(tq, 0)
+    q1_drops = q_drop_deltas.get(tq, 0)
+    q1_total = q1_egress + q1_drops
+    drop_rate = (q1_drops / q1_total * 100) if q1_total > 0 else 0.0
+
+    if (not sai_wred_split_available) and q1_drops > 0:
+        try:
+            m = re.search(r'(\d+)$', egress)
+            asic_port_guess = (int(m.group(1)) - 1) if m else 0
+        except Exception:
+            asic_port_guess = 8
+        dchalshell_dump_port_stats(
+            _dut, asic_port_guess,
+            label="Q{} burst iter diagnostics".format(tq))
+
+    avg_depth_aggregated = (sum(all_depth_samples) / len(all_depth_samples)
+                            if all_depth_samples else 0)
+    st.log("  Aggregate over {} iter: total egress_pkts={} "
+           "drop_pkts={} drop_rate={:.4f}% peak_bytes={:,} "
+           "({:.2f}MB) avg_depth={:.0f}B ({:.2f}MB)".format(
+               iterations, q1_egress, q1_drops, drop_rate,
+               peak_bytes_max, peak_bytes_max / (1024.0 * 1024),
+               avg_depth_aggregated,
+               avg_depth_aggregated / (1024.0 * 1024)))
+
+    return {
+        'margin_mbps':    margin_mbps,
+        'rate_pct':       rate_pct * num_streams,
+        'rate_pct_per_port': rate_pct,
+        'q_depth_bytes':  peak_bytes_max,
+        'depth_samples':  all_depth_samples,
+        'peak_cells':     peak_cells_max,
+        'peak_bytes':     peak_bytes_max,
+        'egress_pkts':    q1_egress,
+        'drop_pkts':      q1_drops,
+        'total_pkts':     q1_total,
+        'drop_rate_pct':  drop_rate,
+        'all_queues':     all_queues,
+        'pkts_per_port':  pkts_per_port,
+        'mode':           'burst_iterated',
+        'iterations':     iterations,
+        'per_iteration':  per_iteration,
+        'sai_split':      sai_split_delta,
+    }
+
+
 def wred_fanin_start_continuous(ctx, af, margin_mbps):
     """Create and run fan-in traffic without stopping (for mid-traffic WRED tests).
 
@@ -4434,6 +5216,13 @@ def report_wred_result(ctx, results, zone_label):
     max_th = ctx['wred_max_th']
 
     if egr_spd <= 0:
+        # Should never happen: setup_topo_common now aborts when speed
+        # is undetermined.  Warn loudly if it does so the wrong baseline
+        # cannot silently corrupt downstream WRED math.
+        st.warn("report_wred_result: egress_speed_mbps not set in ctx; "
+                "falling back to 10000 Mbps for log display only -- "
+                "scale_margin() and zone math are NOT recomputed here. "
+                "Investigate the setup_topo speed detection if this fires.")
         egr_spd = 10000
 
     sep = "=" * 70
@@ -4732,7 +5521,31 @@ def setup_topo_common(tgapi_module, target_queue):
         for intf in all_dut2_ports:
             remove_interface_from_all_memberships(dut2, intf)
 
-    # ── Phase 3: Port speeds ──────────────────────────────────────────────
+    # ── Phase 3: QoS reload ──────────────────────────────────────────────
+    # Reload BEFORE reading port speeds so the show interfaces output is
+    # stable (the membership-removal phase above can leave 'show interfaces
+    # status' returning an empty header for a few seconds).
+    st.log("setup_topo: reloading QoS config on dut1")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    ensure_interfaces_admin_up(dut, all_dut1_ports)
+
+    if dut2:
+        st.log("setup_topo: reloading QoS config on dut2")
+        st.config(dut2, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        ensure_interfaces_admin_up(dut2, list(dut2_port_info.values()))
+
+    _wait_for_interfaces(dut, all_dut1_ports, timeout=30, poll=5)
+    if dut2:
+        _wait_for_interfaces(dut2, list(dut2_port_info.values()),
+                             timeout=30, poll=5)
+
+    # ── Phase 4: Port speeds (after reload + interface wait) ─────────────
+    # get_intf_speeds() retries 'show interfaces status' and falls back to
+    # APPL_DB/CONFIG_DB so a transient empty header cannot silently pin
+    # the egress speed at 0 (which would make scale_margin shrink margins
+    # by 10x and produce confusing test failures).
     raw_speeds = get_intf_speeds(dut, all_dut1_ports)
     port_speeds = {}
     for role, intf in port_info.items():
@@ -4752,22 +5565,25 @@ def setup_topo_common(tgapi_module, target_queue):
     st.log("setup_topo: ingress_speed={}M, egress_speed={}M".format(
         ingress_speed_mbps, egress_speed_mbps))
 
-    # ── Phase 4: QoS reload ──────────────────────────────────────────────
-    st.log("setup_topo: reloading QoS config on dut1")
-    st.config(dut, "config qos reload", skip_error_check=True)
-    st.wait(5)
-    ensure_interfaces_admin_up(dut, all_dut1_ports)
-
-    if dut2:
-        st.log("setup_topo: reloading QoS config on dut2")
-        st.config(dut2, "config qos reload", skip_error_check=True)
-        st.wait(5)
-        ensure_interfaces_admin_up(dut2, list(dut2_port_info.values()))
-
-    _wait_for_interfaces(dut, all_dut1_ports, timeout=30, poll=5)
-    if dut2:
-        _wait_for_interfaces(dut2, list(dut2_port_info.values()),
-                             timeout=30, poll=5)
+    # Fail loudly: a 0-Mbps egress would force scale_margin() into the
+    # 10G fallback path and silently invalidate every WRED traffic test.
+    speed_errors = []
+    if ingress_speed_mbps <= 0:
+        speed_errors.append(
+            "ingress_a port {!r} speed could not be determined "
+            "(got {!r})".format(port_info.get('ingress_a'),
+                                port_speeds.get('ingress_a')))
+    if egress_speed_mbps <= 0:
+        speed_errors.append(
+            "egress port {!r} speed could not be determined "
+            "(got {!r})".format(port_info.get('egress'),
+                                port_speeds.get('egress')))
+    if speed_errors:
+        msg = ("setup_topo: cannot determine port speeds reliably -- "
+               "aborting to avoid silent margin-scaling errors. Issues: "
+               + "; ".join(speed_errors))
+        st.error(msg)
+        raise RuntimeError(msg)
 
     # ── Phase 5: L3 configuration ────────────────────────────────────────
     if mode == 'peer_link':
@@ -5501,6 +6317,144 @@ def get_queue_oids_for_port(dut_h, interface):
     return result
 
 
+def get_queue_drop_split(dut_h, queue_oid):
+    """Return per-queue drop counters split by drop cause, via SAI counters.
+
+    Reads SAI queue stat counters from COUNTERS_DB COUNTERS:<oid>:
+
+      SAI_QUEUE_STAT_PACKETS                  -- total transmitted (TX)
+      SAI_QUEUE_STAT_DROPPED_PACKETS          -- total dropped on this queue
+      SAI_QUEUE_STAT_WRED_DROPPED_PACKETS     -- WRED probabilistic drops
+      SAI_QUEUE_STAT_WRED_GREEN_DROPPED_PACKETS  -- green-WRED drops only
+      SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS  -- ECN marked (informational)
+
+    Tail drops are inferred as ``total_dropped - wred_dropped``.
+    Each value defaults to 0 if the SAI implementation does not
+    populate that counter on this build.
+
+    Returns a dict with keys:
+      tx_pkts, total_drop_pkts, wred_drop_pkts, wred_green_drop_pkts,
+      wred_ecn_marked_pkts, tail_drop_inferred_pkts, available
+
+    'available' is a list of which keys actually had non-empty values
+    in COUNTERS_DB -- callers can check this to know which split
+    counters are trustworthy on this platform.
+    """
+    fields = [
+        'SAI_QUEUE_STAT_PACKETS',
+        'SAI_QUEUE_STAT_DROPPED_PACKETS',
+        'SAI_QUEUE_STAT_WRED_DROPPED_PACKETS',
+        'SAI_QUEUE_STAT_WRED_GREEN_DROPPED_PACKETS',
+        'SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS',
+    ]
+    result = {
+        'tx_pkts': 0,
+        'total_drop_pkts': 0,
+        'wred_drop_pkts': 0,
+        'wred_green_drop_pkts': 0,
+        'wred_ecn_marked_pkts': 0,
+        'tail_drop_inferred_pkts': 0,
+        'available': [],
+    }
+    for field in fields:
+        out = st.show(
+            dut_h,
+            'sonic-db-cli COUNTERS_DB HGET "COUNTERS:{}" "{}"'.format(
+                queue_oid, field),
+            skip_tmpl=True, skip_error_check=True) or ''
+        val_str = parse_redis_hget(out).strip()
+        if not val_str or not val_str.lstrip('-').isdigit():
+            continue
+        val = int(val_str)
+        if field == 'SAI_QUEUE_STAT_PACKETS':
+            result['tx_pkts'] = val
+            result['available'].append('tx_pkts')
+        elif field == 'SAI_QUEUE_STAT_DROPPED_PACKETS':
+            result['total_drop_pkts'] = val
+            result['available'].append('total_drop_pkts')
+        elif field == 'SAI_QUEUE_STAT_WRED_DROPPED_PACKETS':
+            result['wred_drop_pkts'] = val
+            result['available'].append('wred_drop_pkts')
+        elif field == 'SAI_QUEUE_STAT_WRED_GREEN_DROPPED_PACKETS':
+            result['wred_green_drop_pkts'] = val
+            result['available'].append('wred_green_drop_pkts')
+        elif field == 'SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS':
+            result['wred_ecn_marked_pkts'] = val
+            result['available'].append('wred_ecn_marked_pkts')
+    if ('total_drop_pkts' in result['available']
+            and 'wred_drop_pkts' in result['available']):
+        result['tail_drop_inferred_pkts'] = max(
+            0, result['total_drop_pkts'] - result['wred_drop_pkts'])
+        result['available'].append('tail_drop_inferred_pkts')
+    return result
+
+
+def report_queue_drop_split(label, before, after):
+    """Log the WRED-vs-tail-drop split between two get_queue_drop_split snapshots.
+
+    *before* and *after* are dicts returned by get_queue_drop_split.
+    Computes deltas and prints a single-line summary suitable for
+    diagnosing whether a given test point's drops were WRED
+    probabilistic, tail, or unaccounted.
+    """
+    if not before or not after:
+        st.log("  [{}] queue drop split: snapshots missing".format(label))
+        return None
+    delta = {}
+    for k in ('tx_pkts', 'total_drop_pkts', 'wred_drop_pkts',
+              'wred_green_drop_pkts', 'wred_ecn_marked_pkts',
+              'tail_drop_inferred_pkts'):
+        delta[k] = max(0, after.get(k, 0) - before.get(k, 0))
+    avail = after.get('available', [])
+    if 'wred_drop_pkts' not in avail:
+        st.log("  [{}] queue drop split (SAI counters NOT populated on "
+               "this build): tx={} total_drop={} (wred/tail split "
+               "unavailable)".format(
+                   label, delta['tx_pkts'], delta['total_drop_pkts']))
+        return delta
+    st.log("  [{}] queue drop split: tx={} total_drop={} "
+           "wred_drop={} (green={}) tail_drop_inferred={} "
+           "ecn_marked={}".format(
+               label,
+               delta['tx_pkts'], delta['total_drop_pkts'],
+               delta['wred_drop_pkts'], delta['wred_green_drop_pkts'],
+               delta['tail_drop_inferred_pkts'],
+               delta['wred_ecn_marked_pkts']))
+    return delta
+
+
+def dchalshell_dump_port_stats(dut_h, asic_port, label=""):
+    """Dump raw dchalshell 'port show stats interface N detail' output.
+
+    Used as a diagnostic backstop when SAI WRED counters are not
+    populated.  Logs the full raw output so a human can inspect
+    per-queue WRED-vs-tail-drop split fields directly.  Returns the
+    raw text or empty string on error.
+    """
+    cmd = ('sudo docker exec syncd bash -c "cd /opt/cisco/syncd/'
+           'dchalshell && (echo \'port show stats interface {} '
+           'detail\' && echo quit) | ./dchalshell"').format(asic_port)
+    try:
+        out = st.show(dut_h, cmd, skip_tmpl=True,
+                      skip_error_check=True) or ''
+    except Exception as e:
+        st.log("  [{}] dchalshell dump failed: {}".format(label, e))
+        return ''
+    if not out.strip():
+        st.log("  [{}] dchalshell dump empty".format(label))
+        return ''
+    sep = "=" * 78
+    st.log(sep)
+    st.log("  [{}] dchalshell port stats (asic_port={}) "
+           "-- raw, look for WRED Pkt Drop / Tail Drop columns".format(
+               label, asic_port))
+    st.log(sep)
+    for line in out.splitlines():
+        st.log("    " + line.rstrip())
+    st.log(sep)
+    return out
+
+
 def get_scheduler_groups_for_port(dut_h, interface):
     """Return queue OID dict {index: oid} for interface (FX3 1:1 queue:SG mapping).
 
@@ -5607,6 +6561,58 @@ def asic_db_find_new_oid(oids_before, oids_after):
     else:
         st.log("  ASIC_DB no new scheduler OID found")
     return new_keys[0] if new_keys else None
+
+
+def asic_db_find_sched_oid_by_name(dut, name):
+    """Return the SAI scheduler OID key that maps to a CONFIG_DB SCHEDULER|<name>.
+
+    SONiC populates COUNTERS_DB COUNTERS_SCHEDULER_NAME_MAP as
+    {<scheduler_name>: <oid:0x...>}.  Returns the full ASIC_DB key
+    'ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:<oid>' if a mapping exists,
+    or None.
+
+    Use this to confirm a specific scheduler was created without
+    relying on set-difference of the entire OID list (which fails if
+    orchagent UPDATEs an existing OID rather than creating a new one).
+    """
+    try:
+        out = st.show(
+            dut,
+            'sonic-db-cli COUNTERS_DB HGET "COUNTERS_SCHEDULER_NAME_MAP" '
+            '"{}"'.format(name),
+            skip_tmpl=True, skip_error_check=True) or ''
+    except Exception:
+        out = ''
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith('oid:'):
+            return 'ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:{}'.format(line)
+    return None
+
+
+def asic_db_wait_sched_present(dut, name, oids_pre=None, timeout=15, poll=1):
+    """Poll until SAI scheduler 'name' is observable in ASIC_DB.
+
+    Returns the matching ASIC_DB key, or None if the scheduler does not
+    appear within *timeout* seconds.  Tries the COUNTERS_DB name map
+    first (preferred) and falls back to detecting any new OID relative
+    to *oids_pre* (set of pre-existing OID keys).
+    """
+    pre = set(oids_pre or [])
+    deadline_iters = max(1, int(timeout / max(poll, 1)))
+    for attempt in range(deadline_iters):
+        if attempt:
+            st.wait(poll)
+        named = asic_db_find_sched_oid_by_name(dut, name)
+        if named:
+            return named
+        if pre:
+            current = set(asic_db_get_sched_oids(dut))
+            new_keys = current - pre
+            if new_keys:
+                # Prefer a stable order if multiple new keys are present
+                return sorted(new_keys)[0]
+    return None
 
 
 # ── Egress reachability verification ─────────────────────────────────────

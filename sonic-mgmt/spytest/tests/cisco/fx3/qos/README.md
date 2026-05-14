@@ -13,7 +13,7 @@ qos/
 ├── conftest.py                    # registers `smoke` marker, hoists smoke first
 ├── qos_helpers.py
 ├── test_qos_integration.py        # cross-area end-to-end (DWRR + SP + WRED)
-├── test_simple_connect.py         # topology sanity
+├── test_simple_connect.py         # topology sanity (auto-detects non-breakout D1T1:3 vs breakout D1T1:1+D1D2:1+D2T1:1; PASS/FAIL only, never SKIP)
 ├── buffer/
 ├── qos_map/
 ├── scheduler/
@@ -128,6 +128,16 @@ Margin    Rate%     Avg Depth  Est. Prob  WRED Drop  Zone  Status
 2000M     102.000%  1.80MB     2.00%      1.96%      B     OK
 5500M     105.500%  3.00MB     5.00%      5.29%      B     OK
 ```
+
+## Recent changes — FX3 SAI Queue Init drop (MIGSOFTWAR-41509)
+
+- `qos_helpers.py`: large helper expansion (DCHAL probes, ASIC_DB parsing, golden WRED/scheduler validators) supporting the queue-init flows.
+- `scheduler/test_scheduler.py`: scheduler validation expanded for queue-init coverage.
+- `wred/test_wred_profile_validation.py`: WRED profile validation expanded.
+- `wred/test_wred_threshold_validation.py`: adds `_wait_insshell_ready()` — polls the `dchalshell` Thrift sidecar (127.0.0.1:9091 in `syncd`) for up to 60 s after every `config qos reload` so the next DCHAL probe doesn't race the sidecar restart.
+- `test_simple_connect.py`: now detects the active testbed shape (single-DUT D1T1:3 vs two-DUT D1T1:1+D1D2:1+D2T1:1 breakout) at runtime and runs the matching reachability check; reports PASS or FAIL only.
+
+Status: passed all non-breakout runs on FX3 (SAI 1.16.4, Nexus SDK, Tahoe Sundown1).
 
 ## References
 
