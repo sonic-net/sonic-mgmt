@@ -2269,7 +2269,7 @@
         },
       
         "t0-m6-17-1-titan": {
-            "ucs_host_name": "titan-ucs-m6-17-1",
+            "ucs_host_name": "sonic-m6-17-1",
             "ucs_host": "172.27.179.18",
             "ucs_username": "sonic",
             "ucs_password": "roZes@123",
