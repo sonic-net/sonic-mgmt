@@ -45,14 +45,6 @@
     reload: true
     sysctl_file: /etc/sysctl.d/99-pty.conf
 
-# On Ubuntu the default home-directory mode shipped by adduser has been
-# tightened from 0755 to 0750 in newer releases, which prevents the
-# libvirt-qemu user from traversing /home/<user> to read VM disk images
-# stored under {{ home_path }}/sonic-vm/.  Granting libvirt-qemu the
-# execute bit via a POSIX ACL on home_path is targeted, idempotent, and
-# keeps QEMU running as the unprivileged libvirt-qemu user.  This task
-# is in main.yml (not host_setup.yml) because home_path is only known
-# after the getent passwd lookup below.
 - name: Install br_netfilter kernel module
   become: yes
   modprobe: name=br_netfilter state=present

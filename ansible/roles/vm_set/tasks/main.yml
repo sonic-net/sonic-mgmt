@@ -62,7 +62,7 @@
 # Bump this version string whenever host_setup.yml tasks change materially.
 - name: Define host setup version
   set_fact:
-    host_setup_version: "2"
+    host_setup_version: "1"
 
 - name: Check if host setup flag file exists
   stat:
@@ -155,6 +155,11 @@
     # libvirt-qemu the execute (traverse) bit on home_path via a POSIX
     # ACL.  This is targeted (only libvirt-qemu, not "other"), survives
     # subsequent chmod operations, and avoids running QEMU as root.
+    #
+    # Gated on package_installation because the acl package and the
+    # libvirt-qemu user are both installed by host_setup.yml; with
+    # package_installation=false the caller is responsible for ensuring
+    # those exist out-of-band.
     - name: Allow libvirt-qemu to traverse home directory
       acl:
         path: "{{ home_path }}"
@@ -163,6 +168,7 @@
         permissions: x
         state: present
       become: yes
+      when: package_installation | bool
 
 # ---- VM setup ----
 - name: Require veos or SONiC or cisco VMs by default

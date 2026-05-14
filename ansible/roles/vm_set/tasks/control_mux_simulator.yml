@@ -16,6 +16,14 @@
       flask_version: "2.3.3"
       werkzeug_version: "2.3.7"
 
+  - name: Check installed Flask and Werkzeug versions
+    command: >-
+      {{ sonic_testbed_venv }}/bin/python -c
+      "import flask, werkzeug; print(flask.__version__); print(werkzeug.__version__)"
+    register: flask_versions
+    changed_when: false
+    failed_when: false
+
   - name: Install Flask and Werkzeug in venv
     command: >-
       uv pip install
@@ -23,6 +31,8 @@
       flask=={{ flask_version }} werkzeug=={{ werkzeug_version }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
+    when: flask_versions.rc != 0
+          or flask_versions.stdout_lines != [flask_version, werkzeug_version]
 
   - name: Copy the mux simulator to test server
     copy:

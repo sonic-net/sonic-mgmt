@@ -26,6 +26,12 @@
       set_fact:
         ip_command_path: "{{ which_ip_output.stdout }}"
 
+    - name: Check installed gRPC library
+      command: "{{ sonic_testbed_venv }}/bin/python -c 'import grpc, grpc_tools'"
+      register: grpc_check
+      changed_when: false
+      failed_when: false
+
     - name: Install gRPC library in venv
       command: >-
         uv pip install
@@ -33,6 +39,7 @@
         grpcio grpcio-tools
       become: yes
       environment: "{{ proxy_env | default({}) }}"
+      when: grpc_check.rc != 0
 
     - name: Set nic simulator source directory
       set_fact:
