@@ -18,7 +18,8 @@ platform_dict = {
     'carib'  : ['x86_64-hf6100_32d-r0'],
     'siren'  : ['x86_64-hf6100_60l4d-r0'],
     'laguna' : ['x86_64-hf6100_64ed-r0'],
-    'gamut'  : ['x86_64-n9164e_ns4_o-r0']
+    'gamut'  : ['x86_64-n9164e_ns4_o-r0'],
+    'fx3'    : ['x86_64-N9K-C93108TC-FX3-r0']
 }
 
 # Hierarchical Port Naming
@@ -767,6 +768,9 @@ def is_g200(plat_str):
 
 def is_gamut(plat_str):
     return plat_str == 'gamut'
+
+def is_fx3(plat_str):
+    return plat_str == 'fx3'
 
 def find_platform_str(dut):
     '''

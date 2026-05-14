@@ -432,7 +432,7 @@ def test_l2_vlan_mac_learning_and_mac_aging(setup_teardown_l2_vlan_test):
 
     target_mac_address_d3 = str(data.hosts_data["T1D3P1"]["mac_addr"])
     target_mac_address_d4 = str(data.hosts_data["T1D4P1"]["mac_addr"])
-    target_mac_address_found_d3, target_mac_address_found_d3 = False, False
+    target_mac_address_found_d3, target_mac_address_found_d4 = False, False
     target_mac_address_found_d3 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d3)
     target_mac_address_found_d4 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d4)
     if target_mac_address_found_d3 and target_mac_address_found_d4:
@@ -462,6 +462,23 @@ def test_l2_vlan_mac_learning_and_mac_aging(setup_teardown_l2_vlan_test):
         # periodically instead of sleeping for exactly mac_aging_time_new.
         poll_interval = 30
         max_wait = mac_aging_time_new * 3
+        elapsed = 0
+
+        while elapsed < max_wait:
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+            st.log("Polling MAC table after {} seconds (max wait: {} seconds)".format(elapsed, max_wait))
+            target_mac_address_found_d3 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d3)
+            target_mac_address_found_d4 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d4)
+            if not target_mac_address_found_d3 and not target_mac_address_found_d4:
+                macs_aged_out = True
+                st.log("MACs successfully aged out after {} seconds".format(elapsed))
+                break
+    elif common_obj.is_fx3(platform_str):
+        # On FX3, MAC aging can take up to 2x the configured value. Poll
+        # periodically instead of sleeping for exactly mac_aging_time_new.
+        poll_interval = 30
+        max_wait = mac_aging_time_new * 2
         elapsed = 0
 
         while elapsed < max_wait:
