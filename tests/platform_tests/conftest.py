@@ -316,14 +316,16 @@ def extract_fw_data(fw_pkg_path):
     :return: fw_data in dictionary
     """
     if tarfile.is_tarfile(fw_pkg_path):
-        path = "/tmp/firmware"
-        isExist = os.path.exists(path)
-        if not isExist:
-            os.mkdir(path)
-        with tarfile.open(fw_pkg_path, "r:gz") as f:
-            f.extractall(path)
-            json_file = os.path.join(path, "firmware.json")
-            with open(json_file, 'r') as fw:
+        with tarfile.open(fw_pkg_path, "r:gz") as fw_tar:
+            member = fw_tar.getmember("firmware.json")
+            if not member.isfile():
+                raise ValueError("firmware.json in {} is not a regular file".format(fw_pkg_path))
+
+            fw = fw_tar.extractfile(member)
+            if fw is None:
+                raise ValueError("Failed to read firmware.json from {}".format(fw_pkg_path))
+
+            with fw:
                 fw_data = json.load(fw)
     else:
         with open(fw_pkg_path, 'r') as fw:
