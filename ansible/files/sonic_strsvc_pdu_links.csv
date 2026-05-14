@@ -95,3 +95,9 @@ pdu-138,31,svcstr-nh5010-fanout-3,PSU1
 pdu-139,31,svcstr-nh5010-fanout-3,PSU2
 pdu-138,32,svcstr-8101-fanout-01,PSU1
 pdu-139,32,svcstr-8101-fanout-01,PSU2
+pdu-117,35,svcstr-nh5010-ut2-7,PSU1
+pdu-118,35,svcstr-nh5010-ut2-7,PSU2
+pdu-117,34,svcstr-nh5010-fanout-7,PSU1
+pdu-118,34,svcstr-nh5010-fanout-7,PSU2
+pdu-117,36,svcstr-server-9,PSU1
+pdu-118,36,svcstr-server-9,PSU2

@@ -5565,6 +5565,21 @@
   auto_recover: 'False'
   comment: yatishkoul
 
+- conf-name: vmsvc-ut2-nh5010-7
+  group-name: svc9-1
+  topo: urh_min_nexthop
+  ptf_image_name: docker-ptf
+  ptf: svc9-1
+  ptf_ip: 10.206.144.98/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9062/64
+  server: server_svc_9
+  vm_base: VM30224
+  dut:
+  - svcstr-nh5010-ut2-7
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: yatishkoul
+
 - conf-name: vms29-ut2-route-conv-nh5010
   group-name: vms20-ixia-12
   topo: tgen_t2_2lc_masic_route_conv
