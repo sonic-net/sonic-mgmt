@@ -85,7 +85,7 @@ def setup_config_snappi_l47(request, duthosts, tbinfo, ha_test_case=None):
         chassis_ip = tbinfo['chassis_ip']
         clean_l47trafficgen_staticarps = tbinfo['clean_l47trafficgen_staticarps']
         gw_ip = tbinfo['l47_gateway']
-        eni_per_dpu = int(tbinfo.get('eni_per_dpu', 0))
+        eni_per_dpu = int(tbinfo.get('eni_per_dpu', 32))
 
         ports_list = tbinfo['ports_list']
         ports_list = {k: [tuple(x) for x in v] for k, v in ports_list.items()}

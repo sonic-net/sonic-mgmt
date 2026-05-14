@@ -1684,7 +1684,7 @@ def l47_trafficgen_main(ports_list, tbinfo, connection_dict, nw_config, service_
     gw_ip = connection_dict['gw_ip']
     port = connection_dict['port']
     chassis_ip = tbinfo.get('chassis_ip')
-    eni_per_dpu = int(tbinfo.get('eni_per_dpu', 0))
+    eni_per_dpu = int(tbinfo.get('eni_per_dpu', 32))
     ixl_version = connection_dict['version']
     ixos_version = connection_dict['ixos_version']
 
