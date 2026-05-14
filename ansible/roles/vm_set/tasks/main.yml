@@ -62,7 +62,7 @@
 # Bump this version string whenever host_setup.yml tasks change materially.
 - name: Define host setup version
   set_fact:
-    host_setup_version: "1"
+    host_setup_version: "2"
 
 - name: Check if host setup flag file exists
   stat:
@@ -147,6 +147,22 @@
       when: "not root_path.startswith('/')"
 
     - debug: msg="home_path = {{ home_path }} root_path = {{ root_path }}"
+
+    # Newer Ubuntu releases default new home directories to mode 0750
+    # (see DIR_MODE in /etc/adduser.conf), which blocks the unprivileged
+    # libvirt-qemu user from traversing /home/<user> to open VM disk
+    # images stored under {{ home_path }}/sonic-vm/disks/.  Grant
+    # libvirt-qemu the execute (traverse) bit on home_path via a POSIX
+    # ACL.  This is targeted (only libvirt-qemu, not "other"), survives
+    # subsequent chmod operations, and avoids running QEMU as root.
+    - name: Allow libvirt-qemu to traverse home directory
+      acl:
+        path: "{{ home_path }}"
+        entity: libvirt-qemu
+        etype: user
+        permissions: x
+        state: present
+      become: yes
 
 # ---- VM setup ----
 - name: Require veos or SONiC or cisco VMs by default
