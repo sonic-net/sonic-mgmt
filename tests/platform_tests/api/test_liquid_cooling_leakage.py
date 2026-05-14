@@ -28,9 +28,10 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if not is_liquid_cooling_system_supported(duthost):
             pytest.skip("No liquid cooling system supported on this platform")
-        self.leak_sensors_num = duthost.facts.get("leak_sensors", {}).get("number")
-        if self.leak_sensors_num is None:
-            pytest.fail("Unable to get number of leak sensors from platform.json")
+        self.leak_sensors_num = len(duthost.facts.get('chassis', {}).get('leak_sensors', {}))
+        logger.info(f"Number of leak sensors: {self.leak_sensors_num}")
+        if self.leak_sensors_num == 0:
+            pytest.fail("System is supporting liquid cooling, but no leak sensors found on device")
 
     def test_get_name(self, platform_api_conn):    # noqa: F811
         for leak_sensor_id in range(0, self.leak_sensors_num):
