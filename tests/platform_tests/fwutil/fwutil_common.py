@@ -74,6 +74,7 @@ def reboot(duthost, pdu_ctrl, reboot_type, pdu_delay=60):
 def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, auto_reboot=False, current=None,
                      next_image=None, timeout=TIMEOUT, pdu_delay=60):
     hn = duthost.mgmt_ip
+    component_name = component if isinstance(component, str) else ""
 
     if boot_type != "none":
         if not auto_reboot:
@@ -95,7 +96,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
         else:
             # For auto reboot scenario, it takes some time in ONIE to update the firmware
             logger.info("Waiting on switch to shutdown after auto reboot...")
-            if 'FPGA' in component:
+            if 'FPGA' in component_name:
                 # For FPGA update, no reboot is needed.
                 logger.info("Waiting for switch update result...")
                 res.get(timeout)
@@ -103,7 +104,7 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
                     pytest.fail(f"The component installation is not successful: {res._value}")
                 logger.info("FPGA update is successful")
             else:
-                if 'CPLD' in component:
+                if 'CPLD' in component_name:
                     # For CPLD update, most time is spend before the reboot
                     pre_reboot_timeout = timeout
                     post_reboot_timeout = COMMON_REBOOT_TIMEOUT
@@ -119,10 +120,10 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
                 logger.info("Waiting on switch to come up in SONiC....")
                 localhost.wait_for(
                     host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10,
-                  timeout=post_reboot_timeout)
+                    timeout=post_reboot_timeout)
 
         # Only wait for critical systems when a reboot actually occurred (FPGA update does not reboot).
-        if (not auto_reboot) or ('FPGA' not in component):
+        if (not auto_reboot) or ('FPGA' not in component_name):
             logger.info("Waiting on critical systems to come online...")
             wait_until(300, 30, 0, duthost.critical_services_fully_started)
             time.sleep(60)
