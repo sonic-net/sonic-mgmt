@@ -54,7 +54,7 @@ def pytest_runtest_setup(item):
 
         # Trigger monit to refresh its cache so subsequent collection reads fresh data
         logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-        memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+        memory_monitors[duthost.hostname].execute_command("sudo monit monitor all")
 
         # Initial memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
@@ -97,7 +97,7 @@ def pytest_runtest_teardown(item, nextitem):
 
         # Trigger monit to refresh its cache so subsequent collection reads fresh data
         logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-        memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+        memory_monitors[duthost.hostname].execute_command("sudo monit monitor all")
 
         # memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
