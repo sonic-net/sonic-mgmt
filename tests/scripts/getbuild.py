@@ -13,6 +13,7 @@ _last_time = None
 artifact_size = 0
 NOT_FOUND_BUILD_ID = -999
 MAX_DOWNLOAD_TIMES = 3
+BACKOFF_BASE_SECONDS = 30
 
 
 def reporthook(count, block_size, total_size):
@@ -47,13 +48,18 @@ def reporthook(count, block_size, total_size):
 def validate_url_or_abort(url):
     print("Validating URL: {}".format(url))
 
-    # Attempt to retrieve HTTP response code
-    try:
-        urlfile = urlopen(url)
-        response_code = urlfile.getcode()
-        urlfile.close()
-    except IOError:
-        response_code = None
+    # Attempt to retrieve HTTP response code, retry on transient network errors.
+    response_code = None
+    for attempt in range(1, MAX_DOWNLOAD_TIMES + 1):
+        try:
+            urlfile = urlopen(url)
+            response_code = urlfile.getcode()
+            urlfile.close()
+            break
+        except IOError as e:
+            print("Validate URL error (attempt {}/{}): {}".format(attempt, MAX_DOWNLOAD_TIMES, e))
+            if attempt < MAX_DOWNLOAD_TIMES:
+                time.sleep(BACKOFF_BASE_SECONDS * attempt)
 
     if not response_code:
         print("Did not receive a response from remote machine. Aborting...")
