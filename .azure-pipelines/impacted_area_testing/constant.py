@@ -26,5 +26,18 @@ PR_CHECKER_TOPOLOGY_NAME = {
     "t2": ["t2", "kvmtest-t2_"]
 }
 
+# Dedup rules: for each (keep_in, remove_from) pair, control-plane tests
+# that appear in both checkers will be removed from 'remove_from'.
+# Data-plane tests (detected automatically via traffic-pattern scanning)
+# are always kept in both.
+# Rules are evaluated against the *original* checker contents
+# (order-independent).
+#
+# To extend: add more pairs to cover additional topology overlaps,
+# e.g. ("t1_checker", "t2_checker") once t2 tests are stable.
+CONTROL_PLANE_DEDUP_RULES = [
+    ("t0_checker", "t1_checker"),
+]
+
 MAX_INSTANCE_NUMBER = 40
 MAX_GET_TOKEN_RETRY_TIMES = 3

@@ -32,11 +32,18 @@ from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.ha.ha_utils import (
     wait_for_pending_operation_id,
     verify_ha_state,
-    set_dead_dash_ha_scope
+    set_dash_ha_scope
 )
 
 ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="session")
+def dpuhosts(dpuhosts):
+    """Limit to the first 2 DPU hosts for all HA tests."""
+    return dpuhosts.nodes[:2]
+
 
 ha_scope_per_dut = [
     (
@@ -748,14 +755,14 @@ def activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setu
         logger.info("HA: activate completed for Primary and Standby")
 
 
-def deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server):
+def deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
 
     primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
     standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
 
-    logger.info("HA: de-activate Primary and Standby - set dead")
-    set_dead_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key)
-    set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key)
+    logger.info("HA: de-activate Primary and Standby")
+    set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner)
+    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner)
 
 
 @pytest.fixture(scope="function")
@@ -763,22 +770,15 @@ def activate_dash_ha_from_json(duthosts, dpuhosts, localhost, ptfhost, setup_gnm
                                setup_dash_ha_from_json_func_scope, ha_owner):
     activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
-    deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server)
+    deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
 
-@pytest.fixture(scope="function")
-def setup_dash_pl_pipeline(
-    localhost, duthosts, ptfhost, dpu_index, skip_config,
-    dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
-):
+def apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost):
     """
     Apply DASH Private Link pipeline config (appliance, routing type, VNET,
     ENI, routes, meters) on all DPUs. Required by any test that sends PL
     traffic and does not already pull in the steady-state common_setup_teardown.
     """
-    if skip_config:
-        yield
-        return
 
     for i in range(len(duthosts)):
         duthost = duthosts[i]
@@ -815,8 +815,17 @@ def setup_dash_pl_pipeline(
         apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
         apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
 
-    yield
 
+@pytest.fixture(scope="function")
+def setup_dash_pl_pipeline(
+     localhost, duthosts, ptfhost, dpu_index, skip_config,
+     dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
+):
+    if skip_config:
+        yield
+        return
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
+    yield
     logger.info("setup_dash_pl_pipeline: cleanup.")
     for dpuhost in dpuhosts:
         config_reload(dpuhost, safe_reload=True, yang_validate=False)
@@ -827,52 +836,11 @@ def setup_dash_pl_pipeline_module_scope(
     localhost, duthosts, ptfhost, dpu_index, skip_config,
     dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
 ):
-    """
-    Apply DASH Private Link pipeline config (appliance, routing type, VNET,
-    ENI, routes, meters) on all DPUs. Required by any test that sends PL
-    traffic and does not already pull in the steady-state common_setup_teardown.
-    """
     if skip_config:
         yield
         return
-
-    for i in range(len(duthosts)):
-        duthost = duthosts[i]
-        dpuhost = dpuhosts[i]
-
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG,
-        }
-        logger.info(
-            f"setup_dash_pl_pipeline: applying base config on "
-            f"{duthost.hostname} dpu {dpuhost.dpu_index}"
-        )
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG,
-        }
-        if "bluefield" in dpuhost.facts["asic_type"]:
-            route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
-
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
     yield
-
     logger.info("setup_dash_pl_pipeline: cleanup.")
     for dpuhost in dpuhosts:
         config_reload(dpuhost, safe_reload=True, yang_validate=False)

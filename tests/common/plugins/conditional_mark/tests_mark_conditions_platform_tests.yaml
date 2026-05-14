@@ -864,6 +864,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
     conditions:
        - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
+       - "platform.startswith('arm64-c8220tg_48a_o')"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence:
   skip:
@@ -882,6 +883,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
     conditions:
        - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
+       - "platform.startswith('arm64-c8220tg_48a_o')"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_status:
   skip:
@@ -1488,6 +1490,10 @@ platform_tests/test_reload_config.py::test_reload_configuration:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
+  xfail:
+    reason: "timemaster.service fails benignly on Cisco-8102 lab DUTs (no reachable NTP/PTP source), causing 'systemctl is-system-running' to report 'degraded' and trip config_system_checks_passed. Data plane is unaffected."
+    conditions:
+      - "platform in ['x86_64-8102_64h_o-r0']"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
