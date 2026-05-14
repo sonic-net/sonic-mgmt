@@ -58,6 +58,11 @@ def check_interface_status_of_up_ports(duthost):
     if duthost.facts['asic_type'] == 'vs' and duthost.is_supervisor_node():
         return True
 
+    # SONiC BMC images have no front-panel ports, so CONFIG_DB has no PORT
+    # table. Treat as "no admin-up ports to check".
+    if duthost.is_bmc():
+        return True
+
     if duthost.is_multi_asic:
         up_ports = []
         for asic in duthost.frontend_asics:
@@ -398,10 +403,17 @@ def get_port_indexes_with_flat_memory(dut):
     cmd = """
 cat << EOF > get_port_indexes_with_flat_memory.py
 import sonic_platform.platform as P
-num_sfps = P.Platform().get_chassis().get_num_sfps()
+chassis = P.Platform().get_chassis()
+num_sfps = chassis.get_num_sfps()
 port_indexes_with_flat_memory = []
 for i in range(1, num_sfps + 1):
-    is_flat_memory = P.Platform().get_chassis().get_sfp(i).get_xcvr_api().is_flat_memory()
+    sfp = chassis.get_sfp(i)
+    if sfp is None:
+        continue
+    xcvr_api = sfp.get_xcvr_api()
+    if xcvr_api is None:
+        continue
+    is_flat_memory = xcvr_api.is_flat_memory()
     if is_flat_memory:
         port_indexes_with_flat_memory.append(i)
 print(port_indexes_with_flat_memory)
