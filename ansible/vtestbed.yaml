@@ -470,6 +470,28 @@
   dut:
     - vlab-01
     - vlab-02
+  # `enabled_dpus` is a mapping keyed by DUT hostname, listing the DPU module
+  # indices that should be administratively brought up on that specific NPU
+  # during deploy-mg. Golden config_db entries (CHASSIS_MODULE, DPUS,
+  # DHCP_SERVER_IPV4_PORT, DASH-HA DPU/REMOTE_DPU/VDPU tables) are always
+  # generated for every DPU supported by the hwsku; only the `admin_status`
+  # / `state` of the listed DPUs is set to `up`, while the rest are set to
+  # `down`. `load_extra_dpu_config` will only push DPU config_db over SSH
+  # for the enabled DPUs. A DUT that is omitted from this map (or the whole
+  # `enabled_dpus` key being absent) falls back to the legacy behavior of
+  # enabling every DPU supported by the hwsku (4 for Mellanox, 8 for Cisco).
+  # Use `<hostname>: []` to explicitly mark all DPUs on a DUT as admin-down.
+  enabled_dpus:
+    vlab-01:
+      - dpu_index: 0
+      - dpu_index: 1
+      - dpu_index: 2
+      - dpu_index: 3
+    vlab-02:
+      - dpu_index: 0
+      - dpu_index: 1
+      - dpu_index: 2
+      - dpu_index: 3
   inv_name: veos_vtb
   auto_recover: False
   comment: Tests t1-smartswitch-ha topo deployment with VMs
