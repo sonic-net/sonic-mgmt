@@ -35,7 +35,8 @@ class LoadExtraDpuConfigModule(object):
                 host_username=dict(type='str', required=True),
                 host_passwords=dict(type='list', elements='str', required=True, no_log=True),
                 npu_index=dict(type='int', required=False, default=0),
-                target_dpu_index=dict(type='int', required=False, default=-1)
+                target_dpu_index=dict(type='int', required=False, default=-1),
+                enabled_dpu_indices=dict(type='list', elements='int', required=False, default=None)
             ),
             supports_check_mode=False
         )
@@ -46,6 +47,7 @@ class LoadExtraDpuConfigModule(object):
         self.host_passwords = self.module.params['host_passwords']
         self.npu_index = self.module.params['npu_index']
         self.target_dpu_index = self.module.params['target_dpu_index']
+        enabled_dpu_indices_param = self.module.params['enabled_dpu_indices']
 
         try:
             self.hwsku_config = smartswitch_hwsku_config[self.hwsku]
@@ -55,6 +57,16 @@ class LoadExtraDpuConfigModule(object):
                 self.module.fail_json(msg="No DPUs defined for hwsku: {}".format(self.hwsku))
         except KeyError:
             self.module.fail_json(msg="No DPU configuration found for hwsku: {}".format(self.hwsku))
+
+        # Resolve the set of DPUs that are enabled (admin-up) for this NPU.
+        # `None` means the testbed.yaml entry did not specify an `enabled_dpus`
+        # mapping for this DUT; fall back to all hwsku-supported DPUs for
+        # backward compatibility. An explicit empty list means "no DPUs
+        # enabled" and skips SSH-based DPU configuration entirely.
+        if enabled_dpu_indices_param is None:
+            self.enabled_dpu_indices = list(range(self.dpu_num))
+        else:
+            self.enabled_dpu_indices = sorted({i for i in enabled_dpu_indices_param if 0 <= i < self.dpu_num})
 
     def wait_for_dpu_path(self, ssh, dpu_ip, path_to_check):
         try:
@@ -123,11 +135,19 @@ class LoadExtraDpuConfigModule(object):
                 self.module.fail_json(
                     msg="target_dpu_index {} is out of range (dpu_num={})".format(
                         self.target_dpu_index, self.dpu_num))
-            dpu_indices = [self.target_dpu_index]
+            if self.target_dpu_index not in self.enabled_dpu_indices:
+                self.module.fail_json(
+                    msg="target_dpu_index {} is not in the enabled DPU list {}".format(
+                        self.target_dpu_index, self.enabled_dpu_indices))
+            dpus_to_configure = [self.target_dpu_index]
             total_to_configure = 1
         else:
-            dpu_indices = list(range(0, self.dpu_num))
-            total_to_configure = self.dpu_num
+            dpus_to_configure = list(self.enabled_dpu_indices)
+            total_to_configure = len(dpus_to_configure)
+
+        if total_to_configure == 0:
+            self.module.log("No DPUs enabled for this testbed entry; skipping configuration.")
+            return 0, 0
 
         success_count = 0
         failure_count = 0
@@ -153,7 +173,7 @@ class LoadExtraDpuConfigModule(object):
         vlan_cfg = smartswitch_vlan_config.get(self.npu_index, smartswitch_vlan_config[0])
         gateway_ip = vlan_cfg["vlan_interface_ip"].split("/")[0]
 
-        for i in dpu_indices:
+        for i in dpus_to_configure:
             # Copy fresh template for each DPU
             self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_TEMPLATE, SRC_DPU_CONFIG_FILE))
 
@@ -309,16 +329,17 @@ class LoadExtraDpuConfigModule(object):
     def run(self):
         success_count, failure_count = self.configure_dpus()
 
+        total_enabled = len(self.enabled_dpu_indices)
         if failure_count == 0:
             msg = "Successfully configured all {} DPUs".format(success_count)
         else:
             msg = "Successfully configured {} out of {} DPUs ({} failures, but met success threshold)".format(
-                success_count, self.dpu_num, failure_count)
+                success_count, total_enabled, failure_count)
 
         self.module.exit_json(changed=True, msg=msg,
                               success_count=success_count,
                               failure_count=failure_count,
-                              total_dpus=self.dpu_num)
+                              total_dpus=total_enabled)
 
 
 def main():
