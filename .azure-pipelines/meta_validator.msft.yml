@@ -374,6 +374,7 @@ validators:
       - str3-8122-fanout-01       # conflicts with str3-7060x6-64pe-3
       - str4-7060x6-64pe-fan-2    # conflicts with str-7260-24
       - str4-7060x6-64pe-fan-13   # conflicts with str2-7050cx3-acs-07
+      - svcstr-nh5010-ut2-7       # conflicts with str2-msn2700-spy-2 on pdu-117:35 (different labs)
       - str4-7060x6-64pe-10       # conflicts with str2-7260cx3-64-19
       - str4-7060x6-512-2         # conflicts with str4-7060x6-64pe-11
       - svcstr-7260cx3-acs-11     # conflicts with str2-7260cx3-acs-fan-07 and str2-7060cx-32s-29
