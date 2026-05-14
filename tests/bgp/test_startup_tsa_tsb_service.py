@@ -20,6 +20,7 @@ from tests.conftest import get_hosts_per_hwsku
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.usefixtures("chassis_tsa_supported_pre_req"),
 ]
 
 logger = logging.getLogger(__name__)

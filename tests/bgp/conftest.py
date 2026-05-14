@@ -22,7 +22,8 @@ from tests.common.utilities import is_ipv6_only_topology
 from tests.common import config_reload
 from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
     BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
-    BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+    BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT,\
+    get_configdb_chassis_tsa_supported, restore_configdb_chassis_tsa_supported, set_configdb_chassis_tsa_supported
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
@@ -30,6 +31,37 @@ from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="module")
+def chassis_tsa_supported_pre_req(duthosts):
+    """
+    sonic-buildimage PR #27145: CHASSIS_APP_DB tsa_enabled is synced only when CONFIG_DB
+    chassis_tsa_supported is true on the supervisor. Tests using initial_tsa_check_before_and_after_test
+    expect CHASSIS_APP_DB to reflect TSA state; enable for the module, then restore prior CONFIG_DB state.
+    No-op on topologies without a supervisor.
+    """
+    saved = {}
+    for dut in duthosts:
+        if not dut.is_supervisor_node():
+            continue  # supervisor-only CONFIG_DB key
+        prior = get_configdb_chassis_tsa_supported(dut)
+        saved[dut.hostname] = prior
+        logger.info(
+            "chassis_tsa_supported_pre_req: CONFIG_DB chassis_tsa_supported=true on %s (was %r)",
+            dut.hostname, prior)
+        set_configdb_chassis_tsa_supported(dut, "true")
+
+    yield
+
+    for dut in duthosts:
+        if not dut.is_supervisor_node():
+            continue
+        prior = saved.get(dut.hostname, "")
+        logger.info(
+            "chassis_tsa_supported_pre_req: restoring CONFIG_DB chassis_tsa_supported on %s to %r",
+            dut.hostname, prior if prior else "<absent>")
+        restore_configdb_chassis_tsa_supported(dut, prior)
 
 
 def check_results(results):

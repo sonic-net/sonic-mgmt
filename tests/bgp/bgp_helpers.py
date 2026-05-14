@@ -1008,9 +1008,408 @@ def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
 def get_tsa_chassisdb_config(duthost):
     """
     @summary: Returns the dut's CHASSIS_APP_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    When the field is absent (e.g. chassis TSA not synced to CHASSIS_APP_DB), returns 'false'.
     """
-    tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
+    tsa_conf = duthost.shell(
+        'sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout'].strip()
+    if not tsa_conf:
+        return 'false'
     return tsa_conf
+
+
+def get_chassis_app_db_tsa_enabled_raw(duthost):
+    """
+    Raw CHASSIS_APP_DB HGET for tsa_enabled (no defaulting). Empty string if absent / (nil).
+    When chassis_tsa_supported is absent or false in CONFIG_DB, implementations may leave this
+    field unset or set it explicitly to false.
+    """
+    raw = duthost.shell(
+        'sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout'].strip()
+    if raw in ('', '(nil)'):
+        return ''
+    return raw
+
+
+def _ansi_strip(text):
+    if not text:
+        return ''
+    return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', text)
+
+
+def _log_interactive_supervisor_ts(suphost, cmd, event, detail, buf=None, maxlen=1800):
+    tail = ''
+    if buf is not None:
+        s = _ansi_strip(buf)
+        tail = s[-maxlen:] if len(s) > maxlen else s
+    logging.info(
+        "interactive_supervisor_ts host=%s cmd=%s event=%s detail=%s session_tail=%r",
+        suphost.hostname, cmd, event, detail, tail,
+    )
+
+
+def _log_remote_sudo_ts_transcript(suphost, remote_cmd, transcript, maxlen=48000):
+    """Log captured stdout from ``sudo TSA`` / ``sudo TSB`` (ANSI stripped, tail if very long)."""
+    s = _ansi_strip(transcript or '')
+    tail = s[-maxlen:] if len(s) > maxlen else s
+    logging.info(
+        "interactive_supervisor_ts host=%s remote_cmd=%r event=remote_cmd_transcript "
+        "detail=ansi_stripped_len=%d tail_maxlen=%d session_tail=%r",
+        suphost.hostname, remote_cmd, len(s), maxlen, tail,
+    )
+
+
+def run_supervisor_traffic_shift_interactive(suphost, creds, cmd):
+    """
+    Run `TSA`/`TSB` on the supervisor from the pytest host over SSH with a pseudo-TTY.
+
+    On many chassis images both of these are normal when you run `sudo TSA`/`sudo TSB` by hand:
+
+    * 'sudo' may ask for the login user's password (to elevate to root).
+    * 'rexec' may ask for `Password for username 'admin':` (or similar) to reach linecards.
+
+    Ansible `shell` has no TTY, so those prompts always time out. This helper runs `sudo` over
+    SSH with a TTY: if *no* password prompt appears, it returns as soon as the shell prompt is
+    seen (or the command output settles). If a prompt *does* appear, it sends
+    `sonicadmin_password` / `ansible_altpasswords` as needed.
+
+    Args:
+        suphost: Supervisor SonicHost
+        creds: Dict with `sonicadmin_user`, `sonicadmin_password`, optional `ansible_altpasswords`
+        cmd: `TSA` or `TSB`
+    """
+    try:
+        import pexpect
+    except ImportError:
+        pytest.fail(
+            "pexpect is required for interactive supervisor TSA/TSB; install pexpect on the test runner."
+        )
+
+    if cmd not in ('TSA', 'TSB'):
+        raise ValueError("cmd must be 'TSA' or 'TSB', got {!r}".format(cmd))
+
+    mi = suphost.get_mgmt_ip()
+    raw_ip = mi['mgmt_ip']
+    if mi['version'] == 'v6':
+        target = '[{}]'.format(raw_ip)
+    else:
+        target = str(raw_ip)
+
+    user = creds['sonicadmin_user']
+    passwords = []
+    primary = creds.get('sonicadmin_password')
+    if primary:
+        passwords.append(primary)
+    for alt in creds.get('ansible_altpasswords') or []:
+        if alt and alt not in passwords:
+            passwords.append(alt)
+    if not passwords:
+        raise ValueError("creds must contain sonicadmin_password and/or ansible_altpasswords")
+
+    # regex for multiple shell prompts (ANSI color codes may wrap the prompt).
+    # Examples: [user@host ~]$ , [root@server ~]#, admin@sonic:~$, admin@leaf01:/etc#
+    _ansi_pre = r'(?:\x1b\[[0-9;?!]*[A-Za-z])*'
+    shell_prompts = (
+        _ansi_pre + r'admin@[^\r\n]+[\$#]\s*(?:\r|\n|\r\n|$)',
+        _ansi_pre + r'~\][^\r\n]*[\$#]\s*(?:\r|\n|\r\n|$)',
+    )
+
+    # Mid-stream status from TSA/TSB (may appear *before* rexec asks for a password).
+    if cmd == 'TSA':
+        mid_markers = (
+            r'(?i)Chassis Mode:',
+            r'(?i)Chassis is already in Maintenance',
+            r'(?i)Normal\s*->\s*Maintenance',
+            r'(?i)System Mode:.*Maintenance',
+        )
+    else:
+        mid_markers = (
+            r'(?i)Chassis Mode:',
+            r'(?i)Chassis is already in Normal',
+            r'(?i)Maintenance\s*->\s*Normal',
+            r'(?i)System Mode:.*Normal',
+        )
+    # Script tail: do not treat the session as finished until completion text appears (rexec done).
+    # Wording varies by image; keep alternatives so we do not return on a premature shell prompt.
+    tail_marker = (
+        r'(?i)(?:Please execute.*(?:config|rexec|save)'
+        r'|please\s+run.*rexec'
+        r'|rexec.*save'
+        r'|configuration\s+saved'
+        r'|config\s+save\s+complete)'
+    )
+
+    # -tt: force TTY so rexec/sudo can prompt and we can answer from pexpect.
+    ssh_cmd = (
+        'ssh -tt -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null '
+        '-o LogLevel=ERROR -o ConnectTimeout=30 {}@{}'
+    ).format(user, target)
+    logging.info("run_supervisor_traffic_shift_interactive: %s on %s (mgmt %s)", cmd, suphost.hostname, target)
+
+    remote_cmd = 'sudo {}'.format(cmd)
+
+    child = pexpect.spawn(ssh_cmd, timeout=420, encoding='utf-8', codec_errors='replace', echo=False)
+    try:
+        i = child.expect([r'(?i)password:', r'(?i)yes/no', pexpect.EOF], timeout=90)
+        _log_interactive_supervisor_ts(
+            suphost, cmd, "ssh_login", "expect index=%s" % i, (child.before or '') + (child.after or ''))
+        if i == 1:
+            child.sendline('yes')
+            child.expect(r'(?i)password:', timeout=90)
+            child.sendline(passwords[0])
+        elif i == 0:
+            child.sendline(passwords[0])
+        else:
+            raise AssertionError(
+                "SSH to supervisor {} ended before login: {}".format(suphost.hostname, child.before))
+
+        # Wait for a real shell prompt (avoid matching a bare '$' in MOTD/banner text).
+        child.expect(list(shell_prompts), timeout=120)
+        _log_interactive_supervisor_ts(
+            suphost, cmd, "login_shell", "ready for %r" % remote_cmd, (child.before or '') + (child.after or ''))
+        child.sendline(remote_cmd)
+        _log_interactive_supervisor_ts(suphost, cmd, "sent", "line=%r" % remote_cmd, None)
+        ts_transcript_pieces = []
+
+        password_prompts = (
+            r'(?i)Password for username',
+            r'(?i)\[sudo\] password for',
+            r'(?i)password for [^\r\n]+:',
+            r'(?i)password:',
+        )
+        pat_list = (
+            list(password_prompts)
+            + [r'(?i)Aborted!']
+            + list(mid_markers)
+            + [tail_marker]
+            + list(shell_prompts)
+        )
+        n_pw = len(password_prompts)
+        idx_abort = n_pw
+        idx_mid_start = n_pw + 1
+        n_mid = len(mid_markers)
+        idx_tail = idx_mid_start + n_mid
+        idx_shell_start = idx_tail + 1
+        pwd_round = 0
+        max_pw_sends = 12
+        saw_mid = False
+        saw_tail = False
+        max_events = 80
+        events = 0
+        clean_exit = False
+
+        def _expect_index_label(jj):
+            if jj < n_pw:
+                return 'password_prompt[%d]' % jj
+            if jj == idx_abort:
+                return 'Aborted'
+            if idx_mid_start <= jj <= idx_tail - 1:
+                return 'mid_marker[%d]' % (jj - idx_mid_start)
+            if jj == idx_tail:
+                return 'tail_marker'
+            if jj >= idx_shell_start:
+                return 'shell_prompt[%d]' % (jj - idx_shell_start)
+            return 'unknown[%d]' % jj
+
+        def _append_ts_transcript_fragment(text):
+            if text:
+                ts_transcript_pieces.append(text)
+
+        def _emit_remote_cmd_transcript():
+            joined = ''.join(ts_transcript_pieces)
+            if joined:
+                _log_remote_sudo_ts_transcript(suphost, remote_cmd, joined)
+
+        while events < max_events:
+            events += 1
+            try:
+                j = child.expect(pat_list, timeout=240)
+            except pexpect.TIMEOUT:
+                buf = (child.before or '') + (child.after or '')
+                try:
+                    buf += child.read_nonblocking(size=65536, timeout=4)
+                except pexpect.TIMEOUT:
+                    pass
+                except Exception:
+                    pass
+                _append_ts_transcript_fragment(buf)
+                _log_interactive_supervisor_ts(suphost, cmd, "expect_timeout", "event=%d" % events, buf)
+                if re.search(r'(?i)Aborted!', buf):
+                    _emit_remote_cmd_transcript()
+                    raise AssertionError("{} aborted: {}".format(cmd, _ansi_strip(buf)[-4000:]))
+                pw_hit = False
+                for p in password_prompts:
+                    if re.search(p, buf):
+                        child.sendline(passwords[min(pwd_round, len(passwords) - 1)])
+                        pwd_round += 1
+                        if pwd_round > max_pw_sends:
+                            _emit_remote_cmd_transcript()
+                            raise AssertionError(
+                                "{}: too many password prompts without completion".format(cmd))
+                        pw_hit = True
+                        _log_interactive_supervisor_ts(
+                            suphost, cmd, "password_from_timeout", "pwd_round=%d" % pwd_round, buf)
+                        break
+                if pw_hit:
+                    continue
+                if re.search(tail_marker, buf):
+                    saw_tail = True
+                    _log_interactive_supervisor_ts(suphost, cmd, "tail_from_timeout", "saw_tail set", buf)
+                for mm in mid_markers:
+                    if re.search(mm, buf):
+                        saw_mid = True
+                        break
+                if saw_tail:
+                    try:
+                        j2 = child.expect(list(shell_prompts) + list(password_prompts), timeout=90)
+                        if j2 < len(shell_prompts):
+                            clean_exit = True
+                            _log_interactive_supervisor_ts(
+                                suphost, cmd, "shell_after_tail", "j2=%d" % j2,
+                                (child.before or '') + (child.after or ''))
+                            _append_ts_transcript_fragment((child.before or '') + (child.after or ''))
+                            break
+                        child.sendline(passwords[min(pwd_round, len(passwords) - 1)])
+                        pwd_round += 1
+                        continue
+                    except pexpect.TIMEOUT:
+                        pass
+                _emit_remote_cmd_transcript()
+                raise AssertionError(
+                    "{}: timed out waiting for completion; saw_mid=%s saw_tail=%s pwd_round=%s tail=%r".format(
+                        cmd, saw_mid, saw_tail, pwd_round, _ansi_strip(buf)[-4000:]))
+
+            _append_ts_transcript_fragment((child.before or '') + (child.after or ''))
+            _log_interactive_supervisor_ts(
+                suphost, cmd, "expect_match",
+                "event=%d j=%d %s match=%r" % (
+                    events, j, _expect_index_label(j), (child.after or '')[:200]),
+                (child.before or '') + (child.after or ''))
+
+            if j < n_pw:
+                child.sendline(passwords[min(pwd_round, len(passwords) - 1)])
+                pwd_round += 1
+                if pwd_round > max_pw_sends:
+                    _emit_remote_cmd_transcript()
+                    raise AssertionError(
+                        "{}: too many password prompts without completion".format(cmd))
+                continue
+            if j == idx_abort:
+                acc = (child.before or '') + (child.after or '')
+                _emit_remote_cmd_transcript()
+                raise AssertionError("{} aborted: {}".format(cmd, _ansi_strip(acc)[-4000:]))
+            if idx_mid_start <= j <= idx_tail - 1:
+                saw_mid = True
+                continue
+            if j == idx_tail:
+                saw_tail = True
+                continue
+            if j >= idx_shell_start:
+                # Do not return on shell until the script tail matched — mid text + passwords can precede rexec.
+                if saw_tail:
+                    clean_exit = True
+                    break
+                logging.warning(
+                    "run_supervisor_traffic_shift_interactive: ignoring shell match "
+                    "(waiting for completion tail); saw_mid=%s saw_tail=%s pwd_round=%s",
+                    saw_mid, saw_tail, pwd_round,
+                )
+                continue
+
+        if not clean_exit:
+            _emit_remote_cmd_transcript()
+            raise AssertionError(
+                "{}: no clean shell exit (saw_mid=%s saw_tail=%s pwd_round=%s)".format(
+                    cmd, saw_mid, saw_tail, pwd_round))
+        time.sleep(3)
+        try:
+            raw_app = get_chassis_app_db_tsa_enabled_raw(suphost)
+            raw_cfg = get_configdb_tsa_enabled_raw(suphost)
+            sup_flag = get_configdb_chassis_tsa_supported(suphost)
+            logging.info(
+                "run_supervisor_traffic_shift_interactive: post-%s supervisor DB snapshot "
+                "CHASSIS_APP_DB tsa_enabled=%r CONFIG_DB tsa_enabled=%r chassis_tsa_supported=%r",
+                cmd, raw_app, raw_cfg, sup_flag,
+            )
+        except Exception as ex:
+            logging.warning("run_supervisor_traffic_shift_interactive: post-%s DB snapshot failed: %s", cmd, ex)
+        acc = (child.before or '') + (child.after or '')
+        try:
+            acc += child.read_nonblocking(size=65536, timeout=5)
+        except Exception:
+            pass
+        _append_ts_transcript_fragment(acc)
+        _log_interactive_supervisor_ts(suphost, cmd, "post_wait", "drain", acc)
+        _emit_remote_cmd_transcript()
+        if 'Aborted!' in acc or re.search(r'(?i)Aborted!\s', acc):
+            raise AssertionError("{} aborted after wait: {}".format(cmd, _ansi_strip(acc)[-4000:]))
+    finally:
+        try:
+            if child.isalive():
+                child.sendline('exit')
+        except Exception:
+            pass
+        try:
+            child.close(force=True)
+        except Exception:
+            pass
+
+
+def run_supervisor_rexec_path_traffic_shift(duthost, cmd, creds=None, **shell_kw):
+    """
+    Run supervisor ``TSA`` or ``TSB`` for the chassis_tsa_supported off (rexec-style) path.
+
+    `sudo TSA`/`sudo TSB` is not password-free on every image: sudo and/or rexec may still
+    prompt when you run them manually.
+    When `creds` is set, this uses SSH + `pexpect` from the test runner to supply inventory passwords.
+    Without `creds`, only non-interactive `shell` is used (`sudo` + command), which will fail if the DUT
+    requires a TTY for passwords.
+
+    Args:
+        duthost: Supervisor SonicHost
+        cmd: `TSA` or `TSB`
+        creds: Optional dict with `sonicadmin_user` / `sonicadmin_password`
+        **shell_kw: passed to `duthost.shell` only when `creds` is None
+    """
+    if cmd not in ('TSA', 'TSB'):
+        raise ValueError("cmd must be 'TSA' or 'TSB', got {}".format(cmd))
+    if creds is not None:
+        if shell_kw:
+            logging.warning(
+                "run_supervisor_rexec_path_traffic_shift: ignoring shell kwargs %s when creds is set",
+                shell_kw,
+            )
+        run_supervisor_traffic_shift_interactive(duthost, creds, cmd)
+        return
+    duthost.shell('sudo {}'.format(cmd), **shell_kw)
+
+
+def get_configdb_chassis_tsa_supported(duthost):
+    """CONFIG_DB BGP_DEVICE_GLOBAL|STATE chassis_tsa_supported (empty if absent)."""
+    out = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGET 'BGP_DEVICE_GLOBAL|STATE' chassis_tsa_supported")['stdout']
+    return out.strip()
+
+
+def get_configdb_tsa_enabled_raw(duthost):
+    """CONFIG_DB HGET BGP_DEVICE_GLOBAL|STATE tsa_enabled (stripped)."""
+    return duthost.shell(
+        "sonic-db-cli CONFIG_DB HGET 'BGP_DEVICE_GLOBAL|STATE' tsa_enabled")['stdout'].strip()
+
+
+def set_configdb_chassis_tsa_supported(duthost, value):
+    """CONFIG_DB HMSET BGP_DEVICE_GLOBAL|STATE chassis_tsa_supported."""
+    duthost.shell(
+        "sonic-db-cli CONFIG_DB HMSET 'BGP_DEVICE_GLOBAL|STATE' chassis_tsa_supported {}".format(value))
+
+
+def restore_configdb_chassis_tsa_supported(duthost, prior_value):
+    """Restore prior chassis_tsa_supported; prior_value empty means field was absent (HDEL)."""
+    if not prior_value:
+        duthost.shell(
+            "sonic-db-cli CONFIG_DB HDEL 'BGP_DEVICE_GLOBAL|STATE' chassis_tsa_supported",
+            module_ignore_errors=True)
+    else:
+        set_configdb_chassis_tsa_supported(duthost, prior_value)
 
 
 def get_sup_cfggen_tsa_value(suphost):

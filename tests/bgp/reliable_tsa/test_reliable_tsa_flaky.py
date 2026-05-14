@@ -20,6 +20,7 @@ from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, g
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.usefixtures("chassis_tsa_supported_pre_req"),
 ]
 
 logger = logging.getLogger(__name__)

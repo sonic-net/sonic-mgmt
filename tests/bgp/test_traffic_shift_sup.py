@@ -9,7 +9,8 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    pytest.mark.usefixtures("chassis_tsa_supported_pre_req"),
 ]
 
 logger = logging.getLogger(__name__)
