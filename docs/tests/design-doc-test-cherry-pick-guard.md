@@ -79,19 +79,21 @@ contributor adds a brand-new test to `master` and it gets approved for a release
                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │              GitHub Actions: test-cherry-pick-guard.yml               │
+│              name: "Test Cherry-pick Guard"                          │
 │                                                                      │
 │  Job 1: detect-and-tag                                               │
 │  ├─ Fetch PR file diff via GitHub API                                │
 │  ├─ Match against test file patterns                                 │
 │  ├─ Output: has_new_tests (bool), new_test_files (list), target_branch│
-│  └─ If new tests found → add label "contains-new-tests"              │
+│  ├─ If new tests found → add label "contains-new-tests"              │
+│  └─ If no new tests found → remove "contains-new-tests" label       │
 │                                                                      │
 │  Job 2: enforce-policy  (skipped if master or no new tests)          │
+│  │  name: "Cherry-pick policy check"   ← branch protection matches  │
 │  ├─ Check for "cherry-pick-bypass-approved" label                     │
 │  ├─ Verify label adder is in @sonic-net/platform-owners (GitHub API) │
 │  ├─ FAIL with guidance comment  (any condition unmet)                │
-│  ├─ PASS → create/update check run on PR HEAD via Checks API        │
-│  └─ PASS → send email + post audit comment  (all conditions met)     │
+│  └─ PASS → send email (best-effort) + post audit comment             │
 └──────────────────────────────────────────────────────────────────────┘
                                │
               (bypass approved + all conditions met)
@@ -99,12 +101,19 @@ contributor adds a brand-new test to `master` and it gets approved for a release
                                ▼
               ┌────────────────────────────┐
               │  SMTP Email Notification   │
+              │  (best-effort, non-gating) │
               │  To: Guard team + Owners   │
-              │  Subject: [AWARENESS]...   │
-              │  Body: PR, bypasser,       │
-              │        explanation, files  │
+              │  Subject: [ACTION REQ'D]   │
+              │  Body: PR, bypasser, files │
               └────────────────────────────┘
 ```
+
+**Canonical names for branch protection:**
+
+| YAML key | Value | Purpose |
+|----------|-------|---------|
+| Workflow `name:` | `Test Cherry-pick Guard` | Appears in Actions tab |
+| Job 2 `jobs.enforce-policy.name:` | `Cherry-pick policy check` | **This is the string branch protection matches** |
 
 ### 3.2 Trigger Events
 
@@ -117,20 +126,33 @@ The workflow responds to the following GitHub event:
 `pull_request_target` is used (instead of `pull_request`) because cherry-pick PRs are
 created from a fork (`mssonicbld/sonic-mgmt`), which requires elevated token permissions.
 
+> **Note:** If sonic-mgmt enables GitHub Merge Queues in the future, the workflow will
+> need an additional `merge_group` trigger to prevent merges from bypassing the check.
+
 ### 3.3 Test File Detection
 
 A file is classified as a **new test file** if:
 - Its `status` in the PR diff is `"added"` (not `"modified"` or `"renamed"`)
-- Its path matches the following pattern:
+- Its path matches any of the following patterns:
 
 | Pattern | Framework | Example |
 |---------|-----------|---------|
-| `tests/**/test_*.py` | pytest | `tests/bgp/test_bgp_fact.py` |
+| `tests/**/test_*.py` | pytest (default) | `tests/bgp/test_bgp_fact.py` |
+| `tests/**/*_test.py` | pytest (alternate) | `tests/bgp/bgp_fact_test.py` |
 
-**Known limitation (v1):**
+> **Note:** Both patterns are included because pytest's default discovery matches both
+> `test_*.py` and `*_test.py`. Check `tests/pytest.ini` / `tests/conftest.py` for any
+> non-default discovery configuration.
+
+**Known limitation (v1) — renames:**
 Cherry-picks may surface files as `"renamed"` rather than `"added"` depending on diff
-  similarity. A future iteration can also match `"renamed"` files whose new path matches
-  test patterns and whose previous path does not exist on the target branch.
+similarity. Specifically:
+- Cherry-picks created via `git cherry-pick` typically surface new files as `"added"`.
+- Cherry-picks of a prior rename (or created via `git format-patch`) can surface as
+  `"renamed"`, which v1 does not match.
+
+A future iteration can also match `"renamed"` files whose new path matches test patterns
+and whose previous path does not exist on the target branch.
 
 ### 3.4 Policy Enforcement State Machine
 
@@ -146,8 +168,8 @@ Cherry-picks may surface files as `"renamed"` rather than `"added"` depending on
          label present?
               │                                           │
              Yes                                    ❌ FAIL
-              │                              Post: policy violation comment
-              │                              (once, idempotent)
+              │                    Post: policy violation comment (once)
+              │                    Marker: <!-- cherry-pick-guard-violation -->
     ┌─────────┴──────────┐
     │                    │
   Label adder        Label adder NOT in
@@ -158,9 +180,27 @@ Cherry-picks may surface files as `"renamed"` rather than `"added"` depending on
     │               Post: unauthorized bypass comment
     │
 ✅ PASS
-Send email notification (once)
+Send email notification (best-effort, once)
 Post audit comment on PR
 ```
+
+**Idempotent comments:** Both the policy violation comment and the bypass audit comment
+use hidden HTML markers to ensure they are posted at most once per PR:
+- Violation comment: `<!-- cherry-pick-guard-violation -->`
+- Audit/notification comment: `<!-- cherry-pick-bypass-notification-sent -->`
+
+Before posting, the workflow searches existing PR comments for the marker. If found,
+the comment is not re-posted.
+
+**Label cleanup on force-push:** On each `synchronize` event, Job 1 re-evaluates the
+file diff. If `has_new_tests == false` (e.g., the contributor force-pushed to remove the
+new test files), the workflow removes the `contains-new-tests` label and Job 2 is
+skipped, allowing the PR to proceed without a bypass.
+
+**Behavior on `unlabeled` of `cherry-pick-bypass-approved`:** If someone removes the
+bypass label after a successful pass, the next workflow run reverts to FAIL, restoring
+the merge block. This acts as a useful kill switch — reviewers can revoke a bypass at
+any time by removing the label.
 
 ### 3.5 Bypass Authorization
 
@@ -172,21 +212,36 @@ GET /orgs/{AUTH_ORG}/teams/{AUTH_TEAM}/memberships/{login}
 → 404 or state != "active"     ← not authorized
 ```
 
-Default values: `AUTH_ORG=sonic-net`, `AUTH_TEAM=platform-owners`.  
+Default values: `AUTH_ORG=sonic-net`, `AUTH_TEAM=sonic-mgmt-platform-owners`.
 Both are configurable via GitHub repository variables without changing the workflow file.
+
+> **Note:** The team membership API checks **direct membership only**. If
+> `sonic-mgmt-platform-owners` adds child teams in the future, members of those child
+> teams will NOT be authorized. This is intentional for v1 to keep the authorization
+> model simple and auditable. If child team support is needed later, switch to the
+> broader org permission check.
 
 > **Note:** The team membership API (`GET /orgs/{org}/teams/{team}/memberships/{user}`)
 > requires the **`read:org`** OAuth scope. The default `GITHUB_TOKEN` does not have this
-> scope. The workflow must use either:
-> - A **Personal Access Token (PAT)** with `read:org` scope, stored as a repository secret, or
-> - A **GitHub App** installation token with Organization → Members → Read permission.
+> scope. The workflow uses a **GitHub App** installation token with Organization → Members
+> → Read permission (see Section 6).
 >
-> See Section 6 for the full token requirements.
+> **Decision (formerly Open Question #4):** GitHub App is chosen over PAT because:
+> - PATs are tied to individual accounts and break when the user leaves the org
+> - App tokens scope cleanly to the repository with auditable permissions
+> - App tokens auto-rotate and don't require manual secret rotation
 
 **Label adder identification:** The workflow identifies who added the bypass label by
 querying the PR timeline API (`GET /repos/{owner}/{repo}/issues/{number}/timeline`) and
 finding the most recent `labeled` event for the `cherry-pick-bypass-approved` label. This
 approach works regardless of which event triggered the current workflow run.
+
+> **Timeline API caveat:** The timeline endpoint has multi-second eventual-consistency
+> lag. When the workflow is triggered by a `labeled` event, it should prefer
+> `github.event.sender.login` (available immediately) over the timeline lookup. The
+> timeline lookup is used as a fallback for non-`labeled` triggers (e.g., `synchronize`)
+> where the sender is not the label adder. If the timeline lookup returns no matching
+> event, the workflow retries once after a 5-second delay before failing.
 
 ### 3.6 Email Notification
 
@@ -194,6 +249,11 @@ Sent via SMTP (STARTTLS) using an inline workflow step.
 Sent **once per PR** — a hidden HTML comment `<!-- cherry-pick-bypass-notification-sent -->`
 is embedded in the audit comment and checked before each send to prevent duplicates on
 workflow re-runs.
+
+**Email is best-effort and non-gating.** If the SMTP send fails, the workflow logs the
+error but does **not** fail the check. This prevents SMTP outages from blocking all
+new-test cherry-picks across release branches. A missed email is an audit gap (the PR
+comment audit trail still exists), not a merge gate.
 
 > **Concurrency control:** To prevent a race condition where two concurrent workflow runs
 > both see "marker not present" and both send the email, the workflow uses a
@@ -210,7 +270,7 @@ workflow re-runs.
 
 | Field | Value |
 |-------|-------|
-| Subject | `[sonic-mgmt][AWARENESS] Cherry-pick Bypass — New Tests → <branch>` |
+| Subject | `[sonic-mgmt][ACTION REQ'D] Cherry-pick Bypass — New Tests → <branch>` |
 | To | `GUARD_NOTIFICATION_EMAIL` (comma-separated, set as secret) |
 | Body | PR link, author, target branch, bypass approver, new file list |
 
@@ -220,7 +280,8 @@ Every bypass creates a permanent record directly on the PR:
 
 1. **`contains-new-tests` label** — visible in PR list views
 2. **`cherry-pick-bypass-approved` label** — records that an exception was granted
-3. **Audit comment by bot** — confirms notification was sent, records the approver
+3. **Audit comment by GitHub App bot** — posted by the GitHub App installation
+   (appears as `<app-name>[bot]`), confirms notification was sent, records the approver
 
 > **Future enhancement (v2):** An optional explanation comment requirement
 > (`[cherry-pick-bypass-reason]`) can be added if the team wants written justification
@@ -262,7 +323,8 @@ sonic-net/sonic-mgmt/
 │   └── scripts/
 │       └── check_new_tests.py             # Standalone test-file detector (also used locally)
 └── docs/
-    └── test-cherry-pick-policy.md          # End-user policy + setup guide
+    └── tests/
+        └── design-doc-test-cherry-pick-guard.md   # This design document
 ```
 
 > **Note:** Email sending is handled inline in the workflow via an SMTP step rather than a
@@ -274,21 +336,32 @@ sonic-net/sonic-mgmt/
 
 ### Token Permissions
 
-The workflow requires the following permissions. Because `read:org` is not available to
-the default `GITHUB_TOKEN`, a **PAT or GitHub App token** must be provided as a secret
-(e.g. `CHERRY_PICK_GUARD_TOKEN`):
+The workflow uses a **GitHub App** installation token for operations requiring elevated
+permissions. The default `GITHUB_TOKEN` is used for standard operations:
 
-| Permission | Scope | Why |
-|------------|-------|-----|
-| `pull-requests: write` | `GITHUB_TOKEN` | Post comments, add labels |
+| Permission | Token source | Why |
+|------------|-------------|-----|
+| `pull-requests: write` | `GITHUB_TOKEN` | Post comments, add/remove labels |
 | `contents: read` | `GITHUB_TOKEN` | Read PR file list |
-| `read:org` | PAT or App token | Query team membership for bypass authorization |
+| `read:org` | GitHub App token | Query team membership for bypass authorization |
+
+### GitHub App Setup
+
+Create a GitHub App with the following permissions and install it on the `sonic-net` org:
+
+| Permission | Access | Why |
+|------------|--------|-----|
+| Organization → Members | Read | Query team membership for bypass authorization |
+| Repository → Pull requests | Write | Post audit comments (optional — can use `GITHUB_TOKEN` instead) |
+
+Store the App ID and private key as repository secrets (see below).
 
 ### GitHub Secrets (Settings → Secrets → Actions)
 
 | Secret | Required | Example | Description |
 |--------|----------|---------|-------------|
-| `CHERRY_PICK_GUARD_TOKEN` | ✅ | `ghp_...` | PAT with `read:org` scope (or GitHub App token) |
+| `CHERRY_PICK_GUARD_APP_ID` | ✅ | `123456` | GitHub App ID |
+| `CHERRY_PICK_GUARD_APP_PRIVATE_KEY` | ✅ | `-----BEGIN RSA...` | GitHub App private key (PEM) |
 | `SMTP_SERVER` | ✅ | `smtp.office365.com` | SMTP relay hostname |
 | `SMTP_PORT` | ✅ | `587` | Port (587 = STARTTLS) |
 | `SMTP_USERNAME` | ✅ | `noreply@contoso.com` | SMTP login / sender |
@@ -301,12 +374,12 @@ the default `GITHUB_TOKEN`, a **PAT or GitHub App token** must be provided as a 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AUTH_ORG` | `sonic-net` | Org owning the authorized team |
-| `AUTH_TEAM` | `platform-owners` | Team slug for bypass authorizers |
+| `AUTH_TEAM` | `sonic-mgmt-platform-owners` | Team slug for bypass authorizers |
 
 ### Branch Protection Rule
 
 On Settings → Branches, for pattern `20????`:
-- ✅ Require status checks: **`Cherry-pick policy check`**
+- ✅ Require status checks: **`Cherry-pick policy check`** (must match Job 2's `name:` exactly)
 - ✅ Do not allow bypassing the above settings
 
 ---
@@ -318,7 +391,8 @@ On Settings → Branches, for pattern `20????`:
 | Unauthorized user adds bypass label | Workflow verifies label adder's org-team membership via GitHub API at runtime; fails even if label is present |
 | Duplicate email spam on re-runs | Idempotent guard: checks for `<!-- cherry-pick-bypass-notification-sent -->` marker before sending; `concurrency` group prevents race conditions between parallel runs |
 | `pull_request_target` privilege escalation | Workflow only reads PR metadata via API; no checkout of untrusted code |
-| Token scope | `GITHUB_TOKEN` has minimal permissions; `read:org` is isolated to a separate PAT/App token secret |
+| Token scope | `GITHUB_TOKEN` has minimal permissions; `read:org` is isolated to a GitHub App token with scoped permissions |
+| SMTP outage | Email is best-effort; SMTP failure does not fail the check (see Section 3.6). The PR audit comment still provides a permanent record |
 
 ---
 
@@ -327,9 +401,9 @@ On Settings → Branches, for pattern `20????`:
 | Phase | Action | Verification |
 |-------|--------|-------------|
 | **Phase 1** | Commit workflow files to `master` | Workflow appears in Actions tab; no PRs blocked yet (no branch protection rule) |
-| **Phase 2** | Set GitHub Secrets (SMTP + `CHERRY_PICK_GUARD_TOKEN`) with your own email as `GUARD_NOTIFICATION_EMAIL` | Open a test PR to a release branch adding a `test_*.py` file; verify block + email to yourself |
-| **Phase 3** | Verify bypass flow end-to-end | Have a `platform-owners` member add bypass label; verify pass + email |
-| **Phase 4** | Add branch protection rule for `20????` | Existing open cherry-pick PRs without new tests are unaffected |
+| **Phase 2** | Set GitHub Secrets (SMTP + GitHub App keys) with your own email as `GUARD_NOTIFICATION_EMAIL` | Open a test PR to a release branch adding a `test_*.py` file; verify block + email to yourself |
+| **Phase 3** | Add branch protection rule for `20????` requiring `Cherry-pick policy check` | Confirm the check status shows as failing (required) on the test PR before any bypass label is added |
+| **Phase 4** | Verify bypass flow end-to-end | Have a `sonic-mgmt-platform-owners` member add bypass label on the test PR; verify pass + email |
 | **Phase 5** | Update `GUARD_NOTIFICATION_EMAIL` to guard team DL + platform owners alias | Done |
 
 ---
@@ -338,10 +412,10 @@ On Settings → Branches, for pattern `20????`:
 
 | # | Question | Owner | Status |
 |---|----------|-------|--------|
-| 1 | Which GitHub team slug is the authoritative "platform owners" for sonic-mgmt? | Platform team | Open |
+| 1 | ~~Which GitHub team slug?~~ Using `sonic-mgmt-platform-owners` as a concrete placeholder. Team to be created or re-pointed before Phase 4. | Platform team | **Resolved** |
 | 2 | Do we need a weekly digest of all bypasses, or is per-bypass email sufficient? | Guard team | Open |
 | 3 | Should the policy also apply to non-release feature branches (e.g. `feature/*`)? | Platform team | Open |
-| 4 | PAT vs GitHub App: which approach for `read:org` scope is preferred? | Platform team | Open |
+| 4 | ~~PAT vs GitHub App?~~ Resolved: GitHub App (see Section 3.5). | Platform team | **Resolved** |
 
 ---
 
@@ -382,3 +456,20 @@ the check passes.
 `issue_comment` trigger + Checks API). Label-only bypass is simpler and sufficient
 to validate the core blocking flow. Can be added later if the team wants written
 justification for each bypass.
+
+---
+
+## 11. Observability
+
+To track bypass frequency and detect potential policy abuse, the following observability
+mechanisms are recommended:
+
+- **Label-based query:** Use GitHub's search to list all PRs with the
+  `cherry-pick-bypass-approved` label: `is:pr label:cherry-pick-bypass-approved`
+- **Monthly audit:** Run a periodic query (e.g., Kusto or GitHub API script) against
+  the audit comments (`<!-- cherry-pick-bypass-notification-sent -->`) to count bypasses
+  per month, per branch, and per approver
+- **Dashboard (future):** If bypass volume warrants it, build a lightweight dashboard
+  showing bypass trends over time, top bypassed branches, and top approvers
+
+This data will inform whether v2's explanation comment requirement is needed.
