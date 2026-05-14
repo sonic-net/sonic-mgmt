@@ -1378,7 +1378,7 @@ def add_dut_ranges(api, nw_config):
     return
 
 
-def patch_dut_config(api, nw_config):
+def patch_dut_config(api, nw_config, eni_per_dpu):
 
     param_comment = {
         "comment": "DASH Private Link"
@@ -1401,12 +1401,17 @@ def patch_dut_config(api, nw_config):
     INCREMENT_ENI = int(nw_config.ipp("0.64.0.0"))
     INCREMENT_NSG = int(nw_config.ipp("0.2.0.0"))
 
+    if eni_per_dpu == 64:
+        ipCount = 64
+    else:
+        ipCount = nw_config.ENI_COUNT * 2
+
     for i in range(0, nw_config.ENI_COUNT):
         for j in range(0, 10):
             FIRST_IP = str(nw_config.ipp(BASE_IP + i * INCREMENT_ENI + j * INCREMENT_NSG))
             payload = {
                 "firstIp": FIRST_IP,
-                "ipCount": nw_config.ENI_COUNT * 2,
+                "ipCount": ipCount,
                 "ipIncrStep": "0.0.0.2",
                 "networkMask": "255.192.0.0",
                 "vlanCount": 1,
@@ -1679,6 +1684,7 @@ def l47_trafficgen_main(ports_list, tbinfo, connection_dict, nw_config, service_
     gw_ip = connection_dict['gw_ip']
     port = connection_dict['port']
     chassis_ip = tbinfo.get('chassis_ip')
+    eni_per_dpu = int(tbinfo.get('eni_per_dpu', 0))
     ixl_version = connection_dict['version']
     ixos_version = connection_dict['ixos_version']
 
@@ -1936,7 +1942,7 @@ def l47_trafficgen_main(ports_list, tbinfo, connection_dict, nw_config, service_
         logger.info("Configuring DUT list settings")
         create_dut_config(api)
         add_dut_ranges(api, nw_config)
-        patch_dut_config(api, nw_config)
+        patch_dut_config(api, nw_config, eni_per_dpu)
 
         # Patch Traffic between Network1 and DUT
         patch_destination_actionList(api)
