@@ -3,8 +3,9 @@ import os
 import json
 import logging
 import tarfile
-import paramiko
 import yaml
+
+from tests.common.helpers.platform_api import bmc
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ def load_bmc_creds():
         secrets = yaml.safe_load(f)
     return secrets['sonic_bmc_root_user'], secrets['sonic_bmc_root_password']
 
+
 PLATFORM_COMP_PATH_TEMPLATE = '/usr/share/sonic/device/{}/platform_components.json'
 FW_TYPE_INSTALL = 'install'
 FW_TYPE_UPDATE = 'update'
@@ -27,13 +29,16 @@ FW_TYPE_UPDATE = 'update'
 def extract_fw_data(fw_pkg_path):
     """Extract firmware data dict from a tar.gz or plain json file."""
     if tarfile.is_tarfile(fw_pkg_path):
-        path = "/tmp/firmware"
-        if not os.path.exists(path):
-            os.mkdir(path)
-        with tarfile.open(fw_pkg_path, "r:gz") as f:
-            f.extractall(path)
-            json_file = os.path.join(path, "firmware.json")
-            with open(json_file, 'r') as fw:
+        with tarfile.open(fw_pkg_path, "r:gz") as fw_tar:
+            member = fw_tar.getmember("firmware.json")
+            if not member.isfile():
+                raise ValueError("firmware.json in {} is not a regular file".format(fw_pkg_path))
+
+            fw = fw_tar.extractfile(member)
+            if fw is None:
+                raise ValueError("Failed to read firmware.json from {}".format(fw_pkg_path))
+
+            with fw:
                 fw_data = json.load(fw)
     else:
         with open(fw_pkg_path, 'r') as fw:
@@ -53,47 +58,17 @@ def get_bmc_ip(duthost):
         return json.load(f)["bmc_addr"]
 
 
-def _ssh_bmc_cmd(duthost, bmc_ip, bmc_user, bmc_password, cmd):
-    """
-    Run *cmd* on the BMC via SSH through the DUT. No sshpass needed.
-
-    """
-    if hasattr(duthost, 'engine'):
-        transport = duthost.engine.remote_conn.get_transport()
-        channel = transport.open_channel("direct-tcpip", (bmc_ip, 22), ("127.0.0.1", 0))
-        bmc_client = paramiko.SSHClient()
-        bmc_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        try:
-            bmc_client.connect(bmc_ip, username=bmc_user, password=bmc_password,
-                               sock=channel, timeout=30)
-            _, stdout, _ = bmc_client.exec_command(cmd)
-            return stdout.read().decode().strip()
-        finally:
-            bmc_client.close()
-
-    return duthost.command(
-        f"python3 -c 'import paramiko;"
-        f"c=paramiko.SSHClient();"
-        f"c.set_missing_host_key_policy(paramiko.AutoAddPolicy());"
-        f"c.connect(\"{bmc_ip}\",username=\"{bmc_user}\",password=\"{bmc_password}\",timeout=30);"
-        f"_,o,_=c.exec_command(\"{cmd}\");"
-        f"print(o.read().decode().strip());"
-        f"c.close()'"
-    )["stdout"]
-
-
 def get_bmc_flavor(duthost, bmc_ip, bmc_user, bmc_password):
     """
-    Detect BMC flavor from ``/proc/device-tree/model``
+    Detect BMC flavor from BMC platform API model output
     (e.g. ``AST2700-A1 Spc6 CPU BMC`` -> ``AST2700-A1``).
     """
-    model_output = _ssh_bmc_cmd(duthost, bmc_ip, bmc_user, bmc_password,
-                                "cat /proc/device-tree/model")
+    model_output = bmc.get_model(duthost)
 
     if not model_output:
-        raise ValueError("Empty output from BMC /proc/device-tree/model")
+        raise ValueError("Empty BMC model output from platform API")
 
-    flavor = model_output.split()[0]
+    flavor = str(model_output).split()[0]
     logger.info("Detected BMC flavor: %s (model: %s)", flavor, model_output)
     return flavor
 
