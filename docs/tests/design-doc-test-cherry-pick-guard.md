@@ -1,7 +1,7 @@
 # Design Doc: Test Cherry-pick Guard for sonic-net/sonic-mgmt
 
 **Author:** xwjiang-ms  
-**Status:** Draft  
+**Status:** Reviewed  
 **Reviewers:** Nightly Guard Team, Platform Owners  
 
 ---
