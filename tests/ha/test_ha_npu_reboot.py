@@ -79,8 +79,8 @@ def add_npu_static_routes(
             pt_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
             pt_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
 
-            cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-            cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
+            cmds.append(f"config route add prefix {pl.VM1_PA}/32 nexthop {vm_nexthop_ip}")
+            cmds.append(f"config route add prefix {pl.PE_PA}/32 nexthop {pe_nexthop_ip}")
             logger.info(f"Adding function-scoped static routes: {cmds} on {duthost}")
             duthost.shell_cmds(cmds=cmds)
 
@@ -96,8 +96,8 @@ def add_npu_static_routes(
             vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][LOCAL_DUT_INTF]).ip + 1
             pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][REMOTE_DUT_INTF]).ip + 1
 
-            cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-            cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
+            cmds.append(f"config route del prefix {pl.VM1_PA}/32 nexthop {vm_nexthop_ip}")
+            cmds.append(f"config route del prefix {pl.PE_PA}/32 nexthop {pe_nexthop_ip}")
             logger.info(f"Removing function-scoped static routes: {cmds} from {duthost}")
             duthost.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)
 
