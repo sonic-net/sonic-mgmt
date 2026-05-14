@@ -26,14 +26,22 @@ logger = logging.getLogger(__name__)
 
 
 def _backup_and_restore_config_db(duts, scope='function'):
-    """Back up the existing config_db.json file and restore it once the test ends.
+    """Back up config_db.json and golden_config_db.json, restore after test.
 
-    Some cases will update the running config during the test and save the config
-    to be recovered aftet reboot. In such a case we need to backup config_db.json before
-    the test starts and then restore it after the test ends.
+    Some cases will update the running config during the test and save the
+    config to be recovered after reboot. Upgrade tests also delete
+    golden_config_db.json which contains lab-specific settings (DNS, NTP,
+    syslog) not present in minigraph. Without golden_config, the DUT falls
+    back to image-default DNS from dns.j2, which may be unreachable from
+    the lab network.
+
+    This backs up both files before the test and restores them afterward.
     """
     CONFIG_DB = "/etc/sonic/config_db.json"
     CONFIG_DB_BAK = "/host/config_db.json.before_test_{}".format(scope)
+    GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
+    GOLDEN_CONFIG_BAK = "/host/golden_config_db.json.before_test_{}".format(
+        scope)
 
     if type(duts) is not list:
         duthosts = [duts]
@@ -41,14 +49,35 @@ def _backup_and_restore_config_db(duts, scope='function'):
         duthosts = duts
 
     for duthost in duthosts:
-        logger.info("Backup {} to {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
+        logger.info("Backup {} to {} on {}".format(
+            CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
         duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
+
+        # Backup golden_config if it exists
+        if duthost.shell("test -f {}".format(GOLDEN_CONFIG),
+                         module_ignore_errors=True)['rc'] == 0:
+            logger.info("Backup {} to {} on {}".format(
+                GOLDEN_CONFIG, GOLDEN_CONFIG_BAK, duthost.hostname))
+            duthost.shell("cp {} {}".format(GOLDEN_CONFIG, GOLDEN_CONFIG_BAK))
 
     yield
 
     for duthost in duthosts:
-        logger.info("Restore {} with {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
+        logger.info("Restore {} with {} on {}".format(
+            CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
         duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
+
+        # Restore golden_config if backup exists
+        if duthost.shell("test -f {}".format(GOLDEN_CONFIG_BAK),
+                         module_ignore_errors=True)['rc'] == 0:
+            logger.info("Restore {} from {} on {}".format(
+                GOLDEN_CONFIG, GOLDEN_CONFIG_BAK, duthost.hostname))
+            duthost.shell("cp {} {}".format(GOLDEN_CONFIG_BAK, GOLDEN_CONFIG))
+            duthost.shell(
+                "cp {} /host/old_config/golden_config_db.json".format(
+                    GOLDEN_CONFIG_BAK),
+                module_ignore_errors=True)
+            duthost.shell("rm -f {}".format(GOLDEN_CONFIG_BAK))
 
 
 @pytest.fixture(scope="module")

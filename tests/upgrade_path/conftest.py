@@ -1,5 +1,17 @@
 import pytest
 
+from tests.common.fixtures.duthost_utils import _backup_and_restore_config_db
+
+
+@pytest.fixture(autouse=True, scope="session")
+def backup_and_restore_config_db_for_upgrade(duthosts):
+    """Session-scoped autouse fixture to backup/restore config_db and golden_config.
+
+    Applies to all tests in upgrade_path/ automatically.
+    """
+    for func in _backup_and_restore_config_db(duthosts, "session"):
+        yield func
+
 
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')
