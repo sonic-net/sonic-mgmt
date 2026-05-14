@@ -659,7 +659,6 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
         # Wait for database config file to be ready before checking interfaces.
-        # On multi-ASIC, also check per-namespace config files (e.g. redis0/sonic-db/database_config.json).
         logger.info("Waiting for database_config.json to be ready...")
         db_config_ready = wait_until(wait_time, 5, 0,
                                      lambda: duthost.shell(
@@ -721,8 +720,8 @@ def test_monitoring_critical_processes(
     #   Phase 1 - kill non-database processes, wait, verify syslog alerts
     #   Phase 2 - kill database processes last; the recover_critical_processes
     #             fixture handles DUT recovery via reboot
-    database_containers = {k: v for k, v in containers_in_namespaces.items() if k == "database"}
-    non_database_containers = {k: v for k, v in containers_in_namespaces.items() if k != "database"}
+    database_containers = {k: v for k, v in containers_in_namespaces.items() if k.startswith("database")}
+    non_database_containers = {k: v for k, v in containers_in_namespaces.items() if not k.startswith("database")}
 
     # Generate expected alerting messages only for non-database containers.
     # Database alerting cannot be reliably verified via syslog because killing
