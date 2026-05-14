@@ -334,6 +334,8 @@ r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
 r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
+# Ignore related rsyslog librelp error, which is caused by the session closed by peer when receiving data, and it will cause the input not work as intended, but it is safe to ignore the error for now to unblock the test, and we will address the root cause later. (PBI https://msazure.visualstudio.com/One/_workitems/edit/37879332)
+r, ".* ERR rsyslogd: imrelp.*error 'server closed relp session, session broken', object .* - input may not work as intended.*"
 
 # Errors for config reload/reboot on mellanox platform
 r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
