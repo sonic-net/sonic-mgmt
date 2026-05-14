@@ -948,7 +948,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     verify_ports = [egress_port['ptf_id']]
 
                 # Verify packet based on expectation
-                if expect_packets:
+                if expect_packets is True:
                     logger.info(
                         f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
                     _, matched = testutils.verify_packet_any_port(
@@ -961,7 +961,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     logger.info(
                         f"Successfully verified {packet_type} packet trimming with size {recv_pkt_size} "
                         f"and DSCP {recv_pkt_dscp}")
-                else:
+                elif expect_packets is False:
                     logger.info(f"Expecting NO packets on any of ports {verify_ports}")
                     testutils.verify_no_packet_any(
                         ptfadapter,
@@ -970,6 +970,8 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                         timeout=timeout
                     )
                     logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
+                else:
+                    logger.info(f"Skip capturing packets on ports {verify_ports}.")
 
         return True
 
