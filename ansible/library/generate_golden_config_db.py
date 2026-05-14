@@ -66,7 +66,9 @@ class GenerateGoldenConfigDBModule(object):
                                     dut_loopbacks=dict(required=False, type='dict', default={}),
                                     console_ports=dict(required=False, type='dict', default=None),
                                     bgp_confd_asn=dict(required=False, type='str', default=None),
-                                    bgp_confd_peers=dict(required=False, type='str', default=None)),
+                                    bgp_confd_peers=dict(required=False, type='str', default=None),
+                                    enabled_dpu_indices=dict(required=False, type='list',
+                                                             elements='int', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -83,6 +85,7 @@ class GenerateGoldenConfigDBModule(object):
         self.duts_list = self.module.params['duts_list']
         self.dut_loopbacks = self.module.params['dut_loopbacks']
         self.console_ports = self.module.params['console_ports']
+        self.enabled_dpu_indices = self.module.params['enabled_dpu_indices']
 
     def _update_config_db_in_ns(self, config, table, value, namespaces_to_update='asic'):
         """Update a table entry across all ASIC namespaces for multi-ASIC platforms.
@@ -531,6 +534,18 @@ class GenerateGoldenConfigDBModule(object):
         hwsku_config = smartswitch_hwsku_config[hwsku]
         dpu_num = hwsku_config["dpu_num"]
 
+        # All DPU config entries are always emitted for every DPU supported by
+        # the hwsku. The `enabled_dpus` testbed entry only controls which DPUs
+        # are administratively brought up (admin_status=up); the rest are
+        # generated with admin_status=down. When the testbed.yaml does not
+        # specify an `enabled_dpus:` mapping for this DUT (parameter is None),
+        # fall back to enabling every DPU supported by the hwsku (legacy
+        # behavior). An explicitly-passed empty list means "no DPUs admin-up".
+        if self.enabled_dpu_indices is None:
+            enabled_dpu_set = set(range(dpu_num))
+        else:
+            enabled_dpu_set = {int(i) for i in self.enabled_dpu_indices if 0 <= int(i) < dpu_num}
+
         vlan_cfg = smartswitch_vlan_config.get(self.npu_index, smartswitch_vlan_config[0])
         vlan_name = vlan_cfg["vlan_name"]
 
@@ -548,9 +563,11 @@ class GenerateGoldenConfigDBModule(object):
                 if "base" in hwsku_config and "step" in hwsku_config else i
             port_key = hwsku_config["port_key"].format(port_index)
             dpu_key = hwsku_config["dpu_key"].format(i)
+            is_enabled = i in enabled_dpu_set
+            admin_status = "up" if is_enabled else "down"
 
             if port_key in ori_config_db["PORT"]:
-                ori_config_db["PORT"][port_key]["admin_status"] = "up"
+                ori_config_db["PORT"][port_key]["admin_status"] = admin_status
 
             # Remove any minigraph-generated INTERFACE entries for DPU dataplane ports
             keys_to_remove = [k for k in ori_config_db["INTERFACE"]
@@ -561,7 +578,7 @@ class GenerateGoldenConfigDBModule(object):
             vlan_member_key = "{}|{}".format(vlan_name, port_key)
             ori_config_db["VLAN_MEMBER"][vlan_member_key] = {"tagging_mode": "untagged"}
 
-            ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "up"}
+            ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": admin_status}
 
             if dpu_key not in ori_config_db["DPUS"]:
                 ori_config_db["DPUS"][dpu_key] = {}
@@ -611,7 +628,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name == "t1-smartswitch-ha":
             gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
             gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
-            ha_config = self._generate_ha_config(dpu_num)
+            ha_config = self._generate_ha_config(dpu_num, enabled_dpu_set)
             # Merge FEATURE dict so we don't overwrite existing features
             if "FEATURE" in ha_config and "FEATURE" in gold_config_db:
                 gold_config_db["FEATURE"].update(ha_config.pop("FEATURE"))
@@ -624,11 +641,20 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
-    def _generate_ha_config(self, dpu_count):
+    def _generate_ha_config(self, dpu_num, enabled_dpu_set):
         """
         Generate DASH-HA configuration tables (DPU, REMOTE_DPU, VDPU,
         DASH_HA_GLOBAL_CONFIG, FEATURE, VNET, VXLAN_TUNNEL) for the
         t1-smartswitch-ha topology.
+
+        Entries are emitted for every DPU supported by the hwsku
+        (0..dpu_num-1). Only the DPU table's `state` field reflects whether
+        the DPU is enabled for this testbed; disabled DPUs are recorded with
+        state="down" so the config schema stays consistent across NPUs.
+
+        Args:
+            dpu_num: Total number of DPUs supported by the hwsku.
+            enabled_dpu_set: Set of DPU indices that should be admin-up.
 
         Requires self.duts_list (ordered list of DUT hostnames) and
         self.dut_loopbacks (dict with 'ipv4' and 'ipv6' lists from topology).
@@ -666,7 +692,7 @@ class GenerateGoldenConfigDBModule(object):
         swbus_start = 23606
 
         dpu_table = {}
-        for idx in range(dpu_count):
+        for idx in range(dpu_num):
             dpu_key = "{}-dpu-{}".format(hostname, idx)
             dpu_table[dpu_key] = {
                 "dpu_id": str(idx),
@@ -674,7 +700,7 @@ class GenerateGoldenConfigDBModule(object):
                 "local_port": "8080",
                 "orchagent_zmq_port": "8100",
                 "pa_ipv4": "{}{}".format(pa_prefix, idx + 1),
-                "state": "up",
+                "state": "up" if idx in enabled_dpu_set else "down",
                 "swbus_port": str(swbus_start + idx),
                 "vdpu_id": "vdpu{}_{}".format(switch_id, idx),
                 "vip_ipv4": "{}{}".format(vip_prefix, idx),
@@ -684,7 +710,7 @@ class GenerateGoldenConfigDBModule(object):
         # --- Remote DPU table ---
         remote_pa_prefix = "20.0.20{}.".format(peer_switch_id)
         remote_dpu_table = {}
-        for idx in range(dpu_count):
+        for idx in range(dpu_num):
             dpu_key = "{}-dpu-{}".format(peer_hostname, idx)
             remote_dpu_table[dpu_key] = {
                 "dpu_id": str(idx),
@@ -704,11 +730,11 @@ class GenerateGoldenConfigDBModule(object):
         main_dpu_ids is taken as comma separated string in hamgrd code, but defined as list in YANG.
         Need to close on that.
         '''
-        for idx in range(dpu_count):
+        for idx in range(dpu_num):
             vdpu_table["vdpu0_{}".format(idx)] = {
                 "main_dpu_ids": "{}-dpu-{}".format(hostname_0, idx)
             }
-        for idx in range(dpu_count):
+        for idx in range(dpu_num):
             vdpu_table["vdpu1_{}".format(idx)] = {
                 "main_dpu_ids": "{}-dpu-{}".format(hostname_1, idx)
             }
