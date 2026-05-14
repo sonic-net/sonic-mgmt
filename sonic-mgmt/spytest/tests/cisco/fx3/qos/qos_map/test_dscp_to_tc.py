@@ -19,7 +19,7 @@
 # END_LEGAL
 
 """
-DSCP-to-TC QoS Map Tests — Sections A, D, E, F
+DSCP-to-TC QoS Map Tests — Sections A, D, E, F, G
 
 Section A (Tests 1–4): Hardware TCAM programming verification via dchalshell.
   Queries the 'ing-l3-vlan-qos' TCAM region (start_idx=1792) through the
@@ -42,6 +42,10 @@ Section F (Tests F1–F5): Advanced map-binding / negative tests (no traffic).
   F3 — Delete map while bound to port (expect OBJECT_IN_USE)
   F4 — Unbind from already-unbound port (idempotent)
   F5 — Bind + reload + readback: no ASIC_DB corruption
+
+Section G (Tests G1–G6): Per-port DSCP-to-TC isolation (cisco-nx-sai
+  PRs #494 + #514 regression coverage).  Requires two ingress ports
+  (skipped in breakout mode).
 """
 
 import json
@@ -69,6 +73,10 @@ from qos_helpers import (
     reload_qos,
     get_dscp_to_tc_map,
     get_port_dscp_tc_map,
+    asic_dscp_to_tc_map_oids,
+    per_port_dscp_to_tc_oid,
+    has_per_port_binding,
+    unbind_dscp_to_tc_map_from_all_ports,
     deploy_dchal_helper,
     dchal_tcam_dump,
     dchal_tcam_info,
@@ -125,7 +133,7 @@ _PEER_PKTS_V6    = 3     # per test plan: 3 packets per test (IPv6)
 # ─── Module-level state ──────────────────────────────────────────────────────
 dut         = None
 test_intf   = None   # Section A/E/F primary interface
-test_intf2  = None   # Section F multi-port secondary interface
+test_intf2  = None   # second ingress port (Section F/G); None in breakout mode
 tg          = None   # Ixia chassis handle
 tg_ph       = {}     # {'ingress': ph, 'egress': ph}
 port_info   = {}     # {'ingress': 'EthernetX', 'egress': 'EthernetY'}
@@ -179,7 +187,7 @@ def setup_topo():
             port_info_ingress_b = None
 
         test_intf  = raw_pi['ingress_a']
-        test_intf2 = raw_pi['egress']
+        test_intf2 = raw_pi.get('ingress_b')   # None in breakout mode
 
         deploy_dchal_helper(dut)
         _log_traffic_topology()
@@ -951,22 +959,20 @@ def test_tc_to_pg_map_absent():
 
 @pytest.mark.config_only
 def test_port_dscp_map_bind_unbind():
-    """#28 — Verify PORT_QOS_MAP bind/unbind and confirm FX3 uses a global DSCP-to-TC map.
+    """#28 — Verify PORT_QOS_MAP bind/unbind exposes a per-port binding in ASIC_DB.
 
-    FX3 does not call sai_set_port_attribute(SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP)
-    per-port; ASIC_DB port attribute stays oid:0x0 throughout (global map used).
-    Equivalent to the in-progress SAI bind-map-to-port test.
+    Post cisco-nx-sai PRs #494 + #514, binding a DSCP_TO_TC map to a
+    port must produce an ASIC_DB-visible per-port binding on
+    SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP.  Staying at oid:0x0 was the
+    pre-#494/#514 silent-no-op behaviour.
 
     Steps:
-      1. HSET PORT_QOS_MAP|<intf> dscp_to_tc_map=AZURE.
-      2. Assert CONFIG_DB readback shows AZURE.
-      3. Assert ASIC_DB SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP = oid:0x0
-         (FX3 uses global map — no per-port binding in ASIC_DB).
-      4. HDEL PORT_QOS_MAP|<intf> dscp_to_tc_map.
-      5. Assert CONFIG_DB readback is nil.
-      6. Restore original binding if one existed.
+      1. HSET PORT_QOS_MAP|<intf> dscp_to_tc_map=AZURE; verify CONFIG_DB.
+      2. Assert ≥1 ASIC_DB per-port surface is non-default.
+      3. HDEL; verify CONFIG_DB is nil.
+      4. Restore original binding if one existed.
     """
-    print_section("Test 28 — PORT_QOS_MAP bind/unbind + ASIC_DB port attr check",
+    print_section("Test 28 — PORT_QOS_MAP bind/unbind + ASIC_DB per-port binding check",
                   art_key='dscp_to_tc')
 
     intf    = test_intf
@@ -975,29 +981,38 @@ def test_port_dscp_map_bind_unbind():
 
     failures = []
 
-    # Step 1-2: bind and verify CONFIG_DB
+    # Step 1-2: bind and verify CONFIG_DB.  HDEL first to force a real
+    # absent->present transition, since orchagent treats HSET to the
+    # already-set value as a no-op and won't re-issue the SAI bind.
+    st.config(dut,
+              'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
+              skip_error_check=True)
+    st.wait(2)
     st.config(dut,
               'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "AZURE"'.format(intf),
               skip_error_check=True)
-    st.wait(1)
+    st.wait(2)
     bound = get_port_dscp_tc_map(dut, intf)
     st.log("  After bind:  CONFIG_DB dscp_to_tc_map='{}'".format(bound))
     if 'AZURE' not in (bound or '').upper():
         failures.append("CONFIG_DB dscp_to_tc_map='{}' after HSET, expected AZURE".format(bound))
 
-    # Step 3: verify ASIC_DB port attribute stays oid:0x0 (FX3 global map)
-    asic_attr = asic_port_dscp_tc_map_oid(dut, intf)
-    st.log("  ASIC_DB SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP={}".format(asic_attr or '(nil)'))
-    if asic_attr is not None and asic_attr != 'oid:0x0':
+    # Step 3: assert ASIC_DB per-port surface is populated.
+    port_oid = per_port_dscp_to_tc_oid(dut, intf)
+    st.log("  ASIC_DB SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP={}".format(
+        port_oid or '(nil)'))
+    if not has_per_port_binding(port_oid):
         failures.append(
-            "ASIC_DB port QoS attr = {} after bind (expected oid:0x0 — FX3 uses global map)".format(
-                asic_attr))
+            "No per-port binding in ASIC_DB after bind on {}: "
+            "SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP={} "
+            "(default — pre-#494/#514 silent-no-op behaviour)".format(
+                intf, port_oid))
 
     # Step 4-5: unbind and verify CONFIG_DB
     st.config(dut,
               'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
               skip_error_check=True)
-    st.wait(1)
+    st.wait(2)
     unbound = get_port_dscp_tc_map(dut, intf)
     st.log("  After unbind: CONFIG_DB dscp_to_tc_map='{}'".format(unbound or '(nil)'))
     if unbound and unbound not in ('', 'nil', '(nil)', 'None'):
@@ -1015,7 +1030,8 @@ def test_port_dscp_map_bind_unbind():
             "PORT_QOS_MAP bind/unbind failures on {}: {}".format(intf, "; ".join(failures)))
     st.report_pass('msg',
         "PORT_QOS_MAP|{} bind/unbind verified; "
-        "ASIC_DB port attr stays oid:0x0 (FX3 uses global map)".format(intf))
+        "per-port binding visible in ASIC_DB (qos_map_oid={})".format(
+            intf, port_oid))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1154,8 +1170,16 @@ def _compute_deltas(q_before, q_after):
     return deltas
 
 
-def _log_queue_placement_table(deltas, label=""):
-    """Print per-queue results table: expected vs actual packet counts."""
+def _log_queue_placement_table(deltas, label="", expected=None):
+    """Print per-queue results table: expected vs actual packet counts.
+
+    `expected` defaults to the full 64-DSCP AZURE sweep profile
+    (_EXPECTED_Q_PKTS).  Pass an explicit {qi: count} dict for
+    single-DSCP bursts (G-tests); queues mapped to 0 in that dict are
+    checked against a 5% noise floor instead of being reported N/A.
+    """
+    exp_map = _EXPECTED_Q_PKTS if expected is None else expected
+    noise = max(int(max(exp_map.values()) * 0.05), 1) if expected is not None else 0
     hdr = "  {:<6} {:>12}  {:>12}  {:>12}  {:>10}  {:>6}".format(
         "Queue", "Expected", "Actual", "Drop", "Status", "Delta%")
     st.log("")
@@ -1164,12 +1188,16 @@ def _log_queue_placement_table(deltas, label=""):
     st.log(hdr)
     st.log("  " + "-" * 75)
     for qi in range(8):
-        exp  = _EXPECTED_Q_PKTS.get(qi, 0)
+        exp  = exp_map.get(qi, 0)
         act  = deltas[qi]['pkts']
         drp  = deltas[qi]['drop_pkts']
         if exp == 0:
-            status = "N/A"
-            dpct   = "N/A"
+            if expected is None:
+                status = "N/A"
+                dpct   = "N/A"
+            else:
+                status = "PASS" if act <= noise else "FAIL"
+                dpct   = "—"
         else:
             lo = int(exp * 0.85)
             hi = int(exp * 1.15)
@@ -1179,6 +1207,11 @@ def _log_queue_placement_table(deltas, label=""):
             qi, exp, act, drp, status, dpct))
     st.log("  " + "-" * 75)
     st.log("")
+
+
+def _g_expect_single_q(q, pkts):
+    """Expectation map for a single-DSCP burst landing on queue `q`."""
+    return {qi: (pkts if qi == q else 0) for qi in range(8)}
 
 
 def _log_traffic_topology():
@@ -1489,23 +1522,26 @@ def test_rebind_different_map_to_port():
 
 @pytest.mark.config_only
 def test_bind_same_map_multiport():
-    """#F2 — Bind the AZURE DSCP_TO_TC map to two ports simultaneously.
+    """#F2 — Bind AZURE DSCP_TO_TC to two ports simultaneously (wiki T5.9).
 
-    Corresponds to wiki T5.9: "Bind same map to multi-port".
-
-    FX3 uses a global (not per-port) DSCP-to-TC map in ASIC_DB; binding
-    AZURE to multiple ports must not cause errors and must leave exactly
-    one DSCP_TO_TC OID in ASIC_DB.
+    Post cisco-nx-sai PRs #494 + #514, binding the same map to multiple
+    ports must share one DSCP_TO_TC OID and produce per-port binding
+    state on each port independently.
 
     Steps:
-      1. HSET PORT_QOS_MAP|<intf>  dscp_to_tc_map=AZURE.
-      2. HSET PORT_QOS_MAP|<intf2> dscp_to_tc_map=AZURE.
-      3. Verify CONFIG_DB shows AZURE on both ports.
-      4. Verify ASIC_DB contains exactly one DSCP_TO_TC OID (global map).
-      5. HDEL both ports; verify CONFIG_DB fields are nil.
+      1-2. HSET PORT_QOS_MAP|<intf{1,2}> dscp_to_tc_map=AZURE.
+      3.   Verify CONFIG_DB shows AZURE on both ports.
+      4.   Verify ASIC_DB has exactly one DSCP_TO_TC OID (shared).
+      5.   Verify each port has non-default per-port binding state.
+      6.   HDEL both; verify CONFIG_DB nil.
     """
     print_section("F2 — Bind same map (AZURE) to two ports simultaneously",
                   art_key='dscp_to_tc')
+
+    if test_intf2 is None:
+        st.report_skip('msg',
+            "F2 requires a second ingress port (ixia/peer_link mode); "
+            "current topology mode '{}' has only one ingress.".format(topo_mode))
 
     intf1    = test_intf
     intf2    = test_intf2
@@ -1517,7 +1553,14 @@ def test_bind_same_map_multiport():
     st.log("  initial: intf1='{}'  intf2='{}'".format(
         initial1 or '(nil)', initial2 or '(nil)'))
 
-    # Steps 1-2: bind AZURE to both ports
+    # Steps 1-2: bind AZURE to both ports.  HDEL first to force a real
+    # absent->present transition (HSET to the already-set value is a
+    # no-op for orchagent and won't re-issue the SAI bind).
+    for intf in (intf1, intf2):
+        st.config(dut,
+            'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
+            skip_error_check=True)
+    st.wait(2)
     for intf in (intf1, intf2):
         st.config(dut,
             'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "AZURE"'.format(
@@ -1535,18 +1578,30 @@ def test_bind_same_map_multiport():
             failures.append(
                 "PORT_QOS_MAP|{} dscp_to_tc_map='{}', expected AZURE".format(lbl, val))
 
-    # Step 4: exactly one DSCP_TO_TC OID in ASIC_DB (FX3 global map)
+    # Step 4: exactly one DSCP_TO_TC OID in ASIC_DB (same map shared)
     types = asic_qos_map_types(dut)
     count_dscp = types.count('SAI_QOS_MAP_TYPE_DSCP_TO_TC')
     st.log("  ASIC_DB QoS map types: {}".format(types))
-    st.log("  DSCP_TO_TC OID count: {}  (expected 1 — global map)".format(count_dscp))
+    st.log("  DSCP_TO_TC OID count: {}  (expected 1 — same map shared)".format(count_dscp))
     if count_dscp != 1:
         failures.append(
             "Expected 1 DSCP_TO_TC OID in ASIC_DB, found {}".format(count_dscp))
     else:
         st.log("  Exactly 1 DSCP_TO_TC OID in ASIC_DB  PASS")
 
-    # Step 5: unbind both ports
+    # Step 5: per-port binding state must exist on each port independently
+    oid1 = per_port_dscp_to_tc_oid(dut, intf1)
+    oid2 = per_port_dscp_to_tc_oid(dut, intf2)
+    st.log("  intf1 binding: qos_map={}".format(oid1 or '(nil)'))
+    st.log("  intf2 binding: qos_map={}".format(oid2 or '(nil)'))
+    if not has_per_port_binding(oid1):
+        failures.append(
+            "intf1={} has no per-port binding in ASIC_DB after bind".format(intf1))
+    if not has_per_port_binding(oid2):
+        failures.append(
+            "intf2={} has no per-port binding in ASIC_DB after bind".format(intf2))
+
+    # Step 6: unbind both ports
     for intf in (intf1, intf2):
         st.config(dut,
             'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
@@ -1575,29 +1630,36 @@ def test_bind_same_map_multiport():
             "F2 multi-port bind failures:\n  " + "\n  ".join(failures))
     st.report_pass('msg',
         "F2: AZURE bound to 2 ports simultaneously; "
-        "ASIC_DB retains exactly 1 DSCP_TO_TC OID (global map); "
+        "ASIC_DB retains exactly 1 DSCP_TO_TC OID (shared map); "
+        "per-port binding state present on both ports; "
         "unbind succeeds on both ports")
 
 
 @pytest.mark.config_only
 def test_delete_map_while_bound():
-    """#F3 — Attempt to DEL DSCP_TO_TC_MAP|AZURE while bound to a port.
+    """#F3 — DEL DSCP_TO_TC_MAP|AZURE after draining all port references.
 
     Corresponds to wiki T5.10: "Delete map while bound".
 
-    On FX3, orchagent enforces OBJECT_IN_USE: a map referenced by
-    PORT_QOS_MAP cannot be removed until the binding is cleared.
-    Pass criterion: either CONFIG_DB map survives OR ASIC_DB OID survives
-    (platform may enforce at either layer).
+    Issuing the DEL while ports still reference AZURE trips orchagent's
+    pending-remove guard (qosorch.cpp processWorkItem):
+    m_pendingRemove latches true and, because nothing in the lifetime
+    clears it, every subsequent HSET on AZURE is silently retried
+    forever — the rest of the test module would then run against a
+    broken swss state.
+
+    To stay safe for downstream tests we drain references first
+    (unbind_dscp_to_tc_map_from_all_ports) so the DEL reaches SAI
+    cleanly.  The "DEL while still bound" path lives in the dedicated
+    test_delete_map_while_bound_pending_remove regression below.
 
     Steps:
-      1. Bind AZURE to <intf> via PORT_QOS_MAP.
-      2. DEL CONFIG_DB DSCP_TO_TC_MAP|AZURE while bound (expect no-op or error).
-      3. Assert CONFIG_DB map still present, OR ASIC_DB OID still present.
-      4. Assert ASIC_DB OID is not removed while port has an active binding.
-      5. Unbind and qos reload to restore baseline.
+      1. Snapshot original binding (to restore later).
+      2. Drain dscp_to_tc_map from every PORT_QOS_MAP|*.
+      3. DEL DSCP_TO_TC_MAP|AZURE — must succeed (CONFIG_DB + ASIC_DB clean).
+      4. config qos reload to restore AZURE; rebind original port.
     """
-    print_section("F3 — Delete map while bound to port (expect OID survives)",
+    print_section("F3 — Delete map after draining port refs (no pending-remove)",
                   art_key='dscp_to_tc')
 
     intf     = test_intf
@@ -1606,48 +1668,42 @@ def test_delete_map_while_bound():
     initial = get_port_dscp_tc_map(dut, intf)
     st.log("  Interface: {}  initial binding='{}'".format(intf, initial or '(nil)'))
 
-    # Step 1: bind AZURE
-    st.config(dut,
-        'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "AZURE"'.format(intf),
-        skip_error_check=True)
-    st.wait(2)
-
     oid_before = asic_qos_map_oid(dut)
-    st.log("  ASIC_DB OID before DEL: {}".format(oid_before or '(none)'))
+    st.log("  ASIC_DB OID before drain: {}".format(oid_before or '(none)'))
 
-    # Step 2: attempt DEL while bound
+    # Step 2: drain every port's dscp_to_tc_map reference so the DEL
+    # below does not latch orchagent's m_pendingRemove flag.
+    unbind_dscp_to_tc_map_from_all_ports(dut, wait=5)
+
+    # Step 3: DEL the map — should succeed end-to-end now that refs == 0.
     st.config(dut,
         'sonic-db-cli CONFIG_DB DEL "DSCP_TO_TC_MAP|AZURE"',
         skip_error_check=True)
-    st.wait(3)
+    st.wait(5)
 
-    # Step 3: check CONFIG_DB map survived
     db_map = get_dscp_to_tc_map(dut, 'AZURE')
-    st.log("  CONFIG_DB DSCP_TO_TC_MAP|AZURE entries after DEL: {}".format(len(db_map)))
-
-    # Step 4: check ASIC_DB OID survived
     oid_after = asic_qos_map_oid(dut)
+    st.log("  CONFIG_DB DSCP_TO_TC_MAP|AZURE entries after DEL: {}".format(len(db_map)))
     st.log("  ASIC_DB OID after DEL: {}".format(oid_after or '(none)'))
 
-    if oid_after is None and len(db_map) == 0:
+    if len(db_map) != 0:
         failures.append(
-            "Both CONFIG_DB map and ASIC_DB OID were removed while port '{}' "
-            "had an active binding — OBJECT_IN_USE not enforced".format(intf))
-    else:
-        if len(db_map) > 0:
-            st.log("  CONFIG_DB map survived ({} entries): "
-                   "OBJECT_IN_USE enforced at orchagent level".format(len(db_map)))
-        if oid_after is not None:
-            st.log("  ASIC_DB OID {} still present: HW object correctly retained".format(
-                oid_after))
+            "CONFIG_DB DSCP_TO_TC_MAP|AZURE has {} entries after DEL with "
+            "no port refs — expected 0".format(len(db_map)))
+    if oid_after is not None:
+        failures.append(
+            "ASIC_DB QOS_MAP OID {} still present after DEL with no port "
+            "refs — expected removed".format(oid_after))
 
-    # Step 5: unbind and reload
-    st.config(dut,
-        'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
-        skip_error_check=True)
-    reload_qos(dut, wait=10)
+    # Step 4: restore baseline.  config qos reload re-creates AZURE from
+    # the platform j2 and rebinds every front-panel port.
+    reload_qos(dut, wait=15)
 
     if initial and initial not in ('', 'nil', 'None'):
+        st.config(dut,
+            'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
+            skip_error_check=True)
+        st.wait(2)
         st.config(dut,
             'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "{}"'.format(
                 intf, initial),
@@ -1655,10 +1711,73 @@ def test_delete_map_while_bound():
 
     if failures:
         st.report_fail('msg',
-            "F3 delete-while-bound failures:\n  " + "\n  ".join(failures))
+            "F3 delete-after-drain failures:\n  " + "\n  ".join(failures))
     st.report_pass('msg',
-        "F3: DEL DSCP_TO_TC_MAP|AZURE while bound to {} did not remove HW object; "
-        "OBJECT_IN_USE semantics correctly enforced".format(intf))
+        "F3: DEL DSCP_TO_TC_MAP|AZURE succeeded after draining port refs; "
+        "CONFIG_DB and ASIC_DB cleared cleanly")
+
+
+@pytest.mark.skip(reason=(
+    "Triggers sonic-swss orchagent m_pendingRemove deadlock that latches "
+    "for the rest of the swss lifetime and silently breaks every later "
+    "HSET on the same map.  Re-enable when the upstream qosorch.cpp:136 "
+    "fix lands (tracked separately in sonic-swss).  Running this in a "
+    "shared swss session corrupts state for every later test."))
+@pytest.mark.config_only
+def test_delete_map_while_bound_pending_remove():
+    """#F3b — Regression for orchagent pending-remove deadlock (skipped).
+
+    DEL DSCP_TO_TC_MAP|AZURE while ports still reference it must:
+      - leave AZURE present in ASIC_DB (SAI's OBJECT_IN_USE guard fires)
+      - latch orchagent m_pendingRemove on AZURE
+      - cause subsequent HSET DSCP_TO_TC_MAP|AZURE to be silently
+        retry-forever ("Entry … is pending remove, need retry") and the
+        SAI port attribute to NOT be re-applied.
+
+    When the sonic-swss fix lands (Option A: clear m_pendingRemove on
+    SET to a still-alive sai_object), the second HSET should re-engage
+    the SAI bind and per-port OIDs should reappear in ASIC_DB.  Flip the
+    skip to xfail-strict when ready.
+    """
+    print_section("F3b — Pending-remove deadlock regression (sonic-swss bug)",
+                  art_key='dscp_to_tc')
+
+    intf = test_intf
+
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
+        skip_error_check=True)
+    st.wait(2)
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "AZURE"'.format(intf),
+        skip_error_check=True)
+    st.wait(3)
+
+    # DEL while bound — orchagent's refcount guard refuses to forward the
+    # DEL to SAI and latches m_pendingRemove on AZURE.
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB DEL "DSCP_TO_TC_MAP|AZURE"',
+        skip_error_check=True)
+    st.wait(5)
+
+    # Subsequent HSET should be silently retried (no SAI bind re-issued).
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "AZURE"'.format(intf),
+        skip_error_check=True)
+    st.wait(5)
+
+    port_oid = per_port_dscp_to_tc_oid(dut, intf)
+    if has_per_port_binding(port_oid):
+        st.report_pass('msg',
+            "F3b: pending-remove path appears fixed — SAI port attr {} "
+            "after re-HSET is non-default; flip @pytest.mark.skip to "
+            "xfail or remove the guard.".format(port_oid))
+    else:
+        st.report_fail('msg',
+            "F3b reproduces the sonic-swss pending-remove deadlock: SAI "
+            "port attr is {} (default) after re-HSET — orchagent silently "
+            "swallowed the bind. Recovery requires `systemctl restart "
+            "swss`.".format(port_oid))
 
 
 @pytest.mark.config_only
@@ -2108,8 +2227,8 @@ def test_custom_map_tcam_vs_azure():
     4 swapped DSCP→TC entries) and binds it to test_intf via PORT_QOS_MAP.
     The test then verifies:
       a) A new SAI_QOS_MAP OID is created in ASIC_DB for CUSTOM_64.
-      b) SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP on the port points to the new OID
-         (not oid:0x0).
+      b) The port has per-port binding state in ASIC_DB
+         (SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP non-default).
       c) TCAM usage changes (a new TCAM region is allocated for the custom
          map's distinct TC assignments).
       d) The 4 swapped DSCP entries in ASIC_DB reflect the custom TC values,
@@ -2191,6 +2310,14 @@ def test_custom_map_tcam_vs_azure():
             skip_error_check=True)
 
     st.log("  Binding {} to {} via PORT_QOS_MAP...".format(_CUSTOM_MAP, test_intf))
+    # HDEL the existing AZURE binding first so the subsequent HSET is an
+    # absent->present transition.  After 'config qos reload' the port-attr
+    # cache and SAI state can disagree; an explicit unbind + drain + bind
+    # is the only sequence that reliably produces a SAI port-attr set.
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(test_intf),
+        skip_error_check=True)
+    st.wait(3)
     st.config(dut,
         'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "{}"'.format(
             test_intf, _CUSTOM_MAP),
@@ -2227,27 +2354,31 @@ def test_custom_map_tcam_vs_azure():
         st.log("  New CUSTOM_64 OID created: {}  PASS".format(new_oid))
     else:
         msg = ("No new SAI_QOS_MAP OID created for CUSTOM_64 — "
-               "FX3 orchagent may not support per-port map binding via "
-               "live CONFIG_DB update (PORT_QOS_MAP HSET)")
+               "orchagent did not honour PORT_QOS_MAP HSET (per-port map "
+               "binding broken)")
         failures.append(msg)
-        st.log("  WARN: {}".format(msg))
+        st.log("  FAIL: {}".format(msg))
 
-    # ── Step 5: verify port OID binding ──────────────────────────────────
-    port_map_oid = asic_port_dscp_tc_map_oid(dut, test_intf)
-    st.log("  SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP on {}: {}".format(
-        test_intf, port_map_oid))
-    if port_map_oid and port_map_oid != 'oid:0x0':
-        st.log("  Port is bound to a non-zero map OID  PASS")
-        if new_oid and port_map_oid not in new_oid:
-            st.log("  WARN: port OID {} differs from new OID {}".format(
-                port_map_oid, new_oid))
+    # ── Step 5: verify port has a per-port binding to the new map ──────────
+    # Post PRs cisco-nx-sai #494/#514, binding a custom DSCP_TO_TC map to a
+    # port must produce ASIC_DB-visible per-port binding state on
+    # SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP.
+    port_map_oid = per_port_dscp_to_tc_oid(dut, test_intf)
+    st.log("  Per-port binding on {}: qos_map={}".format(
+        test_intf, port_map_oid or '(nil)'))
+    if not has_per_port_binding(port_map_oid):
+        msg = ("No per-port binding in ASIC_DB after binding {} to {}: "
+               "SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP={} "
+               "(default — pre-#494/#514 silent-no-op)".format(
+                   _CUSTOM_MAP, test_intf, port_map_oid))
+        failures.append(msg)
+        st.log("  FAIL: {}".format(msg))
     else:
-        # FX3 expected: orchagent creates the SAI_QOS_MAP object for CUSTOM_64
-        # but the per-port SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP attribute stays
-        # oid:0x0 because the platform uses a global map, not per-port binding.
-        st.log("  INFO: SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP = {} on {} "
-               "(FX3: per-port binding not applied; global map used)".format(
-               port_map_oid, test_intf))
+        st.log("  Port has per-port binding  PASS")
+        if (port_map_oid and port_map_oid != 'oid:0x0'
+                and new_oid and port_map_oid not in new_oid):
+            st.log("  WARN: port qos_map OID {} differs from new OID {}".format(
+                port_map_oid, new_oid))
 
     # ── Step 6: TCAM usage check ──────────────────────────────────────────
     tcam_after  = dchal_tcam_info(dut)
@@ -2346,6 +2477,601 @@ def test_custom_map_tcam_vs_azure():
             new_oid.split(':')[-1] if new_oid else 'none',
             port_map_oid,
             tcam_note))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Section G — Per-Port DSCP-to-TC Isolation Tests (G1–G6)
+#
+# Regression coverage for cisco-nx-sai PRs #494 (per-port PORT_LAG_LABEL on
+# PQOS entries) and #514 (acl_bind_to_interface() wrapper).  Bind two
+# different DSCP_TO_TC maps to two ingress ports and verify isolation at
+# CONFIG_DB, ASIC_DB, TCAM, and traffic level.  G5 covers the unbound-port
+# default-TC fall-through; G6 covers per-port label persistence across a
+# port flap.  Skipped in breakout mode (only one ingress port available).
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _g_send_dscp_burst(ph, src_ip, dst_ip, dut_ingress_port, label,
+                       dscp, pkts=250, rate=50, egress_intf=None):
+    """Send *pkts* at *dscp* from IXIA port *ph*; return egress queue deltas.
+
+    Shared between G3 (per-port classification), G4 (rebind data-plane
+    proof), G5 (unbound-port default TC) and G6 (port-flap persistence).
+    """
+    if egress_intf is None:
+        egress_intf = port_info['egress']
+    dst_mac = get_dut_mac(dut, dut_ingress_port)
+    tg.tg_traffic_control(action='reset')
+    tg.tg_traffic_config(
+        mode='create',
+        port_handle=ph,
+        l3_protocol='ipv4',
+        l4_protocol='udp',
+        ip_src_addr=src_ip,
+        ip_dst_addr=dst_ip,
+        mac_dst=dst_mac,
+        ip_dscp=dscp,
+        ip_ttl=64,
+        udp_src_port=10000,
+        udp_dst_port=5000,
+        frame_size=_PKT_SIZE,
+        rate_pps=rate,
+        pkts_per_burst=pkts,
+        transmit_mode='single_burst',
+        high_speed_result_analysis=0,
+    )
+    q_before = get_dchal_queue_counters(dut, egress_intf,
+                                        "BEFORE {}".format(label))
+    tg.tg_traffic_control(action='clear_stats')
+    tg.tg_traffic_control(action='apply')
+    tg.tg_traffic_control(action='run')
+    st.wait(int(pkts / float(rate)) + 5)
+    tg.tg_traffic_control(action='stop')
+    st.wait(2)
+    q_after = get_dchal_queue_counters(dut, egress_intf,
+                                       "AFTER {}".format(label))
+    return _compute_deltas(q_before, q_after)
+
+
+def _g_setup_azure_plus_custom():
+    """Bind AZURE on test_intf and a fresh CUSTOM_GB (all DSCP→7) on
+    test_intf2.  Returns (map_a, map_b); caller must call
+    _g_teardown_azure_plus_custom() to restore baseline.
+
+    FX3 TCAM constraint: the ing-l3-vlan-qos region holds 512 entries.
+    AZURE alone uses 192 (64 IPv4 + 64 IPv6 + 64 IPv6 wide-key sibling)
+    and is bound to all default ports.  Each additional 64-entry custom
+    map costs another 192.  Two new custom maps would push the region
+    to 576 (>512); syncd's bind_to_port allocator silently fails the
+    second bind without propagating the error to orchagent, leaving
+    SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP=oid:0x0 on the affected port and
+    breaking G1/G2/G3/G6.  Using AZURE on intf1 (already programmed)
+    plus one new custom map on intf2 keeps usage at 384, well under
+    the 512 budget, while still exercising distinct OIDs / per-port
+    label isolation on the two ports.
+    """
+    map_a = 'AZURE'
+    map_b = 'CUSTOM_GB'
+    for d in range(64):
+        st.config(dut,
+            'sonic-db-cli CONFIG_DB HSET "DSCP_TO_TC_MAP|{}" "{}" "{}"'.format(
+                map_b, d, 7),
+            skip_error_check=False)
+    # intf1 keeps its system-default AZURE binding from the prior reload.
+    # Touching it (HDEL+HSET AZURE) trips qosorch's value-equality dedupe:
+    # the HDEL pushes oid:0x0 to SAI, but the follow-up HSET AZURE is
+    # skipped because orchagent's cached field value still equals AZURE,
+    # leaving the port at SAI port-attr=oid:0x0 (no per-port binding).
+    # Only intf2 needs the unbind+bind cycle to flip AZURE -> CUSTOM_GB,
+    # which is a real value transition orchagent always programs.
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(test_intf2),
+        skip_error_check=True)
+    st.wait(3)
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "{}"'.format(
+            test_intf2, map_b),
+        skip_error_check=False)
+    st.wait(10)   # let orchagent drain CONFIG_DB notifications
+    return map_a, map_b
+
+
+def _g_teardown_azure_plus_custom(map_a, map_b):
+    """Unbind, delete CUSTOM_GB, and restore the AZURE baseline."""
+    for intf in (test_intf, test_intf2):
+        st.config(dut,
+            'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
+            skip_error_check=True)
+    # map_a is AZURE — never delete the template map; only the custom one.
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB DEL "DSCP_TO_TC_MAP|{}"'.format(map_b),
+        skip_error_check=True)
+    reload_qos(dut, wait=15)
+
+
+@pytest.mark.config_only
+def test_g1_distinct_maps_distinct_asic_oids():
+    """#G1 — AZURE on intf1 and a fresh custom map on intf2 produce two
+    distinct SAI_QOS_MAP OIDs in ASIC_DB, and both ports show per-port
+    binding state (qos_map OID non-default).
+    """
+    print_section("G1 — AZURE on intf1 + custom map on intf2 → distinct ASIC OIDs",
+                  art_key='dscp_to_tc')
+
+    if test_intf2 is None:
+        st.report_skip('msg',
+            "G1 requires a second ingress port (ixia/peer_link mode); "
+            "current topology mode '{}' has only one ingress.".format(topo_mode))
+
+    failures = []
+
+    oids_before = set(asic_dscp_to_tc_map_oids(dut))
+    st.log("  Baseline DSCP_TO_TC OIDs: {} ({})".format(
+        len(oids_before), sorted(oids_before)))
+
+    map_a, map_b = _g_setup_azure_plus_custom()
+    try:
+        oids_after = set(asic_dscp_to_tc_map_oids(dut))
+        new_oids   = oids_after - oids_before
+        st.log("  After bind: {} DSCP_TO_TC OIDs total ({} new)".format(
+            len(oids_after), len(new_oids)))
+        st.log("  New OIDs: {}".format(sorted(new_oids)))
+
+        if len(new_oids) < 1:
+            failures.append(
+                "Expected ≥1 new DSCP_TO_TC OID after binding {} on a "
+                "second port (alongside {} on the first), got {} new OIDs "
+                "(total {})".format(map_b, map_a, len(new_oids), len(oids_after)))
+        else:
+            st.log("  ≥1 new DSCP_TO_TC OID created for {}  PASS".format(map_b))
+
+        snap1 = per_port_dscp_to_tc_oid(dut, test_intf)
+        snap2 = per_port_dscp_to_tc_oid(dut, test_intf2)
+        st.log("  intf1={} binding: qos_map={}".format(
+            test_intf, snap1 or '(nil)'))
+        st.log("  intf2={} binding: qos_map={}".format(
+            test_intf2, snap2 or '(nil)'))
+        if not has_per_port_binding(snap1):
+            failures.append("intf1={} has no per-port binding".format(test_intf))
+        if not has_per_port_binding(snap2):
+            failures.append("intf2={} has no per-port binding".format(test_intf2))
+        if (has_per_port_binding(snap1) and has_per_port_binding(snap2)
+                and snap1 == snap2):
+            failures.append(
+                "intf1 and intf2 share the same per-port qos_map OID {} — "
+                "expected distinct OIDs for {} vs {}".format(snap1, map_a, map_b))
+    finally:
+        _g_teardown_azure_plus_custom(map_a, map_b)
+
+    if failures:
+        st.report_fail('msg', "G1 failures:\n  " + "\n  ".join(failures))
+    st.report_pass('msg',
+        "G1: distinct per-port DSCP_TO_TC OIDs on intf1 ({}) and intf2 ({}); "
+        "per-port binding present on both ports".format(map_a, map_b))
+
+
+@pytest.mark.config_only
+def test_g2_distinct_maps_distinct_tcam_labels():
+    """#G2 — Binding a fresh DSCP_TO_TC map alongside AZURE on a different
+    port allocates a distinct TCAM region (label isolation per PR #494).
+
+    intf1 stays on AZURE (already programmed: ~192 entries) and intf2
+    gets a fresh CUSTOM_GB; each full 64-entry map costs 64 × 3 = 192
+    TCAM entries (IPv4 + IPv6 + IPv6 wide_key paired sibling).  We
+    expect the region to grow by ≈192 entries; floor at 150 to absorb
+    minor orchagent/SAI quantization.  Delta=0 is the pre-#494 silent
+    regression signal (no per-port label allocation).
+
+    Why not bind two fresh custom maps: AZURE (192) + 2 × custom (384)
+    = 576 entries, which overflows the FX3 ing-l3-vlan-qos region (512
+    entries).  syncd silently drops the second port-bind without
+    propagating the SAI failure; see _g_setup_azure_plus_custom.
+    """
+    print_section("G2 — AZURE on intf1 + new custom map on intf2 → distinct TCAM labels",
+                  art_key='dscp_to_tc')
+
+    if test_intf2 is None:
+        st.report_skip('msg',
+            "G2 requires a second ingress port (ixia/peer_link mode); "
+            "current topology mode '{}' has only one ingress.".format(topo_mode))
+
+    failures = []
+
+    # Per-map TCAM footprint: 64 DSCPs × 3 entries each (IPv4 + IPv6 + IPv6
+    # wide_key paired sibling) = 192 entries.  Only CUSTOM_GB is new
+    # (AZURE is already in TCAM), so expect delta ≈192; floor at 150.
+    _EXPECTED_NEW_MAP = 64 * 3
+    _MIN_DELTA = 150
+
+    tcam_before = dchal_tcam_info(dut)
+    used_before = tcam_before.get('used', -1)
+    st.log("  Baseline TCAM used = {}".format(used_before))
+
+    map_a, map_b = _g_setup_azure_plus_custom()
+    try:
+        # Engage dchal_tcam_info's region-not-yet-created retry — orchagent may
+        # still be allocating the TCAM region for the new map when we ask.
+        tcam_after = dchal_tcam_info(dut, min_used=used_before + _MIN_DELTA)
+        used_after = tcam_after.get('used', -1)
+        delta      = used_after - used_before
+        st.log("  After bind: TCAM used = {}  delta = {}  (expected ≈{}, floor {})".format(
+            used_after, delta, _EXPECTED_NEW_MAP, _MIN_DELTA))
+
+        # One new 64-entry map → ~192 TCAM entries; floor at 150 absorbs
+        # minor orchagent/SAI quantization.  Delta=0 is the pre-#494
+        # silent regression (or syncd bind_to_port allocator failure).
+        if delta < _MIN_DELTA:
+            failures.append(
+                "TCAM used delta={} after binding a new 64-entry map ({}) "
+                "alongside AZURE — expected ≥{} (≈{} for the new map). "
+                "Delta<{} indicates PR #494 regression or the per-port bind "
+                "failing to program (delta=0 = no per-port label allocation).".format(
+                    delta, map_b, _MIN_DELTA, _EXPECTED_NEW_MAP, _MIN_DELTA))
+        else:
+            st.log("  TCAM grew by {} entries for the new map  PASS".format(
+                delta))
+    finally:
+        _g_teardown_azure_plus_custom(map_a, map_b)
+
+    if failures:
+        st.report_fail('msg', "G2 failures:\n  " + "\n  ".join(failures))
+    st.report_pass('msg',
+        "G2: TCAM grew by {} entries when binding {} alongside AZURE on a "
+        "different port (per-port label allocation working)".format(delta, map_b))
+
+
+@pytest.mark.traffic
+def test_g3_per_port_traffic_isolation_dscp():
+    """#G3 — Same DSCP from two different ingress ports, with two different
+    DSCP_TO_TC maps, lands on two different egress queues.
+
+    The cornerstone test: end-to-end proof that per-port DSCP-to-TC
+    classification works.  Setup keeps AZURE (DSCP 0 → TC 0) on intf1
+    and binds CUSTOM_GB (all→TC 7) on intf2, then sends DSCP 0 from each
+    ingress and asserts the two streams land on different egress queues.
+    Skipped in breakout mode.
+    """
+    print_section("G3 — Per-port traffic isolation: same DSCP, different maps, different queues",
+                  art_key='dscp_to_tc')
+
+    if tg_ph_ingress_b is None or port_info_ingress_b is None:
+        st.report_skip('msg',
+            "G3 requires two Ixia ingress ports (ixia/peer_link mode); "
+            "current topology mode '{}' has only one ingress.".format(topo_mode))
+
+    _PKTS = 250
+    _RATE = 50
+    _DSCP = 0
+    failures = []
+
+    map_a, map_b = _g_setup_azure_plus_custom()
+    try:
+        egress_intf = port_info['egress']
+
+        # Step 1: ingress A → expect Q0 (CUSTOM_GA: DSCP→TC 0)
+        st.log("  Step 1: send DSCP {} from ingress_a (mapped via {} → TC 0)".format(
+            _DSCP, map_a))
+        deltas_a = _g_send_dscp_burst(
+            tg_ph['ingress'], IXIA_INGRESS_A_IP, _IXIA_DST_V4,
+            port_info['ingress'], "G3/intf1_DSCP{}".format(_DSCP),
+            dscp=_DSCP, pkts=_PKTS, rate=_RATE, egress_intf=egress_intf)
+        _log_queue_placement_table(deltas_a, "[A→intf1]",
+            expected=_g_expect_single_q(0, _PKTS))
+        q0_pkts_a = deltas_a[0]['pkts']
+        q7_pkts_a = deltas_a[7]['pkts']
+        lo, hi = int(_PKTS * 0.85), int(_PKTS * 1.15)
+        if not (lo <= q0_pkts_a <= hi):
+            failures.append(
+                "Step 1 (ingress_a, {} → TC 0): Q0 received {} pkts, expected "
+                "{}±15% [{},{}]".format(map_a, q0_pkts_a, _PKTS, lo, hi))
+        if q7_pkts_a > int(_PKTS * 0.05):
+            failures.append(
+                "Step 1 (ingress_a, {} → TC 0): Q7 received {} pkts (expected "
+                "≤{} = 5% noise) — cross-classification leak".format(
+                    map_a, q7_pkts_a, int(_PKTS * 0.05)))
+
+        # Step 2: ingress B → expect Q7 (CUSTOM_GB: DSCP→TC 7)
+        st.log("  Step 2: send DSCP {} from ingress_b (mapped via {} → TC 7)".format(
+            _DSCP, map_b))
+        deltas_b = _g_send_dscp_burst(
+            tg_ph_ingress_b, IXIA_INGRESS_B_IP, _IXIA_DST_V4,
+            port_info_ingress_b, "G3/intf2_DSCP{}".format(_DSCP),
+            dscp=_DSCP, pkts=_PKTS, rate=_RATE, egress_intf=egress_intf)
+        _log_queue_placement_table(deltas_b, "[B→intf2]",
+            expected=_g_expect_single_q(7, _PKTS))
+        q0_pkts_b = deltas_b[0]['pkts']
+        q7_pkts_b = deltas_b[7]['pkts']
+        if not (lo <= q7_pkts_b <= hi):
+            failures.append(
+                "Step 2 (ingress_b, {} → TC 7): Q7 received {} pkts, expected "
+                "{}±15% [{},{}]".format(map_b, q7_pkts_b, _PKTS, lo, hi))
+        if q0_pkts_b > int(_PKTS * 0.05):
+            failures.append(
+                "Step 2 (ingress_b, {} → TC 7): Q0 received {} pkts (expected "
+                "≤{} = 5% noise) — cross-classification leak (per-port "
+                "isolation broken)".format(
+                    map_b, q0_pkts_b, int(_PKTS * 0.05)))
+    finally:
+        _g_teardown_azure_plus_custom(map_a, map_b)
+
+    if failures:
+        st.report_fail('msg', "G3 failures:\n  " + "\n  ".join(failures))
+    st.report_pass('msg',
+        "G3: DSCP {} from intf1 ({}) → Q0={}; DSCP {} from intf2 ({}) → Q7={}; "
+        "per-port classification isolation confirmed".format(
+            _DSCP, map_a, q0_pkts_a, _DSCP, map_b, q7_pkts_b))
+
+
+@pytest.mark.traffic
+def test_g4_rebind_one_port_does_not_affect_other():
+    """#G4 — Rebinding a custom map on one port must not disturb the
+    binding of an unrelated port.  Setup leaves AZURE on intf1 and
+    binds CUSTOM_GB on intf2; the rebind step then moves intf2 from
+    CUSTOM_GB back to AZURE and verifies intf1's CONFIG_DB binding and
+    per-port ASIC_DB state are preserved.
+
+    Data-plane proof: after the rebind, sending DSCP 0 from intf2 must
+    land on Q0 (AZURE: DSCP 0 → TC 0), not Q7 (the previous CUSTOM_GB
+    mapping).  This catches a rebind that updates CONFIG_DB/ASIC_DB
+    state but fails to reprogram the per-port classifier.
+    """
+    print_section("G4 — Rebind one port doesn't disturb the other",
+                  art_key='dscp_to_tc')
+
+    if test_intf2 is None:
+        st.report_skip('msg',
+            "G4 requires a second ingress port (ixia/peer_link mode); "
+            "current topology mode '{}' has only one ingress.".format(topo_mode))
+
+    _PKTS = 250
+    _RATE = 50
+    failures = []
+
+    map_a, map_b = _g_setup_azure_plus_custom()
+    try:
+        snap1_before = per_port_dscp_to_tc_oid(dut, test_intf)
+        config_before = get_port_dscp_tc_map(dut, test_intf)
+        st.log("  intf1={} before rebind: cfg={}  qos_map={}".format(
+            test_intf, config_before,
+            snap1_before or '(nil)'))
+
+        # Rebind intf2 from CUSTOM_GB to AZURE.  HDEL first, then HSET, so
+        # the AZURE bind is an absent->present transition rather than a
+        # plain CUSTOM_GB->AZURE field update: qosorch's value-equality
+        # dedupe can otherwise treat the HSET as "AZURE == cached AZURE,
+        # no change" (orchagent's per-port cache can disagree with the
+        # CUSTOM_GB OID syncd actually programmed) and silently skip the
+        # SAI port-attr write, leaving the CUSTOM_GB classifier active.
+        st.config(dut,
+            'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(
+                test_intf2),
+            skip_error_check=True)
+        st.wait(3)
+        st.config(dut,
+            'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "AZURE"'.format(
+                test_intf2),
+            skip_error_check=False)
+        st.wait(8)
+
+        snap1_after = per_port_dscp_to_tc_oid(dut, test_intf)
+        config_after = get_port_dscp_tc_map(dut, test_intf)
+        st.log("  intf1={} after  rebind: cfg={}  qos_map={}".format(
+            test_intf, config_after,
+            snap1_after or '(nil)'))
+
+        if config_after != config_before:
+            failures.append(
+                "intf1 CONFIG_DB dscp_to_tc_map changed from '{}' to '{}' "
+                "after rebinding intf2".format(config_before, config_after))
+        if not has_per_port_binding(snap1_after):
+            failures.append(
+                "intf1 lost per-port binding in ASIC_DB after rebinding intf2: "
+                "before={} after={}".format(snap1_before, snap1_after))
+        elif snap1_after != snap1_before:
+            st.log("  INFO: intf1 ASIC OIDs changed (rebind ripple) but "
+                   "per-port binding intent preserved: before={} after={}".format(
+                       snap1_before, snap1_after))
+
+        # intf2 should now show AZURE binding (sanity)
+        intf2_cfg = get_port_dscp_tc_map(dut, test_intf2)
+        if 'AZURE' not in (intf2_cfg or '').upper():
+            failures.append(
+                "intf2 CONFIG_DB shows '{}' after rebind to AZURE".format(intf2_cfg))
+
+        # Data-plane proof: DSCP 0 from intf2 must now land on Q0 (AZURE
+        # 0→0), not Q7 (the previous CUSTOM_GB 0→7).  Skip the traffic
+        # step when no second IXIA ingress handle is available (config_only
+        # topo mode).
+        if tg_ph_ingress_b is not None and port_info_ingress_b is not None:
+            st.log("  Sending DSCP 0 from intf2 to confirm AZURE classification "
+                   "is now active (expect Q0)")
+            deltas = _g_send_dscp_burst(
+                tg_ph_ingress_b, IXIA_INGRESS_B_IP, _IXIA_DST_V4,
+                port_info_ingress_b, "G4/intf2_post_rebind_DSCP0",
+                dscp=0, pkts=_PKTS, rate=_RATE)
+            _log_queue_placement_table(deltas, "[G4 post-rebind]",
+                expected=_g_expect_single_q(0, _PKTS))
+            q0 = deltas[0]['pkts']
+            q7 = deltas[7]['pkts']
+            lo, hi = int(_PKTS * 0.85), int(_PKTS * 1.15)
+            if not (lo <= q0 <= hi):
+                failures.append(
+                    "After rebind, DSCP 0 from intf2: Q0={} pkts (expected "
+                    "{}±15% [{},{}]) — AZURE classification not active".format(
+                        q0, _PKTS, lo, hi))
+            if q7 > int(_PKTS * 0.05):
+                failures.append(
+                    "After rebind, DSCP 0 from intf2: Q7={} pkts (expected "
+                    "≤{}) — stale CUSTOM_GB mapping still active".format(
+                        q7, int(_PKTS * 0.05)))
+        else:
+            st.log("  Skipping G4 data-plane step (no second IXIA ingress in "
+                   "topo mode '{}')".format(topo_mode))
+    finally:
+        _g_teardown_azure_plus_custom(map_a, map_b)
+
+    if failures:
+        st.report_fail('msg', "G4 failures:\n  " + "\n  ".join(failures))
+    st.report_pass('msg',
+        "G4: rebinding intf2 left intf1's CONFIG_DB and ASIC_DB binding state "
+        "unchanged (per-port binding isolation under reconfig)")
+
+
+@pytest.mark.traffic
+def test_g5_unbound_port_default_tc():
+    """#G5 — Unbound ingress port falls through to default TC0.
+
+    Bind AZURE on intf1, leave intf2 unbound (HDEL its
+    PORT_QOS_MAP|dscp_to_tc_map).  Send DSCP 49 from intf2: AZURE would
+    map it to TC 7, but with no per-port binding there is no L3QOS TCAM
+    entry fired for this ingress, so the packet falls through to default
+    classification (TC 0).  This is the third leg of the per-port
+    behavior table (bound-to-A / bound-to-B / unbound).
+    """
+    print_section("G5 — Unbound port → default TC0 (per-port behavior third leg)",
+                  art_key='dscp_to_tc')
+
+    if tg_ph_ingress_b is None or port_info_ingress_b is None:
+        st.report_skip('msg',
+            "G5 requires two IXIA ingress ports (ixia/peer_link mode); "
+            "current topology mode '{}' has only one ingress.".format(topo_mode))
+
+    _PKTS = 250
+    _RATE = 50
+    _DSCP = 49      # AZURE maps DSCP 49 → TC 7
+    failures = []
+
+    initial1 = get_port_dscp_tc_map(dut, test_intf)
+    initial2 = get_port_dscp_tc_map(dut, test_intf2)
+
+    # Bind AZURE on intf1; explicitly unbind intf2.  HDEL+wait+HSET on
+    # intf1 forces the absent->present transition that orchagent
+    # otherwise treats as a no-op.
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(test_intf),
+        skip_error_check=True)
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(test_intf2),
+        skip_error_check=True)
+    st.wait(3)
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" "dscp_to_tc_map" "AZURE"'.format(test_intf),
+        skip_error_check=False)
+    st.wait(8)
+
+    try:
+        st.log("  intf2={} is unbound; sending DSCP {} (would be TC 7 under "
+               "AZURE) — expect Q0 (default fall-through)".format(test_intf2, _DSCP))
+        deltas = _g_send_dscp_burst(
+            tg_ph_ingress_b, IXIA_INGRESS_B_IP, _IXIA_DST_V4,
+            port_info_ingress_b, "G5/intf2_unbound_DSCP{}".format(_DSCP),
+            dscp=_DSCP, pkts=_PKTS, rate=_RATE)
+        _log_queue_placement_table(deltas, "[G5 unbound→intf2]",
+            expected=_g_expect_single_q(0, _PKTS))
+        q0 = deltas[0]['pkts']
+        q7 = deltas[7]['pkts']
+        lo, hi = int(_PKTS * 0.85), int(_PKTS * 1.15)
+        if not (lo <= q0 <= hi):
+            failures.append(
+                "Unbound intf2: Q0={} pkts for DSCP {} (expected {}±15% "
+                "[{},{}]) — default TC0 fall-through not active".format(
+                    q0, _DSCP, _PKTS, lo, hi))
+        if q7 > int(_PKTS * 0.05):
+            failures.append(
+                "Unbound intf2: Q7={} pkts for DSCP {} (expected ≤{}) — "
+                "global/stale DSCP-to-TC classification leaked through".format(
+                    q7, _DSCP, int(_PKTS * 0.05)))
+    finally:
+        # Restore baseline bindings.
+        for intf, init in ((test_intf, initial1), (test_intf2, initial2)):
+            st.config(dut,
+                'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" "dscp_to_tc_map"'.format(intf),
+                skip_error_check=True)
+            if init and init not in ('', 'nil', 'None'):
+                st.config(dut,
+                    'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" '
+                    '"dscp_to_tc_map" "{}"'.format(intf, init),
+                    skip_error_check=True)
+        st.wait(5)
+
+    if failures:
+        st.report_fail('msg', "G5 failures:\n  " + "\n  ".join(failures))
+    st.report_pass('msg',
+        "G5: unbound intf2 DSCP {} → Q0={} (default fall-through "
+        "confirmed; no L3QOS TCAM hit on unbound port)".format(_DSCP, q0))
+
+
+@pytest.mark.traffic
+def test_g6_per_port_classification_survives_port_flap():
+    """#G6 — Per-port DSCP-to-TC binding survives an admin-down/up cycle.
+
+    With AZURE on intf1 and CUSTOM_GB bound on intf2, admin-down then
+    admin-up intf2 and confirm DSCP 0 from intf2 still lands on Q7
+    (CUSTOM_GB).  This catches a regression where a port flap clears
+    the per-port classifier label (which would silently regress to
+    default TC0 on that port).
+    """
+    print_section("G6 — Per-port classification survives port flap",
+                  art_key='dscp_to_tc')
+
+    if tg_ph_ingress_b is None or port_info_ingress_b is None:
+        st.report_skip('msg',
+            "G6 requires two IXIA ingress ports (ixia/peer_link mode); "
+            "current topology mode '{}' has only one ingress.".format(topo_mode))
+
+    _PKTS = 250
+    _RATE = 50
+    _DSCP = 0       # CUSTOM_GB maps everything → TC 7
+    failures = []
+
+    map_a, map_b = _g_setup_azure_plus_custom()
+    try:
+        # Flap intf2 — admin-down, wait, admin-up, wait for link.
+        st.log("  Flapping intf2={} (shutdown / startup)".format(test_intf2))
+        st.config(dut, 'sudo config interface shutdown {}'.format(test_intf2),
+                  skip_error_check=True)
+        st.wait(5)
+        st.config(dut, 'sudo config interface startup {}'.format(test_intf2),
+                  skip_error_check=True)
+        st.wait(15)
+
+        oid_after = per_port_dscp_to_tc_oid(dut, test_intf2)
+        st.log("  intf2 per-port qos_map after flap: {}".format(oid_after or '(nil)'))
+        if not has_per_port_binding(oid_after):
+            failures.append(
+                "intf2 lost per-port DSCP-to-TC binding after flap: "
+                "SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP={}".format(oid_after or 'nil'))
+
+        st.log("  Sending DSCP {} from intf2 after flap (expect Q7 via "
+               "{})".format(_DSCP, map_b))
+        deltas = _g_send_dscp_burst(
+            tg_ph_ingress_b, IXIA_INGRESS_B_IP, _IXIA_DST_V4,
+            port_info_ingress_b, "G6/intf2_post_flap_DSCP{}".format(_DSCP),
+            dscp=_DSCP, pkts=_PKTS, rate=_RATE)
+        _log_queue_placement_table(deltas, "[G6 post-flap]",
+            expected=_g_expect_single_q(7, _PKTS))
+        q0 = deltas[0]['pkts']
+        q7 = deltas[7]['pkts']
+        lo, hi = int(_PKTS * 0.85), int(_PKTS * 1.15)
+        if not (lo <= q7 <= hi):
+            failures.append(
+                "After flap, DSCP {} from intf2: Q7={} pkts (expected "
+                "{}±15% [{},{}]) — CUSTOM_GB classification lost".format(
+                    _DSCP, q7, _PKTS, lo, hi))
+        if q0 > int(_PKTS * 0.05):
+            failures.append(
+                "After flap, DSCP {} from intf2: Q0={} pkts (expected ≤{}) "
+                "— per-port classifier reverted to default TC0".format(
+                    _DSCP, q0, int(_PKTS * 0.05)))
+    finally:
+        _g_teardown_azure_plus_custom(map_a, map_b)
+
+    if failures:
+        st.report_fail('msg', "G6 failures:\n  " + "\n  ".join(failures))
+    st.report_pass('msg',
+        "G6: per-port classification on intf2 survived admin-down/up; "
+        "DSCP {} → Q7={} via {} (label intact across flap)".format(
+            _DSCP, q7, map_b))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2649,15 +3375,23 @@ def test_single_dscp_tcam_hit(af, dscp):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Section B #9 — Cross-port: same DSCP increments same global TCAM entry
+# Section B #9 — Cross-port label sharing: same map on multiple ports → shared TCAM entry
 # ══════════════════════════════════════════════════════════════════════════════
 
 @pytest.mark.traffic
 def test_cross_port_global_tcam_entry():
-    """#9 — DSCP TCAM rules are global: same DSCP from multiple ingress ports.
+    """#9 — DSCP TCAM rules share a label when multiple ports bind the SAME map.
 
-    Test plan Section B, Test 9: "Cross-port: same DSCP hits same global
-    TCAM entry".
+    Test plan Section B, Test 9: "Cross-port: same DSCP hits same TCAM
+    entry when ports share a map".
+
+    Post PR cisco-nx-sai #494, PQOS ACL entries carry PORT_LAG_LABEL for
+    per-port TCAM isolation, BUT ports bound to the same DSCP_TO_TC map
+    share a VMR label and therefore still hit one TCAM entry.  This test
+    exercises the label-sharing path — both Ixia ingress ports come up
+    bound to AZURE via the baseline PORT_QOS_MAP config.  The disjoint
+    case (different maps on different ports → different labels → different
+    entries) is covered by Section G's per-port isolation tests.
 
     Uses both IXIA ingress ports (ingress_a + ingress_b) when available
     (ixia and peer_link modes).  In breakout mode only ingress_a is present
@@ -2667,7 +3401,8 @@ def test_cross_port_global_tcam_entry():
       1. Snapshot TCAM stats_pkts for IPv4 DSCP 0 entry.
       2. Build DSCP 0 IPv4 stream on ingress port(s).
       3. Run all streams (100 pkts each).
-      4. Assert TCAM DSCP 0 IPv4 delta = 100 × num_ports (global TCAM).
+      4. Assert TCAM DSCP 0 IPv4 delta = 100 × num_ports (shared label
+         when both ports bind the same map).
     """
     _PKTS      = 100
     _RATE      = 10
@@ -2675,7 +3410,7 @@ def test_cross_port_global_tcam_entry():
 
     # Sources: ingress_a (always) + ingress_b when available (ixia/peer_link).
     # ingress_b sends back toward ingress_a so the DUT routes it; both hits
-    # increment the same global TCAM entry for DSCP 0.
+    # increment the same shared-label TCAM entry for DSCP 0.
     _sources = [
         {'ph': tg_ph['ingress'], 'dut_port': port_info['ingress'],
          'src_ip': IXIA_INGRESS_A_IP, 'dst_ip': _IXIA_DST_V4},
@@ -2688,7 +3423,7 @@ def test_cross_port_global_tcam_entry():
     _EXP_DELTA = _PKTS * len(_sources)
 
     print_section(
-        "B9 — Cross-port global TCAM: DSCP 0 from {} port(s) → +{}".format(
+        "B9 — Cross-port shared-label TCAM: DSCP 0 from {} port(s) → +{}".format(
             len(_sources), _EXP_DELTA),
         art_key='dscp_to_tc')
     st.log("  Topology mode: {}  sources: {}".format(
@@ -2765,7 +3500,7 @@ def test_cross_port_global_tcam_entry():
         st.report_fail('msg', "B9 failures:\n  " + "\n  ".join(failures))
     st.report_pass('msg',
         "B9: DSCP {} IPv4 TCAM entry delta={} from {} port(s) "
-        "(global TCAM confirmed)".format(_DSCP, delta, len(_sources)))
+        "(shared label confirmed)".format(_DSCP, delta, len(_sources)))
 
 
 # ══════════════════════════════════════════════════════════════════════════════

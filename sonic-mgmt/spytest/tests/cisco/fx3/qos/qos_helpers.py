@@ -734,6 +734,78 @@ def asic_port_dscp_tc_map_oid(dut, intf):
     return None
 
 
+def asic_dscp_to_tc_map_oids(dut):
+    """Return a list of ASIC_DB keys for every SAI_QOS_MAP_TYPE_DSCP_TO_TC OID.
+
+    Each element is a full key like
+    'ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:oid:0x14000000000663'.
+    Order is not guaranteed.  Returns [] when no DSCP_TO_TC maps exist.
+    """
+    keys_out = st.show(
+        dut,
+        'sonic-db-cli ASIC_DB KEYS "ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:*"',
+        skip_tmpl=True)
+    result = []
+    for raw in (keys_out or '').splitlines():
+        key = raw.strip()
+        if not key.startswith('ASIC_STATE:SAI_OBJECT_TYPE_QOS_MAP:oid:'):
+            continue
+        type_out = st.show(
+            dut,
+            'sonic-db-cli ASIC_DB HGET "{}" "SAI_QOS_MAP_ATTR_TYPE"'.format(key),
+            skip_tmpl=True)
+        for t in (type_out or '').splitlines():
+            t = t.strip()
+            if t == 'SAI_QOS_MAP_TYPE_DSCP_TO_TC':
+                result.append(key)
+                break
+    return result
+
+
+def per_port_dscp_to_tc_oid(dut, intf):
+    """Return SAI_PORT_ATTR_QOS_DSCP_TO_TC_MAP for *intf*, or '' if unset.
+
+    Post cisco-nx-sai PRs #494 + #514, this is the only ASIC_DB surface
+    that reflects per-port DSCP-to-TC binding on FX3.  nxsai's
+    qos_map_manager::bind_to_port also builds an internal L3_VLAN_QOS ACL
+    table and writes its TYPE_B PORT_LAG_LABEL into the port's IFTMC, but
+    that ACL table is not exposed in ASIC_DB and SAI_PORT_ATTR_INGRESS_ACL
+    is never populated by this flow.
+    """
+    return asic_port_dscp_tc_map_oid(dut, intf) or ''
+
+
+def has_per_port_binding(oid):
+    """True iff *oid* is a non-default SAI port DSCP-to-TC map OID.
+
+    *oid* is the string returned by per_port_dscp_to_tc_oid().
+    """
+    return bool(oid) and oid not in ('oid:0x0', 'nil', 'None')
+
+
+def unbind_dscp_to_tc_map_from_all_ports(dut, wait=5):
+    """HDEL ``dscp_to_tc_map`` from every PORT_QOS_MAP|* key in CONFIG_DB.
+
+    Drains references so a subsequent ``DEL DSCP_TO_TC_MAP|<name>`` does
+    not trip orchagent's pending-remove guard (qosorch.cpp processWorkItem),
+    which would otherwise latch ``m_pendingRemove=true`` for the rest of
+    the swss lifetime and silently block every later HSET on that map.
+    """
+    keys_out = st.show(
+        dut,
+        'sonic-db-cli CONFIG_DB KEYS "PORT_QOS_MAP|*"',
+        skip_tmpl=True)
+    for raw in (keys_out or '').splitlines():
+        key = raw.strip()
+        if not key.startswith('PORT_QOS_MAP|'):
+            continue
+        st.config(
+            dut,
+            'sonic-db-cli CONFIG_DB HDEL "{}" "dscp_to_tc_map"'.format(key),
+            skip_error_check=True)
+    st.wait(wait)
+
+
 def verify_scheduler_profiles(dut, fail_msgs, baseline=None,
                               egress_intf=None):
     """Verify SCHEDULER|scheduler.N profiles against baseline config_db.json.
