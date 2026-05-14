@@ -543,7 +543,7 @@ class QosParamCisco(object):
                                "packet_size": packet_size}
             if self.dutAsic == "gr2":
                 lossless_params["pkts_num_margin"] = 8
-                lossless_params["extra_cap_margin"] = 20
+                lossless_params["extra_cap_margin"] = 25
             self.write_params("wm_buf_pool_lossless", lossless_params)
         if self.should_autogen(["wm_buf_pool_lossy"]):
             lossy_params = {"dscp": self.dscp_queue0,
