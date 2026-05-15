@@ -207,20 +207,25 @@ class UpgradeDpuSonicImageModule(object):
         """Remove old logs, core dumps, and other expendable files on the DPU."""
         self.log("[DPU {}] Step: Checking disk space".format(dpu_ip))
 
+        should_cleanup = True
         ok, out, _ = self.execute_command(ssh, dpu_ip, "df -BM --output=pcent /host")
         if ok:
             try:
                 used_pcent = int(out.splitlines()[-1].strip().rstrip('%'))
+                if used_pcent <= self.disk_used_pcent:
+                    self.log("[DPU {}] Disk usage {}% <= threshold {}%, no cleanup needed".format(
+                        dpu_ip, used_pcent, self.disk_used_pcent))
+                    should_cleanup = False
+                else:
+                    self.log("[DPU {}] Disk usage {}% > threshold {}%, cleaning up".format(
+                        dpu_ip, used_pcent, self.disk_used_pcent))
             except (ValueError, IndexError):
-                used_pcent = 0
+                self.log("[DPU {}] Could not parse disk usage, performing cleanup as precaution".format(dpu_ip))
+        else:
+            self.log("[DPU {}] Could not check disk usage, performing cleanup as precaution".format(dpu_ip))
 
-            if used_pcent <= self.disk_used_pcent:
-                self.log("[DPU {}] Disk usage {}% <= threshold {}%, no cleanup needed".format(
-                    dpu_ip, used_pcent, self.disk_used_pcent))
-                return
-
-            self.log("[DPU {}] Disk usage {}% > threshold {}%, cleaning up".format(
-                dpu_ip, used_pcent, self.disk_used_pcent))
+        if not should_cleanup:
+            return
 
         cleanup_cmds = [
             "sudo rm -f /var/log/*.gz",
@@ -316,25 +321,48 @@ class UpgradeDpuSonicImageModule(object):
         self.log("[DPU {}] Image installed successfully".format(dpu_ip))
         return True
 
-    def reboot_dpu(self, dpu_index):
-        """Reboot DPU using 'reboot -d' command on the NPU."""
-        dpu_name = "DPU{}".format(dpu_index)
-        self.log("[DPU{}] Step: Rebooting via 'reboot -d {}'".format(dpu_index, dpu_name))
+    def verify_installed_image(self, ssh, dpu_ip, dpu_index):
+        """Log the current and next boot image versions after upgrade."""
+        ok, out, _ = self.execute_command(ssh, dpu_ip, "sudo sonic-installer list")
+        if not ok:
+            self.log("WARNING: [DPU{}] Could not verify installed image version".format(dpu_index))
+            return
 
-        rc, out, err = self.module.run_command("reboot -d {}".format(dpu_name))
+        for line in out.split('\n'):
+            line = line.strip()
+            if line.startswith("Current:") or line.startswith("Next:"):
+                self.log("[DPU{}] {}".format(dpu_index, line))
+
+    def reboot_dpu(self, dpu_index):
+        """Reboot DPU by shutting down and starting it via NPU chassis module commands."""
+        dpu_name = "DPU{}".format(dpu_index)
+        self.log("[DPU{}] Step: Rebooting via chassis module shutdown/startup".format(dpu_index))
+
+        rc, out, err = self.module.run_command("config chassis modules shutdown {}".format(dpu_name))
         if rc != 0:
-            self.log("WARNING: [DPU{}] reboot -d failed (rc={}): stdout={} stderr={}".format(
+            self.log("WARNING: [DPU{}] shutdown failed (rc={}): stdout={} stderr={}".format(
                 dpu_index, rc, out.strip(), err.strip()))
             return False
 
-        self.log("[DPU{}] Reboot command issued successfully".format(dpu_index))
+        self.log("[DPU{}] Shutdown issued, waiting 60s before startup".format(dpu_index))
+        time.sleep(60)
+
+        rc, out, err = self.module.run_command("config chassis modules startup {}".format(dpu_name))
+        if rc != 0:
+            self.log("WARNING: [DPU{}] startup failed (rc={}): stdout={} stderr={}".format(
+                dpu_index, rc, out.strip(), err.strip()))
+            return False
+
+        self.log("[DPU{}] Startup issued successfully".format(dpu_index))
         return True
 
     def remove_known_host(self, dpu_ip):
         """Remove DPU entry from SSH known_hosts on the NPU after reboot."""
         self.log("Removing {} from SSH known_hosts for root and admin".format(dpu_ip))
         self.module.run_command("ssh-keygen -R {}".format(dpu_ip))
-        self.module.run_command("sudo -u admin ssh-keygen -R {}".format(dpu_ip))
+        self.module.run_command(
+            "sudo -u admin ssh-keygen -R {} -f /home/admin/.ssh/known_hosts".format(dpu_ip)
+        )
 
     def wait_for_dpu_reboot(self, dpu_ip):
         """Wait for a DPU to become reachable again after reboot."""
@@ -444,11 +472,12 @@ class UpgradeDpuSonicImageModule(object):
             self.log("WARNING: [DPU{}] FAILED: Did not come back after reboot".format(dpu_index))
             return False
 
-        # Clean up old images after reboot so only the new image remains
+        # Clean up old images after reboot and verify the new version
         ssh = self.connect_to_dpu(dpu_ip)
         if ssh:
             try:
                 self.reduce_installed_images(ssh, dpu_ip)
+                self.verify_installed_image(ssh, dpu_ip, dpu_index)
             finally:
                 try:
                     ssh.close()

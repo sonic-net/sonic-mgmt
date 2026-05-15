@@ -31,8 +31,8 @@ if ansible_path not in sys.path:
 
 from devutil.devices.factory import init_localhost, init_testbed_sonichosts, init_sonichosts  # noqa: E402
 from devutil.devices.sonic import upgrade_image             # noqa: E402
-from devutil.devices.ansible_hosts import RunAnsibleModuleFailed                     # noqa: E402
 from devutil.devices.dpu_utils import enable_nat_for_dpuhosts  # noqa: E402
+from devutil.devices.ansible_hosts import RunAnsibleModuleFailed, HostsUnreachable    # noqa: E402
 
 
 logger = logging.getLogger(__name__)
@@ -151,6 +151,9 @@ def upgrade_dpu_images(sonichosts, dpu_image_url):
         return True
     except RunAnsibleModuleFailed as e:
         logger.error("DPU image upgrade failed: %s", repr(e))
+        return False
+    except HostsUnreachable as e:
+        logger.error("DPU image upgrade failed, host unreachable: %s", repr(e))
         return False
 
 
@@ -275,7 +278,7 @@ def main(args):
             logger.error("Upgrade to target image {} failed".format(args.image_url))
             sys.exit(RC_UPGRADE_FAILED)
         else:
-            logger.info("Upgrad to target image {} done".format(args.image_url))
+            logger.info("Upgraded to target image {} done".format(args.image_url))
 
         # Re-enable NAT after reboot so DPU SSH proxy ports are reachable
         if dpu_hostnames:
