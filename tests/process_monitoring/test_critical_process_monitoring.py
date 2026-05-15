@@ -11,10 +11,9 @@ import pytest
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.reboot import wait_for_startup
 from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
@@ -651,25 +650,30 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         logger.info("SSH is up, waiting for critical processes to recover...")
 
         # After a dirty reboot (SysRq/PDU), /var/run/redis/sonic-db/database_config.json
-        # (on tmpfs) may not exist yet — even "config reload -h" crashes without it.
+        # (on tmpfs) may not exist yet -- even "config reload -h" crashes without it.
         # So we avoid config_reload and instead:
-        # 1. Ensure all critical processes are running (docker exec supervisorctl, no db dependency)
-        # 2. Wait for database_config.json to appear (needed for interface/config queries)
+        # 1. Wait for database_config.json to appear (supervisor sockets need time too)
+        # 2. Ensure all critical processes are running (docker exec supervisorctl)
         # 3. Check that all admin-up interfaces are operationally up
-        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+        db_config_timeout = 120
+        if duthost.get_facts().get("modular_chassis"):
+            db_config_timeout = max(db_config_timeout, 600)
 
-        # Wait for database config file to be ready before checking interfaces.
         logger.info("Waiting for database_config.json to be ready...")
-        db_config_ready = wait_until(wait_time, 5, 0,
+        db_config_ready = wait_until(db_config_timeout, 5, 0,
                                      lambda: duthost.shell(
                                          "test -f /var/run/redis/sonic-db/database_config.json",
                                          module_ignore_errors=True)["rc"] == 0)
-        if db_config_ready:
-            logger.info("Database config ready, verifying interfaces come up...")
-            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
-                          "Not all ports that are admin up on are operationally up after reboot")
-        else:
-            pytest_assert(False, "database_config.json not ready after %ds — DUT recovery incomplete" % wait_time)
+        if not db_config_ready:
+            pytest_assert(False,
+                          "database_config.json not ready after %ds -- DUT recovery incomplete" % db_config_timeout)
+
+        logger.info("Database config ready, ensuring all critical processes are running...")
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+        logger.info("Verifying interfaces come up...")
+        pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+                      "Not all ports that are admin up are operationally up after reboot")
 
         logger.info("DUT recovered successfully after power cycle!")
     else:
@@ -696,6 +700,11 @@ def test_monitoring_critical_processes(
     This function will check whether names of critical processes will appear
     in the syslog if the autorestart were disabled and these critical processes
     were stopped.
+
+    Note: Database container alerting messages are intentionally not validated
+    by this test. Killing redis destabilizes the DUT before syslog messages
+    can be reliably written. Database containers are killed in a separate
+    phase solely to exercise the recovery path.
 
     Args:
         duthosts: list of DUTs.
@@ -761,7 +770,7 @@ def test_monitoring_critical_processes(
             stop_critical_processes(duthost, database_containers)
             logger.info("Database critical processes killed successfully.")
         except Exception as e:
-            logger.warning("Exception during database process kill (expected due to DUT instability): %s", str(e))
+            logger.warning("Exception during database process kill (expected due to DUT instability): %s", e)
 
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
