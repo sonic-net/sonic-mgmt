@@ -116,3 +116,15 @@ str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
 str43-0101-0400-01c0,10.3.158.19,Cisco,ConsoleServer,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
 str43-0101-0400-02c0,10.3.158.34,Cisco,ConsoleServer,ssh,
+str-8102-01,10.64.247.44/26,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
+str-8102-01-dpu-0,10.64.247.44/26,Pensando-elba,DevSonic,,sonic
+str-8102-01-dpu-1,10.64.247.44/26,Pensando-elba,DevSonic,,sonic
+str-8102-01-dpu-2,10.64.247.44/26,Pensando-elba,DevSonic,,sonic
+str-8102-01-dpu-3,10.64.247.44/26,Pensando-elba,DevSonic,,sonic
+str-8102-01-dpu-4,10.64.247.44/26,Pensando-elba,DevSonic,,sonic
+str-8102-01-dpu-5,10.64.247.44/26,Pensando-elba,DevSonic,,sonic
+str-8102-01-dpu-6,10.64.247.44/26,Pensando-elba,DevSonic,,sonic
+str-8102-01-dpu-7,10.64.247.44/26,Pensando-elba,DevSonic,,sonic
+str-8101-fanout-01,10.64.247.43/26,Cisco-8101-O32,FanoutLeaf,,sonic
+pdu-136,10.3.154.136/24,ApcRPDU,Pdu,snmp,
+pdu-134,10.3.154.137/24,ApcRPDU,Pdu,snmp,

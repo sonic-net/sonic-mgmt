@@ -88,3 +88,6 @@ pdu-159,20,str-7060x6-d08-u10,PSU2
 pdu-143,1,3pos-sn2700-e11-34,PSU1
 pdu-144,1,3pos-sn2700-e11-34,PSU2
 pdu-100,2,str43-dcs-7050cx3-32s-f-d04-u02,PSU1
+pdu-136,8,str-8102-01,PSU1
+pdu-134,8,str-8102-01,PSU2
+pdu-136,1,str-8101-fanout-01,PSU1

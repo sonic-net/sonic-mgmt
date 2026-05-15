@@ -2416,11 +2416,11 @@ sonic_cisco_8102:
         "0xFE": "0x4F61249F"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -2448,11 +2448,11 @@ sonic_cisco_8102:
         "0xFE": "0xB8048CFF"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -2480,11 +2480,11 @@ sonic_cisco_8102:
         "0xFE": "0x9C7FE4A7"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -2512,11 +2512,11 @@ sonic_cisco_8102:
         "0xFE": "0x2D956AA0"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -2775,10 +2775,10 @@ sonic_cisco_8101_tornado_C32:
       plt_reboot_dict:
         cold:
           timeout: 600
-          wait: 360
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -2807,10 +2807,10 @@ sonic_cisco_8101_tornado_C32:
       plt_reboot_dict:
         cold:
           timeout: 600
-          wait: 360
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -2839,10 +2839,10 @@ sonic_cisco_8101_tornado_C32:
       plt_reboot_dict:
         cold:
           timeout: 600
-          wait: 360
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600
@@ -2871,10 +2871,10 @@ sonic_cisco_8101_tornado_C32:
       plt_reboot_dict:
         cold:
           timeout: 600
-          wait: 360
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 420
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
           timeout: 300
           wait: 600

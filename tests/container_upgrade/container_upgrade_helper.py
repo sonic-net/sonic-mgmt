@@ -185,6 +185,33 @@ def validate_is_v1_enabled(duthost, sidecar_container_name):
                   f"{container_name} container should not be running")
 
 
+def _capture_container_env(duthost, name, keys):
+    """Capture specific env vars from a running container before it is removed."""
+    captured = {}
+    result = duthost.shell(
+        f"docker inspect --format '{{{{range .Config.Env}}}}{{{{println .}}}}{{{{end}}}}' {name}",
+        module_ignore_errors=True,
+    )
+    if result.get("rc", 1) == 0:
+        for line in result["stdout"].splitlines():
+            for key in keys:
+                if line.startswith(f"{key}="):
+                    captured[key] = line.split("=", 1)[1]
+    return captured
+
+
+def _ensure_device_ops_agent_env(duthost, parameters, captured_env):
+    """Append NODE_NAME and CR_NAMESPACE if not already in parameters."""
+    node_name = captured_env.get("NODE_NAME") or duthost.hostname
+    cr_namespace = captured_env.get("CR_NAMESPACE") or "sonic"
+
+    if "NODE_NAME=" not in parameters:
+        parameters += f" -e NODE_NAME={node_name}"
+    if "CR_NAMESPACE=" not in parameters:
+        parameters += f" -e CR_NAMESPACE={cr_namespace}"
+    return parameters
+
+
 def pull_run_dockers(duthost, creds, env):
     logger.info("Pulling docker images")
     registry = load_docker_registry_info(duthost, creds)
@@ -197,10 +224,20 @@ def pull_run_dockers(duthost, creds, env):
         download_image(duthost, registry, container, version)
         parameters = env.parameters[container]
         optional_parameters = env.optional_parameters
+
+        # Capture env vars from the running container before stopping it
+        captured_env = {}
+        if name == "device-ops-agent":
+            captured_env = _capture_container_env(duthost, name, ["NODE_NAME", "CR_NAMESPACE"])
+
         # Stop and remove existing container
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
         duthost.shell(f"docker tag {docker_image} {container}:latest")
+
+        if name == "device-ops-agent":
+            parameters = _ensure_device_ops_agent_env(duthost, parameters, captured_env)
+
         if "IS_V1_ENABLED=true" in optional_parameters \
                 and "watchdog" not in name and "sidecar" not in name:
             systemd_service = find_systemd_service(name)
