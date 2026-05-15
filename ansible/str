@@ -235,6 +235,12 @@ all:
         pdu-242:
           ansible_host: 10.3.154.131
           protocol: snmp
+        pdu-136:
+          ansible_host: 10.3.154.136
+          protocol: snmp
+        pdu-134:
+          ansible_host: 10.3.154.137
+          protocol: snmp
 
 sonic:
   vars:
@@ -253,6 +259,8 @@ sonic:
     sonic_nokia_7250x3b_400G:
     sonic_arista_7060x6_512:
     sonic_cisco_8101:
+    sonic_cisco_8102_smartswitch:
+    sonic_pensando_elba_smartswitch_dpu:
     sonic_nexthop_5010:
 
 sonic_cisco_8101:
@@ -295,6 +303,68 @@ sonic_cisco_8101:
         "0xFE": "0x4A406B0B"
   vars:
     iface_speed: 400000
+
+sonic_cisco_8102_smartswitch:
+  vars:
+    hwsku: Cisco-8102-28FH-DPU-O
+    iface_speed: 400000
+  hosts:
+    str-8102-01:
+      ansible_host: 10.64.247.44
+      mgmt_subnet_mask_length: 26
+      model: 8102-28FH-DPU-O
+      serial: FLM282307K5
+      base_mac: 9C:09:8B:FC:56:60
+      syseeprom_info:
+        "0x21": "8102-28FH-DPU-O"
+        "0x22": "NO_ECI"
+        "0x23": "FLM282307K5"
+        "0x24": "9C:09:8B:FC:56:60"
+        "0x26": "0"
+        "0x28": "x86_64-8102_28fh_dpu_o-r0"
+        "0x2A": "528"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x00000000"
+
+sonic_pensando_elba_smartswitch_dpu:
+  vars:
+    hwsku: Pensando-elba
+    iface_speed: 200000
+  hosts:
+    str-8102-01-dpu-0:
+      ansible_host: 10.64.247.44
+      ansible_ssh_port: 5021
+      mgmt_subnet_mask_length: 26
+    str-8102-01-dpu-1:
+      ansible_host: 10.64.247.44
+      ansible_ssh_port: 5022
+      mgmt_subnet_mask_length: 26
+    str-8102-01-dpu-2:
+      ansible_host: 10.64.247.44
+      ansible_ssh_port: 5023
+      mgmt_subnet_mask_length: 26
+    str-8102-01-dpu-3:
+      ansible_host: 10.64.247.44
+      ansible_ssh_port: 5024
+      mgmt_subnet_mask_length: 26
+    str-8102-01-dpu-4:
+      ansible_host: 10.64.247.44
+      ansible_ssh_port: 5025
+      mgmt_subnet_mask_length: 26
+    str-8102-01-dpu-5:
+      ansible_host: 10.64.247.44
+      ansible_ssh_port: 5026
+      mgmt_subnet_mask_length: 26
+    str-8102-01-dpu-6:
+      ansible_host: 10.64.247.44
+      ansible_ssh_port: 5027
+      mgmt_subnet_mask_length: 26
+    str-8102-01-dpu-7:
+      ansible_host: 10.64.247.44
+      ansible_ssh_port: 5028
+      mgmt_subnet_mask_length: 26
 
 sonic_mlnx_40:
   hosts:
@@ -1106,6 +1176,10 @@ fanout:
       ansible_hostv6: 2a01:111:e210:b000::a40:f74d
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
+    str-8101-fanout-01:
+      ansible_host: 10.64.247.43
+      mgmt_subnet_mask_length: 26
+      os: sonic
 
 server:
   hosts:
