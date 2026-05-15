@@ -877,7 +877,7 @@ dash/test_dash_metering.py:
   skip:
     reason: "Metering w/ FNIC not supported on Nvidia yet"
     conditions:
-      - "hwsku not in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_privatelink.py:
   skip:
