@@ -773,6 +773,12 @@ def param_reboot(request, duthost, localhost, loganalyzer):
     if reboot_type == "reload":
         config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
         wait_until(120, 10, 0, check_interface_status, duthost)
+        # Wait for BGP sessions to re-establish, consistent with do_and_wait_reboot()
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        pytest_assert(
+            wait_until(180, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+            "Not all bgp sessions are established after config reload"
+        )
     else:
         do_and_wait_reboot(duthost, localhost, reboot_type)
 
