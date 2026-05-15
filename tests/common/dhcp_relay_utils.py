@@ -576,10 +576,11 @@ def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
 
     duthost = rand_selected_dut
 
-    if "dut_dhcp_relay_data" in request.fixturenames:
-        dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")
-    else:
-        dut_dhcp_relay_data = None
+    dut_dhcp_relay_data = None
+    for _name in ("dut_dhcp_relay_data_multivlan", "dut_dhcp_relay_data"):
+        if _name in request.fixturenames:
+            dut_dhcp_relay_data = request.getfixturevalue(_name)
+            break
 
     try:
         if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
