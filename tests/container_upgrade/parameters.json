@@ -192,7 +192,10 @@
             "-v /var/run/gnmi:/var/run/gnmi:ro",
             "-v /var/run/redis:/var/run/redis:ro",
             "-v /etc/localtime:/etc/localtime:ro",
-            "-v /etc/sonic:/etc/sonic:ro"
+            "-v /etc/sonic:/etc/sonic:ro",
+            "-e SERVER_CRT=/etc/sonic/telemetry/streamingtelemetryserver.cer",
+            "-e SERVER_KEY=/etc/sonic/telemetry/streamingtelemetryserver.key",
+            "-e CA_CRT=/etc/sonic/telemetry/dsmsroot.cer"
         ]
     }
 }
