@@ -8,7 +8,6 @@ import logging
 from tests.common.dhcp_relay_utils import restart_dhcp_service
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -550,15 +549,14 @@ class TestDhcpv6RelayWithMultipleVlan:
         yield
         restart_dhcp_service(duthost)
 
-    @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", [3], indirect=True)
     def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                                 toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                                                 setup_active_active_as_active_standby,             # noqa F811
-                                                setup_multiple_vlans_and_teardown):                # noqa F811
+                                                parametrize_vlan_config_from_topo):                # noqa F811
         '''
             Test DHCP relay should set correct link address when relay packet to DHCP server
         '''
-        vlans_info = setup_multiple_vlans_and_teardown
+        vlans_info = parametrize_vlan_config_from_topo
         _, duthost = testing_config
         # Please note: relay interface always means vlan interface
         pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
