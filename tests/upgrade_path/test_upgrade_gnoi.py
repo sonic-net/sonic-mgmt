@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import gnmi_tls, ptf_grpc, ptf_gnoi  # noqa: F401
 from tests.upgrade_path.test_upgrade_path import setup_upgrade_test
 from tests.common.helpers.upgrade_helpers import perform_gnoi_upgrade, GnoiUpgradeConfig
 
