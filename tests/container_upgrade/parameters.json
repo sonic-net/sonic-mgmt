@@ -98,6 +98,9 @@
         "parameters": [
             "--pid=host",
             "--net=host",
+            "--cap-add=SYS_ADMIN",
+            "--cap-add=SYS_PTRACE",
+            "--security-opt apparmor=unconfined",
             "-v /etc/localtime:/etc/localtime:ro",
             "-v /etc/sonic:/etc/sonic:ro",
             "--label io.kubernetes.pod.namespace=sonic",

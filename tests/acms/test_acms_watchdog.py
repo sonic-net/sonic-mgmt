@@ -53,15 +53,12 @@ def test_acms_healthy(duthosts,
     except json.JSONDecodeError:
         pytest.fail("Invalid JSON response from ACMS watchdog: {}".format(output))
 
-    # Define expected keys
-    expected_keys = [
-        "check_ca_pem"
-    ]
+    pytest_assert(len(response) > 0, "ACMS watchdog returned an empty response")
 
-    # Check if all expected keys exist and have the value "OK"
-    for key in expected_keys:
-        pytest_assert(response.get(key) == "OK",
-                      "ACMS watchdog check failed for {}: {}".format(key, response.get(key)))
+    # Dynamically check all keys returned by the watchdog
+    for key in response:
+        pytest_assert(response[key] == "OK",
+                      "ACMS watchdog check failed for {}: {}".format(key, response[key]))
 
     output = duthost.command(CURL_HTTP_CODE_CMD, module_ignore_errors=True)["stdout"]
     pytest_assert(output == "200", "ACMS watchdog should be healthy")
@@ -78,18 +75,18 @@ def test_acms_missing_ca_pem(duthosts,
     except json.JSONDecodeError:
         pytest.fail("Invalid JSON response from ACMS watchdog: {}".format(output))
 
-    # Define expected keys
-    expected_keys = [
-        "check_ca_pem"
-    ]
+    # Verify check_ca_pem reports the expected failure
+    msg = response.get("check_ca_pem", "")
+    pytest_assert(msg.startswith("FAIL cannot access") and
+                  "ROOT_CERTIFICATE.pem" in msg and
+                  "No such file or directory" in msg,
+                  "Unexpected results for check_ca_pem: {}".format(msg))
 
-    # Check if all expected keys exist and have the value "OK"
-    for key in expected_keys:
-        msg = response.get(key, "")
-        pytest_assert(msg.startswith("FAIL cannot access") and
-                      "ROOT_CERTIFICATE.pem" in msg and
-                      "No such file or directory" in msg,
-                      "Unexpected results for {}: {}".format(key, response.get(key)))
+    # All other keys should still be OK
+    for key in response:
+        if key != "check_ca_pem":
+            pytest_assert(response[key] == "OK",
+                          "ACMS watchdog check failed for {}: {}".format(key, response[key]))
 
     output = duthost.command(CURL_HTTP_CODE_CMD, module_ignore_errors=True)["stdout"]
     pytest_assert(output == "500", "ACMS watchdog should be unhealthy")
