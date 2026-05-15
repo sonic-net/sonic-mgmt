@@ -27,6 +27,9 @@
 
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
+  - set_fact:
+      base_topo: "{{ base_topo.split('-') | first }}"
+    when: base_topo not in topologies
 
   - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }}"
