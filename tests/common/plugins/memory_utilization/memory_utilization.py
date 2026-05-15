@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 import json
 from os.path import join, split
 
@@ -9,6 +10,10 @@ logger.setLevel(logging.INFO)
 MEMORY_UTILIZATION_COMMON_JSON_FILE = join(split(__file__)[0], "memory_utilization_common.json")
 MEMORY_UTILIZATION_DEPENDENCE_JSON_FILE = join(split(__file__)[0], "memory_utilization_dependence.json")
 
+# [MemoryUtilization] tunables: how long to sleep and how many times to retry the `sudo monit status` read.
+MONIT_STATUS_FRESHNESS_WAIT_SECONDS = 60
+MONIT_STATUS_FRESHNESS_MAX_RETRIES = 3
+
 
 class MemoryMonitor:
     def __init__(self, ansible_host):
@@ -17,6 +22,8 @@ class MemoryMonitor:
         self.commands = []
         self.memory_values = {}
         self.memory_errors = []
+        # [MemoryUtilization] System-block 'data collected' timestamp captured from last `sudo monit validate`.
+        self._monit_memory_baseline_timestamp = ""
 
     def register_command(self, name, cmd, memory_params, memory_check_fn):
         """Register a command with its associated memory parameters and check function."""
@@ -41,6 +48,90 @@ class MemoryMonitor:
         except Exception as e:
             logger.warning("Error executing command '{}': {}".format(cmd, str(e)))
             return ""  # Return empty string on error
+
+    @staticmethod
+    def _parse_monit_memory_data_collected_timestamp(output):
+        """
+        Return the 'data collected' timestamp string from the monit System block
+        (the block containing 'memory usage'), or "" if no matching block is found.
+        Other blocks (Filesystem/Process/Program) are intentionally ignored -- their
+        timestamps do not advance with `sudo monit validate`.
+        """
+        if not output:
+            return ""
+
+        in_memory_block = False
+        for line in output.split('\n'):
+            stripped = line.strip()
+            # Blank line ends the current block.
+            if not stripped:
+                in_memory_block = False
+                continue
+            # 'memory usage' marks the System block; its 'data collected' follows later.
+            if stripped.lower().startswith("memory usage"):
+                in_memory_block = True
+                continue
+            if in_memory_block and stripped.lower().startswith("data collected"):
+                parts = stripped.split(None, 2)
+                if len(parts) >= 3:
+                    return parts[2]
+                return ""
+
+        return ""
+
+    def record_monit_baseline_from_validate_output(self, validate_output):
+        """
+        Store the System-block 'data collected' timestamp from a `sudo monit validate`
+        output as the baseline for the freshness check. Does NOT issue any monit command.
+        """
+        self._monit_memory_baseline_timestamp = self._parse_monit_memory_data_collected_timestamp(validate_output)
+        logger.info(
+            "[MemoryUtilization] recorded validate baseline System-block 'data collected': {}".format(
+                self._monit_memory_baseline_timestamp or "<none>"))
+
+    def read_monit_status_with_freshness_retry(self, cmd):
+        """
+        Execute `sudo monit status` and verify its System-block 'data collected' timestamp
+        differs from the validate-output baseline. If it still matches, sleep
+        MONIT_STATUS_FRESHNESS_WAIT_SECONDS and retry the status read, up to
+        MONIT_STATUS_FRESHNESS_MAX_RETRIES times. Never re-issues `monit validate`.
+        Returns the final output even when freshness cannot be confirmed.
+        """
+        output = self.execute_command(cmd)
+
+        if not self._monit_memory_baseline_timestamp:
+            logger.warning(
+                "[MemoryUtilization] no validate baseline recorded; skipping freshness check for '{}'".format(cmd))
+            return output
+
+        current_ts = self._parse_monit_memory_data_collected_timestamp(output)
+        if current_ts and current_ts != self._monit_memory_baseline_timestamp:
+            logger.info(
+                "[MemoryUtilization] status data is fresh on first read (System block ts: {})".format(current_ts))
+            return output
+
+        # Stale: same timestamp as validate output. Sleep and retry, bounded.
+        for attempt in range(1, MONIT_STATUS_FRESHNESS_MAX_RETRIES + 1):
+            logger.warning(
+                "[MemoryUtilization] status System-block ts still matches validate baseline ({}); "
+                "sleeping {}s before retry {}/{} of status read".format(
+                    self._monit_memory_baseline_timestamp,
+                    MONIT_STATUS_FRESHNESS_WAIT_SECONDS,
+                    attempt, MONIT_STATUS_FRESHNESS_MAX_RETRIES))
+            time.sleep(MONIT_STATUS_FRESHNESS_WAIT_SECONDS)
+
+            output = self.execute_command(cmd)
+            current_ts = self._parse_monit_memory_data_collected_timestamp(output)
+            if current_ts and current_ts != self._monit_memory_baseline_timestamp:
+                logger.info(
+                    "[MemoryUtilization] status data refreshed on retry {}/{} (System block ts: {})".format(
+                        attempt, MONIT_STATUS_FRESHNESS_MAX_RETRIES, current_ts))
+                return output
+
+        logger.error(
+            "[MemoryUtilization] status data still stale after {} retries; "
+            "proceeding with possibly stale output".format(MONIT_STATUS_FRESHNESS_MAX_RETRIES))
+        return output
 
     def check_memory_thresholds(self, current_values, previous_values):
         """Check memory usage against thresholds. """

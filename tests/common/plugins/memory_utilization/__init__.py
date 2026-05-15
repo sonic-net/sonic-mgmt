@@ -54,12 +54,16 @@ def pytest_runtest_setup(item):
 
         # Trigger monit to refresh its cache so subsequent collection reads fresh data
         logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-        memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+        validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+        memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
 
         # Initial memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
-                output = memory_monitors[duthost.hostname].execute_command(cmd)
+                if name == "monit":
+                    output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(cmd)
+                else:
+                    output = memory_monitors[duthost.hostname].execute_command(cmd)
                 memory_values["before_test"][duthost.hostname][name] = memory_check(output, memory_params)
             except Exception as e:
                 logger.warning("Error collecting initial memory data for {}: {}".format(name, str(e)))
@@ -97,12 +101,16 @@ def pytest_runtest_teardown(item, nextitem):
 
         # Trigger monit to refresh its cache so subsequent collection reads fresh data
         logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-        memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+        validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+        memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
 
         # memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
-                output = memory_monitors[duthost.hostname].execute_command(cmd)
+                if name == "monit":
+                    output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(cmd)
+                else:
+                    output = memory_monitors[duthost.hostname].execute_command(cmd)
                 memory_values["after_test"][duthost.hostname][name] = memory_check(output, memory_params)
             except Exception as e:
                 logger.warning("Error collecting final memory data for {}: {}".format(name, str(e)))
