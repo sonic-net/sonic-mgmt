@@ -19,7 +19,7 @@ from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.conftest import get_hosts_per_hwsku
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2', 'lrh', 'urh'),
     pytest.mark.usefixtures("chassis_tsa_supported_pre_req"),
 ]
 

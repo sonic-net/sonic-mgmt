@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 import time
+import importlib
 import json
 import pytest
 import yaml
@@ -1077,12 +1078,14 @@ def run_supervisor_traffic_shift_interactive(suphost, creds, cmd):
         creds: Dict with `sonicadmin_user`, `sonicadmin_password`, optional `ansible_altpasswords`
         cmd: `TSA` or `TSB`
     """
+    pexpect_mod = None
     try:
-        import pexpect
+        pexpect_mod = importlib.import_module("pexpect")
     except ImportError:
         pytest.fail(
             "pexpect is required for interactive supervisor TSA/TSB; install pexpect on the test runner."
         )
+    assert pexpect_mod is not None  # import path is definite
 
     if cmd not in ('TSA', 'TSB'):
         raise ValueError("cmd must be 'TSA' or 'TSB', got {!r}".format(cmd))
@@ -1147,9 +1150,9 @@ def run_supervisor_traffic_shift_interactive(suphost, creds, cmd):
 
     remote_cmd = 'sudo {}'.format(cmd)
 
-    child = pexpect.spawn(ssh_cmd, timeout=420, encoding='utf-8', codec_errors='replace', echo=False)
+    child = pexpect_mod.spawn(ssh_cmd, timeout=420, encoding='utf-8', codec_errors='replace', echo=False)
     try:
-        i = child.expect([r'(?i)password:', r'(?i)yes/no', pexpect.EOF], timeout=90)
+        i = child.expect([r'(?i)password:', r'(?i)yes/no', pexpect_mod.EOF], timeout=90)
         _log_interactive_supervisor_ts(
             suphost, cmd, "ssh_login", "expect index=%s" % i, (child.before or '') + (child.after or ''))
         if i == 1:
@@ -1223,13 +1226,15 @@ def run_supervisor_traffic_shift_interactive(suphost, creds, cmd):
             events += 1
             try:
                 j = child.expect(pat_list, timeout=240)
-            except pexpect.TIMEOUT:
+            except pexpect_mod.TIMEOUT:
                 buf = (child.before or '') + (child.after or '')
                 try:
                     buf += child.read_nonblocking(size=65536, timeout=4)
-                except pexpect.TIMEOUT:
+                except pexpect_mod.TIMEOUT:
+                    # No extra bytes available within the short drain window; buf already has before/after.
                     pass
                 except Exception:
+                    # read_nonblocking can fail if the child is closing; partial buf is still useful.
                     pass
                 _append_ts_transcript_fragment(buf)
                 _log_interactive_supervisor_ts(suphost, cmd, "expect_timeout", "event=%d" % events, buf)
@@ -1271,11 +1276,12 @@ def run_supervisor_traffic_shift_interactive(suphost, creds, cmd):
                         child.sendline(passwords[min(pwd_round, len(passwords) - 1)])
                         pwd_round += 1
                         continue
-                    except pexpect.TIMEOUT:
+                    except pexpect_mod.TIMEOUT:
+                        # Prompt not seen in time after tail; fall through and fail with full timeout context.
                         pass
                 _emit_remote_cmd_transcript()
                 raise AssertionError(
-                    "{}: timed out waiting for completion; saw_mid=%s saw_tail=%s pwd_round=%s tail=%r".format(
+                    "{}: timed out waiting for completion; saw_mid={} saw_tail={} pwd_round={} tail={!r}".format(
                         cmd, saw_mid, saw_tail, pwd_round, _ansi_strip(buf)[-4000:]))
 
             _append_ts_transcript_fragment((child.before or '') + (child.after or ''))
@@ -1318,7 +1324,7 @@ def run_supervisor_traffic_shift_interactive(suphost, creds, cmd):
         if not clean_exit:
             _emit_remote_cmd_transcript()
             raise AssertionError(
-                "{}: no clean shell exit (saw_mid=%s saw_tail=%s pwd_round=%s)".format(
+                "{}: no clean shell exit (saw_mid={} saw_tail={} pwd_round={})".format(
                     cmd, saw_mid, saw_tail, pwd_round))
         time.sleep(3)
         try:
@@ -1336,6 +1342,7 @@ def run_supervisor_traffic_shift_interactive(suphost, creds, cmd):
         try:
             acc += child.read_nonblocking(size=65536, timeout=5)
         except Exception:
+            # Best-effort drain after TSA/TSB completes; ignore EOF/pty errors.
             pass
         _append_ts_transcript_fragment(acc)
         _log_interactive_supervisor_ts(suphost, cmd, "post_wait", "drain", acc)
@@ -1347,10 +1354,12 @@ def run_supervisor_traffic_shift_interactive(suphost, creds, cmd):
             if child.isalive():
                 child.sendline('exit')
         except Exception:
+            # Child may already be dead or the pty unusable; cleanup must not mask prior failures.
             pass
         try:
             child.close(force=True)
         except Exception:
+            # close(force=True) can still raise if the fd is invalid; ignore in teardown.
             pass
 
 
