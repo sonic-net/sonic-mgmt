@@ -787,6 +787,12 @@ copp/test_copp.py:
     conditions:
       - "'-v6-' in topo_name"
 
+copp/test_copp.py::TestCOPP:
+  xfail:
+    reason: "PTF docker image does not support ptf_nn_agent with pynng: https://github.com/sonic-net/sonic-buildimage/issues/26925"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/26925 and asic_type in ['mellanox', 'nvidia']"
+
 copp/test_copp.py::TestCOPP::test_add_new_trap:
   skip:
     reason: "Copp test_add_new_trap is not yet supported on these testbeds"
