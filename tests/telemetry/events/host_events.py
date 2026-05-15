@@ -36,7 +36,8 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
         run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, None,
                  "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
         run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
-                 "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
+                 "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag,
+                 start_listen_first=True)
         run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
                  "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
         run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, stop_container,
