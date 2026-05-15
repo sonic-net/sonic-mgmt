@@ -5528,7 +5528,6 @@ upgrade_path:
       - Not supported on t1 topology
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
       - "'t1' in topo_type and asic_type in ['marvell-teralynx']"
 
 upgrade_path/test_multi_hop_upgrade_path.py:
