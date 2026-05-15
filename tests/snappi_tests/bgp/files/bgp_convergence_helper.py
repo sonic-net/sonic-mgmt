@@ -1,4 +1,5 @@
 import logging
+import time
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import wait
@@ -125,7 +126,8 @@ def run_rib_in_convergence_test(snappi_api,
                                 number_of_routes,
                                 route_type,
                                 timeout=None,
-                                skip_duthost_bgp_config=False,):
+                                skip_duthost_bgp_config=False,
+                                mem_cpu_monitor=None,):
     """
     Run RIB-IN Convergence test
 
@@ -139,6 +141,9 @@ def run_rib_in_convergence_test(snappi_api,
         route_type: IPv4 or IPv6 routes
         timeout: optional timeout in seconds for convergence steps (default: TIMEOUT)
         skip_duthost_bgp_config: Use existing config from config_db to run test.
+        mem_cpu_monitor: optional ``mem_cpu_monitor`` fixture; passed to
+            :func:`get_rib_in_convergence` for snapshots around RIB-IN metrics, then a **60s** wait
+            followed by ``stop()`` in that helper's ``finally`` block.
     """
 
     if timeout is None:
@@ -174,7 +179,8 @@ def run_rib_in_convergence_test(snappi_api,
                            multipath,
                            number_of_routes,
                            route_type,
-                           timeout,)
+                           timeout,
+                           mem_cpu_monitor=mem_cpu_monitor,)
 
 
 def run_RIB_IN_capacity_test(snappi_api,
@@ -787,7 +793,8 @@ def get_rib_in_convergence(snappi_api,
                            multipath,
                            number_of_routes,
                            route_type,
-                           timeout=None):
+                           timeout=None,
+                           mem_cpu_monitor=None):
     """
     Args:
         snappi_api (pytest fixture): snappi API
@@ -797,6 +804,9 @@ def get_rib_in_convergence(snappi_api,
         number_of_routes:  Number of IPv4/IPv6/IPv4v6 Routes
         route_type: IPv4 or IPv6 or IPv4v6 routes
         timeout: timeout for route withdraw and advertisement.
+        mem_cpu_monitor: optional controller from ``mem_cpu_monitor`` fixture; when set,
+            records snapshots around RIB-IN convergence, waits **60 seconds** after the loop for
+            extra samples, then ``stop()`` in ``finally`` (pair with ``start()`` in the test).
     """
     if timeout is not None:
         TIMEOUT = timeout
@@ -825,71 +835,98 @@ def get_rib_in_convergence(snappi_api,
                             seg.SegmentType.Single('asseq')
 
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
-    for i in range(0, iteration):
-        logger.info(
-            '|---- RIB-IN Convergence test, Iteration : {} ----|'.format(i+1))
-        """ withdraw all routes before starting traffic """
-        logger.info('Withdraw All Routes before starting traffic')
-        cs = snappi_api.control_state()
-        cs.protocol.route.names = route_names
-        cs.protocol.route.state = cs.protocol.route.WITHDRAW
-        snappi_api.set_control_state(cs)
-        wait(TIMEOUT, "For Routes to be withdrawn")
-        """ Starting Protocols """
-        logger.info("Starting all protocols ...")
-        cs = snappi_api.control_state()
-        cs.protocol.all.state = cs.protocol.all.START
-        snappi_api.set_control_state(cs)
-        wait(WAIT_INTERVAL, "For Protocols To start")
-        """ Start Traffic """
-        logger.info('Starting Traffic')
-        cs = snappi_api.control_state()
-        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
-        snappi_api.set_control_state(cs)
-        wait(WAIT_INTERVAL, "For Traffic To start")
-        flow_stats = get_flow_stats(snappi_api)
-        tx_frame_rate = flow_stats[0].frames_tx_rate
-        rx_frame_rate = flow_stats[0].frames_rx_rate
-        assert tx_frame_rate != 0, "Traffic has not started"
-        assert rx_frame_rate == 0
+    try:
+        for i in range(0, iteration):
+            logger.info(
+                '|---- RIB-IN Convergence test, Iteration : {} ----|'.format(i+1))
+            """ withdraw all routes before starting traffic """
+            logger.info('Withdraw All Routes before starting traffic')
+            cs = snappi_api.control_state()
+            cs.protocol.route.names = route_names
+            cs.protocol.route.state = cs.protocol.route.WITHDRAW
+            snappi_api.set_control_state(cs)
+            if mem_cpu_monitor is not None:
+                mem_cpu_monitor.snapshot(
+                    event="Route_Withdrawal_started_iter_{}".format(i + 1))
+            wait(TIMEOUT, "For Routes to be withdrawn")
+            """ Starting Protocols """
+            logger.info("Starting all protocols ...")
+            cs = snappi_api.control_state()
+            cs.protocol.all.state = cs.protocol.all.START
+            snappi_api.set_control_state(cs)
+            if mem_cpu_monitor is not None:
+                mem_cpu_monitor.snapshot(
+                    event="Protocols_started_iter_{}".format(i + 1))
+            wait(WAIT_INTERVAL, "For Protocols To start")
+            """ Start Traffic """
+            logger.info('Starting Traffic')
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+            snappi_api.set_control_state(cs)
+            wait(WAIT_INTERVAL, "For Traffic To start")
+            flow_stats = get_flow_stats(snappi_api)
+            tx_frame_rate = flow_stats[0].frames_tx_rate
+            rx_frame_rate = flow_stats[0].frames_rx_rate
+            assert tx_frame_rate != 0, "Traffic has not started"
+            assert rx_frame_rate == 0
 
-        """ Advertise All Routes """
-        logger.info('Advertising all Routes from {}'.format(route_names))
-        cs = snappi_api.control_state()
-        cs.protocol.route.names = route_names
-        cs.protocol.route.state = cs.protocol.route.ADVERTISE
-        snappi_api.set_control_state(cs)
-        wait(TIMEOUT, "For all routes to be ADVERTISED")
-        flows = get_flow_stats(snappi_api)
-        for flow in flows:
-            tx_frate.append(flow.frames_tx_rate)
-            rx_frate.append(flow.frames_rx_rate)
-        assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
-            "Traffic has not converged, TxFrameRate:{},RxFrameRate:{}"\
-            .format(sum(tx_frate), sum(rx_frate))
-        logger.info("Traffic has converged after route advertisement")
+            """ Advertise All Routes """
+            logger.info('Advertising all Routes from {}'.format(route_names))
+            if mem_cpu_monitor is not None:
+                mem_cpu_monitor.snapshot(
+                    event="Before_route_advertise_iter_{}".format(i + 1))
+            cs = snappi_api.control_state()
+            cs.protocol.route.names = route_names
+            cs.protocol.route.state = cs.protocol.route.ADVERTISE
+            snappi_api.set_control_state(cs)
+            wait(TIMEOUT, "For all routes to be ADVERTISED")
+            if mem_cpu_monitor is not None:
+                mem_cpu_monitor.snapshot(
+                    event="After_route_advertise_iter_{}".format(i + 1))
+            flows = get_flow_stats(snappi_api)
+            for flow in flows:
+                tx_frate.append(flow.frames_tx_rate)
+                rx_frate.append(flow.frames_rx_rate)
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
+                "Traffic has not converged, TxFrameRate:{},RxFrameRate:{}"\
+                .format(sum(tx_frate), sum(rx_frate))
+            logger.info("Traffic has converged after route advertisement")
 
-        """ Get RIB-IN convergence """
-        request = snappi_api.metrics_request()
-        request.convergence.flow_names = []
-        convergence_metrics = snappi_api.get_metrics(request).convergence_metrics
-        for metrics in convergence_metrics:
-            logger.info('RIB-IN Convergence time (ms): {}'.format(
-                metrics.control_plane_data_plane_convergence_us/1000))
-        avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
-        avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
-        """ Stop traffic at the end of iteration """
-        logger.info('Stopping Traffic at the end of iteration{}'.format(i+1))
-        cs = snappi_api.control_state()
-        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
-        snappi_api.set_control_state(cs)
-        wait(WAIT_INTERVAL, "For Traffic To stop")
-        """ Stopping Protocols """
-        logger.info("Stopping all protocols ...")
-        cs = snappi_api.control_state()
-        cs.protocol.all.state = cs.protocol.all.STOP
-        snappi_api.set_control_state(cs)
-        wait(WAIT_INTERVAL, "For Protocols To STOP")
+            """ Get RIB-IN convergence """
+            request = snappi_api.metrics_request()
+            request.convergence.flow_names = []
+            convergence_metrics = snappi_api.get_metrics(request).convergence_metrics
+            for metrics in convergence_metrics:
+                logger.info('RIB-IN Convergence time (ms): {}'.format(
+                    metrics.control_plane_data_plane_convergence_us/1000))
+            avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
+            avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
+            """ Stop traffic at the end of iteration """
+            logger.info('Stopping Traffic at the end of iteration{}'.format(i+1))
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            if mem_cpu_monitor is not None:
+                mem_cpu_monitor.snapshot(
+                    event="After_traffic_stop_metrics_iter_{}".format(i + 1))
+            snappi_api.set_control_state(cs)
+            wait(WAIT_INTERVAL, "For Traffic To stop")
+            """ Stopping Protocols """
+            logger.info("Stopping all protocols ...")
+            cs = snappi_api.control_state()
+            cs.protocol.all.state = cs.protocol.all.STOP
+            snappi_api.set_control_state(cs)
+            wait(WAIT_INTERVAL, "For Protocols To STOP")
+            if mem_cpu_monitor is not None:
+                mem_cpu_monitor.snapshot(
+                    event="After_protocol_stop_iter_{}".format(i + 1))
+    finally:
+        if mem_cpu_monitor is not None:
+            try:
+                logger.info("mem_cpu_monitor: waiting 60s before stop() for post-convergence sampling")
+                time.sleep(60)
+                mem_cpu_monitor.stop()
+            except Exception:
+                logger.exception("mem_cpu_monitor.stop() after RIB-IN convergence")
     table.append('Advertise All BGP Routes')
     table.append(route_type)
     table.append(number_of_routes)
