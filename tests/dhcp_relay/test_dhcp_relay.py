@@ -29,11 +29,6 @@ pytestmark = [
     pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
 
-SUPPORTED_DHCPV4_TYPE = [
-    "Unknown", "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp"
-]
-SUPPORTED_DIR = ["TX", "RX"]
-
 
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
@@ -768,3 +763,68 @@ def test_dhcp_broadcast_not_flooded(ptfhost, dut_dhcp_relay_data, validate_dut_r
                    log_file=("/tmp/dhcp_relay_test.DHCPBroadcastNotFloodedTest.{}.log"
                              .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                    is_python3=True)
+
+
+class TestDhcpv4RelayWithMultipleVlan:
+    """V4 sibling of TestDhcpv6RelayWithMultipleVlan, driven by
+    parametrize_vlan_config_from_topo. Auto-parametrized across every
+    vlan_config variant defined in the topo file (one_vlan_a, two_vlan_a,
+    four_vlan_a, ...). Variants that put secondary_subnet on a Vlan in a
+    multi-Vlan config trigger the dhcrelay duplicate `-iu` rendering path,
+    and `check_relayed_pkts_on_server_side` (in the PTF runner) asserts
+    strict equality `captured_count == num_dhcp_servers`, so any
+    duplication on the wire fails the test.
+    """
+
+    @pytest.fixture(scope="function", autouse=True)
+    def restart_dhcp_relay_after_test(self, duthost, relay_agent):
+        yield
+        restart_dhcp_service(duthost, ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc'])
+
+    def test_dhcp_relay_no_double_forward(
+        self, ptfhost, duthost, dut_dhcp_relay_data_multivlan, validate_dut_routes_exist,
+        testing_config, toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
+        setup_standby_ports_on_rand_unselected_tor,                          # noqa F811
+        relay_agent,
+    ):
+        """Verify DHCPv4 relay does not double-forward on any topo VLAN plan."""
+        testing_mode, duthost = testing_config
+        pytest_assert(
+            len(dut_dhcp_relay_data_multivlan) > 0,
+            "Need at least one DHCP relay entry for VLAN plan",
+        )
+
+        for dhcp_relay in dut_dhcp_relay_data_multivlan:
+            if not dhcp_relay.get('downlink_vlan_iface', {}).get('addr'):
+                continue
+            relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
+            restart_dhcp_service(duthost, relay_types)
+            ptf_runner(
+                ptfhost,
+                "ptftests",
+                "dhcp_relay_test.DHCPTest",
+                platform_dir="ptftests",
+                params={
+                    "hostname": duthost.hostname,
+                    "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                    "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                    "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                    "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                    "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                    "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                    "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                    "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                    "dest_mac_address": BROADCAST_MAC,
+                    "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                    "switch_loopback_ip": str(dhcp_relay['switch_loopback_ip']),
+                    "uplink_mac": str(dhcp_relay['uplink_mac']),
+                    "testing_mode": testing_mode,
+                    "kvm_support": True,
+                    "relay_agent": relay_agent,
+                    "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
+                },
+                log_file="/tmp/dhcp_relay_test.DHCPTest.multi_vlan.{}.log".format(
+                    dhcp_relay['downlink_vlan_iface']['name'],
+                ),
+                is_python3=True,
+            )
