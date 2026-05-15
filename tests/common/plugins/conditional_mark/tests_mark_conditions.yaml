@@ -5227,6 +5227,18 @@ sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[
 #######################################
 #####             syslog          #####
 #######################################
+syslog/test_logrotate.py::test_logrotate_small_size:
+  skip:
+    reason: "Not applicable on BMC: the simulate_small_var_log_partition fixture calls config_reload(check_intf_up_ports=True, wait_for_bgp=True), which never succeeds on BMC (no front-panel ports, no BGP)."
+    conditions:
+      - "'bmc' in topo_type"
+
+syslog/test_logrotate.py::test_logrotate_full_partition_no_archives_cleanup:
+  skip:
+    reason: "Not applicable on BMC: the simulate_small_var_log_partition fixture calls config_reload(check_intf_up_ports=True, wait_for_bgp=True), which never succeeds on BMC (no front-panel ports, no BGP)."
+    conditions:
+      - "'bmc' in topo_type"
+
 syslog/test_logrotate.py::test_orchagent_logrotate:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
