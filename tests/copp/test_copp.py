@@ -327,8 +327,30 @@ class TestCoppStats:
     """
     COPP Statistics end-to-end validation tests.
 
-    Note: This class is skipped on Broadcom DNX platforms.
+    The gate is the DUT's runtime SAI capability, not a platform-substring
+    heuristic. swss/CoppOrch publishes
+    STATE_DB:SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE after
+    probing sai_query_stats_capability(SAI_OBJECT_TYPE_POLICER); the
+    autouse fixture below skips the class on any DUT that reports false.
     """
+
+    @pytest.fixture(autouse=True)
+    def _skip_if_copp_policer_stats_unsupported(
+            self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        """Authoritative DUT-side gate for COPP policer stats."""
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        result = duthost.shell(
+            'redis-cli -n 6 HGET "SWITCH_CAPABILITY|switch" '
+            '"COPP_POLICER_STATS_CAPABLE"',
+            module_ignore_errors=True,
+        )
+        val = (result.get('stdout') or '').strip().lower()
+        if val != 'true':
+            pytest.skip(
+                "COPP policer per-color stats are not supported on this DUT: "
+                "SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE='{}'"
+                .format(val or '<unset>')
+            )
 
     @pytest.mark.disable_loganalyzer
     def test_copp_stats_default_enabled(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):

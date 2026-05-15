@@ -804,12 +804,6 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
       - "(asic_type in ['broadcom'] and release in ['202411'])"
       - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't0-isolated-d32u32s2'])"
 
-copp/test_copp.py::TestCoppStats:
-  skip:
-    reason: "COPP Stats tests are only supported on Broadcom XGS platforms"
-    conditions:
-      - "asic_type not in ['broadcom'] or asic_subtype in ['broadcom-dnx']"
-
 #######################################
 #####            crm              #####
 #######################################
