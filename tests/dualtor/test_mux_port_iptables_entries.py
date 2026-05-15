@@ -1,107 +1,19 @@
 import ipaddress
 import logging
 import pytest
-import jinja2
-import re
-from ansible_collections.ansible.utils.plugins.filter.ipaddr import ipaddr
 
-from tests.common.config_reload import config_reload
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 
+
 logger = logging.getLogger(__name__)
+
 
 pytestmark = [
         pytest.mark.topology("dualtor"),
         pytest.mark.disable_loganalyzer,
         ]
-
-
-# This is only supposed to be run on tor
-@pytest.fixture(scope="function")
-def setup_multiple_vlans(request, duthost, localhost, tbinfo):
-    hostname = duthost.hostname
-    # inventory = tbinfo["inv_name"]
-    topo = tbinfo["topo"]["name"]
-    hwsku = duthost.facts["hwsku"]
-    testbed_name = tbinfo["conf-name"]
-    testbed_file = request.config.option.testbed_file
-    vm_topo_config = localhost.topo_facts(topo=topo,
-                                          hwsku=hwsku,
-                                          testbed_name=testbed_name,
-                                          asics_present=[],
-                                          card_type="fixed",
-                                          )["ansible_facts"]["vm_topo_config"]
-    testbed_facts = localhost.test_facts(testbed_name=testbed_name,
-                                         testbed_file=testbed_file,
-                                         )["ansible_facts"]["testbed_facts"]
-    hostvars = duthost.host.options['variable_manager']._hostvars
-    hostvars = {hostname: dict(hostvars[hostname]) for hostname in tbinfo["duts"]}
-    port_alias = duthost.port_alias(hwsku=hwsku,
-                                    card_type="fixed",
-                                    hostname=hostname,
-                                    switchids=[],
-                                    )["ansible_facts"]["port_alias"]
-    dut_index = int(testbed_facts["duts_map"][hostname])
-    vlan_intfs = [port_alias[item] for item in vm_topo_config["host_interfaces_by_dut"][dut_index]
-                  if item not in vm_topo_config["disabled_host_interfaces_by_dut"][dut_index]]
-    vlan_cfgs = tbinfo["topo"]["properties"]["topology"]["DUT"]["vlan_configs"]
-    vlan_config = "four_vlan_a"
-    pytest_assert(vlan_config in vlan_cfgs, "device does not support {} vlan config".format(vlan_config))
-    vlan_configs = duthost.vlan_config(vm_topo_config=vm_topo_config,
-                                       port_alias=port_alias,
-                                       vlan_config=vlan_config,
-                                       )["ansible_facts"]["vlan_configs"]
-    if "dualtor" in topo:
-        dual_tor_facts = localhost.dual_tor_facts(hostname=hostname,
-                                                  testbed_facts=testbed_facts,
-                                                  hostvars=hostvars,
-                                                  vm_config=vm_topo_config,
-                                                  port_alias=port_alias,
-                                                  vlan_intfs=vlan_intfs,
-                                                  )["ansible_facts"]["dual_tor_facts"]
-        mux_cable_facts = localhost.mux_cable_facts(topo_name=topo,
-                                                    vlan_config=vlan_config,
-                                                    )["ansible_facts"]["mux_cable_facts"]
-    else:
-        dual_tor_facts = {}
-        mux_cable_facts = {}
-    variables = {
-            "vm_topo_config": vm_topo_config,
-            "port_alias": port_alias,
-            "dual_tor_facts": dual_tor_facts,
-            "mux_cable_facts": mux_cable_facts,
-            "vlan_configs": vlan_configs,
-            "testbed_facts": testbed_facts,
-            "inventory_hostname": hostname,
-            }
-    templates_loader = jinja2.FileSystemLoader(searchpath="dualtor/templates")
-    templates_env = jinja2.Environment(loader=templates_loader)
-    templates_env.filters["ipaddr"] = ipaddr
-    multivlan_xml = templates_env.get_template("multivlan_template.j2").render(variables)
-    multivlan_ip_xml = templates_env.get_template("multivlan_ip_template.j2").render(variables)
-    multivlan_mux_config_xml = templates_env.get_template("multivlan_mux_config_template.j2").render(variables)
-    minigraph_xml = duthost.command("cat /etc/sonic/minigraph.xml")["stdout"]
-    minigraph_xml = re.sub("[ \t]*<VlanInterfaces>(.|\n)*</VlanInterfaces>[ \t]*", multivlan_xml, minigraph_xml)
-    minigraph_xml = re.sub("[ \t]*<IPInterfaces>(.|\n)*</IPInterfaces>[ \t]*", multivlan_ip_xml, minigraph_xml)
-    # the first match is not about mux config
-    first_match = re.search("[ \t]*<DeviceDataPlaneInfo>(.|\n)*?</DeviceDataPlaneInfo>[ \t]*",
-                            minigraph_xml).group(0)
-    minigraph_xml = minigraph_xml.replace(first_match, "PLACEHOLDER")
-    minigraph_xml = re.sub("[ \t]*<DeviceDataPlaneInfo>(.|\n)*</DeviceDataPlaneInfo>[ \t]*",
-                           multivlan_mux_config_xml, minigraph_xml)
-    minigraph_xml = minigraph_xml.replace("PLACEHOLDER", first_match)
-    duthost.command("cp /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.bak")
-    duthost.copy(content=minigraph_xml, dest="/etc/sonic/minigraph.xml")
-    config_reload(duthost, config_source='minigraph')
-    config_facts = duthost.get_running_config_facts()
-    pytest_assert(len(config_facts['VLAN_INTERFACE']) == 4, "Configuring multivlan is not successful")
-
-    yield
-
-    duthost.command("cp /etc/sonic/minigraph.xml.bak /etc/sonic/minigraph.xml")
-    config_reload(duthost, config_source='minigraph')
 
 
 def verify_mux_port_iptables_entries(duthost):
@@ -197,5 +109,16 @@ def test_mux_port_iptables_entries(duthost):
     verify_mux_port_iptables_entries(duthost)
 
 
-def test_multivlan_mux_port_iptables_entries(setup_multiple_vlans, duthost):
+# Multivlan variant: the legacy `setup_multiple_vlans` fixture
+# (jinja+regex rewriting `/etc/sonic/minigraph.xml`) has been replaced by
+# the unified `parametrize_vlan_config_from_topo` mechanism from
+# `tests/common/fixtures/vlan_config_swap.py`, which patches CONFIG_DB
+# directly (VLAN, VLAN_INTERFACE, VLAN_MEMBER, DHCP_RELAY, and MUX_CABLE
+# on dualtor topologies). Pinned to `four_vlan_a` to match the original
+# fixture's behavior; remove the `indirect=True` parametrize below to
+# auto-run across every variant the topo defines (one/two/four_vlan_a).
+@pytest.mark.parametrize(
+    "parametrize_vlan_config_from_topo", ["four_vlan_a"], indirect=True
+)
+def test_multivlan_mux_port_iptables_entries(parametrize_vlan_config_from_topo, duthost):
     verify_mux_port_iptables_entries(duthost)
