@@ -3182,7 +3182,7 @@ class QosSaiBase(QosBase):
             return
 
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom"]):
             dst_dut = get_src_dst_asic_and_duts['dst_dut']
             dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
             dst_interfaces = []
@@ -3206,7 +3206,14 @@ class QosSaiBase(QosBase):
                 neighbor_lag_intfs = [vm_neighbors[po_intf]['port'] for po_intf in po_interfaces]
                 neigh_intf = next(iter(po_interfaces.keys()))
                 peer_device = vm_neighbors[neigh_intf]['name']
-                vm_host = nbrhosts[peer_device]['host']
+                peer_info = nbrhosts[peer_device]
+                vm_host = peer_info['host']
+                if peer_info['is_multi_vrf_peer']:
+                    multi_vrf_data = nbrhosts[peer_device]['multi_vrf_data']
+                    orig_port = multi_vrf_data['orig_intf_map'][neighbor_lag_intfs[0]]
+                    logger.info("original port: {}".format(orig_port))
+                    neighbor_lag_intfs = []
+                    neighbor_lag_intfs.append(orig_port)
                 vm_host_neighbor_lag_members[vm_host] = []
                 num = 600
                 for neighbor_lag_member in neighbor_lag_intfs:
@@ -3218,7 +3225,7 @@ class QosSaiBase(QosBase):
 
         yield
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom"]):
             for vm_host, neighbor_lag_intfs in vm_host_neighbor_lag_members.items():
                 for neighbor_lag_member in neighbor_lag_intfs:
                     logger.info(
