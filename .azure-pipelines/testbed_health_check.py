@@ -483,6 +483,24 @@ class TestbedHealthChecker:
 
             bgp_facts_on_hosts[hostname] = bgp_facts
 
+            # Detect neighbors that are intentionally admin-disabled and record in result data.
+            if self.is_multi_asic:
+                admin_down_neighbors = [
+                    k
+                    for facts in bgp_facts.values()
+                    for k, v in facts.get('bgp_neighbors', {}).items()
+                    if v.get('admin') == 'down'
+                ]
+            else:
+                admin_down_neighbors = [
+                    k for k, v in bgp_facts.get('bgp_neighbors', {}).items()
+                    if v.get('admin') == 'down'
+                ]
+            if admin_down_neighbors:
+                logger.info("Admin-down BGP neighbors detected on {}: {}".format(
+                    hostname, admin_down_neighbors))
+                self.check_result.data["has_bgp_admin_down"] = True
+
             # Check BGP session state for each neighbor
             neigh_not_ok = []
             if self.is_multi_asic:
@@ -679,7 +697,7 @@ class TestbedHealthChecker:
             raise TestbedUnhealthy(self.check_result.errmsg)
 
 
-def validate_args(args):
+def setup_logging(args):
     _log_level_map = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -695,8 +713,8 @@ def validate_args(args):
 
 
 def main(args):
-    logger.info("Validating arguments")
-    validate_args(args)
+    logger.info("Setting up logging")
+    setup_logging(args)
 
     logger.info("Checking")
     testbed_health_checker = TestbedHealthChecker(inventory=args.inventory, testbed_name=args.testbed_name,

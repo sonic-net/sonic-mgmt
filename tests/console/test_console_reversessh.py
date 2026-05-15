@@ -156,9 +156,12 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  
 #   - 'c'/'z'/'d'/'s'/'q'/'\\' (SIGINT/SIGTSTP/EOF/XOFF/XON/SIGQUIT — eaten by
 #     signal or TTY layer before reaching picocom)
 #   - 'r'/'l'/'u'/'w'/'t' (common readline / shell hotkeys)
-# Selected chars map to readline editing actions (back-char, bell,
-# next-history, prev-history, yank) that picocom sees cleanly.
-CUSTOM_ESCAPE_CHARS = ["b", "g", "n", "p", "y"]
+#   - 'h'/'i'/'j'/'m'/'v' (BS/Tab/LF/CR/lnext — rewritten or swallowed by the
+#     SSH-client PTY line discipline before reaching picocom)
+# Selected chars map to readline editing actions (back-char, end-of-line,
+# forward-char, bell, kill-line, next-history, prev-history, yank) that
+# picocom sees cleanly.
+CUSTOM_ESCAPE_CHARS = ["b", "e", "f", "g", "k", "n", "p", "y"]
 
 
 @pytest.mark.parametrize("escape_char", CUSTOM_ESCAPE_CHARS)
