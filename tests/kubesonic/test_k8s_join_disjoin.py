@@ -192,7 +192,7 @@ def is_the_sku_need_to_remove_node_ip_param(duthost):
         # Fallback query (ignore errors gracefully)
         result = duthost.shell("sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku", module_ignore_errors=True)
         hwsku = result.get("stdout", "").strip()
-    return hwsku == "Arista-7060X6-16PE-384C-B-O128S2"
+    return hwsku in ("Arista-7060X6-16PE-384C-B-O128S2", "Arista-7060CX-32S-C32")
 
 
 def remove_node_ip_param(duthost):
