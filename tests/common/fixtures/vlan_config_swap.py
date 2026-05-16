@@ -253,12 +253,20 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         intf_indices = vparams.get("intfs", []) or []
 
         # Build (dut_port, ptf_idx) pairs. By construction ptf_idx == idx
-        # whenever _intf_index_to_dut_name(idx) resolves.
-        members_with_ptf_idx = [
-            (_intf_index_to_dut_name(idx), idx)
-            for idx in intf_indices
-            if _intf_index_to_dut_name(idx) is not None
-        ]
+        # whenever _intf_index_to_dut_name(idx) resolves. Log skipped
+        # indices so a topo/minigraph mismatch is visible at fixture time
+        # instead of silently producing a half-populated variant.
+        members_with_ptf_idx = []
+        for idx in intf_indices:
+            dut_port = _intf_index_to_dut_name(idx)
+            if dut_port is None:
+                logger.warning(
+                    "vlan %s: intf_idx %s has no dut port in "
+                    "minigraph_ptf_indices; skipping",
+                    vlan_name, idx,
+                )
+                continue
+            members_with_ptf_idx.append((dut_port, idx))
 
         sub_vlans_info.append({
             "vlan_name": vlan_name,
