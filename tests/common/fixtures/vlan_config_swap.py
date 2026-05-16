@@ -6,9 +6,10 @@ across every variant the topo yaml's ``DUT.vlan_configs`` block defines
 lives in ``tests/conftest.py``.
 
 Builds an atomic CONFIG_DB JSON patch from the variant, applies via
-``config apply-patch`` + ``config save -y``. Teardown applies the reverse
-patch back to the topo's ``default_vlan_config``. Supports dualtor MUX_CABLE
-and dualtor-shared mac.
+``config apply-patch`` + ``config save -y``. Teardown applies a fresh
+patch that restores the topo's ``default_vlan_config`` (not a true reverse
+patch -- it is built the same way as the apply patch, just against the
+default variant). Supports dualtor MUX_CABLE and dualtor-shared mac.
 """
 
 import json
