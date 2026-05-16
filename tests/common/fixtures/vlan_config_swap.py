@@ -12,12 +12,12 @@ patch -- it is built the same way as the apply patch, just against the
 default variant). Supports dualtor MUX_CABLE and dualtor-shared mac.
 """
 
-import json
 import logging
 
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
 
@@ -139,30 +139,6 @@ def remove_mux_cable_patch(intf_name):
         "op": "remove",
         "path": "/MUX_CABLE/%s" % intf_name,
     }]
-
-
-def apply_config_patch(duthost, config_to_apply):
-    logger.debug("The config patch: %s", config_to_apply)
-    tmpfile = duthost.shell('mktemp')['stdout']
-    try:
-        duthost.copy(content=json.dumps(config_to_apply, indent=4), dest=tmpfile)
-        output = duthost.shell('config apply-patch {}'.format(tmpfile), module_ignore_errors=True)
-        pytest_assert(
-            not output['rc'],
-            "apply-patch failed: rc=%s stdout=%s stderr=%s" % (
-                output['rc'],
-                (output.get('stdout') or '')[:500],
-                (output.get('stderr') or '')[:500],
-            ),
-        )
-        pytest_assert(
-            "Patch applied successfully" in output['stdout'],
-            "apply-patch returned rc=0 but no success line; stdout=%s" % (
-                (output.get('stdout') or '')[:500],
-            ),
-        )
-    finally:
-        duthost.file(path=tmpfile, state='absent')
 
 
 def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name, is_dualtor):
@@ -342,7 +318,12 @@ def _apply_and_persist(host, patch, refresh_caclmgrd):
     apply-patch on MUX_CABLE does not re-render iptables without this
     nudge (~8s, lighter than a full config_reload).
     """
-    apply_config_patch(host, patch)
+    tmpfile = host.shell("mktemp")["stdout"]
+    try:
+        output = apply_patch(host, patch, tmpfile)
+        expect_op_success(host, output)
+    finally:
+        host.file(path=tmpfile, state="absent")
     host.shell("sudo config save -y")
     if refresh_caclmgrd:
         host.shell("sudo systemctl restart caclmgrd && sleep 5")
