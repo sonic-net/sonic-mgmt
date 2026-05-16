@@ -165,7 +165,7 @@ def apply_config_patch(duthost, config_to_apply):
         duthost.file(path=tmpfile, state='absent')
 
 
-def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name):
+def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name, is_dualtor):
     """Build the JSON config-patch and sub_vlans_info structure for the
     requested variant. See module docstring for the returned schema.
     """
@@ -239,10 +239,9 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     # Dualtor topologies need proxy_arp+grat_arp set on every VLAN_INTERFACE
     # entry (mirrors sonic-config-engine/minigraph.py which sets these when
     # PEER_SWITCH is present).
-    is_dualtor_topo = "dualtor" in tbinfo.get("topo", {}).get("name", "")
     vlan_intf_value = (
         {"proxy_arp": "enabled", "grat_arp": "enabled"}
-        if is_dualtor_topo else None
+        if is_dualtor else None
     )
 
     sub_vlans_info = []
@@ -356,7 +355,7 @@ def parametrize_vlan_config_from_topo(
     is_non_default = (variant_name != default_variant_name)
 
     sub_vlans_info, config_patch, is_dualtor_mux = _generate_config_patch_from_variant(
-        duthost, localhost, tbinfo, variant_name
+        duthost, localhost, tbinfo, variant_name, is_dualtor
     )
 
     logger.info(
@@ -371,7 +370,7 @@ def parametrize_vlan_config_from_topo(
             # Recompute patch against the unselected DUT in case its CONFIG_DB
             # has drifted from the selected DUT's.
             _, config_patch_u, _ = _generate_config_patch_from_variant(
-                rand_unselected_dut, localhost, tbinfo, variant_name
+                rand_unselected_dut, localhost, tbinfo, variant_name, is_dualtor
             )
             _apply_and_persist(rand_unselected_dut, config_patch_u, is_dualtor_mux)
         logger.info("Applied %s on %s; sub_vlans=%s", variant_name, duthost.hostname, sub_vlans_info)
@@ -380,10 +379,12 @@ def parametrize_vlan_config_from_topo(
 
     if is_non_default:
         logger.info("Restoring %s -> %s on %s", variant_name, default_variant_name, duthost.hostname)
-        _, restore_patch, _ = _generate_config_patch_from_variant(duthost, localhost, tbinfo, default_variant_name)
+        _, restore_patch, _ = _generate_config_patch_from_variant(
+            duthost, localhost, tbinfo, default_variant_name, is_dualtor
+        )
         _apply_and_persist(duthost, restore_patch, is_dualtor_mux)
         if is_dualtor:
             _, restore_patch_u, _ = _generate_config_patch_from_variant(
-                rand_unselected_dut, localhost, tbinfo, default_variant_name
+                rand_unselected_dut, localhost, tbinfo, default_variant_name, is_dualtor
             )
             _apply_and_persist(rand_unselected_dut, restore_patch_u, is_dualtor_mux)
