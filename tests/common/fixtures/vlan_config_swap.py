@@ -219,11 +219,13 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         for member in list(vlan_members.get(vlan_name, {}).keys()):
             config_patch += remove_vlan_member_patch(vlan_name, member)
 
-    # Dualtor MUX_CABLE: detected via running CONFIG_DB; remove deployed
-    # entries (re-emitted in the add phase below).
-    running_mux_cable = running_config.get("MUX_CABLE", {})
-    is_dualtor_mux = bool(running_mux_cable)
-    if is_dualtor_mux:
+    # Dualtor MUX_CABLE: detected from topology (is_dualtor). All dualtor
+    # variants (regular, active-active, active-active-mixed) deploy MUX_CABLE;
+    # non-dualtor topos never do. Detecting from running config would be
+    # drift-vulnerable (a previous failed teardown that cleared MUX_CABLE
+    # would silently classify the topology as non-dualtor here).
+    if is_dualtor:
+        running_mux_cable = running_config.get("MUX_CABLE", {})
         for intf_name in list(running_mux_cable.keys()):
             config_patch += remove_mux_cable_patch(intf_name)
 
@@ -314,7 +316,7 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     # so the active-standby / active-active / active-active-mixed algorithm
     # stays in one place. The module returns server/soc IPs with the vlan
     # netmask; CONFIG_DB MUX_CABLE uses host masks (/32, /128) so rewrite.
-    if is_dualtor_mux:
+    if is_dualtor:
         mux_cable_facts = localhost.mux_cable_facts(
             topology=tbinfo["topo"]["properties"]["topology"],
             vlan_config=variant_name,
@@ -330,7 +332,7 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
                 dut_port, info["cable_type"], server_ipv4, server_ipv6, soc_ipv4=soc_ipv4,
             )
 
-    return sub_vlans_info, config_patch, is_dualtor_mux
+    return sub_vlans_info, config_patch
 
 
 def _apply_and_persist(host, patch, refresh_caclmgrd):
@@ -362,7 +364,7 @@ def parametrize_vlan_config_from_topo(
     default_variant_name = vlan_configs.get("default_vlan_config")
     is_non_default = (variant_name != default_variant_name)
 
-    sub_vlans_info, config_patch, is_dualtor_mux = _generate_config_patch_from_variant(
+    sub_vlans_info, config_patch = _generate_config_patch_from_variant(
         duthost, localhost, tbinfo, variant_name, is_dualtor
     )
 
@@ -373,26 +375,26 @@ def parametrize_vlan_config_from_topo(
     logger.debug("config_patch=%s", config_patch)
 
     if is_non_default:
-        _apply_and_persist(duthost, config_patch, is_dualtor_mux)
+        _apply_and_persist(duthost, config_patch, is_dualtor)
         if is_dualtor:
             # Recompute patch against the unselected DUT in case its CONFIG_DB
             # has drifted from the selected DUT's.
-            _, config_patch_u, _ = _generate_config_patch_from_variant(
+            _, config_patch_u = _generate_config_patch_from_variant(
                 rand_unselected_dut, localhost, tbinfo, variant_name, is_dualtor
             )
-            _apply_and_persist(rand_unselected_dut, config_patch_u, is_dualtor_mux)
+            _apply_and_persist(rand_unselected_dut, config_patch_u, is_dualtor)
         logger.info("Applied %s on %s; sub_vlans=%s", variant_name, duthost.hostname, sub_vlans_info)
 
     yield sub_vlans_info
 
     if is_non_default:
         logger.info("Restoring %s -> %s on %s", variant_name, default_variant_name, duthost.hostname)
-        _, restore_patch, _ = _generate_config_patch_from_variant(
+        _, restore_patch = _generate_config_patch_from_variant(
             duthost, localhost, tbinfo, default_variant_name, is_dualtor
         )
-        _apply_and_persist(duthost, restore_patch, is_dualtor_mux)
+        _apply_and_persist(duthost, restore_patch, is_dualtor)
         if is_dualtor:
-            _, restore_patch_u, _ = _generate_config_patch_from_variant(
+            _, restore_patch_u = _generate_config_patch_from_variant(
                 rand_unselected_dut, localhost, tbinfo, default_variant_name, is_dualtor
             )
-            _apply_and_persist(rand_unselected_dut, restore_patch_u, is_dualtor_mux)
+            _apply_and_persist(rand_unselected_dut, restore_patch_u, is_dualtor)
