@@ -2185,6 +2185,7 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                 )
                 metafunc.parametrize(
                     "parametrize_vlan_config_from_topo", [_skip], indirect=True,
+                    ids=["no_vlan_configs"],
                 )
     # ---- end vlan_config auto-parametrize ----
     # The topology always has atleast 1 dut
