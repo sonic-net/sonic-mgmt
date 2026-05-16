@@ -162,8 +162,16 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     )
     variant = vlan_configs[variant_name]
 
-    # Read what's currently deployed so we know what to remove.
+    # Read what's currently deployed so we know what to remove. Always
+    # re-read: running config changes between apply (default -> variant)
+    # and teardown (variant -> default), so caching it would re-emit
+    # removes for vlans that no longer exist.
     running_config = duthost.get_running_config_facts()
+    # minigraph_facts is immutable per topo so cache it per duthost.
+    cache = getattr(duthost, "_vlan_config_swap_cache", None)
+    if cache is None:
+        cache = {}
+        duthost._vlan_config_swap_cache = cache
     current_vlan_names = list(running_config.get("VLAN", {}).keys())
     # DHCP and DHCP_RELAY servers carry forward from the deployed config.
     # Look up per-Vlan by exact name (covers same-name swaps), fall back to
@@ -205,8 +213,10 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         for intf_name in list(running_mux_cable.keys()):
             config_patch += remove_mux_cable_patch(intf_name)
 
-    # Resolve intf_idx -> dut_port via extended minigraph facts.
-    minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    # Resolve intf_idx -> dut_port via extended minigraph facts (cached).
+    if "minigraph_facts" not in cache:
+        cache["minigraph_facts"] = duthost.get_extended_minigraph_facts(tbinfo)
+    minigraph_facts = cache["minigraph_facts"]
     dut_intf_to_ptf_index = minigraph_facts["minigraph_ptf_indices"]
 
     _ptf_idx_to_dut_port = {v: k for k, v in dut_intf_to_ptf_index.items()}
