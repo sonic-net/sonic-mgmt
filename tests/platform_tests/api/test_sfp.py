@@ -309,24 +309,30 @@ class TestSfpApi(PlatformApiTestBase):
     #
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
-        # For QSFP-DD specification compliance will return type as passive or active
-        if xcvr_info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP", "SFP"]:
-            if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable" or \
-                    xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
+        type_name = xcvr_info_dict["type_abbrv_name"]
+        spec = xcvr_info_dict["specification_compliance"]
+
+        # QSFP-DD/OSFP-8X/QSFP+C/BP report specification_compliance as a plain string.
+        if type_name in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP"]:
+            return spec not in ("Passive Copper Cable", "passive_copper_media_interface")
+
+        # SFP may report specification_compliance either as a plain string
+        # (e.g. Cisco-console SFP) or as a dict-formatted string (standard SFP/SFP+ DAC).
+        if type_name == "SFP":
+            if spec in ("Passive Copper Cable", "passive_copper_media_interface"):
                 return False
-        else:
-            spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
-            if xcvr_info_dict["type_abbrv_name"] == "SFP":
-                compliance_code = spec_compliance_dict.get("SFP+CableTechnology")
-                if compliance_code == "Passive Cable":
-                    return False
-            else:
-                compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code", " ")
-                if "CR" in compliance_code:
-                    return False
-                extended_code = spec_compliance_dict.get("Extended Specification Compliance", " ")
-                if "CR" in extended_code:
-                    return False
+            try:
+                spec_compliance_dict = ast.literal_eval(spec)
+            except (ValueError, SyntaxError):
+                return True
+            return spec_compliance_dict.get("SFP+CableTechnology") != "Passive Cable"
+
+        # All other types use the dict-based copper check.
+        spec_compliance_dict = ast.literal_eval(spec)
+        if "CR" in spec_compliance_dict.get("10/40G Ethernet Compliance Code", " "):
+            return False
+        if "CR" in spec_compliance_dict.get("Extended Specification Compliance", " "):
+            return False
         return True
 
     def is_xcvr_resettable(self, request, xcvr_info_dict):
@@ -498,7 +504,7 @@ class TestSfpApi(PlatformApiTestBase):
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
                     else:
 
-                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                             active_apsel_hostlane_count = 8
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
                                 self.EXPECTED_XCVR_NEW_CMIS_INFO_KEYS + \
@@ -531,8 +537,8 @@ class TestSfpApi(PlatformApiTestBase):
                     unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS +
                                                              self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
-                        # hardware_rev is applicable only for QSFP-DD or OSFP
-                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        # hardware_rev is applicable only for QSFP-DD, OSFP or QSFP+C
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                             continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()

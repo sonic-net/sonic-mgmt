@@ -298,7 +298,13 @@ class MemoryMonitor:
                     break
 
         if is_increase:
-            val_str, th_str = format_threshold_and_value(threshold, value)
+            # For percentage threshold, display actual % increase; otherwise display raw increase (e.g. MB)
+            prev_f = float(prev_val)
+            if threshold_type == 'percentage' and prev_f > 0:
+                display_value = (float(curr_val) - prev_f) / prev_f * 100
+            else:
+                display_value = value
+            val_str, th_str = format_threshold_and_value(threshold, display_value)
             message = (
                 "[ALARM]: {}:{} memory usage increased by {}, exceeds increase threshold {} (previous: {}, current: {})"
                 .format(name, mem_item, val_str, th_str, fmt(prev_val, threshold_type), fmt(curr_val, threshold_type))
@@ -382,7 +388,8 @@ class MemoryMonitor:
                     'name': name,
                     'cmd': command,
                     'memory_params': memory_params,
-                    'memory_check_fn': memory_check_fn
+                    'memory_check_fn': memory_check_fn,
+                    'order': item.get('order', 0)
                 }
 
         with open(MEMORY_UTILIZATION_DEPENDENCE_JSON_FILE, 'r') as file:
@@ -397,7 +404,8 @@ class MemoryMonitor:
                     'name': name,
                     'cmd': command,
                     'memory_params': memory_params,
-                    'memory_check_fn': memory_check_fn
+                    'memory_check_fn': memory_check_fn,
+                    'order': item.get('order', parameter_dict.get(name, {}).get('order', 0))
                 }
 
             if hwsku:
@@ -429,10 +437,11 @@ class MemoryMonitor:
                                         'name': name,
                                         'cmd': command,
                                         'memory_params': memory_params,
-                                        'memory_check_fn': memory_check_fn
+                                        'memory_check_fn': memory_check_fn,
+                                        'order': item.get('order', 0)
                                     }
 
-        for param in parameter_dict.values():
+        for param in sorted(parameter_dict.values(), key=lambda x: x.get('order', 0)):
             # Normalize thresholds in memory_params to ensure consistent behavior
             for mem_item, thresholds in param['memory_params'].items():
                 param['memory_params'][mem_item] = self._normalize_thresholds(thresholds)

@@ -14,6 +14,7 @@ import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
@@ -338,12 +339,11 @@ class QosSaiBase(QosBase):
         )[0]).replace("oid:", '')
         bufferProfile.update({"bufferPoolRoid": bufferPoolRoid})
 
-    def __getBufferProfile(self, request, dut_asic, os_version, table, port, priorityGroup):
+    def __getBufferProfile(self, dut_asic, os_version, table, port, priorityGroup):
         """
             Get buffer profile attribute from Redis db
 
             Args:
-                request (Fixture): pytest request object
                 dut_asic(SonicAsic): Device Under Test (DUT)
                 table (str): Redis table name
                 port (str): DUT port alias
@@ -470,6 +470,8 @@ class QosSaiBase(QosBase):
             if dut_asic.sonichost.is_multi_asic:
                 port = "{}|{}|{}".format(
                     dut_asic.sonichost.hostname, dut_asic.namespace, port)
+            else:
+                port = "{}|Asic0|{}".format(dut_asic.sonichost.hostname, port)
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
                 argv=[
@@ -1709,6 +1711,27 @@ class QosSaiBase(QosBase):
                 if 'proxy_arp' in value:
                     logger.info('ARP proxy is {} on {}'.format(value['proxy_arp'], key))
 
+    def getPortSpeedCableLength(self, dut_asic, duthost, srcport, pgs):
+        profileName = self.__getBufferProfile(
+                    dut_asic,
+                    duthost.os_version,
+                    "BUFFER_PG_TABLE" if self.isBufferInApplDb(
+                        dut_asic) else "BUFFER_PG",
+                    srcport,
+                    pgs
+                )["profileName"]
+
+        if self.isBufferInApplDb(dut_asic):
+            profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
+        else:
+            profile_pattern = "^BUFFER_PROFILE\\|pg_lossless_(.*)_profile"
+        m = re.search(profile_pattern, profileName)
+        pytest_assert(m and m.group(1), f"Cannot find port speed/cable length for srcport {srcport} and pgs {pgs}")
+
+        portSpeedCableLength = m.group(1)
+        logger.debug(f"portSpeedCableLength of src port {srcport} is {portSpeedCableLength}")
+        return portSpeedCableLength
+
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, duthosts, get_src_dst_asic_and_duts,
@@ -1737,14 +1760,9 @@ class QosSaiBase(QosBase):
         logger.info(
             "Lossless Buffer profile selected is {}".format(profileName))
 
-        if self.isBufferInApplDb(dut_asic):
-            profile_pattern = "^BUFFER_PROFILE_TABLE\\:pg_lossless_(.*)_profile$"
-        else:
-            profile_pattern = "^BUFFER_PROFILE\\|pg_lossless_(.*)_profile"
-        m = re.search(profile_pattern, profileName)
-        pytest_assert(m.group(1), "Cannot find port speed/cable length")
-
-        portSpeedCableLength = m.group(1)
+        srcport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]]
+        portSpeedCableLength = self.getPortSpeedCableLength(dut_asic, duthost,
+                                                            srcport, "3-4")
 
         qosConfigs = dutConfig["qosConfigs"]
         dutAsic = dutConfig["dutAsic"]
@@ -2191,7 +2209,6 @@ class QosSaiBase(QosBase):
             pgs = "3-4"
 
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(
@@ -2219,7 +2236,6 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut']
         dut_asic = get_src_dst_asic_and_duts['src_asic']
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_PG_TABLE" if self.isBufferInApplDb(
@@ -2256,7 +2272,6 @@ class QosSaiBase(QosBase):
             queues = "3-4"
 
         yield self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
@@ -2307,7 +2322,6 @@ class QosSaiBase(QosBase):
                 queues = "0-2"
 
         egress_lossy_profile = self.__getBufferProfile(
-            request,
             dut_asic,
             duthost.os_version,
             "BUFFER_QUEUE_TABLE" if self.isBufferInApplDb(
@@ -2481,6 +2495,12 @@ class QosSaiBase(QosBase):
             for dut_asic in get_src_dst_asic_and_duts['all_asics']:
                 dut_asic.command("counterpoll watermark disable")
                 dut_asic.command("counterpoll queue disable")
+
+        yield
+
+        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+            dut_asic.command("counterpoll watermark enable")
+            dut_asic.command("counterpoll queue enable")
 
     @pytest.fixture
     def blockGrpcTraffic(self, tbinfo, lower_tor_host, nic_simulator_info):   # noqa F811
@@ -2948,6 +2968,265 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, vm_host))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
+    @pytest.fixture(scope="function", autouse=False)
+    def permit_only_test_traffic_on_fanout(
+            self, get_src_dst_asic_and_duts, tbinfo,
+            nbrhosts, dutConfig, fanouthosts,
+            conn_graph_facts, request):
+        """
+        Block non-test L2 traffic from reaching DUT ingress ports during QoS
+        headroom pool tests to prevent false InDiscard counter increments.
+
+        Configures the EOS fanout switch to only forward IP/IPv6/ARP frames
+        toward the DUT, blocking LLDP (0x88CC), LACP (0x8809), and other
+        non-test ethertypes via an egress MAC ACL whitelist.
+
+        Steps:
+        1. Stop DUT teamd lacpd (prevents LACP timeout detection)
+        2. Set EOS neighbor LACP timer multiplier to 600 (prevents EOS-side timeout)
+        3. Disable LLDP TX/RX + apply egress MAC ACL on fanout DUT-facing ports
+
+        Note on change_lag_lacp_timer interaction: that fixture only activates
+        for broadcom-dnx platforms and operates on dst_port LAGs. This fixture
+        operates on src_port LAGs for Broadcom TH (7060CX), so there is no
+        overlap on the affected platform.
+
+        Note: Currently supports EOS fanout only. SONiC fanout support is
+        tracked in issue #24236.
+        """
+        if request.config.getoption("--neighbor_type") == "sonic":
+            yield
+            return
+
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        src_mgfacts = src_dut.get_extended_minigraph_facts(tbinfo)
+
+        # Protect ALL test ports from noise. The actual src_port_ids used by PTF
+        # come from qos.yml hdrm_pool_size (e.g., [17,18]) which differs from
+        # dutConfig.testPorts.src_port_id (e.g., 2). Apply to all dutInterfaces.
+        # TODO: optimize to only protect actual src/dst ports (tracked in #24236)
+        src_interfaces = [dutConfig['dutInterfaces'][idx]
+                          for idx in sorted(dutConfig.get('dutInterfaces', {}).keys())]
+
+        logger.debug("permit_only_test_traffic_on_fanout: testPorts = %s",
+                     dutConfig.get('testPorts', {}))
+        logger.info(
+            "permit_only_test_traffic_on_fanout: protecting %d ports: %s",
+            len(src_interfaces), src_interfaces)
+
+        # Find LAG names containing any of the protected interfaces
+        portchannels = src_mgfacts.get('minigraph_portchannels', {})
+        lag_names = []
+        for port_ch, port_intf in portchannels.items():
+            for member in port_intf.get('members', []):
+                if member in src_interfaces:
+                    if port_ch not in lag_names:
+                        lag_names.append(port_ch)
+                        logger.debug("permit_only_test_traffic_on_fanout: "
+                                     "%s is member of %s", member, port_ch)
+                    break
+
+        # State tracking for teardown
+        eos_restore_list = []
+        fanout_restore_list = []
+        acl_created_fanouts = set()
+        lacpd_stopped = False
+        acl_name = "QOS_TEST_WHITELIST"
+        teamd_docker = src_asic.get_docker_name("teamd")
+
+        try:
+            # --- Step 1 & 2: LACP-specific (only when ports are in LAG) ---
+            if lag_names:
+                logger.info(
+                    "permit_only_test_traffic_on_fanout: found %d LAGs, "
+                    "stopping lacpd and setting timer", len(lag_names))
+
+                # Step 1: Stop DUT teamd lacpd
+                result = src_dut.command(
+                    "docker exec {} supervisorctl stop lacpd".format(teamd_docker),
+                    module_ignore_errors=True)
+                if result.get('failed', False) or result.get('rc', 0) != 0:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: lacpd stop may have "
+                        "failed (rc=%s), proceeding anyway", result.get('rc', '?'))
+                else:
+                    lacpd_stopped = True
+                # Brief wait for any in-flight LACP PDU to drain
+                time.sleep(2)
+
+                # Step 2: Set EOS neighbor LACP timer multiplier to 600
+                lag_facts = src_dut.lag_facts(
+                    host=src_dut.hostname)['ansible_facts']['lag_facts']
+                vm_neighbors = src_mgfacts.get('minigraph_neighbors', {})
+
+                for lag_name in lag_names:
+                    if lag_name not in lag_facts.get('lags', {}):
+                        continue
+                    po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
+                    for po_intf in po_interfaces:
+                        if po_intf not in vm_neighbors:
+                            continue
+                        peer_device = vm_neighbors[po_intf]['name']
+                        neighbor_port = vm_neighbors[po_intf]['port']
+                        if peer_device not in nbrhosts:
+                            continue
+                        vm_host = nbrhosts[peer_device]['host']
+                        if isinstance(vm_host, EosHost):
+                            logger.info(
+                                "permit_only_test_traffic_on_fanout: "
+                                "setting LACP multiplier 600 on %s %s",
+                                peer_device, neighbor_port)
+                            vm_host.set_interface_lacp_time_multiplier(
+                                neighbor_port, 600)
+                            eos_restore_list.append((vm_host, neighbor_port))
+            else:
+                logger.info("permit_only_test_traffic_on_fanout: "
+                            "no LAGs found, skipping LACP steps")
+
+            # --- Step 3: Disable LLDP + egress MAC ACL on fanout ports ---
+            # Egress MAC ACL permits only IP (0x0800), IPv6 (0x86DD), and ARP
+            # (0x0806). All other ethertypes — including LLDP (0x88CC), LACP
+            # (0x8809), and other broadcast/multicast L2 frames — are denied.
+            # PFC (0x8808) is DUT-originated and travels DUT→fanout, so the
+            # egress (fanout→DUT) ACL does not affect it.
+            dev_conn = conn_graph_facts.get('device_conn', {})
+
+            for dut_name, ethernet_ports in dev_conn.items():
+                for dut_port, fanout_rec in ethernet_ports.items():
+                    if dut_port not in src_interfaces:
+                        continue
+                    fanout_name = str(fanout_rec['peerdevice'])
+                    fanout_port = str(fanout_rec['peerport'])
+
+                    if fanout_name not in fanouthosts:
+                        continue
+
+                    fanout = fanouthosts[fanout_name]
+                    fanout_os = fanout.get_fanout_os()
+
+                    if fanout_os == 'eos':
+                        try:
+                            # Disable LLDP first; record immediately for restore
+                            fanout.host.eos_config(
+                                lines=['no lldp transmit', 'no lldp receive'],
+                                parents=['interface %s' % fanout_port])
+                            fanout_restore_list.append(
+                                (fanout, fanout_name, fanout_port))
+                        except Exception as e:
+                            logger.warning(
+                                "permit_only_test_traffic_on_fanout: "
+                                "LLDP disable failed on %s %s: %s",
+                                fanout_name, fanout_port, str(e))
+                            continue
+
+                        try:
+                            # Create MAC ACL once per fanout
+                            if fanout_name not in acl_created_fanouts:
+                                fanout.host.eos_config(
+                                    lines=[
+                                        'permit any any ip',
+                                        'permit any any ipv6',
+                                        'permit any any arp',
+                                        'deny any any',
+                                    ],
+                                    parents=['mac access-list %s' % acl_name])
+                                acl_created_fanouts.add(fanout_name)
+                            # Bind egress MAC ACL (out = fanout→DUT direction)
+                            fanout.host.eos_config(
+                                lines=['mac access-group %s out' % acl_name],
+                                parents=['interface %s' % fanout_port])
+                            logger.info(
+                                "permit_only_test_traffic_on_fanout: "
+                                "protected %s %s", fanout_name, fanout_port)
+                        except Exception as e:
+                            logger.warning(
+                                "permit_only_test_traffic_on_fanout: "
+                                "ACL config failed on %s %s: %s",
+                                fanout_name, fanout_port, str(e))
+
+                    elif fanout_os == 'sonic':
+                        # SONiC fanout support tracked in #24236
+                        logger.warning(
+                            "permit_only_test_traffic_on_fanout: "
+                            "SONiC fanout not supported, skipping %s",
+                            fanout_name)
+
+        except Exception as e:
+            # Setup failed partway — run teardown for anything already configured
+            logger.error(
+                "permit_only_test_traffic_on_fanout: setup failed: %s. "
+                "Running partial teardown.", str(e))
+            self._teardown_test_traffic_filter(
+                src_dut, teamd_docker, lacpd_stopped,
+                eos_restore_list, fanout_restore_list,
+                acl_created_fanouts, acl_name, fanouthosts)
+            raise
+
+        logger.info(
+            "permit_only_test_traffic_on_fanout: setup complete — "
+            "%d ports protected, %d LACP timers set",
+            len(fanout_restore_list), len(eos_restore_list))
+
+        yield
+
+        self._teardown_test_traffic_filter(
+            src_dut, teamd_docker, lacpd_stopped,
+            eos_restore_list, fanout_restore_list,
+            acl_created_fanouts, acl_name, fanouthosts)
+
+    def _teardown_test_traffic_filter(
+            self, src_dut, teamd_docker, lacpd_stopped,
+            eos_restore_list, fanout_restore_list,
+            acl_created_fanouts, acl_name, fanouthosts):
+        """Reverse all changes made by permit_only_test_traffic_on_fanout."""
+        # Step 1 reverse: restart DUT lacpd FIRST (before timer restore)
+        if lacpd_stopped:
+            logger.info("permit_only_test_traffic_on_fanout: "
+                        "restarting lacpd in %s", teamd_docker)
+            result = src_dut.command(
+                "docker exec {} supervisorctl start lacpd".format(teamd_docker),
+                module_ignore_errors=True)
+            if result.get('failed', False) or result.get('rc', 0) != 0:
+                logger.error(
+                    "permit_only_test_traffic_on_fanout: lacpd restart "
+                    "FAILED — DUT may be left without LACP. Output: %s",
+                    result.get('stdout', result.get('stderr', 'unknown')))
+
+        # Step 2 reverse: restore EOS LACP timer
+        for vm_host, neighbor_port in eos_restore_list:
+            try:
+                vm_host.no_lacp_time_multiplier(neighbor_port)
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to restore LACP timer: %s", str(e))
+
+        # Step 3 reverse: restore LLDP + unbind ACL from all ports
+        for fanout, fanout_name, fanout_port in fanout_restore_list:
+            try:
+                fanout.host.eos_config(
+                    lines=['lldp transmit', 'lldp receive',
+                           'no mac access-group %s out' % acl_name],
+                    parents=['interface %s' % fanout_port])
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to restore %s: %s", fanout_port, str(e))
+
+        # Delete ACL definition once per fanout
+        for fanout_name in acl_created_fanouts:
+            try:
+                fanout = fanouthosts[fanout_name]
+                fanout.host.eos_config(
+                    lines=['no mac access-list %s' % acl_name])
+            except Exception as e:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: "
+                    "failed to delete ACL on %s: %s", fanout_name, str(e))
+
+        logger.info("permit_only_test_traffic_on_fanout: teardown complete")
+
     def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         dshell_script = '''
 from common import *
@@ -3203,6 +3482,53 @@ def set_queue_pir(interface, queue, rate):
         logging.info(f"sai_profile_content: {sai_profile_content}")
         return "SAI_KEY_DISABLE_PORT_ALPHA=1" not in sai_profile_content
 
+    def copy_clear_pg_wm_script_cisco_8000(self, dut, ports, asic=""):
+        dshell_script = '''
+from common import *
+from sai_utils import *
+def clear_pg_watermark(interface):
+  port_oid = get_port_oid(interface)
+  port_api = sai_api_query(SAI_API_PORT)
+  num_ipgs_attr = sai_attribute_t(SAI_PORT_ATTR_NUMBER_OF_INGRESS_PRIORITY_GROUPS, 0)
+  port_api.get_port_attribute(port_oid, 1, num_ipgs_attr)
+  ipg_list = sai_object_list_t([0] * num_ipgs_attr.value.u32)
+  attr = sai_attribute_t(SAI_PORT_ATTR_INGRESS_PRIORITY_GROUP_LIST, ipg_list)
+  port_api.get_port_attribute(port_oid, 1, attr)
+  ipg_pylist  = ipg_list.to_pylist()
+  ipg_attr_ids = ingressPriorityGroupStatVec(1)
+  ipg_attr_ids[0] = SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES
+  for ipg_oid in ipg_pylist:
+    getIngressPriorityGroupCountersExt(ipg_oid, ipg_attr_ids, SAI_STATS_MODE_READ_AND_CLEAR)
+'''
+
+        for intf in ports:
+            dshell_script += f'\nclear_pg_watermark("{intf}")'
+
+        copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="clear_pg_wm.py")
+
+    @pytest.fixture(scope="function", autouse=False)
+    def clear_pg_wm(self, get_src_dst_asic_and_duts, dutConfig):
+        src_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]]
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        src_index = src_asic.asic_index
+
+        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] != "gr2":
+            yield
+            return
+
+        interfaces = self.get_port_channel_members(src_dut, src_port)
+
+        self.copy_clear_pg_wm_script_cisco_8000(
+            dut=src_dut,
+            ports=interfaces,
+            asic=src_index)
+
+        src_dut.shell('sudo show platform npu script -s clear_pg_wm.py')
+
+        yield
+        return
+
     @pytest.fixture(scope='class', autouse=True)
     def ecnLosslessProfile(
             self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa F811
@@ -3236,30 +3562,13 @@ def set_queue_pir(interface, queue, rate):
         By default WRED_ECN_QUEUE and WRED_ECN_PORT are disabled for polling.
         Enable flexcounter groups WRED_ECN_QUEUE and WRED_ECN_PORT using counterpoll CLI
         """
-        duthost = duthosts.frontend_nodes[0]
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll wredqueue {} enable".format(namespace_arg))
-                    duthost.command("sudo counterpoll wredport {} enable".format(namespace_arg))
-                duthost.command("sudo config save -y")
-        else:
-            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
-                dut_asic.command("counterpoll wredqueue enable")
-                dut_asic.command("counterpoll wredport enable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for dut_asic in duthost.asics:
+                ConterpollHelper.enable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
             duthost.command("sudo config save -y")
 
         yield
-        if duthost.sonichost.is_multi_asic:
-            for duthost in get_src_dst_asic_and_duts['all_duts']:
-                for asic in duthost.asics:
-                    namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll wredqueue {} disable".format(namespace_arg))
-                    duthost.command("sudo counterpoll wredport {} disable".format(namespace_arg))
-                duthost.command("sudo config save -y")
-        else:
-            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
-                dut_asic.command("counterpoll wredqueue disable")
-                dut_asic.command("counterpoll wredport disable")
+        for duthost in get_src_dst_asic_and_duts['all_duts']:
+            for dut_asic in duthost.asics:
+                ConterpollHelper.disable_counterpoll(dut_asic, ['wredqueue', 'wredport'])
             duthost.command("sudo config save -y")

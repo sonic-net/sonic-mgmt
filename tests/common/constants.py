@@ -37,6 +37,8 @@ class CounterpollConstants:
     QUEUE = 'queue'
     PORT_STAT_TYPE = 'PORT_STAT'
     PORT = 'port'
+    PORT_PHY_ATTR_TYPE = 'PHY'
+    PORT_PHY_ATTR = 'phy'
     PORT_BUFFER_DROP_TYPE = 'PORT_BUFFER_DROP'
     PORT_BUFFER_DROP = 'port-buffer-drop'
     RIF_STAT_TYPE = 'RIF_STAT'
@@ -47,15 +49,19 @@ class CounterpollConstants:
     BUFFER_POOL_WATERMARK_STAT_TYPE = 'BUFFER_POOL_WATERMARK_STAT'
     ACL = 'acl'
     ACL_TYPE = "ACL"
+    PHY_TYPE = 'PHY'
+    PHY = 'phy'
     COUNTERPOLL_MAPPING = {PG_DROP_STAT_TYPE: PG_DROP,
                            QUEUE_STAT_TYPE: QUEUE,
                            PORT_STAT_TYPE: PORT,
+                           PORT_PHY_ATTR_TYPE: PORT_PHY_ATTR,
                            PORT_BUFFER_DROP_TYPE: PORT_BUFFER_DROP,
                            RIF_STAT_TYPE: RIF,
                            BUFFER_POOL_WATERMARK_STAT_TYPE: WATERMARK,
                            QUEUE_WATERMARK_STAT_TYPE: WATERMARK,
                            PG_WATERMARK_STAT_TYPE: WATERMARK,
-                           ACL_TYPE: ACL}
+                           ACL_TYPE: ACL,
+                           PHY_TYPE: PHY}
     PORT_BUFFER_DROP_INTERVAL = '10000'
     COUNTERPOLL_INTERVAL = {PORT_BUFFER_DROP: 10000}
     SX_SDK = 'sx_sdk'

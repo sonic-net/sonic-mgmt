@@ -4,7 +4,7 @@ import logging
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa: F401
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_ipv6_only_topology
 
 DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
@@ -60,7 +60,7 @@ def delete_static_route(duthost, static_route, nexthop_ip, asic_id):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def setup_static_route(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
                        enum_rand_one_frontend_asic_index, gather_facts, request):
 
     """
@@ -86,18 +86,27 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         None
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    nexthop_ipv4 = gather_facts['dst_host_ipv4']
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
+
+    if not is_v6_topo:
+        nexthop_ipv4 = gather_facts['dst_host_ipv4']
+        # Configure IPv4 static route
+        try:
+            result = add_static_route(duthost, STATIC_ROUTE, nexthop_ipv4, enum_rand_one_frontend_asic_index)
+            if result['rc'] != 0:
+                raise Exception("Failed to add IPv4 static route: {}".format(result['stderr']))
+        except Exception as e:
+            logger.error("Error occurred while adding IPv4 static route: %s", str(e))
+            pytest.fail("IPv4 static route addition failed")
+        # Verify IPv4 route is in the routing table
+        try:
+            assert wait_until(60, 5, 0, check_route, duthost, STATIC_ROUTE, nexthop_ipv4,
+                              enum_rand_one_frontend_asic_index, 4, True), "IPv4 static route verification failed"
+        except Exception as e:
+            logger.error("Error occurred while verifying IPv4 static route: %s", str(e))
+            pytest.fail("IPv4 static route verification failed")
+
     nexthop_ipv6 = gather_facts['dst_host_ipv6']
-
-    # Configure IPv4 static route
-    try:
-        result = add_static_route(duthost, STATIC_ROUTE, nexthop_ipv4, enum_rand_one_frontend_asic_index)
-        if result['rc'] != 0:
-            raise Exception("Failed to add IPv4 static route: {}".format(result['stderr']))
-    except Exception as e:
-        logger.error("Error occurred while adding IPv4 static route: %s", str(e))
-        pytest.fail("IPv4 static route addition failed")
-
     # Configure IPv6 static route
     try:
         result = add_static_route(duthost, STATIC_ROUTE_IPV6, nexthop_ipv6, enum_rand_one_frontend_asic_index)
@@ -106,16 +115,6 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     except Exception as e:
         logger.error("Error occurred while adding IPv6 static route: %s", str(e))
         pytest.fail("IPv6 static route addition failed")
-
-    # Verify IPv4 route is in the routing table
-
-    try:
-        assert wait_until(60, 5, 0, check_route, duthost, STATIC_ROUTE, nexthop_ipv4,
-                          enum_rand_one_frontend_asic_index, 4, True), "IPv4 static route verification failed"
-    except Exception as e:
-        logger.error("Error occurred while verifying IPv4 static route: %s", str(e))
-        pytest.fail("IPv4 static route verification failed")
-
     # # Verify IPv6 route is in the routing table
     try:
         assert wait_until(60, 5, 0, check_route, duthost, STATIC_ROUTE_IPV6, nexthop_ipv6,
@@ -128,8 +127,9 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     yield
 
     # Use either individual functions
-    delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                             enum_rand_one_frontend_asic_index, gather_facts)
+    if not is_v6_topo:
+        delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                 enum_rand_one_frontend_asic_index, gather_facts)
     delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                              enum_rand_one_frontend_asic_index, gather_facts)
 
@@ -138,12 +138,13 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
 
 @pytest.fixture(autouse=True)
-def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
                    enum_rand_one_frontend_asic_index, gather_facts):
     yield
     # Teardown - delete the static routes
-    delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                             enum_rand_one_frontend_asic_index, gather_facts)
+    if not is_ipv6_only_topology(tbinfo):
+        delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                 enum_rand_one_frontend_asic_index, gather_facts)
     delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                              enum_rand_one_frontend_asic_index, gather_facts)
 

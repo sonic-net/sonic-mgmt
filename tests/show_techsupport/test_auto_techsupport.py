@@ -398,8 +398,8 @@ class TestAutoTechSupport:
         - Create 4 core/techsupport dummy files(each file 5%) which will use 20% of space in test folder
         - Trigger techsupport and check that dummy files + new created core/techsupport files available
         - Set core/techsupport max limit to 14
-        - Trigger techsupport and check that 2 oldest dummy files removed, all other + new created core/techsupport
-        files available
+        - Trigger techsupport and check that the oldest dummy files were removed to meet the storage limit
+        (exact count varies with techsupport size), verify oldest-first order and folder size within limit
         :param test_mode: test mode - core or techsupport
         :param global_rate_limit_zero: fixture which disable global rate limit
         :param feature_rate_limit_zero: fixture which disable feature rate limit
@@ -473,8 +473,27 @@ class TestAutoTechSupport:
 
                 with allure.step('Check that all expected stub files exist and unexpected does not exist'):
                     expected_max_usage = one_percent_in_mb * max_limit
-                    expected_stub_files = dummy_files_list[2:]
-                    not_expected_stub_files = dummy_files_list[:2]
+
+                    # Query all files that exist after cleanup has run & identify remaining files
+                    file_pattern = 'sonic_dump_*.tar.gz' if test_mode == 'techsupport' else '*.core.gz'
+                    files_after_cleanup = get_files_info(self.duthost, validation_folder, file_pattern)
+                    remaining_file_names = [f['name'] for f in files_after_cleanup]
+                    remaining_dummy_files = [f for f in remaining_file_names if f in dummy_files_list]
+
+                    # Determine which dummy files should exist based on oldest-first deletion strategy
+                    if remaining_dummy_files:
+                        oldest_remaining_idx = min([dummy_files_list.index(f) for f in remaining_dummy_files])
+
+                        # All dummy files from oldest_remaining_idx onward should still exist.
+                        expected_stub_files = dummy_files_list[oldest_remaining_idx:]
+
+                        # All dummy files before oldest_remaining_idx should have been deleted.
+                        not_expected_stub_files = dummy_files_list[:oldest_remaining_idx]
+                    else:
+                        # All dummy files were deleted by cleanup
+                        expected_stub_files = []
+                        not_expected_stub_files = dummy_files_list
+
                     validate_expected_stub_files(self.duthost, validation_folder, expected_stub_files,
                                                  expected_number_of_additional_files=2,
                                                  not_expected_stub_files_list=not_expected_stub_files,
@@ -1404,3 +1423,33 @@ def add_po_member(duthost, po_name, test_port, minigraph_facts):
             remove_acl_tables(duthost, failure_info)
 
         duthost.shell(add_po_member_cmd)
+
+
+def get_files_info(duthost, validation_folder, file_pattern='sonic_dump_*.tar.gz'):
+    """
+    Get size and modification time for all files matching pattern in folder.
+    This is used to query the actual state of files after cleanup has run.
+
+    :param duthost: duthost object
+    :param validation_folder: directory to search (e.g., '/var/dump/' or '/var/core/')
+    :param file_pattern: glob pattern for files to find (default: 'sonic_dump_*.tar.gz')
+    :return: list of dicts with 'name', 'size' (bytes), 'mtime' (timestamp as float)
+    """
+    # Use find command to get file size (%s), modification time (%T@), and filename (%f)
+    # printf format: "size timestamp filename\n"
+    cmd = f"find {validation_folder} -name '{file_pattern}' -type f -printf '%s %T@ %f\\n' 2>/dev/null"
+    result = duthost.shell(cmd)['stdout'].strip()
+
+    files_info = []
+    if result:
+        # Parse each line of output
+        for line in result.split('\n'):
+            parts = line.split()
+            if len(parts) >= 3:
+                files_info.append({
+                    'name': parts[2],
+                    'size': int(parts[0]),
+                    'mtime': float(parts[1])
+                })
+
+    return files_info

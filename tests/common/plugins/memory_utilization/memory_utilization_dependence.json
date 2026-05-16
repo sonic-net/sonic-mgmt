@@ -44,7 +44,8 @@
     },
     {
       "name": "monit",
-      "cmd": "sudo monit validate",
+      "order": 100,
+      "cmd": "sudo monit status",
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
@@ -206,7 +207,7 @@
   "Arista-7050QX": [
     {
       "name": "monit",
-      "cmd": "sudo monit validate",
+      "cmd": "sudo monit status",
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {
@@ -225,7 +226,7 @@
   "Mellanox-SN4600C": [
     {
       "name": "monit",
-      "cmd": "sudo monit validate",
+      "cmd": "sudo monit status",
       "memory_params": {
         "memory_usage": {
           "memory_increase_threshold": {

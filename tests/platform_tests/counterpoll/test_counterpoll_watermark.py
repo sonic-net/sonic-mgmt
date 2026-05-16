@@ -202,8 +202,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     with allure.step("enable and verify all {} counterpolls on {} ..."
                      .format(RELEVANT_COUNTERPOLLS, duthost.hostname)):
         for asic in duthost.asics:
-            ConterpollHelper.enable_counterpoll(duthost, RELEVANT_COUNTERPOLLS)
-            verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, ENABLE)
+            ConterpollHelper.enable_counterpoll(asic, RELEVANT_COUNTERPOLLS)
+            verify_counterpoll_status(asic, RELEVANT_COUNTERPOLLS, ENABLE)
     # count FLEXCOUNTER_DB countrpolls and put in results dict key per countrpoll
     with allure.step("check all counterpolls {} results on {} ...".format(RELEVANT_COUNTERPOLLS, duthost.hostname)):
         for counterpoll in RELEVANT_COUNTERPOLLS:

@@ -1134,6 +1134,13 @@ platform_tests/sfp/test_sfputil.py:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status:
+  xfail:
+    reason: "Per lane interface status is not supported on SP4/SP5 platform."
+    conditions_logical_operator: or
+    conditions:
+    - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']
+
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform or in bluefield platform"
@@ -1414,6 +1421,10 @@ platform_tests/test_reload_config.py::test_reload_configuration:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
+  xfail:
+    reason: "timemaster.service fails benignly on Cisco-8102 lab DUTs (no reachable NTP/PTP source), causing 'systemctl is-system-running' to report 'degraded' and trip config_system_checks_passed. Data plane is unaffected."
+    conditions:
+      - "platform in ['x86_64-8102_64h_o-r0']"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
@@ -1471,6 +1482,14 @@ platform_tests/test_service_warm_restart.py:
 #######################################
 #####   test_xcvr_info_in_db.py   #####
 #######################################
+
+platform_tests/test_xcvr_info_in_db.py:
+  skip:
+    reason: 'Transceiver info tests require SFP hardware, not available on VS platform'
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vs']"
+
 platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
   xfail:
     reason: "CLI Utility sfpshow not working correctly"

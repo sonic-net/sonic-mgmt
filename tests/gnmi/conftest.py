@@ -1,18 +1,12 @@
 import pytest
 import logging
-import os
-import glob
-import grpc
-
-from grpc_tools import protoc
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
-from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_revoked_cert_and_crl, \
-                                            create_gnmi_certs, delete_gnmi_certs, create_ext_conf
+from tests.common.helpers.gnmi_utils import create_gnmi_certs, delete_gnmi_certs
 from tests.common.helpers.ntp_helper import setup_ntp_context
 from tests.gnmi.helper import _init_cert_extension,cert_extension
 
@@ -24,7 +18,7 @@ def setup_cert_extension(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     _init_cert_extension(duthost)
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
     """Auto-setup NTP for all gNMI tests using existing helper."""
     duthost = duthosts[rand_one_dut_hostname]
@@ -45,7 +39,7 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
         yield
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Setup GNMI server with client certificates
@@ -74,7 +68,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     recover_cert_config(duthost)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Create GNMI client certificates
@@ -161,9 +155,10 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.{}'.format(cert_extension), dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
+    create_gnmi_certs(duthost, localhost, ptfhost)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     '''
     Check DUT time to detect NTP issue

@@ -1307,7 +1307,7 @@ def capture_and_check_packet_on_dut(
     pkts_validator_args=[],
     pkts_validator_kwargs={},
     wait_time=1,
-    tcpdump_buffer_size=102400
+    tcpdump_buffer_size=131072
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1337,6 +1337,7 @@ def capture_and_check_packet_on_dut(
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
+        duthost.shell("kill -9 %s || true" % tcpdump_pid, module_ignore_errors=True)
         duthost.file(path=pcap_save_path, state="absent")
 
 
