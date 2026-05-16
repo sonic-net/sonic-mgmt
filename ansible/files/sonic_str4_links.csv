@@ -1315,8 +1315,8 @@ str4-7060x6-512-10,Ethernet508,str4-7060x6-512-fan-10,Ethernet508,100000,2069,Ac
 str4-7060x6-512-10,Ethernet509,str4-7060x6-512-fan-10,Ethernet509,100000,2070,Access,on
 str4-7060x6-512-10,Ethernet510,str4-7060x6-512-fan-10,Ethernet510,100000,2071,Access,on
 str4-7060x6-512-10,Ethernet511,str4-7060x6-512-fan-10,Ethernet511,100000,2072,Access,on
-str4-7060x6-512-10,Ethernet512,str4-7060x6-512-fan-10,Ethernet512,10000,2073,Access,on
-str4-7060x6-512-10,Ethernet513,str4-7060x6-512-fan-10,Ethernet513,10000,2074,Access,on
+str4-7060x6-512-10,Ethernet512,str4-7060x6-512-fan-10,Ethernet512,10000,2073,Access,
+str4-7060x6-512-10,Ethernet513,str4-7060x6-512-fan-10,Ethernet513,10000,2074,Access,
 str4-7060x6-512-11,Ethernet0,str4-7060x6-512-fan-11,Ethernet0,100000,801,Access,on
 str4-7060x6-512-11,Ethernet1,str4-7060x6-512-fan-11,Ethernet1,100000,802,Access,on
 str4-7060x6-512-11,Ethernet2,str4-7060x6-512-fan-11,Ethernet2,100000,803,Access,on
