@@ -353,39 +353,41 @@ def parametrize_vlan_config_from_topo(
     topo_dut = tbinfo.get("topo", {}).get("properties", {}).get("topology", {}).get("DUT", {})
     vlan_configs = topo_dut.get("vlan_configs") or {}
     default_variant_name = vlan_configs.get("default_vlan_config")
-    is_non_default = (variant_name != default_variant_name)
 
     sub_vlans_info, config_patch = _generate_config_patch_from_variant(
         duthost, localhost, tbinfo, variant_name, is_dualtor
     )
 
     logger.info(
-        "parametrize_vlan_config_from_topo: variant=%s default=%s is_non_default=%s on %s",
-        variant_name, default_variant_name, is_non_default, duthost.hostname,
+        "parametrize_vlan_config_from_topo: variant=%s default=%s on %s",
+        variant_name, default_variant_name, duthost.hostname,
     )
     logger.debug("config_patch=%s", config_patch)
 
-    if is_non_default:
-        _apply_and_persist(duthost, config_patch, is_dualtor)
-        if is_dualtor:
-            # Recompute patch against the unselected DUT in case its CONFIG_DB
-            # has drifted from the selected DUT's.
-            _, config_patch_u = _generate_config_patch_from_variant(
-                rand_unselected_dut, localhost, tbinfo, variant_name, is_dualtor
-            )
-            _apply_and_persist(rand_unselected_dut, config_patch_u, is_dualtor)
-        logger.info("Applied %s on %s; sub_vlans=%s", variant_name, duthost.hostname, sub_vlans_info)
+    # Always apply, even for the default variant: a previous test may have
+    # polluted CONFIG_DB, and we want every test to start from the variant
+    # the topo declares, not from whatever happened to be running.
+    _apply_and_persist(duthost, config_patch, is_dualtor)
+    if is_dualtor:
+        # Recompute patch against the unselected DUT in case its CONFIG_DB
+        # has drifted from the selected DUT's.
+        _, config_patch_u = _generate_config_patch_from_variant(
+            rand_unselected_dut, localhost, tbinfo, variant_name, is_dualtor
+        )
+        _apply_and_persist(rand_unselected_dut, config_patch_u, is_dualtor)
+    logger.info("Applied %s on %s; sub_vlans=%s", variant_name, duthost.hostname, sub_vlans_info)
 
     yield sub_vlans_info
 
-    if is_non_default:
-        logger.info("Restoring %s -> %s on %s", variant_name, default_variant_name, duthost.hostname)
-        _, restore_patch = _generate_config_patch_from_variant(
-            duthost, localhost, tbinfo, default_variant_name, is_dualtor
+    # Always teardown to the default variant so the next test (or next
+    # session) starts from a known state.
+    logger.info("Restoring %s -> %s on %s", variant_name, default_variant_name, duthost.hostname)
+    _, restore_patch = _generate_config_patch_from_variant(
+        duthost, localhost, tbinfo, default_variant_name, is_dualtor
+    )
+    _apply_and_persist(duthost, restore_patch, is_dualtor)
+    if is_dualtor:
+        _, restore_patch_u = _generate_config_patch_from_variant(
+            rand_unselected_dut, localhost, tbinfo, default_variant_name, is_dualtor
         )
-        _apply_and_persist(duthost, restore_patch, is_dualtor)
-        if is_dualtor:
-            _, restore_patch_u = _generate_config_patch_from_variant(
-                rand_unselected_dut, localhost, tbinfo, default_variant_name, is_dualtor
-            )
-            _apply_and_persist(rand_unselected_dut, restore_patch_u, is_dualtor)
+        _apply_and_persist(rand_unselected_dut, restore_patch_u, is_dualtor)
