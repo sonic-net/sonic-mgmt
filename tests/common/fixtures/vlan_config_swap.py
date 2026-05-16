@@ -21,11 +21,6 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 logger = logging.getLogger(__name__)
 
 
-def vlan_n2i(vlan_name):
-    """Convert vlan name to vlan id."""
-    return vlan_name.replace("Vlan", "")
-
-
 def add_vlan_patch(vlan_name, dhcp_servers, dhcpv6_servers, vlan_intf_value=None, mac=None):
     if vlan_intf_value is None:
         vlan_intf_value = {}
@@ -34,7 +29,7 @@ def add_vlan_patch(vlan_name, dhcp_servers, dhcpv6_servers, vlan_intf_value=None
             "op": "add",
             "path": "/VLAN/%s" % vlan_name,
             "value": {
-                "vlanid": vlan_n2i(vlan_name)
+                "vlanid": vlan_name.replace("Vlan", "")
             }
         },
         {
