@@ -290,7 +290,7 @@ def test_teamd_stress_restart(backup_and_restore_config, request,
         # to start swss after repeated crash-restarts, masking the actual
         # segfault we're trying to detect.
         duthost.shell("sudo systemctl reset-failed swss.service",
-                       module_ignore_errors=True)
+                      module_ignore_errors=True)
 
         # Restart swss container. This cleanly shuts down orchagent + teamd
         # + teamsyncd together, then brings them all back up.
