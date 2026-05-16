@@ -11,10 +11,8 @@ patch back to the topo's ``default_vlan_config``. Supports dualtor MUX_CABLE
 and dualtor-shared mac.
 """
 
-import ipaddress
 import json
 import logging
-import re
 
 import pytest
 
@@ -123,19 +121,6 @@ def remove_vlan_ip_patch(vlan_name, ip):
     }]
 
 
-def _parse_intf_index(host_intf_str):
-    """Parse a host_interfaces entry like '0.5,1.5' or '0.5@10,1.5@10' and
-    return the integer intf_idx (the part after the first '.', before any '@').
-    Mirrors `ansible/module_utils/dualtor_utils.py::get_intf_index`.
-    """
-    first = host_intf_str.split(",")[0]
-    parts = re.split(r"\.|@", first.strip())
-    try:
-        return int(parts[1])
-    except (IndexError, ValueError):
-        return None
-
-
 def add_mux_cable_patch(intf_name, cable_type, server_ipv4, server_ipv6, soc_ipv4=None):
     """Build a JSON patch that creates the /MUX_CABLE/<intf> entry."""
     value = {
@@ -158,51 +143,6 @@ def remove_mux_cable_patch(intf_name):
         "op": "remove",
         "path": "/MUX_CABLE/%s" % intf_name,
     }]
-
-
-def _compute_mux_cable_entries(variant, aa_intf_set, intf_index_to_dut_name):
-    """Return list of (dut_port_name, mux_cable_value_dict) tuples for the
-    requested variant. Mirrors
-    `ansible/module_utils/dualtor_utils.py::generate_mux_cable_facts` but
-    emits the host-mask form (/32 and /128) that sonic-cfggen writes into
-    CONFIG_DB when rendering minigraph, rather than the vlan-prefix mask
-    form the original algorithm returns.
-
-    The active-active branch is taken only for intf_idx values present in
-    `aa_intf_set`; when the topology has no active-active list (plain
-    dualtor), all entries are active-standby.
-    """
-    entries = []
-    for vlan_name, vparams in variant.items():
-        prefix_v4 = vparams.get("prefix")
-        prefix_v6 = vparams.get("prefix_v6")
-        if not prefix_v4 or not prefix_v6:
-            continue
-        v4_addr, _v4_mask = prefix_v4.split("/")
-        v6_addr, _v6_mask = prefix_v6.split("/")
-        v4_base = ipaddress.ip_address(v4_addr)
-        v6_base = ipaddress.ip_address(v6_addr)
-        for index, intf_idx in enumerate(vparams.get("intfs", []) or []):
-            dut_port = intf_index_to_dut_name(intf_idx)
-            if dut_port is None:
-                continue
-            is_aa = (intf_idx in aa_intf_set) if aa_intf_set else False
-            if is_aa:
-                entries.append((dut_port, {
-                    "cable_type": "active-active",
-                    "server_ipv4": "%s/32" % (v4_base + index * 2 + 1),
-                    "server_ipv6": "%s/128" % (v6_base + index * 2 + 1),
-                    "soc_ipv4": "%s/32" % (v4_base + (index + 1) * 2),
-                    "state": "auto",
-                }))
-            else:
-                entries.append((dut_port, {
-                    "cable_type": "active-standby",
-                    "server_ipv4": "%s/32" % (v4_base + index + 1),
-                    "server_ipv6": "%s/128" % (v6_base + index + 1),
-                    "state": "auto",
-                }))
-    return entries
 
 
 def apply_config_patch(duthost, config_to_apply):
@@ -229,7 +169,7 @@ def apply_config_patch(duthost, config_to_apply):
         duthost.file(path=tmpfile, state='absent')
 
 
-def _generate_config_patch_from_variant(duthost, tbinfo, variant_name):
+def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name):
     """Build the JSON config-patch and sub_vlans_info structure for the
     requested variant. See module docstring for the returned schema.
     """
@@ -366,24 +306,25 @@ def _generate_config_patch_from_variant(duthost, tbinfo, variant_name):
         for member, _ in members_with_ptf_idx:
             config_patch += add_vlan_member_patch(vlan_name, member)
 
-    # Dualtor MUX_CABLE: emit new entries for the variant.
+    # Dualtor MUX_CABLE: re-emit via the canonical ansible module
+    # (ansible/library/mux_cable_facts.py -> dualtor_utils.generate_mux_cable_facts)
+    # so the active-standby / active-active / active-active-mixed algorithm
+    # stays in one place. The module returns server/soc IPs with the vlan
+    # netmask; CONFIG_DB MUX_CABLE uses host masks (/32, /128) so rewrite.
     if is_dualtor_mux:
-        topo_props = tbinfo.get("topo", {}).get("properties", {}).get("topology", {})
-        host_aa = topo_props.get("host_interfaces_active_active", []) or []
-        aa_intf_set = set()
-        for entry in host_aa:
-            idx = _parse_intf_index(entry)
-            if idx is not None:
-                aa_intf_set.add(idx)
-        for dut_port, val in _compute_mux_cable_entries(
-            variant, aa_intf_set, _intf_index_to_dut_name
-        ):
+        mux_cable_facts = localhost.mux_cable_facts(
+            topology=tbinfo["topo"]["properties"]["topology"],
+            vlan_config=variant_name,
+        )["ansible_facts"]["mux_cable_facts"]
+        for intf_idx, info in mux_cable_facts.items():
+            dut_port = _intf_index_to_dut_name(intf_idx)
+            if dut_port is None:
+                continue
+            server_ipv4 = info["server_ipv4"].split("/")[0] + "/32"
+            server_ipv6 = info["server_ipv6"].split("/")[0] + "/128"
+            soc_ipv4 = info["soc_ipv4"].split("/")[0] + "/32" if "soc_ipv4" in info else None
             config_patch += add_mux_cable_patch(
-                dut_port,
-                val["cable_type"],
-                val["server_ipv4"],
-                val["server_ipv6"],
-                soc_ipv4=val.get("soc_ipv4"),
+                dut_port, info["cable_type"], server_ipv4, server_ipv6, soc_ipv4=soc_ipv4,
             )
 
     return sub_vlans_info, config_patch, is_dualtor_mux
@@ -404,7 +345,7 @@ def _apply_and_persist(host, patch, refresh_caclmgrd):
 
 @pytest.fixture(scope="module")
 def parametrize_vlan_config_from_topo(
-    request, rand_selected_dut, rand_unselected_dut, tbinfo
+    request, rand_selected_dut, rand_unselected_dut, localhost, tbinfo
 ):
     """See module docstring. `request.param` is the variant name, supplied
     by the `pytest_generate_tests` hook in `tests/conftest.py` (or by an
@@ -419,7 +360,7 @@ def parametrize_vlan_config_from_topo(
     is_non_default = (variant_name != default_variant_name)
 
     sub_vlans_info, config_patch, is_dualtor_mux = _generate_config_patch_from_variant(
-        duthost, tbinfo, variant_name
+        duthost, localhost, tbinfo, variant_name
     )
 
     logger.info(
@@ -434,7 +375,7 @@ def parametrize_vlan_config_from_topo(
             # Recompute patch against the unselected DUT in case its CONFIG_DB
             # has drifted from the selected DUT's.
             _, config_patch_u, _ = _generate_config_patch_from_variant(
-                rand_unselected_dut, tbinfo, variant_name
+                rand_unselected_dut, localhost, tbinfo, variant_name
             )
             _apply_and_persist(rand_unselected_dut, config_patch_u, is_dualtor_mux)
         logger.info("Applied %s on %s; sub_vlans=%s", variant_name, duthost.hostname, sub_vlans_info)
@@ -443,10 +384,10 @@ def parametrize_vlan_config_from_topo(
 
     if is_non_default:
         logger.info("Restoring %s -> %s on %s", variant_name, default_variant_name, duthost.hostname)
-        _, restore_patch, _ = _generate_config_patch_from_variant(duthost, tbinfo, default_variant_name)
+        _, restore_patch, _ = _generate_config_patch_from_variant(duthost, localhost, tbinfo, default_variant_name)
         _apply_and_persist(duthost, restore_patch, is_dualtor_mux)
         if is_dualtor:
             _, restore_patch_u, _ = _generate_config_patch_from_variant(
-                rand_unselected_dut, tbinfo, default_variant_name
+                rand_unselected_dut, localhost, tbinfo, default_variant_name
             )
             _apply_and_persist(rand_unselected_dut, restore_patch_u, is_dualtor_mux)
