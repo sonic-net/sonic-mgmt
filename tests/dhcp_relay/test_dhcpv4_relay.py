@@ -611,7 +611,7 @@ def test_dhcp_relay_with_non_default_vrf(
                                },
                        log_file="/tmp/test_dhcp_relay_with_non_default_vrf.DHCPTest.log", is_python3=True)
     except LogAnalyzerError as err:
-        logger.error("Unable to find expected log in syslog")
+        logger.error("Unable to find expected log in syslog ")
         raise err
 
     finally:
