@@ -144,7 +144,12 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
         rsyslog_pid = get_rsyslogd_pid(rand_selected_dut, container_name)
         rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(
             service_name, RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL))
-        assert wait_rsyslogd_restart(rand_selected_dut, container_name, rsyslog_pid)
+        pytest_assert(
+            wait_rsyslogd_restart(rand_selected_dut, container_name, rsyslog_pid),
+            'rsyslogd in container {} did not restart or become ready within 30s '
+            'after `config syslog rate-limit-container {} -b {} -i {}` (old pid={!r})'.format(
+                container_name, service_name, RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL,
+                rsyslog_pid))
         rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-container {}'.format(service_name))
         pytest_assert(rate_limit_data[0]['interval'] == str(RATE_LIMIT_INTERVAL),
                       'Expect rate limit interval {}, actual {}'.format(RATE_LIMIT_INTERVAL,
@@ -186,7 +191,11 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
 
         rsyslog_pid = get_rsyslogd_pid(rand_selected_dut, container_name)
         rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(service_name, 0, 0))
-        assert wait_rsyslogd_restart(rand_selected_dut, container_name, rsyslog_pid)
+        pytest_assert(
+            wait_rsyslogd_restart(rand_selected_dut, container_name, rsyslog_pid),
+            'rsyslogd in container {} did not restart or become ready within 30s '
+            'after `config syslog rate-limit-container {} -b 0 -i 0` (old pid={!r})'.format(
+                container_name, service_name, rsyslog_pid))
         rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-container {}'.format(service_name))
         pytest_assert(rate_limit_data[0]['interval'] == '0',
                       'Expect rate limit interval {}, actual {}'.format(0, rate_limit_data[0]['interval']))
