@@ -5,13 +5,19 @@ import os
 import sys
 import tempfile
 import shutil
+import builtins
 
 # Ensure the module under test is importable
 sys.path.insert(0, os.path.dirname(__file__))
 
 import pytest  # noqa: E402
 from get_test_scripts import (  # noqa: E402
+    VPP_CHECKER,
+    VPP_TOPOLOGY,
+    build_vpp_impacted_scripts,
+    collect_scripts_by_topology_type,
     dedup_control_plane_tests,
+    load_vpp_test_scripts_allowlist,
     _collect_conftest_files,
     _detect_data_plane_tests,
     _has_traffic_pattern,
@@ -36,6 +42,211 @@ def _write_file(directory, relpath, content=""):
     with open(full, "w") as f:
         f.write(content)
     return full
+
+
+# ── t1-lag-vpp allowlist intersection ─────────────────────
+
+class TestVppImpactedArea:
+
+    def test_vpp_allowlist_intersection_includes_raw_script(
+        self, test_dir, monkeypatch
+    ):
+        tests_dir = os.path.join(test_dir, "tests")
+        _write_file(tests_dir, "bgp/test_allowed.py", "import pytest\n")
+        _write_file(tests_dir, "bgp/test_not_allowed.py", "import pytest\n")
+        monkeypatch.setattr(
+            "get_test_scripts.load_vpp_test_scripts_allowlist",
+            lambda: ["bgp/test_allowed.py"],
+        )
+
+        result = collect_scripts_by_topology_type("bgp", tests_dir)
+
+        assert result[VPP_CHECKER] == ["bgp/test_allowed.py"]
+        assert "bgp/test_not_allowed.py" not in result[VPP_CHECKER]
+
+    def test_vpp_checker_omitted_when_no_allowlisted_impacted_scripts(
+        self, test_dir, monkeypatch
+    ):
+        tests_dir = os.path.join(test_dir, "tests")
+        _write_file(tests_dir, "bgp/test_not_allowed.py", "import pytest\n")
+        monkeypatch.setattr(
+            "get_test_scripts.load_vpp_test_scripts_allowlist",
+            lambda: ["route/test_default_route.py"],
+        )
+
+        result = collect_scripts_by_topology_type("bgp", tests_dir)
+
+        assert VPP_CHECKER not in result
+
+    def test_vpp_output_order_follows_allowlist(
+        self, test_dir, monkeypatch
+    ):
+        tests_dir = os.path.join(test_dir, "tests")
+        _write_file(tests_dir, "bgp/test_first.py", "import pytest\n")
+        _write_file(tests_dir, "bgp/test_second.py", "import pytest\n")
+        monkeypatch.setattr(
+            "get_test_scripts.load_vpp_test_scripts_allowlist",
+            lambda: ["bgp/test_second.py", "bgp/test_first.py"],
+        )
+
+        result = collect_scripts_by_topology_type("bgp", tests_dir)
+
+        assert result[VPP_CHECKER] == [
+            "bgp/test_second.py",
+            "bgp/test_first.py",
+        ]
+
+    def test_vpp_broad_impact_filters_by_allowlist(
+        self, test_dir, monkeypatch
+    ):
+        tests_dir = os.path.join(test_dir, "tests")
+        _write_file(tests_dir, "bgp/test_allowed.py", "import pytest\n")
+        _write_file(tests_dir, "bgp/test_not_allowed.py", "import pytest\n")
+        _write_file(tests_dir, "route/test_allowed.py", "import pytest\n")
+        monkeypatch.setattr(
+            "get_test_scripts.load_vpp_test_scripts_allowlist",
+            lambda: [
+                "route/test_allowed.py",
+                "bgp/test_allowed.py",
+                "missing/test_missing.py",
+            ],
+        )
+
+        result = collect_scripts_by_topology_type("", tests_dir)
+
+        assert result[VPP_CHECKER] == [
+            "route/test_allowed.py",
+            "bgp/test_allowed.py",
+        ]
+
+    def test_vpp_includes_allowlisted_scripts_for_any_marker_shape(
+        self, test_dir, monkeypatch
+    ):
+        tests_dir = os.path.join(test_dir, "tests")
+        scripts = [
+            "bgp/test_t0.py",
+            "bgp/test_t2.py",
+            "bgp/test_any.py",
+            "bgp/test_missing_marker.py",
+        ]
+        _write_file(
+            tests_dir,
+            scripts[0],
+            "pytestmark = [pytest.mark.topology('t0')]\n",
+        )
+        _write_file(
+            tests_dir,
+            scripts[1],
+            "pytestmark = [pytest.mark.topology('t2')]\n",
+        )
+        _write_file(
+            tests_dir,
+            scripts[2],
+            "pytestmark = [pytest.mark.topology('any')]\n",
+        )
+        _write_file(tests_dir, scripts[3], "import pytest\n")
+        monkeypatch.setattr(
+            "get_test_scripts.load_vpp_test_scripts_allowlist",
+            lambda: scripts,
+        )
+
+        result = collect_scripts_by_topology_type("bgp", tests_dir)
+
+        assert result[VPP_CHECKER] == scripts
+
+    def test_build_vpp_impacted_scripts_preserves_allowlist_order(self):
+        result = build_vpp_impacted_scripts(
+            ["bgp/test_first.py", "bgp/test_second.py"],
+            ["bgp/test_second.py", "bgp/test_first.py"],
+        )
+
+        assert result == ["bgp/test_second.py", "bgp/test_first.py"]
+
+    def test_load_vpp_allowlist_requires_yaml_key(
+        self, test_dir, monkeypatch
+    ):
+        pipeline_dir = os.path.join(test_dir, ".azure-pipelines")
+        _write_file(pipeline_dir, "pr_test_scripts.yaml", "t0: []\n")
+        monkeypatch.setattr(
+            "get_test_scripts.__file__",
+            os.path.join(
+                pipeline_dir,
+                "impacted_area_testing",
+                "get_test_scripts.py",
+            ),
+        )
+
+        with pytest.raises(
+            Exception,
+            match="Missing {} allowlist".format(VPP_TOPOLOGY)
+        ):
+            load_vpp_test_scripts_allowlist()
+
+    def test_load_vpp_allowlist_requires_list(
+        self, test_dir, monkeypatch
+    ):
+        pipeline_dir = os.path.join(test_dir, ".azure-pipelines")
+        _write_file(
+            pipeline_dir,
+            "pr_test_scripts.yaml",
+            "{}: invalid\n".format(VPP_TOPOLOGY),
+        )
+        monkeypatch.setattr(
+            "get_test_scripts.__file__",
+            os.path.join(
+                pipeline_dir,
+                "impacted_area_testing",
+                "get_test_scripts.py",
+            ),
+        )
+
+        with pytest.raises(Exception, match="must be a list"):
+            load_vpp_test_scripts_allowlist()
+
+    def test_load_vpp_allowlist_reports_load_error(
+        self, test_dir, monkeypatch
+    ):
+        pipeline_dir = os.path.join(test_dir, ".azure-pipelines")
+        monkeypatch.setattr(
+            "get_test_scripts.__file__",
+            os.path.join(
+                pipeline_dir,
+                "impacted_area_testing",
+                "get_test_scripts.py",
+            ),
+        )
+
+        with pytest.raises(Exception, match="trying to load"):
+            load_vpp_test_scripts_allowlist()
+
+    def test_load_vpp_allowlist_reports_missing_pyyaml(
+        self, test_dir, monkeypatch
+    ):
+        pipeline_dir = os.path.join(test_dir, ".azure-pipelines")
+        _write_file(
+            pipeline_dir,
+            "pr_test_scripts.yaml",
+            "{}: []\n".format(VPP_TOPOLOGY),
+        )
+        monkeypatch.setattr(
+            "get_test_scripts.__file__",
+            os.path.join(
+                pipeline_dir,
+                "impacted_area_testing",
+                "get_test_scripts.py",
+            ),
+        )
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "yaml":
+                raise ImportError("No module named yaml")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        with pytest.raises(Exception, match="PyYAML is required"):
+            load_vpp_test_scripts_allowlist()
 
 
 # ── dedup_control_plane_tests ──────────────────────────────
