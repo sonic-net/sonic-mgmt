@@ -175,6 +175,44 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def disable_zmq_for_fib_suppress(duthost):
+    """
+    Disable orch_northbond_route_zmq_enabled for the duration of the module.
+    When ZMQ is enabled, TCP operations from fpmsyncd are blocked when the
+    orchagent process is paused, which breaks suppress-fib tests that
+    intentionally stop orchagent to simulate route install delays.
+    Restores the original value at module teardown.
+    """
+    original = duthost.shell(
+        'sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" "orch_northbond_route_zmq_enabled"',
+        module_ignore_errors=True
+    )['stdout'].strip()
+    logger.info("Original orch_northbond_route_zmq_enabled value: '{}'".format(original))
+
+    if original == "true":
+        logger.info("Disabling orch_northbond_route_zmq_enabled for suppress-fib tests")
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "DEVICE_METADATA|localhost" '
+                      '"orch_northbond_route_zmq_enabled" "false"')
+        duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        # LLDP neighbors re-appear only after the remote side sends its next hello
+        # (up to 30 s after reload). config_reload has no LLDP option; wait explicitly.
+        logger.info("Waiting for LLDP neighbors to repopulate after config reload")
+        wait_until(90, 5, 0,
+                   lambda: bool(duthost.shell(
+                       "show lldp table | grep -v LocalPort | grep -v '^$'",
+                       module_ignore_errors=True)['stdout'].strip()))
+
+    yield
+
+    if original == "true":
+        logger.info("Restoring orch_northbond_route_zmq_enabled to true")
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "DEVICE_METADATA|localhost" '
+                      '"orch_northbond_route_zmq_enabled" "true"')
+        duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
 @pytest.fixture(scope="function")
 def restore_bgp_suppress_fib(duthosts, enum_downstream_dut_hostname):
     """
