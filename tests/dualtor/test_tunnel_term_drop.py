@@ -18,11 +18,17 @@ from scapy.all import Ether, IP
 
 from tests.common.dualtor.dual_tor_mock import *  # noqa: F403
 from tests.common.dualtor.dual_tor_common import (  # noqa: F401
-    active_standby_ports
+    active_active_ports,
+    active_standby_ports,
+    cable_type,
+    CableType
 )
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.dualtor.dual_tor_utils import (  # noqa: F401
+    setup_standby_ports_on_rand_selected_tor
+)
 from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
     toggle_all_simulator_ports_to_rand_unselected_tor
 )
@@ -54,35 +60,39 @@ def common_setup_teardown(
 
 
 @pytest.fixture(scope="function")
-def rand_selected_active_standby_interface(
-    rand_selected_dut, active_standby_ports  # noqa: F811
+def rand_selected_mux_interface(
+    rand_selected_dut, cable_type, active_active_ports,       # noqa: F811
+    active_standby_ports                                      # noqa: F811
 ):
-    """Select a random active-standby mux interface to test."""
+    """Select a random mux interface matching the current cable type."""
+    mux_ports = (
+        active_active_ports if cable_type == CableType.active_active
+        else active_standby_ports
+    )
     pytest_require(
-        active_standby_ports,
-        "Tunnel termination drop is only applicable to active-standby "
-        "dualtor ports"
+        mux_ports,
+        "No {} mux ports, skip...".format(cable_type)
     )
 
     tor = rand_selected_dut
     server_ips = mux_cable_server_ip(tor)
     candidate_interfaces = [
-        str(iface) for iface in active_standby_ports
+        str(iface) for iface in mux_ports
         if str(iface) in server_ips
     ]
     pytest_require(
         candidate_interfaces,
-        "No active-standby mux ports with server IP config, skip..."
+        "No {} mux ports with server IP config, skip...".format(cable_type)
     )
 
     iface = random.choice(candidate_interfaces)
-    logger.info("Select active-standby DUT interface %s to test.", iface)
+    logger.info("Select %s DUT interface %s to test.", cable_type, iface)
     return iface, server_ips[iface]
 
 
 @pytest.fixture(scope="function")
 def build_encapsulated_ip_packet(
-    rand_selected_active_standby_interface, ptfadapter, rand_selected_dut
+    rand_selected_mux_interface, ptfadapter, rand_selected_dut
 ):   # noqa: F811
     """
     Build an IPinIP encapsulated packet as if sent from the peer ToR.
@@ -91,7 +101,7 @@ def build_encapsulated_ip_packet(
     Inner: src=1.1.1.1, dst=server_ip
     """
     tor = rand_selected_dut
-    _, server_ips = rand_selected_active_standby_interface
+    _, server_ips = rand_selected_mux_interface
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
 
@@ -155,9 +165,11 @@ def _build_expected_server_packet(encapsulated_packet):
     return exp_pkt
 
 
+@pytest.mark.enable_active_active
 def test_tunnel_term_drop_standby(
     build_encapsulated_ip_packet, request,
-    rand_selected_active_standby_interface, ptfadapter,     # noqa: F811
+    rand_selected_mux_interface, ptfadapter,                # noqa: F811
+    cable_type,                                             # noqa: F811
     tbinfo, rand_selected_dut, tunnel_traffic_monitor       # noqa: F811
 ):
     """
@@ -172,7 +184,9 @@ def test_tunnel_term_drop_standby(
       - Decapsulated and forwarded to the server port
       - Re-encapsulated and sent back to T1 (which would cause a loop)
     """
-    if is_t0_mocked_dualtor(tbinfo):  # noqa: F405
+    if cable_type == CableType.active_active:
+        request.getfixturevalue("setup_standby_ports_on_rand_selected_tor")
+    elif is_t0_mocked_dualtor(tbinfo):  # noqa: F405
         request.getfixturevalue("apply_standby_state_to_orchagent")
     else:
         request.getfixturevalue(
@@ -181,7 +195,7 @@ def test_tunnel_term_drop_standby(
 
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_ip_packet
-    iface, _ = rand_selected_active_standby_interface
+    iface, _ = rand_selected_mux_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = _build_expected_server_packet(encapsulated_packet)
