@@ -85,15 +85,30 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     should_rotate_log = request.config.getoption("--loganalyzer_rotate_logs")
     is_modular_chassis = duthosts[0].get_facts().get("modular_chassis") if duthosts else False
 
+    # Import here, not at module load: conftest imports common before loganalyzer
+    # finishes loading; a top-level import creates a circular import.
+    try:
+        from tests.conftest import get_specified_dpus
+        # Get dpuhosts if the --dpu-pattern is provided to enable loganalyzer on dpus
+        dpuhosts = request.getfixturevalue("dpuhosts") if get_specified_dpus(request) else []
+    except Exception:
+        dpuhosts = []
+
+    analyzer_hosts = []
+    for duthost in duthosts:
+        analyzer_hosts.append(duthost)
+    for dpuhost in dpuhosts:
+        analyzer_hosts.append(dpuhost)
+
     # We make sure only run logrotate as "function" scope for non-modular chassis for optimisation purpose.
     # For modular chassis please refer to "log_rotate_modular_chassis" fixture
     if should_rotate_log and not is_modular_chassis:
-        parallel_run(analyzer_logrotate, [], {}, duthosts, timeout=120)
-    for duthost in duthosts:
+        parallel_run(analyzer_logrotate, [], {}, analyzer_hosts, timeout=120)
+    for duthost in analyzer_hosts:
         analyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name, request=request)
         analyzer.load_common_config()
         analyzers[duthost.hostname] = analyzer
-    markers = parallel_run(analyzer_add_marker, [analyzers], {}, duthosts, timeout=120)
+    markers = parallel_run(analyzer_add_marker, [analyzers], {}, analyzer_hosts, timeout=120)
 
     yield analyzers
 
@@ -101,16 +116,20 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped or \
             "rep_setup" in request.node.__dict__ and request.node.rep_setup.skipped:
         return
+
+    # It's possible we modify the analyzers in tests to skip some duthosts
+    analyzer_hosts = [duthost for duthost in analyzer_hosts if duthost.hostname in analyzers]
+
     logging.info("Starting to analyse on all DUTs")
     la_results = parallel_run(
         analyze_logs,
         [analyzers, markers],
         {'fail_test': fail_test, 'store_la_logs': store_la_logs},
-        duthosts,
+        analyzer_hosts,
         timeout=240
     )
     consolidated_bughandler = get_bughandler_instance({"type": "consolidated"})
-    consolidated_bughandler.bug_handler_wrapper(analyzers, duthosts, la_results)
+    consolidated_bughandler.bug_handler_wrapper(analyzers, analyzer_hosts, la_results)
 
 
 @pytest.fixture(autouse=True)
