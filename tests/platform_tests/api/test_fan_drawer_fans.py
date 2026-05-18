@@ -250,7 +250,7 @@ class TestFanDrawerFans(PlatformApiTestBase):
             fans_skipped = 0
 
             for i in range(num_fans):
-                speed_target_val = 25
+                speed_target_val = self.get_fan_facts(duthost, j, i, 25, "speed", "default")
                 speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
                 if not speed_controllable:
                     logger.info("test_get_fans_target_speed: Skipping fandrawer {} fan {} (speed not controllable)"

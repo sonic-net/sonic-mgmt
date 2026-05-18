@@ -193,7 +193,7 @@ class TestChassisFans(PlatformApiTestBase):
         fans_skipped = 0
 
         for i in range(self.num_fans):
-            speed_target_val = 25
+            speed_target_val = self.get_fan_facts(duthost, i, 25, "speed", "default")
             speed_controllable = self.get_fan_facts(duthost, i, True, "speed", "controllable")
             if not speed_controllable:
                 logger.info("test_get_fans_target_speed: Skipping chassis fan {} (speed not controllable)"
