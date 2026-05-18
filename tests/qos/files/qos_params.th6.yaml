@@ -4,14 +4,14 @@ qos_params:
             400000_30m:
                 hdrm_pool_size:
                     dscps:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     dst_port_id: 0
                     ecn: 1
                     margin: 4
                     pgs:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     pgs_num: 22
                     pkts_num_hdrm_full: 4474
                     pkts_num_hdrm_partial: 3326
@@ -97,14 +97,14 @@ qos_params:
             400000_500m:
                 hdrm_pool_size:
                     dscps:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     dst_port_id: 0
                     ecn: 1
                     margin: 4
                     pgs:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     pgs_num: 22
                     pkts_num_hdrm_full: 4474
                     pkts_num_hdrm_partial: 3326
@@ -217,14 +217,14 @@ qos_params:
             400000_30m:
                 hdrm_pool_size:
                     dscps:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     dst_port_id: 0
                     ecn: 1
                     margin: 4
                     pgs:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     pgs_num: 22
                     pkts_num_hdrm_full: 4474
                     pkts_num_hdrm_partial: 3326
@@ -310,14 +310,14 @@ qos_params:
             400000_500m:
                 hdrm_pool_size:
                     dscps:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     dst_port_id: 0
                     ecn: 1
                     margin: 4
                     pgs:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     pgs_num: 22
                     pkts_num_hdrm_full: 4474
                     pkts_num_hdrm_partial: 3326
@@ -430,14 +430,14 @@ qos_params:
             400000_30m:
                 hdrm_pool_size:
                     dscps:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     dst_port_id: 0
                     ecn: 1
                     margin: 4
                     pgs:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     pgs_num: 22
                     pkts_num_hdrm_full: 4474
                     pkts_num_hdrm_partial: 3326
@@ -523,14 +523,14 @@ qos_params:
             400000_500m:
                 hdrm_pool_size:
                     dscps:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     dst_port_id: 0
                     ecn: 1
                     margin: 4
                     pgs:
-                    - 3
-                    - 4
+                        - 3
+                        - 4
                     pgs_num: 22
                     pkts_num_hdrm_full: 4474
                     pkts_num_hdrm_partial: 3326
@@ -639,4 +639,3 @@ qos_params:
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
                 q7_num_of_pkts: 80
-
