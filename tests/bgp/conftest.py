@@ -850,6 +850,7 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Enable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending enabled')
         duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     yield
 
@@ -857,6 +858,7 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Disable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending disabled')
         duthost.shell('sudo config save -y')
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="module")
