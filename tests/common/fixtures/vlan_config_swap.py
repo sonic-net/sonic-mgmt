@@ -17,6 +17,7 @@ import logging
 import pytest
 
 from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
@@ -162,16 +163,8 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     )
     variant = vlan_configs[variant_name]
 
-    # Read what's currently deployed so we know what to remove. Always
-    # re-read: running config changes between apply (default -> variant)
-    # and teardown (variant -> default), so caching it would re-emit
-    # removes for vlans that no longer exist.
+    # Read what's currently deployed so we know what to remove.
     running_config = duthost.get_running_config_facts()
-    # minigraph_facts is immutable per topo so cache it per duthost.
-    cache = getattr(duthost, "_vlan_config_swap_cache", None)
-    if cache is None:
-        cache = {}
-        duthost._vlan_config_swap_cache = cache
     current_vlan_names = list(running_config.get("VLAN", {}).keys())
     # DHCP and DHCP_RELAY servers carry forward from the deployed config.
     # Look up per-Vlan by exact name (covers same-name swaps), fall back to
@@ -213,10 +206,8 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         for intf_name in list(running_mux_cable.keys()):
             config_patch += remove_mux_cable_patch(intf_name)
 
-    # Resolve intf_idx -> dut_port via extended minigraph facts (cached).
-    if "minigraph_facts" not in cache:
-        cache["minigraph_facts"] = duthost.get_extended_minigraph_facts(tbinfo)
-    minigraph_facts = cache["minigraph_facts"]
+    # Resolve intf_idx -> dut_port via extended minigraph facts.
+    minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     dut_intf_to_ptf_index = minigraph_facts["minigraph_ptf_indices"]
 
     _ptf_idx_to_dut_port = {v: k for k, v in dut_intf_to_ptf_index.items()}
@@ -354,27 +345,42 @@ def parametrize_vlan_config_from_topo(
     vlan_configs = topo_dut.get("vlan_configs") or {}
     default_variant_name = vlan_configs.get("default_vlan_config")
 
-    sub_vlans_info, config_patch = _generate_config_patch_from_variant(
-        duthost, localhost, tbinfo, variant_name, is_dualtor
-    )
-
-    logger.info(
-        "parametrize_vlan_config_from_topo: variant=%s default=%s on %s",
-        variant_name, default_variant_name, duthost.hostname,
-    )
-    logger.debug("config_patch=%s", config_patch)
+    def _swap_one_dut(node, target_variant):
+        info, patch = _generate_config_patch_from_variant(
+            node, localhost, tbinfo, target_variant, is_dualtor,
+        )
+        _apply_and_persist(node, patch, is_dualtor)
+        return info
 
     # Always apply, even for the default variant: a previous test may have
     # polluted CONFIG_DB, and we want every test to start from the variant
     # the topo declares, not from whatever happened to be running.
-    _apply_and_persist(duthost, config_patch, is_dualtor)
+    logger.info(
+        "parametrize_vlan_config_from_topo: variant=%s default=%s on %s",
+        variant_name, default_variant_name, duthost.hostname,
+    )
     if is_dualtor:
-        # Recompute patch against the unselected DUT in case its CONFIG_DB
-        # has drifted from the selected DUT's.
-        _, config_patch_u = _generate_config_patch_from_variant(
-            rand_unselected_dut, localhost, tbinfo, variant_name, is_dualtor
-        )
-        _apply_and_persist(rand_unselected_dut, config_patch_u, is_dualtor)
+        # Both DUTs in parallel (~32s saved on the 30s+30s apply-and-persist
+        # sequence). Each side does its own _generate_config_patch_from_variant
+        # so a drifted unselected DUT still gets a correct patch.
+        try:
+            outs = parallel_run_threaded(
+                [
+                    lambda: _swap_one_dut(duthost, variant_name),
+                    lambda: _swap_one_dut(rand_unselected_dut, variant_name),
+                ],
+                timeout=600,
+            )
+        except TimeoutError:
+            logger.error(
+                "parametrize_vlan_config_from_topo apply timed out (>600s) "
+                "applying variant=%s on DUTs=%s,%s",
+                variant_name, duthost.hostname, rand_unselected_dut.hostname,
+            )
+            raise
+        sub_vlans_info = outs[0]
+    else:
+        sub_vlans_info = _swap_one_dut(duthost, variant_name)
     logger.info("Applied %s on %s; sub_vlans=%s", variant_name, duthost.hostname, sub_vlans_info)
 
     yield sub_vlans_info
@@ -382,12 +388,21 @@ def parametrize_vlan_config_from_topo(
     # Always teardown to the default variant so the next test (or next
     # session) starts from a known state.
     logger.info("Restoring %s -> %s on %s", variant_name, default_variant_name, duthost.hostname)
-    _, restore_patch = _generate_config_patch_from_variant(
-        duthost, localhost, tbinfo, default_variant_name, is_dualtor
-    )
-    _apply_and_persist(duthost, restore_patch, is_dualtor)
     if is_dualtor:
-        _, restore_patch_u = _generate_config_patch_from_variant(
-            rand_unselected_dut, localhost, tbinfo, default_variant_name, is_dualtor
-        )
-        _apply_and_persist(rand_unselected_dut, restore_patch_u, is_dualtor)
+        try:
+            parallel_run_threaded(
+                [
+                    lambda: _swap_one_dut(duthost, default_variant_name),
+                    lambda: _swap_one_dut(rand_unselected_dut, default_variant_name),
+                ],
+                timeout=600,
+            )
+        except TimeoutError:
+            logger.error(
+                "parametrize_vlan_config_from_topo teardown timed out (>600s) "
+                "restoring variant=%s on DUTs=%s,%s",
+                default_variant_name, duthost.hostname, rand_unselected_dut.hostname,
+            )
+            raise
+    else:
+        _swap_one_dut(duthost, default_variant_name)
