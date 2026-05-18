@@ -239,9 +239,15 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         for idx in intf_indices:
             dut_port = _intf_index_to_dut_name(idx)
             if dut_port is None:
+                # This is a gap in the topo yaml: the variant declares an
+                # interface index that does not exist in the minigraph for
+                # this DUT. The fixture skips it so the test can proceed,
+                # but the topo definition should be fixed.
                 logger.warning(
-                    "vlan %s: intf_idx %s has no dut port in "
-                    "minigraph_ptf_indices; skipping",
+                    "vlan %s: intf_idx %s declared in topo yaml has no "
+                    "dut port in minigraph_ptf_indices -- this is a topo "
+                    "definition gap, skipping; fix the topo yaml so the "
+                    "variant only references indices present in the minigraph",
                     vlan_name, idx,
                 )
                 continue
