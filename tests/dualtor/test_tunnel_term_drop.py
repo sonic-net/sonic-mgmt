@@ -27,7 +27,7 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import (  # noqa: F401
-    setup_standby_ports_on_rand_selected_tor
+    config_active_active_dualtor_active_standby
 )
 from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
     toggle_all_simulator_ports_to_rand_unselected_tor
@@ -170,7 +170,9 @@ def test_tunnel_term_drop_standby(
     build_encapsulated_ip_packet, request,
     rand_selected_mux_interface, ptfadapter,                # noqa: F811
     cable_type,                                             # noqa: F811
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor       # noqa: F811
+    tbinfo, rand_selected_dut, rand_unselected_dut,         # noqa: F811
+    config_active_active_dualtor_active_standby,            # noqa: F811
+    tunnel_traffic_monitor                                  # noqa: F811
 ):
     """
     Verify that a standby ToR drops IPinIP tunnel traffic from the peer ToR.
@@ -184,18 +186,20 @@ def test_tunnel_term_drop_standby(
       - Decapsulated and forwarded to the server port
       - Re-encapsulated and sent back to T1 (which would cause a loop)
     """
+    tor = rand_selected_dut
+    encapsulated_packet = build_encapsulated_ip_packet
+    iface, _ = rand_selected_mux_interface
+
     if cable_type == CableType.active_active:
-        request.getfixturevalue("setup_standby_ports_on_rand_selected_tor")
+        config_active_active_dualtor_active_standby(
+            rand_unselected_dut, rand_selected_dut, [iface]
+        )
     elif is_t0_mocked_dualtor(tbinfo):  # noqa: F405
         request.getfixturevalue("apply_standby_state_to_orchagent")
     else:
         request.getfixturevalue(
             "toggle_all_simulator_ports_to_rand_unselected_tor"
         )
-
-    tor = rand_selected_dut
-    encapsulated_packet = build_encapsulated_ip_packet
-    iface, _ = rand_selected_mux_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = _build_expected_server_packet(encapsulated_packet)
