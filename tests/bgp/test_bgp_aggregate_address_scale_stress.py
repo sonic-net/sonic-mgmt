@@ -25,6 +25,7 @@ from natsort import natsorted
 from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
     BGP_SETTLE_WAIT,
+    PLACEHOLDER_PREFIX,
     AggregateCfg,
     check_route_on_neighbor,
     announce_contributing_routes,
@@ -56,7 +57,6 @@ pytestmark = [
 # ---- Test data ----
 AGGR_V4 = "10.100.0.0/16"
 CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
-PLACEHOLDER_PREFIX = "192.0.2.0/32"
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
 EXABGP_BATCH_SIZE = 50    # routes per ExaBGP HTTP request
