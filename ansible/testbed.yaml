@@ -3781,6 +3781,12 @@
     - str2-mlnx-4280-smartswitch-03-dpu-1
     - str2-mlnx-4280-smartswitch-03-dpu-2
     - str2-mlnx-4280-smartswitch-03-dpu-3
+  enabled_dpus:
+    str2-mlnx-4280-smartswitch-02:
+      - dpu_index: 0
+    str2-mlnx-4280-smartswitch-03:
+      - dpu_index: 0
+      - dpu_index: 1
   inv_name: str2
   auto_recover: 'False'
   is_smartswitch: 'True'
@@ -3814,6 +3820,12 @@
     - str2-8102-smartswitch-04-dpu-5
     - str2-8102-smartswitch-04-dpu-6
     - str2-8102-smartswitch-04-dpu-7
+  enabled_dpus:
+    str2-8102-smartswitch-03:
+      - dpu_index: 0
+    str2-8102-smartswitch-04:
+      - dpu_index: 0
+      - dpu_index: 1
   inv_name: str2
   auto_recover: 'False'
   is_smartswitch: 'True'
