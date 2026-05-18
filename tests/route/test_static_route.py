@@ -19,7 +19,7 @@ from tests.common.utilities import wait_until, get_intf_by_sub_intf, is_ipv6_onl
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 from tests.common.reboot import reboot
 import ptf.testutils as testutils
@@ -62,9 +62,9 @@ def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interface
         for port in vlan_host_map:
             arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
 
-        with open("/tmp/from_t1.json", "w") as ar_config:
+        with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
             json.dump(arp_responder_conf, ar_config)
-        ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+        ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
         ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
         ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
@@ -83,6 +83,10 @@ def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
             )
     else:
         ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+        # Remove the arp_responder config that add_ipaddr() wrote earlier so it
+        # cannot be picked up by a later test invoking arp_responder with its
+        # default config path.
+        ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
 
 
 def clear_arp_ndp(duthost, ipv6=False):
@@ -189,9 +193,9 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 #        nexthop via fc00::2e dev PortChannel104 weight 1 pref medium
 def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
     if ipv6:
-        SHOW_STATIC_ROUTE_CMD = "ip -6 route show {}".format(prefix)
+        SHOW_STATIC_ROUTE_CMD = "show ipv6 route {}".format(prefix)
     else:
-        SHOW_STATIC_ROUTE_CMD = "ip route show {}".format(prefix)
+        SHOW_STATIC_ROUTE_CMD = "show ip route {}".format(prefix)
     output = duthost.shell(SHOW_STATIC_ROUTE_CMD, module_ignore_errors=True)["stdout"].split("\n")
 
     def _check_nh_in_output(nexthop):

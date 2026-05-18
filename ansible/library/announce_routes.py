@@ -569,8 +569,11 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
     last_suffix = 0
     for index, vm_name in enumerate(sorted(vms.keys())):
         router_type = "leaf"
+        tor_default_route = False
         if 'tor' in topo['configuration'][vm_name]['properties']:
             router_type = 'tor'
+            if "PT" in vm_name:
+                tor_default_route = True
         port, port6 = get_change_routes_ports(vm_name, topo)
         aggregate_prefixes = topo['configuration'][vm_name].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
         aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
@@ -583,7 +586,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
                                                      spine_asn, leaf_asn_start, tor_asn_start,
                                                      nhipv4, nhipv4, tor_subnet_size, max_tor_subnet_number, "t0",
                                                      router_type=router_type,
-                                                     no_default_route=no_default_route, offset=current_routes_offset)
+                                                     no_default_route=no_default_route, offset=current_routes_offset,
+                                                     tor_default_route=tor_default_route)
             if aggregate_routes_v4:
                 filterout_subnet_ipv4(aggregate_routes, routes_v4)
                 routes_v4.extend(aggregate_routes_v4)
@@ -597,7 +601,8 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
                                                      router_type=router_type,
                                                      no_default_route=no_default_route,
                                                      ipv6_address_pattern=ipv6_address_pattern,
-                                                     offset=current_routes_offset)
+                                                     offset=current_routes_offset,
+                                                     tor_default_route=tor_default_route)
             if aggregate_routes_v6:
                 filterout_subnet_ipv6(aggregate_routes, routes_v6)
                 routes_v6.extend(aggregate_routes_v6)
@@ -1729,7 +1734,13 @@ def main():
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
     if dut_interfaces:
+        # Save original vm_offsets before filtering, because get_vms_by_dut_interfaces()
+        # remaps offsets starting from 0. The original offsets must be preserved to match
+        # the exabgp ports assigned by the Ansible playbook (which uses the full topology).
+        original_vm_offsets = {vm: attr['vm_offset'] for vm, attr in topo['topology']['VMs'].items()}
         topo['topology']['VMs'] = MultiServersUtils.get_vms_by_dut_interfaces(topo['topology']['VMs'], dut_interfaces)
+        for vm_name in topo['topology']['VMs']:
+            topo['topology']['VMs'][vm_name]['vm_offset'] = original_vm_offsets[vm_name]
         for vm_name in list(topo['configuration'].keys()):
             if vm_name not in topo['topology']['VMs']:
                 topo['configuration'].pop(vm_name)
