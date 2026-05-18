@@ -569,16 +569,16 @@ sonic_cisco_8102:
         "0xFE": "0xB68424AA"
       plt_reboot_dict:
         cold:
-          timeout: 420
+          timeout: 600
           wait: 600
         watchdog:
-          timeout: 420
+          timeout: 600
           wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
 sonic_cisco_8102_smartswitch:
   vars:

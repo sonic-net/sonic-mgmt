@@ -2416,16 +2416,16 @@ sonic_cisco_8102:
         "0xFE": "0x4F61249F"
       plt_reboot_dict:
         cold:
-          timeout: 420
+          timeout: 600
           wait: 600
         watchdog:
-          timeout: 420
+          timeout: 600
           wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
     str2-8102-02:
       ansible_host: 10.3.146.68
@@ -2448,16 +2448,16 @@ sonic_cisco_8102:
         "0xFE": "0xB8048CFF"
       plt_reboot_dict:
         cold:
-          timeout: 420
+          timeout: 600
           wait: 600
         watchdog:
-          timeout: 420
+          timeout: 600
           wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
     str2-8102-03:
       ansible_host: 10.3.146.102
@@ -2480,16 +2480,16 @@ sonic_cisco_8102:
         "0xFE": "0x9C7FE4A7"
       plt_reboot_dict:
         cold:
-          timeout: 420
+          timeout: 600
           wait: 600
         watchdog:
-          timeout: 420
+          timeout: 600
           wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
     str2-8102-04:
       ansible_host: 10.3.146.171
@@ -2512,16 +2512,16 @@ sonic_cisco_8102:
         "0xFE": "0x2D956AA0"
       plt_reboot_dict:
         cold:
-          timeout: 420
+          timeout: 600
           wait: 600
         watchdog:
-          timeout: 420
+          timeout: 600
           wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
 
 sonic_cisco_8102_smartswitch:

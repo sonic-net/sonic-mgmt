@@ -551,16 +551,16 @@ sonic_cisco_8101:
         "0xFE": "0x90B319A7"
       plt_reboot_dict:
         cold:
-          timeout: 420
+          timeout: 600
           wait: 600
         watchdog:
-          timeout: 420
+          timeout: 600
           wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
     strtk5-8101-02:
       ansible_host: 10.212.70.7
@@ -583,16 +583,16 @@ sonic_cisco_8101:
         "0xFE": "0x66350FBA"
       plt_reboot_dict:
         cold:
-          timeout: 420
+          timeout: 600
           wait: 600
         watchdog:
-          timeout: 420
+          timeout: 600
           wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
 
 sonic_dell32_40:

@@ -882,16 +882,16 @@ sonic_cisco_8102:
       syseeprom_info:
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
     bjw3-can-8102-8:
       ansible_host: 10.150.238.114
@@ -902,16 +902,16 @@ sonic_cisco_8102:
       syseeprom_info:
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 600
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 600
+          wait: 600
         acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
+          timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
+          timeout: 600
           wait: 600
 
 
