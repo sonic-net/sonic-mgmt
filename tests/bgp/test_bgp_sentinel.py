@@ -371,6 +371,26 @@ def common_setup_teardown(rand_selected_dut, ptf_setup_teardown, ptfhost, tbinfo
 
 def check_routes_advertised_to_ibgp_peers(duthost, ibgp_sessions, is_ipv6_only=False):
     """Check if the DUT advertises V4/V6 routes to the sentinel/monitor sessions."""
+    def _is_advertised_route_count_valid(address_family, peer, advertised):
+        summary_cmd = "vtysh -c 'show bgp {} unicast summary json'".format(address_family)
+        bgp_summary = json.loads(duthost.shell(summary_cmd)["stdout"])
+        pfx_snt = max([peer_info.get("pfxSnt", 0)
+                       for peer_info in bgp_summary.get("peers", {}).values()] or [0])
+        logger.debug("Sentinel peer %s %s routes: advertised=%d, max pfxSnt=%d",
+                 peer, address_family, len(advertised), pfx_snt)
+        
+        if pfx_snt > 0:
+            is_valid = len(advertised) / float(pfx_snt) > 0.5
+            if not is_valid:
+                logger.debug("Sentinel peer %s got %d/%d %s routes, expected majority",
+                             peer, len(advertised), pfx_snt, address_family)
+            return is_valid
+
+        is_valid = len(advertised) > 0
+        if not is_valid:
+            logger.debug("No %s routes advertised to peer %s", address_family, peer)
+        return is_valid
+
     for peer in ibgp_sessions:
         peer_addr = ipaddress.ip_address(peer.encode().decode())
         if peer_addr.version == 4 and not is_ipv6_only:
@@ -378,19 +398,21 @@ def check_routes_advertised_to_ibgp_peers(duthost, ibgp_sessions, is_ipv6_only=F
             output = json.loads(duthost.shell(cmd)['stdout'])
             advertised = output.get('advertisedRoutes', {})
             logger.debug("IPv4 advertised routes to %s: %d", peer, len(advertised))
-            pytest_assert(len(advertised) > 0,
-                          "No IPv4 routes advertised to peer {}".format(peer))
+            if not _is_advertised_route_count_valid("ipv4", peer, advertised):
+                return False
 
         if peer_addr.version == 6:
             cmd = "vtysh -c 'show bgp ipv6 neighbors {} advertised-routes json'".format(peer)
             output = json.loads(duthost.shell(cmd)['stdout'])
             advertised = output.get('advertisedRoutes', {})
             logger.debug("IPv6 advertised routes to %s: %d", peer, len(advertised))
-            pytest_assert(len(advertised) > 0,
-                          "No IPv6 routes advertised to peer {}".format(peer))
+            if not _is_advertised_route_count_valid("ipv6", peer, advertised):
+                return False
+
+    return True
 
 
-@pytest.mark.parametrize("reset_type", ["none", "soft", "hard"])
+@pytest.mark.parametrize("reset_type", ["soft", "hard"])
 def test_bgp_sentinel(rand_selected_dut, common_setup_teardown, reset_type, tbinfo):
     duthost = rand_selected_dut
     # TODO: common_setup_teardown may be over-providing values for this test; trim fixture output if safe.
@@ -398,10 +420,8 @@ def test_bgp_sentinel(rand_selected_dut, common_setup_teardown, reset_type, tbin
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
 
     # Check routes are advertised to iBGP peers before any reset
-    check_routes_advertised_to_ibgp_peers(duthost, ibgp_sessions, is_ipv6_only)
-
-    if reset_type == "none":
-        return
+    pytest_assert(check_routes_advertised_to_ibgp_peers(duthost, ibgp_sessions, is_ipv6_only),
+                  "Routes not advertised before {} reset".format(reset_type))
 
     for ibgp_nbr in ibgp_sessions:
         if reset_type == "soft":
@@ -414,8 +434,7 @@ def test_bgp_sentinel(rand_selected_dut, common_setup_teardown, reset_type, tbin
     pytest_assert(wait_until(30, 5, 5, is_bgp_sentinel_session_established, duthost, ibgp_sessions),
                   "BGP Sentinel session has not setup successfully after {} reset".format(reset_type))
 
-    # Wait for routes to be advertised to iBGP peers
-    time.sleep(10)
-
     # Check routes are still advertised to iBGP peers after reset
-    check_routes_advertised_to_ibgp_peers(duthost, ibgp_sessions, is_ipv6_only)
+    pytest_assert(wait_until(30, 5, 5, check_routes_advertised_to_ibgp_peers,
+                             duthost, ibgp_sessions, is_ipv6_only),
+                  "Routes not advertised after {} reset".format(reset_type))
