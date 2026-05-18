@@ -100,12 +100,14 @@ def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_
 
 
 @pytest.fixture
-def cleanup_after_testing(rand_selected_dut):
+def cleanup_after_testing(duthosts, rand_one_dut_hostname):
     """
     Cleanup DUT by config reload after test running.
     """
     yield
-    config_reload(rand_selected_dut)
+    duthost = duthosts[rand_one_dut_hostname]
+    config_reload(duthost)
+    apply_cert_config(duthost)
 
 
 '''
