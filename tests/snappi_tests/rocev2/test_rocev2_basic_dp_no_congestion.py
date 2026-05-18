@@ -16,6 +16,10 @@ def test_rocev2_basic_dp_traffic_no_congestion(
                                     duthosts
                                 ):
     """
+    NOTE:
+        ECN thresholds should be configured higher than the PFC threshold.
+        Otherwise, tail drops may occur before PFC is triggered, and no PFC frames will be generated.
+
     1. Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4
        queue 6 mapping to DSCP 48, enable PFC and ECN-marking.
     2. Configure 1:1 test traffic between rank 0-2 & 1-3, 1 rank (endpoint) per port.
