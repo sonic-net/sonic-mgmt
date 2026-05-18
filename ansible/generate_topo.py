@@ -214,6 +214,8 @@ hw_port_cfg = {
     # t1-isolated with 32 downlinks only (no uplinks, no peers).
     # Panel ports 0..127 (16 blocks of 8). Keep p % 8 in {0, 6} → 32 host interfaces
     # (i.e. 1st and 7th port of every 8-port block).
+    # NOTE: skip_ports range (128) is tied to the intended `-c 128` invocation; if you
+    # invoke generate_topo.py with a different `-c`, edit this range to match.
     'd32':              {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          "uplink_ports": [],
                          "peer_ports": [],
@@ -225,6 +227,8 @@ hw_port_cfg = {
     # Within every kept set of 5: 1st port (offset 0/15) = downlink (host interface on t0),
     # 5th port (offset 4/19) = uplink (T1 VM). 16 * 2 = 32 DL, 16 * 2 = 32 UL.
     # 2 peer (pt0) VMs at panel ports 320, 321 (appended after the 320-port main range).
+    # NOTE: the range(320) literals are tied to the intended `-c 322` invocation
+    # (320 main panel ports + 2 peer ports); update them if `-c` changes.
     'd32u32s2-mix':     {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          "uplink_ports": [p for p in range(320) if p % 20 in (4, 19)],
                          "peer_ports": [320, 321],
