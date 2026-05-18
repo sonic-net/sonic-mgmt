@@ -567,7 +567,7 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
         pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
-def create_duthost_console(duthost, localhost, conn_graph_facts, creds, retry_backoff_seconds: int = 0):  # noqa: F811
+def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
@@ -622,8 +622,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds, retry_ba
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
-            if retry_backoff_seconds and retry_backoff_seconds > 0:
-                time.sleep(attempt * retry_backoff_seconds)
+            continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
 

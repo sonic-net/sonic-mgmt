@@ -387,11 +387,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     console_obj = None
     console_thread_res = pool.apply_async(
-        collect_console_log, args=(duthost, localhost, RETRY_BACKOFF_SECONDS))
+        collect_console_log, args=(duthost, localhost))
 
     # Block and wait for console to be ready before starting reboot
-    # 3 attempts to establish console connection
-    console_wait_max_seconds = sum(range(3 + 1)) * RETRY_BACKOFF_SECONDS
+    console_wait_max_seconds = 10
     logger.info(f"Waiting up to {console_wait_max_seconds}s for console connection before reboot...")
     try:
         console_obj = console_thread_res.get(timeout=console_wait_max_seconds)
@@ -729,11 +728,9 @@ def check_determine_reboot_cause_service(dut):
             Current sub-state: {sub_state}"
 
 
-def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, retry_backoff_seconds: int = 0):
+def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
     try:
-        dut_sonsole = create_duthost_console(
-            duthost, localhost, conn_graph_facts, creds, retry_backoff_seconds=retry_backoff_seconds
-        )
+        dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
     except Exception as err:
         logger.warning(f"Fail to create dut console. Please check console config or if console works or not. {err}")
         return None
@@ -741,7 +738,7 @@ def try_create_dut_console(duthost, localhost, conn_graph_facts, creds, retry_ba
     return dut_sonsole
 
 
-def collect_console_log(duthost, localhost, retry_backoff_seconds):
+def collect_console_log(duthost, localhost):
     """
     Collect console log during reboot.
 
@@ -751,16 +748,13 @@ def collect_console_log(duthost, localhost, retry_backoff_seconds):
     Args:
         duthost: DUT host object
         localhost: localhost object
-        retry_backoff_seconds: backoff seconds for retry
 
     Returns:
         ConsoleHost object if successful, None otherwise
     """
     creds = creds_on_dut(duthost)
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-    dut_console = try_create_dut_console(
-        duthost, localhost, conn_graph_facts, creds, retry_backoff_seconds=retry_backoff_seconds
-    )
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
     if dut_console:
         logger.info("Console connection established successfully")
     else:
