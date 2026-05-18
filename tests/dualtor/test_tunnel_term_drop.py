@@ -27,7 +27,8 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import (  # noqa: F401
-    config_active_active_dualtor_active_standby
+    config_active_active_dualtor_active_standby,
+    validate_active_active_dualtor_setup
 )
 from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
     toggle_all_simulator_ports_to_rand_unselected_tor
@@ -172,6 +173,7 @@ def test_tunnel_term_drop_standby(
     cable_type,                                             # noqa: F811
     tbinfo, rand_selected_dut, rand_unselected_dut,         # noqa: F811
     config_active_active_dualtor_active_standby,            # noqa: F811
+    validate_active_active_dualtor_setup,                   # noqa: F811
     tunnel_traffic_monitor                                  # noqa: F811
 ):
     """
