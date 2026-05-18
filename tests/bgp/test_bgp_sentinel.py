@@ -376,9 +376,7 @@ def check_routes_advertised_to_ibgp_peers(duthost, ibgp_sessions, is_ipv6_only=F
         bgp_summary = json.loads(duthost.shell(summary_cmd)["stdout"])
         pfx_snt = max([peer_info.get("pfxSnt", 0)
                        for peer_info in bgp_summary.get("peers", {}).values()] or [0])
-        logger.debug("Sentinel peer %s %s routes: advertised=%d, max pfxSnt=%d",
-                 peer, address_family, len(advertised), pfx_snt)
-        
+
         if pfx_snt > 0:
             is_valid = len(advertised) / float(pfx_snt) > 0.5
             if not is_valid:
