@@ -1,9 +1,10 @@
 """
 Test tunnel termination drop on dualtor.
 
-When a ToR is in standby mode, IPinIP tunneled traffic arriving from the peer ToR
-should be dropped - not forwarded to the server port and not re-encapsulated back
-to T1. This prevents traffic looping between two standby ToRs.
+When a ToR is in standby mode, IPinIP tunneled traffic arriving from the peer
+ToR should be dropped - not forwarded to the server port and not
+re-encapsulated back to T1. This prevents traffic looping between two standby
+ToRs.
 
 Related issue: https://github.com/sonic-net/sonic-mgmt/issues/21092
 """
@@ -15,16 +16,24 @@ from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
 
-from tests.common.dualtor.dual_tor_mock import *                                    # noqa: F403
+from tests.common.dualtor.dual_tor_mock import *  # noqa: F403
+from tests.common.dualtor.dual_tor_common import (  # noqa: F401
+    active_standby_ports
+)
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
-from tests.common.dualtor.dual_tor_utils import rand_selected_interface              # noqa: F401
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa: F401
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor         # noqa: F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service                     # noqa: F401
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
+    toggle_all_simulator_ports_to_rand_unselected_tor
+)
+from tests.common.dualtor.tunnel_traffic_utils import (  # noqa: F401
+    tunnel_traffic_monitor
+)
+from tests.common.fixtures.ptfhost_utils import run_garp_service  # noqa: F401
 from tests.common.utilities import is_ipv4_address
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -45,7 +54,36 @@ def common_setup_teardown(
 
 
 @pytest.fixture(scope="function")
-def build_encapsulated_ip_packet(rand_selected_interface, ptfadapter, rand_selected_dut):   # noqa: F811
+def rand_selected_active_standby_interface(
+    rand_selected_dut, active_standby_ports  # noqa: F811
+):
+    """Select a random active-standby mux interface to test."""
+    pytest_require(
+        active_standby_ports,
+        "Tunnel termination drop is only applicable to active-standby "
+        "dualtor ports"
+    )
+
+    tor = rand_selected_dut
+    server_ips = mux_cable_server_ip(tor)
+    candidate_interfaces = [
+        str(iface) for iface in active_standby_ports
+        if str(iface) in server_ips
+    ]
+    pytest_require(
+        candidate_interfaces,
+        "No active-standby mux ports with server IP config, skip..."
+    )
+
+    iface = random.choice(candidate_interfaces)
+    logger.info("Select active-standby DUT interface %s to test.", iface)
+    return iface, server_ips[iface]
+
+
+@pytest.fixture(scope="function")
+def build_encapsulated_ip_packet(
+    rand_selected_active_standby_interface, ptfadapter, rand_selected_dut
+):   # noqa: F811
     """
     Build an IPinIP encapsulated packet as if sent from the peer ToR.
 
@@ -53,20 +91,28 @@ def build_encapsulated_ip_packet(rand_selected_interface, ptfadapter, rand_selec
     Inner: src=1.1.1.1, dst=server_ip
     """
     tor = rand_selected_dut
-    _, server_ips = rand_selected_interface
+    _, server_ips = rand_selected_active_standby_interface
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
 
     peer_switches = list(config_facts.get("PEER_SWITCH", {}).values())
-    pytest_assert(peer_switches, "Failed to get peer ToR address from CONFIG_DB")
+    pytest_assert(
+        peer_switches,
+        "Failed to get peer ToR address from CONFIG_DB"
+    )
     peer_ipv4_address = peer_switches[0]["address_ipv4"]
 
-    loopback0_addrs = config_facts.get("LOOPBACK_INTERFACE", {}).get("Loopback0", [])
+    loopback0_addrs = config_facts.get(
+        "LOOPBACK_INTERFACE", {}
+    ).get("Loopback0", [])
     tor_ipv4_addrs = [
         _ for _ in loopback0_addrs
         if is_ipv4_address(_.split("/")[0])
     ]
-    pytest_assert(tor_ipv4_addrs, "Failed to get local ToR loopback address from CONFIG_DB")
+    pytest_assert(
+        tor_ipv4_addrs,
+        "Failed to get local ToR loopback address from CONFIG_DB"
+    )
     tor_ipv4_address = tor_ipv4_addrs[0].split("/")[0]
 
     inner_dscp = random.choice(list(range(0, 33)))
@@ -111,7 +157,7 @@ def _build_expected_server_packet(encapsulated_packet):
 
 def test_tunnel_term_drop_standby(
     build_encapsulated_ip_packet, request,
-    rand_selected_interface, ptfadapter,                    # noqa: F811
+    rand_selected_active_standby_interface, ptfadapter,     # noqa: F811
     tbinfo, rand_selected_dut, tunnel_traffic_monitor       # noqa: F811
 ):
     """
@@ -119,27 +165,31 @@ def test_tunnel_term_drop_standby(
 
     This injects the receiving side of the both-standby loop scenario:
     the local ToR is standby and receives an IPinIP packet that would have been
-    generated by the peer ToR. If the local ToR does not drop this tunnel packet,
-    it can re-encapsulate traffic back toward T1 and create a loop.
+    generated by the peer ToR. If the local ToR does not drop this tunnel
+    packet, it can re-encapsulate traffic back toward T1 and create a loop.
 
     The packet must NOT be:
       - Decapsulated and forwarded to the server port
       - Re-encapsulated and sent back to T1 (which would cause a loop)
     """
-    if is_t0_mocked_dualtor(tbinfo):                        # noqa: F405
+    if is_t0_mocked_dualtor(tbinfo):  # noqa: F405
         request.getfixturevalue("apply_standby_state_to_orchagent")
     else:
-        request.getfixturevalue("toggle_all_simulator_ports_to_rand_unselected_tor")
+        request.getfixturevalue(
+            "toggle_all_simulator_ports_to_rand_unselected_tor"
+        )
 
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_ip_packet
-    iface, _ = rand_selected_interface
+    iface, _ = rand_selected_active_standby_interface
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = _build_expected_server_packet(encapsulated_packet)
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
-    logger.info("Sending encapsulated packet from PTF T1 interface %s", ptf_t1_intf)
+    logger.info(
+        "Sending encapsulated packet from PTF T1 interface %s", ptf_t1_intf
+    )
 
     # tunnel_traffic_monitor with existing=False asserts that the receiving
     # standby ToR does not re-encapsulate the packet back toward T1.
