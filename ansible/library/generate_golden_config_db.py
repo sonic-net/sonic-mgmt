@@ -9,7 +9,6 @@ import copy
 from jinja2 import Template
 import logging
 import json
-import re
 import ipaddress
 
 from ansible.module_utils.basic import AnsibleModule
@@ -216,20 +215,8 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
-        output_version = device_info.get_sonic_version_info()
-        build_version = output_version['build_version']
-
-        if re.match(r'^(\d{6})', build_version):
-            version_number = int(re.findall(r'\d{6}', build_version)[0])
-            if version_number < 202411:
-                return False
-        elif re.match(r'^internal-(\d{6})', build_version):
-            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
-            if internal_version_number < 202411:
-                return False
-        else:
-            return True
-        return True
+        # disable bmp feature table first
+        return False
 
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
