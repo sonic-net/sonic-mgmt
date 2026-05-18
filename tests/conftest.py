@@ -2152,11 +2152,7 @@ _rand_one_asic_per_module = {}
 _rand_one_frontend_asic_per_module = {}
 _macsec_frontend_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):        # noqa: E302
-    # ---- Auto-parametrize tests across vlan_config variants defined in topo ----
-    # See tests/common/fixtures/vlan_config_swap.py. When a test names
-    # `parametrize_vlan_config_from_topo` and has not explicitly parametrized it,
-    # we enumerate the topo file's DUT.vlan_configs keys (excluding the
-    # `default_vlan_config` pointer) and parametrize the test once per variant.
+    # Auto-parametrize over topo DUT.vlan_configs keys (see vlan_config_swap.py).
     if "parametrize_vlan_config_from_topo" in metafunc.fixturenames:
         already_explicit = any(
             m.name == "parametrize"
@@ -2169,25 +2165,10 @@ def pytest_generate_tests(metafunc):        # noqa: E302
             _topo_dut = _tbinfo.get("topo", {}).get("properties", {}).get("topology", {}).get("DUT", {})
             _vcs = _topo_dut.get("vlan_configs") or {}
             _variants = [k for k in _vcs.keys() if k != "default_vlan_config"]
-            if _variants:
-                metafunc.parametrize(
-                    "parametrize_vlan_config_from_topo",
-                    _variants, indirect=True, ids=_variants,
-                )
-            else:
-                # Topo has no vlan_configs; skip cleanly so the test does not
-                # crash inside the fixture on `request.param`.
-                _skip = pytest.param(
-                    None,
-                    marks=pytest.mark.skip(
-                        reason="topo %s has no DUT.vlan_configs block" % _tbinfo.get("topo", {}).get("name")
-                    ),
-                )
-                metafunc.parametrize(
-                    "parametrize_vlan_config_from_topo", [_skip], indirect=True,
-                    ids=["no_vlan_configs"],
-                )
-    # ---- end vlan_config auto-parametrize ----
+            metafunc.parametrize(
+                "parametrize_vlan_config_from_topo",
+                _variants, indirect=True, ids=_variants,
+            )
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
