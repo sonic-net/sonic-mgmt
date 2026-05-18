@@ -76,9 +76,9 @@ qos_params:
                     packet_size: 2430
                     cell_size: 4096
                     pkts_num_trig_pfc: 20000
-                    pkts_num_trig_pfc_multi: [20000, 19940]
-                    pkts_num_hdrm_full: 15294
-                    pkts_num_hdrm_partial: 11929
+                    pkts_num_trig_pfc_multi: [16700, 16640]
+                    pkts_num_hdrm_full: 25250
+                    pkts_num_hdrm_partial: 25150
                     margin: 100
                 pkts_num_leak_out: 140
                 internal_hdr_size: 48
