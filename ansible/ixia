@@ -35,6 +35,22 @@ all:
         ansible_ssh_user: admin
         ansible_ssh_pass: admin
 
+    pdu:
+      hosts:
+        pdu-90:
+          ansible_host: 10.3.154.88
+          protocol: snmp
+        pdu-91:
+          ansible_host: 10.3.154.89
+          protocol: snmp
+        pdu-92:
+          ansible_host: 10.3.154.90
+          protocol: snmp
+        pdu-93:
+          ansible_host: 10.3.154.91
+          protocol: snmp
+
+
 sonic:
   vars:
     mgmt_subnet_mask_length: 24
