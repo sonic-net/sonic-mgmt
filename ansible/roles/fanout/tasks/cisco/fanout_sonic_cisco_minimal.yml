@@ -1,0 +1,96 @@
+- name: Set local device connection facts
+  set_fact:
+    local_vlan_list: "{{ device_vlan_list[inventory_hostname] }}"
+    local_port_vlans: "{{ device_port_vlans[inventory_hostname] }}"
+    local_conn: "{{ device_conn[inventory_hostname] }}"
+    local_hwsku: "{{ device_info[inventory_hostname]['HwSku'] }}"
+
+- name: Backup and remove current /etc/sonic/config_db.json
+  shell: |
+    if [ -f /etc/sonic/config_db.json ]; then
+      mv /etc/sonic/config_db.json /etc/sonic/config_db.json_before_reset
+    fi
+  become: yes
+  ignore_errors: yes
+
+- name: Reload configuration to generate default config_db.json from init_cfg.json
+  shell: config reload -y -f
+  become: yes
+  async: 600
+  poll: 0
+
+- name: Wait for SONiC to come back up
+  pause:
+    seconds: 180
+
+- name: Generate port config
+  port_config_gen:
+    hwsku: "{{ local_hwsku }}"
+    hwsku_type: "predefined"
+    device_conn: "{{ local_conn }}"
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+- name: Generate Cisco minimal configuration (VLAN, PORT)
+  template:
+    src: "sonic_deploy_cisco_minimal.j2"
+    dest: "/tmp/cisco_minimal_config.json"
+  vars:
+    device_vlan_list: "{{ local_vlan_list }}"
+    device_port_vlans: "{{ local_port_vlans }}"
+    device_conn: "{{ local_conn }}"
+
+- name: Apply minimal configuration to /etc/sonic/config_db.json
+  shell: sonic-cfggen -j /tmp/cisco_minimal_config.json --write-to-db
+  become: yes
+
+- name: Disable LLDP feature
+  shell: |
+    config feature autorestart lldp disabled
+    config feature state lldp disabled
+  become: yes
+
+- name: Save configuration to startup
+  shell: config save -y
+  become: yes
+
+- name: Reload configuration to apply changes
+  shell: config reload -y
+  become: yes
+  async: 600
+  poll: 0
+
+- name: Wait for SONiC to come back up (180s)
+  pause:
+    seconds: 180
+
+- name: Shutdown arp_update process in swss
+  shell: docker exec -i swss supervisorctl stop arp_update
+  become: yes
+  ignore_errors: yes
+
+- name: Copy cisco_fanout_traps_clear.py to the device
+  copy:
+    src: cisco/cisco_fanout_traps_clear.py
+    dest: /usr/local/bin/cisco_fanout_traps_clear.py
+    mode: 0755
+
+- name: Copy cisco_fanout_traps_clear.service
+  copy:
+    src: cisco/cisco_fanout_traps_clear.service
+    dest: /etc/systemd/system/cisco_fanout_traps_clear.service
+    mode: 0644
+
+- name: Force disable cisco_fanout_traps_clear.service (to refresh Install targets)
+  systemd:
+    name: cisco_fanout_traps_clear
+    enabled: no
+    daemon_reload: yes
+  ignore_errors: yes
+
+- name: Enable and start cisco_fanout_traps_clear.service
+  systemd:
+    name: cisco_fanout_traps_clear
+    enabled: yes
+    state: restarted
+    daemon_reload: yes

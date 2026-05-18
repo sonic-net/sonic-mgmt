@@ -188,7 +188,10 @@ class LogAnalyzer:
 
     def _add_end_marker(self, marker):
         """
-        @summary: Add stop marker into syslog on the DUT.
+        @summary: Add stop marker on the DUT. Markers always go to syslog; when
+        additional_files were initialized with the same paths as init() (empty
+        per-file start string), also pass --logs so the DUT loganalyzer places the
+        end marker into those files. Otherwise extract_log cannot bound those files.
 
         @return: True for successful execution False otherwise
         """
@@ -196,6 +199,13 @@ class LogAnalyzer:
 
         cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}"\
             .format(run_dir=self.dut_run_dir, marker=marker)
+
+        log_files_for_end = []
+        for idx, path in enumerate(self.additional_files):
+            if not self.additional_start_str or self.additional_start_str[idx] == '':
+                log_files_for_end.append(path)
+        if log_files_for_end:
+            cmd += " --logs {}".format(','.join(log_files_for_end))
 
         logging.debug("Adding end marker '{}'".format(marker))
         self.ansible_host.command(cmd)
