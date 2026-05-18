@@ -22,6 +22,11 @@ import qos_test_utils as qos_utils
 import pfcwd_utils
 import traffic_stream_ixia_api as stream_api
 
+# Tell the imported pfcwd_module_setup fixture to skip enabling PFCWD.
+# Calibration must run with the watchdog stopped so storm-induced
+# drops/restores do not perturb the bisection measurement.
+SKIP_PFCWD_CONFIG = True
+
 # Reuse helpers, constants, module-state and autouse fixture from the
 # PFCWD test file. The imported ``pfcwd_module_setup`` carries its pytest
 # fixture marker (scope='module', autouse=True), so pytest discovers it
@@ -114,10 +119,7 @@ def test_pfc_xoff_rate_calibration():
         orig_counterpoll_interval = set_queue_counterpoll_interval(dut, 1000)
         st.log(f"  Original interval was: {orig_counterpoll_interval}ms")
 
-        # Step 2: Disable PFCWD to avoid drops/restores during calibration
-        st.banner("Disabling PFCWD for calibration window")
-        pfcwd_utils.disable_pfcwd(dut)
-        st.wait(2)
+        # PFCWD is already stopped by the module fixture (SKIP_PFCWD_CONFIG=True).
 
         # Step 3: Clean stale traffic on XOFF port, then create data stream
         st.log("Pre-cleaning XOFF port to remove any stale traffic items")

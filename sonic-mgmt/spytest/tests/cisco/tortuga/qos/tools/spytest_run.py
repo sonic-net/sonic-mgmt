@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 SPYtest Job Runner
 
@@ -6,9 +7,9 @@ Upgrades DUTs, pushes base configs, runs tests via run_test.sh, transfers logs
 to server, and publishes results to dashboard.
 
 Usage:
-    ./spytest_run.py --yaml <testbed.yaml> --url <image_url>
-    ./spytest_run.py --yaml <testbed.yaml> --skip-upgrade --test test_dwrr.py
-    ./spytest_run.py --yaml <testbed.yaml> --url <url> --schedule 2
+    ./spytest_run.py --testbed 10002 --url <image_url>
+    ./spytest_run.py --testbed 10001 --test test_dwrr.py
+    ./spytest_run.py --testbed 10002 --url <url> --schedule 2
 
 All testbed-specific config (NPU, profile, docker image, base configs, etc.)
 is looked up from testbed_config.py using the YAML filename.
@@ -16,7 +17,6 @@ Repo root is auto-discovered by walking up from the YAML path.
 """
 
 import argparse
-import fcntl
 import glob
 import logging
 import os
@@ -41,7 +41,8 @@ def _run(*args, **kwargs):
 subprocess.run = _run
 
 import yaml
-from testbed_config import get_config as get_tb_config, discover_repo
+from testbed_config import get_config as get_tb_config, discover_repo, find_testbed_yaml, TESTBED_IDS
+from testbed import check_lock
 
 # ── Constants ────────────────────────────────────────────────────────────
 
@@ -323,14 +324,19 @@ def upgrade_dut(dut, url):
     return True
 
 
-def wait_for_dut(dut, max_wait=600, interval=15):
+def wait_for_dut(dut, max_wait=600, interval=30):
     """Wait for DUT to become SSH-reachable after reboot."""
     log.info("Waiting for %s (%s) to come back online...", dut["name"], dut["ip"])
     elapsed = 0
+    polls = 0
     while elapsed < max_wait:
-        if is_host_reachable(dut["ip"], dut["user"], dut["password"]):
+        # Single attempt per poll — no inner retries during reboot wait
+        if is_host_reachable(dut["ip"], dut["user"], dut["password"], retries=1):
             log.info("  ✓ %s is back after %ds", dut["name"], elapsed)
             return True
+        polls += 1
+        if polls % 4 == 0:
+            log.info("  %s still rebooting (%ds elapsed)...", dut["name"], elapsed)
         time.sleep(interval)
         elapsed += interval
     log.error("  ✗ %s did not come back within %ds", dut["name"], max_wait)
@@ -449,7 +455,7 @@ def run_one_testbed(yaml_file, cfg, tb_config):
 
     Args:
         yaml_file: Path to testbed YAML.
-        cfg: Dict with keys: image_url, spine_image_url, test, skip_upgrade,
+        cfg: Dict with keys: image_url, spine_image_url, test,
              skip_config, branch.
         tb_config: Dict from testbed_config.get_config() with runner_platform,
                    profile_suffix, npu, base_config_dir, etc.
@@ -472,14 +478,7 @@ def run_one_testbed(yaml_file, cfg, tb_config):
     image_url = cfg.get("image_url", "")
     spine_url = cfg.get("spine_image_url", "")
     test = cfg.get("test", "full")
-    skip_upgrade = cfg.get("skip_upgrade", False)
-
-    # Empty image_url handling:
-    # - If skip_upgrade=false and no image_url → skip (no-op)
-    # - If skip_upgrade=true and no image_url → run tests with existing image
-    if not image_url and not skip_upgrade:
-        log.info("Skipping %s (no --url and --skip-upgrade not set)", yaml_file.name)
-        return True, 0
+    skip_upgrade = not image_url
 
     tb_branch, tb_build_id = parse_image_url(image_url) if image_url else ("unknown", "unknown")
 
@@ -492,6 +491,11 @@ def run_one_testbed(yaml_file, cfg, tb_config):
         if spine_url:
             log.info("  Spine:   %s", os.path.basename(spine_url))
     log.info("=" * 64)
+
+    # ── Testbed reservation check ──
+    if not check_lock(yaml_file.name):
+        log.error("No valid reservation. Aborting.")
+        return False, 0
 
     # ── Phase 0: Update repo ──
     log.info("═══ Phase 0: Updating repo ═══")
@@ -734,15 +738,13 @@ def schedule_run(args):
     script_path = Path(__file__).resolve()
     cmd_parts = [sys.executable, str(script_path)]
 
-    cmd_parts.extend(["--yaml", args.yaml])
+    cmd_parts.extend(["--testbed", str(args.testbed)])
     if args.branch:
         cmd_parts.extend(["--branch", args.branch])
     if args.url:
         cmd_parts.extend(["--url", args.url])
     if args.spine_url:
         cmd_parts.extend(["--spine-url", args.spine_url])
-    if args.skip_upgrade:
-        cmd_parts.append("--skip-upgrade")
     if args.skip_config:
         cmd_parts.append("--skip-config")
     if args.test:
@@ -799,24 +801,29 @@ def main():
         description="SPYtest Job Runner — run QoS tests on a single testbed",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Testbed IDs:
+""" + "\n".join(f"  {tid} = {desc} ({yname})" for tid, (yname, desc) in sorted(TESTBED_IDS.items())) + """
+
 Testbed config (NPU, docker image, profile, etc.) is looked up from
 testbed_config.py using the YAML filename. Repo root is auto-discovered
 from the YAML path.
 
 Examples:
-  %(prog)s --yaml /path/to/gamut_2x2_qos.yaml --url <image_url>
-  %(prog)s --yaml /path/to/tortuga_2x2_G200_testbed.yaml --skip-upgrade --test test_dwrr.py
-  %(prog)s --yaml /path/to/rocev2_testbed.yaml --url <url> --test full
-  %(prog)s --yaml /path/to/gamut_2x2_qos.yaml --url <url> --schedule 2
+  %(prog)s --testbed 10002 --url <image_url>
+  %(prog)s --testbed 10001 --test test_dwrr.py
+  %(prog)s --testbed 10003 --url <url> --test full
+  %(prog)s --testbed 10002 --url <url> --schedule 2
 """,
     )
-    parser.add_argument("--yaml", required=True, help="Testbed YAML file path")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--testbed", type=int, metavar="ID", help="Testbed ID (see list below)")
+    group.add_argument("--yaml", help=argparse.SUPPRESS)  # internal/undocumented
     parser.add_argument("--branch", help="Git branch to checkout before running")
     parser.add_argument("--url", help="Image URL for DUT upgrade")
     parser.add_argument("--spine-url", help="Separate image URL for spines")
-    parser.add_argument("--skip-upgrade", action="store_true", help="Skip DUT upgrade")
     parser.add_argument("--skip-config", action="store_true", help="Skip pushing base configs")
     parser.add_argument("--test", default="full", help="Test file(s) or 'full' (default: full)")
+
     parser.add_argument("--schedule", type=float, metavar="HOURS",
                         help="Schedule run N hours from now (creates crontab entry and exits)")
 
@@ -826,10 +833,25 @@ Examples:
 
     args = parser.parse_args()
 
+    # Resolve --testbed <int> to YAML path
+    if args.testbed is not None:
+        entry = TESTBED_IDS.get(args.testbed)
+        if not entry:
+            parser.error(
+                f"Unknown testbed ID: {args.testbed}\nValid IDs:\n" +
+                "\n".join(f"  {tid} = {desc} ({yname})" for tid, (yname, desc) in sorted(TESTBED_IDS.items()))
+            )
+        yaml_name = entry[0]
+        try:
+            yaml_path = find_testbed_yaml(yaml_name)
+        except ValueError as e:
+            parser.error(str(e))
+    else:
+        yaml_path = Path(args.yaml).resolve()
+
     # Validate YAML exists
-    yaml_path = Path(args.yaml).resolve()
     if not yaml_path.is_file():
-        parser.error(f"YAML file not found: {args.yaml}")
+        parser.error(f"YAML file not found: {yaml_path}")
 
     # Look up testbed config
     tb_config = get_tb_config(yaml_path)
@@ -849,12 +871,10 @@ Examples:
         "image_url": args.url or "",
         "spine_image_url": args.spine_url or "",
         "test": args.test,
-        "skip_upgrade": args.skip_upgrade,
+        "skip_upgrade": not args.url,
         "skip_config": args.skip_config,
         "branch": args.branch or "",
     }
-    if args.url:
-        cfg["skip_upgrade"] = False
 
     # Setup logging
     log_dir = Path(str(DEFAULT_LOG_DIR))
@@ -877,26 +897,16 @@ Examples:
         log.info("  Image:    %s (branch=%s build=%s)", os.path.basename(cfg["image_url"]), b, bid)
         if cfg["spine_image_url"]:
             log.info("  Spine:    %s", os.path.basename(cfg["spine_image_url"]))
-    elif cfg["skip_upgrade"]:
-        log.info("  Image:    (existing, skip_upgrade=true)")
     else:
-        log.info("  Image:    (none — will skip)")
+        log.info("  Image:    (no --url, skipping upgrade)")
     log.info("  Log:      %s", master_log)
     log.info("=" * 64)
 
-    # Per-testbed lock
-    lock_name = yaml_path.stem
-    lock_file = Path(f"/tmp/spytest_run_{lock_name}.lock")
     try:
-        fd = os.open(str(lock_file), os.O_WRONLY | os.O_CREAT, 0o666)
-        fd = os.fdopen(fd, "w")
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except (IOError, PermissionError):
-        log.error("Testbed '%s' is locked (already running). Exiting.", lock_name)
-        sys.exit(1)
-
-    # Run
-    success, duration = run_one_testbed(yaml_path, cfg, tb_config)
+        success, duration = run_one_testbed(yaml_path, cfg, tb_config)
+    except KeyboardInterrupt:
+        log.warning("Interrupted (Ctrl-C).")
+        success, duration = False, 0
 
     log.info("")
     log.info("=" * 64)

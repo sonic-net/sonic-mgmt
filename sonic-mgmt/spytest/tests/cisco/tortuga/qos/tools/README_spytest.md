@@ -33,6 +33,7 @@ python3 spytest_publish.py run_logs_gamut_20260512_120500/ --yaml gamut_2x2_qos.
 | `spytest_summary.py` | **Quick summary** — local results viewer (no network) |
 | `spytest_lib.py` | Shared parsing library (used by publish + summary) |
 | `testbed_config.py` | Central config registry (testbed → docker image, NPU, profile, etc.) |
+| `testbed.py` | Testbed reservation tool (prevents stepping on each other) |
 | `to_dut.py` | Push config\_db.json to DUTs |
 | `from_dut.py` | Pull config\_db.json from DUTs |
 | `upgrade_on_dut.sh` | On-DUT image upgrade helper |
@@ -169,6 +170,33 @@ View results locally without uploading anything.
 python3 spytest_summary.py run_logs_gamut_20260512_120500/
 python3 spytest_summary.py run_logs_gamut_20260512_120500/ -f   # failures only
 ```
+
+---
+
+## Testbed Reservation
+
+Prevents multiple engineers from running tests on the same testbed simultaneously.
+Before running tests, you must reserve the testbed. The run scripts (`run_test.sh`,
+`spytest_run.py`) verify you hold a valid reservation before proceeding.
+
+```bash
+# Show all testbed status
+./testbed.py
+
+# Reserve a testbed (hours + note required)
+./testbed.py --testbed 10002 --reserve 4 --note "qos regression"
+
+# Release when done
+./testbed.py --testbed 10002 --release
+```
+
+**Workflow:**
+1. Reserve: `./testbed.py --testbed <ID> --reserve <hours> --note "<purpose>"`
+2. Run tests: `./run_test.sh --testbed <ID> ...` or `./spytest_run.py --testbed <ID> ...`
+3. Release: `./testbed.py --testbed <ID> --release`
+
+Reservations auto-expire after the specified hours (safety net for crashes).
+If you don't release manually, the reservation will expire and free up.
 
 ---
 

@@ -568,25 +568,112 @@ def verify_pfcwd_restored(stats_delta):
 
 
 # ---------------------------------------------------------------------------
-# Packet Aging (needed for PFCWD tests)
+# Packet Aging (needed for PFCWD tests on Mellanox-based platforms)
 # ---------------------------------------------------------------------------
+#
+# Mellanox Spectrum SDK ages out (drops) packets that have been sitting in
+# an egress queue beyond a hardware timer. When PFC keeps the queue paused
+# for hundreds of ms (PFCWD detect_time), aging silently drains the queue,
+# the queue never appears "stuck" to PFCWD, and storm_detected stays 0.
+# Disabling aging for the duration of the PFCWD test makes the queue
+# remain congested so PFCWD can trip.
+#
+# This is needed only on n9164e (gamut). Cisco-8000 platforms (laguna,
+# carib) do not have this aging behaviour, and the SDK call would fail.
+
+# Platforms that need packet-aging toggled off during PFCWD tests.
+_PLATFORMS_NEED_AGING_TOGGLE = ('n9164e', 'gamut')
+
+# Path/name of the script as it lives in this directory and as we drop it
+# inside the syncd container.
+_PKT_AGING_SCRIPT_LOCAL = 'packet_aging.py'
+_PKT_AGING_SCRIPT_DUT = '/tmp/packet_aging.py'
+_PKT_AGING_SCRIPT_SYNCD = '/packet_aging.py'
 
 
-def enable_packet_aging(dut):
+def _platform_needs_aging_toggle(platform):
+    if not platform:
+        return False
+    p = str(platform).lower()
+    return any(tag in p for tag in _PLATFORMS_NEED_AGING_TOGGLE)
+
+
+def disable_packet_aging(dut, platform=None):
     """
-    Enable packet aging on the DUT.
+    Disable Mellanox packet aging on the DUT for the duration of a PFCWD
+    test. No-op on non-Mellanox platforms.
 
-    Packet aging ensures that packets stuck in queues due to PFC storms
-    are eventually dropped, preventing memory exhaustion.
+    Pushes packet_aging.py into the syncd container and runs
+    `python /packet_aging.py disable`.
 
     Args:
-        dut: DUT handle from spytest
+        dut: DUT handle from spytest.
+        platform: Optional platform string from qos_utils.detect_platform().
+            If None, the function still tries; aging-disable failure is
+            logged and swallowed so PFCWD setup keeps going.
     """
-    st.log(f"Enabling packet aging on {dut}")
-    # This is platform-specific; adjust as needed
-    # For memory-based aging on some platforms:
-    # st.config(dut, 'memory_manager aging enable', skip_error_check=True)
-    pass  # Implement based on platform requirements
+    if platform is not None and not _platform_needs_aging_toggle(platform):
+        st.log(f"disable_packet_aging: platform={platform} doesn't need aging toggle, skipping")
+        return False
+
+    import os
+    src = os.path.join(os.path.dirname(__file__), _PKT_AGING_SCRIPT_LOCAL)
+    if not os.path.isfile(src):
+        st.warn(f"disable_packet_aging: {src} not found; skipping aging-disable")
+        return False
+
+    try:
+        st.banner("Disabling Mellanox packet aging on DUT (PFCWD test)")
+        st.upload_file_to_dut(dut, src, _PKT_AGING_SCRIPT_DUT)
+        st.config(
+            dut,
+            f"sudo docker cp {_PKT_AGING_SCRIPT_DUT} syncd:{_PKT_AGING_SCRIPT_SYNCD}",
+            skip_error_check=True,
+        )
+        st.config(
+            dut,
+            f"sudo docker exec syncd python {_PKT_AGING_SCRIPT_SYNCD} disable",
+            skip_error_check=True,
+        )
+        st.log("Packet aging disabled in syncd")
+        return True
+    except Exception as e:
+        st.warn(f"disable_packet_aging failed (continuing): {e}")
+        return False
+
+
+def enable_packet_aging(dut, platform=None):
+    """
+    Re-enable Mellanox packet aging on the DUT and clean up the helper
+    script from the syncd container. No-op on non-Mellanox platforms.
+    Always safe to call (errors are swallowed) so it can run from
+    teardown without masking real test failures.
+
+    Args:
+        dut: DUT handle from spytest.
+        platform: Optional platform string from qos_utils.detect_platform().
+    """
+    if platform is not None and not _platform_needs_aging_toggle(platform):
+        st.log(f"enable_packet_aging: platform={platform} doesn't need aging toggle, skipping")
+        return False
+
+    try:
+        st.banner("Re-enabling Mellanox packet aging on DUT (PFCWD teardown)")
+        st.config(
+            dut,
+            f"sudo docker exec syncd python {_PKT_AGING_SCRIPT_SYNCD} enable",
+            skip_error_check=True,
+        )
+        st.config(
+            dut,
+            f"sudo docker exec syncd rm -f {_PKT_AGING_SCRIPT_SYNCD}",
+            skip_error_check=True,
+        )
+        st.log("Packet aging re-enabled in syncd")
+        return True
+    except Exception as e:
+        st.warn(f"enable_packet_aging failed (continuing): {e}")
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -594,7 +681,8 @@ def enable_packet_aging(dut):
 # ---------------------------------------------------------------------------
 
 
-def calculate_xoff_rate(port_speed_gbps, quanta=0xffff, margin_pct=15):
+def calculate_xoff_rate(port_speed_gbps, quanta=0xffff, margin_pct=15,
+                       platform=None):
     """
     Calculate the exact PFC XOFF frame rate to fully pause a port.
 
@@ -611,15 +699,28 @@ def calculate_xoff_rate(port_speed_gbps, quanta=0xffff, margin_pct=15):
         200G: 200,000,000,000 / (512 * 65535) = 5960 fps
         400G: 400,000,000,000 / (512 * 65535) = 11921 fps
 
+    Platform overrides:
+        gamut/n9164e (Mellanox Spectrum): the device honors approximately
+        2x the requested pause time per frame, so half the theoretical
+        rate is sufficient. Calibrated on 400G: 5961 fps blocks fully.
+
     Args:
         port_speed_gbps: Port speed in Gbps (e.g., 100, 200, 400)
         quanta: PFC quanta value (default 0xffff for maximum pause)
+        margin_pct: Safety margin percentage above the theoretical rate
+        platform: Platform string (e.g., 'n9164e' for gamut). When set
+            to a known Mellanox platform, an effective 2x quanta is used.
 
     Returns:
         int: XOFF frame rate in frames per second (rounded up)
     """
+    # Gamut/Mellanox Spectrum: effective pause quanta is 2x
+    effective_quanta = quanta
+    if platform in ('n9164e', 'gamut'):
+        effective_quanta = quanta * 2
+
     port_speed_bps = port_speed_gbps * 1_000_000_000
-    pause_bits_per_frame = 512 * quanta
+    pause_bits_per_frame = 512 * effective_quanta
     rate_fps = port_speed_bps / pause_bits_per_frame
 
     # Round up to ensure full pause coverage
@@ -632,7 +733,8 @@ def calculate_xoff_rate(port_speed_gbps, quanta=0xffff, margin_pct=15):
     # the queue to drain -> PFCWD never triggers.
     rate_fps_final = int(math.ceil(rate_fps_ceil * (1 + margin_pct / 100.0)))
 
-    st.log(f"XOFF rate calculation: {port_speed_gbps}G port, quanta={quanta}")
+    st.log(f"XOFF rate calculation: {port_speed_gbps}G port, quanta={quanta}"
+           f"{' (effective ' + str(effective_quanta) + ' for ' + str(platform) + ')' if effective_quanta != quanta else ''}")
     st.log(f"  Pause bits per frame: {pause_bits_per_frame}")
     st.log(f"  Exact rate: {rate_fps:.2f} fps")
     st.log(f"  Theoretical min rate: {rate_fps_ceil} fps")
@@ -641,7 +743,8 @@ def calculate_xoff_rate(port_speed_gbps, quanta=0xffff, margin_pct=15):
     return rate_fps_final
 
 
-def calculate_partial_xoff_rate(port_speed_gbps, percentage=98, quanta=0xffff):
+def calculate_partial_xoff_rate(port_speed_gbps, percentage=98, quanta=0xffff,
+                               platform=None):
     """
     Calculate a partial XOFF rate that does NOT fully block the port.
 
@@ -652,11 +755,16 @@ def calculate_partial_xoff_rate(port_speed_gbps, percentage=98, quanta=0xffff):
         port_speed_gbps: Port speed in Gbps
         percentage: Percentage of full blocking rate (default 98%)
         quanta: PFC quanta value (default 0xffff)
+        platform: Platform string. Passed through to calculate_xoff_rate
+            so platform-specific overrides (e.g., gamut/n9164e 2x quanta)
+            are honored. Without this, partial rate would exceed the
+            actual full-block rate on platforms with reduced effective
+            rate, defeating the purpose of the test.
 
     Returns:
         int: Partial XOFF frame rate in fps
     """
-    full_rate = calculate_xoff_rate(port_speed_gbps, quanta)
+    full_rate = calculate_xoff_rate(port_speed_gbps, quanta, platform=platform)
     partial_rate = int(full_rate * percentage / 100)
 
     st.log(f"Partial XOFF rate: {percentage}% of {full_rate} = {partial_rate} fps")
@@ -675,9 +783,13 @@ def calculate_partial_xoff_rate(port_speed_gbps, percentage=98, quanta=0xffff):
 #   - forward_action_supported: Is 'forward' action supported?
 PFCWD_PLATFORM_BEHAVIOR = {
     'n9164e': {  # gamut
-        'xoff_only_triggers_wd': True,
+        # Empirically, n9164e PFCWD is drop-counter driven: a paused
+        # queue with no data does not fill the buffer and does not get
+        # flagged. So XOFF-only never triggers the watchdog -- same as
+        # laguna/carib.
+        'xoff_only_triggers_wd': False,
         'forward_action_supported': True,
-        'description': 'Gamut platform - XOFF-only triggers WD, forward supported',
+        'description': 'Gamut platform - XOFF-only does NOT trigger WD, forward supported',
     },
     'laguna': {  # hf6100_64ed
         'xoff_only_triggers_wd': False,

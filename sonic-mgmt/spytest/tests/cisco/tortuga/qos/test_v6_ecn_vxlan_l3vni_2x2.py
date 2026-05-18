@@ -245,10 +245,10 @@ def verify_vtep_state(nodes):
                 iter = 0
                 if vtep['tun_status'] == 'oper_down':
                     st.log("Tunnel State is not Up after {} secs".format(end_time - start_time))
-                    report_fail(dut, msg='Tunnel State is not up. Status : oper_down')
+                    st.report_fail("test_case_failed", 'Tunnel State is not up. Status : oper_down')
                 else:
                     st.log("Tunnel State is not set after {} secs".format(end_time - start_time))
-                    report_fail(dut, msg='Tunnel State is not set')
+                    st.report_fail("test_case_failed", 'Tunnel State is not set')
             
             if vtep['tun_status'] == 'oper_up':
                 end_time = time.time()
@@ -257,17 +257,17 @@ def verify_vtep_state(nodes):
             if vtep['src_vtep'] == expected_sip:
                 st.log("Source vtep validated", dut)
             else:
-                report_fail(dut, msg='Source vtep is not as expected. Found {} Expected {}'.format(vtep['src_vtep'], expected_sip))
+                st.report_fail("test_case_failed", 'Source vtep is not as expected. Found {} Expected {}'.format(vtep['src_vtep'], expected_sip))
 
             if vtep['dst_vtep'] == expected_dip:
                 st.log("Destination vtep validated", dut)
             else:
-                report_fail(dut, msg='Destination vtep is not as expected. Found {} Expected {}'.format(vtep['dst_vtep'], expected_dip))
+                st.report_fail("test_case_failed", 'Destination vtep is not as expected. Found {} Expected {}'.format(vtep['dst_vtep'], expected_dip))
 
             if vtep['total_count'] == REMOTE_VTEP_COUNT:
                 st.log("All remote VTEPs detected", dut)
             else:
-                report_fail(dut, msg='Remote Vteps discovered count not as expected. Found {} Expected {}'.format(vtep['total_count'], REMOTE_VTEP_COUNT))
+                st.report_fail("test_case_failed", 'Remote Vteps discovered count not as expected. Found {} Expected {}'.format(vtep['total_count'], REMOTE_VTEP_COUNT))
 
 
 @pytest.fixture(scope="module", autouse=True)

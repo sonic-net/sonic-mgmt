@@ -74,6 +74,7 @@ VALID_TOPOS = ['2x2', 'B2B', '3-tier', 'standalone']
 PROFILES_WITHOUT_PLATFORM_DIR = ['202505c-Gamut', 'gamut_bringup']
 
 # Test name patterns for fabric classification
+# Priority: VXLAN patterns checked first, then filename prefix (v4/v6), then keyword fallback
 VXLAN_PATTERNS = ['vxlan', 'l2vni', 'l3vni']
 IPV4_PATTERNS = ['congestion', 'dwrr', 'strict_priority', 'wred', 'ecn_marking', 'mmu_config', 'breakout', 'pfc_stream', 'compare_three', '4stream_tc3']
 
@@ -344,16 +345,23 @@ def build_result_view_url(resp, dashboard_url):
 
 
 def classify_test_fabric(test_name):
-    """Classify a test as VXLAN or IPv4 based on name patterns."""
+    """Classify a test as VXLAN or IPv4 based on name patterns.
+
+    VXLAN: contains vxlan/l2vni/l3vni keywords
+    IPv4:  everything else (includes v4 and v6 underlay tests)
+    """
     test_lower = test_name.lower()
+    base = test_lower.rsplit('/', 1)[-1] if '/' in test_lower else test_lower
+
     for pattern in VXLAN_PATTERNS:
-        if pattern in test_lower:
+        if pattern in base:
             return 'VXLAN'
+
     return 'IPv4'
 
 
 def filter_tests_by_fabric(tests, fabric):
-    """Filter tests by fabric type (VXLAN or IPv4)."""
+    """Filter tests by fabric type (VXLAN or IPv4/IPv6 underlay)."""
     return [t for t in tests if classify_test_fabric(t['function']) == fabric]
 
 

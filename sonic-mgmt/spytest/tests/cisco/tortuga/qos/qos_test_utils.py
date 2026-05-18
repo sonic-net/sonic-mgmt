@@ -109,6 +109,706 @@ def get_dut_platform(dut):
 
 
 # ---------------------------------------------------------------------------
+# PFC Headroom Buffer Utilities
+# ---------------------------------------------------------------------------
+
+def get_buffer_pg_profile(dut, port, tc=3):
+    """
+    Get the BUFFER_PG profile name for a port and traffic class.
+
+    Looks up BUFFER_PG|<port>|<tc_range> where tc_range contains the given TC.
+    For lossless traffic, TC 3-4 typically share a profile like 'pg_lossless_800000_5m_profile'.
+
+    Args:
+        dut: DUT handle
+        port: Interface name (e.g., 'Ethernet1_60')
+        tc: Traffic class (default 3)
+
+    Returns:
+        str: Profile name (e.g., 'pg_lossless_800000_5m_profile'), or None if not found
+
+    Example:
+        >>> get_buffer_pg_profile(dut, 'Ethernet1_60', tc=3)
+        'pg_lossless_800000_5m_profile'
+    """
+    config = get_config_db(dut)
+    buffer_pg = config.get("BUFFER_PG", {})
+
+    # Look for entries matching this port
+    for key in buffer_pg.keys():
+        # Key format: "Ethernet1_60|3-4" or "Ethernet1_60|0-2"
+        if not key.startswith(port + "|"):
+            continue
+
+        # Parse TC range from key (e.g., "3-4" -> [3, 4])
+        tc_part = key.split("|")[-1]
+        if "-" in tc_part:
+            try:
+                tc_start, tc_end = map(int, tc_part.split("-"))
+                if tc_start <= tc <= tc_end:
+                    profile = buffer_pg[key].get("profile")
+                    st.log(f"get_buffer_pg_profile: {port} TC{tc} -> {profile}")
+                    return profile
+            except ValueError:
+                continue
+        else:
+            # Single TC entry (e.g., "3")
+            try:
+                if int(tc_part) == tc:
+                    profile = buffer_pg[key].get("profile")
+                    st.log(f"get_buffer_pg_profile: {port} TC{tc} -> {profile}")
+                    return profile
+            except ValueError:
+                continue
+
+    st.log(f"get_buffer_pg_profile: No profile found for {port} TC{tc}")
+    return None
+
+
+def get_buffer_profile_xoff(dut, profile_name):
+    """
+    Get the xoff value from a BUFFER_PROFILE entry.
+
+    Args:
+        dut: DUT handle
+        profile_name: Profile name (e.g., 'pg_lossless_800000_5m_profile')
+
+    Returns:
+        str: xoff value as string, or None if not found
+
+    Example:
+        >>> get_buffer_profile_xoff(dut, 'pg_lossless_800000_5m_profile')
+        '1966080'
+    """
+    config = get_config_db(dut)
+    buffer_profile = config.get("BUFFER_PROFILE", {})
+
+    if profile_name not in buffer_profile:
+        st.log(f"get_buffer_profile_xoff: Profile '{profile_name}' not found")
+        return None
+
+    xoff = buffer_profile[profile_name].get("xoff")
+    st.log(f"get_buffer_profile_xoff: {profile_name} -> xoff={xoff}")
+    return xoff
+
+
+def set_buffer_profile_xoff(dut, profile_name, xoff_value):
+    """
+    Set the xoff value in a BUFFER_PROFILE entry via redis-cli.
+
+    This directly modifies CONFIG_DB without requiring config reload.
+    The change takes effect immediately for buffer management.
+
+    Args:
+        dut: DUT handle
+        profile_name: Profile name (e.g., 'pg_lossless_800000_5m_profile')
+        xoff_value: New xoff value (string or int, will be converted to string)
+
+    Returns:
+        bool: True on success, False on failure
+
+    Example:
+        >>> set_buffer_profile_xoff(dut, 'pg_lossless_800000_5m_profile', '0')
+        True
+    """
+    xoff_str = str(xoff_value)
+    redis_key = f"BUFFER_PROFILE|{profile_name}"
+    cmd = f'redis-cli -n 4 HSET "{redis_key}" "xoff" "{xoff_str}"'
+
+    st.log(f"set_buffer_profile_xoff: Setting {profile_name} xoff={xoff_str}")
+    try:
+        result = st.config(dut, cmd, skip_tmpl=True)
+        # redis-cli HSET returns 0 (field existed) or 1 (new field)
+        st.log(f"set_buffer_profile_xoff: redis-cli returned: {result}")
+        return True
+    except Exception as e:
+        st.log(f"set_buffer_profile_xoff: Failed to set xoff: {e}")
+        return False
+
+
+def get_buffer_profile_xon(dut, profile_name):
+    """
+    Get the xon value from a BUFFER_PROFILE entry.
+
+    Args:
+        dut: DUT handle
+        profile_name: Profile name (e.g., 'pg_lossless_800000_5m_profile')
+
+    Returns:
+        str: xon value as string, or None if not found
+
+    Example:
+        >>> get_buffer_profile_xon(dut, 'pg_lossless_800000_5m_profile')
+        '1966080'
+    """
+    config = get_config_db(dut)
+    buffer_profile = config.get("BUFFER_PROFILE", {})
+
+    if profile_name not in buffer_profile:
+        st.log(f"get_buffer_profile_xon: Profile '{profile_name}' not found")
+        return None
+
+    xon = buffer_profile[profile_name].get("xon")
+    st.log(f"get_buffer_profile_xon: {profile_name} -> xon={xon}")
+    return xon
+
+
+def set_buffer_profile_xon(dut, profile_name, xon_value):
+    """
+    Set the xon value in a BUFFER_PROFILE entry via redis-cli.
+
+    This directly modifies CONFIG_DB without requiring config reload.
+    The change takes effect immediately for buffer management.
+
+    Args:
+        dut: DUT handle
+        profile_name: Profile name (e.g., 'pg_lossless_800000_5m_profile')
+        xon_value: New xon value (string or int, will be converted to string)
+
+    Returns:
+        bool: True on success, False on failure
+
+    Example:
+        >>> set_buffer_profile_xon(dut, 'pg_lossless_800000_5m_profile', '0')
+        True
+    """
+    xon_str = str(xon_value)
+    redis_key = f"BUFFER_PROFILE|{profile_name}"
+    cmd = f'redis-cli -n 4 HSET "{redis_key}" "xon" "{xon_str}"'
+
+    st.log(f"set_buffer_profile_xon: Setting {profile_name} xon={xon_str}")
+    try:
+        result = st.config(dut, cmd, skip_tmpl=True)
+        # redis-cli HSET returns 0 (field existed) or 1 (new field)
+        st.log(f"set_buffer_profile_xon: redis-cli returned: {result}")
+        return True
+    except Exception as e:
+        st.log(f"set_buffer_profile_xon: Failed to set xon: {e}")
+        return False
+
+
+def get_buffer_profile_size(dut, profile_name):
+    """
+    Get the size value from a BUFFER_PROFILE entry.
+
+    Args:
+        dut: DUT handle
+        profile_name: Profile name (e.g., 'pg_lossless_800000_5m_profile')
+
+    Returns:
+        str: Size value (e.g., '296384') or None if not found
+
+    Example:
+        >>> get_buffer_profile_size(dut, 'pg_lossless_800000_5m_profile')
+        '296384'
+    """
+    config = get_config_db(dut)
+    buffer_profile = config.get("BUFFER_PROFILE", {})
+
+    if profile_name not in buffer_profile:
+        st.log(f"get_buffer_profile_size: Profile '{profile_name}' not found")
+        return None
+
+    size = buffer_profile[profile_name].get("size")
+    st.log(f"get_buffer_profile_size: {profile_name} -> size={size}")
+    return size
+
+
+def set_buffer_profile_size(dut, profile_name, size_value):
+    """
+    Set the size value in a BUFFER_PROFILE entry via redis-cli.
+
+    This directly modifies CONFIG_DB without requiring config reload.
+    The change takes effect immediately for buffer management.
+
+    Args:
+        dut: DUT handle
+        profile_name: Profile name (e.g., 'pg_lossless_800000_5m_profile')
+        size_value: New size value (string or int, will be converted to string)
+
+    Returns:
+        bool: True on success, False on failure
+
+    Example:
+        >>> set_buffer_profile_size(dut, 'pg_lossless_800000_5m_profile', '39360')
+        True
+    """
+    size_str = str(size_value)
+    redis_key = f"BUFFER_PROFILE|{profile_name}"
+    cmd = f'redis-cli -n 4 HSET "{redis_key}" "size" "{size_str}"'
+
+    st.log(f"set_buffer_profile_size: Setting {profile_name} size={size_str}")
+    try:
+        result = st.config(dut, cmd, skip_tmpl=True)
+        # redis-cli HSET returns 0 (field existed) or 1 (new field)
+        st.log(f"set_buffer_profile_size: redis-cli returned: {result}")
+        return True
+    except Exception as e:
+        st.log(f"set_buffer_profile_size: Failed to set size: {e}")
+        return False
+
+
+def show_mmuconfig(dut, profile_name=None):
+    """
+    Display MMU buffer configuration using 'mmuconfig -l'.
+
+    If profile_name is specified, filter output to show that profile.
+    Logs the output for debugging buffer settings.
+
+    Args:
+        dut: DUT handle
+        profile_name: Optional profile name to filter (e.g., 'pg_lossless_800000_5m_profile')
+
+    Returns:
+        str: Raw output from mmuconfig -l
+    """
+    st.log("=" * 70)
+    st.log(f"MMU CONFIG (mmuconfig -l) on {dut}:")
+    st.log("=" * 70)
+
+    try:
+        output = st.show(dut, "mmuconfig -l", skip_tmpl=True, skip_error_check=True)
+        if output:
+            if profile_name:
+                # Filter to show the specific profile section
+                st.log(f"Filtering for profile: {profile_name}")
+                lines = output.splitlines()
+                in_profile = False
+                for line in lines:
+                    if profile_name in line:
+                        in_profile = True
+                    if in_profile:
+                        st.log(f"  {line}")
+                        # Stop at next profile (starts with non-whitespace)
+                        if in_profile and line and not line.startswith(' ') and profile_name not in line:
+                            break
+            else:
+                # Show full output
+                for line in output.splitlines():
+                    st.log(f"  {line}")
+        st.log("=" * 70)
+        return output
+    except Exception as e:
+        st.log(f"show_mmuconfig: Failed to run mmuconfig -l: {e}")
+        return None
+
+
+class HeadroomZeroContext:
+    """
+    Context manager to temporarily set PFC headroom (xoff) to 0 and restore.
+
+    Used by headroom sizing tests to measure actual headroom demand by
+    counting drops when headroom=0.
+
+    For Gamut platform (n9164e), also sets size=xon to ensure proper
+    buffer configuration for PFC generation.
+
+    Usage:
+        with HeadroomZeroContext(dut, 'Ethernet1_60', tc=3) as ctx:
+            # headroom is now 0 - packets will drop during PFC backpressure
+            run_headroom_measurement()
+            print(f"Original xoff was: {ctx.original_xoff}")
+        # original values automatically restored
+
+    Attributes:
+        dut: DUT handle
+        port: Interface name
+        tc: Traffic class
+        profile_name: Discovered BUFFER_PROFILE name
+        original_xoff: Original xoff value (for restoration)
+        original_size: Original size value (for restoration, Gamut only)
+        is_gamut: True if platform is Gamut (n9164e)
+    """
+
+    def __init__(self, dut, port, tc=3):
+        """
+        Initialize the context manager.
+
+        Args:
+            dut: DUT handle
+            port: Interface name (e.g., 'Ethernet1_60')
+            tc: Traffic class (default 3)
+        """
+        self.dut = dut
+        self.port = port
+        self.tc = tc
+        self.profile_name = None
+        self.original_xoff = None
+        self.original_size = None
+        self.original_xon = None
+        self.is_gamut = False
+
+    def __enter__(self):
+        """
+        Cache current xoff value and set to 0.
+
+        Returns:
+            self: Context manager instance (access original_xoff, profile_name)
+
+        Raises:
+            ValueError: If profile or xoff cannot be found
+        """
+        # Get the profile name for this port/TC
+        self.profile_name = get_buffer_pg_profile(self.dut, self.port, self.tc)
+        if not self.profile_name:
+            raise ValueError(
+                f"HeadroomZeroContext: No BUFFER_PG profile found for "
+                f"{self.port} TC{self.tc}"
+            )
+
+        # Detect if this is Gamut platform
+        platform = detect_platform(self.dut)
+        self.is_gamut = (platform == 'n9164e')
+        st.log(f"HeadroomZeroContext: Platform={platform}, is_gamut={self.is_gamut}")
+
+        # Cache the original xoff value
+        self.original_xoff = get_buffer_profile_xoff(self.dut, self.profile_name)
+        if self.original_xoff is None:
+            raise ValueError(
+                f"HeadroomZeroContext: No xoff value found for profile "
+                f"'{self.profile_name}'"
+            )
+
+        # For Gamut, also cache original xon and size values
+        # Gamut requires: xoff=0, size=xon (original xon value)
+        if self.is_gamut:
+            self.original_xon = get_buffer_profile_xon(self.dut, self.profile_name)
+            self.original_size = get_buffer_profile_size(self.dut, self.profile_name)
+            st.log(f"HeadroomZeroContext: Gamut platform - will set xoff=0, size={self.original_xon} "
+                   f"(was xoff={self.original_xoff}, size={self.original_size}, xon={self.original_xon})")
+
+        # Set xoff to 0 for all platforms
+        st.banner(f"HeadroomZeroContext: Setting {self.profile_name} xoff=0 "
+                  f"(was {self.original_xoff})")
+
+        success = set_buffer_profile_xoff(self.dut, self.profile_name, "0")
+        if not success:
+            raise RuntimeError(
+                f"HeadroomZeroContext: Failed to set xoff=0 on {self.profile_name}"
+            )
+
+        # For Gamut, also set size = original xon value
+        if self.is_gamut and self.original_xon is not None:
+            st.log(f"HeadroomZeroContext: Setting {self.profile_name} size={self.original_xon} (Gamut)")
+            success_size = set_buffer_profile_size(self.dut, self.profile_name, self.original_xon)
+            if not success_size:
+                st.error(f"HeadroomZeroContext: Failed to set size={self.original_xon} on {self.profile_name}")
+                # Restore xoff since we failed partway through
+                set_buffer_profile_xoff(self.dut, self.profile_name, self.original_xoff)
+                raise RuntimeError(
+                    f"HeadroomZeroContext: Failed to set size={self.original_xon} on {self.profile_name}"
+                )
+
+        # Show mmuconfig to verify the buffer profile settings
+        st.log(f"HeadroomZeroContext: Gamut={self.is_gamut}, xoff set to 0")
+        show_mmuconfig(self.dut, self.profile_name)
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Restore the original xoff value (and size for Gamut).
+
+        Always attempts restoration, even if an exception occurred.
+        Logs but does not re-raise restoration failures.
+        """
+        if self.profile_name and self.original_xoff is not None:
+            # For Gamut, restore size first
+            if self.is_gamut and self.original_size is not None:
+                st.log(f"HeadroomZeroContext: Restoring {self.profile_name} "
+                       f"size={self.original_size} (Gamut)")
+                success_size = set_buffer_profile_size(
+                    self.dut, self.profile_name, self.original_size
+                )
+                if not success_size:
+                    st.error(
+                        f"HeadroomZeroContext: FAILED to restore size={self.original_size} "
+                        f"on {self.profile_name} - manual restoration may be needed!"
+                    )
+
+            st.banner(f"HeadroomZeroContext: Restoring {self.profile_name} "
+                      f"xoff={self.original_xoff}")
+            success = set_buffer_profile_xoff(
+                self.dut, self.profile_name, self.original_xoff
+            )
+            if not success:
+                st.error(
+                    f"HeadroomZeroContext: FAILED to restore xoff={self.original_xoff} "
+                    f"on {self.profile_name} - manual restoration may be needed!"
+                )
+        else:
+            st.log("HeadroomZeroContext: No restoration needed (profile/xoff not set)")
+
+        # Don't suppress exceptions
+        return False
+
+
+def capture_headroom_counters(dut, port, tc=3):
+    """
+    Capture all counters relevant to headroom sizing tests.
+
+    Collects PG drops, PFC counters, port counters, watermarks in one call.
+
+    Args:
+        dut: DUT handle
+        port: Interface name
+        tc: Traffic class (default 3)
+
+    Returns:
+        dict: {
+            'pg_drop': int,           # Priority group drop count for TC
+            'pfc_rx': int,            # PFC frames received for TC
+            'pfc_tx': int,            # PFC frames transmitted for TC
+            'rx_packets': int,        # Total RX packets on port
+            'tx_packets': int,        # Total TX packets on port
+            'pg_watermark': int,      # PG watermark (shared) for TC
+            'buffer_pool_watermark': dict,  # {pool_name: value}
+        }
+
+    Example:
+        >>> counters = capture_headroom_counters(dut, 'Ethernet1_60', tc=3)
+        >>> print(f"PG drops: {counters['pg_drop']}")
+    """
+    result = {
+        'pg_drop': 0,
+        'pfc_rx': 0,
+        'pfc_tx': 0,
+        'rx_packets': 0,
+        'tx_packets': 0,
+        'pg_watermark': 0,
+        'buffer_pool_watermark': {},
+    }
+
+    try:
+        # PG drop counters
+        pg_drops = _get_pg_drop_counters_simple(dut, port)
+        result['pg_drop'] = pg_drops.get(tc, 0)
+
+        # PFC counters
+        result['pfc_rx'] = get_pfc_rx_count(dut, port, tc)
+        result['pfc_tx'] = get_pfc_tx_count(dut, port, tc)
+
+        # Port counters
+        port_counters = _get_port_counters_simple(dut, port)
+        result['rx_packets'] = port_counters.get('rx_ok', 0)
+        result['tx_packets'] = port_counters.get('tx_ok', 0)
+
+        # PG watermark (shared)
+        pg_wm = _get_pg_watermark_simple(dut, port)
+        result['pg_watermark'] = pg_wm.get(tc, 0)
+
+        # Buffer pool watermark
+        try:
+            raw = get_buffer_pool_watermark(dut)
+            if raw:
+                parsed = parse_buffer_pool_watermark(raw)
+                for k, v in parsed.items():
+                    try:
+                        result['buffer_pool_watermark'][k] = int(str(v).replace(',', ''))
+                    except (ValueError, AttributeError):
+                        result['buffer_pool_watermark'][k] = v
+        except Exception as e:
+            st.log(f"capture_headroom_counters: buffer pool watermark failed: {e}")
+
+    except Exception as e:
+        st.log(f"capture_headroom_counters: Error capturing counters: {e}")
+
+    st.log(f"capture_headroom_counters({port}, TC{tc}): {result}")
+    return result
+
+
+def get_queue_drops_for_port(dut, port, tc=3):
+    """
+    Get queue drop counter (unicast) for a specific port and TC.
+
+    Uses 'show queue counters <port>' to get Drop/pkts for UC<tc>.
+
+    Args:
+        dut: DUT handle
+        port: Port name (e.g., 'Ethernet1_45')
+        tc: Traffic class (default 3)
+
+    Returns:
+        int: Queue drop packets for UC<tc>
+    """
+    cmd = f"show queue counters {port}"
+    output = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True)
+
+    if not output:
+        st.log(f"No queue counters output for {port}")
+        return 0
+
+    queue_name = f"UC{tc}"
+    for line in output.splitlines():
+        line = line.strip()
+        if port in line and queue_name in line:
+            parts = line.split()
+            # Format: Port TxQ Counter/pkts Counter/bytes Drop/pkts Drop/bytes
+            # Example: Ethernet1_45  UC3  12345  1234567  100  N/A
+            if len(parts) >= 5:
+                try:
+                    drop_pkts = int(parts[4].replace(',', ''))
+                    st.log(f"Queue drops {port} {queue_name}: {drop_pkts} pkts")
+                    return drop_pkts
+                except ValueError:
+                    if parts[4] == 'N/A':
+                        st.log(f"Queue drops {port} {queue_name}: N/A (0)")
+                        return 0
+
+    st.log(f"Could not parse queue drops for {port} {queue_name}")
+    return 0
+
+
+def get_queue_watermark_for_port(dut, port, tc=3):
+    """
+    Get queue watermark (unicast) for a specific port and TC.
+
+    Args:
+        dut: DUT handle
+        port: Port name (e.g., 'Ethernet1_45')
+        tc: Traffic class (default TC=3)
+
+    Returns:
+        int: Queue watermark in bytes for UC<tc>
+    """
+    cmd = f"show queue watermark unicast | grep -w {port}"
+    output = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True)
+
+    if not output:
+        st.log(f"No queue watermark output for {port}")
+        return 0
+
+    for line in output.splitlines():
+        line = line.strip()
+        if port in line:
+            parts = line.split()
+            # Format: Port UC0 UC1 UC2 UC3 UC4 ...
+            # UC<tc> is at index tc+1
+            if len(parts) > tc + 1:
+                try:
+                    watermark = int(parts[tc + 1])
+                    st.log(f"Queue watermark {port} UC{tc}: {watermark} bytes")
+                    return watermark
+                except ValueError:
+                    pass
+
+    st.log(f"Could not parse queue watermark for {port} UC{tc}")
+    return 0
+
+
+def collect_pfc_debug_info(dut, port, tc=3):
+    """
+    Collect comprehensive PFC debug information when we see unexpected behavior.
+
+    Called when pg_drop > 0 but pfc_tx == 0 to diagnose why PFC wasn't generated.
+
+    Args:
+        dut: DUT handle
+        port: Interface name
+        tc: Traffic class
+
+    Returns:
+        dict: Debug information collected
+    """
+    debug_info = {}
+
+    st.banner(f"COLLECTING PFC DEBUG INFO FOR {port} TC{tc}")
+
+    # 1. Check BUFFER_PG profile applied to the port
+    st.log("=== BUFFER_PG Configuration ===")
+    try:
+        profile_name = get_buffer_pg_profile(dut, port, tc)
+        debug_info['buffer_pg_profile'] = profile_name
+        st.log(f"BUFFER_PG profile for {port} TC{tc}: {profile_name}")
+
+        if profile_name:
+            # Get full profile details
+            xoff = get_buffer_profile_xoff(dut, profile_name)
+            debug_info['xoff_value'] = xoff
+            st.log(f"Profile {profile_name} xoff value: {xoff}")
+    except Exception as e:
+        st.log(f"Error getting buffer profile: {e}")
+        debug_info['buffer_pg_error'] = str(e)
+        profile_name = None
+
+    # 2. Show buffer configuration from redis
+    st.log("=== BUFFER_PROFILE from Redis ===")
+    try:
+        cmd = f"redis-cli -n 4 HGETALL 'BUFFER_PROFILE|{profile_name}'" if profile_name else "echo 'No profile'"
+        output = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True)
+        debug_info['buffer_profile_redis'] = output
+        st.log(f"Redis BUFFER_PROFILE:\n{output}")
+    except Exception as e:
+        st.log(f"Error getting redis buffer profile: {e}")
+
+    # 3. Show PFC priority configuration
+    st.log("=== PFC Priority Configuration ===")
+    try:
+        output = st.show(dut, f"show pfc priority | grep -E 'Interface|{port}'", skip_tmpl=True, skip_error_check=True)
+        debug_info['pfc_priority'] = output
+        st.log(f"PFC priority:\n{output}")
+    except Exception as e:
+        st.log(f"Error getting PFC priority: {e}")
+
+    # 4. Show PFC counters (all TCs)
+    st.log("=== PFC Counters (All TCs) ===")
+    try:
+        output = st.show(dut, f"show pfc counters | grep -E 'Port|{port}'", skip_tmpl=True, skip_error_check=True)
+        debug_info['pfc_counters'] = output
+        st.log(f"PFC counters:\n{output}")
+    except Exception as e:
+        st.log(f"Error getting PFC counters: {e}")
+
+    # 5. Show priority-group drop counters (all PGs)
+    st.log("=== Priority Group Drop Counters ===")
+    try:
+        output = st.show(dut, f"show priority-group drop counters | grep -E 'Port|{port}'", skip_tmpl=True, skip_error_check=True)
+        debug_info['pg_drop_counters'] = output
+        st.log(f"PG drop counters:\n{output}")
+    except Exception as e:
+        st.log(f"Error getting PG drop counters: {e}")
+
+    # 6. Show priority-group watermark
+    st.log("=== Priority Group Watermark ===")
+    try:
+        output = st.show(dut, f"show priority-group watermark shared | grep -E 'Port|{port}'", skip_tmpl=True, skip_error_check=True)
+        debug_info['pg_watermark'] = output
+        st.log(f"PG watermark:\n{output}")
+    except Exception as e:
+        st.log(f"Error getting PG watermark: {e}")
+
+    # 7. Show interface status
+    st.log("=== Interface Status ===")
+    try:
+        output = st.show(dut, f"show interface status | grep {port}", skip_tmpl=True, skip_error_check=True)
+        debug_info['interface_status'] = output
+        st.log(f"Interface status:\n{output}")
+    except Exception as e:
+        st.log(f"Error getting interface status: {e}")
+
+    # 8. Check if PFC is enabled via lldp or interface config
+    st.log("=== PFC Asymmetric Setting ===")
+    try:
+        output = st.show(dut, f"redis-cli -n 4 HGETALL 'PORT_QOS_MAP|{port}'", skip_tmpl=True, skip_error_check=True)
+        debug_info['port_qos_map'] = output
+        st.log(f"PORT_QOS_MAP:\n{output}")
+    except Exception as e:
+        st.log(f"Error getting PORT_QOS_MAP: {e}")
+
+    # 9. Check PFC watchdog status
+    st.log("=== PFC Watchdog Status ===")
+    try:
+        output = st.show(dut, "show pfcwd stats", skip_tmpl=True, skip_error_check=True)
+        debug_info['pfcwd_stats'] = output
+        st.log(f"PFC watchdog stats:\n{output}")
+    except Exception as e:
+        st.log(f"Error getting PFCWD stats: {e}")
+
+    st.banner("END PFC DEBUG INFO")
+    return debug_info
+
+
+# ---------------------------------------------------------------------------
 # DSCP / TC mapping
 # ---------------------------------------------------------------------------
 

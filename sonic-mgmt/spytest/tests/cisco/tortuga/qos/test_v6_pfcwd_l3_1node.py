@@ -19,7 +19,7 @@ Test Flow:
 
 Tests in this file:
     test_pfcwd_detection_and_recovery     -- T1: data + sustained XOFF storm; PFCWD MUST detect AND restore.
-    test_pfcwd_xoff_only_no_data          -- XOFF-only (no data); platform-specific trigger (gamut yes, cisco-8000 no).
+    test_pfcwd_xoff_only_no_data          -- XOFF-only (no data); should NOT trigger PFCWD on any platform.
     test_pfcwd_partial_xoff_no_trigger    -- T3/T4: data + ~80% XOFF rate (sub-block); PFCWD MUST NOT trigger, data keeps flowing.
     test_pfcwd_no_trigger                 -- T2: full-rate XOFF bursts shorter than detect_time; PFCWD MUST NOT trigger.
     test_pfcwd_drop_action                -- T5: action='drop'; storm detected, tx_drop > 0, then restored.
@@ -71,20 +71,25 @@ data = SpyTestDict()
 # Helper Functions
 # ---------------------------------------------------------------------------
 
-def get_xoff_rate(port_speed_gbps):
+def get_xoff_rate(port_speed_gbps, platform=None):
     """
     Calculate PFC XOFF frame rate based on port speed.
 
     Uses pfcwd_utils.calculate_xoff_rate() for accurate calculation.
     The formula: rate = port_speed_bps / (512 * 65535) ensures full pause.
+    Gamut/n9164e applies an effective 2x pause quanta (half the rate).
 
     Args:
         port_speed_gbps: Port speed in Gbps
+        platform: Platform string. Defaults to ``data.platform`` (set by
+            the module-scope fixture) so callers don't have to thread it.
 
     Returns:
         int: XOFF frame rate in frames per second
     """
-    return pfcwd_utils.calculate_xoff_rate(port_speed_gbps)
+    if platform is None:
+        platform = getattr(data, 'platform', None)
+    return pfcwd_utils.calculate_xoff_rate(port_speed_gbps, platform=platform)
 
 
 def is_pfcwd_default_disabled(config):
@@ -627,11 +632,16 @@ def verify_data_ingress(dut, expected_ingress, off_ports, sample_secs=2):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="module", autouse=True)
-def pfcwd_module_setup():
+def pfcwd_module_setup(request):
     """
     Module fixture: configure DUT ports with IPv6, create TGEN NGPF
     device groups, enable PFCWD, discover lossless priority config.
+
+    A test module may set ``SKIP_PFCWD_CONFIG = True`` at module scope
+    to bypass the PFCWD enable/verify steps (used by the XOFF rate
+    calibration test, which must run with PFCWD stopped).
     """
+    skip_pfcwd = bool(getattr(request.module, 'SKIP_PFCWD_CONFIG', False))
     st.ensure_min_topology('T1D3:3')
     vars = st.get_testbed_vars()
     dut = vars.D3
@@ -671,19 +681,25 @@ def pfcwd_module_setup():
     # Discover lossless priority configuration on the egress port (P3)
     lossless_cfg = discover_lossless_config(dut, dut_ports[3])
 
-    # Configure PFCWD based on DEVICE_METADATA default_pfcwd_status
-    configure_pfcwd(dut, config)
+    if skip_pfcwd:
+        st.banner("SKIP_PFCWD_CONFIG=True - stopping PFCWD daemon for this module")
+        pfcwd_utils.disable_pfcwd(dut)
+        st.wait(2)
+        pfcwd_timing = None
+    else:
+        # Configure PFCWD based on DEVICE_METADATA default_pfcwd_status
+        configure_pfcwd(dut, config)
 
-    # Verify PFCWD is configured on egress port
-    if not verify_pfcwd_config_on_port(dut, dut_ports[3]):
-        st.report_fail('msg', f"PFCWD not configured on egress port {dut_ports[3]}")
+        # Verify PFCWD is configured on egress port
+        if not verify_pfcwd_config_on_port(dut, dut_ports[3]):
+            st.report_fail('msg', f"PFCWD not configured on egress port {dut_ports[3]}")
 
-    # Get PFCWD timing parameters
-    pfcwd_timing = pfcwd_utils.get_pfcwd_timing_params(dut, dut_ports[3])
-    st.log(f"PFCWD timing parameters:")
-    st.log(f"  Poll interval: {pfcwd_timing['poll_interval_sec']*1000:.0f} ms")
-    st.log(f"  Detection time: {pfcwd_timing['detect_time_sec']*1000:.0f} ms")
-    st.log(f"  Restore time: {pfcwd_timing['restore_time_sec']*1000:.0f} ms")
+        # Get PFCWD timing parameters
+        pfcwd_timing = pfcwd_utils.get_pfcwd_timing_params(dut, dut_ports[3])
+        st.log(f"PFCWD timing parameters:")
+        st.log(f"  Poll interval: {pfcwd_timing['poll_interval_sec']*1000:.0f} ms")
+        st.log(f"  Detection time: {pfcwd_timing['detect_time_sec']*1000:.0f} ms")
+        st.log(f"  Restore time: {pfcwd_timing['restore_time_sec']*1000:.0f} ms")
 
     # Store in module data
     data.dut = dut
@@ -747,6 +763,11 @@ def pfcwd_module_setup():
         if not ping_ok:
             st.report_fail('msg', f"Ping failed: TGEN {tgen_ports[idx]} -> {gw}")
 
+    # Disable Mellanox packet aging on platforms that need it (gamut/n9164e).
+    # Without this, paused queues drain via the SDK aging timer and PFCWD
+    # never sees a stuck queue, so storm_detected stays 0.
+    pfcwd_utils.disable_packet_aging(dut, platform=platform)
+
     st.banner("PFCWD module setup complete")
 
     # ---- Yield to test(s) ----
@@ -756,6 +777,9 @@ def pfcwd_module_setup():
     st.banner("PFCWD module teardown")
     tg.tg_traffic_control(action='stop')
     st.wait(2)
+
+    # Re-enable Mellanox packet aging (no-op on other platforms).
+    pfcwd_utils.enable_packet_aging(dut, platform=platform)
 
     # Disable PFCWD
     pfcwd_utils.disable_pfcwd(dut)
@@ -1065,11 +1089,12 @@ def test_pfcwd_detection_and_recovery():
 
 def test_pfcwd_xoff_only_no_data():
     """
-    Send PFC XOFF frames only (no data traffic) and verify per-platform
-    PFCWD trigger behaviour.
+    Send PFC XOFF frames only (no data traffic) and verify PFCWD does
+    NOT trigger on any platform (paused queue with no data never fills
+    the buffer, so the watchdog has nothing to flag).
 
     Expected per platform (see pfcwd_utils.PFCWD_PLATFORM_BEHAVIOR):
-      - n9164e (gamut): XOFF-only DOES trigger PFCWD storm
+      - n9164e (gamut): XOFF-only does NOT trigger PFCWD storm
       - laguna / carib (cisco-8000): XOFF-only does NOT trigger PFCWD
     """
     dut = data.dut
@@ -1218,7 +1243,8 @@ def test_pfcwd_partial_xoff_no_trigger():
     # Use ~80% of full XOFF rate -- well below the block threshold to leave
     # clear bandwidth for data, while still pausing intermittently.
     partial_pct = 80
-    xoff_rate = pfcwd_utils.calculate_partial_xoff_rate(port_speed, percentage=partial_pct)
+    xoff_rate = pfcwd_utils.calculate_partial_xoff_rate(
+        port_speed, percentage=partial_pct, platform=data.platform)
 
     st.banner("PFCWD Partial XOFF (no trigger) Test")
     st.log(f"  Platform: {data.platform}")

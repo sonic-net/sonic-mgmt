@@ -415,10 +415,23 @@ NATURAL_DEMAND_THRESHOLD_PCT = 100.0
 # load (uncongested) or of the egress line rate (congested).
 EFFECTIVE_TX_FLOOR = 0.90
 
+# Gamut (n9164e) tends to emit a tiny burst of PFC XOFF (typically 2 frames)
+# on the first VxLAN-encap packet at flow start, then smooths out. Treat
+# pfc_tx counts at/below this threshold as noise for the natural-congestion
+# verdict on gamut only. The raw count is still surfaced in metrics.
+GAMUT_NOISE_PLATFORMS = ('n9164e', 'gamut')
+GAMUT_PFC_TX_NOISE_MAX = 100
 
-def _ingress_egress_speeds(node_name, port_speeds_per_node, topology_entry):
+
+def _ingress_egress_speeds(node_name, port_speeds_per_node, topology_entry,
+                           node_port_counters=None):
     """Pick the ingress (TGEN-facing) and egress (fabric-facing) speed for
     a leaf node.
+
+    If ``node_port_counters`` is provided (dict port -> {tx_packets,rx_packets}),
+    restrict fabric-egress candidates to ports that actually carried traffic.
+    This avoids counting admin/oper-down ECMP siblings whose listed speed
+    would otherwise distort the demand model.
 
     Returns (ingress_gbps, egress_gbps). 0 when not derivable.
     """
@@ -440,7 +453,19 @@ def _ingress_egress_speeds(node_name, port_speeds_per_node, topology_entry):
     else:
         return 0, 0
     in_g = int(speeds.get(ingress_port, 0)) if ingress_port else 0
-    # Single-flow ECMP hashes onto one fabric link, so use min available.
+    # Prefer fabric ports that actually carried the flow (non-zero rx/tx);
+    # falls back to all listed fabric ports if counters are unavailable.
+    if node_port_counters:
+        active = []
+        for p in egress_ports:
+            pdata = node_port_counters.get(p) or {}
+            if int(pdata.get('tx_packets', 0) or 0) > 0 \
+                    or int(pdata.get('rx_packets', 0) or 0) > 0:
+                active.append(p)
+        if active:
+            egress_ports = active
+    # Single-flow ECMP hashes onto one fabric link, so use min available
+    # among the (filtered) candidates.
     fabric_speeds = [int(speeds.get(p, 0)) for p in egress_ports if speeds.get(p)]
     eg_g = min(fabric_speeds) if fabric_speeds else 0
     return in_g, eg_g
@@ -524,8 +549,10 @@ def validate_natural_congestion(bundle, rules=None):
 
     # For metrics we focus on the first ingress leaf.
     ileaf = ingress_leaves[0]
+    ileaf_ports_snap = (snap.get(ileaf, {}) or {}).get('ports', {}) or {}
     ingress_bw, egress_bw = _ingress_egress_speeds(
-        ileaf, port_speeds_per_node, topo_entries.get(ileaf))
+        ileaf, port_speeds_per_node, topo_entries.get(ileaf),
+        node_port_counters=ileaf_ports_snap)
 
     if ingress_bw <= 0 or egress_bw <= 0:
         return _empty_snap_verdict(
@@ -557,6 +584,18 @@ def validate_natural_congestion(bundle, rules=None):
         ecn_marked = int(totals.get('ecn_marked_pkts', 0) or 0)
         pfc_tx = int(totals.get('pfc_tx', 0) or 0)
         platform = _platform_for(n, marking_nodes, marking_platforms)
+
+        # Gamut-specific noise tolerance: small PFC TX bursts at flow start
+        # (typically 2 frames on first VxLAN-encap packet) are an n9164e
+        # quirk, not real congestion back-pressure. Clamp to 0 for the
+        # decision only; raw count is still surfaced in metrics.
+        pfc_tx_effective = pfc_tx
+        pfc_tx_noise_ignored = False
+        if (platform in GAMUT_NOISE_PLATFORMS
+                and 0 < pfc_tx <= GAMUT_PFC_TX_NOISE_MAX):
+            pfc_tx_effective = 0
+            pfc_tx_noise_ignored = True
+
         metrics = {
             'ingress_load_pct':     ingress_load_pct,
             'frame_size':           frame_size,
@@ -567,12 +606,13 @@ def validate_natural_congestion(bundle, rules=None):
             'congested':            congested,
             'ecn_marked':           ecn_marked,
             'pfc_tx':               pfc_tx,
+            'pfc_tx_effective':     pfc_tx_effective,
             'effective_tx_gbps':    round(effective_tx_gbps, 3),
         }
 
         if congested:
             tx_floor = EFFECTIVE_TX_FLOOR * float(egress_bw)
-            ok = (ecn_marked > 0) and (pfc_tx > 0) and (effective_tx_gbps >= tx_floor)
+            ok = (ecn_marked > 0) and (pfc_tx_effective > 0) and (effective_tx_gbps >= tx_floor)
             if ok:
                 reason = ('congested (demand={:.1f}%): ecn={} pfc_tx={} '
                           'tx={:.2f}G >= floor={:.2f}G'
@@ -582,7 +622,7 @@ def validate_natural_congestion(bundle, rules=None):
                 reasons = []
                 if ecn_marked == 0:
                     reasons.append('ecn_marked==0')
-                if pfc_tx == 0:
+                if pfc_tx_effective == 0:
                     reasons.append('pfc_tx==0')
                 if effective_tx_gbps < tx_floor:
                     reasons.append('tx={:.2f}G < floor={:.2f}G'
@@ -592,7 +632,7 @@ def validate_natural_congestion(bundle, rules=None):
         else:
             expected_tx_gbps = (ingress_load_pct / 100.0) * float(ingress_bw)
             tx_floor = EFFECTIVE_TX_FLOOR * expected_tx_gbps
-            ok = (ecn_marked == 0) and (pfc_tx == 0) and (effective_tx_gbps >= tx_floor)
+            ok = (ecn_marked == 0) and (pfc_tx_effective == 0) and (effective_tx_gbps >= tx_floor)
             if ok:
                 reason = ('uncongested (demand={:.1f}%): no marks/xoff, '
                           'tx={:.2f}G >= floor={:.2f}G'
@@ -601,13 +641,16 @@ def validate_natural_congestion(bundle, rules=None):
                 reasons = []
                 if ecn_marked > 0:
                     reasons.append('ecn_marked={}'.format(ecn_marked))
-                if pfc_tx > 0:
+                if pfc_tx_effective > 0:
                     reasons.append('pfc_tx={}'.format(pfc_tx))
                 if effective_tx_gbps < tx_floor:
                     reasons.append('tx={:.2f}G < floor={:.2f}G'
                                    .format(effective_tx_gbps, tx_floor))
                 reason = ('uncongested (demand={:.1f}%) but: {}'
                           .format(demand_pct, '; '.join(reasons)))
+
+        if pfc_tx_noise_ignored:
+            reason += ' [ignored gamut PFC TX noise: raw={}]'.format(pfc_tx)
 
         verdicts.append({
             'node':     n,

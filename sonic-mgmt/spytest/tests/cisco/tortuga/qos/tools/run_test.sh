@@ -3,9 +3,9 @@
 # Unified QoS Test Runner
 #
 # Usage:
-#   ./run_test.sh --yaml <path> <test_file>         # Run specific test
-#   ./run_test.sh --yaml <path> full                 # Run all QoS tests
-#   ./run_test.sh --yaml <path> --env KEY=VAL <test_file>
+#   ./run_test.sh --testbed <ID> <test_file>         # Run specific test
+#   ./run_test.sh --testbed <ID> full                 # Run all QoS tests
+#   ./run_test.sh --testbed <ID> --env KEY=VAL <test_file>
 #
 # Container auto-setup: if the container for the user is not running,
 # the script loads the docker image (if needed) and starts the container.
@@ -113,28 +113,27 @@ check_spytest_directory() {
 }
 
 show_usage() {
-    echo "Usage: $0 --yaml <path> <command> [args]"
+    echo "Usage: $0 --testbed <ID> <command> [args]"
     echo ""
     echo "Commands:"
     echo "  <test_file>     Run specific test (e.g., test_ecn.py, test_dwrr.py)"
     echo "  full            Run all QoS tests"
     echo ""
     echo "Options:"
-    echo "  --yaml <path>       Testbed YAML file (required)"
-    echo "  --env KEY=VAL       Pass environment variable to container (repeatable)
-  --logs-dir <path>   Custom directory for run logs (default: auto-generated)"
+    echo "  --testbed <ID>      Testbed ID (see below)"
+    echo "  --env KEY=VAL       Pass environment variable to container (repeatable)"
+    echo "  --logs-dir <path>   Custom directory for run logs (default: auto-generated)"
     echo ""
-    echo "Container/docker config is auto-detected from the YAML filename"
-    echo "(via testbed_config.py in the same directory as this script)."
-    echo ""
-    echo "NOTE: Run this script from the spytest directory of your repo, e.g.:"
-    echo "  cd /path/to/sonic-test/sonic-mgmt/spytest && run_test.sh ..."
+    echo "Testbed IDs:"
+    echo "  10000 = carib/siren (tortuga_2x2_Q200_testbed.yaml)"
+    echo "  10001 = laguna     (tortuga_2x2_G200_testbed.yaml)"
+    echo "  10002 = gamut      (gamut_2x2_qos.yaml)"
+    echo "  10003 = OCI        (rocev2_testbed.yaml)"
     echo ""
     echo "Examples:"
-    echo "  $0 --yaml /path/to/tortuga_2x2_G200_testbed.yaml test_dwrr.py"
-    echo "  $0 --yaml /path/to/gamut_2x2_qos.yaml full"
-    echo "  $0 --yaml /path/to/rocev2_testbed.yaml full"
-    echo "  $0 --yaml /path/to/tortuga_2x2_G200_testbed.yaml --logs-dir /data/my_logs test_dwrr.py"
+    echo "  $0 --testbed 10002 full"
+    echo "  $0 --testbed 10001 test_dwrr.py"
+    echo "  $0 --testbed 10003 full"
 }
 
 do_setup() {
@@ -156,12 +155,8 @@ do_setup() {
 
     # Copy testbed YAML into spytest dir
     if [ -n "$TESTBED_YAML" ]; then
-        local YAML_FULL=$(realpath "$TESTBED_YAML" 2>/dev/null || echo "$TESTBED_YAML")
-        if [ -f "$YAML_FULL" ]; then
-            local YAML_BASE=$(basename "$YAML_FULL")
-            cp "$YAML_FULL" "./$YAML_BASE"
-            echo "Copied $YAML_BASE to spytest directory"
-        fi
+        local YAML_BASE=$(basename "$TESTBED_YAML")
+        cp "$TESTBED_YAML" "./$YAML_BASE"
     fi
 
     # Load docker image if needed
@@ -349,6 +344,26 @@ LOGS_DIR=""
 ENV_ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --testbed)
+            # Resolve integer ID to YAML path
+            case "$2" in
+                10000) TESTBED_YAML="tortuga_2x2_Q200_testbed.yaml" ;;
+                10001) TESTBED_YAML="tortuga_2x2_G200_testbed.yaml" ;;
+                10002) TESTBED_YAML="gamut_2x2_qos.yaml" ;;
+                10003) TESTBED_YAML="rocev2_testbed.yaml" ;;
+                *) echo -e "${RED}Unknown testbed ID: $2${NC}"
+                   echo "Valid IDs: 10000=carib/siren, 10001=laguna, 10002=gamut, 10003=OCI"
+                   exit 1 ;;
+            esac
+            # Always copy from the canonical source: <repo_root>/spytest_tb_files/
+            _REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+            _TB_DIR="${_REPO_ROOT}/spytest_tb_files"
+            if [[ ! -f "$_TB_DIR/$TESTBED_YAML" ]]; then
+                echo -e "${RED}Cannot find $TESTBED_YAML in $_TB_DIR${NC}"
+                exit 1
+            fi
+            TESTBED_YAML="$(realpath "$_TB_DIR/$TESTBED_YAML")"
+            shift 2 ;;
         --yaml)     TESTBED_YAML="$2"; shift 2 ;;
         --logs-dir) LOGS_DIR="$2"; shift 2 ;;
         --env)      ENV_ARGS+=(-e "$2"); export "$2"; shift 2 ;;
@@ -357,7 +372,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ -z "$TESTBED_YAML" ]] && { show_usage; echo -e "\n${RED}Error: --yaml is required${NC}"; exit 1; }
+[[ -z "$TESTBED_YAML" ]] && { show_usage; echo -e "\n${RED}Error: --testbed is required${NC}"; exit 1; }
 
 # Look up testbed config from YAML filename
 TB_CONFIG_OUTPUT=$(read_tb_config "$TESTBED_YAML") || exit 1
@@ -370,6 +385,18 @@ CONTAINER_NAME="${TB_CONTAINER_PREFIX}_${_USER}"
 TEST_PATH="$TB_TEST_PATH"
 INPUT_FILE="$TB_INPUT_FILE"
 PROFILE_SUFFIX_LC=$(echo "$TB_PROFILE_SUFFIX" | tr '[:upper:]' '[:lower:]')
+
+# ── Testbed reservation check ──
+# Only check outside container (inside = already verified)
+if ! is_inside_container 2>/dev/null; then
+    YAML_BASE=$(basename "$TESTBED_YAML")
+    if ! LOCK_MSG=$(python3 "$SCRIPT_DIR/testbed.py" --yaml "$YAML_BASE" --check 2>&1); then
+        echo -e "${RED}✗  No valid reservation for $YAML_BASE${NC}"
+        echo -e "${RED}   $LOCK_MSG${NC}"
+        echo -e "${RED}   Reserve first: ./testbed.py --testbed <ID> --reserve <HOURS> --note '...'${NC}"
+        exit 1
+    fi
+fi
 
 [[ $# -lt 1 ]] && { show_usage; exit 0; }
 

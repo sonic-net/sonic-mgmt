@@ -8,6 +8,7 @@ given testbed YAML.
 To add a new testbed: add an entry to TESTBED_CONFIGS below.
 """
 
+import subprocess
 from pathlib import Path
 
 # Known repo directory names and their spytest sub-paths (for auto-discovery)
@@ -37,6 +38,20 @@ CONTAINER_SERVER = {
     "user": "sonic",
     "password": "roZes@123",
     "path": "/home/sonic/containers",
+}
+
+# Reservation server credentials (same server, used by testbed.py)
+LOCK_SERVER_PASSWORD = CONTAINER_SERVER["password"]
+
+# Admin password for hidden/privileged operations (--force, --expire-stale)
+ADMIN_PASSWORD = "cmRtYTEyMw=="
+
+# ── Testbed ID shorthand (for --testbed <int> on CLI) ─────────────────────
+TESTBED_IDS = {
+    10000: ("tortuga_2x2_Q200_testbed.yaml", "carib/siren"),
+    10001: ("tortuga_2x2_G200_testbed.yaml", "laguna"),
+    10002: ("gamut_2x2_qos.yaml",            "gamut"),
+    10003: ("rocev2_testbed.yaml",           "OCI"),
 }
 
 TESTBED_CONFIGS = {
@@ -104,20 +119,79 @@ def get_config(yaml_path):
     return TESTBED_CONFIGS.get(filename)
 
 
+def _get_repo_root(cwd=None):
+    """Return the git repo root as a Path, or None."""
+    import subprocess
+    try:
+        return Path(subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=cwd, stderr=subprocess.DEVNULL,
+            universal_newlines=True).strip())
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+
+def find_testbed_yaml(yaml_name):
+    """Locate a testbed YAML file by name.
+
+    Search order:
+      1. CWD
+      2. <repo_root>/spytest_tb_files/
+
+    Returns resolved Path or raises ValueError.
+    """
+    # Check CWD
+    candidate = Path(yaml_name)
+    if candidate.is_file():
+        return candidate.resolve()
+
+    # Check <repo_root>/spytest_tb_files/
+    repo_root = _get_repo_root()
+    if repo_root:
+        candidate = repo_root / "spytest_tb_files" / yaml_name
+        if candidate.is_file():
+            return candidate.resolve()
+
+    raise ValueError(
+        f"Cannot find {yaml_name} in CWD or <repo>/spytest_tb_files/")
+
+
 def discover_repo(yaml_path):
     """Walk up from a testbed YAML path to find the repo root and spytest dir.
+
+    Strategy:
+      1. Walk up looking for a 'spytest' directory that contains bin/spytest
+         (the runner script). That's the spytest_dir.
+      2. If not found via ancestry (e.g. YAML is in spytest_tb_files/), use
+         git rev-parse to find the repo root and look for sonic-mgmt/spytest.
+      3. The repo root is the enclosing git repo.
+
+    This works regardless of what the repo directory is named.
 
     Returns (repo_dir: Path, spytest_dir: Path) or raises ValueError.
     """
     yaml_path = Path(yaml_path).resolve()
+
+    # Walk up and check each ancestor for spytest/bin/spytest
     for parent in yaml_path.parents:
-        if parent.name in REPO_LAYOUT:
-            spytest_dir = parent / REPO_LAYOUT[parent.name]
-            if spytest_dir.is_dir():
-                return parent, spytest_dir
+        if parent.name == "spytest" and (parent / "bin" / "spytest").is_file():
+            spytest_dir = parent
+            # Find repo root: walk up from spytest_dir looking for .git
+            for repo_candidate in spytest_dir.parents:
+                if (repo_candidate / ".git").exists():
+                    return repo_candidate, spytest_dir
+            return spytest_dir.parent.parent if spytest_dir.parent.name == "sonic-mgmt" else spytest_dir.parent, spytest_dir
+
+    # YAML is not under the spytest tree (e.g. in spytest_tb_files/) — use git root
+    repo_root = _get_repo_root(cwd=str(yaml_path.parent))
+    if repo_root:
+        candidate = repo_root / "sonic-mgmt" / "spytest"
+        if (candidate / "bin" / "spytest").is_file():
+            return repo_root, candidate
+
     raise ValueError(
-        f"Cannot find repo root from YAML path: {yaml_path}\n"
-        f"Expected one of {list(REPO_LAYOUT.keys())} in the path."
+        f"Cannot find spytest directory from YAML path: {yaml_path}\n"
+        f"Expected a 'spytest' directory with bin/spytest somewhere in the path."
     )
 
 
