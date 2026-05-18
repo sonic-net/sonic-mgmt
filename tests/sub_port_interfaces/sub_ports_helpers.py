@@ -692,9 +692,8 @@ def create_sub_port_on_dut(duthost, sub_port_name, sub_port_ip):
 
     """
     cmds = []
-    vlan_vid = int(sub_port_name.split('.')[1])
-    cmds.append("config subinterface add {} {}".format(sub_port_name, vlan_vid))
-    cmds.append("config interface ip add {} {}".format(sub_port_name, sub_port_ip))
+    cmds.append('redis-cli -n 4 hset "VLAN_SUB_INTERFACE|{}" "admin_status" "up"'.format(sub_port_name))
+    cmds.append('redis-cli -n 4 hset "VLAN_SUB_INTERFACE|{}|{}" "NULL" "NULL"'.format(sub_port_name, sub_port_ip))
 
     duthost.shell_cmds(cmds=cmds)
 
@@ -869,7 +868,7 @@ def remove_sub_port(duthost, sub_port, ip):
         ip: IP address of port
     """
     cmds = []
-    cmds.append('config interface ip remove {} {}'.format(sub_port, ip))
+    cmds.append('redis-cli -n 4 del "VLAN_SUB_INTERFACE|{}|{}"'.format(sub_port, ip))
     cmds.append('redis-cli -n 4 del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
 
     duthost.shell_cmds(cmds=cmds)
