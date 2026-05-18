@@ -180,7 +180,7 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     deployed_relay = running_config.get("DHCP_RELAY", {})
     fallback_vlan = current_vlan_names[0] if current_vlan_names else None
 
-    def _carry(vlan_name, table, key):
+    def _inherit_servers_from_running(vlan_name, table, key):
         entry = table.get(vlan_name) or (
             table.get(fallback_vlan, {}) if fallback_vlan else {}
         )
@@ -266,10 +266,10 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         })
 
         # Per-VLAN carry-forward of dhcp servers / dhcp_relay servers.
-        dhcp_servers = _carry(vlan_name, deployed_vlan, "dhcp_servers")
-        dhcpv6_servers = _carry(vlan_name, deployed_vlan, "dhcpv6_servers")
-        relay_v4 = _carry(vlan_name, deployed_relay, "dhcpv4_servers")
-        relay_v6 = _carry(vlan_name, deployed_relay, "dhcpv6_servers")
+        dhcp_servers = _inherit_servers_from_running(vlan_name, deployed_vlan, "dhcp_servers")
+        dhcpv6_servers = _inherit_servers_from_running(vlan_name, deployed_vlan, "dhcpv6_servers")
+        relay_v4 = _inherit_servers_from_running(vlan_name, deployed_relay, "dhcpv4_servers")
+        relay_v6 = _inherit_servers_from_running(vlan_name, deployed_relay, "dhcpv6_servers")
 
         config_patch += add_vlan_patch(
             vlan_name, dhcp_servers, dhcpv6_servers,
