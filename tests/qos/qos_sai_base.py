@@ -37,6 +37,7 @@ from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfc
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
 from tests.common.utilities import is_ipv6_only_topology
+from tests.common.broadcom_data import is_broadcom_device as isBroadcomDevice
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ class QosBase:
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
-                           "spc6", "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
+                           "spc6", "td3", "th3", "j2c+", "jr2", "th5", "th6" "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
     LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
@@ -1331,7 +1332,8 @@ class QosSaiBase(QosBase):
                         testPortIds[src_dut_index][src_asic_index].union(set(dutLagInterfaces))
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
-
+            if isBroadcomDevice(src_dut):
+                testPortIds[src_dut_index][src_asic_index] = set(dutLagInterfaces)
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
             pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0,
                            "Skip test since no ports are available for testing")
@@ -1343,6 +1345,8 @@ class QosSaiBase(QosBase):
             dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
+            elif isBroadcomDevice(src_dut):
+                intf_map = src_mgFacts["minigraph_portchannel_interfaces"]
             else:
                 intf_map = src_mgFacts["minigraph_interfaces"]
 
@@ -1351,6 +1355,9 @@ class QosSaiBase(QosBase):
                 intf = portConfig["attachto"].split(".")[0]
                 portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
+                    if isBroadcomDevice(src_dut):
+                        if intf in src_mgFacts["minigraph_portchannels"]:
+                            intf = src_mgFacts["minigraph_portchannels"][portConfig["attachto"]]['members'][0]
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
                         portIpMap = {'peer_addr': portConfig["peer_addr"]}
                         if 'vlan' in portConfig:
