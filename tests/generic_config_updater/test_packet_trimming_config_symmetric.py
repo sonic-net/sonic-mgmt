@@ -38,14 +38,14 @@ def setup_env(duthost):
     Args:
         duthost: DUT.
     """
+    global TRIM_SIZE
+    global TRIM_SIZE_UPDATE
+    global TRIM_QUEUE
+    global TRIM_QUEUE_UPDATE
 
-    if 'th5' == duthost.get_asic_name():
+    asic_name = duthost.get_asic_name()
 
-        global TRIM_SIZE
-        global TRIM_SIZE_UPDATE
-        global TRIM_QUEUE
-        global TRIM_QUEUE_UPDATE
-
+    if 'th5' == asic_name:
         th5_queue = {
             'Arista-7060X6-64PE-B-C448O16': 4,
             'Arista-7060X6-64PE-B-C512S2': 4,
@@ -58,6 +58,15 @@ def setup_env(duthost):
 
         # TH5 supports only fixed size of 206
         TRIM_SIZE = 206
+        TRIM_SIZE_UPDATE = TRIM_SIZE
+
+    elif 'th6' == asic_name:
+        # TH6 ASICs trim queue defaults to 7 unless otherwise configured
+        TRIM_QUEUE = 7
+        TRIM_QUEUE_UPDATE = TRIM_QUEUE
+
+        # TH6 MMUs support only fixed size of 392
+        TRIM_SIZE = 392
         TRIM_SIZE_UPDATE = TRIM_SIZE
 
     create_checkpoint(duthost)
