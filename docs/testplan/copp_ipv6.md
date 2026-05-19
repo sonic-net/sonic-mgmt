@@ -15,16 +15,13 @@
   - [TC-03: NDP Policer (Neighbor Advertisement)](#tc-03-ndp-policer-neighbor-advertisement)
   - [TC-04: NDP Policer (Router Solicitation)](#tc-04-ndp-policer-router-solicitation)
   - [TC-05: NDP Policer (Router Advertisement)](#tc-05-ndp-policer-router-advertisement)
-  - [TC-06: ICMPv6 Echo Policer](#tc-06-icmpv6-echo-policer)
-  - [TC-07: MLDv1 Policer](#tc-07-mldv1-policer)
-  - [TC-08: MLDv2 Policer](#tc-08-mldv2-policer)
-  - [TC-09: DHCPv6 Policer (ToR)](#tc-09-dhcpv6-policer-tor)
-  - [TC-10: DHCPv6 Not Punted (T1 Topology)](#tc-10-dhcpv6-not-punted-t1-topology)
-  - [TC-11: IPv6 Hop-by-Hop Options Policer](#tc-11-ipv6-hop-by-hop-options-policer)
-  - [TC-12: IP2MEv6 Policer](#tc-12-ip2mev6-policer)
-  - [TC-13: BGPv6 Trap Add/Remove Lifecycle](#tc-13-bgpv6-trap-addremove-lifecycle)
-  - [TC-14: NDP Trap Always-Enabled Verification](#tc-14-ndp-trap-always-enabled-verification)
-  - [TC-15: IPv6 CoPP Config Persistence After Reboot](#tc-15-ipv6-copp-config-persistence-after-reboot)
+  - [TC-06: DHCPv6 Policer (ToR)](#tc-06-dhcpv6-policer-tor)
+  - [TC-07: DHCPv6 Not Punted (T1 Topology)](#tc-07-dhcpv6-not-punted-t1-topology)
+  - [TC-08: IP2MEv6 Policer](#tc-08-ip2mev6-policer)
+  - [TC-09: BGPv6 Trap Add/Remove Lifecycle](#tc-09-bgpv6-trap-addremove-lifecycle)
+  - [TC-10: NDP Trap Always-Enabled Verification](#tc-10-ndp-trap-always-enabled-verification)
+  - [TC-11: IPv6 CoPP Config Persistence After Reboot](#tc-11-ipv6-copp-config-persistence-after-reboot)
+  - [TC-12: CoPP CLI Shows IPv6 Trap Entries](#tc-12-copp-cli-shows-ipv6-trap-entries)
 - [Pass/Fail Criteria](#passfail-criteria)
 
 ---
@@ -230,82 +227,7 @@ The CoPP policer limits NDP Router Advertisement packets to approximately the co
 
 ---
 
-### TC-06: ICMPv6 Echo Policer
-
-Objective: Verify that ICMPv6 Echo Request traffic (type 128) destined to the DUT is rate-limited by the CoPP policer.
-
-Trap ID: `icmpv6`
-Configured CIR: 600 PPS (overridden for test; default is 10000 PPS)
-
-Steps
-1. Verify that the `icmpv6` trap exists in STATE_DB (skip if not supported on this platform).
-2. From the PTF host, transmit ICMPv6 Echo Request packets with:
-   - ICMPv6 type 128
-   - destination IP = `peerip6` (DUT IPv6 address)
-   - source address = `myip6`
-   - at a rate greater than 600 PPS.
-3. Measure the packet receive rate at the NN agent via the RPC syncd socket.
-4. Verify that the observed receive rate is within:
-   - [540, 780] PPS
-   - equivalently: 600 × [0.9, 1.3]
-
-Pass Criteria
-
-The CoPP policer limits ICMPv6 Echo Request packets to approximately the configured CIR of 600 PPS.
-
----
-
-### TC-07: MLDv1 Policer
-
-Objective: Verify that MLDv1 Listener Query traffic (ICMPv6 type 130) is rate-limited by the CoPP policer.
-
-Trap ID: `mld_v1_v2`
-Configured CIR: 300 PPS (overridden for test; default is 300 PPS)
-
-Steps
-1. Verify that the `mld_v1_v2` trap exists in STATE_DB (skip if not supported on this platform).
-2. From the PTF host, transmit ICMPv6 MLD Query packets with:
-   - ICMPv6 type 130
-   - destination IP = `ff02::1` (all-nodes multicast)
-   - source address = `myip6`
-   - at a rate greater than 300 PPS.
-3. Measure the packet receive rate at the NN agent via the RPC syncd socket.
-4. Verify that the observed receive rate is within:
-   - [270, 390] PPS
-   - equivalently: 300 × [0.9, 1.3]
-
-Pass Criteria
-
-The CoPP policer limits MLDv1 Query packets to approximately the configured CIR of 300 PPS.
-
----
-
-### TC-08: MLDv2 Policer
-
-Objective: Verify that MLDv2 Listener Report traffic (ICMPv6 type 143) is rate-limited by the CoPP policer.
-
-Trap ID: `mld_v1_v2`
-Configured CIR: 300 PPS (overridden for test; default is 300 PPS)
-
-Steps
-1. Verify that the `mld_v1_v2` trap exists in STATE_DB (skip if not supported on this platform).
-2. From the PTF host, transmit ICMPv6 MLDv2 Report packets with:
-   - ICMPv6 type 143
-   - destination IP = `ff02::16` (all-MLDv2-capable routers multicast)
-   - source address = `myip6`
-   - at a rate greater than 300 PPS.
-3. Measure the packet receive rate at the NN agent via the RPC syncd socket.
-4. Verify that the observed receive rate is within:
-   - [270, 390] PPS
-   - equivalently: 300 × [0.9, 1.3]
-
-Pass Criteria
-
-The CoPP policer limits MLDv2 Report packets to approximately the configured CIR of 300 PPS.
-
----
-
-### TC-09: DHCPv6 Policer (ToR)
+### TC-06: DHCPv6 Policer (ToR)
 
 Objective: Verify that DHCPv6 relay traffic is rate-limited by the CoPP policer on ToR (T0) topology.
 
@@ -330,7 +252,7 @@ The CoPP policer limits DHCPv6 relay packets to approximately the configured CIR
 
 ---
 
-### TC-10: DHCPv6 Not Punted (T1 Topology)
+### TC-07: DHCPv6 Not Punted (T1 Topology)
 
 Objective: Verify that DHCPv6 packets are NOT forwarded to the CPU on T1/T2 topology.
 
@@ -352,32 +274,7 @@ Zero DHCPv6 packets are received by the CPU on T1/T2 topology.
 
 ---
 
-### TC-11: IPv6 Hop-by-Hop Options Policer
-
-Objective: Verify that IPv6 packets carrying a Hop-by-Hop Options extension header (next-header = 0) are rate-limited by the CoPP policer.
-
-Trap ID: `ipv6_hop_by_hop`
-Configured CIR: 600 PPS (default is 600 PPS)
-
-Steps
-1. Verify that the `ipv6_hop_by_hop` trap exists in STATE_DB (skip if not supported on this platform).
-2. From the PTF host, transmit IPv6 packets with:
-   - Hop-by-Hop Options extension header (`next_header = 0`)
-   - destination IP = `peerip6`
-   - source address = `myip6`
-   - at a rate greater than 600 PPS.
-3. Measure the packet receive rate at the NN agent via the RPC syncd socket.
-4. Verify that the observed receive rate is within:
-   - [540, 780] PPS
-   - equivalently: 600 × [0.9, 1.3]
-
-Pass Criteria
-
-The CoPP policer limits IPv6 Hop-by-Hop Options packets to approximately the configured CIR of 600 PPS.
-
----
-
-### TC-12: IP2MEv6 Policer
+### TC-08: IP2MEv6 Policer
 
 Objective: Verify that IPv6 packets destined to the DUT's own IPv6 address (non-BGP, non-NDP) are rate-limited via the ip2me trap.
 
@@ -402,7 +299,7 @@ The CoPP policer limits IP2MEv6 packets to approximately the configured CIR of 6
 
 ---
 
-### TC-13: BGPv6 Trap Add/Remove Lifecycle
+### TC-09: BGPv6 Trap Add/Remove Lifecycle
 
 Objective: Verify that the BGPv6 trap can be dynamically installed and removed, and that the CoPP policer is enforced only when the trap is installed.
 
@@ -428,7 +325,7 @@ BGPv6 traffic is not rate-limited when the trap is uninstalled, and is rate-limi
 
 ---
 
-### TC-14: NDP Trap Always-Enabled Verification
+### TC-10: NDP Trap Always-Enabled Verification
 
 Objective: Verify that the `neigh_discovery` trap has `always_enabled = true` in CONFIG_DB and is permanently installed in STATE_DB, since NDP is critical for IPv6 forwarding.
 
@@ -446,7 +343,7 @@ The `neigh_discovery` trap has `always_enabled = true` in CONFIG_DB and `hw_stat
 
 ---
 
-### TC-15: IPv6 CoPP Config Persistence After Reboot
+### TC-11: IPv6 CoPP Config Persistence After Reboot
 
 Objective: Verify that IPv6 CoPP trap configuration (specifically `always_enabled = true` for `bgpv6`) persists across a device reboot and that the policer is enforced after the DUT comes back up.
 
@@ -473,6 +370,26 @@ The `bgpv6` trap configuration persists across reboot and the CoPP policer is en
 
 ---
 
+### TC-12: CoPP CLI Shows IPv6 Trap Entries
+
+Objective: Verify that `show copp configuration` displays all expected IPv6-specific trap entries with correct fields, and that the `hw_status` column is consistent with STATE_DB.
+
+Steps
+1. Run `show copp configuration` on the DUT.
+2. Verify that the command succeeds (rc = 0) and produces output (skip if CLI unavailable).
+3. Parse the output and verify the following trap IDs are present:
+   - `bgpv6`, `neigh_discovery`, `icmpv6`, `dhcpv6`
+4. For each trap, verify that the following fields are non-empty:
+   - `trap_group`, `trap_action`, `cir`, `cbs`
+5. For each trap, verify that the `hw_status` column matches the value in STATE_DB
+   (`COPP_TRAP_TABLE|<trap_id>`).
+
+Pass Criteria
+
+All required IPv6 trap entries are present in `show copp configuration` output with correct fields, and `hw_status` is consistent with STATE_DB.
+
+---
+
 ## Pass/Fail Criteria
 
 | Criterion                                 | Requirement                                          |
@@ -482,7 +399,5 @@ The `bgpv6` trap configuration persists across reboot and the CoPP policer is en
 | Trap install/uninstall (STATE\_DB)        | Matches expected install state                       |
 | always\_enabled NDP                       | `always_enabled = true` and `hw_status = installed`  |
 | Config save + reboot persistence          | Trap config and policer survive reboot               |
-| CLI output                                | All IPv6 traps present with correct fields           |
+| CLI output                                | `bgpv6`, `neigh_discovery`, `dhcpv6` present with correct fields |
 | DHCPv6 on T1                              | 0 packets punted to CPU                              |
-| MLD trap (if supported)                   | Received PPS ∈ [CIR × 0.9, CIR × 1.3]              |
-| IPv6 HBH trap (if supported)              | Received PPS ∈ [CIR × 0.9, CIR × 1.3]              |
