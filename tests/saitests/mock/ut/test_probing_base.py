@@ -746,23 +746,27 @@ class TestProbingBaseGetRxPort:
 
         with patch('probing_base.log_message') as mock_log:
             with patch('probing_base.get_rx_port') as mock_get_rx_port:
-                mock_get_rx_port.return_value = 99
+                with patch('probing_observer.ProbingObserver.trace') as mock_trace:
+                    mock_get_rx_port.return_value = 99
 
-                result = pb.get_rx_port(
-                    src_port_id=10,
-                    pkt_dst_mac='00:11:22:33:44:55',
-                    dst_port_ip='192.168.1.1',
-                    src_port_ip='192.168.1.2',
-                    dst_port_id=20,
-                    src_vlan=100
-                )
+                    result = pb.get_rx_port(
+                        src_port_id=10,
+                        pkt_dst_mac='00:11:22:33:44:55',
+                        dst_port_ip='192.168.1.1',
+                        src_port_ip='192.168.1.2',
+                        dst_port_id=20,
+                        src_vlan=100
+                    )
 
         print("  Input: src_port=10, dst_port=20")
         print("  module get_rx_port() returned: 99")
         print(f"  Result: {result}")
 
         assert result == 99, "Should return value from module function"
-        assert mock_log.call_count == 2, "Should log before and after"
+        # production get_rx_port emits 1 log_message ("dst_port_id:..., src_port_id:...")
+        # and routes the per-attempt before/after logs through ProbingObserver.trace
+        assert mock_log.call_count == 1, "Should log dst/src port summary once via log_message"
+        assert mock_trace.call_count >= 2, "Should trace before and after via ProbingObserver"
         assert mock_get_rx_port.called, "Should call module get_rx_port()"
 
         print("[OK] get_rx_port() wrapper works correctly")
