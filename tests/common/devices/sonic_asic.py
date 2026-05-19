@@ -145,7 +145,8 @@ class SonicAsic(object):
             [dict]: [the output of show interface status command]
         """
         if self.sonichost.is_supervisor_node():
-            logger.debug("Skipping show_interface on supervisor node %s asic %s", self.sonichost.hostname, self.namespace)
+            logger.debug("Skipping show_interface on supervisor node %s asic %s",
+                         self.sonichost.hostname, self.namespace)
             return ModuleResult(ansible_facts={
                 "int_status": {},
                 "int_counter": {},
