@@ -1,0 +1,41 @@
+# Run probe-relevant unit tests (UT) and integration tests (IT).
+# Pure-Python mock-based tests with no hardware/PTF dependencies.
+# Mirrors .azure-pipelines/common2/steps/run-unit-test.yml pattern.
+#
+# Phase 1: Coverage is reported via the existing pytest.ini --cov config but NOT enforced.
+# A future PR can switch to coverage-enforce once a baseline is established.
+
+steps:
+  - script: |
+      set -e
+
+      pip install pytest pytest-cov pytest-mock pytest-order coverage
+
+      source .azure-pipelines/probe-tests/scripts/get-changed-probe-files.sh
+
+      if [ "$HAS_CHANGED_PROBE_FILES" = "false" ]; then
+        echo "No probe-relevant changes; skipping probe UT/IT."
+        exit 0
+      fi
+
+      echo "===== Running probe Unit Tests (mock/ut) ====="
+      cd tests/saitests/mock/ut
+      python3 -m pytest . --tb=short
+      UT_RC=$?
+      cd -
+
+      echo "===== Running probe Integration Tests (mock/it) ====="
+      cd tests/saitests/mock/it
+      python3 -m pytest . --tb=short
+      IT_RC=$?
+      cd -
+
+      echo "UT exit code: $UT_RC"
+      echo "IT exit code: $IT_RC"
+
+      if [ $UT_RC -ne 0 ] || [ $IT_RC -ne 0 ]; then
+        echo "Probe UT or IT failed."
+        exit 1
+      fi
+      echo "Probe UT/IT passed."
+    displayName: 'Run Probe UT/IT (conditional)'

@@ -40,6 +40,7 @@ resources:
 
 stages:
 - template: /.azure-pipelines/common2/stages/analyze-code.yml
+- template: /.azure-pipelines/probe-tests/stages/probe-tests.yml
 - stage: Pre_test
   condition: succeededOrFailed()
   jobs:

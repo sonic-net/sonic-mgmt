@@ -8,6 +8,8 @@ This module contains probe-based tests for buffer threshold detection, including
 
 These tests use advanced probing algorithms to automatically detect buffer thresholds.
 
+CI: probe-tests stage in .azure-pipelines/probe-tests/ triggers UT/IT for changes here.
+
 Parameters:
     --enable_qos_ptf_pdb (bool): Enable pdb debugger in PTF tests. Default is False.
 """
