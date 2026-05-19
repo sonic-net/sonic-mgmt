@@ -120,6 +120,7 @@ class StreamManager:
 
     def generate_packets(self):
         """Generate packets for all flows and resolve actual dst ports"""
+        import logging
         for flow_config in self.flows.values():
             spi = flow_config.src_port
             dpi = flow_config.dst_port
@@ -132,6 +133,28 @@ class StreamManager:
                 spi.port_id, flow_config.dmac, dpi.ip, spi.ip, dpi.port_id, spi.vlan
             )
             flow_config.dst_port.actual_port_id = actual_rx_port
+
+        # Add resolved-port keys alongside original keys
+        # so get_packet() works with both original and actual dst port IDs.
+        # Bug context: add_flow() freezes key with original_port_id (before resolve).
+        # After resolve, port_id property returns actual_port_id which may differ
+        # (e.g., LAG member selection: original=16 but actual=17).
+        # Without this, get_packet(src, actual_dst) misses the flow.
+        extra = {}
+        for (src_id, dst_id, frozen_keys), flow_config in self.flows.items():
+            actual_dst = flow_config.dst_port.port_id  # returns actual if resolved
+            if actual_dst != dst_id:
+                extra[(src_id, actual_dst, frozen_keys)] = flow_config
+                logging.info(
+                    "[StreamManager] dst port resolved: original=%d -> actual=%d "
+                    "(src=%d, keys=%s). Added dual-key lookup." % (
+                        dst_id, actual_dst, src_id, dict(frozen_keys)))
+        if extra:
+            self.flows.update(extra)
+            logging.info("[StreamManager] flows dict: %d entries (including %d resolved-port aliases)" % (
+                len(self.flows), len(extra)))
+        else:
+            logging.info("[StreamManager] all dst ports match original (no LAG remapping needed)")
 
     def get_port_ids(self, type="all"):
         """Get port IDs from all flows
