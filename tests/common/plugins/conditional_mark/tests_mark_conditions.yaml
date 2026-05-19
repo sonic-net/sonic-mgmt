@@ -2696,9 +2696,11 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
 
 generic_config_updater/test_monitor_config.py::test_monitor_config_tc1_suite:
   skip:
-    reason: "This test is not run on this asic type or version currently / ERSPAN meter is not supported for Cisco Platform"
+    reason: "Not applicable: ERSPAN meter is not supported on Cisco-8000; no switch ports for ACL_TABLE on BMC."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "'bmc' in topo_type"
 
 generic_config_updater/test_multiasic_addcluster.py:
   skip:
@@ -2721,6 +2723,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions_logical_operator: or
     conditions:
       - "(is_multi_asic is False)"
+      - "'bmc' in topo_type"
+
+generic_config_updater/test_ntp.py::test_ntp_server_change_source_intf:
+  skip:
+    reason: "Loopback0 is not present on BMC platforms (no routing data plane); sonic-ntp YANG validation rejects src_intf=Loopback0."
+    conditions:
       - "'bmc' in topo_type"
 
 generic_config_updater/test_packet_trimming_config_asymmetric.py:
