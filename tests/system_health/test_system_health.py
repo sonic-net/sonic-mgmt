@@ -14,7 +14,13 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa F401
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.duthost_utils import is_support_mock_asic, is_support_fan, is_support_psu, is_support_pdb, check_pdb_support    # noqa F401
+from tests.common.fixtures.duthost_utils import (  # noqa F401
+    check_pdb_support,
+    is_support_fan,
+    is_support_mock_asic,
+    is_support_pdb,
+    is_support_psu,
+)
 
 pytestmark = [
     pytest.mark.topology('any'),
