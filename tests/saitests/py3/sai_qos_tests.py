@@ -2335,6 +2335,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_egr_mem = None
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        else:
+            pkts_num_egr_mem = 0
 
         # generate pkts_num_egr_mem in runtime
         if 'cisco-8000' in asic_type and src_dst_asic_diff:
@@ -3241,12 +3243,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     (pkts_num_leak_out + pkts_num_trig_pfc -
                      pkts_num_dismiss_pfc - hysteresis) // cell_occupancy - 1
                 )
-            elif platform_asic and platform_asic == "broadcom":
-                send_packet(
-                    self, src_port_id, pkt,
-                    (pkts_num_leak_out + pkts_num_trig_pfc + pkts_num_egr_mem -
-                     pkts_num_dismiss_pfc - hysteresis) // cell_occupancy - margin
-                )
             else:
                 send_packet(
                     self, src_port_id, pkt,
@@ -3301,11 +3297,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                         self, src_port_id, pkt2,
                         (pkts_num_leak_out + pkts_num_dismiss_pfc +
                             hysteresis) // cell_occupancy - 3)
-            elif platform_asic and platform_asic == "broadcom":
-                send_packet(
-                    self, src_port_id, pkt2,
-                    (pkts_num_leak_out + pkts_num_dismiss_pfc + pkts_num_egr_mem +
-                     hysteresis) // cell_occupancy + margin * 2 - 1)
             else:
                 send_packet(
                     self, src_port_id, pkt2,
@@ -3350,8 +3341,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                         self, src_port_id,
                         pkt3, int(self.test_params['pg']), asic_type, pkts_num_egr_mem3)
                     send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
-            elif platform_asic and platform_asic == "broadcom":
-                send_packet(self, src_port_id, pkt3, pkts_num_leak_out + pkts_num_egr_mem + 1)
             else:
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
                 log_message('send_packet(src_port_id, pkt3, ({} + 1)\n'.format(pkts_num_leak_out), to_stderr=True)
@@ -5090,6 +5079,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        else:
+            pkts_num_egr_mem = 0
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
@@ -5109,13 +5100,11 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                         int(self.test_params['pg']), asic_type))
 
             # send packets short of triggering egress drop
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
+                    or 'Nokia-IXR7220-H6' in hwsku:
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
-            elif platform_asic and platform_asic == "broadcom":
-                send_packet(self, src_port_id, pkt, pkts_num_leak_out +
-                            pkts_num_egr_mem + pkts_num_trig_egr_drp - 1 - margin)
             else:
                 if check_leackout_compensation_support(asic_type, hwsku):
                     pkts_num_leak_out = 0
@@ -5651,7 +5640,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
         else:
-            pkts_num_egr_mem = None
+            pkts_num_egr_mem = 0
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
@@ -5930,6 +5919,8 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        else:
+            pkts_num_egr_mem = 0
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
@@ -5943,7 +5934,8 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             # send packets to trigger pfc but not trek into headroom
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
+                    or 'Nokia-IXR7220-H6' in hwsku:
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out + pkts_num_trig_pfc) // cell_occupancy - margin)
             elif 'cisco-8000' in asic_type:
@@ -5951,9 +5943,6 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
                 send_packet(self, src_port_id, pkt, (pkts_num_leak_out +
                                                      pkts_num_trig_pfc) // cell_occupancy - margin - 1)
-            elif platform_asic and platform_asic == "broadcom":
-                send_packet(self, src_port_id, pkt, (pkts_num_leak_out +
-                                                     pkts_num_egr_mem + pkts_num_trig_pfc) // cell_occupancy - margin)
             else:
                 send_packet(self, src_port_id, pkt, (pkts_num_leak_out +
                                                      pkts_num_trig_pfc) // cell_occupancy - margin)
@@ -6318,6 +6307,8 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        else:
+            pkts_num_egr_mem = 0
 
         recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
@@ -6349,7 +6340,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # TH2 uses scheduler-based TX enable, this does not require sending packets
             # to leak out
             if hwsku in ('DellEMC-Z9332f-O32', 'DellEMC-Z9332f-M-O16C64') or 'Arista-7060X6' in hwsku \
-                    or platform_asic == "broadcom":
+                    or 'Nokia-IXR7220-H6' in hwsku:
                 que_min_pkts_num = pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, que_min_pkts_num)
             else:
