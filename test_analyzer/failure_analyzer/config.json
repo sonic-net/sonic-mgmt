@@ -275,7 +275,7 @@
     ],
     "summary_white_list": ["AssertionError", "Exception", "test teardown failure", "test setup failure", "Failed: None", "failed on setup with \"Failed: Not all critical processes are healthy\""],
     "threshold": {
-        "duration_days": 7,
+        "duration_days": 3,
         "repro_count_limit": 2,
         "repro_count_limit_setup_error": 2,
         "repro_count_limit_summary": 5,
