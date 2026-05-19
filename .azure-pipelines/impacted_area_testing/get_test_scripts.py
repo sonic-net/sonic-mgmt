@@ -16,6 +16,9 @@ import functools
 from natsort import natsorted
 from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS, CONTROL_PLANE_DEDUP_RULES
 
+VPP_TOPOLOGY = "t1-lag-vpp"
+VPP_CHECKER = "t1-lag-vpp_checker"
+
 
 def topo_name_to_topo_checker(topo_name):
     pattern = re.compile(r'^(ciscovs-7nodes|ciscovs-5nodes|wan|wan-pub-isis|wan-com|wan-pub|wan-pub-cisco|wan-3link-tg|'
@@ -56,6 +59,55 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
                 test_scripts_per_topology_checker[topology_checker].append(script_name)
 
 
+def load_vpp_test_scripts_allowlist():
+    pr_test_scripts_path = os.path.abspath(os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "pr_test_scripts.yaml"
+    ))
+    try:
+        import yaml
+    except ImportError as e:
+        raise Exception(
+            "PyYAML is required to load {}".format(pr_test_scripts_path)
+        ) from e
+
+    try:
+        with open(pr_test_scripts_path, "r") as f:
+            pr_test_scripts = yaml.safe_load(f)
+    except Exception as e:
+        raise Exception(
+            "Exception occurred while trying to load {}, error {}".format(
+                pr_test_scripts_path, e
+            )
+        )
+
+    if not isinstance(pr_test_scripts, dict) or VPP_TOPOLOGY not in pr_test_scripts:
+        raise Exception(
+            "Missing {} allowlist in {}".format(
+                VPP_TOPOLOGY, pr_test_scripts_path
+            )
+        )
+
+    vpp_scripts = pr_test_scripts[VPP_TOPOLOGY]
+    if not isinstance(vpp_scripts, list):
+        raise Exception(
+            "{} allowlist in {} must be a list".format(
+                VPP_TOPOLOGY, pr_test_scripts_path
+            )
+        )
+
+    return vpp_scripts
+
+
+def build_vpp_impacted_scripts(raw_impacted_scripts, vpp_allowlist):
+    raw_impacted_scripts = set(raw_impacted_scripts)
+    return [
+        script
+        for script in vpp_allowlist
+        if script in raw_impacted_scripts
+    ]
+
+
 def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     """
     This function collects all test scripts under the impacted area and category them by topology type.
@@ -87,11 +139,15 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
     for topology_type in PR_TOPOLOGY_TYPE:
         test_scripts_per_topology_checker[topology_type] = []
 
+    raw_impacted_scripts = []
+
     for s in scripts:
         # Remove prefix from file name:
         script_name = s[len(location) + 1:]
         if script_name in EXCLUDE_TEST_SCRIPTS:
             continue
+
+        raw_impacted_scripts.append(script_name)
 
         try:
             with open(s, 'r') as script:
@@ -103,6 +159,13 @@ def collect_scripts_by_topology_type(features: str, location: str) -> dict:
                         break
         except Exception as e:
             raise Exception('Exception occurred while trying to get topology in {}, error {}'.format(s, e))
+
+    vpp_scripts = build_vpp_impacted_scripts(
+        raw_impacted_scripts,
+        load_vpp_test_scripts_allowlist()
+    )
+    if vpp_scripts:
+        test_scripts_per_topology_checker[VPP_CHECKER] = vpp_scripts
 
     return {k: v for k, v in test_scripts_per_topology_checker.items() if v}
 
