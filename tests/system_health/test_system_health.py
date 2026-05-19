@@ -341,20 +341,21 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.mark.parametrize('ignore_log_analyzer_by_vendor', [['mellanox']], indirect=True)
 def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
                               device_mocker_factory, ignore_log_analyzer_by_vendor,  # noqa F811
-                              is_support_mock_asic, is_support_psu):    # noqa F811
+                              is_support_mock_asic, is_support_psu, is_support_fan):    # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
-    logger.info(
-        'Ignore fan check, verify there is no error information about fan')
-    with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_FAN_CHECK_CONFIG_FILE)):
-        time.sleep(DEFAULT_INTERVAL)
-        mock_result, fan_name = device_mocker.mock_fan_presence(False)
-        expect_value = EXPECT_FAN_MISSING.format(fan_name)
-        if mock_result:
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_equal, duthost, fan_name, expect_value), \
-                'Fan check is still performed after it is configured to be ignored'
+    if is_support_fan:
+        logger.info(
+            'Ignore fan check, verify there is no error information about fan')
+        with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_FAN_CHECK_CONFIG_FILE)):
+            time.sleep(DEFAULT_INTERVAL)
+            mock_result, fan_name = device_mocker.mock_fan_presence(False)
+            expect_value = EXPECT_FAN_MISSING.format(fan_name)
+            if mock_result:
+                assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
+                                  check_health_field_not_equal, duthost, fan_name, expect_value), \
+                    'Fan check is still performed after it is configured to be ignored'
 
     logger.info(
         'Ignore ASIC check, verify there is no error information about ASIC')
