@@ -1227,6 +1227,10 @@ dhcp_server:
 #####             disk            #####
 #######################################
 disk/test_disk_exhaustion.py:
+  skip:
+    reason: "Not applicable on BMC: test validates data-plane packet forwarding under disk pressure; BMC has no front-panel ports or PortChannel data plane (peer_ip_ifaces_pair[0] -> IndexError)."
+    conditions:
+      - "'bmc' in topo_type"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20759"
     conditions:
