@@ -977,6 +977,7 @@ sonic_nexthop_ut2:
       platform_tests/test_reload_config.py::test_reload_configuration_checks:
         timeout: 360
         wait: 60
+    plt_wait_time:
       acl/test_acl.py:
         wait: 600
       everflow:
