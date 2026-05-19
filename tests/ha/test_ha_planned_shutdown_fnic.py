@@ -14,7 +14,7 @@ from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
 from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
-         verify_ha_state, set_dead_dash_ha_scope
+         verify_ha_state, set_dash_ha_scope, set_dead_dash_ha_scope
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +167,7 @@ def test_ha_planned_shutdown(
     logging.info(f"HA: Primary shutdown all {send_count} packets received")
 
     # Re-activate primary
+    set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner, disabled=True)
     pytest_assert(activate_primary_dash_ha(localhost, duthosts[0], ptfhost, primary_vdpu_key, "activate_role"),
                   "Failed to re-activate HA on primary")
 
@@ -217,5 +218,6 @@ def test_ha_planned_shutdown(
     logging.info(f"HA: standby shutdown all {send_count} packets received")
 
     # Re-activate standby
+    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=True)
     pytest_assert(activate_secondary_dash_ha(localhost, duthosts[1], ptfhost, standby_vdpu_key, "activate_role",
                                              owner=ha_owner), "Failed to re-activate HA on standby")
