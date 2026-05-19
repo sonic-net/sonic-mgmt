@@ -626,9 +626,9 @@
   auto_recover: 'True'
   comment: sagummaraj
 
-- conf-name: vms61-t0-8102-01
+- conf-name: vms61-t1-8102-01
   group-name: vms61-2
-  topo: t0-64
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: vms61-2
   ptf_ip: 10.64.246.51/25
