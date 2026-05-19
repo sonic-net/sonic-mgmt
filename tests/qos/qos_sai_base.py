@@ -3657,27 +3657,32 @@ class QosSaiBase(QosBase):
                     fanout_name, result.get('rc', '?'),
                     result.get('stderr', '')))
 
-        # Wait for orchagent to program the ACL. Poll 'show acl table'
-        # CLI until the table appears, up to ~10s.
+        # Wait for orchagent to process the ACL config.  Poll CONFIG_DB
+        # key existence until the table appears, up to ~10s.
         self._wait_sonic_acl_ready(fanout, fanout_name, acl_name,
                                    present=True)
 
     def _wait_sonic_acl_ready(self, fanout, fanout_name, acl_name,
                               present=True, timeout=10, poll_interval=1):
-        """Poll until SONiC ACL table is present (or absent) in the
-        running dataplane via ``show acl table``.  Returns True on
-        convergence, False on timeout (no raise).
+        """Poll until SONiC ACL table key is present (or absent) in
+        CONFIG_DB.  Returns True on convergence, False on timeout
+        (no raise).
+
+        Uses ``sonic-db-cli CONFIG_DB exists`` instead of
+        ``show acl table | grep`` because the Click-based SONiC CLI
+        does not support shell pipe operators.
         """
         deadline = time.time() + timeout
-        check_cmd = 'show acl table | grep -c {}'.format(acl_name)
+        check_cmd = (
+            "sonic-db-cli CONFIG_DB exists 'ACL_TABLE|{}'".format(acl_name))
         while time.time() < deadline:
             try:
                 result = fanout.host.command(
                     check_cmd, module_ignore_errors=True)
                 stdout = (result.get('stdout', '') or '').strip()
-                count = int(stdout) if stdout.isdigit() else 0
-                exists = count > 0
-                if exists == present:
+                # sonic-db-cli exists returns 1 when key exists, 0 otherwise
+                key_exists = stdout == '1'
+                if key_exists == present:
                     return True
             except Exception:
                 pass
@@ -3688,6 +3693,43 @@ class QosSaiBase(QosBase):
             acl_name, fanout_name,
             "present" if present else "absent", timeout)
         return False
+
+    def _log_sonic_acl_counters(self, fanout, fanout_name, acl_name):
+        """Log ACL packet/byte counters on a SONiC fanout.
+
+        Called before teardown so the test report shows whether the
+        ACL actually dropped noise traffic (non-zero counters prove
+        the DENY rules are programmed into the ASIC and blocking).
+        """
+        try:
+            result = fanout.host.command(
+                "aclshow -a", module_ignore_errors=True)
+            stdout = (result.get('stdout', '') or '').strip()
+            if not stdout:
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: aclshow returned "
+                    "empty output on SONiC %s", fanout_name)
+                return
+            # Extract header + lines matching our ACL name
+            lines = []
+            for line in stdout.split('\n'):
+                if line.startswith('RULE') or acl_name in line:
+                    lines.append(line)
+            if len(lines) <= 1:
+                # Only header or no matching lines
+                logger.warning(
+                    "permit_only_test_traffic_on_fanout: ACL %s has no "
+                    "counter entries on SONiC %s — ACL may not have "
+                    "been programmed to ASIC", acl_name, fanout_name)
+            else:
+                logger.info(
+                    "permit_only_test_traffic_on_fanout: ACL drop "
+                    "counters on SONiC %s:\n%s",
+                    fanout_name, '\n'.join(lines))
+        except Exception as e:
+            logger.warning(
+                "permit_only_test_traffic_on_fanout: failed to read ACL "
+                "counters on SONiC %s: %s", fanout_name, str(e))
 
     def _teardown_test_traffic_filter(
             self, src_dut, teamd_docker, lacpd_stopped,
@@ -3735,6 +3777,13 @@ class QosSaiBase(QosBase):
                     "permit_only_test_traffic_on_fanout: "
                     "failed to restore %s %s: %s",
                     fanout_name, fanout_port, str(e))
+
+        # Log ACL drop counters on SONiC fanouts before deletion so the
+        # test report shows whether the ACL actually blocked noise.
+        for fanout_name, fanout_os in acl_created_fanouts.items():
+            if fanout_os == 'sonic':
+                self._log_sonic_acl_counters(
+                    fanouthosts[fanout_name], fanout_name, acl_name)
 
         # Delete ACL definition once per fanout (dispatch by recorded os)
         for fanout_name, fanout_os in acl_created_fanouts.items():
