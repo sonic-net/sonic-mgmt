@@ -169,6 +169,16 @@ def is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_onl
     return False
 
 
+def is_from_routemap_deny_all(duthost, routemap_name):
+    result = duthost.shell(
+        "vtysh -c 'show route-map {}' 2>/dev/null".format(routemap_name),
+        module_ignore_errors=True,
+    )
+    if result['rc'] != 0 or not result.get("stdout", "").strip():
+        return False
+    return "permit" not in result["stdout"]
+
+
 def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_ipv6_only=False, ptf_bp_v6=None):
     ipv4_nh, ipv6_nh = None, None
     for _, v in spine_bp_addr.items():
@@ -405,6 +415,17 @@ def common_setup_teardown(rand_selected_dut, ptf_setup_teardown, ptfhost, tbinfo
 
 
 @pytest.fixture(scope="module")
+def from_deny_all(rand_selected_dut, dut_setup_teardown):
+    duthost = rand_selected_dut
+    _, _, _, _, _, case_type = dut_setup_teardown
+    if case_type == 'BGPSentinel':
+        return is_from_routemap_deny_all(duthost, "FROM_BGP_SENTINEL")
+    elif case_type == 'BGPMonV6':
+        return is_from_routemap_deny_all(duthost, "FROM_BGPMON_V6")
+    return False
+
+
+@pytest.fixture(scope="module")
 def sentinel_community(duthost):
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:
@@ -485,7 +506,8 @@ def bgp_community(sentinel_community, request):
 
 
 @pytest.fixture(scope="module", params=['IPv4', 'IPv6'])
-def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_community, request, tbinfo):
+def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown,
+                                bgp_community, from_deny_all, request, tbinfo):
     duthost = rand_selected_dut
     ptfip, lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ibgp_sessions, ptf_bp_v4, ptf_bp_v6 = common_setup_teardown
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
@@ -553,7 +575,12 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
         output = json.loads(duthost.shell(cmd)['stdout'])
         logger.debug("route: {}, status: {}".format(route, output))
 
-        if 'no-export' in community:
+        if from_deny_all:
+            pytest_assert(
+                is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
+                "Route {} should still be advertised (sentinel denied at ingress)".format(route),
+            )
+        elif 'no-export' in community:
             pytest_assert(
                 not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
                 "Route {} should not be advertised to bgp peers".format(route),
@@ -565,9 +592,9 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
             )
 
     if request.param == "IPv4":
-        yield ptf_bp_v4, ipv4_routes + ipv6_routes, ibgp_sessions, community
+        yield ptf_bp_v4, ipv4_routes + ipv6_routes, ibgp_sessions, community, from_deny_all
     else:
-        yield ptf_bp_v6, ipv4_routes + ipv6_routes, ibgp_sessions, community
+        yield ptf_bp_v6, ipv4_routes + ipv6_routes, ibgp_sessions, community, from_deny_all
 
     # Withdraw routes from bgp sentinel
     if request.param == "IPv4":
@@ -595,7 +622,7 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
 @pytest.mark.parametrize("reset_type", ["none", "soft", "hard"])
 def test_bgp_sentinel(rand_selected_dut, prepare_bgp_sentinel_routes, reset_type, tbinfo):
     duthost = rand_selected_dut
-    ibgp_nbr, target_routes, ibgp_sessions, community = prepare_bgp_sentinel_routes
+    ibgp_nbr, target_routes, ibgp_sessions, community, deny_all = prepare_bgp_sentinel_routes
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
 
     if reset_type == "none":
@@ -612,7 +639,12 @@ def test_bgp_sentinel(rand_selected_dut, prepare_bgp_sentinel_routes, reset_type
 
     # Check if the routes are not announced to ebgp peers
     for route in target_routes:
-        if 'no-export' in community:
+        if deny_all:
+            pytest_assert(
+                is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
+                "Route {} should still be advertised (sentinel denied at ingress)".format(route),
+            )
+        elif 'no-export' in community:
             pytest_assert(
                 not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
                 "Route {} should not be advertised to bgp peers".format(route),
