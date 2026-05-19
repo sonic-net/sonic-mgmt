@@ -1335,15 +1335,15 @@ def clear_counters(duthost, port=None, namespace=None):
         None
     """
 
-    duthost.command("sudo sonic-clear counters \n")
-    duthost.command("sudo sonic-clear pfccounters \n")
-    duthost.command("sudo sonic-clear priority-group drop counters \n")
-    duthost.command("sudo sonic-clear queue watermark all \n")
-    duthost.command("sudo sonic-clear  priority-group drop counters \n")
-    duthost.command("sonic-clear counters \n")
-    duthost.command("sonic-clear pfccounters \n")
-    duthost.command("sonic-clear queuecounters \n")
-    duthost.command("sonic-clear queue watermark all \n")
+    duthost.command("sudo sonic-clear counters")
+    duthost.command("sudo sonic-clear pfccounters")
+    duthost.command("sudo sonic-clear priority-group drop counters")
+    duthost.command("sudo sonic-clear queue watermark all")
+    duthost.command("sudo sonic-clear  priority-group drop counters")
+    duthost.command("sonic-clear counters")
+    duthost.command("sonic-clear pfccounters")
+    duthost.command("sonic-clear queuecounters")
+    duthost.command("sonic-clear queue watermark all")
 
     if (duthost.is_multi_asic):
         pytest_assert(
