@@ -13,7 +13,6 @@ from tests.common import config_reload
 from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.reboot import wait_for_startup
 from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
@@ -651,10 +650,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # After a dirty reboot (SysRq/PDU), /var/run/redis/sonic-db/database_config.json
         # (on tmpfs) may not exist yet -- even "config reload -h" crashes without it.
-        # So we avoid config_reload and instead:
-        # 1. Wait for database_config.json to appear (supervisor sockets need time too)
-        # 2. Ensure all critical processes are running (docker exec supervisorctl)
-        # 3. Check that all admin-up interfaces are operationally up
+        # Wait for database_config.json first, then use config_reload for a clean
+        # recovery that also waits for BGP sessions to re-establish.
         db_config_timeout = 120
         if duthost.get_facts().get("modular_chassis"):
             db_config_timeout = max(db_config_timeout, 600)
@@ -668,12 +665,10 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             pytest_assert(False,
                           "database_config.json not ready after %ds -- DUT recovery incomplete" % db_config_timeout)
 
-        logger.info("Database config ready, ensuring all critical processes are running...")
-        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+        logger.info("Database config ready, performing config reload for clean recovery...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
-        logger.info("Verifying interfaces come up...")
-        pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
-                      "Not all ports that are admin up are operationally up after reboot")
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
         logger.info("DUT recovered successfully after power cycle!")
     else:
