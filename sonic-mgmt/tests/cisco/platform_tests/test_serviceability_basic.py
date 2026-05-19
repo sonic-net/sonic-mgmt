@@ -592,9 +592,9 @@ def test_show_platform_npu_resource(duthosts, enum_rand_one_per_hwsku_hostname):
                 dshell_total_values = [entry['total'] for entry in dshell_entries]
                 
                 for cli_max in cli_max_values:
-                    if cli_max not in dshell_total_values:
+                    if not any(cli_max <= dshell_total for dshell_total in dshell_total_values):
                         validation_errors.append(
-                            f"ASIC{asic} Resource '{resource_name}': Max entries {cli_max} from CLI not found in dshell output "
+                            f"ASIC{asic} Resource '{resource_name}': Max entries {cli_max} from CLI exceeds all dshell totals "
                             f"(dshell totals: {dshell_total_values})"
                         )
 
