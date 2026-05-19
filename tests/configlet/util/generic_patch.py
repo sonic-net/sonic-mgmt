@@ -107,9 +107,12 @@ def create_patch(src_dir, dst_dir, patch_dir, hack_apply=False):
         for port_name in decommissioned_ports:
             path = "/PORT/{}/admin_status".format(port_name)
             if path not in admin_status_paths:
-                # Only add if the port exists in source config with admin_status != down
+                # Only inject admin_status=down for removal patches (port
+                # exists in source but is being removed in destination).
+                # Skip for add patches where the port is being restored.
                 src_port = src_json.get("PORT", {}).get(port_name, {})
-                if src_port.get("admin_status", "up") != "down":
+                dst_port = dst_json.get("PORT", {}).get(port_name, {})
+                if src_port and not dst_port and src_port.get("admin_status", "up") != "down":
                     jpatch.append({
                         "op": "replace",
                         "path": path,
