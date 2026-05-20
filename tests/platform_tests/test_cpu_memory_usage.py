@@ -206,7 +206,7 @@ def prepare_ram_cpu_usage_results(MonitResult, cpu_threshold, memory_threshold, 
 def extract_valid_cpu_usage_data(program_to_check_cpu_usage, poll_interval):
     """
     This method it to extract the valid cpu usage data according to the poll_interval
-    1. Find the index for the max one for every poll interval,
+    1. Find the index for the max one for every poll interval ,
     2. Discard the data if the index is on the edge(0 o the length of program_to_check_cpu_usage -1)
     3. If the index is closed in the neighbour interval, only keep the former one
     4. Return all indexes
