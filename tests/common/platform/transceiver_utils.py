@@ -7,6 +7,8 @@ import logging
 import re
 from copy import deepcopy
 
+from tests.common.utilities import wait_until
+
 I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
 
 
@@ -68,6 +70,10 @@ def check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list):
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
     xcvr_info = dut.command(docker_cmd)
     parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
+    if not all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
+        if wait_until(120, 5, 0, all_transceivers_detected, dut, asic_index, interfaces, xcvr_skip_list):
+            xcvr_info = dut.command(docker_cmd)
+            parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname]:
             assert intf in parsed_xcvr_info, "TRANSCEIVER INFO of %s is not found in DB" % intf

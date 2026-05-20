@@ -354,6 +354,16 @@ def check_interfaces_and_transceivers(duthost, request):
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
     if duthost.facts['hwsku'] in MGFX_HWSKU:
         interfaces = MGFX_XCVR_INTF
+
+    retry_deadline = time.time() + 120
+    while not all(intf in parsed_xcvr_info for intf in interfaces) and time.time() < retry_deadline:
+        time.sleep(5)
+        parsed_xcvr_info = []
+        for asichost in duthost.asics:
+            docker_cmd = asichost.get_docker_cmd("redis-cli -n 6 keys TRANSCEIVER_INFO*", "database")
+            xcvr_info = duthost.command(docker_cmd)
+            parsed_xcvr_info.extend(parse_transceiver_info(xcvr_info["stdout_lines"]))
+
     for intf in interfaces:
         if intf not in parsed_xcvr_info:
             raise RebootHealthError(
