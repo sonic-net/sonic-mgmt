@@ -56,23 +56,41 @@ class TestQosProbe(QosSaiBase):
         return None
 
     # --- Platform Probe Configuration ---
-    # Each platform subclass defines probe packet_length and cells_per_packet.
+    # Each platform subclass resolves packet_length and cells_per_packet from QoS config.
     # PTF receives these as testParams; no platform_asic checks in PTF code.
+    # To add a new platform: create a subclass of ProbeConfig and register in _PROBE_CONFIG_REGISTRY.
 
     class ProbeConfig:
-        """Default probe config: 64B packets, 1 cell per packet."""
-        packet_length = 64
-        cells_per_packet = 1
+        """Default probe config: 64B packets, 1 cell per packet.
+
+        Subclasses override __init__ to resolve platform-specific values
+        from qosConfig_profile and dutQosConfig.
+        """
+        def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            self.packet_length = 64
+            self.cells_per_packet = 1
 
         def cells_to_pkts(self, cells):
             """Convert a cell-based threshold value to packet units."""
             return cells // self.cells_per_packet
 
     class CiscoProbeConfig(ProbeConfig):
-        """Cisco-8000: use platform packet_size, multi-cell per packet."""
-        def __init__(self, packet_size, cell_size):
-            self.packet_length = packet_size
-            self.cells_per_packet = (packet_size + cell_size - 1) // cell_size
+        """Cisco-8000: use platform packet_size from QoS config."""
+        def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            qosConfig_profile = qosConfig_profile or {}
+            dutQosConfig = dutQosConfig or {}
+            self.packet_length = qosConfig_profile.get("packet_size", 64)
+            cell_size = qosConfig_profile.get("cell_size", None)
+            if cell_size is None:
+                cell_size = (dutQosConfig.get("param", {}).get("cell_size")
+                             or TestQosProbe.find_cell_size(dutQosConfig.get("param", {}))
+                             or 384)
+            self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
+
+    # Registry: platform_asic -> ProbeConfig subclass
+    _PROBE_CONFIG_REGISTRY = {
+        "cisco-8000": CiscoProbeConfig,
+    }
 
     # Known cell-based threshold keys in qos.yml that need cells_to_pkts conversion
     _CELL_THRESHOLD_KEYS = (
@@ -81,30 +99,18 @@ class TestQosProbe(QosSaiBase):
     )
 
     @staticmethod
-    def _get_probe_config(platform_asic, qosConfig_profile, dutQosConfig):
-        """Internal: return platform-specific ProbeConfig instance."""
-        if platform_asic == "cisco-8000":
-            packet_size = qosConfig_profile.get("packet_size", 64)
-            cell_size = qosConfig_profile.get("cell_size", None)
-            if cell_size is None:
-                cell_size = (dutQosConfig.get("param", {}).get("cell_size")
-                             or TestQosProbe.find_cell_size(dutQosConfig.get("param", {}))
-                             or 384)
-            if packet_size > 64:
-                return TestQosProbe.CiscoProbeConfig(packet_size, cell_size)
-        return TestQosProbe.ProbeConfig()
-
-    @staticmethod
     def get_probe_params(platform_asic, qosConfig_profile, dutQosConfig):
         """Return probe-related testParams dict for PTF.
 
-        Encapsulates all HW-dependent decisions:
-        - probe_packet_length, probe_cells_per_packet
-        - Auto-converts cell-based thresholds to packet units
+        Resolves platform-specific ProbeConfig via registry, then returns
+        a dict with probe_packet_length, probe_cells_per_packet, and
+        auto-converted cell-based thresholds.
 
         Usage: testParams.update(self.get_probe_params(...))
         """
-        cfg = TestQosProbe._get_probe_config(platform_asic, qosConfig_profile, dutQosConfig)
+        config_cls = TestQosProbe._PROBE_CONFIG_REGISTRY.get(
+            platform_asic, TestQosProbe.ProbeConfig)
+        cfg = config_cls(qosConfig_profile, dutQosConfig)
         params = {
             "probe_packet_length": cfg.packet_length,
             "probe_cells_per_packet": cfg.cells_per_packet,
