@@ -155,8 +155,8 @@ def get_traffic_path(
     egress_active_interfaces = load_port_stats(egress_stats, pkt_threshold, direction="rx")
 
     # Find the fabric mapping from the CLI
-    ingress_fabric_mapping = get_fabric_mapping(ingress_duthost)
-    egress_fabric_mapping = get_fabric_mapping(egress_duthost)
+    ingress_fabric_mapping = get_fabric_mapping(ingress_duthost, ingress_duthost.get_port_asic_instance(tx_port['peer_port']))
+    egress_fabric_mapping = get_fabric_mapping(egress_duthost, egress_duthost.get_port_asic_instance(rx_port['peer_port']))
 
     # Infer the traffic path from ingress to egress port via BP and Fabric port
     traffic_paths = infer_ecmp_backplane_ports(ingress_active_interfaces, egress_active_interfaces,
