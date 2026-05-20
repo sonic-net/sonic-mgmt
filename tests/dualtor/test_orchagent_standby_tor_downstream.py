@@ -139,13 +139,25 @@ def check_mux_status(duthost, state):
         return False
     output = result["stdout_lines"]
     if len(output) <= 2:
+        logger.info(f"dualtor_neighbor_check output too short: {output}")
         return False
+    
+    headers = output[0].split()
+    try:
+        state_idx = headers.index('State')
+        type_idx = headers.index('Type')
+    except (IndexError, ValueError) as e:
+        logger.warning(f"Failed to find column headers in dualtor_neighbor_check output: {headers}, error: {e}")
+        return False
+    
     for intf_state in output[2:]:
         intf = intf_state.split()
-        if len(intf) <= 7:
+        if len(intf) <= max(state_idx, type_idx):
+            logger.warning(f"Interface state line too short: {intf}")
             return False
-        if intf[3] == state and intf[7] == "consistent":
+        if intf[state_idx] == state and intf[type_idx] == "consistent":
             continue
+        logger.info(f"Neighbor check failed for line: {intf_state} (state={intf[state_idx] if state_idx < len(intf) else 'N/A'}, type={intf[type_idx] if type_idx < len(intf) else 'N/A'})")
         return False
     return True
 

@@ -2082,6 +2082,7 @@ Totals               6450                 6449
                 crm_facts['dash_acl_group'] = self._parse_show(sections[4])
             return True
         # Retry until crm resources are ready
+        timeout = crm_facts['polling_interval'] + 10
         assert wait_until(timeout, 10, 0, lambda: _show_and_parse_crm_resources()), (
             "Timeout expired while waiting for CRM counters to become ready. "
             "CRM resource data was not available within the allotted time. "

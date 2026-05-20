@@ -125,16 +125,16 @@ def swss_config_files(rand_selected_dut, tor_mux_intfs):            # noqa: F811
         ('standby', 'SET', SWSS_MUX_STATE_STANDBY_CONFIG_FILE),
         ('active', 'DEL', SWSS_MUX_STATE_DEL_CONFIG_FILE),
     ]
+    wait_critical_processes(rand_selected_dut)
     for cfg in swss_configs:
         mux_config = mux_state_configs(tor_mux_intfs, cfg[0], op=cfg[1])
         dut.copy(content=json.dumps(mux_config, indent=4), dest=cfg[2])
-        wait_critical_processes(rand_selected_dut)
         dut.shell('docker cp {} swss:{}'.format(cfg[2], _swss_path(cfg[2])))
 
     yield
 
+    wait_critical_processes(rand_selected_dut)
     for cfg in swss_configs:
-        wait_critical_processes(rand_selected_dut)
         dut.shell('docker exec swss sh -c "rm {}"'.format(_swss_path(cfg[2])))
         dut.file(path=cfg[2], state='absent')
 
