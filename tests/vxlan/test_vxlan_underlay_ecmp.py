@@ -19,6 +19,8 @@ VS_MAX_T2_INTFS = 3
 VS_PACKET_COUNT = 4000
 VS_MAX_ENDPOINTS = 2
 DEFAULT_PACKET_COUNT = 10000
+# Note: check_underlay_ecmp uses ratio-based tolerance (underlay_tolerance=0.25, i.e. 25%
+# deviation per path). Reducing packet_count is safe as the threshold scales with total packets.
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
@@ -321,10 +323,15 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         endpoint_nhmap = self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet]
 
         duthost = self.vxlan_test_setup['duthost']
+        # Save original dest_to_nh_map for this vnet; dump_self_info_and_run_ptf reads it
+        # directly from self.vxlan_test_setup, so we must narrow it to match the routes
+        # actually installed, keeping route-add and PTF verification in sync.
+        original_nhmap = endpoint_nhmap
         if is_vs_device(duthost) and len(endpoint_nhmap) > VS_MAX_ENDPOINTS:
             Logger.info("VS device: limiting endpoint_nhmap from %d to %d entries",
                         len(endpoint_nhmap), VS_MAX_ENDPOINTS)
             endpoint_nhmap = dict(list(endpoint_nhmap.items())[:VS_MAX_ENDPOINTS])
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = endpoint_nhmap
 
         backup_t2_ports = self.vxlan_test_setup[encap_type]['t2_ports']
         # Gathering all T2 Neighbors
@@ -440,6 +447,9 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             encap_type,
             True,
             check_underlay_ecmp=True)
+
+        # Restore original dest_to_nh_map so other tests are not affected.
+        self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet] = original_nhmap
 
     def test_underlay_portchannel_shutdown(self,
                                            setUp,
