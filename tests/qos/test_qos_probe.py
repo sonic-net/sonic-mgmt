@@ -71,8 +71,11 @@ class TestQosProbe(QosSaiBase):
             self.packet_length = 64
             self.cells_per_packet = 1
 
-        def resolve_threshold_in_pkts(self, value):
-            """Convert a qos.yml threshold value to packet units.
+        def resolve_threshold(self, value):
+            """Convert a qos.yml threshold to probe-comparable units.
+
+            Returns the value in the same units as probe traffic counting,
+            so probe result can be directly compared with expected threshold.
 
             Default: qos.yml stores thresholds in cell units → divide by cells_per_packet.
             Subclasses override when qos.yml uses different units.
@@ -97,8 +100,8 @@ class TestQosProbe(QosSaiBase):
                              or 384)
             self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
 
-        def resolve_threshold_in_pkts(self, value):
-            """Cisco qos.yml thresholds are already in packet units."""
+        def resolve_threshold(self, value):
+            """Cisco qos.yml thresholds are already in probe-comparable units."""
             return value
 
     # Registry: platform_asic -> ProbeParamsResolver subclass
@@ -106,7 +109,7 @@ class TestQosProbe(QosSaiBase):
         "cisco-8000": CiscoProbeParamsResolver,
     }
 
-    # Threshold keys in qos.yml that need resolve_threshold_in_pkts conversion
+    # Threshold keys in qos.yml that need resolve_threshold conversion
     _THRESHOLD_KEYS = (
         "pkts_num_trig_pfc", "pkts_num_trig_ingr_drp",
         "pkts_num_trig_egr_drp", "pkts_num_trig_pfc_shp",
@@ -131,7 +134,7 @@ class TestQosProbe(QosSaiBase):
         }
         for key in TestQosProbe._THRESHOLD_KEYS:
             if key in qosConfig_profile:
-                params[key] = resolver.resolve_threshold_in_pkts(qosConfig_profile[key])
+                params[key] = resolver.resolve_threshold(qosConfig_profile[key])
         return params
 
     @staticmethod
