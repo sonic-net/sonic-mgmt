@@ -171,22 +171,16 @@ class EgressDropProbing(ProbingBase):
             vlan=port_ips[self.probing_port_ids[1]].get("vlan_id", None)
         )
 
-        # Probing always uses 64-byte packets (1 cell = 1 packet) for consistent unit counting.
-        # The algorithm counts in "packets" which equals "cells" when packet_length=64.
-        packet_length = 64
+        # Probe packet config: received from test_qos_probe.py via testParams
+        # No platform-specific logic here — mgmt layer decides packet_length
+        packet_length = getattr(self, "probe_packet_length", 64)
         ttl = 64
 
-        # Log platform-specific packet_size for reference (not used in probing)
-        original_packet_length = getattr(self, "packet_size", 64)
-        original_cell_occupancy = (
-            (original_packet_length + self.cell_size - 1) // self.cell_size
-            if hasattr(self, "cell_size") else 1
-        )
+        cell_occupancy = getattr(self, "probe_cell_occupancy", 1)
         log_message(
-            f"Platform-specific: packet_length={original_packet_length}, "
-            f"cell_occupancy={original_cell_occupancy}", to_stderr=True
+            f"Probe config: packet_length={packet_length}, "
+            f"cell_occupancy={cell_occupancy}", to_stderr=True
         )
-        log_message(f"Probing uses: packet_length={packet_length}, cell_occupancy=1", to_stderr=True)
 
         is_dualtor = getattr(self, "is_dualtor", False)
         def_vlan_mac = getattr(self, "def_vlan_mac", None)
@@ -218,7 +212,11 @@ class EgressDropProbing(ProbingBase):
         Returns:
             ThresholdResult: Probing result with Egress Drop threshold
         """
-        pool_size = self.get_pool_size()
+        # Convert pool size from cells to packets
+        pool_size_cells = self.get_pool_size()
+        cell_occupancy = getattr(self, "probe_cell_occupancy", 1)
+        pool_size = pool_size_cells // cell_occupancy
+
         src_port = self.probing_port_ids[0]
         dst_port = self.stream_mgr.get_port_ids("dst")[0]
 
@@ -227,7 +225,7 @@ class EgressDropProbing(ProbingBase):
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting threshold probing")
         ProbingObserver.console(f"  src_port={src_port}, dst_port={dst_port}")
-        ProbingObserver.console(f"  pool_size={pool_size}")
+        ProbingObserver.console(f"  pool_size_cells={pool_size_cells}, cell_occupancy={cell_occupancy}, pool_size_pkts={pool_size}")
         ProbingObserver.console(f"  precision_target_ratio={self.PRECISION_TARGET_RATIO}")
         ProbingObserver.console(f"  enable_precise_detection={self.ENABLE_PRECISE_DETECTION}")
         ProbingObserver.console(f"  executor_env={self.EXECUTOR_ENV}")
