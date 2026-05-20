@@ -55,6 +55,51 @@ class TestQosProbe(QosSaiBase):
                     return result
         return None
 
+    # --- Platform Probe Configuration ---
+    # Each platform subclass defines probe packet_length and cell_occupancy.
+    # PTF receives these as testParams; no platform_asic checks in PTF code.
+
+    class ProbeConfig:
+        """Default probe config: 64B packets, 1 cell per packet."""
+        packet_length = 64
+        cell_occupancy = 1
+
+    class CiscoProbeConfig(ProbeConfig):
+        """Cisco-8000: use platform packet_size, multi-cell per packet."""
+        def __init__(self, packet_size, cell_size):
+            self.packet_length = packet_size
+            self.cell_occupancy = (packet_size + cell_size - 1) // cell_size
+
+    @staticmethod
+    def get_probe_config(platform_asic, dutQosConfig):
+        """Factory: return platform-specific probe configuration.
+
+        Centralizes all HW-dependent probe parameter decisions here,
+        keeping PTF probe code platform-agnostic.
+        """
+        if platform_asic == "cisco-8000":
+            portSpeedCableLength = dutQosConfig.get("portSpeedCableLength", "")
+            qos_param = dutQosConfig.get("param", {})
+            speed_config = qos_param.get(portSpeedCableLength, qos_param)
+            # Resolve packet_size and cell_size from QoS config
+            packet_size = None
+            cell_size = None
+            # Try speed-specific xoff_1 first, then top-level param
+            for profile_key in ["xoff_1", "xoff_2"]:
+                if isinstance(speed_config, dict) and profile_key in speed_config:
+                    if "packet_size" in speed_config[profile_key]:
+                        packet_size = speed_config[profile_key]["packet_size"]
+                    if "cell_size" in speed_config[profile_key]:
+                        cell_size = speed_config[profile_key]["cell_size"]
+                    if packet_size and cell_size:
+                        break
+            if cell_size is None:
+                cell_size = qos_param.get("cell_size") or TestQosProbe.find_cell_size(qos_param) or 384
+            if packet_size is None or packet_size <= 64:
+                return TestQosProbe.ProbeConfig()
+            return TestQosProbe.CiscoProbeConfig(packet_size, cell_size)
+        return TestQosProbe.ProbeConfig()
+
     @staticmethod
     def get_ingress_drop_counter_mode(dutTestParams):
         """Determine ingress drop counter mode based on platform capability.
@@ -181,6 +226,12 @@ class TestQosProbe(QosSaiBase):
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
+        # Platform probe config: packet_length and cell_occupancy
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        probe_cfg = self.get_probe_config(platform_asic, dutQosConfig)
+        testParams["probe_packet_length"] = probe_cfg.packet_length
+        testParams["probe_cell_occupancy"] = probe_cfg.cell_occupancy
+
         self.runPtfTest(
             ptfhost, testCase="pfc_xoff_probing.PfcXoffProbing", testParams=testParams,
             pdb=enable_qos_ptf_pdb, test_subdir='probe'
@@ -292,6 +343,12 @@ class TestQosProbe(QosSaiBase):
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
+
+        # Platform probe config: packet_length and cell_occupancy
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        probe_cfg = self.get_probe_config(platform_asic, dutQosConfig)
+        testParams["probe_packet_length"] = probe_cfg.packet_length
+        testParams["probe_cell_occupancy"] = probe_cfg.cell_occupancy
 
         self.runPtfTest(
             ptfhost, testCase="ingress_drop_probing.IngressDropProbing", testParams=testParams,
