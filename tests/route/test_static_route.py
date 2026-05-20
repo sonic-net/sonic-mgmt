@@ -22,6 +22,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 from tests.common.reboot import reboot
+from tests.common.utilities import restart_arp_responder
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -69,7 +70,7 @@ def add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interface
         ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
         ptfhost.shell('supervisorctl reread && supervisorctl update')
-        ptfhost.shell('supervisorctl restart arp_responder')
+        restart_arp_responder(ptfhost)
 
 
 def del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False):
