@@ -1,12 +1,11 @@
 import pytest
 import random
-from tests.common.helpers.assertions import pytest_require, pytest_assert                           # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
     fanout_graph_facts                                                                              # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, \
     snappi_testbed_config, get_snappi_ports_single_dut, snappi_port_selection, \
-    get_snappi_ports, tgen_port_info, tgen_testbed_subtype, is_snappi_multidut, \
+    get_snappi_ports, tgen_port_info, is_snappi_multidut, \
     get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
     snappi_multi_base_config                                                                        # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
@@ -68,7 +67,6 @@ def test_multiple_prio_diff_dist(snappi_api,                    # noqa: F811
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
         tgen_port_info(pytest fixture): returns list of ports based on linecards selected.
-        tgen_testbed_subtype(pytest_fixture): returns test_subtype for the test.
 
     Returns:
         N/A
@@ -180,7 +178,6 @@ def test_multiple_prio_uni_dist(snappi_api,                     # noqa: F811
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
         tgen_port_info(pytest fixture): returns list of ports based on linecards selected.
-        tgen_testbed_subtype(pytest_fixture): returns test_subtype for the test.
 
     Returns:
         N/A
@@ -295,7 +292,6 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
         tgen_port_info(pytest fixture): returns list of ports based on linecards selected.
-        tgen_testbed_subtype(pytest_fixture): returns test_subtype for the test.
 
     Returns:
         N/A

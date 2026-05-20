@@ -4,19 +4,18 @@ import os
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-    fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-    get_lossless_buffer_size, get_pg_dropped_packets, \
-    stop_pfcwd, disable_packet_aging, sec_to_nanosec, \
-    get_pfc_frame_count, packet_capture, config_capture_pkt, \
-    start_pfcwd, enable_packet_aging, \
-    traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa: F401
-from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa: F401
-from tests.common.snappi_tests.traffic_generation import generate_pause_flows,  verify_pause_flow, \
-    verify_basic_test_flow, verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
-    verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, run_traffic_and_collect_stats, \
-    multi_base_traffic_config, generate_test_flows, generate_background_flows
+    fanout_graph_facts                                                                          # noqa: F401
+from tests.common.snappi_tests.common_helpers import stop_pfcwd, disable_packet_aging, \
+    packet_capture, config_capture_pkt, start_pfcwd, enable_packet_aging, \
+    traffic_flow_mode, calc_pfc_pause_flow_rate                                                 # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port                         # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp                               # noqa: F401
+from tests.common.snappi_tests.traffic_generation import generate_pause_flows, \
+    verify_pause_flow, verify_basic_test_flow, verify_background_flow, \
+    verify_pause_frame_count_dut, verify_in_flight_buffer_pkts, \
+    verify_unset_cev_pause_frame_count, run_traffic_and_collect_stats, \
+    multi_base_traffic_config, generate_test_flows, generate_background_flows, \
+    verify_egress_queue_frame_count
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 from tests.snappi_tests.files.helper import get_number_of_streams
@@ -215,11 +214,11 @@ def run_pfc_test(api,
         stop_pfcwd(ingress_duthost)
 
     if (test_def['enable_credit_wd']):
-        enable_packet_aging(egress_duthost, int(rx_port['asic_value'].split('asic')[1]))
-        enable_packet_aging(ingress_duthost, int(tx_port['asic_value'].split('asic')[1]))
+        enable_packet_aging(egress_duthost, rx_port['asic_value'])
+        enable_packet_aging(ingress_duthost, tx_port['asic_value'])
     else:
-        disable_packet_aging(egress_duthost, int(rx_port['asic_value'].split('asic')[1]))
-        disable_packet_aging(ingress_duthost, int(tx_port['asic_value'].split('asic')[1]))
+        disable_packet_aging(egress_duthost, rx_port['asic_value'])
+        disable_packet_aging(ingress_duthost, tx_port['asic_value'])
 
     # Port id of Rx port for traffic config
     # rx_port_id and tx_port_id belong to IXIA chassis.

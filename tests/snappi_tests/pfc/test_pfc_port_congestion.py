@@ -1,6 +1,5 @@
 import pytest
 import random
-from tests.common.helpers.assertions import pytest_require, pytest_assert                           # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
     fanout_graph_facts                                                                              # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
