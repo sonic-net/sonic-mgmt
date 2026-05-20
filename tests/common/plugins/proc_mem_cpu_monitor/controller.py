@@ -265,7 +265,7 @@ class ProcMemCpuMonitor(object):
         self._proc_list: List[str] = []
         self._interval = 1.0
         self._last_result: Optional[MemCpuMonitorResult] = None
-        self._thread_exc: Optional[BaseException] = None
+        self._thread_exc: Optional[Exception] = None
         self._stopped: bool = False
         self._host_top_all_procs: bool = False
         self._jumper_top_n: int = 5
@@ -427,7 +427,7 @@ class ProcMemCpuMonitor(object):
                         break
                 self._poll_tick()
                 self._stop_event.wait(self._interval)
-        except BaseException as ex:  # noqa: BLE001
+        except Exception as ex:  # noqa: BLE001
             logger.exception("mem_cpu_monitor sampler thread died")
             self._thread_exc = ex
 
