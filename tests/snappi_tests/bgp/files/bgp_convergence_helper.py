@@ -348,7 +348,7 @@ def __tgen_bgp_config(snappi_api,
         config.devices.device(name='Topology %d' % i)
 
     config.options.port_options.location_preemption = True
-    for index, port_data in enumerate(temp_tg_port):
+    for index, port_data in enumerate(temp_tg_port[:port_count]):
         layer1 = config.layer1.layer1()[-1]
         layer1.name = f"{index}_settings"
         layer1.port_names = [config.ports[index].name]
