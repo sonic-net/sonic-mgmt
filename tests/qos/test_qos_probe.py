@@ -71,18 +71,20 @@ class TestQosProbe(QosSaiBase):
             self.packet_length = 64
             self.cells_per_packet = 1
 
-        def cells_to_pkts(self, cells):
-            """Convert a cell-based threshold value to packet units."""
-            return cells // self.cells_per_packet
+        def resolve_threshold_in_pkts(self, value):
+            """Convert a qos.yml threshold value to packet units.
+
+            Default: qos.yml stores thresholds in cell units → divide by cells_per_packet.
+            Subclasses override when qos.yml uses different units.
+            """
+            return value // self.cells_per_packet
 
     class CiscoProbeParamsResolver(ProbeParamsResolver):
         """Cisco-8000: resolve packet_size and cell_size from QoS config.
 
-        Cisco qos.yml threshold values are calibrated in packet units
-        (not cell units), so cells_to_pkts is identity (no conversion).
-        Legacy code applies // cell_occupancy but compensates by sending
-        packets that each occupy cell_occupancy cells, resulting in the
-        same total cell consumption.
+        Cisco qos.yml thresholds are calibrated in packet units (not cells),
+        confirmed by Cisco engineers (Zhixin Zhu, 2025-09-01).
+        See: Knowledge/Cisco-8000 QoS Buffer and Sampling Architecture.md
         """
         def __init__(self, qosConfig_profile=None, dutQosConfig=None):
             qosConfig_profile = qosConfig_profile or {}
@@ -95,8 +97,8 @@ class TestQosProbe(QosSaiBase):
                              or 384)
             self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
 
-        def cells_to_pkts(self, value):
-            """Cisco thresholds are already in packet units — no conversion."""
+        def resolve_threshold_in_pkts(self, value):
+            """Cisco qos.yml thresholds are already in packet units."""
             return value
 
     # Registry: platform_asic -> ProbeParamsResolver subclass
@@ -104,8 +106,8 @@ class TestQosProbe(QosSaiBase):
         "cisco-8000": CiscoProbeParamsResolver,
     }
 
-    # Known cell-based threshold keys in qos.yml that need cells_to_pkts conversion
-    _CELL_THRESHOLD_KEYS = (
+    # Threshold keys in qos.yml that need resolve_threshold_in_pkts conversion
+    _THRESHOLD_KEYS = (
         "pkts_num_trig_pfc", "pkts_num_trig_ingr_drp",
         "pkts_num_trig_egr_drp", "pkts_num_trig_pfc_shp",
     )
@@ -116,7 +118,7 @@ class TestQosProbe(QosSaiBase):
 
         Resolves platform-specific ProbeParamsResolver via registry, then
         returns a dict with probe_packet_length, probe_cells_per_packet,
-        and auto-converted cell-based thresholds.
+        and thresholds converted to packet units.
 
         Usage: testParams.update(self.get_probe_params(...))
         """
@@ -127,9 +129,9 @@ class TestQosProbe(QosSaiBase):
             "probe_packet_length": resolver.packet_length,
             "probe_cells_per_packet": resolver.cells_per_packet,
         }
-        for key in TestQosProbe._CELL_THRESHOLD_KEYS:
+        for key in TestQosProbe._THRESHOLD_KEYS:
             if key in qosConfig_profile:
-                params[key] = resolver.cells_to_pkts(qosConfig_profile[key])
+                params[key] = resolver.resolve_threshold_in_pkts(qosConfig_profile[key])
         return params
 
     @staticmethod
