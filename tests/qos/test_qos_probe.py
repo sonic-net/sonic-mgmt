@@ -8,8 +8,6 @@ This module contains probe-based tests for buffer threshold detection, including
 
 These tests use advanced probing algorithms to automatically detect buffer thresholds.
 
-CI: probe-tests stage in .azure-pipelines/probe-tests/ triggers UT/IT for changes here.
-
 Parameters:
     --enable_qos_ptf_pdb (bool): Enable pdb debugger in PTF tests. Default is False.
 """
@@ -278,6 +276,16 @@ class TestQosProbe(QosSaiBase):
 
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
+
+        # Determine ingress drop counter mode based on platform capability
+        # 3-level fallback: pg_drop > port_buffer_drop > port_drop
+        # Currently only cisco-8000 is verified to support pg_drop and port_buffer_drop
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        if platform_asic == "cisco-8000":
+            testParams["ingress_drop_counter_mode"] = "pg_drop"
+        else:
+            # Broadcom/Mellanox: default to port_drop until verified
+            testParams["ingress_drop_counter_mode"] = "port_drop"
 
         self.runPtfTest(
             ptfhost, testCase="ingress_drop_probing.IngressDropProbing", testParams=testParams,

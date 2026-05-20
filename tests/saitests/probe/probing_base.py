@@ -148,21 +148,30 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
                 f"POINT_PROBING_STEP_SIZE={self.POINT_PROBING_STEP_SIZE}"
             )
 
-        # Read INGRESS_DROP_USE_PG_COUNTER from environment variable
-        # Default: False (Port counter - Broadcom compatible)
-        # Override: True (PG counter - Mellanox/Cisco-8000)
-        env_value = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
-        if env_value in ('true', '1', 'yes'):
-            self.use_pg_drop_counter = True
-        elif env_value in ('false', '0', 'no'):
-            self.use_pg_drop_counter = False
+        # Read ingress drop counter mode from test params (set by test_qos_probe.py)
+        # 3-level fallback: "pg_drop" > "port_buffer_drop" > "port_drop"
+        # Can be overridden by environment variable INGRESS_DROP_COUNTER_MODE
+        param_mode = getattr(self, 'ingress_drop_counter_mode', 'port_drop')
+        env_mode = os.getenv('INGRESS_DROP_COUNTER_MODE', '').lower()
+        if env_mode in ('pg_drop', 'port_buffer_drop', 'port_drop'):
+            self.ingress_drop_counter_mode = env_mode
         else:
-            # Environment variable not set or has invalid value, use default
+            self.ingress_drop_counter_mode = param_mode
+
+        # Backward compat: set use_pg_drop_counter for existing executor code
+        env_pg = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
+        if env_pg in ('true', '1', 'yes'):
+            self.use_pg_drop_counter = True
+            self.ingress_drop_counter_mode = 'pg_drop'
+        elif env_pg in ('false', '0', 'no'):
             self.use_pg_drop_counter = False
+            self.ingress_drop_counter_mode = 'port_drop'  # Force legacy behavior
+        else:
+            self.use_pg_drop_counter = (self.ingress_drop_counter_mode == 'pg_drop')
 
         ProbingObserver.trace(
-            f"[{self.__class__.__name__}] use_pg_drop_counter={self.use_pg_drop_counter} "
-            f"(env='{env_value}')"
+            f"[{self.__class__.__name__}] ingress_drop_counter_mode={self.ingress_drop_counter_mode} "
+            f"(param='{param_mode}', env_mode='{env_mode}', env_pg='{env_pg}')"
         )
 
     def tearDown(self):
