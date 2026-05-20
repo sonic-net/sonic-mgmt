@@ -872,7 +872,6 @@ class VxlanHashTest(HashTest):
                             sport,
                             dport,
                             src_port))
-        logs.append(vxlan_pkt.show())
         return logs
 
     def set_packet_parameter(self, pkt, exp_pkt, hash_key, ip_proto, version='IP'):
@@ -960,6 +959,11 @@ class VxlanHashTest(HashTest):
         if self.ignore_ttl and version == 'IP':
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
+        # Outer IPv6 hlim may be decremented multiple times on chassis
+        # (across ingress/egress LCs); also mask inner TCP chksum.
+        if self.ignore_ttl and version == 'IPv6':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         return masked_exp_pkt
 
@@ -1098,6 +1102,12 @@ class NvgreHashTest(HashTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         if version == 'IPv6':
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+        # Outer TTL may be decremented multiple times on chassis
+        # (across ingress/egress LCs). Mask outer IP ttl and chksum
+        # when ignore_ttl is set.
+        if self.ignore_ttl and version == 'IP':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         return masked_exp_pkt
 
     def create_pkt(

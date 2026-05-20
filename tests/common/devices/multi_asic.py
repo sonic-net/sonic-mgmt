@@ -4,6 +4,7 @@ import ipaddress
 import json
 import logging
 
+from pytest_ansible.results import ModuleResult
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
@@ -100,6 +101,12 @@ class MultiAsicSonicHost(object):
         if is_dpu and 'snmp' in service_list:
             service_list.remove('snmp')
 
+        # BMC topology: snmp is not deployed on BMC image (SNMP runs on the host NOS,
+        # not on the management-plane BMC board), so exclude it from critical services.
+        is_bmc = 'bmc' in (self.topo_type or '')
+        if is_bmc and 'snmp' in service_list:
+            service_list.remove('snmp')
+
         # Update the asic service based on feature table state and asic flag
         filtered_asic_services = []
         for service in self.sonichost.DEFAULT_ASIC_SERVICES:
@@ -165,6 +172,21 @@ class MultiAsicSonicHost(object):
                 return [getattr(asic, multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def show_interface(self, *module_args, **complex_args):
+        """Wrapper that short-circuits on supervisor nodes.
+
+        On supervisor, 'show interface status' triggers 'rexec -c ... all' which
+        prompts for LC passwords and hangs. Return empty ModuleResult instead.
+        """
+        if self.sonichost.is_supervisor_node():
+            logger.debug("Skipping show_interface on supervisor node %s", self.hostname)
+            return ModuleResult(ansible_facts={
+                "int_status": {},
+                "int_counter": {},
+                "ansible_interface_link_down_ports": [],
+            }, changed=False)
+        return self._run_on_asics("show_interface", *module_args, **complex_args)
 
     def get_dut_iface_mac(self, iface_name):
         """

@@ -555,14 +555,26 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors
     )
+    if not critical_proceses:
+        processes_status = duthost.all_critical_process_status()
+        for cname, procs in list(processes_status.items()):
+            if procs["status"] is False or len(procs["exited_critical_process"]) > 0:
+                logger.info("Post-check: container '{}' has exited critical processes: {}"
+                            .format(cname, procs["exited_critical_process"]))
+    if not bgp_check:
+        bgp_neigh = duthost.get_bgp_neighbors()
+        down_sessions = {ip: info['state'] for ip, info in list(bgp_neigh.items()) if info['state'] != 'established'}
+        logger.info("Post-check: BGP sessions not established: {}".format(down_sessions))
     if not (critical_proceses and bgp_check):
-        config_reload(duthost, safe_reload=True)
-        # after config reload, the feature autorestart config is reset,
-        # so, before next test, enable again
-        enable_autorestart(duthost)
-
+        # Capture diagnostic state BEFORE config_reload, otherwise all sessions
+        # will appear established in the error message after recovery.
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
+        bgp_failures = [
+            {x: v['state']}
+            for x, v in list(duthost.get_bgp_neighbors().items())
+            if v['state'] != 'established'
+        ]
         processes_status = duthost.all_critical_process_status()
         pstatus = [
             {
@@ -574,6 +586,11 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
                 "status"
             ] is False and len(v["exited_critical_process"]) > 0
         ]
+
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        # after config reload, the feature autorestart config is reset,
+        # so, before next test, enable again
+        enable_autorestart(duthost)
 
         if (duthost.get_facts().get("modular_chassis") and
                 duthost.facts["asic_type"] == "cisco-8000" and
@@ -591,11 +608,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
                 ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
                  "\nProcess status {}").format(
                     failed_check, container_name,
-                    [
-                        {x: v['state']}
-                        for x, v in list(duthost.get_bgp_neighbors().items())
-                        if v['state'] != 'established'
-                    ],
+                    bgp_failures,
                     up_bgp_neighbors, pstatus
                 )
             )

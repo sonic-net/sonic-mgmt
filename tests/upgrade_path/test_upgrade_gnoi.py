@@ -29,7 +29,8 @@ def gnoi_upgrade_path_lists(request):
 def test_upgrade_via_gnoi(
     localhost, duthosts, ptfhost, rand_one_dut_hostname,
     nbrhosts, fanouthosts, tbinfo, request,
-    gnoi_upgrade_path_lists, gnmi_tls  # noqa: F811
+    gnoi_upgrade_path_lists, ptf_gnoi,  # noqa: F811
+    conn_graph_facts, xcvr_skip_list
 ):
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -54,6 +55,10 @@ def test_upgrade_via_gnoi(
     )
 
     def upgrade_path_preboot_setup():
+        # Save TLS config to disk before the reboot so it persists through it.
+        # setup_upgrade_test reboots the DUT which restores CONFIG_DB from disk,
+        # and without this save the gnmi_tls fixture's config would be wiped.
+        duthost.shell("sudo config save -y")
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
@@ -63,4 +68,8 @@ def test_upgrade_via_gnoi(
         tbinfo=tbinfo,
         cfg=cfg,
         cold_reboot_setup=upgrade_path_preboot_setup,
+        localhost=localhost,
+        conn_graph_facts=conn_graph_facts,
+        xcvr_skip_list=xcvr_skip_list,
+        duthosts=duthosts,
     )

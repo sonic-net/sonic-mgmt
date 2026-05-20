@@ -35,12 +35,15 @@ LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-arista_7060_cx32s",
     "x86_64-arista_7260cx3_64",
     "x86_64-arista_7050cx3_32s",
+    "x86_64-arista_7050cx3_32c",
     "x86_64-mlnx_msn2700-r0",
     "x86_64-dell_s6100_c2538-r0",
     "armhf-nokia_ixs7215_52x-r0"
 ]
 
-MGFX_HWSKU = ["Arista-720DT-G48S4", "Nokia-7215", "Nokia-M0-7215", "Celestica-E1031-T48S4"]
+MGFX_HWSKU = ["Arista-720DT-G48S4", "Arista-720DT-MGX-G48S4",
+              "Nokia-7215", "Nokia-M0-7215", "Nokia-7215-A1-MGX-G48S4",
+              "Celestica-E1031-T48S4"]
 MGFX_XCVR_INTF = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")

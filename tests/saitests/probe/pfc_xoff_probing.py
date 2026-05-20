@@ -8,6 +8,8 @@ Traffic Pattern: 1 src -> N dst
 - Single source port sends to multiple destination ports
 - Detects the PFC Xoff threshold by observing PFC frame generation
 
+CI: changes to this file trigger the probe-tests stage UT/IT.
+
 Design:
 - setUp(): PTF initialization + parse_param
 - setup_traffic(): Build stream_mgr (1 src -> N dst)
@@ -139,8 +141,9 @@ class PfcXoffProbing(ProbingBase):
             log_message("ERROR: No probing ports available", to_stderr=True)
             return
 
-        dut_idx = 0
-        asic_idx = 0
+        # Use first available dut/asic index from test_port_ips (handles dualtor where keys may not be 0)
+        dut_idx = next(iter(self.test_port_ips))
+        asic_idx = next(iter(self.test_port_ips[dut_idx]))
         port_ips = self.test_port_ips[dut_idx][asic_idx]
 
         # 1 src -> N dst: First is src, rest are dst

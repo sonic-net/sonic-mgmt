@@ -82,7 +82,7 @@ def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None, outbound
         config, outbound_encap, floating_nic, inner_sport=sport, inner_dport=dport, vni=outbound_vni
     )
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
-        config, floating_nic, inner_sport=dport, inner_dport=sport, exp_vni=outbound_vni
+        config, floating_nic, inner_sport=dport, inner_dport=sport
     )
     return vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt
 
@@ -389,10 +389,10 @@ def inbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_typ
     pa_mismatch_vxlan_packet["IP"].src = str(remote_pa_ip + 1)
 
     masked_exp_packet = Mask(expected_packet)
-    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
-    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-    masked_exp_packet.set_do_not_care_scapy(scapy.UDP, "sport")
-    masked_exp_packet.set_do_not_care_scapy(scapy.UDP, "chksum")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "id")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "sport")
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
 
     return inner_packet, pa_match_vxlan_packet, pa_mismatch_vxlan_packet, masked_exp_packet
 
@@ -440,10 +440,10 @@ def outbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_ty
     )
 
     masked_exp_packet = Mask(expected_packet)
-    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
-    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-    masked_exp_packet.set_do_not_care_scapy(scapy.UDP, "sport")
-    masked_exp_packet.set_do_not_care_scapy(scapy.UDP, "chksum")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "id")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "sport")
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
     return inner_packet, vxlan_packet, masked_exp_packet
 
 
@@ -557,7 +557,7 @@ def outbound_smartswitch_vnet_packets(
         udp_dport=vxlan_udp_dport,
         udp_sport=VXLAN_UDP_BASE_SRC_PORT,
         with_udp_chksum=False,
-        vxlan_vni=dash_config_info[VNET1_VNI],
+        vxlan_vni=dash_config_info[VM_VNI],
         ip_ttl=64,
         inner_frame=inner_packet,
     )
@@ -574,10 +574,11 @@ def outbound_smartswitch_vnet_packets(
     )
 
     masked_exp_packet = Mask(expected_packet)
-    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
-    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-    masked_exp_packet.set_do_not_care_scapy(scapy.UDP, "sport")
-    masked_exp_packet.set_do_not_care_scapy(scapy.UDP, "chksum")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "id")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "ttl")
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "sport")
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
     return inner_packet, vxlan_packet, masked_exp_packet
 
 
