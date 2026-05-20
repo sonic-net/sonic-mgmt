@@ -106,13 +106,9 @@ class IngressDropProbingExecutor:
         self.verbose = verbose
         self.name = name
 
-        # Determine counter mode from ptftest (set by probing_base.setUp)
+        # Determine counter mode from ptftest (set by probing_base.setUp from testParams)
         # 3-level: "pg_drop" > "port_buffer_drop" > "port_drop"
         self.counter_mode = getattr(ptftest, 'ingress_drop_counter_mode', 'port_drop')
-
-        # Backward compat: use_pg_drop_counter overrides counter_mode
-        if use_pg_drop_counter:
-            self.counter_mode = 'pg_drop'
         self.use_pg_drop_counter = (self.counter_mode == 'pg_drop')
 
         if self.verbose and self.observer:

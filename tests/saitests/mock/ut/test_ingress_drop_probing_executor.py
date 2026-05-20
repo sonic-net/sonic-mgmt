@@ -64,13 +64,14 @@ class TestIngressDropProbingExecutor:
 
     @pytest.mark.order(8801)
     def test_init_with_pg_counter_enabled(self):
-        """Test initialization with PG counter strategy"""
+        """Test initialization with PG counter strategy via ptftest attribute"""
         from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        self.mock_ptftest.ingress_drop_counter_mode = 'pg_drop'
 
         executor = IngressDropProbingExecutor(
             ptftest=self.mock_ptftest,
             observer=self.observer,
-            use_pg_drop_counter=True,
             verbose=True
         )
 
@@ -235,10 +236,11 @@ class TestIngressDropProbingExecutor:
 
         mock_read_pg.side_effect = [base_pg, curr_pg]
 
+        self.mock_ptftest.ingress_drop_counter_mode = 'pg_drop'
+
         executor = IngressDropProbingExecutor(
             ptftest=self.mock_ptftest,
-            observer=self.observer,
-            use_pg_drop_counter=True  # Enable PG counter
+            observer=self.observer
         )
 
         success, detected = executor.check(24, 28, 1000, pg=3)
@@ -660,46 +662,6 @@ class TestIngressDropProbingExecutor:
         assert executor.counter_mode == 'pg_drop'
         assert executor.use_pg_drop_counter is True
         print("[OK] pg_drop mode from ptftest attribute sets use_pg=True")
-
-    @pytest.mark.order(8827)
-    def test_init_use_pg_overrides_ptftest_mode(self):
-        """Test use_pg_drop_counter=True overrides ptftest.ingress_drop_counter_mode='port_drop'"""
-        print("\n=== Testing use_pg_drop_counter overrides ptftest mode ===")
-        from ingress_drop_probing_executor import IngressDropProbingExecutor
-
-        self.mock_ptftest.ingress_drop_counter_mode = 'port_drop'
-
-        executor = IngressDropProbingExecutor(
-            ptftest=self.mock_ptftest,
-            observer=self.observer,
-            use_pg_drop_counter=True
-        )
-
-        print(f"  ptftest.ingress_drop_counter_mode='port_drop', use_pg_drop_counter=True")
-        print(f"  Result: counter_mode={executor.counter_mode}, use_pg={executor.use_pg_drop_counter}")
-        assert executor.counter_mode == 'pg_drop'
-        assert executor.use_pg_drop_counter is True
-        print("[OK] use_pg_drop_counter=True overrides ptftest mode to pg_drop")
-
-    @pytest.mark.order(8828)
-    def test_init_use_pg_overrides_port_buffer_drop_mode(self):
-        """Test use_pg_drop_counter=True overrides ptftest port_buffer_drop mode"""
-        print("\n=== Testing use_pg overrides port_buffer_drop ===")
-        from ingress_drop_probing_executor import IngressDropProbingExecutor
-
-        self.mock_ptftest.ingress_drop_counter_mode = 'port_buffer_drop'
-
-        executor = IngressDropProbingExecutor(
-            ptftest=self.mock_ptftest,
-            observer=self.observer,
-            use_pg_drop_counter=True
-        )
-
-        print(f"  ptftest.ingress_drop_counter_mode='port_buffer_drop', use_pg_drop_counter=True")
-        print(f"  Result: counter_mode={executor.counter_mode}, use_pg={executor.use_pg_drop_counter}")
-        assert executor.counter_mode == 'pg_drop'
-        assert executor.use_pg_drop_counter is True
-        print("[OK] use_pg_drop_counter=True overrides port_buffer_drop to pg_drop")
 
     @pytest.mark.order(8829)
     @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
