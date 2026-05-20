@@ -2,7 +2,6 @@
 Helper module for the SRv6 max throughput minimum packet size test.
 """
 import os
-import json
 import yaml
 import logging
 import time
@@ -47,20 +46,42 @@ def get_platform_thresholds(duthost, config):
 # ---------------------------------------------------------------------------
 
 def _get_front_panel_ports(duthost):
-    """Return list of front-panel Ethernet ports on the DUT."""
-    result = duthost.shell("show interfaces status")["stdout"]
-    ports = []
-    for line in result.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("Ethernet"):
-            ports.append(stripped.split()[0])
-    return ports
+    """Return list of admin-up front-panel Ethernet ports on the DUT."""
+    import json as _json
+    result = duthost.shell("portstat -j")["stdout"]
+    port_data = _json.loads(result)
+    # STATE: U=Up, D=Down, X=Disabled (admin-down)
+    return sorted(
+        [port for port, stats in port_data.items() if stats.get("STATE") != "X"],
+        key=lambda p: (len(p), p),
+    )
 
 
 def _dataacl_exists(duthost):
     """Check if DATAACL table exists."""
     lines = duthost.shell(cmd="show acl table DATAACL")["stdout_lines"]
     return any("DATAACL" in line for line in lines)
+
+
+def _verify_acl_table_ports(duthost, table_name, expected_ports):
+    """Verify that the ACL table is bound to the expected ports."""
+    output = duthost.shell("show acl table {}".format(table_name))["stdout"]
+    for port in expected_ports:
+        if port not in output:
+            logger.warning("ACL table %s not attached to port %s", table_name, port)
+            return False
+    logger.info("ACL table %s verified on all %d ports", table_name, len(expected_ports))
+    return True
+
+
+def _verify_acl_table_removed(duthost, table_name):
+    """Verify that the ACL table no longer exists."""
+    output = duthost.shell("show acl table {}".format(table_name))["stdout"]
+    if table_name in output:
+        logger.warning("ACL table %s still exists after removal", table_name)
+        return False
+    logger.info("ACL table %s confirmed removed", table_name)
+    return True
 
 
 # --- DataACL ---
@@ -75,6 +96,8 @@ def enable_dataacl(duthost):
     logger.info("Enabling DATAACL on %s", duthost.hostname)
     duthost.shell(cmd)
     duthost.shell("config save -y")
+    if not _verify_acl_table_ports(duthost, "DATAACL", ports):
+        raise RuntimeError("DATAACL not attached to all ports on {}".format(duthost.hostname))
 
 
 def disable_dataacl(duthost):
@@ -85,6 +108,8 @@ def disable_dataacl(duthost):
     logger.info("Removing DATAACL on %s", duthost.hostname)
     duthost.shell("config acl remove table DATAACL")
     duthost.shell("config save -y")
+    if not _verify_acl_table_removed(duthost, "DATAACL"):
+        raise RuntimeError("DATAACL not fully removed on {}".format(duthost.hostname))
 
 
 # --- Everflow (IPv4 mirror) ---
@@ -118,6 +143,8 @@ def enable_everflow(duthost):
         duthost.shell(
             "config acl add table EVERFLOW MIRROR -p {}".format(",".join(ports))
         )
+        if not _verify_acl_table_ports(duthost, "EVERFLOW", ports):
+            raise RuntimeError("EVERFLOW not attached to all ports on {}".format(duthost.hostname))
     duthost.shell("config save -y")
 
 
@@ -126,6 +153,8 @@ def disable_everflow(duthost):
     lines = duthost.shell("show acl table EVERFLOW")["stdout_lines"]
     if any("EVERFLOW" in line for line in lines):
         duthost.shell("config acl remove table EVERFLOW")
+        if not _verify_acl_table_removed(duthost, "EVERFLOW"):
+            raise RuntimeError("EVERFLOW not fully removed on {}".format(duthost.hostname))
 
     if _mirror_session_exists(duthost, EVERFLOW_SESSION):
         duthost.shell("config mirror_session remove {}".format(EVERFLOW_SESSION))
@@ -155,6 +184,8 @@ def enable_everflowv6(duthost):
         duthost.shell(
             "config acl add table EVERFLOWV6 MIRRORV6 -p {}".format(",".join(ports))
         )
+        if not _verify_acl_table_ports(duthost, "EVERFLOWV6", ports):
+            raise RuntimeError("EVERFLOWV6 not attached to all ports on {}".format(duthost.hostname))
     duthost.shell("config save -y")
 
 
@@ -163,6 +194,8 @@ def disable_everflowv6(duthost):
     lines = duthost.shell("show acl table EVERFLOWV6")["stdout_lines"]
     if any("EVERFLOWV6" in line for line in lines):
         duthost.shell("config acl remove table EVERFLOWV6")
+        if not _verify_acl_table_removed(duthost, "EVERFLOWV6"):
+            raise RuntimeError("EVERFLOWV6 not fully removed on {}".format(duthost.hostname))
 
     if _mirror_session_exists(duthost, EVERFLOWV6_SESSION):
         duthost.shell("config mirror_session remove {}".format(EVERFLOWV6_SESSION))
@@ -221,6 +254,28 @@ def enable_ipinip_decap(duthost):
         duthost.shell_cmds(cmds=cmds)
 
 
+def _verify_ipinip_decap_removed(duthost):
+    """Verify that all IPINIP decap tunnel entries are removed from APP_DB."""
+    result = duthost.shell(
+        'sonic-db-cli APPL_DB KEYS "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL*"',
+        module_ignore_errors=True,
+    )["stdout"].strip()
+    if result:
+        logger.warning("IPinIP decap entries still present in APPL_DB: %s", result)
+        return False
+
+    term_result = duthost.shell(
+        'sonic-db-cli APPL_DB KEYS "TUNNEL_DECAP_TERM_TABLE:IPINIP_TUNNEL*"',
+        module_ignore_errors=True,
+    )["stdout"].strip()
+    if term_result:
+        logger.warning("IPinIP decap term entries still present in APPL_DB: %s", term_result)
+        return False
+
+    logger.info("All IPinIP decap entries successfully removed from APPL_DB")
+    return True
+
+
 def disable_ipinip_decap(duthost):
     """Remove IPINIP decap tunnel via swssconfig."""
     loopback_ip = _get_loopback_ip(duthost)
@@ -236,6 +291,9 @@ def disable_ipinip_decap(duthost):
             "docker exec {} rm /ipinip_decap_del.json".format(swss),
         ]
         duthost.shell_cmds(cmds=cmds)
+
+    if not _verify_ipinip_decap_removed(duthost):
+        raise RuntimeError("IPinIP decap entries were not fully removed on {}".format(duthost.hostname))
 
 
 def enable_usid_decap(duthost, config):
