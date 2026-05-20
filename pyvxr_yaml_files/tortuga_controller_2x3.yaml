@@ -199,8 +199,8 @@ devices:
         8..15: 1x100
         16..23: 4x25
         24..31: 4x10
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
@@ -252,8 +252,8 @@ devices:
         8..15: 1x100
         16..23: 4x25
         24..31: 4x10
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
@@ -300,8 +300,8 @@ devices:
         8..15: 1x100
         16..23: 4x25
         24..31: 4x10
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
@@ -348,8 +348,8 @@ devices:
         8..15: 1x100
         16..23: 4x25
         24..31: 4x10
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
@@ -396,8 +396,8 @@ devices:
         8..15: 1x100
         16..23: 4x25
         24..31: 4x10
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB

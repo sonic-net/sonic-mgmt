@@ -15,8 +15,8 @@ devices:
     port_breakout:
        lc0:
           0..63: 1x800
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: /nobackup/prashsr3/IPSLA/images/cisco.202405c.2.tortuga/sonic-buildimage-cisco.202405c.2.tortuga-periodic/sonic-cisco-8000.bin
     vxr_sim_config:
       shelf:

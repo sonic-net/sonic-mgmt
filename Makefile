@@ -7,8 +7,8 @@ TEMP_TESTFILE := $(shell mktemp)
 PIPELINE_TYPE ?= "manual_sanity"
 BUILD_ID ?= "${USER}_$(date +%Y%m%d%H%M%S)"
 REPORT_REPO ?= /auto/mb/sonic/workspace/sonic-cicd/sanity_logs/${PIPELINE_TYPE}
-DUT_USERNAME ?= "cisco"
-DUT_PASSWORD ?= "cisco123"
+DUT_USERNAME ?= "admin"
+DUT_PASSWORD ?= "password"
 
 DISABLE_ZTP ?= false
 

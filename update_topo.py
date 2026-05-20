@@ -147,7 +147,7 @@ with open(topology_file, "r") as fd:
             topo["devices"][device]["pre_cli"] = topo["devices"][device].get("pre_cli", '').rstrip('\n') + '\nsudo ztp disable -y\n'
             print("ZTP disabled")
 
-        #populate dut password, default cisco/cisco123
+        #populate dut credentials (defaults align with argparse: admin/password)
         print(f"set DUT username/pass to '{args.dut_username}/{args.dut_password}'")
         topo["devices"][device]["linux_username"] = args.dut_username
         topo["devices"][device]["linux_password"] = args.dut_password

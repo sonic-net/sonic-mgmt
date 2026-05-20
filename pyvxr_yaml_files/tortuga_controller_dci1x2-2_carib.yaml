@@ -60,8 +60,8 @@ devices:
     platform: nxos
     image: /auto/vxr/images/nxos/nxos64-cs.10.4.4.qcow2
     xr_hostname: IPN
-    xr_username: cisco
-    xr_password: cisco123
+    xr_username: admin
+    xr_password: password
     xr_port_redir:
       - 22
     xr_config: |
@@ -102,8 +102,8 @@ devices:
     vxr_sim_config:
       shelf:
         ConfigCardPidOverride: HF6100-32D
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: /nobackup/images/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB

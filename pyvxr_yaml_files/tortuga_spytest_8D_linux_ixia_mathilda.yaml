@@ -12,8 +12,8 @@ devices:
   SD1: &sonic_router
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso
     linecard_types: [matilda64]
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: /nobackup/prashsr3/IPSLA/images/cisco.202405c.2.tortuga/sonic-buildimage-cisco.202405c.2.tortuga-periodic/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
