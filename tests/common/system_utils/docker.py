@@ -158,6 +158,20 @@ def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
             'latest'
         )
     else:
+        # After swss stops, the management plane (PortChannel default route) may be
+        # unavailable for ~60s. Poll until the registry responds before docker login.
+        registry_host = creds.get("docker_registry_host", "")
+
+        def mgmt_plane_ready():
+            cmd = ("curl -s -o /dev/null -w '%{http_code}' --max-time 5 "
+                   "https://" + registry_host + "/v2/")
+            result = duthost.command(cmd, module_ignore_errors=True)
+            return result["rc"] == 0
+
+        if registry_host:
+            logger.info("Waiting for management plane to recover before docker login...")
+            if not wait_until(120, 5, 0, mgmt_plane_ready):
+                logger.warning("Management plane did not recover within 120s — proceeding to docker login anyway")
         registry = load_docker_registry_info(duthost, creds)
         download_image(duthost, registry, docker_rpc_image, duthost.os_version)
 
