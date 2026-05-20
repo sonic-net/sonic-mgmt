@@ -25,6 +25,8 @@ pytestmark = [
 
 
 def get_first_interface(duthost):
+    if duthost.is_supervisor_node():
+        return None
     cmds = "show interface status"
     output = duthost.shell(cmds)
     assert (not output['rc']), "No output"
