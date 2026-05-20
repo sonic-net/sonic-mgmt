@@ -59,12 +59,6 @@ def suppress_signal_registration_for_non_main_thread():
             def _thread_safe_signal(signum, handler):
                 if threading.current_thread() is threading.main_thread():
                     return _original_signal(signum, handler)
-                logger.warning(
-                    "Skipping signal.signal(%s, %s) from non-main thread %s; "
-                    "ansible-core 2.19+ restricts signal handling to main thread. "
-                    "Returning default handler instead.",
-                    signum, handler, threading.current_thread().name
-                )
                 return signal.getsignal(signum)
 
             signal.signal = _thread_safe_signal

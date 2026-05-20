@@ -25,7 +25,7 @@ from tests.common.fixtures.ptfhost_utils import \
     copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa: F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
 from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -1092,8 +1092,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             logger.info('Skip checking rule counters for vs platform')
             return True
 
-        logger.info('Wait all rule counters are ready')
-        return wait_until(300, 2, 0, self.check_rule_counters_internal, duthost)
+        plt_wait_dict = get_plt_wait_time(duthost, "acl/test_acl.py")
+        wait = plt_wait_dict.get("wait", 300)
+        logger.info('Wait for {} to ensure all rule counters are ready'.format(wait))
+        return wait_until(wait, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():

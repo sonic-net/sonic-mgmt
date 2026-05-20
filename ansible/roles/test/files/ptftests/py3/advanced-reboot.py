@@ -1443,7 +1443,35 @@ class ReloadTest(BaseTest):
 
         self.assertTrue(is_good, errors)
 
+    def _verify_neighbors_reachable(self, connect_timeout=15):
+        """Pre-flight: confirm every neighbor in ssh_targets is SSH-reachable.
+
+        Fails fast under fails['infrastructure'] so a broken testbed doesn't
+        burn 600s in wait_until_control_plane_down with wedged SSH threads
+        stuck inside paramiko.connect().
+        """
+        bad = []
+        for ip in self.ssh_targets:
+            try:
+                handle = HostDevice.getHostDeviceInstance(
+                    self.test_params['neighbor_type'], ip, None,
+                    self.test_params, log_cb=self.log,
+                    connect_timeout=connect_timeout)
+                handle.connect()
+                handle.disconnect()
+                self.log("Neighbor SSH probe ok for {}".format(ip))
+            except Exception as e:
+                err = "{}: {}".format(type(e).__name__, e)
+                self.log("Neighbor SSH probe failed for {}: {}".format(ip, err))
+                bad.append((ip, err))
+        if bad:
+            msg = "Neighbor SSH unreachable from PTF: {}".format(bad)
+            self.fails['infrastructure'].add(msg)
+            raise RuntimeError(msg)
+
     def runTest(self):
+        self._verify_neighbors_reachable()
+
         # Set LACP timer multiplier for cEOS peers when it is not default (3)
         if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
             self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
