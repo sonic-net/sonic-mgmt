@@ -19,6 +19,28 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+    """Ignore transient teamsyncd errors caused by killing teamd in this module.
+
+    Tests like ``test_kill_team_lag_up`` and ``test_kill_team_peer_lag_up``
+    deliberately stop teamd (via SIGUSR1 / pkill) and then run ``config reload``
+    in the cleanup fixture. While the PortChannels are being re-created during
+    that recovery, teamsyncd may briefly fail to bind a team socket with
+    ``Cannot assign requested address`` before the next ``RTM_NEWLINK`` arrives.
+    The condition is transient and not a real failure, but loganalyzer otherwise
+    matches it on teardown and fails the test.
+    """
+    ignore_errors = [
+        r".* ERR teamd#teamsyncd: .*addLag: addLag: Failed to initialize team handler for LAG "
+        r".* Unable to initialize team socket: Cannot assign requested address\. "
+        r"Waiting for next RTM_NEWLINK\..*",
+    ]
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+
 class LACPRetryCount(Packet):
     name = "LACPRetryCount"
     fields_desc = [
