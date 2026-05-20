@@ -188,11 +188,15 @@ def ptfadapter(ptfhosts, tbinfo, request, duthost):
             ptfhost.command('supervisorctl update')
 
             # Force a restart of ptf_nn_agent to ensure that it is in good status.
-            ptfhost.command('supervisorctl restart ptf_nn_agent')
+            # Ignore command errors so that a transient "ERROR (spawn error)" (for
+            # example, a port collision on the randomly-picked ptf_nn_port) does
+            # not bypass the surrounding retry loop with a different port.
+            ptfhost.command('supervisorctl restart ptf_nn_agent', module_ignore_errors=True)
 
             # check whether ptf_nn_agent starts successfully
-            if "RUNNING" in ptfhost.command('supervisorctl status ptf_nn_agent',
-                                            module_ignore_errors=True)["stdout_lines"][0]:
+            status_lines = ptfhost.command('supervisorctl status ptf_nn_agent',
+                                           module_ignore_errors=True)["stdout_lines"]
+            if status_lines and "RUNNING" in status_lines[0]:
                 return ptf_nn_port
         return None
 
