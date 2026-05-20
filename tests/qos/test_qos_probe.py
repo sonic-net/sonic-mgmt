@@ -76,7 +76,14 @@ class TestQosProbe(QosSaiBase):
             return cells // self.cells_per_packet
 
     class CiscoProbeParamsResolver(ProbeParamsResolver):
-        """Cisco-8000: resolve packet_size and cell_size from QoS config."""
+        """Cisco-8000: resolve packet_size and cell_size from QoS config.
+
+        Cisco qos.yml threshold values are calibrated in packet units
+        (not cell units), so cells_to_pkts is identity (no conversion).
+        Legacy code applies // cell_occupancy but compensates by sending
+        packets that each occupy cell_occupancy cells, resulting in the
+        same total cell consumption.
+        """
         def __init__(self, qosConfig_profile=None, dutQosConfig=None):
             qosConfig_profile = qosConfig_profile or {}
             dutQosConfig = dutQosConfig or {}
@@ -87,6 +94,10 @@ class TestQosProbe(QosSaiBase):
                              or TestQosProbe.find_cell_size(dutQosConfig.get("param", {}))
                              or 384)
             self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
+
+        def cells_to_pkts(self, value):
+            """Cisco thresholds are already in packet units — no conversion."""
+            return value
 
     # Registry: platform_asic -> ProbeParamsResolver subclass
     _PROBE_RESOLVER_REGISTRY = {
