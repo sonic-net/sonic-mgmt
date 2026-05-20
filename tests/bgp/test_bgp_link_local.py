@@ -462,7 +462,7 @@ def configure_unnumbered_bgp(setup_info):
         eos_cleanup_failed = False
 
     # Config reload on DUT to restore everything
-    config_reload(duthost, wait=120)
+    config_reload(duthost, wait=120, wait_for_bgp=True)
 
     # Wait for all original BGP sessions to re-establish
     original_neighbors = [neigh_ipv4]
