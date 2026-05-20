@@ -16,8 +16,14 @@ def run_yang_validation(duthost, stage="validation"):
     """
     logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
     try:
+        # Use a tempfile rather than `echo ... | sudo config apply-patch /dev/stdin`.
+        # The pipe+sudo+/dev/stdin form intermittently delivers empty stdin to the
+        # sudo'd `config` process, which then fails JSON parsing with
+        # "Expecting value: line 1 column 1 (char 0)" and is the dominant source
+        # of pre/post-test YANG validation flakes in PR runs.
         result = duthost.shell(
-            'echo "[]" | sudo config apply-patch /dev/stdin',
+            'tmp=$(mktemp) && printf "[]" > "$tmp" && '
+            'sudo config apply-patch "$tmp"; rc=$?; rm -f "$tmp"; exit $rc',
             module_ignore_errors=True
         )
 

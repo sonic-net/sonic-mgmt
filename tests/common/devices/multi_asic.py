@@ -972,7 +972,13 @@ class MultiAsicSonicHost(object):
         """
         Validate yang over running config
         """
-        output = self.shell("echo '[]' | sudo config apply-patch /dev/stdin", module_ignore_errors=True)
+        # Use a tempfile rather than `echo '[]' | sudo config apply-patch /dev/stdin`
+        # to avoid intermittent empty-stdin failures from sudo+pipe handling.
+        output = self.shell(
+            'tmp=$(mktemp) && printf "[]" > "$tmp" && '
+            'sudo config apply-patch "$tmp"; rc=$?; rm -f "$tmp"; exit $rc',
+            module_ignore_errors=True
+        )
         if output['rc'] != 0:
             return False
         if strict_yang_validation:
