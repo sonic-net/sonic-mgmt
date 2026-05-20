@@ -680,19 +680,13 @@ bgp/test_traffic_shift_sup.py:
 
 bmp/:
   skip:
-    reason: 'BMP tests require BGP routing, not available on BMC'
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
     conditions:
-      - "'bmc' in topo_type"
+      - "release in ['master']"
 
 #######################################
 #####            cacl             #####
 #######################################
-cacl/test_cacl_application.py:
-  skip:
-    reason: "skip test_cacl_application in PR test temporarily"
-    conditions:
-      - "asic_type in ['vs']"
-
 cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
   skip:
     reason: "test_cacl_acl_loader_commands_internal is only supported on t0/t1 testbed"
@@ -749,12 +743,24 @@ configlet/test_add_rack.py:
     conditions:
       - "is_multi_asic==True"
 
+#######################################
+#####            console          #####
+#######################################
 console/:
   skip:
     reason: 'Console tests under tests/console/ are designed for c0 topology, not compatible with BMC'
     conditions:
       - "'bmc' in topo_type"
 
+console/test_console_availability.py:
+  skip:
+    reason: "This test is applicable to virtual setup only."
+    conditions:
+      - "asic_type in ['vpp'] and platform.startswith('arm64-c8220tg_48a_o')"
+
+#######################################
+#####    container_hardening      #####
+#######################################
 container_hardening/test_container_hardening.py::test_container_privileged:
   skip:
     reason: "Not supported on 202305 and older releases"
@@ -865,7 +871,7 @@ dash/test_dash_metering.py:
   skip:
     reason: "Metering w/ FNIC not supported on Nvidia yet"
     conditions:
-      - "hwsku not in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_privatelink.py:
   skip:
@@ -951,77 +957,17 @@ decap/:
 
 decap/test_decap.py:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 topos. Skip on Arista-720DT (TD3-X2 chip does not honor DSCP uniform decap; concession in aristanetworks/sonic-qual.msft#1176).'
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "'Arista-720DT' in hwsku"
   xfail:
     reason: "Xfail due to github issue 20982. Or decap is not supported on x86_64-nvidia_sn5640-r0."
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20982 and asic_type in ['mellanox', 'nvidia']"
       - "platform in ['x86_64-nvidia_sn5640-r0']"
-
-decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
-  skip:
-    reason: "Not supported on broadcom after 201911 release, cisco-8000 all releases. Skip on t1-isolated-d32/128 topos"
-    conditions_logical_operator: or
-    conditions:
-      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['cisco-8000'])"
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-  xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions:
-      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
-  skip:
-    reason: "Not supported on broadcom after 201911 release, cisco-8000 all releases and marvell-prestera asics. Skip on t1-isolated-d32/128 topos"
-    conditions_logical_operator: or
-    conditions:
-      - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['cisco-8000']) or (asic_type in ['marvell-prestera', 'marvell'])"
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-  xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions:
-      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
-  skip:
-    conditions_logical_operator: or
-    reason: "Not supported on backend, broadcom before 202012 release. Skip 7260CX3 T1 topo in 202305 release. Skip on t1-isolated-d32/128 topos"
-    conditions:
-      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
-      - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-  xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions:
-      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
-  skip:
-    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, x86_64-8111_32eh_o-r0 platform. Skip on mellanox all releases. Skip on 7260CX3 T1 topo in 202305 release. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
-    conditions_logical_operator: or
-    conditions:
-      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or platform in ['x86_64-8111_32eh_o-r0'] or asic_type in ['mellanox']"
-      - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
-      - *noVxlanTopos
-
-decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
-  skip:
-    reason: "Not supported uniform ttl mode"
-
-decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=set_unset]:
-  skip:
-    reason: "Not supported uniform ttl mode"
-
-decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=disable]:
-  skip:
-    reason: "Not supported uniform ttl mode"
-
-decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
-  skip:
-    reason: "Not supported uniform ttl mode"
 
 decap/test_subnet_decap.py::test_vip_packet_decap:
   skip:
@@ -1275,6 +1221,10 @@ dhcp_server:
 #####             disk            #####
 #######################################
 disk/test_disk_exhaustion.py:
+  skip:
+    reason: "Not applicable on BMC: test validates data-plane packet forwarding under disk pressure; BMC has no front-panel ports or PortChannel data plane (peer_ip_ifaces_pair[0] -> IndexError)."
+    conditions:
+      - "'bmc' in topo_type"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20759"
     conditions:
@@ -2744,9 +2694,11 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
 
 generic_config_updater/test_monitor_config.py::test_monitor_config_tc1_suite:
   skip:
-    reason: "This test is not run on this asic type or version currently / ERSPAN meter is not supported for Cisco Platform"
+    reason: "Not applicable: ERSPAN meter is not supported on Cisco-8000; no switch ports for ACL_TABLE on BMC."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "'bmc' in topo_type"
 
 generic_config_updater/test_multiasic_addcluster.py:
   skip:
@@ -2769,6 +2721,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions_logical_operator: or
     conditions:
       - "(is_multi_asic is False)"
+      - "'bmc' in topo_type"
+
+generic_config_updater/test_ntp.py::test_ntp_server_change_source_intf:
+  skip:
+    reason: "Loopback0 is not present on BMC platforms (no routing data plane); sonic-ntp YANG validation rejects src_intf=Loopback0."
+    conditions:
       - "'bmc' in topo_type"
 
 generic_config_updater/test_packet_trimming_config_asymmetric.py:
@@ -2856,6 +2814,12 @@ gnmi/test_gnmi.py:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
+gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
+  skip:
+    reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
@@ -2874,10 +2838,11 @@ gnmi/test_gnmi_configdb.py:
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
   skip:
@@ -2888,10 +2853,11 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
   skip:
@@ -2899,6 +2865,12 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
     conditions:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_polling_01:
+  skip:
+    reason: "Test relies on DEVICE_METADATA bgp_asn; not configured on BMC"
+    conditions:
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
   skip:
@@ -2916,10 +2888,11 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no DEVICE_METADATA bgp_asn)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
   skip:
@@ -2934,26 +2907,41 @@ gnmi/test_gnmi_countersdb.py:
     conditions:
       - "is_multi_asic==True"
 
+gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_01:
+  skip:
+    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_02:
+  skip:
+    reason: "Test relies on COUNTERS_PORT_NAME_MAP populated by syncd; not applicable on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_output:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
   skip:
@@ -2965,6 +2953,12 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
 gnmi/test_gnmi_smartswitch.py:
   skip:
     reason: 'SmartSwitch gNMI tests require SmartSwitch platform, not applicable to BMC'
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnmi_stress.py::test_gnmi_latency_01:
+  skip:
+    reason: "Test relies on PORT table in CONFIG_DB; not configured on BMC"
     conditions:
       - "'bmc' in topo_type"
 
@@ -5270,6 +5264,10 @@ sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[
 #####             syslog          #####
 #######################################
 syslog/test_logrotate.py::test_orchagent_logrotate:
+  skip:
+    reason: "BMC has no orchagent service; not applicable"
+    conditions:
+      - "'bmc' in topo_type"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -5369,6 +5367,12 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
+telemetry/test_telemetry.py::test_on_change_updates:
+  skip:
+    reason: "Test relies on BGP neighbors; none configured on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 telemetry/test_telemetry.py::test_osbuild_version:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
@@ -5385,10 +5389,11 @@ telemetry/test_telemetry.py::test_sysuptime:
 
 telemetry/test_telemetry.py::test_telemetry_ouput:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no Ethernet0/COUNTERS_DB)"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
