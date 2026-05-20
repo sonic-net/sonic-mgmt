@@ -992,7 +992,9 @@
             "docker_prompt":"@sonic-ucs-m6-30",
             "sonic_mgmt_container_202405": "cicd_prod_202405",
             "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_202501": "cicd_prod_202411", 
             "sonic_mgmt_container_202511": "cicd_prod_202511",
+            "sonic_mgmt_container_master": "cicd_prod_master", 
             "run_type_check": "run_tests",
             "sonic_installer_commands":[
                 "sudo show boot",
@@ -1029,6 +1031,7 @@
             "sonic_mgmt_container_202501": "cicd_prod_202411", 
             "sonic_mgmt_container_202505": "cicd_prod_202505",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
+            "sonic_mgmt_container_master": "cicd_prod_master", 
             "run_type_check": "run_tests",
             "sonic_installer_commands":[
                 "sudo show boot",
@@ -1065,6 +1068,7 @@
             "sonic_mgmt_container_202411": "cicd_prod_202411",
             "sonic_mgmt_container_202505": "cicd_prod_202505",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
+            "sonic_mgmt_container_master": "cicd_prod_master", 
             "run_type_check": "run_tests",
             "sonic_installer_commands":[
                 "sudo show boot",
