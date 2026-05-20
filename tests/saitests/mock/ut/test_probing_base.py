@@ -562,73 +562,297 @@ class TestProbingBaseSetUp:
 
     @pytest.mark.order(935)
     def test_setUp_ingress_drop_pg_counter_true(self):
-        """Test setUp() sets use_pg_drop_counter=True"""
+        """Test setUp() INGRESS_DROP_USE_PG_COUNTER=true forces pg_drop mode"""
         print("\n=== Testing setUp() - INGRESS_DROP_USE_PG_COUNTER=true ===")
 
         pb = ConcreteProbingBase()
 
-        # Simulate what setUp() does for INGRESS_DROP_USE_PG_COUNTER
-        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'true'}):
-            env_value = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
-            if env_value in ('true', '1', 'yes'):
-                pb.use_pg_drop_counter = True
-            elif env_value in ('false', '0', 'no'):
-                pb.use_pg_drop_counter = False
+        # Simulate the NEW 3-level setUp() logic
+        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'true'}, clear=True):
+            # Step 1: param_mode from testParams attribute
+            param_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
+            # Step 2: INGRESS_DROP_COUNTER_MODE env var
+            env_mode = os.getenv('INGRESS_DROP_COUNTER_MODE', '').lower()
+            if env_mode in ('pg_drop', 'port_buffer_drop', 'port_drop'):
+                pb.ingress_drop_counter_mode = env_mode
             else:
+                pb.ingress_drop_counter_mode = param_mode
+            # Step 3: Backward compat - INGRESS_DROP_USE_PG_COUNTER
+            env_pg = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
+            if env_pg in ('true', '1', 'yes'):
+                pb.use_pg_drop_counter = True
+                pb.ingress_drop_counter_mode = 'pg_drop'
+            elif env_pg in ('false', '0', 'no'):
                 pb.use_pg_drop_counter = False
+                pb.ingress_drop_counter_mode = 'port_drop'
+            else:
+                pb.use_pg_drop_counter = (pb.ingress_drop_counter_mode == 'pg_drop')
 
         print("  Environment: INGRESS_DROP_USE_PG_COUNTER=true")
         print(f"  Result: pb.use_pg_drop_counter={pb.use_pg_drop_counter}")
+        print(f"  Result: pb.ingress_drop_counter_mode={pb.ingress_drop_counter_mode}")
         assert pb.use_pg_drop_counter is True
-        print("[OK] use_pg_drop_counter correctly set to True")
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        print("[OK] INGRESS_DROP_USE_PG_COUNTER=true forces pg_drop mode")
 
     @pytest.mark.order(936)
     def test_setUp_ingress_drop_pg_counter_false(self):
-        """Test setUp() sets use_pg_drop_counter=False"""
+        """Test setUp() INGRESS_DROP_USE_PG_COUNTER=false forces port_drop mode"""
         print("\n=== Testing setUp() - INGRESS_DROP_USE_PG_COUNTER=false ===")
 
         pb = ConcreteProbingBase()
+        # Even if param says port_buffer_drop, env_pg=false forces port_drop
+        pb.ingress_drop_counter_mode = 'port_buffer_drop'
 
-        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'false'}):
-            env_value = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
-            if env_value in ('true', '1', 'yes'):
-                pb.use_pg_drop_counter = True
-            elif env_value in ('false', '0', 'no'):
-                pb.use_pg_drop_counter = False
+        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'false'}, clear=True):
+            param_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
+            env_mode = os.getenv('INGRESS_DROP_COUNTER_MODE', '').lower()
+            if env_mode in ('pg_drop', 'port_buffer_drop', 'port_drop'):
+                pb.ingress_drop_counter_mode = env_mode
             else:
+                pb.ingress_drop_counter_mode = param_mode
+            env_pg = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
+            if env_pg in ('true', '1', 'yes'):
+                pb.use_pg_drop_counter = True
+                pb.ingress_drop_counter_mode = 'pg_drop'
+            elif env_pg in ('false', '0', 'no'):
                 pb.use_pg_drop_counter = False
+                pb.ingress_drop_counter_mode = 'port_drop'
+            else:
+                pb.use_pg_drop_counter = (pb.ingress_drop_counter_mode == 'pg_drop')
 
         print("  Environment: INGRESS_DROP_USE_PG_COUNTER=false")
         print(f"  Result: pb.use_pg_drop_counter={pb.use_pg_drop_counter}")
+        print(f"  Result: pb.ingress_drop_counter_mode={pb.ingress_drop_counter_mode}")
         assert pb.use_pg_drop_counter is False
-        print("[OK] use_pg_drop_counter correctly set to False")
+        assert pb.ingress_drop_counter_mode == 'port_drop'
+        print("[OK] INGRESS_DROP_USE_PG_COUNTER=false forces port_drop mode")
 
     @pytest.mark.order(937)
     def test_setUp_ingress_drop_pg_counter_default(self):
-        """Test setUp() defaults use_pg_drop_counter to False"""
+        """Test setUp() defaults: no env vars, no param → port_drop"""
         print("\n=== Testing setUp() - INGRESS_DROP_USE_PG_COUNTER Default ===")
 
         pb = ConcreteProbingBase()
 
         with patch.dict(os.environ, {}, clear=True):
-            env_value = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
-            if env_value in ('true', '1', 'yes'):
-                pb.use_pg_drop_counter = True
-            elif env_value in ('false', '0', 'no'):
-                pb.use_pg_drop_counter = False
+            param_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
+            env_mode = os.getenv('INGRESS_DROP_COUNTER_MODE', '').lower()
+            if env_mode in ('pg_drop', 'port_buffer_drop', 'port_drop'):
+                pb.ingress_drop_counter_mode = env_mode
             else:
+                pb.ingress_drop_counter_mode = param_mode
+            env_pg = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
+            if env_pg in ('true', '1', 'yes'):
+                pb.use_pg_drop_counter = True
+                pb.ingress_drop_counter_mode = 'pg_drop'
+            elif env_pg in ('false', '0', 'no'):
                 pb.use_pg_drop_counter = False
+                pb.ingress_drop_counter_mode = 'port_drop'
+            else:
+                pb.use_pg_drop_counter = (pb.ingress_drop_counter_mode == 'pg_drop')
 
-        print("  Environment: No INGRESS_DROP_USE_PG_COUNTER set")
+        print("  Environment: No env vars set")
         print(f"  Result: pb.use_pg_drop_counter={pb.use_pg_drop_counter}")
+        print(f"  Result: pb.ingress_drop_counter_mode={pb.ingress_drop_counter_mode}")
         assert pb.use_pg_drop_counter is False
-        print("[OK] use_pg_drop_counter defaults to False")
+        assert pb.ingress_drop_counter_mode == 'port_drop'
+        print("[OK] defaults to port_drop mode with use_pg_drop_counter=False")
+
+
+class TestProbingBaseIngressDropCounterMode:
+    """Tests for the 3-level ingress drop counter mode logic in setUp()"""
+
+    def _run_setUp_logic(self, pb, env_vars=None):
+        """Helper: simulate the full 3-level setUp() counter mode logic"""
+        if env_vars is None:
+            env_vars = {}
+        with patch.dict(os.environ, env_vars, clear=True):
+            # Step 1: param_mode from testParams attribute
+            param_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
+            # Step 2: INGRESS_DROP_COUNTER_MODE env var override
+            env_mode = os.getenv('INGRESS_DROP_COUNTER_MODE', '').lower()
+            if env_mode in ('pg_drop', 'port_buffer_drop', 'port_drop'):
+                pb.ingress_drop_counter_mode = env_mode
+            else:
+                pb.ingress_drop_counter_mode = param_mode
+            # Step 3: Backward compat - INGRESS_DROP_USE_PG_COUNTER
+            env_pg = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
+            if env_pg in ('true', '1', 'yes'):
+                pb.use_pg_drop_counter = True
+                pb.ingress_drop_counter_mode = 'pg_drop'
+            elif env_pg in ('false', '0', 'no'):
+                pb.use_pg_drop_counter = False
+                pb.ingress_drop_counter_mode = 'port_drop'
+            else:
+                pb.use_pg_drop_counter = (pb.ingress_drop_counter_mode == 'pg_drop')
+
+    @pytest.mark.order(938)
+    def test_param_pg_drop_sets_mode(self):
+        """Test testParams ingress_drop_counter_mode='pg_drop' → pg_drop"""
+        print("\n=== Testing param_mode='pg_drop' ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'pg_drop'
+        self._run_setUp_logic(pb)
+        print(f"  param_mode='pg_drop', no env vars")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        assert pb.use_pg_drop_counter is True
+        print("[OK] param pg_drop → mode=pg_drop, use_pg=True")
+
+    @pytest.mark.order(939)
+    def test_param_port_buffer_drop_sets_mode(self):
+        """Test testParams ingress_drop_counter_mode='port_buffer_drop' → port_buffer_drop"""
+        print("\n=== Testing param_mode='port_buffer_drop' ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'port_buffer_drop'
+        self._run_setUp_logic(pb)
+        print(f"  param_mode='port_buffer_drop', no env vars")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
+        assert pb.use_pg_drop_counter is False
+        print("[OK] param port_buffer_drop → mode=port_buffer_drop, use_pg=False")
+
+    @pytest.mark.order(940)
+    def test_param_port_drop_sets_mode(self):
+        """Test testParams ingress_drop_counter_mode='port_drop' → port_drop"""
+        print("\n=== Testing param_mode='port_drop' ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'port_drop'
+        self._run_setUp_logic(pb)
+        print(f"  param_mode='port_drop', no env vars")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'port_drop'
+        assert pb.use_pg_drop_counter is False
+        print("[OK] param port_drop → mode=port_drop, use_pg=False")
+
+    @pytest.mark.order(941)
+    def test_env_counter_mode_overrides_param(self):
+        """Test INGRESS_DROP_COUNTER_MODE env var overrides param_mode"""
+        print("\n=== Testing INGRESS_DROP_COUNTER_MODE overrides param ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'port_drop'  # param says port_drop
+        self._run_setUp_logic(pb, {'INGRESS_DROP_COUNTER_MODE': 'port_buffer_drop'})
+        print(f"  param_mode='port_drop', env INGRESS_DROP_COUNTER_MODE='port_buffer_drop'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
+        assert pb.use_pg_drop_counter is False
+        print("[OK] INGRESS_DROP_COUNTER_MODE overrides param_mode")
+
+    @pytest.mark.order(942)
+    def test_env_counter_mode_pg_drop_overrides_param(self):
+        """Test INGRESS_DROP_COUNTER_MODE=pg_drop overrides param port_drop"""
+        print("\n=== Testing INGRESS_DROP_COUNTER_MODE=pg_drop overrides param ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'port_drop'
+        self._run_setUp_logic(pb, {'INGRESS_DROP_COUNTER_MODE': 'pg_drop'})
+        print(f"  param_mode='port_drop', env INGRESS_DROP_COUNTER_MODE='pg_drop'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        assert pb.use_pg_drop_counter is True
+        print("[OK] INGRESS_DROP_COUNTER_MODE=pg_drop sets use_pg=True")
+
+    @pytest.mark.order(943)
+    def test_env_pg_counter_true_overrides_counter_mode(self):
+        """Test INGRESS_DROP_USE_PG_COUNTER=true overrides INGRESS_DROP_COUNTER_MODE"""
+        print("\n=== Testing INGRESS_DROP_USE_PG_COUNTER=true overrides everything ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'port_buffer_drop'
+        self._run_setUp_logic(pb, {
+            'INGRESS_DROP_COUNTER_MODE': 'port_buffer_drop',
+            'INGRESS_DROP_USE_PG_COUNTER': 'true'
+        })
+        print(f"  param='port_buffer_drop', env_mode='port_buffer_drop', env_pg='true'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        assert pb.use_pg_drop_counter is True
+        print("[OK] INGRESS_DROP_USE_PG_COUNTER=true overrides INGRESS_DROP_COUNTER_MODE")
+
+    @pytest.mark.order(944)
+    def test_env_pg_counter_false_forces_port_drop(self):
+        """Test INGRESS_DROP_USE_PG_COUNTER=false forces port_drop regardless of COUNTER_MODE"""
+        print("\n=== Testing INGRESS_DROP_USE_PG_COUNTER=false forces port_drop ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'pg_drop'
+        self._run_setUp_logic(pb, {
+            'INGRESS_DROP_COUNTER_MODE': 'pg_drop',
+            'INGRESS_DROP_USE_PG_COUNTER': 'false'
+        })
+        print(f"  param='pg_drop', env_mode='pg_drop', env_pg='false'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'port_drop'
+        assert pb.use_pg_drop_counter is False
+        print("[OK] INGRESS_DROP_USE_PG_COUNTER=false forces port_drop")
+
+    @pytest.mark.order(945)
+    def test_invalid_env_counter_mode_falls_back_to_param(self):
+        """Test invalid INGRESS_DROP_COUNTER_MODE falls back to param_mode"""
+        print("\n=== Testing invalid INGRESS_DROP_COUNTER_MODE ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'port_buffer_drop'
+        self._run_setUp_logic(pb, {'INGRESS_DROP_COUNTER_MODE': 'invalid_mode'})
+        print(f"  param='port_buffer_drop', env INGRESS_DROP_COUNTER_MODE='invalid_mode'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
+        assert pb.use_pg_drop_counter is False
+        print("[OK] Invalid env mode falls back to param_mode")
+
+    @pytest.mark.order(946)
+    def test_invalid_env_pg_counter_falls_back_to_mode(self):
+        """Test invalid INGRESS_DROP_USE_PG_COUNTER uses counter_mode to derive use_pg"""
+        print("\n=== Testing invalid INGRESS_DROP_USE_PG_COUNTER ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'pg_drop'
+        self._run_setUp_logic(pb, {'INGRESS_DROP_USE_PG_COUNTER': 'maybe'})
+        print(f"  param='pg_drop', env INGRESS_DROP_USE_PG_COUNTER='maybe' (invalid)")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        assert pb.use_pg_drop_counter is True
+        print("[OK] Invalid env_pg falls back to counter_mode-derived value")
+
+    @pytest.mark.order(947)
+    def test_env_pg_counter_1_is_truthy(self):
+        """Test INGRESS_DROP_USE_PG_COUNTER=1 is treated as true"""
+        print("\n=== Testing INGRESS_DROP_USE_PG_COUNTER=1 ===")
+        pb = ConcreteProbingBase()
+        self._run_setUp_logic(pb, {'INGRESS_DROP_USE_PG_COUNTER': '1'})
+        print(f"  env INGRESS_DROP_USE_PG_COUNTER='1'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        assert pb.use_pg_drop_counter is True
+        print("[OK] INGRESS_DROP_USE_PG_COUNTER=1 treated as true")
+
+    @pytest.mark.order(948)
+    def test_env_pg_counter_0_is_falsy(self):
+        """Test INGRESS_DROP_USE_PG_COUNTER=0 is treated as false"""
+        print("\n=== Testing INGRESS_DROP_USE_PG_COUNTER=0 ===")
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'pg_drop'
+        self._run_setUp_logic(pb, {'INGRESS_DROP_USE_PG_COUNTER': '0'})
+        print(f"  param='pg_drop', env INGRESS_DROP_USE_PG_COUNTER='0'")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'port_drop'
+        assert pb.use_pg_drop_counter is False
+        print("[OK] INGRESS_DROP_USE_PG_COUNTER=0 treated as false → port_drop")
+
+    @pytest.mark.order(949)
+    def test_no_param_no_env_defaults_to_port_drop(self):
+        """Test fresh object with no param and no env → port_drop"""
+        print("\n=== Testing no param, no env → port_drop ===")
+        pb = ConcreteProbingBase()
+        # Don't set ingress_drop_counter_mode — getattr defaults to 'port_drop'
+        self._run_setUp_logic(pb)
+        print(f"  No param set, no env vars")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        assert pb.ingress_drop_counter_mode == 'port_drop'
+        assert pb.use_pg_drop_counter is False
+        print("[OK] No param, no env → port_drop default")
 
 
 class TestProbingBaseTearDown:
     """Test tearDown() method (simplified - no parent call needed in UT)"""
 
-    @pytest.mark.order(938)
+    @pytest.mark.order(960)
     def test_tearDown_method_exists(self):
         """Test tearDown() method exists"""
         print("\n=== Testing tearDown() Method ===")
@@ -645,7 +869,7 @@ class TestProbingBaseTearDown:
 class TestProbingBaseRunTest:
     """Test runTest() template method"""
 
-    @pytest.mark.order(939)
+    @pytest.mark.order(961)
     def test_runTest_workflow(self):
         """Test runTest() executes full workflow"""
         print("\n=== Testing runTest() Template Method ===")
@@ -669,7 +893,7 @@ class TestProbingBaseRunTest:
 
         print("[OK] runTest() workflow executed successfully")
 
-    @pytest.mark.order(940)
+    @pytest.mark.order(962)
     def test_runTest_call_sequence(self):
         """Test runTest() calls methods in correct order"""
         print("\n=== Testing runTest() Call Sequence (Line 28-33) ===")
@@ -738,7 +962,7 @@ class TestProbingBaseRunTest:
 class TestProbingBaseGetRxPort:
     """Test get_rx_port() wrapper method"""
 
-    @pytest.mark.order(940)
+    @pytest.mark.order(963)
     def test_get_rx_port_wrapper(self):
         """Test get_rx_port() wraps module function"""
         print("\n=== Testing get_rx_port() Wrapper ===")
