@@ -3617,6 +3617,7 @@
   inv_name: str3
   auto_recover: 'True'
   is_smartswitch: 'True'
+  is_lit_mode: 'False'
   comment: paravind
 
 - conf-name: tbtk5-t2-7808-1
