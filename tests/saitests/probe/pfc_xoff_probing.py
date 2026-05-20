@@ -163,15 +163,13 @@ class PfcXoffProbing(ProbingBase):
                 vlan=port_ips[dpid].get("vlan_id", None)
             ))
 
-        # Probe packet config: received from test_qos_probe.py via testParams
-        # No platform-specific logic here — mgmt layer decides packet_length
-        packet_length = getattr(self, "probe_packet_length", 64)
+        # Probe packet config (resolved by ProbeParamsResolver in test_qos_probe.py)
+        packet_length = self.probe_packet_length
         ttl = 64
 
-        cells_per_packet = getattr(self, "probe_cells_per_packet", 1)
         log_message(
             f"Probe config: packet_length={packet_length}, "
-            f"cells_per_packet={cells_per_packet}", to_stderr=True
+            f"cells_per_packet={self.probe_cells_per_packet}", to_stderr=True
         )
 
         is_dualtor = getattr(self, "is_dualtor", False)
@@ -210,8 +208,7 @@ class PfcXoffProbing(ProbingBase):
         """
         # Convert pool size from cells to packets
         pool_size_cells = self.get_pool_size()
-        cells_per_packet = getattr(self, "probe_cells_per_packet", 1)
-        pool_size = pool_size_cells // cells_per_packet
+        pool_size = pool_size_cells // self.probe_cells_per_packet
 
         src_port = self.probing_port_ids[0]
         dst_port = self.stream_mgr.get_port_ids("dst")[0]
@@ -223,7 +220,7 @@ class PfcXoffProbing(ProbingBase):
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting threshold probing")
         ProbingObserver.console(f"  src_port={src_port}, dst_port={dst_port}")
-        ProbingObserver.console(f"  pool_size_cells={pool_size_cells}, cells_per_packet={cells_per_packet}, pool_size_pkts={pool_size}")
+        ProbingObserver.console(f"  pool_size_cells={pool_size_cells}, cells_per_packet={self.probe_cells_per_packet}, pool_size_pkts={pool_size}")
         ProbingObserver.console(f"  precision_target_ratio={self.PRECISION_TARGET_RATIO}")
         ProbingObserver.console(f"  enable_precise_detection={self.ENABLE_PRECISE_DETECTION}")
         ProbingObserver.console(f"  executor_env={self.EXECUTOR_ENV}")

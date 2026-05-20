@@ -307,6 +307,10 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         self.asic_type = self.sonic_asic_type
         self.counter_margin = 0
 
+        # Probe packet params (set by test_qos_probe.py via ProbeParamsResolver)
+        self.probe_packet_length = getattr(self, 'probe_packet_length', 64)
+        self.probe_cells_per_packet = getattr(self, 'probe_cells_per_packet', 1)
+
     def get_rx_port(self, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_vlan):
         """
         Resolve actual destination port (handles LAG scenarios).
