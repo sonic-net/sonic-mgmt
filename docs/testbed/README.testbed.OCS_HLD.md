@@ -26,17 +26,17 @@
 
 | Rev  | Rev Date   | Author(s)                                    | Change Description |
 | ---- | ---------- | -------------------------------------------- | ------------------ |
-| v0.1 | 04/08/2026 | Xin Huang, Hong Zeng, Haitao Chen (SVT Team) | Initial version    |
+| v0.1 | 2026/04/08 | Xin Huang, Hong Zeng, Haitao Chen (SVT Team) | Initial version    |
 
 ## Overview
 
-This document describes the high-level design for integrating Optical Circuit Switch (OCS) devices into the SONiC test management framework (`sonic-mgmt`). 
-OCS devices differ fundamentally from traditional Ethernet switches — they establish exclusive light-path circuits between port pairs rather than forwarding packets based on MAC addresses. 
-This document explains how the existing sonic-mgmt framework is extended to support OCS specific topology deployment, device configuration, and testing
+This document describes the high-level design for integrating Optical Circuit Switch (OCS) devices into the SONiC test management framework (`sonic-mgmt`).
+OCS devices differ fundamentally from traditional Ethernet switches — they establish exclusive light-path circuits between port pairs rather than forwarding packets based on MAC addresses.
+This document explains how the existing sonic-mgmt framework is extended to support OCS specific topology deployment, device configuration, and testing.
 
 ## Scope
 
-The end goal is to be able to run the existing Open Community tests in sonic-mgmt repository against an OCS system with minimal changes to test cases itself.
+The end goal is to be able to run the existing Open SourceCommunity tests in sonic-mgmt repository against an OCS system with minimal changes to test cases itself.
 
 ## Definitions/Abbreviations
 
@@ -76,17 +76,15 @@ The design of the OCS test framework follows the principles below:
 ### Test Framework for SONiC OCS
 The framework extends sonic-mgmt by introducing OCS specific test cases, topology definitions, and fixture adaptations.
 
-<div align="center">
-  <img src="./sonic-mgmt.png" alt="SONiC OCS Test Framework">
-</div>
+![alt text](sonic-mgmt.png)
 
 The system integrates Ansible for configuration and deployment, Pytest for test orchestration, and PTF for traffic generation, enabling end-to-end validation from test execution to device-level behavior.
 
 ### OCS Integration Design
 
 #### Infrastructure Adaptation
-- topology extension
-- inventory support
+- Topology extension
+- Inventory support
 - Ansible adaptation
 
 #### Test Case Adaptation
@@ -117,11 +115,7 @@ The system integrates Ansible for configuration and deployment, Pytest for test 
 
 ###  OCS Validation Workflow
 
-<div align="center">
-  <img src="./validation_workflow.png" alt="Validation Workflow"> 
-<br>
-<br>
-</div>
+![alt text](validation_workflow.png)
 
 The validation workflow follows a closed-loop model across control plane configuration, system state verification, and data plane validation.
 
@@ -132,11 +126,7 @@ The validation workflow illustrates the normal execution path of test cases,
 while the failure handling model defines how failures are detected and
 classified across different validation stages.
 
-<div align="center">
-  <img src="./failure_workflow.png" alt="Failure Handling Workflow">
-<br>
-<br>
-</div>
+![alt text](failure_workflow.png)
 
 The system adopts a layered failure detection model:
 - Configuration Failure: Invalid or conflicting configurations at the control plane
