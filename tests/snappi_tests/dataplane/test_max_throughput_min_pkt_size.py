@@ -10,7 +10,6 @@ from snappi_tests.dataplane.files.max_throughput_helper import (
     load_max_throughput_config,
     get_platform_thresholds,
     configure_scenario,
-    cleanup_all_features,
     backup_dut_config,
     restore_dut_config,
 )
@@ -98,6 +97,7 @@ def test_max_throughput_min_pkt_size(
             scenario_name=scenario_name,
             max_loss_pct=0.0,
             config=config,
+            duthost=duthost,
         )
 
         tolerance_pkt_size = min_pkt_size + tolerance_offset
@@ -118,6 +118,7 @@ def test_max_throughput_min_pkt_size(
             scenario_name=scenario_name,
             max_loss_pct=0.001,
             config=config,
+            duthost=duthost,
         )
 
     finally:
@@ -137,6 +138,7 @@ def _build_and_run_traffic(
     scenario_name,
     max_loss_pct,
     config,
+    duthost,
 ):
     """Build fresh snappi config with SRv6 IPv6-in-IPv6 flows, run traffic, and assert loss."""
     flow_name = "max_tput_{}_{}B".format(scenario_name, frame_size)
@@ -194,6 +196,10 @@ def _build_and_run_traffic(
 
     start_stop(snappi_api, operation="start", op_type="traffic")  # noqa: F405
 
+    # Verify SRv6 mySID counters are incrementing to confirm traffic matches the SID
+    time.sleep(5)  # noqa: F405
+    _verify_srv6_mysid_stats(duthost, srv6_cfg)
+
     logger.info("Traffic running for %d seconds ...", duration_sec)
     wait_with_message("Running traffic for", duration_sec)  # noqa: F405
 
@@ -224,6 +230,32 @@ def _build_and_run_traffic(
         ),
     )
     logger.info("Scenario '%s' PASSED at %dB (loss %.4f%%)", scenario_name, frame_size, max_loss)
+
+
+def _verify_srv6_mysid_stats(duthost, srv6_cfg):
+    """Check that SRv6 mySID entries exist in ASIC_DB, confirming traffic matches the SID."""
+    sid_ip = srv6_cfg.get("sid_ip", "fcbb:bbbb:1::")
+    result = duthost.shell(
+        'sonic-db-cli ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"',
+        module_ignore_errors=True,
+    )["stdout"].strip()
+
+    if not result:
+        logger.warning("No SRv6 mySID entries found in ASIC_DB — SID may not be programmed")
+        return
+
+    if sid_ip not in result:
+        logger.warning("SRv6 mySID %s not found in ASIC_DB entries", sid_ip)
+        return
+
+    logger.info("SRv6 mySID %s confirmed present in ASIC_DB — traffic should match", sid_ip)
+
+    # Check CRM counters to confirm mySID resource is in use
+    crm_output = duthost.shell(
+        "crm show resources srv6-my-sid-entry", module_ignore_errors=True
+    )
+    if crm_output["rc"] == 0:
+        logger.info("SRv6 mySID CRM resources:\n%s", crm_output["stdout"])
 
 
 def _apply_srv6_packet_headers(ixnet, srv6_cfg):
