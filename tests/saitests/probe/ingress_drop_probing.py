@@ -161,21 +161,25 @@ class IngressDropProbing(ProbingBase):
                 vlan=port_ips[dpid].get("vlan_id", None)
             ))
 
-        # Platform-independent: 64-byte packets = 1 cell
-        packet_length = 64
+        # Use platform-appropriate packet length
+        # Cisco-8000 with cell_size > 64: use packet_size from test params (e.g. 1350B = 4 cells)
+        # Other platforms: 64-byte packets = 1 cell (original behavior)
+        platform_asic = getattr(self, "platform_asic", None)
+        cell_size = getattr(self, "cell_size", 384)
+        platform_packet_size = getattr(self, "packet_size", 64)
+
+        if platform_asic == "cisco-8000" and platform_packet_size > 64:
+            packet_length = platform_packet_size
+        else:
+            packet_length = 64
         ttl = 64
 
-        # Log platform info
-        original_packet_length = getattr(self, "packet_size", 64)
-        original_cell_occupancy = (
-            (original_packet_length + self.cell_size - 1) // self.cell_size
-            if hasattr(self, "cell_size") else 1
-        )
+        cell_occupancy = (packet_length + cell_size - 1) // cell_size
         log_message(
-            f"Platform-specific: packet_length={original_packet_length}, "
-            f"cell_occupancy={original_cell_occupancy}", to_stderr=True
+            f"Platform: platform_asic={platform_asic}, "
+            f"packet_length={packet_length}, cell_size={cell_size}, "
+            f"cell_occupancy={cell_occupancy}", to_stderr=True
         )
-        log_message(f"Probing uses: packet_length={packet_length}, cell_occupancy=1", to_stderr=True)
 
         is_dualtor = getattr(self, "is_dualtor", False)
         def_vlan_mac = getattr(self, "def_vlan_mac", None)
@@ -211,8 +215,17 @@ class IngressDropProbing(ProbingBase):
         Returns:
             ThresholdResult: Probing result with Ingress Drop threshold
         """
-        # Get pool size and ports
-        pool_size = self.get_pool_size()
+        # Get pool size in cells, convert to packets using cell_occupancy
+        pool_size_cells = self.get_pool_size()
+        cell_size = getattr(self, "cell_size", 384)
+        platform_packet_size = getattr(self, "packet_size", 64)
+        platform_asic = getattr(self, "platform_asic", None)
+        if platform_asic == "cisco-8000" and platform_packet_size > 64:
+            cell_occupancy = (platform_packet_size + cell_size - 1) // cell_size
+        else:
+            cell_occupancy = 1
+        pool_size = pool_size_cells // cell_occupancy
+
         src_port = self.probing_port_ids[0]
         dst_port = self.stream_mgr.get_port_ids("dst")[0]
 
@@ -223,7 +236,7 @@ class IngressDropProbing(ProbingBase):
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting threshold probing")
         ProbingObserver.console(f"  src_port={src_port}, dst_port={dst_port}")
-        ProbingObserver.console(f"  pool_size={pool_size}")
+        ProbingObserver.console(f"  pool_size_cells={pool_size_cells}, cell_occupancy={cell_occupancy}, pool_size_pkts={pool_size}")
         ProbingObserver.console(f"  precision_target_ratio={self.PRECISION_TARGET_RATIO}")
         ProbingObserver.console(f"  enable_precise_detection={self.ENABLE_PRECISE_DETECTION}")
         ProbingObserver.console(f"  executor_env={self.EXECUTOR_ENV}")
