@@ -288,8 +288,6 @@ class TestbedInfo(object):
             tb_type = 't0'
         if tb_type in ['mc0']:
             tb_type = 'm0'
-        if tb_type in ['urh', 'lrh']:
-            tb_type = 'drh'
         return tb_type
 
     def _parse_dut_port_index(self, port):
