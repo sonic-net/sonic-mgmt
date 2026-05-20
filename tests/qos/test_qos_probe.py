@@ -284,7 +284,9 @@ class TestQosProbe(QosSaiBase):
         if platform_asic == "cisco-8000":
             testParams["ingress_drop_counter_mode"] = "pg_drop"
         else:
-            # Broadcom/Mellanox: default to port_drop until verified
+            # Broadcom/Mellanox: default to port_drop until pg_drop and port_buffer_drop
+            # support is checked on these platforms. Tracked by:
+            # https://github.com/sonic-net/sonic-mgmt/issues/24738
             testParams["ingress_drop_counter_mode"] = "port_drop"
 
         self.runPtfTest(
