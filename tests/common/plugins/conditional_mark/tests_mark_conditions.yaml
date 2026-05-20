@@ -3856,6 +3856,12 @@ packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric
     conditions:
       - "asic_gen in ['th5']"
 
+packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric::test_trimming_with_srv6:
+  xfail:
+    reason: "vlan decap is disabled in 202412 image"
+    conditions:
+      - "'isolated' in topo_name and release in ['202412']"
+
 packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_counters_with_feature_toggle:
   skip:
     reason: "TH5 clears trim counters when packet trimming is turned off, skipping until trim counter persistance is supported."
