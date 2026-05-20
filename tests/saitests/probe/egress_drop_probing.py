@@ -109,9 +109,8 @@ class EgressDropProbing(ProbingBase):
         Get egress lossy pool size in cells.
 
         Override base class which uses ingress_lossless_pool_size. Egress drop probing
-        searches within the egress lossy pool space; the ingress pool has a different
-        capacity and using it as a fallback would cause the binary search to operate
-        over the wrong range and produce a meaningless threshold.
+        searches within the egress lossy pool space. Callers convert to packet units
+        using self.probe_cells_per_packet.
 
         Resolution order:
           1. ``epoolsz`` env override (debug)
