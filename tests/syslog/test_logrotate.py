@@ -39,6 +39,24 @@ def backup_syslog(rand_selected_dut):
 
     yield
 
+    # ---- DEBUG: capture state right before the historically-flaky mv ----
+    # PR #24750 / PBI 38044342: backup_syslog teardown intermittently fails with
+    # "mv: cannot stat '/var/log/syslog_bk': No such file or directory".
+    # Dump mount table, loop devices, lsof of /var/log, and a directory listing
+    # so we can identify the actual cause (lazy-umount race, container mount
+    # propagation, file deletion, etc.) on the next manual pipeline trigger.
+    logger.info('[DEBUG] backup_syslog teardown: dumping pre-mv state')
+    duthost.shell('mount | grep -E "/var/log|/dev/loop" || true', module_ignore_errors=True)
+    duthost.shell('losetup -a || true', module_ignore_errors=True)
+    duthost.shell('ls -la /var/log/syslog_bk /var/log/syslog 2>&1 || true', module_ignore_errors=True)
+    duthost.shell('ls -la /var/log/ | head -50', module_ignore_errors=True)
+    duthost.shell('sudo lsof /var/log 2>&1 | head -30 || true', module_ignore_errors=True)
+    duthost.shell('df -h /var/log', module_ignore_errors=True)
+    duthost.shell('cat /proc/self/mountinfo | grep -E "/var/log|/dev/loop" || true',
+                  module_ignore_errors=True)
+    logger.info('[DEBUG] backup_syslog teardown: end of pre-mv state dump')
+    # ---- END DEBUG ----
+
     logger.info('Recover syslog file to syslog')
     duthost.shell('sudo mv /var/log/syslog_bk /var/log/syslog')
 
