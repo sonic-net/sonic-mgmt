@@ -56,23 +56,23 @@ class TestQosProbe(QosSaiBase):
         return None
 
     # --- Platform Probe Configuration ---
-    # Each platform subclass defines probe packet_length and cell_occupancy.
+    # Each platform subclass defines probe packet_length and cells_per_packet.
     # PTF receives these as testParams; no platform_asic checks in PTF code.
 
     class ProbeConfig:
         """Default probe config: 64B packets, 1 cell per packet."""
         packet_length = 64
-        cell_occupancy = 1
+        cells_per_packet = 1
 
         def cells_to_pkts(self, cells):
             """Convert a cell-based threshold value to packet units."""
-            return cells // self.cell_occupancy
+            return cells // self.cells_per_packet
 
     class CiscoProbeConfig(ProbeConfig):
         """Cisco-8000: use platform packet_size, multi-cell per packet."""
         def __init__(self, packet_size, cell_size):
             self.packet_length = packet_size
-            self.cell_occupancy = (packet_size + cell_size - 1) // cell_size
+            self.cells_per_packet = (packet_size + cell_size - 1) // cell_size
 
     # Known cell-based threshold keys in qos.yml that need cells_to_pkts conversion
     _CELL_THRESHOLD_KEYS = (
@@ -99,7 +99,7 @@ class TestQosProbe(QosSaiBase):
         """Return probe-related testParams dict for PTF.
 
         Encapsulates all HW-dependent decisions:
-        - probe_packet_length, probe_cell_occupancy
+        - probe_packet_length, probe_cells_per_packet
         - Auto-converts cell-based thresholds to packet units
 
         Usage: testParams.update(self.get_probe_params(...))
@@ -107,7 +107,7 @@ class TestQosProbe(QosSaiBase):
         cfg = TestQosProbe._get_probe_config(platform_asic, qosConfig_profile, dutQosConfig)
         params = {
             "probe_packet_length": cfg.packet_length,
-            "probe_cell_occupancy": cfg.cell_occupancy,
+            "probe_cells_per_packet": cfg.cells_per_packet,
         }
         for key in TestQosProbe._CELL_THRESHOLD_KEYS:
             if key in qosConfig_profile:
@@ -240,7 +240,7 @@ class TestQosProbe(QosSaiBase):
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
-        # Platform probe params: packet_length, cell_occupancy, threshold conversions
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
         testParams.update(self.get_probe_params(platform_asic, qosConfig[xoffProfile], dutQosConfig))
 
@@ -356,7 +356,7 @@ class TestQosProbe(QosSaiBase):
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
 
-        # Platform probe params: packet_length, cell_occupancy, threshold conversions
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
         testParams.update(self.get_probe_params(platform_asic, qosConfig[xoffProfile], dutQosConfig))
 
@@ -491,7 +491,7 @@ class TestQosProbe(QosSaiBase):
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
-        # Platform probe params: packet_length, cell_occupancy, threshold conversions
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
         testParams.update(self.get_probe_params(platform_asic, qosConfig[lossyProfile], dutQosConfig))
 
@@ -756,7 +756,7 @@ class TestQosProbe(QosSaiBase):
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
 
-        # Platform probe params: packet_length, cell_occupancy, threshold conversions
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
         testParams.update(self.get_probe_params(
             platform_asic, qosConfig.get("hdrm_pool_size", {}), dutQosConfig))
