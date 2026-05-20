@@ -55,13 +55,14 @@ class TestQosProbe(QosSaiBase):
                     return result
         return None
 
-    # --- Platform Probe Configuration ---
-    # Each platform subclass resolves packet_length and cells_per_packet from QoS config.
-    # PTF receives these as testParams; no platform_asic checks in PTF code.
-    # To add a new platform: create a subclass of ProbeConfig and register in _PROBE_CONFIG_REGISTRY.
+    # --- Platform Probe Parameter Resolver ---
+    # Each platform subclass resolves probe parameters (packet_length, thresholds, etc.)
+    # from QoS config. PTF receives resolved params via testParams; no platform checks in PTF.
+    # To add a new platform: create a subclass of ProbeParamsResolver and register
+    # in _PROBE_RESOLVER_REGISTRY.
 
-    class ProbeConfig:
-        """Default probe config: 64B packets, 1 cell per packet.
+    class ProbeParamsResolver:
+        """Default resolver: 64B packets, 1 cell per packet.
 
         Subclasses override __init__ to resolve platform-specific values
         from qosConfig_profile and dutQosConfig.
@@ -74,8 +75,8 @@ class TestQosProbe(QosSaiBase):
             """Convert a cell-based threshold value to packet units."""
             return cells // self.cells_per_packet
 
-    class CiscoProbeConfig(ProbeConfig):
-        """Cisco-8000: use platform packet_size from QoS config."""
+    class CiscoProbeParamsResolver(ProbeParamsResolver):
+        """Cisco-8000: resolve packet_size and cell_size from QoS config."""
         def __init__(self, qosConfig_profile=None, dutQosConfig=None):
             qosConfig_profile = qosConfig_profile or {}
             dutQosConfig = dutQosConfig or {}
@@ -87,9 +88,9 @@ class TestQosProbe(QosSaiBase):
                              or 384)
             self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
 
-    # Registry: platform_asic -> ProbeConfig subclass
-    _PROBE_CONFIG_REGISTRY = {
-        "cisco-8000": CiscoProbeConfig,
+    # Registry: platform_asic -> ProbeParamsResolver subclass
+    _PROBE_RESOLVER_REGISTRY = {
+        "cisco-8000": CiscoProbeParamsResolver,
     }
 
     # Known cell-based threshold keys in qos.yml that need cells_to_pkts conversion
@@ -102,22 +103,22 @@ class TestQosProbe(QosSaiBase):
     def get_probe_params(platform_asic, qosConfig_profile, dutQosConfig):
         """Return probe-related testParams dict for PTF.
 
-        Resolves platform-specific ProbeConfig via registry, then returns
-        a dict with probe_packet_length, probe_cells_per_packet, and
-        auto-converted cell-based thresholds.
+        Resolves platform-specific ProbeParamsResolver via registry, then
+        returns a dict with probe_packet_length, probe_cells_per_packet,
+        and auto-converted cell-based thresholds.
 
         Usage: testParams.update(self.get_probe_params(...))
         """
-        config_cls = TestQosProbe._PROBE_CONFIG_REGISTRY.get(
-            platform_asic, TestQosProbe.ProbeConfig)
-        cfg = config_cls(qosConfig_profile, dutQosConfig)
+        resolver_cls = TestQosProbe._PROBE_RESOLVER_REGISTRY.get(
+            platform_asic, TestQosProbe.ProbeParamsResolver)
+        resolver = resolver_cls(qosConfig_profile, dutQosConfig)
         params = {
-            "probe_packet_length": cfg.packet_length,
-            "probe_cells_per_packet": cfg.cells_per_packet,
+            "probe_packet_length": resolver.packet_length,
+            "probe_cells_per_packet": resolver.cells_per_packet,
         }
         for key in TestQosProbe._CELL_THRESHOLD_KEYS:
             if key in qosConfig_profile:
-                params[key] = cfg.cells_to_pkts(qosConfig_profile[key])
+                params[key] = resolver.cells_to_pkts(qosConfig_profile[key])
         return params
 
     @staticmethod
