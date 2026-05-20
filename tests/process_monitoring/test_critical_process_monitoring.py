@@ -762,7 +762,20 @@ def test_monitoring_critical_processes(
     if database_containers:
         logger.info("Killing database container critical processes (DUT will become unstable)...")
         try:
-            stop_critical_processes(duthost, database_containers)
+            # On multi-ASIC, database has namespace_ids=[None, "0", "1",...].
+            # Killing the global database (None) destroys the config DB and causes
+            # SSH to hang on subsequent operations.  Reorder namespace_ids so that
+            # per-ASIC namespaces are killed first (SSH remains stable) and the
+            # global namespace (DEFAULT_ASIC_ID / None) is killed last.  After the
+            # global database kill the DUT will become unstable, but no further SSH
+            # calls are needed -- the recover_critical_processes fixture handles
+            # DUT recovery via SysRq reboot (KVM) or PDU power-cycle (physical).
+            ordered_database_containers = {}
+            for k, ns_ids in database_containers.items():
+                per_asic = [nid for nid in ns_ids if nid != DEFAULT_ASIC_ID]
+                global_ns = [nid for nid in ns_ids if nid == DEFAULT_ASIC_ID]
+                ordered_database_containers[k] = per_asic + global_ns
+            stop_critical_processes(duthost, ordered_database_containers)
             logger.info("Database critical processes killed successfully.")
         except Exception as e:
             logger.warning("Exception during database process kill (expected due to DUT instability): %s", e)
