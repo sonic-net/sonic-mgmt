@@ -4156,7 +4156,11 @@ process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical
   xfail:
     reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
     conditions:
-    - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+  skip:
+    reason: "Skip test on VS due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/10336"
 
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
