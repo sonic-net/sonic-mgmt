@@ -157,7 +157,9 @@ def check_mux_status(duthost, state):
             return False
         if intf[state_idx] == state and intf[type_idx] == "consistent":
             continue
-        logger.info(f"Neighbor check failed for line: {intf_state} (state={intf[state_idx] if state_idx < len(intf) else 'N/A'}, type={intf[type_idx] if type_idx < len(intf) else 'N/A'})")
+        state_str = intf[state_idx] if state_idx < len(intf) else 'N/A'
+        type_str = intf[type_idx] if type_idx < len(intf) else 'N/A'
+        logger.info(f"Neighbor check failed for line: {intf_state} (state={state_str}, type={type_str})")
         return False
     return True
 

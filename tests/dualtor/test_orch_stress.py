@@ -25,6 +25,7 @@ import pytest
 from tests.common.utilities import wait
 from tests.common.utilities import compare_crm_facts
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa: F401
 from tests.common.dualtor.dual_tor_mock import *                    # noqa: F401, F403
 
