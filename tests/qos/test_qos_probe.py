@@ -74,19 +74,15 @@ class TestQosProbe(QosSaiBase):
             self.packet_length = packet_size
             self.cell_occupancy = (packet_size + cell_size - 1) // cell_size
 
+    # Known cell-based threshold keys in qos.yml that need cells_to_pkts conversion
+    _CELL_THRESHOLD_KEYS = (
+        "pkts_num_trig_pfc", "pkts_num_trig_ingr_drp",
+        "pkts_num_trig_egr_drp", "pkts_num_trig_pfc_shp",
+    )
+
     @staticmethod
-    def get_probe_config(platform_asic, qosConfig_profile, dutQosConfig):
-        """Factory: return platform-specific probe configuration.
-
-        Args:
-            platform_asic: e.g. "cisco-8000", "broadcom", None
-            qosConfig_profile: speed/cable-specific QoS profile dict (e.g. qosConfig[xoffProfile])
-                              Contains packet_size, cell_size for the current test profile
-            dutQosConfig: full DUT QoS config dict (fallback for cell_size)
-
-        Centralizes all HW-dependent probe parameter decisions here,
-        keeping PTF probe code platform-agnostic.
-        """
+    def _get_probe_config(platform_asic, qosConfig_profile, dutQosConfig):
+        """Internal: return platform-specific ProbeConfig instance."""
         if platform_asic == "cisco-8000":
             packet_size = qosConfig_profile.get("packet_size", 64)
             cell_size = qosConfig_profile.get("cell_size", None)
@@ -97,6 +93,26 @@ class TestQosProbe(QosSaiBase):
             if packet_size > 64:
                 return TestQosProbe.CiscoProbeConfig(packet_size, cell_size)
         return TestQosProbe.ProbeConfig()
+
+    @staticmethod
+    def get_probe_params(platform_asic, qosConfig_profile, dutQosConfig):
+        """Return probe-related testParams dict for PTF.
+
+        Encapsulates all HW-dependent decisions:
+        - probe_packet_length, probe_cell_occupancy
+        - Auto-converts cell-based thresholds to packet units
+
+        Usage: testParams.update(self.get_probe_params(...))
+        """
+        cfg = TestQosProbe._get_probe_config(platform_asic, qosConfig_profile, dutQosConfig)
+        params = {
+            "probe_packet_length": cfg.packet_length,
+            "probe_cell_occupancy": cfg.cell_occupancy,
+        }
+        for key in TestQosProbe._CELL_THRESHOLD_KEYS:
+            if key in qosConfig_profile:
+                params[key] = cfg.cells_to_pkts(qosConfig_profile[key])
+        return params
 
     @staticmethod
     def get_ingress_drop_counter_mode(dutTestParams):
@@ -224,15 +240,9 @@ class TestQosProbe(QosSaiBase):
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
-        # Platform probe config: packet_length and cell_occupancy
+        # Platform probe params: packet_length, cell_occupancy, threshold conversions
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
-        probe_cfg = self.get_probe_config(platform_asic, qosConfig[xoffProfile], dutQosConfig)
-        testParams["probe_packet_length"] = probe_cfg.packet_length
-        testParams["probe_cell_occupancy"] = probe_cfg.cell_occupancy
-
-        # Convert cell-based thresholds to packet units (qos.yml stores cells)
-        testParams["pkts_num_trig_pfc"] = probe_cfg.cells_to_pkts(testParams["pkts_num_trig_pfc"])
-        testParams["pkts_num_trig_ingr_drp"] = probe_cfg.cells_to_pkts(testParams["pkts_num_trig_ingr_drp"])
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[xoffProfile], dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="pfc_xoff_probing.PfcXoffProbing", testParams=testParams,
@@ -346,15 +356,9 @@ class TestQosProbe(QosSaiBase):
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
 
-        # Platform probe config: packet_length and cell_occupancy
+        # Platform probe params: packet_length, cell_occupancy, threshold conversions
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
-        probe_cfg = self.get_probe_config(platform_asic, qosConfig[xoffProfile], dutQosConfig)
-        testParams["probe_packet_length"] = probe_cfg.packet_length
-        testParams["probe_cell_occupancy"] = probe_cfg.cell_occupancy
-
-        # Convert cell-based thresholds to packet units (qos.yml stores cells)
-        testParams["pkts_num_trig_pfc"] = probe_cfg.cells_to_pkts(testParams["pkts_num_trig_pfc"])
-        testParams["pkts_num_trig_ingr_drp"] = probe_cfg.cells_to_pkts(testParams["pkts_num_trig_ingr_drp"])
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[xoffProfile], dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="ingress_drop_probing.IngressDropProbing", testParams=testParams,
@@ -487,15 +491,9 @@ class TestQosProbe(QosSaiBase):
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
-        # Platform probe config: packet_length and cell_occupancy
+        # Platform probe params: packet_length, cell_occupancy, threshold conversions
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
-        probe_cfg = self.get_probe_config(platform_asic, qosConfig[lossyProfile], dutQosConfig)
-        testParams["probe_packet_length"] = probe_cfg.packet_length
-        testParams["probe_cell_occupancy"] = probe_cfg.cell_occupancy
-
-        # Convert cell-based threshold to packet units (qos.yml stores cells)
-        if "pkts_num_trig_egr_drp" in testParams:
-            testParams["pkts_num_trig_egr_drp"] = probe_cfg.cells_to_pkts(testParams["pkts_num_trig_egr_drp"])
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[lossyProfile], dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="egress_drop_probing.EgressDropProbing", testParams=testParams,
@@ -758,17 +756,10 @@ class TestQosProbe(QosSaiBase):
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
 
-        # Platform probe config: packet_length and cell_occupancy
+        # Platform probe params: packet_length, cell_occupancy, threshold conversions
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
-        probe_cfg = self.get_probe_config(platform_asic, qosConfig.get("hdrm_pool_size", {}), dutQosConfig)
-        testParams["probe_packet_length"] = probe_cfg.packet_length
-        testParams["probe_cell_occupancy"] = probe_cfg.cell_occupancy
-
-        # Convert cell-based thresholds to packet units (qos.yml stores cells)
-        if "pkts_num_trig_pfc" in testParams:
-            testParams["pkts_num_trig_pfc"] = probe_cfg.cells_to_pkts(testParams["pkts_num_trig_pfc"])
-        if "pkts_num_trig_pfc_shp" in testParams:
-            testParams["pkts_num_trig_pfc_shp"] = probe_cfg.cells_to_pkts(testParams["pkts_num_trig_pfc_shp"])
+        testParams.update(self.get_probe_params(
+            platform_asic, qosConfig.get("hdrm_pool_size", {}), dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="headroom_pool_probing.HeadroomPoolProbing",
