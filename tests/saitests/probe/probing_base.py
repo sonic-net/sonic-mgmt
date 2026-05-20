@@ -356,7 +356,10 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
 
     def get_pool_size(self):
         """
-        Get ingress lossless pool size in cells.
+        Get buffer pool size in cells.
+
+        This returns the raw cell count. Callers convert to packet units
+        using self.probe_cells_per_packet (set by ProbeParamsResolver).
 
         Checks environment variable 'ipoolsz' first,
         falls back to self.ingress_lossless_pool_size / cell_size.

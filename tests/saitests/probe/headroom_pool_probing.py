@@ -197,23 +197,13 @@ class HeadroomPoolProbing(ProbingBase):
 
         log_message(f"Setup traffic: src_ports={src_port_ids}, dst_port={dst_port_id}", to_stderr=False)
 
-        # Platform-independent: 64-byte packets = 1 cell
-        packet_length = 64
+        # Probe packet config (resolved by ProbeParamsResolver in test_qos_probe.py)
+        packet_length = self.probe_packet_length
         ttl = 64
 
-        # Log platform info
-        original_packet_length = getattr(self, "packet_size", 64)
-        original_cell_occupancy = (
-            (original_packet_length + self.cell_size - 1) // self.cell_size
-            if hasattr(self, "cell_size") else 1
-        )
         log_message(
-            f"Platform-specific: packet_length={original_packet_length}, "
-            f"cell_occupancy={original_cell_occupancy}", to_stderr=True
-        )
-        log_message(
-            f"Probing uses: packet_length={packet_length}, cell_occupancy=1",
-            to_stderr=True
+            f"Probe config: packet_length={packet_length}, "
+            f"cells_per_packet={self.probe_cells_per_packet}", to_stderr=True
         )
 
         is_dualtor = getattr(self, "is_dualtor", False)
