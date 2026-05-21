@@ -597,20 +597,13 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # Check if this is a virtual switch (KVM) testbed (no PDU available)
         if is_vs_device(duthost):
-            # For KVM testbed, use kernel-level reboot since config DB is corrupted
-            # and normal reboot commands won't work
-            logger.info("KVM testbed detected - using kernel SysRq trigger for immediate reboot...")
-            try:
-                # Use kernel's SysRq trigger to force immediate reboot
-                # This bypasses all userspace processes and goes directly to kernel
-                # 'b' = immediately reboot the system without syncing or unmounting
-                duthost.shell(
-                    'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq && echo b > /proc/sysrq-trigger" '
-                    '> /dev/null 2>&1 &',
-                    module_ignore_errors=True)
-                logger.info("Kernel reboot trigger command issued successfully")
-            except Exception as e:
-                logger.info("Reboot trigger command execution (expected to disconnect): {}".format(str(e)))
+            # SysRq reboot was pre-scheduled in Phase 2 of the test (before killing
+            # any database container), while SSH was still alive.  After the global
+            # database container was killed SSH became unresponsive, so we cannot
+            # issue a new SysRq command here.  The DUT will reboot from the
+            # pre-scheduled command; just wait for it to come back up.
+            logger.info("KVM testbed: SysRq reboot was pre-scheduled in Phase 2; "
+                        "waiting for DUT to come back up...")
         else:
             # For physical testbed, use PDU reboot
             logger.info("Physical testbed - performing power cycle via PDU...")
@@ -776,8 +769,11 @@ def test_monitoring_critical_processes(
 
     # Phase 2: Kill database critical processes last.  The DUT will become
     # unstable after this, so no further syslog verification is performed.
-    # The recover_critical_processes fixture handles DUT recovery via
-    # SysRq reboot (KVM) or PDU power-cycle (physical).
+    # For VS (KVM) devices the SysRq reboot is pre-scheduled HERE (while SSH is
+    # alive) because SSH becomes unresponsive after the global database is killed,
+    # preventing the fixture from issuing the reboot command later.
+    # The recover_critical_processes fixture then waits for DUT recovery
+    # (VS: waits for pre-scheduled reboot; physical: PDU power-cycle).
     if database_containers:
         logger.info("Killing database container critical processes (DUT will become unstable)...")
         try:
@@ -794,6 +790,22 @@ def test_monitoring_critical_processes(
                 per_asic = [nid for nid in ns_ids if nid != DEFAULT_ASIC_ID]
                 global_ns = [nid for nid in ns_ids if nid == DEFAULT_ASIC_ID]
                 ordered_database_containers[k] = per_asic + global_ns
+
+            # For VS (KVM) devices: pre-schedule a SysRq reboot BEFORE killing any
+            # database process.  After the global database container's redis is
+            # killed, the DUT becomes unresponsive to new SSH connections, making it
+            # impossible for the recover_critical_processes fixture to trigger the
+            # reboot via SSH.  Pre-scheduling here (while SSH is still alive) ensures
+            # the DUT reboots even after SSH becomes unresponsive.
+            if is_vs_device(duthost):
+                reboot_delay = 120  # seconds -- generous to allow per-ASIC kills to finish
+                duthost.shell(
+                    'nohup bash -c "sleep {d} && echo 1 > /proc/sys/kernel/sysrq '
+                    '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &'.format(d=reboot_delay),
+                    module_ignore_errors=True)
+                logger.info("Pre-scheduled SysRq kernel reboot in {} seconds "
+                            "(SSH will become unresponsive after global database kill).".format(reboot_delay))
+
             stop_critical_processes(duthost, ordered_database_containers)
             logger.info("Database critical processes killed successfully.")
         except Exception as e:
