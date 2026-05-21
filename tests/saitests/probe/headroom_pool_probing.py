@@ -539,8 +539,9 @@ class HeadroomPoolProbing(ProbingBase):
                     f"  Headroom = {ingress_drop_threshold} - {pfc_xoff_threshold} = {pg_headroom}")
 
                 # Persist buffer state with margin for multi-PG Port counter compatibility
+                # pg_drop and port_buffer_drop are noise-immune; no margin needed
                 margin = self.POINT_PROBING_STEP_SIZE
-                if self.ingress_drop_counter_mode == 'pg_drop':
+                if self.ingress_drop_counter_mode in ('pg_drop', 'port_buffer_drop'):
                     margin = 0
                 if margin > 0:
                     ProbingObserver.console(

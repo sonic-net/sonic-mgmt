@@ -59,7 +59,6 @@ class TestIngressDropProbingExecutor:
         assert executor.observer is self.observer
         assert executor.verbose is False
         assert executor.name == ""
-        assert executor.counter_mode == "port_drop"
         assert executor.counter_mode == 'port_drop'  # Default counter mode
 
     @pytest.mark.order(8801)
@@ -807,6 +806,18 @@ class TestIngressDropProbingExecutor:
         print(f"  Result: counter_mode={executor.counter_mode}")
         assert executor.counter_mode == 'port_drop'
         print("[OK] Missing attr defaults to port_drop")
+
+    @pytest.mark.order(8833)
+    def test_init_with_invalid_counter_mode_raises(self):
+        """Test init with invalid counter_mode raises ValueError"""
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        with pytest.raises(ValueError, match="Invalid counter_mode='pg_drops'"):
+            IngressDropProbingExecutor(
+                ptftest=self.mock_ptftest,
+                observer=self.observer,
+                counter_mode='pg_drops'
+            )
 
 
 if __name__ == "__main__":

@@ -87,6 +87,8 @@ class IngressDropProbingExecutor:
     - Uses INGRESS_DROP and INGRESS_PORT_BUFFER_DROP
     """
 
+    VALID_COUNTER_MODES = ('pg_drop', 'port_buffer_drop', 'port_drop')
+
     def __init__(self, ptftest, observer=None, verbose: bool = False,
                  name: str = "", counter_mode: str = "port_drop"):
         """
@@ -100,6 +102,11 @@ class IngressDropProbingExecutor:
             counter_mode: Counter detection mode - "pg_drop", "port_buffer_drop", or "port_drop"
                          Set by test_qos_probe.py via testParams based on platform_asic
         """
+        if counter_mode not in self.VALID_COUNTER_MODES:
+            raise ValueError(
+                f"Invalid counter_mode='{counter_mode}'. "
+                f"Must be one of: {self.VALID_COUNTER_MODES}"
+            )
         self.ptftest = ptftest
         self.observer = observer
         self.verbose = verbose
