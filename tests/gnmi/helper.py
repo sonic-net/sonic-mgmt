@@ -26,6 +26,7 @@ def apply_cert_config(duthost):
     metadata = cfg_facts["DEVICE_METADATA"]["localhost"]
     subtype = metadata.get('subtype', None)
     # Stop all running program
+    stopped_programs = []
     dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
     output = duthost.shell(dut_command, module_ignore_errors=True)
     for line in output['stdout_lines']:
@@ -37,6 +38,8 @@ def apply_cert_config(duthost):
         if status == "RUNNING":
             dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, program)
             duthost.shell(dut_command, module_ignore_errors=True)
+            logger.info("Stopped supervisord program: %s", program)
+            stopped_programs.append(program)
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s bash -c " % env.gnmi_container
@@ -67,6 +70,7 @@ def apply_cert_config(duthost):
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
         pytest.fail("Failed to start gnmi server")
+    return stopped_programs
 
 
 def check_gnmi_process(duthost):
@@ -101,21 +105,16 @@ def _check_monit_container_checker(duthost):
     return status in ("OK", "Status ok")
 
 
-def recover_cert_config(duthost):
+def recover_cert_config(duthost, stopped_programs=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Kill the GNMI process
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
     wait_until(60, 1, 0, check_gnmi_process, duthost)
-    # Recover all stopped program
-    dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    for line in output['stdout_lines']:
-        res = line.split()
-        if len(res) < 3:
-            continue
-        program = res[0]
-        if program in ["gnmi-native", "telemetry"]:
+    # Restore only the programs that apply_cert_config explicitly stopped
+    if stopped_programs:
+        for program in stopped_programs:
+            logger.info("Restarting supervisord program: %s", program)
             dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, program)
             duthost.shell(dut_command, module_ignore_errors=True)
 
