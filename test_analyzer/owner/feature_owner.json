@@ -1002,15 +1002,15 @@
     },
     {
         "feature": "memory_checker",
-        "owner": "Qi Luo",
-        "email": "qiluo@microsoft.com",
+        "owner": "Augustine Lee",
+        "email": "augustinelee@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "memory_checker.test_memory_checker"
                 ],
-                "owner": "Qi Luo",
-                "email": "qiluo@microsoft.com"
+                "owner": "Augustine Lee",
+                "email": "augustinelee@microsoft.com"
             }
         ]
     },
