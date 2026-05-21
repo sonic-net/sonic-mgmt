@@ -5894,4 +5894,3 @@ zmq/test_gnmi_zmq.py:
       - "'arista' in platform"
       - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
-
