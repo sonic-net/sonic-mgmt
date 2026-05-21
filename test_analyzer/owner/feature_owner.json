@@ -340,6 +340,20 @@
         ]
     },
     {
+        "feature": "device_ops_agent",
+        "owner": "Ryan Zhu",
+        "email": "ryanzhu@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "device_ops_agent.test_device_ops_agent"
+                ],
+                "owner": "Ryan Zhu",
+                "email": "ryanzhu@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "dhcp_relay",
         "owner": "Xichen Lin",
         "email": "xichenlin@microsoft.com",
