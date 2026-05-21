@@ -10,6 +10,7 @@ import time
 from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
 from scapy.config import conf
+from scapy.sessions import TCPSession
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from copy import deepcopy
@@ -657,7 +658,7 @@ def compute_middle_average_time(time_stamp_dict):
 
 def validate_route_process_perf(pcap_file, ipv4_route_list, ipv6_route_list):
     route_num = len(ipv4_route_list + ipv6_route_list)
-    bgp_packets = sniff(offline=pcap_file,
+    bgp_packets = sniff(offline=pcap_file, session=TCPSession,
                         lfilter=lambda p: (IP or IPv6 in p) and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2)
     announce_prefix_time_stamp, withdraw_prefix_time_stamp = parse_time_stamp(bgp_packets, ipv4_route_list,
                                                                               ipv6_route_list)
