@@ -50,7 +50,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     create_gnmi_certs(duthost, localhost, ptfhost)
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    apply_cert_config(duthost)
+    stopped_programs = apply_cert_config(duthost)
 
     yield
 
@@ -61,7 +61,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     # Save the configuration
     cmd = "config save -y"
     duthost.shell(cmd, module_ignore_errors=True)
-    recover_cert_config(duthost)
+    recover_cert_config(duthost, stopped_programs)
 
 
 @pytest.fixture(scope="module")
