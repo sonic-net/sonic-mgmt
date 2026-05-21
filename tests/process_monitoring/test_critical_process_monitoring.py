@@ -656,11 +656,30 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         if duthost.get_facts().get("modular_chassis"):
             db_config_timeout = max(db_config_timeout, 600)
 
-        logger.info("Waiting for database_config.json to be ready...")
-        db_config_ready = wait_until(db_config_timeout, 5, 0,
-                                     lambda: duthost.shell(
-                                         "test -f /var/run/redis/sonic-db/database_config.json",
-                                         module_ignore_errors=True)["rc"] == 0)
+        # Build list of database_config.json files to wait for.
+        # On multi-ASIC devices swsscommon.SonicDBConfig.load_sonic_global_db_config()
+        # loads both the global config (/var/run/redis/sonic-db/) and per-ASIC configs
+        # (/var/run/redis{N}/sonic-db/).  All of them must be present before
+        # "config reload" can run successfully.
+        db_config_files = ["/var/run/redis/sonic-db/database_config.json"]
+        num_asics = duthost.facts.get("num_asics", 1)
+        if num_asics > 1:
+            for asic_idx in range(num_asics):
+                db_config_files.append(
+                    "/var/run/redis{}/sonic-db/database_config.json".format(asic_idx)
+                )
+
+        logger.info("Waiting for database_config.json to be ready (files: {})...".format(db_config_files))
+
+        def _all_db_configs_ready():
+            for db_config_file in db_config_files:
+                if duthost.shell(
+                        "test -f {}".format(db_config_file),
+                        module_ignore_errors=True)["rc"] != 0:
+                    return False
+            return True
+
+        db_config_ready = wait_until(db_config_timeout, 5, 0, _all_db_configs_ready)
         if not db_config_ready:
             pytest_assert(False,
                           "database_config.json not ready after %ds -- DUT recovery incomplete" % db_config_timeout)
