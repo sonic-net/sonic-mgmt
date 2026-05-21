@@ -633,7 +633,7 @@ class TestIngressDropProbingExecutor:
             counter_mode='port_buffer_drop'
         )
 
-        print(f"  counter_mode='port_buffer_drop'")
+        print("  counter_mode='port_buffer_drop'")
         print(f"  Result: counter_mode={executor.counter_mode}")
         assert executor.counter_mode == 'port_buffer_drop'
         print("[OK] port_buffer_drop mode set correctly")
@@ -650,7 +650,7 @@ class TestIngressDropProbingExecutor:
             counter_mode='pg_drop'
         )
 
-        print(f"  counter_mode='pg_drop'")
+        print("  counter_mode='pg_drop'")
         print(f"  Result: counter_mode={executor.counter_mode}")
         assert executor.counter_mode == 'pg_drop'
         print("[OK] pg_drop mode set correctly")
@@ -728,8 +728,8 @@ class TestIngressDropProbingExecutor:
         )
 
         print(f"  counter_mode={executor.counter_mode}")
-        print(f"  Baseline: all zeros")
-        print(f"  Current: INGRESS_PORT_BUFFER_DROP[12]=0, INGRESS_DROP[2]=15 (ignored)")
+        print("  Baseline: all zeros")
+        print("  Current: INGRESS_PORT_BUFFER_DROP[12]=0, INGRESS_DROP[2]=15 (ignored)")
 
         success, detected = executor.check(24, 28, 1500, attempts=1)
 
@@ -771,13 +771,13 @@ class TestIngressDropProbingExecutor:
         )
 
         print(f"  counter_mode={executor.counter_mode}")
-        print(f"  Current: INGRESS_DROP[2]=10, INGRESS_PORT_BUFFER_DROP[12]=0")
+        print("  Current: INGRESS_DROP[2]=10, INGRESS_PORT_BUFFER_DROP[12]=0")
 
         success, detected = executor.check(24, 28, 1500, attempts=1)
 
         print(f"  Result: success={success}, detected={detected}")
         assert success is True, f"Expected success=True, got {success}"
-        assert detected is True, f"Expected detected=True via INGRESS_DROP"
+        assert detected is True, "Expected detected=True via INGRESS_DROP"
         print("[OK] port_drop mode detects drop via INGRESS_DROP")
 
     @pytest.mark.order(8832)
@@ -802,7 +802,7 @@ class TestIngressDropProbingExecutor:
             observer=self.observer
         )
 
-        print(f"  ptftest has no ingress_drop_counter_mode attr")
+        print("  ptftest has no ingress_drop_counter_mode attr")
         print(f"  Result: counter_mode={executor.counter_mode}")
         assert executor.counter_mode == 'port_drop'
         print("[OK] Missing attr defaults to port_drop")
