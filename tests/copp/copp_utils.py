@@ -207,6 +207,30 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
 
 
+def is_ptf_nn_agent_running(dut, nn_target_namespace):
+    """
+    Check if ptf_nn_agent is already running inside the syncd container.
+
+    On platforms where Docker state is stored in RAM (e.g., Arista 7060CX with
+    docker_inram=on), the syncd container is recreated on every cold reboot, losing
+    ptf_nn_agent. This helper is used to detect that case before attempting reinstall.
+
+    Args:
+        dut (SonicHost): The target device.
+        nn_target_namespace (str): The namespace for the syncd instance.
+
+    Returns:
+        bool: True if ptf_nn_agent is running, False otherwise.
+    """
+    asichost = dut.asic_instance_from_namespace(nn_target_namespace)
+    syncd_docker_name = asichost.get_docker_name("syncd")
+    result = dut.command(
+        "docker exec {} supervisorctl status ptf_nn_agent".format(syncd_docker_name),
+        module_ignore_errors=True
+    )
+    return result["rc"] == 0 and "RUNNING" in result["stdout"]
+
+
 def restore_syncd(dut, nn_target_namespace):
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
     syncd_docker_name = asichost.get_docker_name("syncd")
