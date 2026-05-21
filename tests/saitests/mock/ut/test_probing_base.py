@@ -568,15 +568,13 @@ class TestProbingBaseSetUp:
         pb = ConcreteProbingBase()
         pb.ingress_drop_counter_mode = 'pg_drop'
 
-        # Simulate the simplified setUp() logic (no env vars)
+        # Simulate the simplified setUp() logic
         pb.ingress_drop_counter_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
-        pb.use_pg_drop_counter = (pb.ingress_drop_counter_mode == 'pg_drop')
 
         print(f"  param: ingress_drop_counter_mode='pg_drop'")
-        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}")
         assert pb.ingress_drop_counter_mode == 'pg_drop'
-        assert pb.use_pg_drop_counter is True
-        print("[OK] pg_drop mode from param, use_pg_drop_counter=True")
+        print("[OK] pg_drop mode from param")
 
     @pytest.mark.order(936)
     def test_setUp_ingress_drop_counter_mode_default(self):
@@ -584,16 +582,13 @@ class TestProbingBaseSetUp:
         print("\n=== Testing setUp() - ingress_drop_counter_mode default ===")
 
         pb = ConcreteProbingBase()
-        # Don't set ingress_drop_counter_mode — getattr defaults to 'port_drop'
 
         pb.ingress_drop_counter_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
-        pb.use_pg_drop_counter = (pb.ingress_drop_counter_mode == 'pg_drop')
 
         print(f"  No param set")
-        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}")
         assert pb.ingress_drop_counter_mode == 'port_drop'
-        assert pb.use_pg_drop_counter is False
-        print("[OK] Defaults to port_drop, use_pg_drop_counter=False")
+        print("[OK] Defaults to port_drop")
 
     @pytest.mark.order(937)
     def test_setUp_ingress_drop_counter_mode_port_buffer_drop(self):
@@ -604,13 +599,11 @@ class TestProbingBaseSetUp:
         pb.ingress_drop_counter_mode = 'port_buffer_drop'
 
         pb.ingress_drop_counter_mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
-        pb.use_pg_drop_counter = (pb.ingress_drop_counter_mode == 'pg_drop')
 
         print(f"  param: ingress_drop_counter_mode='port_buffer_drop'")
-        print(f"  Result: mode={pb.ingress_drop_counter_mode}, use_pg={pb.use_pg_drop_counter}")
+        print(f"  Result: mode={pb.ingress_drop_counter_mode}")
         assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
-        assert pb.use_pg_drop_counter is False
-        print("[OK] port_buffer_drop mode, use_pg_drop_counter=False")
+        print("[OK] port_buffer_drop mode")
 
 
 class TestProbingBaseTearDown:

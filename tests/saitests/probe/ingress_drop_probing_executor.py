@@ -88,7 +88,7 @@ class IngressDropProbingExecutor:
     """
 
     def __init__(self, ptftest, observer=None, verbose: bool = False,
-                 name: str = "", use_pg_drop_counter: bool = False):
+                 name: str = "", counter_mode: str = "port_drop"):
         """
         Initialize unified Ingress Drop executor
 
@@ -97,19 +97,16 @@ class IngressDropProbingExecutor:
             observer: Observer instance for logging (optional, for log output)
             verbose: Enable debug output for executor operations
             name: Optional name to identify this executor instance (e.g., "upper_bound", "lower_bound")
-            use_pg_drop_counter: Use PG drop counter (True) or Port ingress drop counter (False)
-                                 Default: False (Solution 2 - Port counter with margin, compatible with Broadcom)
-                                 Can be overridden by environment variable INGRESS_DROP_USE_PG_COUNTER
+            counter_mode: Counter detection mode - "pg_drop", "port_buffer_drop", or "port_drop"
+                         Set by test_qos_probe.py via testParams based on platform_asic
         """
         self.ptftest = ptftest
         self.observer = observer
         self.verbose = verbose
         self.name = name
 
-        # Determine counter mode from ptftest (set by probing_base.setUp from testParams)
-        # 3-level: "pg_drop" > "port_buffer_drop" > "port_drop"
-        self.counter_mode = getattr(ptftest, 'ingress_drop_counter_mode', 'port_drop')
-        self.use_pg_drop_counter = (self.counter_mode == 'pg_drop')
+        # Counter mode: "pg_drop" > "port_buffer_drop" > "port_drop"
+        self.counter_mode = counter_mode
 
         if self.verbose and self.observer:
             self.observer.trace(f"[Ingress Drop Executor] Using counter_mode={self.counter_mode}")

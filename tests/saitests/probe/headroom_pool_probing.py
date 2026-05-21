@@ -444,21 +444,21 @@ class HeadroomPoolProbing(ProbingBase):
                     'upper': UpperBoundProbingAlgorithm(
                         executor=self.create_executor(
                             'ingress_drop', drop_upper_obs, f"pg{i}_drop_upper",
-                            use_pg_drop_counter=self.use_pg_drop_counter
+                            counter_mode=self.ingress_drop_counter_mode
                         ),
                         observer=drop_upper_obs, verification_attempts=1
                     ),
                     'lower': LowerBoundProbingAlgorithm(
                         executor=self.create_executor(
                             'ingress_drop', drop_lower_obs, f"pg{i}_drop_lower",
-                            use_pg_drop_counter=self.use_pg_drop_counter
+                            counter_mode=self.ingress_drop_counter_mode
                         ),
                         observer=drop_lower_obs, verification_attempts=1
                     ),
                     'range': ThresholdRangeProbingAlgorithm(
                         executor=self.create_executor(
                             'ingress_drop', drop_range_obs, f"pg{i}_drop_range",
-                            use_pg_drop_counter=self.use_pg_drop_counter
+                            counter_mode=self.ingress_drop_counter_mode
                         ),
                         observer=drop_range_obs,
                         precision_target_ratio=self.PRECISION_TARGET_RATIO,
@@ -475,7 +475,7 @@ class HeadroomPoolProbing(ProbingBase):
                     drop_algos['point'] = ThresholdPointProbingAlgorithm(
                         executor=self.create_executor(
                             'ingress_drop', drop_point_obs, f"pg{i}_drop_point",
-                            use_pg_drop_counter=self.use_pg_drop_counter
+                            counter_mode=self.ingress_drop_counter_mode
                         ),
                         observer=drop_point_obs, verification_attempts=1,
                         step_size=self.POINT_PROBING_STEP_SIZE
@@ -540,7 +540,7 @@ class HeadroomPoolProbing(ProbingBase):
 
                 # Persist buffer state with margin for multi-PG Port counter compatibility
                 margin = self.POINT_PROBING_STEP_SIZE
-                if self.use_pg_drop_counter:
+                if self.ingress_drop_counter_mode == 'pg_drop':
                     margin = 0
                 if margin > 0:
                     ProbingObserver.console(
