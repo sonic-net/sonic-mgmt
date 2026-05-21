@@ -149,18 +149,15 @@ def test_ha_launch_with_no_peer(request, duthosts, dpuhosts, localhost, ptfhost,
                                       timeout=150),
                       "HA: Primary state is not standalone")
 
+        logger.info("HA: activate standby with standalone primary")
+        setup_dash_ha(duthosts[1], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
+        activate_dash_ha(duthosts[1], dpuhosts[1], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
         if ha_owner == "dpu":
-            logger.info("HA: activate standby with standalone primary")
-            setup_dash_ha(duthosts[1], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
-            activate_dash_ha(duthosts[1], dpuhosts[1], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
             pytest_assert(verify_ha_state(duthosts[1], scope_key=standby_vdpu_key, expected_state="active"),
                           "HA: Standby state is not active")
             pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="active"),
                           "HA: Primary state is not active")
         else:
-            logger.info("HA: activate standby with standalone primary")
-            setup_dash_ha(duthosts[1], dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
-            activate_dash_ha(duthosts[1], dpuhosts[1], localhost, ptfhost, setup_gnmi_server, ha_owner, role_index=1)
             pytest_assert(verify_ha_state(duthosts[1], scope_key=standby_vdpu_key, expected_state="standby"),
                           "HA: Standby state is not standby")
             pytest_assert(verify_ha_state(duthosts[0], scope_key=primary_vdpu_key, expected_state="active"),
