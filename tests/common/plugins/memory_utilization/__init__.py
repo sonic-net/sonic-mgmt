@@ -118,51 +118,89 @@ def override_monit_polling_interval(request, duthosts):
         yield
         return
 
+    # --monit_polling_interval must be a positive integer. type=int already rejects
+    # non-integers; reject 0 and negatives explicitly to avoid writing an invalid
+    # `set daemon 0` / `set daemon -1` into /etc/monit/monitrc.
+    if new_interval <= 0:
+        pytest.fail(
+            "--monit_polling_interval must be a positive integer, got: {}".format(new_interval))
+
     original_intervals = {}
     for duthost in duthosts:
         if duthost.topo_type == "t2":
             continue
 
-        # Recover from a previous crashed session that left a backup behind.
-        if _monit_rc_backup_exists(duthost):
-            logger.warning(
-                "Found leftover %s on %s from a previous session; restoring "
-                "from backup before modifying monitrc",
-                MONIT_RC_BACKUP_PATH, duthost.hostname)
-            _restore_monit_rc(duthost)
+        # Per-DUT setup is wrapped so an SSH/sudo/grep failure on one DUT does
+        # NOT abort the loop and leave other DUTs unconfigured.
+        try:
+            # Recover from a previous crashed session that left a backup behind.
+            if _monit_rc_backup_exists(duthost):
+                logger.warning(
+                    "Found leftover %s on %s from a previous session; restoring "
+                    "from backup before modifying monitrc",
+                    MONIT_RC_BACKUP_PATH, duthost.hostname)
+                _restore_monit_rc(duthost)
 
-        current = _read_monit_daemon_interval(duthost)
-        if current is None:
-            logger.warning(
-                "Could not locate `set daemon N` in %s on %s; skipping override",
-                MONIT_RC_PATH, duthost.hostname)
-            continue
+            current = _read_monit_daemon_interval(duthost)
+            if current is None:
+                logger.warning(
+                    "Could not locate `set daemon N` in %s on %s; skipping override",
+                    MONIT_RC_PATH, duthost.hostname)
+                continue
 
-        # Create a fresh backup of the (original) live config, then verify it
-        # exists before modifying. If the backup did not get created, skip the
-        # modification on this DUT rather than leaving it in an inconsistent state.
-        _backup_monit_rc(duthost)
-        if not _monit_rc_backup_exists(duthost):
+            # Per-DUT bound: the new interval must be strictly less than the
+            # DUT's current value. Setting it equal is a no-op; setting it larger
+            # would defeat the purpose of the flag (shrinking the stale-cache
+            # window). Skip this DUT with a warning rather than failing the whole
+            # session, so multi-DUT testbeds with one mis-configured DUT can still
+            # run the other DUTs.
+            if new_interval >= current:
+                logger.warning(
+                    "[MemoryUtilization] --monit_polling_interval=%s is not strictly "
+                    "less than the current monit polling interval on %s (%ss); "
+                    "skipping override on this DUT",
+                    new_interval, duthost.hostname, current)
+                continue
+
+            # Create a fresh backup of the (original) live config, then verify it
+            # exists before modifying. If the backup did not get created, skip the
+            # modification on this DUT rather than leaving it in an inconsistent state.
+            _backup_monit_rc(duthost)
+            if not _monit_rc_backup_exists(duthost):
+                logger.error(
+                    "Failed to create monit_rc backup at %s on %s; skipping override",
+                    MONIT_RC_BACKUP_PATH, duthost.hostname)
+                continue
+
+            logger.info(
+                "[MemoryUtilization] overriding monit daemon polling interval on %s: %ss -> %ss",
+                duthost.hostname, current, new_interval)
+            _write_monit_daemon_interval(duthost, new_interval)
+            original_intervals[duthost.hostname] = current
+        except Exception as e:
             logger.error(
-                "Failed to create monit_rc backup at %s on %s; skipping override",
-                MONIT_RC_BACKUP_PATH, duthost.hostname)
-            continue
-
-        logger.info(
-            "[MemoryUtilization] overriding monit daemon polling interval on %s: %ss -> %ss",
-            duthost.hostname, current, new_interval)
-        _write_monit_daemon_interval(duthost, new_interval)
-        original_intervals[duthost.hostname] = current
+                "[MemoryUtilization] failed to override monit polling interval on %s: %s; "
+                "skipping this DUT - manual cleanup of %s may be required if a "
+                "backup was created",
+                duthost.hostname, e, MONIT_RC_BACKUP_PATH)
 
     yield
 
+    # Per-DUT teardown is wrapped so a restore failure on one DUT does NOT
+    # abort the loop and leave subsequent DUTs with a modified /etc/monit/monitrc.
     for duthost in duthosts:
         if duthost.hostname not in original_intervals:
             continue
-        logger.info(
-            "[MemoryUtilization] restoring monit daemon polling interval on %s from backup",
-            duthost.hostname)
-        _restore_monit_rc(duthost)
+        try:
+            logger.info(
+                "[MemoryUtilization] restoring monit daemon polling interval on %s from backup",
+                duthost.hostname)
+            _restore_monit_rc(duthost)
+        except Exception as e:
+            logger.error(
+                "[MemoryUtilization] failed to restore monit_rc on %s: %s; DUT may "
+                "still have %ss polling interval in /etc/monit/monitrc - backup at %s",
+                duthost.hostname, e, new_interval, MONIT_RC_BACKUP_PATH)
 
 
 def _compute_monit_retry_wait(config):
