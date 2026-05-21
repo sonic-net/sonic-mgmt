@@ -220,7 +220,9 @@ class PfcXoffProbing(ProbingBase):
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting threshold probing")
         ProbingObserver.console(f"  src_port={src_port}, dst_port={dst_port}")
-        ProbingObserver.console(f"  pool_size_cells={pool_size_cells}, cells_per_packet={self.probe_cells_per_packet}, pool_size_pkts={pool_size}")
+        ProbingObserver.console(
+            f"  pool_size_cells={pool_size_cells}, cells_per_packet={self.probe_cells_per_packet}, "
+            f"pool_size_pkts={pool_size}")
         ProbingObserver.console(f"  precision_target_ratio={self.PRECISION_TARGET_RATIO}")
         ProbingObserver.console(f"  enable_precise_detection={self.ENABLE_PRECISE_DETECTION}")
         ProbingObserver.console(f"  executor_env={self.EXECUTOR_ENV}")
