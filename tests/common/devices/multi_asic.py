@@ -1001,6 +1001,6 @@ class MultiAsicSonicHost(object):
             )['ansible_facts']
 
         bgp_peers = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('peers', "")
-        # split bgp_peers string into list and convert each to int
+        # split bgp_peers string into list
         peer_asns = bgp_peers.split(",") if bgp_peers else []
         return peer_asns

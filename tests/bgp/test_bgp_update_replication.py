@@ -166,6 +166,7 @@ def setup_bgp_peers(
             use_vtysh = True
     elif dut_type in ["UpperSpineRouter"]:
         neigh_type = "AZNGHub"
+        dut_asn = int(confed_asn)
     else:
         neigh_type = "ToRRouter"
 

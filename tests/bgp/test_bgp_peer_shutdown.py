@@ -65,7 +65,7 @@ def common_setup_teardown(
             use_vtysh = True
     elif dut_type in ["UpperSpineRouter"]:
         neigh_type = "AZNGHub"
-        dut_asn = confed_asn
+        dut_asn = int(confed_asn)
     else:
         neigh_type = "ToRRouter"
     logging.info(
