@@ -246,10 +246,10 @@ def pull_run_dockers(duthost, creds, env):
                 # instead of running a standalone docker container
                 migrate_container_systemd(duthost, systemd_service, parameters)
                 continue
-        else:
-            if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
-                             module_ignore_errors=True)['rc'] != 0:
-                pytest.fail("Not able to run container using pulled image")
+
+        if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
+                         module_ignore_errors=True)['rc'] != 0:
+            pytest.fail("Not able to run container using pulled image")
 
         if "sidecar" in name:
             validate_is_v1_enabled(duthost, name)
