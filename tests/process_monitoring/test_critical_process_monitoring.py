@@ -597,13 +597,28 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # Check if this is a virtual switch (KVM) testbed (no PDU available)
         if is_vs_device(duthost):
-            # SysRq reboot was pre-scheduled in Phase 2 of the test (before killing
-            # any database container), while SSH was still alive.  After the global
-            # database container was killed SSH became unresponsive, so we cannot
-            # issue a new SysRq command here.  The DUT will reboot from the
-            # pre-scheduled command; just wait for it to come back up.
-            logger.info("KVM testbed: SysRq reboot was pre-scheduled in Phase 2; "
-                        "waiting for DUT to come back up...")
+            num_asics = duthost.facts.get("num_asics", 1)
+            if num_asics > 1:
+                # Multi-ASIC VS: after killing the global database container, SSH
+                # becomes unresponsive (sshd depends on the global namespace database).
+                # The SysRq reboot was pre-scheduled in Phase 2 while SSH was still
+                # alive.  Just wait here for the scheduled reboot to complete.
+                logger.info("Multi-ASIC KVM: SysRq reboot was pre-scheduled in Phase 2; "
+                            "waiting for DUT to come back up...")
+            else:
+                # Single-ASIC VS: SSH remains alive after killing the global database
+                # container (sshd does not depend on the database on single-ASIC KVM).
+                # Issue the SysRq reboot now; the DUT will reboot in ~2 seconds and
+                # wait_for_startup will wait for it to come back up.
+                logger.info("Single-ASIC KVM: issuing SysRq kernel reboot...")
+                try:
+                    duthost.shell(
+                        'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq '
+                        '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &',
+                        module_ignore_errors=True)
+                    logger.info("Kernel reboot trigger command issued successfully")
+                except Exception as e:
+                    logger.info("Reboot trigger (expected disconnect on immediate reboot): {}".format(str(e)))
         else:
             # For physical testbed, use PDU reboot
             logger.info("Physical testbed - performing power cycle via PDU...")
@@ -769,11 +784,13 @@ def test_monitoring_critical_processes(
 
     # Phase 2: Kill database critical processes last.  The DUT will become
     # unstable after this, so no further syslog verification is performed.
-    # For VS (KVM) devices the SysRq reboot is pre-scheduled HERE (while SSH is
-    # alive) because SSH becomes unresponsive after the global database is killed,
-    # preventing the fixture from issuing the reboot command later.
-    # The recover_critical_processes fixture then waits for DUT recovery
-    # (VS: waits for pre-scheduled reboot; physical: PDU power-cycle).
+    # Recovery strategy differs by topology:
+    #   - Multi-ASIC VS: SSH hangs after killing global database, so a SysRq
+    #     reboot is pre-scheduled HERE (while SSH is still alive).  The fixture
+    #     waits for that scheduled reboot.
+    #   - Single-ASIC VS: SSH stays alive after killing global database, so
+    #     the fixture issues a 2-second SysRq reboot directly.
+    #   - Physical: fixture uses PDU power-cycle.
     if database_containers:
         logger.info("Killing database container critical processes (DUT will become unstable)...")
         try:
@@ -791,19 +808,17 @@ def test_monitoring_critical_processes(
                 global_ns = [nid for nid in ns_ids if nid == DEFAULT_ASIC_ID]
                 ordered_database_containers[k] = per_asic + global_ns
 
-            # For VS (KVM) devices: pre-schedule a SysRq reboot BEFORE killing any
-            # database process.  After the global database container's redis is
-            # killed, the DUT becomes unresponsive to new SSH connections, making it
-            # impossible for the recover_critical_processes fixture to trigger the
-            # reboot via SSH.  Pre-scheduling here (while SSH is still alive) ensures
-            # the DUT reboots even after SSH becomes unresponsive.
-            if is_vs_device(duthost):
+            # Pre-schedule SysRq ONLY for multi-ASIC VS where SSH becomes
+            # unresponsive after killing the global database container.  On
+            # single-ASIC VS, SSH stays alive and the fixture issues the reboot
+            # directly via the "sleep 2" path (so no pre-scheduling needed there).
+            if is_vs_device(duthost) and duthost.facts.get("num_asics", 1) > 1:
                 reboot_delay = 120  # seconds -- generous to allow per-ASIC kills to finish
                 duthost.shell(
                     'nohup bash -c "sleep {d} && echo 1 > /proc/sys/kernel/sysrq '
                     '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &'.format(d=reboot_delay),
                     module_ignore_errors=True)
-                logger.info("Pre-scheduled SysRq kernel reboot in {} seconds "
+                logger.info("Multi-ASIC VS: pre-scheduled SysRq kernel reboot in {} seconds "
                             "(SSH will become unresponsive after global database kill).".format(reboot_delay))
 
             stop_critical_processes(duthost, ordered_database_containers)
