@@ -35,7 +35,6 @@ from bgp_aggregate_helpers import (
     verify_route_on_m2,
     withdraw_contributing_routes,
 )
-from tests.bgp.bgp_helpers import get_upstream_ptf_intfs
 from tests.common.gcu_utils import (
     create_checkpoint,
     rollback,
@@ -643,7 +642,16 @@ class TestGroup7CapacityStress:
         # Resolve PTF port mappings
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         router_mac = duthost.facts["router_mac"]
-        upstream_ptf_ports = get_upstream_ptf_intfs(mg_facts, tbinfo)
+
+        # Compute upstream (M2) ethernets and their PTF port indices.
+        upstream_type = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]].upper()
+        upstream_ethernets = [
+            k for k, v in mg_facts["minigraph_neighbors"].items()
+            if v["name"].endswith(upstream_type)
+        ]
+        upstream_ptf_ports = [
+            mg_facts["minigraph_ptf_indices"][port] for port in upstream_ethernets
+        ]
         pytest_assert(
             upstream_ptf_ports,
             "No upstream PTF ports found for data-plane testing",
@@ -670,11 +678,6 @@ class TestGroup7CapacityStress:
         # Discover destination IPs routable via upstream (M2) neighbors.
         # These are routes the DUT learned from M2 with upstream nexthops.
         # We use M2 neighbor BGP peer IPs — always routable via upstream links.
-        upstream_type = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]].upper()
-        upstream_ethernets = [
-            k for k, v in mg_facts["minigraph_neighbors"].items()
-            if v["name"].endswith(upstream_type)
-        ]
         # Collect the M2-side peer IPs from the DUT's interface addresses
         upstream_dst_ips = []
         for intf in upstream_ethernets:
