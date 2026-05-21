@@ -79,7 +79,7 @@ class TestHeadroomPoolProbingInstance:
         self.def_vlan_mac = None
         self.cell_size = 208
         self.packet_size = 64
-        self.use_pg_drop_counter = False
+        self.ingress_drop_counter_mode = 'port_drop'
 
         # Probing configuration
         self.PROBE_TARGET = "headroom_pool"
@@ -728,9 +728,9 @@ class TestHeadroomPoolProbingProbeMethod(unittest.TestCase):
     @pytest.mark.order(4220)
     @patch('headroom_pool_probing.ProbingObserver')
     def test_probe_uses_pg_drop_counter_flag(self, mock_observer_class):
-        """Test probe passes use_pg_drop_counter to ingress drop executors."""
+        """Test probe passes counter_mode to ingress drop executors."""
         instance = TestHeadroomPoolProbingInstance()
-        instance.use_pg_drop_counter = True
+        instance.ingress_drop_counter_mode = 'pg_drop'
 
         # Mock stream_mgr with 1 flow
         mock_stream_mgr = MagicMock()
@@ -785,13 +785,13 @@ class TestHeadroomPoolProbingProbeMethod(unittest.TestCase):
 
             HeadroomPoolProbing.probe(instance)
 
-        # Verify that ingress_drop executors received use_pg_drop_counter=True
+        # Verify that ingress_drop executors received counter_mode='pg_drop'
         ingress_drop_calls = [c for c in create_executor_calls
                               if c['probe_target'] == 'ingress_drop']
         assert len(ingress_drop_calls) > 0
         for call_item in ingress_drop_calls:
-            assert 'use_pg_drop_counter' in call_item['kwargs']
-            assert call_item['kwargs']['use_pg_drop_counter'] is True
+            assert 'counter_mode' in call_item['kwargs']
+            assert call_item['kwargs']['counter_mode'] == 'pg_drop'
 
 
 @pytest.mark.order(4230)
@@ -803,7 +803,7 @@ class TestHeadroomPoolProbingPersistBuffer(unittest.TestCase):
     def test_persist_buffer_with_port_counter_margin(self, mock_observer_class):
         """Test buffer persistence uses margin when using port counter."""
         instance = TestHeadroomPoolProbingInstance()
-        instance.use_pg_drop_counter = False  # Port counter mode
+        instance.ingress_drop_counter_mode = 'port_drop'  # Port counter mode
         instance.POINT_PROBING_STEP_SIZE = 2
 
         # Mock stream_mgr with 1 flow
@@ -878,7 +878,7 @@ class TestHeadroomPoolProbingPersistBuffer(unittest.TestCase):
     def test_persist_buffer_with_pg_counter_no_margin(self, mock_observer_class):
         """Test buffer persistence uses no margin when using PG drop counter."""
         instance = TestHeadroomPoolProbingInstance()
-        instance.use_pg_drop_counter = True  # PG counter mode
+        instance.ingress_drop_counter_mode = 'pg_drop'  # PG counter mode
         instance.POINT_PROBING_STEP_SIZE = 2
 
         # Mock stream_mgr with 1 flow
