@@ -3,9 +3,12 @@ Conftest file for span tests
 '''
 
 import pytest
+import logging
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.utilities import skip_release
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -163,3 +166,189 @@ def setup_session(duthosts, rand_one_dut_hostname, session_info):
     }
     # Remove mirroring session
     duthost.command('config mirror_session remove {}'.format(session_info["session_name"]))
+
+
+# ---------------------------------------------------------------------------
+# ERSPAN sampling/truncation fixtures
+# ---------------------------------------------------------------------------
+
+ERSPAN_SESSION_NAME = "erspan_sample_trunc"
+ERSPAN_SRC_IP = "10.1.0.32"
+ERSPAN_DST_IP = "10.20.0.33"
+ERSPAN_DST_PREFIX = "10.20.0.33/32"
+ERSPAN_DSCP = "8"
+ERSPAN_TTL = "64"
+ERSPAN_GRE_TYPE = "0x88be"
+ERSPAN_QUEUE = "0"
+ERSPAN_DEFAULT_DIRECTION = "rx"
+
+
+@pytest.fixture(scope="module")
+def erspan_capabilities(duthosts, rand_one_dut_hostname):
+    '''
+    Collect switch capability facts for sampling/truncation support.
+    Follows the everflow conftest.py pattern using switch_capabilities_facts().
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    facts = duthost.switch_capabilities_facts()
+    caps = (facts
+            .get("ansible_facts", {})
+            .get("switch_capabilities", {})
+            .get("switch", {}))
+    return caps
+
+
+@pytest.fixture(scope="module")
+def skip_if_sampling_unsupported(erspan_capabilities):
+    '''Skip test if the platform does not support sampled port mirroring.'''
+    ingress = erspan_capabilities.get("PORT_INGRESS_SAMPLE_MIRROR_CAPABLE", "false")
+    egress = erspan_capabilities.get("PORT_EGRESS_SAMPLE_MIRROR_CAPABLE", "false")
+    if ingress.lower() != 'true' and egress.lower() != 'true':
+        pytest.skip("Platform does not support sampled port mirroring")
+
+
+@pytest.fixture(scope="module")
+def skip_if_truncation_unsupported(erspan_capabilities):
+    '''Skip test if the platform does not support sample packet truncation.'''
+    capable = erspan_capabilities.get("SAMPLEPACKET_TRUNCATION_CAPABLE", "false")
+    if capable.lower() != 'true':
+        pytest.skip("Platform does not support sample packet truncation")
+
+
+@pytest.fixture(scope="module")
+def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
+    '''
+    Select ports for ERSPAN tests:
+      - source: VLAN member port where test traffic is injected
+      - gre_egress: different VLAN member port used as next-hop for ERSPAN dst IP
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    vlans = cfg_facts['VLAN']
+    vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
+
+    for vlan in vlan_ids:
+        ports = cfg_facts['VLAN_MEMBER']['Vlan{}'.format(vlan)]
+        port_names = [p for p in list(ports.keys()) if 'PortChannel' not in p]
+        if len(port_names) >= 3:
+            break
+
+    assert len(port_names) >= 3, "Need at least 3 non-PortChannel VLAN member ports"
+
+    router_mac = duthost.facts['router_mac']
+    return {
+        'source': {
+            'name': port_names[0],
+            'index': cfg_facts['port_index_map'][port_names[0]],
+        },
+        'gre_egress': {
+            'name': port_names[1],
+            'index': cfg_facts['port_index_map'][port_names[1]],
+            'tagging_mode': ports[port_names[1]]['tagging_mode'],
+        },
+        'vlan': vlan,
+        'router_mac': router_mac,
+    }
+
+
+@pytest.fixture(scope="module")
+def setup_erspan_route(duthosts, rand_one_dut_hostname, ptfhost, erspan_ports):
+    '''
+    Set up routing so ERSPAN GRE packets reach the PTF port.
+    Follows the everflow pattern: static route + neighbor resolution.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    egress = erspan_ports['gre_egress']
+    egress_port = egress['name']
+    egress_ptf_index = egress['index']
+    vlan = erspan_ports['vlan']
+    tagging_mode = egress['tagging_mode']
+
+    dut_intf_ip = "192.168.200.1/30"
+    nexthop_ip = "192.168.200.2"
+
+    duthost.command('config vlan member del {} {}'.format(vlan, egress_port))
+    duthost.command('config interface ip add {} {}'.format(egress_port, dut_intf_ip))
+    duthost.command('vtysh -c "configure terminal" -c "ip route {} {}"'.format(
+        ERSPAN_DST_PREFIX, nexthop_ip
+    ))
+
+    ptf_mac = ptfhost.shell(
+        "cat /sys/class/net/eth{}/address".format(egress_ptf_index)
+    )['stdout'].strip()
+    duthost.command('ip neigh replace {} lladdr {} dev {}'.format(
+        nexthop_ip, ptf_mac, egress_port
+    ))
+
+    logger.info("ERSPAN route setup: %s -> %s (nexthop %s, PTF port %d, mac %s)",
+                ERSPAN_DST_PREFIX, egress_port, nexthop_ip, egress_ptf_index, ptf_mac)
+
+    yield {
+        'nexthop_ip': nexthop_ip,
+        'ptf_mac': ptf_mac,
+    }
+
+    duthost.command('vtysh -c "configure terminal" -c "no ip route {} {}"'.format(
+        ERSPAN_DST_PREFIX, nexthop_ip
+    ), module_ignore_errors=True)
+    duthost.command('ip neigh del {} dev {}'.format(nexthop_ip, egress_port),
+                    module_ignore_errors=True)
+    duthost.command('config interface ip remove {} {}'.format(egress_port, dut_intf_ip),
+                    module_ignore_errors=True)
+    duthost.command('config vlan member add {} {} --{}'.format(vlan, egress_port, tagging_mode),
+                    module_ignore_errors=True)
+
+
+@pytest.fixture
+def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup_erspan_route):
+    '''
+    Create and teardown an ERSPAN mirror session with optional sample_rate/truncate_size.
+
+    Usage:
+        @pytest.mark.parametrize('erspan_session', [{'sample_rate': 256}], indirect=True)
+        def test_something(erspan_session): ...
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    params = getattr(request, 'param', {}) or {}
+    sample_rate = params.get('sample_rate')
+    truncate_size = params.get('truncate_size')
+    src_port = erspan_ports['source']['name']
+    direction = params.get('direction', ERSPAN_DEFAULT_DIRECTION)
+
+    cmd = 'config mirror_session erspan add {} {} {} {} {} {} {} {} {}'.format(
+        ERSPAN_SESSION_NAME, ERSPAN_SRC_IP, ERSPAN_DST_IP,
+        ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE,
+        src_port, direction
+    )
+    if sample_rate is not None:
+        cmd += ' --sample_rate {}'.format(sample_rate)
+    if truncate_size is not None:
+        cmd += ' --truncate_size {}'.format(truncate_size)
+
+    logger.info("Creating ERSPAN session: %s", cmd)
+    duthost.command(cmd)
+
+    output = duthost.shell("show mirror_session")
+    assert ERSPAN_SESSION_NAME in output['stdout'], \
+        "Mirror session {} not found after creation".format(ERSPAN_SESSION_NAME)
+
+    yield {
+        'session_name': ERSPAN_SESSION_NAME,
+        'source_index': erspan_ports['source']['index'],
+        'gre_egress_index': erspan_ports['gre_egress']['index'],
+        'source_port': src_port,
+        'gre_egress_port': erspan_ports['gre_egress']['name'],
+        'router_mac': erspan_ports['router_mac'],
+        'sample_rate': sample_rate,
+        'truncate_size': truncate_size,
+        'direction': direction,
+        'mirror_session_info': {
+            'src_ip': ERSPAN_SRC_IP,
+            'dst_ip': ERSPAN_DST_IP,
+            'dscp': ERSPAN_DSCP,
+            'ttl': ERSPAN_TTL,
+            'gre_type': ERSPAN_GRE_TYPE,
+        },
+    }
+
+    duthost.command('config mirror_session remove {}'.format(ERSPAN_SESSION_NAME),
+                    module_ignore_errors=True)
