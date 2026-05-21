@@ -50,6 +50,34 @@ def get_nameserver_from_resolvconf(duthost, file_name=RESOLV_CONF_FILE, containe
     return current_nameservers
 
 
+def get_nameserver_from_namespace_resolvconf(duthost, namespace, file_name=RESOLV_CONF_FILE):
+    """
+    Get the DNS nameserver from resolv.conf in a specific ASIC network namespace.
+    On multi-ASIC devices, each ASIC namespace has its own resolv.conf.
+    :param duthost: DUT host object
+    :param namespace: ASIC namespace string (e.g., "asic0", "asic1"), or None for single-ASIC
+    :param file_name: Path to resolv.conf file
+    :return: Set of DNS nameserver IPs
+    """
+    if namespace:
+        resolv_conf = duthost.shell(
+            f"sudo ip netns exec {namespace} cat {file_name}", module_ignore_errors=True
+        )
+    else:
+        resolv_conf = duthost.shell(f"cat {file_name}", module_ignore_errors=True)
+    assert resolv_conf["rc"] == 0, f"Failed to read {file_name} in namespace {namespace}!"
+    current_nameservers = []
+    for line in resolv_conf["stdout_lines"]:
+        if not line.startswith("nameserver"):
+            continue
+        current_nameservers.append(line.split()[1])
+
+    current_nameservers = set(current_nameservers)
+    nameservers = " ".join(current_nameservers)
+    logger.info(f"nameservers in resolv.conf of namespace {namespace} are: [{nameservers}]")
+    return current_nameservers
+
+
 def clear_nameserver_from_resolvconf(duthost):
     duthost.shell(f"echo > {RESOLV_CONF_FILE}")
     containers = duthost.get_running_containers()
@@ -172,6 +200,23 @@ def _verify_nameserver_in_conf_file(duthost, expected_nameserver, expect_same=Tr
             assert set(nameserver_in_containers_conf) != set(expected_nameserver), \
                 f"The nameserver in container {container}'s {RESOLV_CONF_FILE} is: {nameserver_in_containers_conf}, " \
                 f"expected is: {expected_nameserver}"
+
+    if duthost.is_multi_asic:
+        for namespace in duthost.get_asic_namespace_list():
+            if namespace is None:
+                continue
+            nameserver_in_ns_conf = get_nameserver_from_namespace_resolvconf(duthost, namespace)
+            logger.info(f"The nameserver in namespace {namespace}'s {RESOLV_CONF_FILE} "
+                        f"is: {nameserver_in_ns_conf}, expected is: {expected_nameserver}")
+            if expect_same:
+                assert set(nameserver_in_ns_conf) == set(expected_nameserver), \
+                    f"The nameserver in namespace {namespace}'s {RESOLV_CONF_FILE} is: " \
+                    f"{nameserver_in_ns_conf}, expected is: {expected_nameserver}"
+            else:
+                assert set(nameserver_in_ns_conf) != set(expected_nameserver), \
+                    f"The nameserver in namespace {namespace}'s {RESOLV_CONF_FILE} is: " \
+                    f"{nameserver_in_ns_conf}, expected is: {expected_nameserver}"
+
     return True
 
 

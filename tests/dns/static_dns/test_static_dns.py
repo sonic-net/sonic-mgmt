@@ -12,7 +12,7 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from .static_dns_util import RESOLV_CONF_FILE, verify_nameserver_in_config_db, verify_nameserver_in_conf_file, \
     get_nameserver_from_resolvconf, config_mgmt_ip, add_dns_nameserver, del_dns_nameserver, get_mgmt_port_ip_info, \
-    get_nameserver_from_config_db, clear_nameserver_from_resolvconf
+    get_nameserver_from_config_db, clear_nameserver_from_resolvconf, get_nameserver_from_namespace_resolvconf
 
 
 pytestmark = [
@@ -243,3 +243,47 @@ def test_static_dns_negative(duthost):
         cmd_err = add_dns_nameserver(duthost, IPV4_UNICAST_ADDRESS_1, module_ignore_errors=True)['stderr']
         assert re.search(EXCEED_MAX_ERR, cmd_err,
                          re.IGNORECASE) is not None, exceed_max_err_msg_not_found
+
+
+@pytest.mark.disable_loganalyzer
+@pytest.mark.usefixtures('static_dns_clean')
+def test_static_dns_ipv6_multi_asic(duthost):
+    """
+    Test to verify IPv6 DNS nameservers are correctly propagated to all ASIC network namespaces
+    on multi-ASIC devices.
+
+    On IPv6-only multi-ASIC chassis line cards, DNS must work via IPv6 nameservers in each ASIC
+    namespace. This test validates that static IPv6 DNS nameservers configured via
+    'config dns nameserver add' are properly reflected in /etc/resolv.conf of every ASIC namespace,
+    ensuring containers such as acms can reach the DNS server.
+
+    :param duthost: DUT host object
+    """
+    if not duthost.is_multi_asic:
+        pytest.skip("Test only runs on multi-ASIC devices")
+
+    expected_nameservers = [IPV6_UNICAST_ADDRESS]
+
+    with allure.step("Add IPv6 DNS nameserver and verify it was added as expected"):
+        for nameserver in expected_nameservers:
+            add_dns_nameserver(duthost, nameserver)
+        with allure.step("Verify the IPv6 nameserver is configured in config db"):
+            verify_nameserver_in_config_db(duthost, expected_nameservers)
+        with allure.step(f"Verify the IPv6 nameserver is present in the host {RESOLV_CONF_FILE}"):
+            verify_nameserver_in_conf_file(duthost, expected_nameservers)
+
+    with allure.step("Verify the IPv6 nameserver is present in each ASIC namespace resolv.conf"):
+        for namespace in duthost.get_asic_namespace_list():
+            if namespace is None:
+                continue
+            with allure.step(f"Verify IPv6 nameserver in namespace {namespace}"):
+                nameservers_in_ns = get_nameserver_from_namespace_resolvconf(duthost, namespace)
+                pytest_assert(set(expected_nameservers).issubset(nameservers_in_ns),
+                              f"IPv6 nameserver {expected_nameservers} not found in namespace "
+                              f"{namespace}'s {RESOLV_CONF_FILE}. Current: {nameservers_in_ns}")
+
+    with allure.step("Delete IPv6 DNS nameserver and verify cleanup"):
+        for nameserver in expected_nameservers:
+            del_dns_nameserver(duthost, nameserver)
+        with allure.step("Verify the nameserver is removed from config db"):
+            verify_nameserver_in_config_db(duthost, [])
