@@ -65,6 +65,14 @@ DOCUMENTATION += """
 CONNECTION_TIMEOUT_ERR_FLAG1 = "Connection timed out"
 CONNECTION_TIMEOUT_ERR_FLAG2 = "No route to host"
 
+# Sample SSH permission-denied messages that should be treated as auth failures:
+# 'Failed to connect to the host via ssh: ... admin@10.0.0.1: Permission denied (publickey,password).'
+# ansible-core <2.19 raised this as AnsibleAuthenticationFailure when using sshpass.
+# ansible-core 2.19 changed the default password mechanism to `ssh_askpass`, and
+# in that path the same condition is raised as a plain AnsibleConnectionFailure.
+# We classify it here so altpasswords are still retried.
+PERMISSION_DENIED_ERR_FLAG = "Permission denied"
+
 
 def _password_retry(func):
     """
@@ -94,6 +102,18 @@ def _password_retry(func):
                 return results
             except AnsibleAuthenticationFailure:
                 # if there is no more altpassword to try, raise
+                if not conn_passwords:
+                    raise
+            except AnsibleConnectionFailure as e:
+                # ansible-core 2.19's default password_mechanism=ssh_askpass
+                # surfaces SSH "Permission denied" as a plain AnsibleConnectionFailure
+                # instead of AnsibleAuthenticationFailure. Recognise that case
+                # here so the next ansible_altpassword is still tried; for any
+                # other connection failure (timeout, no route to host, ...) we
+                # re-raise so the outer wrapper can fall through to IPv6.
+                err_msg = getattr(e, "message", "") or str(e)
+                if PERMISSION_DENIED_ERR_FLAG not in err_msg:
+                    raise
                 if not conn_passwords:
                     raise
             finally:
