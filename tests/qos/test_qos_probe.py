@@ -83,26 +83,40 @@ class TestQosProbe(QosSaiBase):
             return value // self.cells_per_packet
 
     class CiscoProbeParamsResolver(ProbeParamsResolver):
-        """Cisco-8000: resolve packet_size and cell_size from QoS config.
+        """Cisco-8000: resolve probe params from QoS config.
 
-        Cisco qos.yml thresholds are calibrated in packet units (not cells),
-        confirmed by Cisco engineers (Zhixin Zhu, 2025-09-01).
-        See: Knowledge/Cisco-8000 QoS Buffer and Sampling Architecture.md
+        Cisco qos.yml threshold unit convention varies by profile:
+
+        Profiles WITHOUT cell_size (threshold in packet units, divisor=1):
+          - xoff_1/xoff_2: pkts_num_trig_pfc, pkts_num_trig_ingr_drp
+
+        Profiles WITH cell_size (threshold in cell units, divisor=cells_per_packet):
+          - lossy_queue_1: pkts_num_trig_egr_drp
+
+        This matches legacy sai_qos_tests.py behavior where cell_size presence
+        in test_params controls whether // cell_occupancy is applied.
         """
         def __init__(self, qosConfig_profile=None, dutQosConfig=None):
             qosConfig_profile = qosConfig_profile or {}
             dutQosConfig = dutQosConfig or {}
             self.packet_length = qosConfig_profile.get("packet_size", 64)
-            cell_size = qosConfig_profile.get("cell_size", None)
-            if cell_size is None:
+
+            cell_size = qosConfig_profile.get("cell_size")
+            if cell_size is not None:
+                # Profile provides cell_size → threshold is in cell units
+                self.threshold_divisor = (self.packet_length + cell_size - 1) // cell_size
+            else:
+                # Profile omits cell_size → threshold is already in packet units
                 cell_size = (dutQosConfig.get("param", {}).get("cell_size")
                              or TestQosProbe.find_cell_size(dutQosConfig.get("param", {}))
                              or 384)
+                self.threshold_divisor = 1
+
             self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
 
         def resolve_threshold(self, value):
-            """Cisco qos.yml thresholds are already in probe-comparable units."""
-            return value
+            """Convert threshold to probe-comparable units using threshold_divisor."""
+            return value // self.threshold_divisor
 
     # Registry: platform_asic -> ProbeParamsResolver subclass
     _PROBE_RESOLVER_REGISTRY = {
