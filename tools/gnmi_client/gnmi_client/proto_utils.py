@@ -81,11 +81,22 @@ def routing_type_from_json(json_obj):
         pb.items.append(pbi)
     return pb
 
-def get_message_from_table_name(table_name):
-    table_name_lis = table_name.lower().split("_")
+def get_message_from_table_name(tbl_name):
+    # Extract the inner name from a full SONiC table name like
+    # "DASH_APPLIANCE_TABLE" -> "APPLIANCE". If the input doesn't match,
+    # treat it as the inner name directly.
+    m = re.search(r"DASH_(\w+)_TABLE", tbl_name)
+    inner = m.group(1) if m else tbl_name
+
+    # Special case: DASH_ROUTING_TYPE_TABLE maps to route_type_pb2.RouteType,
+    # not routing_type_pb2 (which doesn't exist).
+    if inner == "ROUTING_TYPE":
+        return RouteType()
+
+    table_name_lis = inner.lower().split("_")
     table_name_lis2 = [item.capitalize() for item in table_name_lis]
     message_name = ''.join(table_name_lis2)
-    module_name = f'dash_api.{table_name.lower()}_pb2'
+    module_name = f'dash_api.{inner.lower()}_pb2'
 
     # Import the module dynamically
     module = importlib.import_module(module_name)
@@ -227,17 +238,6 @@ def tbl_name_to_type(tbl_name):
     return ''.join(words)
 
 def from_pb(tbl_name, byte_array):
-    # tbl_name may be the full SONiC table name like "DASH_APPLIANCE_TABLE";
-    # get_message_from_table_name expects the inner name (e.g. "APPLIANCE"),
-    # matching how json_to_proto extracts it.
-    m = re.search(r"DASH_(\w+)_TABLE", tbl_name)
-    inner = m.group(1) if m else tbl_name
-    # Special case: DASH_ROUTING_TYPE_TABLE maps to route_type_pb2.RouteType,
-    # not routing_type_pb2 (which doesn't exist). Same special case as in
-    # json_to_proto().
-    if inner == "ROUTING_TYPE":
-        obj = RouteType()
-    else:
-        obj = get_message_from_table_name(inner)
+    obj = get_message_from_table_name(tbl_name)
     obj.ParseFromString(byte_array)
     return obj

@@ -2,7 +2,6 @@ import json
 import logging
 from . import proto_utils
 import time
-import traceback
 import subprocess
 
 from pygnmi.client import gNMIclient
@@ -162,10 +161,7 @@ def gnmi_set(env, delete_list, update_list, replace_list):
         for attr in ("code", "details", "debug_error_string"):
             fn = getattr(e, attr, None)
             if callable(fn):
-                try:
-                    logging.error("GNMI set failed [%s]: %s", attr, fn())
-                except Exception:
-                    pass
+                logging.error("GNMI set failed [%s]: %s", attr, fn())
 
     return
 
