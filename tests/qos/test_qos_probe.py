@@ -99,6 +99,7 @@ class TestQosProbe(QosSaiBase):
         in test_params controls whether // cell_occupancy is applied.
         """
         def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            super().__init__()
             qosConfig_profile = qosConfig_profile or {}
             dutQosConfig = dutQosConfig or {}
             self.packet_length = qosConfig_profile.get("packet_size", 64)
