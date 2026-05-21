@@ -153,6 +153,13 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
         # No env var override — change testParams in PTF command to switch mode
         self.ingress_drop_counter_mode = getattr(self, 'ingress_drop_counter_mode', 'port_drop')
 
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+        if self.ingress_drop_counter_mode not in IngressDropProbingExecutor.VALID_COUNTER_MODES:
+            raise ValueError(
+                f"Invalid ingress_drop_counter_mode='{self.ingress_drop_counter_mode}'. "
+                f"Must be one of: {IngressDropProbingExecutor.VALID_COUNTER_MODES}"
+            )
+
         ProbingObserver.trace(
             f"[{self.__class__.__name__}] ingress_drop_counter_mode={self.ingress_drop_counter_mode}"
         )
