@@ -6,14 +6,24 @@ import base64
 from ipaddress import ip_address as IP
 import importlib
 
-from dash_api.eni_pb2 import State  # noqa: F401
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType  # noqa: F401
-from dash_api.types_pb2 import IpVersion, Range, ValueOrRange, IpPrefix, IpAddress, HaScope, HaOwner  # noqa: F401
+from dash_api import eni_pb2 as _eni_pb2
+from dash_api import route_type_pb2 as _route_type_pb2
+from dash_api import types_pb2 as _types_pb2
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
 
 ENABLE_PROTO = True
+
+_ENUM_MODULES = [_route_type_pb2, _types_pb2, _eni_pb2]
+
+
+def _get_enum_class(enum_type_str):
+    for mod in _ENUM_MODULES:
+        cls = getattr(mod, enum_type_str, None)
+        if cls is not None:
+            return cls
+    return None
 
 PB_INT_TYPES = set([
     FieldDescriptor.TYPE_INT32,
@@ -31,58 +41,45 @@ PB_INT_TYPES = set([
 
 def get_enum_type_from_str(enum_type_str, enum_name_str):
 
-    # 4_to_6 uses small cap so cannot use dynamic naming
-    if enum_name_str == "4_to_6":
-        return ActionType.ACTION_TYPE_4_to_6
-
     my_enum_type_parts = re.findall(r'[A-Z][^A-Z]*', enum_type_str)
     my_enum_type_concatenated = '_'.join(my_enum_type_parts)
     enum_name = f"{my_enum_type_concatenated.upper()}_{enum_name_str.upper()}"
-    a = globals()[enum_type_str]
-    if a is not None:
-        return a.Value(enum_name)
-    else:
+    a = _get_enum_class(enum_type_str)
+    if a is None:
         raise Exception(f"Cannot find enum type {enum_type_str}")
+    # Try exact match first, then fall back to case-insensitive lookup
+    # to handle cases like ACTION_TYPE_4_to_6 where the proto value
+    # uses mixed case.
+    try:
+        return a.Value(enum_name)
+    except ValueError:
+        for name in a.DESCRIPTOR.values_by_name:
+            if name.upper() == enum_name:
+                return a.Value(name)
+        raise Exception(f"Cannot find enum value {enum_name} in {enum_type_str}")
 
 
-'''
-message RouteTypeItem {
-    string action_name = 1;
-    route_type.ActionType action_type = 2;
-    // Optional
-    // encap type depends on the action_type - {vxlan, nvgre}
-    optional route_type.EncapType encap_type = 3;
-    // Optional
-    // vni value to be used as the key for encapsulation. Applicable if encap_type is specified.
-    optional uint32 vni = 4;
+# Mapping of table inner names to (module_name, class_name) for tables
+# that don't follow the standard naming convention.
+_TABLE_NAME_OVERRIDES = {
+    "ROUTING_TYPE": ("route_type", "RouteType"),
 }
-message RouteType {
-    repeated RouteTypeItem items = 1;
-}'''
 
 
-def routing_type_from_json(json_obj):
-    pb = RouteType()
-    if isinstance(json_obj, list):
-        for item in json_obj:
-            pbi = RouteTypeItem()
-            pbi.action_name = item["action_name"]
-            pbi.action_type = get_enum_type_from_str('ActionType', item.get("action_type"))
-            if item.get("encap_type") is not None:
-                pbi.encap_type = get_enum_type_from_str('EncapType', item.get("encap_type"))
-            if item.get("vni") is not None:
-                pbi.vni = int(item["vni"])
-            pb.items.append(pbi)
-    else:
-        pbi = RouteTypeItem()
-        pbi.action_name = json_obj["action_name"]
-        pbi.action_type = get_enum_type_from_str('ActionType', json_obj.get("action_type"))
-        if json_obj.get("encap_type") is not None:
-            pbi.encap_type = get_enum_type_from_str('EncapType', json_obj.get("encap_type"))
-        if json_obj.get("vni") is not None:
-            pbi.vni = int(json_obj["vni"])
-        pb.items.append(pbi)
-    return pb
+def _normalize_table_name(inner):
+    """Return (module_base, class_name) for a table inner name.
+
+    Most tables follow the convention:
+      module = dash_api.{inner.lower()}_pb2
+      class  = CamelCase(inner)
+
+    Tables with non-standard naming are handled via _TABLE_NAME_OVERRIDES.
+    """
+    if inner in _TABLE_NAME_OVERRIDES:
+        return _TABLE_NAME_OVERRIDES[inner]
+    table_name_lis = inner.lower().split("_")
+    table_name_lis2 = [item.capitalize() for item in table_name_lis]
+    return (inner.lower(), ''.join(table_name_lis2))
 
 
 def get_message_from_table_name(tbl_name):
@@ -92,15 +89,8 @@ def get_message_from_table_name(tbl_name):
     m = re.search(r"DASH_(\w+)_TABLE", tbl_name)
     inner = m.group(1) if m else tbl_name
 
-    # Special case: DASH_ROUTING_TYPE_TABLE maps to route_type_pb2.RouteType,
-    # not routing_type_pb2 (which doesn't exist).
-    if inner == "ROUTING_TYPE":
-        return RouteType()
-
-    table_name_lis = inner.lower().split("_")
-    table_name_lis2 = [item.capitalize() for item in table_name_lis]
-    message_name = ''.join(table_name_lis2)
-    module_name = f'dash_api.{inner.lower()}_pb2'
+    module_base, message_name = _normalize_table_name(inner)
+    module_name = f'dash_api.{module_base}_pb2'
 
     # Import the module dynamically
     module = importlib.import_module(module_name)
@@ -190,22 +180,11 @@ def parse_value_or_range(value_or_range):
             raise ValueError("Input string must contain either one or two numbers separated by a comma.")
 
 
-def json_to_proto(key: str, proto_dict: dict):
-    """
-    Custom parser for DASH configs to allow writing configs
-    in a more human-readable format
-    """
-    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
-    if table_name == "ROUTING_TYPE":
-        pb = routing_type_from_json(proto_dict)
-        return pb.SerializeToString()
-
-    message = get_message_from_table_name(table_name)
-    field_map = message.DESCRIPTOR.fields_by_name
+def _convert_fields(proto_dict, field_map):
+    """Convert a dict of human-readable field values to ParseDict-compatible format."""
     new_dict = {}
     for key, value in proto_dict.items():
         if field_map[key].type == field_map[key].TYPE_MESSAGE:
-
             if field_map[key].message_type.name == "IpAddress":
                 new_dict[key] = parse_ip_address(value)
             elif field_map[key].message_type.name == "IpPrefix":
@@ -219,22 +198,45 @@ def json_to_proto(key: str, proto_dict: dict):
                     new_dict[key] = [parse_value_or_range(val) for val in value]
                 else:
                     new_dict[key] = parse_value_or_range(value)
-
         elif field_map[key].type == field_map[key].TYPE_ENUM:
             new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
         elif field_map[key].type == field_map[key].TYPE_BOOL:
             new_dict[key] = value == 'true'
-
         elif field_map[key].type == field_map[key].TYPE_BYTES:
             new_dict[key] = parse_byte_field(value)
-
         elif field_map[key].type in PB_INT_TYPES:
             new_dict[key] = int(value)
 
         if key not in new_dict:
             new_dict[key] = value
+    return new_dict
 
-    pb =  ParseDict(new_dict, message)
+
+def json_to_proto(key: str, proto_dict):
+    """
+    Custom parser for DASH configs to allow writing configs
+    in a more human-readable format.
+    Supports both dict and list inputs.
+    """
+    message = get_message_from_table_name(key)
+    field_map = message.DESCRIPTOR.fields_by_name
+
+    if isinstance(proto_dict, list):
+        # Find the repeated message field to populate with list items
+        repeated_field = None
+        for fname, fdesc in field_map.items():
+            if fdesc.label == FieldDescriptor.LABEL_REPEATED and fdesc.type == FieldDescriptor.TYPE_MESSAGE:
+                repeated_field = fname
+                break
+        if repeated_field is None:
+            raise ValueError(f"No repeated message field found in {key}")
+        sub_field_map = field_map[repeated_field].message_type.fields_by_name
+        converted_items = [_convert_fields(item, sub_field_map) for item in proto_dict]
+        new_dict = {repeated_field: converted_items}
+    else:
+        new_dict = _convert_fields(proto_dict, field_map)
+
+    pb = ParseDict(new_dict, message)
     return pb.SerializeToString()
 
 
