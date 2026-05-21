@@ -41,7 +41,6 @@ def store_fixture_values(request, duthosts, memory_utilization):
     request.config.store_memory_utilization = memory_utilization
 
 
-
 # ---------------------------------------------------------------------------
 # --monit_polling_interval support
 #
