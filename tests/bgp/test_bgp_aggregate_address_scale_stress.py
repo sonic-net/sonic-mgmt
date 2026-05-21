@@ -25,6 +25,7 @@ from natsort import natsorted
 from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
     BGP_SETTLE_WAIT,
+    PLACEHOLDER_PREFIX,
     AggregateCfg,
     check_route_on_neighbor,
     announce_contributing_routes,
@@ -34,7 +35,6 @@ from bgp_aggregate_helpers import (
     verify_route_on_m2,
     withdraw_contributing_routes,
 )
-from tests.bgp.bgp_helpers import get_upstream_ptf_intfs
 from tests.common.gcu_utils import (
     create_checkpoint,
     rollback,
@@ -56,7 +56,6 @@ pytestmark = [
 # ---- Test data ----
 AGGR_V4 = "10.100.0.0/16"
 CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
-PLACEHOLDER_PREFIX = "192.0.2.0/32"
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
 EXABGP_BATCH_SIZE = 50    # routes per ExaBGP HTTP request
@@ -643,7 +642,16 @@ class TestGroup7CapacityStress:
         # Resolve PTF port mappings
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         router_mac = duthost.facts["router_mac"]
-        upstream_ptf_ports = get_upstream_ptf_intfs(mg_facts, tbinfo)
+
+        # Compute upstream (M2) ethernets and their PTF port indices.
+        upstream_type = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]].upper()
+        upstream_ethernets = [
+            k for k, v in mg_facts["minigraph_neighbors"].items()
+            if v["name"].endswith(upstream_type)
+        ]
+        upstream_ptf_ports = [
+            mg_facts["minigraph_ptf_indices"][port] for port in upstream_ethernets
+        ]
         pytest_assert(
             upstream_ptf_ports,
             "No upstream PTF ports found for data-plane testing",
@@ -670,11 +678,6 @@ class TestGroup7CapacityStress:
         # Discover destination IPs routable via upstream (M2) neighbors.
         # These are routes the DUT learned from M2 with upstream nexthops.
         # We use M2 neighbor BGP peer IPs — always routable via upstream links.
-        upstream_type = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]].upper()
-        upstream_ethernets = [
-            k for k, v in mg_facts["minigraph_neighbors"].items()
-            if v["name"].endswith(upstream_type)
-        ]
         # Collect the M2-side peer IPs from the DUT's interface addresses
         upstream_dst_ips = []
         for intf in upstream_ethernets:

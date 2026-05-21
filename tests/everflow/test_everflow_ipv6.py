@@ -169,6 +169,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                             exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
                             exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
                             exp_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
+                            exp_pkt.set_do_not_care_packet(scapy.IPv6, "tc")
+                            exp_pkt.set_do_not_care_packet(scapy.IPv6, "fl")
                             testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptfadapter.ptf_port_set,
                                                              timeout=5)
                     count += 1
@@ -223,6 +225,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
                                        config_method, rules=EVERFLOW_V6_RULES)
             self.apply_ip_type_rule(duthost, 6)
+
+        everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         yield
 

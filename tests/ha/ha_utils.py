@@ -1,8 +1,9 @@
 import logging
 import json
+import os
 
 from tests.common.utilities import wait_until
-from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config
+from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +189,7 @@ def verify_ha_state(
     return success
 
 
-def activate_primary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type):
+def activate_primary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type, owner="dpu"):
     """
     Activate Role using pending_operation_ids
     """
@@ -196,12 +197,12 @@ def activate_primary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op
                 "version": "1",
                 "disabled": False,
                 "desired_ha_state": "active",
-                "owner": "dpu",
+                "owner": owner,
             }
     return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
 
 
-def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type):
+def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type, owner="dpu"):
     """
     Activate Role using pending_operation_ids
     """
@@ -209,9 +210,13 @@ def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_
                 "version": "1",
                 "disabled": False,
                 "desired_ha_state": "unspecified",
-                "owner": "dpu",
+                "owner": owner,
             }
-    return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
+    if owner == "dpu":
+        return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
+    else:
+        return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type,
+                                expected_state="standby")
 
 
 def _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields, approved_pending_operation_ids=None):
@@ -234,12 +239,16 @@ def _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields, approve
     )
 
 
-def activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type):
+def activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type,
+                     expected_state="active"):
+    """
+    Apply HA scope config, wait for pending operation, approve it, and verify final state.
+    """
     _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields)
 
     pending_id = wait_for_pending_operation_id(duthost, scope_key, expected_op_type, timeout=60)
     assert pending_id, (
-        f"Timed out waiting for active pending_operation_id "
+        f"Timed out waiting for pending_operation_id "
         f"for scope {scope_key}"
     )
     _apply_ha_scope_gnmi(
@@ -251,32 +260,61 @@ def activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op
         approved_pending_operation_ids=[pending_id],
     )
 
+    # skipping state verification.
+    if expected_state is None:
+        logger.info(
+            f"Skipping HA state verification for {scope_key} "
+            f"(expected_state=None)"
+        )
+        return True
+
     if verify_ha_state(
         duthost,
         scope_key,
-        expected_state="active",
+        expected_state=expected_state,
         timeout=120,
         interval=5,
     ):
-        logger.info(f"HA reached ACTIVE state for {scope_key}")
+        logger.info(f"HA reached {expected_state.upper()} state for {scope_key}")
         return True
     else:
-        logger.warning(f"HA did not reach ACTIVE state for {scope_key}")
+        logger.warning(f"HA did not reach {expected_state.upper()} state for {scope_key}")
         return False
 
 
-def set_dead_dash_ha_scope(localhost, duthost, ptfhost, scope_key):
+def set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, desired_ha_state, owner,
+                      expected_op_type="switchover", disabled=None):
     """
-    Set DASH_HA_SCOPE_CONFIG_TABLE entry to "dead" state
-    scope_key example: vdpu0_0:haset0_0
+    Set DASH_HA_SCOPE_CONFIG_TABLE entry to the specified state. For DPU-driven, only DEAD state is allowed.
+    Only "active" state requires activation (wait for and approve pending operation).
+
+    Args:
+        scope_key: e.g. "vdpu0_0:haset0_0"
+        desired_ha_state: target state, e.g. "dead", "standby", "active", "unspecified"
+        owner: HA owner string (e.g. "dpu" or "switch")
+        expected_op_type: Expected pending operation type for activation (default: "switchover")
     """
+    disabled = disabled if not disabled else desired_ha_state == "dead"
     fields = {
                 "version": "1",
-                "disabled": True,
-                "desired_ha_state": "dead",
-                "owner": "dpu",
+                "disabled": disabled,
+                "desired_ha_state": desired_ha_state,
+                "owner": owner,
             }
-    _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields)
+
+    # For NPU-driven HA, state activation is required.
+    if desired_ha_state != "active":
+        _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields)
+    else:
+        activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type,
+                         expected_state=None)
+
+
+def set_dead_dash_ha_scope(localhost, duthost, ptfhost, scope_key, owner="dpu"):
+    """
+    Convenience wrapper: set DASH HA scope to DEAD state.
+    """
+    set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, "dead", owner)
 
 
 def wait_for_pending_operation_id(
@@ -308,3 +346,91 @@ def wait_for_pending_operation_id(
     )
 
     return pending_id if success else None
+
+
+def bfd_pin_primary(localhost, ptfhost, duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            if "pinned_vdpu_bfd_probe_states" not in fields:
+                fields["pinned_vdpu_bfd_probe_states"] = ["down", "up"]
+            else:
+                fields.update({"pinned_vdpu_bfd_probe_states": ["down", "up"]})
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+            )
+
+
+def bfd_unpin_primary(localhost, ptfhost, duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            if "pinned_vdpu_bfd_probe_states" in fields:
+                fields["pinned_vdpu_bfd_probe_states"] = ["up", "up"]
+            else:
+                fields.update({"pinned_vdpu_bfd_probe_states": ["up", "up"]})
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+            )
+
+
+def bfd_pin_both_sides(localhost, ptfhost, duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            if "pinned_vdpu_bfd_probe_states" not in fields:
+                fields["pinned_vdpu_bfd_probe_states"] = ["down", "down"]
+            else:
+                fields.update({"pinned_vdpu_bfd_probe_states": ["down", "down"]})
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+            )
+
+
+def bfd_unpin_both_sides(localhost, ptfhost, duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            if "pinned_vdpu_bfd_probe_states" in fields:
+                fields["pinned_vdpu_bfd_probe_states"] = ["up", "up"]
+            else:
+                fields.update({"pinned_vdpu_bfd_probe_states": ["up", "up"]})
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+            )
