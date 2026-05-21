@@ -1,15 +1,14 @@
 import re
 import socket
-import ipaddress
 import uuid
 import base64
 
 from ipaddress import ip_address as IP
 import importlib
 
-from dash_api.eni_pb2 import State
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType
-from dash_api.types_pb2 import IpVersion, Range, ValueOrRange, IpPrefix, IpAddress, HaScope, HaOwner
+from dash_api.eni_pb2 import State  # noqa: F401
+from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType  # noqa: F401
+from dash_api.types_pb2 import IpVersion, Range, ValueOrRange, IpPrefix, IpAddress, HaScope, HaOwner  # noqa: F401
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
@@ -29,6 +28,7 @@ PB_INT_TYPES = set([
     FieldDescriptor.TYPE_SINT64
 ])
 
+
 def get_enum_type_from_str(enum_type_str, enum_name_str):
 
     # 4_to_6 uses small cap so cannot use dynamic naming
@@ -44,6 +44,7 @@ def get_enum_type_from_str(enum_type_str, enum_name_str):
     else:
         raise Exception(f"Cannot find enum type {enum_type_str}")
 
+
 '''
 message RouteTypeItem {
     string action_name = 1;
@@ -58,6 +59,8 @@ message RouteTypeItem {
 message RouteType {
     repeated RouteTypeItem items = 1;
 }'''
+
+
 def routing_type_from_json(json_obj):
     pb = RouteType()
     if isinstance(json_obj, list):
@@ -80,6 +83,7 @@ def routing_type_from_json(json_obj):
             pbi.vni = int(json_obj["vni"])
         pb.items.append(pbi)
     return pb
+
 
 def get_message_from_table_name(tbl_name):
     # Extract the inner name from a full SONiC table name like
@@ -106,6 +110,7 @@ def get_message_from_table_name(tbl_name):
 
     return message_class()
 
+
 def parse_ip_address(ip_str):
     ip_addr = IP(ip_str)
     if ip_addr.version == 4:
@@ -115,6 +120,7 @@ def parse_ip_address(ip_str):
 
     return {f"ipv{ip_addr.version}": encoded_val}
 
+
 def prefix_to_ipv4(prefix_length):
     mask = 2**32 - 2**(32-int(prefix_length))
     s = str(int(mask))
@@ -122,6 +128,7 @@ def prefix_to_ipv4(prefix_length):
     hex_groups = [s[i:i+2] for i in range(0, len(s), 2)]
     ipv4_address_str = '.'.join(hex_groups)
     return ipv4_address_str
+
 
 def prefix_to_ipv6(prefix_length):
     mask = 2**128 - 2**(128-int(prefix_length))
@@ -152,6 +159,7 @@ def parse_byte_field(orig_val):
 def parse_guid(guid_str):
     return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
 
+
 def parse_range(range_str):
     parts = range_str.split(",")
     num_parts = len(parts)
@@ -180,6 +188,7 @@ def parse_value_or_range(value_or_range):
             return parse_range(value_or_range)
         else:
             raise ValueError("Input string must contain either one or two numbers separated by a comma.")
+
 
 def json_to_proto(key: str, proto_dict: dict):
     """
@@ -236,6 +245,7 @@ def tbl_name_to_type(tbl_name):
     # Capitalize the first character of each word
     words = [word.capitalize() for word in words]
     return ''.join(words)
+
 
 def from_pb(tbl_name, byte_array):
     obj = get_message_from_table_name(tbl_name)

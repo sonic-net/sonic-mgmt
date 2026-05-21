@@ -42,6 +42,7 @@ def _build_updates(items, encoding):
         msgs.append(Update(path=u_path, val=u_val))
     return msgs
 
+
 class GNMIEnvironment:
     gnmi_ip = "127.0.0.1"
     gnmi_port = 8080
