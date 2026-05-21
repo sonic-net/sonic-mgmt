@@ -35,13 +35,6 @@
   gather_facts: no
   tasks:
 
-  - name: Rotate the password
-    shell: "echo {{ ansible_ssh_user }}:{{ ansible_altpasswords[0] }} | sudo chpasswd"
-    no_log: True
-    become: false
-    ignore_errors: true
-    when: type is not defined or type != "kvm"
-
   # Auto-detect if DUT is IPv6-only by trying to connect
   # This must run BEFORE any task that connects to the DUT
   # Save original IPv4 address before potentially switching
@@ -72,6 +65,13 @@
       - ipv4_reachable_precheck.failed|default(false)
       - ansible_hostv6 is defined
       - ansible_hostv6 != ''
+
+  - name: Rotate the password
+    shell: "echo {{ ansible_ssh_user }}:{{ ansible_altpasswords[0] }} | sudo chpasswd"
+    no_log: True
+    become: false
+    ignore_errors: true
+    when: type is not defined or type != "kvm"
 
   - block:
     - name: set default testbed file
@@ -910,8 +910,6 @@
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
           npu_index: "{{ dut_index | default(0) | int }}"
-          bgp_confd_asn: "{{ bgp_confd_asn }}"
-          bgp_confd_peers: "{{ bgp_confd_peers }}"
           duts_list: "{{ testbed_facts['duts'] | default([]) | reject('search', '-dpu-') | list }}"
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
