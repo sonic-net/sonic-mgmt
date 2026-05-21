@@ -58,6 +58,12 @@ data.t1d3p1_ip6_addr = "2002:db8:1::2"
 data.t1d3p1_mac_addr = "00:0a:01:00:11:01"
 data.d3t1_ip6_addr = "2002:db8:1::1"  # Gateway on leaf0 Vlan2
 
+# Optional second ingress TGEN port on leaf0 (used only by the 2-to-1
+# natural-congestion test that runs when fabric egress speed == 2x ingress
+# speed). Same subnet/VLAN as T1D3P1 so they share the gateway.
+data.t1d3p2_ip6_addr = "2002:db8:1::3"
+data.t1d3p2_mac_addr = "00:0a:01:00:11:02"
+
 # Egress TGEN port on leaf1 (VLAN 3 / 2003:db8:1::/64)
 data.t1d4p1_ip6_addr = "2003:db8:1::2"
 data.t1d4p1_mac_addr = "00:0a:01:00:12:01"
@@ -641,6 +647,7 @@ def test_ecn_l3vni_ect10_ingress_leaf_egress_no_pfc():
     """
     st.banner("TEST: ECN L3VNI no-PFC natural congestion @ 99%% then 90%%")
     orig_rate = data.rate_percent
+    orig_frame_size = data.frame_size
     test_passed = True
     fail_reason = ''
 
@@ -655,6 +662,19 @@ def test_ecn_l3vni_ect10_ingress_leaf_egress_no_pfc():
         st.log("Skipping 90%% iteration: fabric egress {}G > ingress {}G "
                "(99%% is also uncongested; redundant)".format(egress_bw, ingress_bw))
         rates = [99]
+
+    # Frame-size selection: when fabric egress is exactly 2x the TGEN ingress
+    # speed, the leaf cannot be congested by large-MTU frames at line rate
+    # (encap overhead is dwarfed by the speed delta). Drop to 64B so the
+    # PPS pressure / lookup pressure rises enough to exercise the path.
+    # Same-speed (and any other ratio) keeps the default 1350B frame.
+    if ingress_bw and egress_bw and egress_bw == 2 * ingress_bw:
+        data.frame_size = "64"
+        st.log("Using 64B frames: fabric egress {}G == 2x ingress {}G".format(
+            egress_bw, ingress_bw))
+    else:
+        st.log("Using default {}B frames (ingress={}G, egress={}G)".format(
+            orig_frame_size, ingress_bw, egress_bw))
 
     try:
         for rate in rates:
@@ -673,11 +693,193 @@ def test_ecn_l3vni_ect10_ingress_leaf_egress_no_pfc():
                 fail_reason = "{}: {}".format(tname, bundle.get('reason', ''))
     finally:
         data.rate_percent = orig_rate
+        data.frame_size = orig_frame_size
 
     if test_passed:
         st.report_pass("test_case_passed", "natural-congestion runner completed")
     else:
         st.report_fail("test_case_failed", fail_reason or "see runner errors")
+
+
+# =============================================================================
+# Natural-congestion 2-to-1 test (runs only when fabric_egress == 2 * ingress)
+# =============================================================================
+
+def _toggle_d3t1p2_vlan2(nodes, vars, add):
+    """Add or remove D3T1P2 from Vlan2 on leaf0.
+
+    Vlan2 SVI on leaf0 already carries 2002:db8:1::1/64, so the TGEN port
+    just needs to be a tagged-untagged member of the VLAN -- no new DUT IP
+    config required.
+    """
+    dut = nodes['leaf0']
+    op = "add" if add else "del"
+    st.banner(f"{'Adding' if add else 'Removing'} {vars.D3T1P2} {'to' if add else 'from'} Vlan2 on leaf0")
+    st.config(dut,
+              f"sudo config vlan member {op} {'-u ' if add else ''}2 {vars.D3T1P2}",
+              skip_error_check=True)
+
+
+def _patch_topology_add_second_ingress(vars, nodes, add):
+    """Temporarily add/remove vars.D3T1P2 to leaf0.ingress_ports + all_ports.
+
+    Makes the per-node snapshot include the second ingress port so the test
+    log shows both ingress streams' counters / PG watermarks / PFC TX.
+    Speed is queried and stamped onto port_speeds.
+    """
+    leaf0_entry = data.topology.get('leaf0')
+    if not leaf0_entry:
+        return
+    port = vars.D3T1P2
+    ingress = leaf0_entry.setdefault('ingress_ports', [])
+    all_ports = leaf0_entry.setdefault('all_ports', [])
+    port_speeds = leaf0_entry.setdefault('port_speeds', {})
+    if add:
+        if port not in ingress:
+            ingress.append(port)
+        if port not in all_ports:
+            all_ports.append(port)
+        try:
+            from tests.cisco.tortuga.common import tortuga_common_utils as _cu
+            sp = _cu.get_if_speed(nodes['leaf0'], port)
+            port_speeds[port] = int(sp) if sp else 0
+        except Exception as e:
+            st.log(f"topology patch: speed query for {port} failed: {e}")
+            port_speeds[port] = 0
+        st.log(f"topology patch: leaf0 ingress_ports now {ingress}, "
+               f"port_speeds[{port}]={port_speeds.get(port)}")
+    else:
+        if port in ingress:
+            ingress.remove(port)
+        if port in all_ports:
+            all_ports.remove(port)
+        port_speeds.pop(port, None)
+        st.log(f"topology unpatch: leaf0 ingress_ports now {ingress}")
+
+
+def test_ecn_l3vni_ect10_ingress_leaf_egress_no_pfc_2to1():
+    """ECT(10) natural congestion at ingress_leaf_egress with TWO ingress streams.
+
+    Runs only when the fabric egress port speed (leaf0 -> spine) is
+    exactly 2x the TGEN ingress port speed (TGEN -> leaf0). In that case
+    a single 99% ingress flow cannot congest the leaf's fabric egress;
+    two ingress streams at 99% each (sharing the same egress port) can.
+
+    On non-2:1 topologies the test is skipped with a clear log message.
+
+    Standalone pass/fail (no validator umbrella):
+        PASS iff bundle completed without exception AND tx_frames > 0.
+    """
+    vars = st.get_testbed_vars()
+    nodes = get_nodes()
+
+    ingress_bw, egress_bw = base.ingress_leaf_speeds(data.topology)
+    if not (ingress_bw and egress_bw and egress_bw == 2 * ingress_bw):
+        msg = (f"Skipping: requires fabric egress == 2x ingress; "
+               f"got ingress={ingress_bw}G egress={egress_bw}G")
+        st.log(msg)
+        pytest.skip(msg)
+
+    if not hasattr(vars, 'D3T1P2'):
+        msg = "Skipping: testbed has no D3T1P2 (second leaf0 TGEN port required)"
+        st.log(msg)
+        pytest.skip(msg)
+
+    st.banner("TEST: ECN L3VNI 2-to-1 natural congestion @ 99%% per stream "
+              f"(ingress={ingress_bw}G, egress={egress_bw}G)")
+
+    vlan_added = False
+    topo_patched = False
+    bundle = None
+    try:
+        _toggle_d3t1p2_vlan2(nodes, vars, add=True)
+        vlan_added = True
+        _patch_topology_add_second_ingress(vars, nodes, add=True)
+        topo_patched = True
+        st.wait(2)
+
+        bundle = base.run_ecn_xoff_test(
+            data, 'ingress_leaf_egress',
+            "test_ecn_l3vni_ect10_ingress_leaf_egress_no_pfc_2to1",
+            ect=ECN_ECT_10,
+            port_speed_gbps=port_speed_gbps,
+            vtep_ips=(LEAF0_VTEP_IP, LEAF1_VTEP_IP),
+            diagnostics_hook=dump_l3vni_diagnostics,
+            pre_ngpf_diagnostics_hook=_l3vni_pre_ngpf_diagnostics,
+            setup_tgen_post_handles_hook=_l3vni_resolve_gateway_nd,
+            clear_wred_pre_traffic=False,
+            save_config_nodes=['leaf0', 'leaf1', 'spine0'],
+            skip_pfc_xoff_stream=True,
+            stream_setup_fn=base.setup_tgen_interfaces_and_streams_2to1,
+        )
+    finally:
+        if topo_patched:
+            try:
+                _patch_topology_add_second_ingress(vars, nodes, add=False)
+            except Exception as cleanup_err:
+                st.log(f"Topology unpatch failed: {cleanup_err}")
+        if vlan_added:
+            try:
+                _toggle_d3t1p2_vlan2(nodes, vars, add=False)
+            except Exception as cleanup_err:
+                st.log(f"Cleanup of D3T1P2 vlan2 membership failed: {cleanup_err}")
+
+    if bundle is None:
+        st.report_fail("test_case_failed", "runner returned no bundle")
+        return
+
+    tx_frames = int(bundle.get('tx_frames') or 0)
+    rx_frames = int(bundle.get('rx_frames') or 0)
+    total_marked = int(bundle.get('total_ecn_marked') or 0)
+
+    # ---- Inspect snapshot for backpressure correctness ----
+    # Expectations on a healthy ingress-leaf-egress congestion:
+    #   * leaf0 (ingress leaf): pfc_tx > 0  (PFC propagated back to TGEN)
+    #   * leaf0 (ingress leaf): tx_drops == 0 on the lossless TC
+    #     (any tx_drops mean PFC backpressure failed to hold the queue)
+    snap = bundle.get('snapshot_summary') or {}
+    leaf0_totals = (snap.get('leaf0') or {}).get('totals') or {}
+    leaf0_pfc_tx = int(leaf0_totals.get('pfc_tx') or 0)
+    leaf0_tx_drops = int(leaf0_totals.get('tx_drops') or 0)
+    leaf0_queue_drops = int(leaf0_totals.get('queue_drop_pkts') or 0)
+    leaf0_pg_drops = int(leaf0_totals.get('pg_drop') or 0)
+
+    st.log(f"2-to-1 result: passed={bundle.get('passed')} tx={tx_frames} "
+           f"rx={rx_frames} ecn_marked={total_marked} "
+           f"leaf0_pfc_tx={leaf0_pfc_tx} leaf0_tx_drops={leaf0_tx_drops} "
+           f"leaf0_queue_drops_uc{data.tc}={leaf0_queue_drops} "
+           f"leaf0_pg_drops={leaf0_pg_drops} "
+           f"reason='{bundle.get('reason', '')}'")
+
+    if not bundle.get('passed'):
+        st.report_fail("test_case_failed",
+                       f"runner failed: {bundle.get('reason', '')}")
+        return
+    if tx_frames <= 0:
+        st.report_fail("test_case_failed", "no traffic transmitted (tx_frames=0)")
+        return
+
+    failures = []
+    if leaf0_tx_drops > 0 or leaf0_queue_drops > 0:
+        failures.append(
+            f"ingress leaf has egress drops on lossless TC{data.tc}: "
+            f"tx_drops={leaf0_tx_drops} queue_drop_pkts={leaf0_queue_drops} "
+            "(PFC backpressure failed to hold the queue)")
+    if leaf0_pfc_tx <= 0:
+        failures.append(
+            f"ingress leaf did not generate PFC TX back to TGEN "
+            f"(leaf0_pfc_tx={leaf0_pfc_tx}); expected XOFF when buffer fills")
+
+    if failures:
+        msg = "; ".join(failures)
+        st.error(f"2-to-1 backpressure check FAILED: {msg}")
+        st.report_fail("test_case_failed", msg)
+        return
+
+    st.report_pass("test_case_passed",
+                   f"2-to-1 ingress run completed: tx={tx_frames} "
+                   f"rx={rx_frames} ecn_marked={total_marked} "
+                   f"leaf0_pfc_tx={leaf0_pfc_tx}")
 
 
 # =============================================================================

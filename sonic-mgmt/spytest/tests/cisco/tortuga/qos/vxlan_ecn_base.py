@@ -271,6 +271,78 @@ def setup_tgen_interfaces_and_stream(data, tc, rate_percent, ect=ECN_ECT_10,
     return streams, handles, int_dict
 
 
+def setup_tgen_interfaces_and_streams_2to1(data, tc, rate_percent,
+                                           ect=ECN_ECT_10,
+                                           post_handles_hook=None):
+    """Two ingress streams (T1D3P1, T1D3P2) -> single egress T1D4P1.
+
+    Both ingress NGPF endpoints live in the same subnet on leaf0 (caller is
+    expected to have added T1D3P2 as a VLAN member alongside T1D3P1), so
+    they share data.d3t1_ip6_addr as gateway. Requires:
+        data.t1d3p2_ip6_addr, data.t1d3p2_mac_addr
+
+    Mirrors setup_tgen_interfaces_and_stream() in every other respect so it
+    can be used as a drop-in ``stream_setup_fn`` for run_ecn_xoff_test().
+    Returns (streams_dict, handles, int_dict).
+    """
+    nodes = qos_utils.get_nodes()
+    dscp = qos_utils.convert_tc_to_dscp(nodes['leaf0'], tc)
+    st.log(f"Using DSCP {dscp} for TC {tc}, ECT={ect} (2->1 ingress)")
+
+    int_dict = {
+        'T1D3P1': {
+            'host_ip': data.t1d3p1_ip6_addr,
+            'gateway': data.d3t1_ip6_addr,
+            'mac': data.t1d3p1_mac_addr,
+        },
+        'T1D3P2': {
+            'host_ip': data.t1d3p2_ip6_addr,
+            'gateway': data.d3t1_ip6_addr,
+            'mac': data.t1d3p2_mac_addr,
+        },
+        'T1D4P1': {
+            'host_ip': data.t1d4p1_ip6_addr,
+            'gateway': data.d4t1_ip6_addr,
+            'mac': data.t1d4p1_mac_addr,
+        },
+    }
+
+    st.banner("Configuring TGEN IPv6 interfaces via NGPF (2 ingress + 1 egress)")
+    handles = vxlan_obj.config_tgen_interface(int_dict, 'ipv6')
+
+    if post_handles_hook is not None:
+        try:
+            post_handles_hook(handles, int_dict)
+        except Exception as hook_err:
+            st.log(f"post_handles_hook failed (non-fatal): {hook_err}")
+
+    data.ip_dscp = int(dscp)
+    data.traffic_class = int(dscp) << 2
+    data.transmit_mode = 'continuous'
+    data.pkts_per_burst = '100000'
+    data.circuit_endpoint_type = 'ipv6'
+
+    orig_rate = data.rate_percent
+    data.rate_percent = str(rate_percent)
+
+    stream_list = [('T1D3P1', 'T1D4P1'), ('T1D3P2', 'T1D4P1')]
+    st.banner(
+        f"Creating 2 data streams [T1D3P1->T1D4P1, T1D3P2->T1D4P1] "
+        f"at {rate_percent}% each with ping verification"
+    )
+    streams = vxlan_obj.config_traffic_item(
+        stream_list, handles, int_dict, data,
+        ping=True, dscp=int(dscp), bidirectional=0, ect=ect
+    )
+
+    for key, item in streams.items():
+        stream_api.set_pfc_priority_group(item['tg_handle'], item['traffic_result'], tc)
+        st.log(f"Set PFC priority group {tc} for stream {key}")
+
+    data.rate_percent = orig_rate
+    return streams, handles, int_dict
+
+
 # ---------------------------------------------------------------------------
 # Generic ECN test runner using PFC XOFF backpressure (shared body).
 # ---------------------------------------------------------------------------
@@ -298,7 +370,8 @@ def run_ecn_xoff_test(data, congestion_point, test_name,
                       setup_tgen_post_handles_hook=None,
                       clear_wred_pre_traffic=True,
                       save_config_nodes=None,
-                      skip_pfc_xoff_stream=False):
+                      skip_pfc_xoff_stream=False,
+                      stream_setup_fn=None):
     """Run one ECN-over-XOFF iteration.
 
     See module-level comment block for the hook/flag contract.
@@ -443,15 +516,20 @@ def run_ecn_xoff_test(data, congestion_point, test_name,
 
         # Step 3: Now set up TGEN interfaces and create data stream using NGPF
         st.banner(f"Setting up TGEN interfaces and data stream at {data.rate_percent}%")
-        streams, handles, int_dict = setup_tgen_interfaces_and_stream(
+        setup_fn = stream_setup_fn or setup_tgen_interfaces_and_stream
+        streams, handles, int_dict = setup_fn(
             data, data.tc, float(data.rate_percent), ect=ect,
             post_handles_hook=setup_tgen_post_handles_hook
         )
 
-        # Get the stream_id from the streams dictionary
-        stream_key = 'T1D3P1<-->T1D4P1'
+        # Get the stream_id from the streams dictionary. With the default
+        # single-stream setup this is 'T1D3P1<-->T1D4P1'; with multi-stream
+        # setups (e.g. 2-to-1) fall back to the first stream for logging.
+        stream_key = 'T1D3P1<-->T1D4P1' if 'T1D3P1<-->T1D4P1' in streams \
+            else next(iter(streams.keys()))
         data_stream_id = streams[stream_key]['stream_id']
-        st.log(f"Data stream created: {stream_key} -> {data_stream_id}")
+        st.log(f"Data stream created: {stream_key} -> {data_stream_id} "
+               f"(total streams: {len(streams)})")
 
         # Pre-traffic diagnostics
         diagnostics_hook(nodes, "PRE-TRAFFIC")

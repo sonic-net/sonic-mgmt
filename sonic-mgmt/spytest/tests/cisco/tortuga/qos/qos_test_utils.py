@@ -348,6 +348,57 @@ def set_buffer_profile_size(dut, profile_name, size_value):
         return False
 
 
+def get_buffer_profile_dynamic_th(dut, profile_name):
+    """
+    Get the dynamic_th (alpha) value from a BUFFER_PROFILE entry.
+
+    Reads CONFIG_DB directly:
+        redis-cli -n 4 HGET "BUFFER_PROFILE|<profile_name>" "dynamic_th"
+
+    Returns:
+        str: dynamic_th value (e.g., '0', '-3', '-7') as stored in CONFIG_DB,
+             or None if not found.
+    """
+    config = get_config_db(dut)
+    buffer_profile = config.get("BUFFER_PROFILE", {})
+
+    if profile_name not in buffer_profile:
+        st.log(f"get_buffer_profile_dynamic_th: Profile '{profile_name}' not found")
+        return None
+
+    dyn_th = buffer_profile[profile_name].get("dynamic_th")
+    st.log(f"get_buffer_profile_dynamic_th: {profile_name} -> dynamic_th={dyn_th}")
+    return dyn_th
+
+
+def set_buffer_profile_dynamic_th(dut, profile_name, value):
+    """
+    Set dynamic_th (alpha) on a BUFFER_PROFILE via `mmuconfig -p <profile> -a <value>`.
+
+    `mmuconfig` is the supported SONiC CLI for changing the dynamic threshold
+    (alpha) of a buffer profile and is preferred over a raw redis-cli HSET
+    because it goes through the buffer manager and propagates the change to
+    the SAI/SDK layer.
+
+    Args:
+        dut: DUT handle
+        profile_name: Profile name (e.g., 'pg_lossless_400000_300m_profile')
+        value: New dynamic_th value (int or str), e.g. -7
+
+    Returns:
+        bool: True on success, False on failure.
+    """
+    cmd = f"mmuconfig -p {profile_name} -a {value}"
+    st.log(f"set_buffer_profile_dynamic_th: {profile_name} -> dynamic_th={value} via mmuconfig")
+    try:
+        result = st.config(dut, cmd, skip_tmpl=True, skip_error_check=True)
+        st.log(f"set_buffer_profile_dynamic_th: mmuconfig output: {result}")
+        return True
+    except Exception as e:
+        st.log(f"set_buffer_profile_dynamic_th: Failed: {e}")
+        return False
+
+
 def show_mmuconfig(dut, profile_name=None):
     """
     Display MMU buffer configuration using 'mmuconfig -l'.
@@ -436,6 +487,14 @@ class HeadroomZeroContext:
         self.original_xoff = None
         self.original_size = None
         self.original_xon = None
+        self.original_dynamic_th = None
+        # Forced dynamic_th (alpha) applied to the BUFFER_PROFILE for the
+        # duration of the headroom test. -7 (the minimum) forces every PG
+        # to claim essentially zero of the shared pool, so the only buffer
+        # available is the dedicated headroom (xoff). Combined with xoff=0
+        # this makes any backpressure event drop immediately and lets us
+        # measure (drops/pfc_tx)*frame as the real headroom demand.
+        self.forced_dynamic_th = -7
         self.is_gamut = False
 
     def __enter__(self):
@@ -477,6 +536,14 @@ class HeadroomZeroContext:
             st.log(f"HeadroomZeroContext: Gamut platform - will set xoff=0, size={self.original_xon} "
                    f"(was xoff={self.original_xoff}, size={self.original_size}, xon={self.original_xon})")
 
+        # Cache original dynamic_th (alpha) so we can restore it on exit.
+        # Not fatal if absent (some platforms may not set it explicitly);
+        # we still try to apply the forced value.
+        self.original_dynamic_th = get_buffer_profile_dynamic_th(
+            self.dut, self.profile_name)
+        st.log(f"HeadroomZeroContext: Original dynamic_th={self.original_dynamic_th} "
+               f"on {self.profile_name}")
+
         # Set xoff to 0 for all platforms
         st.banner(f"HeadroomZeroContext: Setting {self.profile_name} xoff=0 "
                   f"(was {self.original_xoff})")
@@ -485,6 +552,22 @@ class HeadroomZeroContext:
         if not success:
             raise RuntimeError(
                 f"HeadroomZeroContext: Failed to set xoff=0 on {self.profile_name}"
+            )
+
+        # Force dynamic_th to the minimum (-7) on this profile so the PG
+        # cannot draw from the shared pool. See note on forced_dynamic_th
+        # in __init__ for rationale.
+        st.banner(f"HeadroomZeroContext: Setting {self.profile_name} "
+                  f"dynamic_th={self.forced_dynamic_th} "
+                  f"(was {self.original_dynamic_th}) via mmuconfig")
+        if not set_buffer_profile_dynamic_th(
+                self.dut, self.profile_name, self.forced_dynamic_th):
+            # Best-effort restore of xoff before failing
+            set_buffer_profile_xoff(
+                self.dut, self.profile_name, self.original_xoff)
+            raise RuntimeError(
+                f"HeadroomZeroContext: Failed to set dynamic_th="
+                f"{self.forced_dynamic_th} on {self.profile_name}"
             )
 
         # For Gamut, also set size = original xon value
@@ -513,6 +596,23 @@ class HeadroomZeroContext:
         Logs but does not re-raise restoration failures.
         """
         if self.profile_name and self.original_xoff is not None:
+            # Restore dynamic_th first (mmuconfig change) before touching
+            # xoff/size via redis-cli, so the profile is returned to its
+            # original alpha before we hand control back to the test.
+            if self.original_dynamic_th is not None:
+                st.log(f"HeadroomZeroContext: Restoring {self.profile_name} "
+                       f"dynamic_th={self.original_dynamic_th} via mmuconfig")
+                if not set_buffer_profile_dynamic_th(
+                        self.dut, self.profile_name, self.original_dynamic_th):
+                    st.error(
+                        f"HeadroomZeroContext: FAILED to restore dynamic_th="
+                        f"{self.original_dynamic_th} on {self.profile_name} - "
+                        f"manual restoration may be needed!"
+                    )
+            else:
+                st.log(f"HeadroomZeroContext: No original dynamic_th cached "
+                       f"for {self.profile_name}, skipping alpha restore")
+
             # For Gamut, restore size first
             if self.is_gamut and self.original_size is not None:
                 st.log(f"HeadroomZeroContext: Restoring {self.profile_name} "
@@ -2244,12 +2344,29 @@ def print_node_snapshot_deltas(before, after, topology, tc=3,
                 node_summary['totals']['pg_drop_per_pg'][pg_idx] += pg_v
 
             # Per-port log line -- keep tight
+            # Drop% is computed against the offered load on that direction:
+            #   tx_drp%  = txdr / (tx_d + txdr)   (egress queue/buffer drops)
+            #   rx_drp%  = rxdr / (rx_d + rxdr)   (ingress drops)
+            #   <queue>_drop% = drop_pkts / (packets + drop_pkts)
+            def _pct(num, denom):
+                try:
+                    return (float(num) / float(denom)) * 100.0 if denom > 0 else 0.0
+                except (TypeError, ValueError, ZeroDivisionError):
+                    return 0.0
+            tx_drp_pct = _pct(txdr, tx_d + txdr)
+            rx_drp_pct = _pct(rxdr, rx_d + rxdr)
+            pq_pkts = pq.get('packets', 0)
+            pq_drop = pq.get('drop_pkts', 0)
+            pq_drop_pct = _pct(pq_drop, pq_pkts + pq_drop)
+            pq_drop_str = f"{pq_drop}" + (f"({pq_drop_pct:.2f}%)" if pq_drop > 0 else "")
             pq_str = (
-                f"{primary_queue}[pkts={pq.get('packets', 0)}, "
-                f"drop={pq.get('drop_pkts', 0)}, "
+                f"{primary_queue}[pkts={pq_pkts}, "
+                f"drop={pq_drop_str}, "
                 f"ecn={pq.get('ecn_marked_pkts', 0)}, "
                 f"wm={pq.get('watermark')}]"
             )
+            rxdr_str = f"{rxdr}" + (f"({rx_drp_pct:.2f}%)" if rxdr > 0 else "")
+            txdr_str = f"{txdr}" + (f"({tx_drp_pct:.2f}%)" if txdr > 0 else "")
             tx_util = node_summary['ports'][port]['tx_util_pct']
             rx_util = node_summary['ports'][port]['rx_util_pct']
             rx_util_str = (f" rx_util={rx_util:.2f}%" if util_enabled else "")
@@ -2263,7 +2380,7 @@ def print_node_snapshot_deltas(before, after, topology, tc=3,
             port_label = "{}{}".format(port, speed_str)
             st.log(
                 f"  {port_label:<22} rx={rx_d}{rx_util_str} tx={tx_d}{tx_util_str} "
-                f"rx_drp={rxdr} tx_drp={txdr} "
+                f"rx_drp={rxdr_str} tx_drp={txdr_str} "
                 f"pfc_rx={pfc_rx_d} pfc_tx={pfc_tx_d} "
                 f"{pq_str}"
             )
@@ -2310,15 +2427,34 @@ def print_node_snapshot_deltas(before, after, topology, tc=3,
         else:
             t['rx_util_pct_avg'] = 0.0
             rx_util_total_str = ""
+        # Node-aggregate drop% against the offered load on that direction
+        def _pct_n(num, denom):
+            try:
+                return (float(num) / float(denom)) * 100.0 if denom > 0 else 0.0
+            except (TypeError, ValueError, ZeroDivisionError):
+                return 0.0
+        node_tx_drp_pct = _pct_n(t['tx_drops'], t['tx_packets'] + t['tx_drops'])
+        node_rx_drp_pct = _pct_n(t['rx_drops'], t['rx_packets'] + t['rx_drops'])
+        node_q_drop_pct = _pct_n(t['queue_drop_pkts'],
+                                 t['queue_packets'] + t['queue_drop_pkts'])
+        node_pg_drop_pct = _pct_n(t['pg_drop'], t['rx_packets'] + t['pg_drop'])
+        t['tx_drop_pct'] = node_tx_drp_pct
+        t['rx_drop_pct'] = node_rx_drp_pct
+        t['queue_drop_pct'] = node_q_drop_pct
+        t['pg_drop_pct'] = node_pg_drop_pct
+        rx_drp_total_str = f"{t['rx_drops']}" + (f"({node_rx_drp_pct:.2f}%)" if t['rx_drops'] > 0 else "")
+        tx_drp_total_str = f"{t['tx_drops']}" + (f"({node_tx_drp_pct:.2f}%)" if t['tx_drops'] > 0 else "")
+        q_drop_total_str = f"{t['queue_drop_pkts']}" + (f"({node_q_drop_pct:.2f}%)" if t['queue_drop_pkts'] > 0 else "")
+        pg_drop_total_str = f"{t['pg_drop']}" + (f"({node_pg_drop_pct:.2f}%)" if t['pg_drop'] > 0 else "")
         st.log(
             f"  TOTAL  rx={t['rx_packets']}{rx_util_total_str} "
             f"tx={t['tx_packets']}{tx_util_total_str} "
-            f"rx_drp={t['rx_drops']} tx_drp={t['tx_drops']} "
+            f"rx_drp={rx_drp_total_str} tx_drp={tx_drp_total_str} "
             f"pfc_rx={t['pfc_rx']} pfc_tx={t['pfc_tx']} "
             f"{primary_queue}_pkts={t['queue_packets']} "
-            f"{primary_queue}_drop={t['queue_drop_pkts']} "
+            f"{primary_queue}_drop={q_drop_total_str} "
             f"ecn_marked={t['ecn_marked_pkts']} "
-            f"pg_drop={t['pg_drop']}{(' ' + str(nz_node_pg_drops)) if nz_node_pg_drops else ''}"
+            f"pg_drop={pg_drop_total_str}{(' ' + str(nz_node_pg_drops)) if nz_node_pg_drops else ''}"
         )
         summary[node_name] = node_summary
 
