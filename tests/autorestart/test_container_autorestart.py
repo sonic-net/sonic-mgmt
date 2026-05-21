@@ -62,7 +62,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        config_reload(duthost, config_source='config_db', safe_reload=True)
+        config_reload(duthost, config_source='config_db', safe_reload=True, wait_for_bgp=True)
         if hostname in dhcp_server_hosts:
             duthost.shell("docker rm %s" % DHCP_SERVER, module_ignore_errors=True)
 
