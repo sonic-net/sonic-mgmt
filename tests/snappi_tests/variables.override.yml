@@ -98,3 +98,5 @@ vms20-rdma-t0-8111:
           - hostname: STR-8111-C14-U18
             port_name: Ethernet216
   pfcQueueGroupSize: 8
+vms20-rdma-t0-sn4700:
+  pfcQueueGroupSize: 4
