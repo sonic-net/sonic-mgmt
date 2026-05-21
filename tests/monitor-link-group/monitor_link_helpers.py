@@ -28,6 +28,20 @@ STATE_MEMBER_TABLE = "MONITOR_LINK_GROUP_MEMBER"
 DEFAULT_TIMEOUT = 30
 PENDING_TIMEOUT = 60
 
+MLG_DAEMON = "monitorlinkgroupd"
+MLG_DAEMON_CONTAINER = "swss"
+
+
+def is_mlg_daemon_present(duthost) -> bool:
+    """Return True if the monitorlinkgroupd daemon is present on the DUT.
+
+    Works for both single- and multi-ASIC: MultiAsicSonicHost.is_service_running
+    iterates ASIC containers (swss0/swss1/...) and returns True only when the
+    daemon is RUNNING in every one. On images that pre-date the MLG feature
+    the supervisor entry is absent and this returns False.
+    """
+    return duthost.is_service_running(MLG_DAEMON, MLG_DAEMON_CONTAINER)
+
 
 def _remote_cfg_path():
     # Include pid so parallel test runs against the same DUT don't collide.

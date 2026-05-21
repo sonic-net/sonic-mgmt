@@ -98,6 +98,26 @@ def _pc_sort_key(name):
         return name
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _skip_if_mlg_daemon_absent(duthosts, rand_one_dut_hostname):
+    """Skip the whole module if monitorlinkgroupd is not present on the DUT.
+
+    The MLG sonic-mgmt tests depend on the monitorlinkgroupd daemon (added
+    by sonic-net/sonic-swss#4523). When run against an older image that
+    does not yet ship the daemon, CONFIG_DB writes succeed but no
+    STATE_DB row is ever populated, which would otherwise surface as a
+    confusing wait_group_state timeout on the first scenario. Skipping
+    keeps the suite safe to land ahead of the swss merge and the
+    corresponding KVM image refresh.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if not mlg_helpers.is_mlg_daemon_present(duthost):
+        pytest.skip(
+            "monitorlinkgroupd not present on DUT image; skipping "
+            "monitor-link-group tests"
+        )
+
+
 @pytest.fixture(scope="module")
 def intf_pool(duthosts, rand_one_dut_hostname):
     return InterfacePool(duthosts[rand_one_dut_hostname])
