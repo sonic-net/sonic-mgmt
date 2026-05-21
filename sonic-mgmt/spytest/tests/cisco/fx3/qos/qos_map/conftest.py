@@ -22,3 +22,9 @@ def pytest_configure(config):
         "traffic_nxos: test requires a 2-DUT topology (D1D2:1) with scapy on D2; "
         "run with fx3_qos_testbed_peer_link.yaml",
     )
+    config.addinivalue_line(
+        "markers",
+        "vxlan_transit: test requires a 2-DUT topology (peer_link/breakout) "
+        "with VxLAN L3VNI + BGP EVPN configured on both DUTs (Section I); "
+        "automatically skipped in single-DUT ixia mode",
+    )
