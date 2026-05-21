@@ -139,8 +139,9 @@ class IngressDropProbing(ProbingBase):
             log_message("ERROR: No probing ports available", to_stderr=True)
             return
 
-        dut_idx = 0
-        asic_idx = 0
+        # Use first available dut/asic index from test_port_ips (handles dualtor where keys may not be 0)
+        dut_idx = next(iter(self.test_port_ips))
+        asic_idx = next(iter(self.test_port_ips[dut_idx]))
         port_ips = self.test_port_ips[dut_idx][asic_idx]
 
         # 1 src -> N dst: First is src, rest are dst
@@ -315,9 +316,15 @@ class IngressDropProbing(ProbingBase):
         )
 
         # Create 3 executors (via base class factory method)
-        upper_bound_executor = self.create_executor(self.PROBE_TARGET, upper_bound_observer, "upper_bound")
-        lower_bound_executor = self.create_executor(self.PROBE_TARGET, lower_bound_observer, "lower_bound")
-        threshold_range_executor = self.create_executor(self.PROBE_TARGET, threshold_range_observer, "threshold_range")
+        upper_bound_executor = self.create_executor(
+            self.PROBE_TARGET, upper_bound_observer, "upper_bound",
+            counter_mode=self.ingress_drop_counter_mode)
+        lower_bound_executor = self.create_executor(
+            self.PROBE_TARGET, lower_bound_observer, "lower_bound",
+            counter_mode=self.ingress_drop_counter_mode)
+        threshold_range_executor = self.create_executor(
+            self.PROBE_TARGET, threshold_range_observer, "threshold_range",
+            counter_mode=self.ingress_drop_counter_mode)
 
         # Create 3 core algorithms
         algorithms = {
@@ -360,7 +367,8 @@ class IngressDropProbing(ProbingBase):
                 ),
             )
             threshold_point_executor = self.create_executor(
-                self.PROBE_TARGET, threshold_point_observer, "threshold_point"
+                self.PROBE_TARGET, threshold_point_observer, "threshold_point",
+                counter_mode=self.ingress_drop_counter_mode
             )
             algorithms["threshold_point"] = ThresholdPointProbingAlgorithm(
                 executor=threshold_point_executor,

@@ -40,9 +40,16 @@ def _check_route_check_pass(duthost):
 
 def _check_route_on_dut(duthost, route, prefix_type):
     """Check that a route is present on the DUT."""
-    cmd = f"show ip route {route}" if prefix_type == 'v4' else f"show ipv6 route {route}"
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    return route in result.get('stdout', '')
+    # First check default VRF, then check VNET routes to avoid false negatives for VNET routes
+    ip_cmd = f"show ip route {route}" if prefix_type == 'v4' else f"show ipv6 route {route}"
+    result = duthost.shell(ip_cmd, module_ignore_errors=True)
+    if route in result.get('stdout', ''):
+        return True
+
+    # VNET routes live outside the default VRF, check VNET route table
+    vnet_cmd = f"show vnet routes all | grep -F '{route}'"
+    vnet_result = duthost.shell(vnet_cmd, module_ignore_errors=True)
+    return route in vnet_result.get('stdout', '')
 
 
 prefix_offset = 19
@@ -212,8 +219,9 @@ def fixture_setUp(duthosts,
         data['loopback_v4'] = data['minigraph_facts']['minigraph_lo_interfaces'][1]['addr']
         data['loopback_v6'] = data['minigraph_facts']['minigraph_lo_interfaces'][0]['addr']
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type not in ["cisco-8000", "mellanox"]:
-        pytest.skip(f"{asic_type} is not a supported platform for this test. Only support MNLX and CISCO platforms.")
+    if asic_type not in ["cisco-8000", "mellanox", "vpp"]:
+        pytest.skip(f"{asic_type} is not a supported platform for this test. "
+                    f"Only support MNLX, CISCO and VPP platforms.")
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \
