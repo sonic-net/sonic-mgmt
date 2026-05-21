@@ -4961,6 +4961,42 @@ snappi_tests:
     conditions:
       - "asic_type in ['vs']"
 
+snappi_tests/bgp/test_bgp_convergence_performance.py:
+  xfail:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
+snappi_tests/bgp/test_bgp_local_link_failover.py:
+  xfail:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
+snappi_tests/bgp/test_bgp_remote_link_failover.py:
+  xfail:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
+snappi_tests/bgp/test_bgp_rib_in_capacity.py:
+  xfail:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
+snappi_tests/bgp/test_bgp_rib_in_convergence.py:
+  xfail:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
+snappi_tests/bgp/test_bgp_scalability.py:
+  xfail:
+    reason: "IxNetwork Error in L2/L3 Traffic Apply - https://github.com/sonic-net/sonic-mgmt/issues/23857"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23857"
+
 snappi_tests/dash:
   skip:
     reason: "Skipping dash on 2025 releases"
