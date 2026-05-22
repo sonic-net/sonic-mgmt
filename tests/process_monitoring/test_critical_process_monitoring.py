@@ -597,7 +597,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # Check if this is a virtual switch (KVM) testbed (no PDU available)
         if is_vs_device(duthost):
-            num_asics = duthost.facts.get("num_asics", 1)
+            num_asics = duthost.facts.get("num_asic", 1)
             if num_asics > 1:
                 # Multi-ASIC VS: after killing the global database container, SSH
                 # becomes unresponsive (sshd depends on the global namespace database).
@@ -670,7 +670,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         # (/var/run/redis{N}/sonic-db/).  All of them must be present before
         # "config reload" can run successfully.
         db_config_files = ["/var/run/redis/sonic-db/database_config.json"]
-        num_asics = duthost.facts.get("num_asics", 1)
+        num_asics = duthost.facts.get("num_asic", 1)
         if num_asics > 1:
             for asic_idx in range(num_asics):
                 db_config_files.append(
@@ -812,7 +812,7 @@ def test_monitoring_critical_processes(
             # unresponsive after killing the global database container.  On
             # single-ASIC VS, SSH stays alive and the fixture issues the reboot
             # directly via the "sleep 2" path (so no pre-scheduling needed there).
-            if is_vs_device(duthost) and duthost.facts.get("num_asics", 1) > 1:
+            if is_vs_device(duthost) and duthost.facts.get("num_asic", 1) > 1:
                 reboot_delay = 120  # seconds -- generous to allow per-ASIC kills to finish
                 duthost.shell(
                     'nohup bash -c "sleep {d} && echo 1 > /proc/sys/kernel/sysrq '
