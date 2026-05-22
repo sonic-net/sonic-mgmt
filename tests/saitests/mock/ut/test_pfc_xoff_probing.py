@@ -68,6 +68,7 @@ class TestPfcXoffProbingInstance(PfcXoffProbing):
         self.packet_size = 64
         self.probe_packet_length = 64
         self.probe_cells_per_packet = 1
+
         def mock_get_rx_port(src_port, dst_port):
             return dst_port
         self.get_rx_port = mock_get_rx_port
