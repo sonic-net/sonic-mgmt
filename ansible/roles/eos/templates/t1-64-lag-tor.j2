@@ -1,12 +1,11 @@
 {% set host = configuration[hostname] %}
-{% set converged = topo_is_multi_vrf|default(false) %}
+{% set converged = topo_is_multi_vrf|default(false)|bool %}
 {% if converged %}
 {% set conv_config = convergence_data["converged_peers"][hostname] %}
 {% set conv_mapping = convergence_data["convergence_mapping"][hostname] %}
 {% set ptf_bp_addrs = convergence_data["ptf_backplane_addrs"] %}
 {% endif %}
 {% set mgmt_ip = ansible_host %}
-{% set tornum = host['tornum'] %}
 {% if vm_type is defined and vm_type == "ceos" %}
 {% set mgmt_if_index = 0 %}
 {% else %}
