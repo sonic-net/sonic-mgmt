@@ -162,19 +162,22 @@ class Connection(_ssh.Connection):
         2. The SharedMemory-based password passing doesn't support retry with
            different passwords between attempts.
 
-        Forcing 'sshpass' maintains the existing behavior that this plugin was
-        designed for.
+        We inject password_mechanism=sshpass via the 'direct' (highest-priority)
+        parameter so the parent class processes it DURING initialization. This
+        ensures any infrastructure tied to the mechanism (pipe setup, shared
+        memory, etc.) is configured correctly from the start.
+
+        On ansible-core < 2.19 the option does not exist; passing an unknown
+        key in 'direct' is silently ignored by ansible's config framework, so
+        no version check is needed.
         """
+        # Merge into a copy of the caller's direct dict so that any
+        # explicitly-set caller value still takes precedence via setdefault.
+        merged_direct = dict(direct) if direct else {}
+        merged_direct.setdefault('password_mechanism', 'sshpass')
         super(Connection, self).set_options(task_keys=task_keys,
                                             var_options=var_options,
-                                            direct=direct)
-        # Force sshpass mechanism if the option exists (ansible-core >= 2.19)
-        try:
-            self.get_option('password_mechanism')
-        except KeyError:
-            pass  # pre-2.19, option doesn't exist, sshpass is already the default
-        else:
-            self.set_option('password_mechanism', 'sshpass')
+                                            direct=merged_direct)
 
     @_password_retry
     def _run(self, *args, **kwargs):
