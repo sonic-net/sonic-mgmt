@@ -9,13 +9,13 @@ from constants import (
 from tests.common.helpers.assertions import pytest_assert
 from gnmi_utils import apply_messages
 from ha_utils import (
-    set_dead_dash_ha_scope,
+    set_dash_ha_scope,
     activate_secondary_dash_ha,
     verify_ha_state,
     wait_for_pending_operation_id,
     _apply_ha_scope_gnmi
 )
-from ha_link_utils import add_acl_link_drop, remove_acl_link_drop
+from ha_link_utils import add_acl_link_drop, remove_acl_link_drop_table
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ pytestmark = [
 
 
 def restore_ha_state(localhost, ptfhost, duthost, standby_vdpu_key="vdpu1_0:haset0_0"):
-    set_dead_dash_ha_scope(localhost, duthost, ptfhost, standby_vdpu_key)
+    set_dash_ha_scope(localhost, duthost, ptfhost, standby_vdpu_key, "dead", "dpu", disabled=True)
     pending_id = wait_for_pending_operation_id(duthost, standby_vdpu_key, "brainsplit_recover", timeout=60)
     if pending_id is not None:
         _apply_ha_scope_gnmi(localhost, duthost, ptfhost, standby_vdpu_key,
@@ -123,9 +123,11 @@ def test_ha_split_brain(
 
     if standby_link_fail:
         logger.info("HA: Simulate standby link failure")
+        remove_acl_link_drop_table(duthosts[1])
         add_acl_link_drop(duthosts[1], dash_pl_config[1][NPU_DATAPLANE_PORT])
     else:
         logger.info("HA: Simulate primary link failure")
+        remove_acl_link_drop_table(duthosts[0])
         add_acl_link_drop(duthosts[0], dash_pl_config[0][NPU_DATAPLANE_PORT])
     logger.info("HA: After link failure")
     pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "standalone"),
@@ -134,9 +136,9 @@ def test_ha_split_brain(
                   "Standby HA state is not standalone")
 
     if standby_link_fail:
-        remove_acl_link_drop(duthosts[1], dash_pl_config[1][NPU_DATAPLANE_PORT])
+        remove_acl_link_drop_table(duthosts[1])
     else:
-        remove_acl_link_drop(duthosts[0], dash_pl_config[0][NPU_DATAPLANE_PORT])
+        remove_acl_link_drop_table(duthosts[0])
     time.sleep(20)
     # take system out of split-brain
     restore_ha_state(localhost, ptfhost, duthosts[1], standby_vdpu_key=standby_vdpu_key)
