@@ -7,7 +7,7 @@ from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import check_pmon_uptime_minutes
-from tests.platform_tests.mellanox.conftest import CPO_PORT_TYPE
+from tests.platform_tests.mellanox.conftest import CPO_PORT_TYPE, get_non_cpo_ports
 import logging
 
 pytestmark = [
@@ -67,11 +67,14 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
         assert sfp_info_dict, "No SFP EEPROM info found"
 
     with allure.step("Check results for {}".format(show_eeprom_cmd)):
+        non_cpo_ports = set()
         if is_cpo_supported:
             with allure.step("Run: {} to get interface status".format(SHOW_INTF_STATUS_CMDS)):
                 intf_status = duthost.show_and_parse(SHOW_INTF_STATUS_CMDS)
                 assert intf_status["rc"] == 0, "Failed to read interface status"
                 intf_status_dict = {row["interface"]: row for row in intf_status}
+            non_cpo_ports = get_non_cpo_ports(duthost)
+            logging.info(f"Non-CPO ports per hwsku.json (CPO checks skipped): {sorted(non_cpo_ports)}")
 
         for intf, inft_support_dom in list(sfp_test_intfs_to_dom_map.items()):
             if intf in sfp_info_dict:
@@ -83,7 +86,13 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
                     check_sfp_eeprom_info(
                         duthost, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd, is_flat_memory)
 
+                # Skip CPO transceiver-type checks for ports whose port_type in hwsku.json
+                # is not CPO. Some platforms (e.g. SN6810_LD) have a mix of CPO and non-CPO
+                # ports (e.g. management/SDK 25G ports) on the same DUT.
                 if is_cpo_supported:
+                    if intf in non_cpo_ports:
+                        logging.info(f"Skip CPO identifier check for non-CPO port {intf}")
+                        continue
                     with allure.step("Check {} identifier type".format(intf)):
                         cmd = f'sonic-db-cli STATE_DB hget "TRANSCEIVER_INFO|{intf}" "type"'.format(intf)
                         transceiver_type = duthost.command(cmd)["stdout"]

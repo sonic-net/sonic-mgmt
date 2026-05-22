@@ -55,3 +55,24 @@ def is_cpo_supported(duthosts, rand_one_dut_hostname):
             if hwsku_info['interfaces'][intf].get('port_type') == CPO_PORT_TYPE:
                 return True
     return False
+
+
+def get_non_cpo_ports(duthost):
+    """Return the set of port names whose port_type is NOT CPO in hwsku.json.
+
+    A port is considered non-CPO if its `port_type` field is missing or set
+    to anything other than CPO. Returns an empty set if hwsku.json doesn't
+    exist (no information to filter on).
+    """
+    platform = duthost.facts["platform"]
+    hwsku = duthost.facts['hwsku']
+    f_path = HWSKU_JSON_PATH.format(platform, hwsku)
+    if not duthost.stat(path=f_path)["stat"]["exists"]:
+        return set()
+    output = duthost.command(f"cat {f_path}")["stdout"]
+    hwsku_info = json.loads(output)
+    non_cpo_ports = set()
+    for intf, intf_info in (hwsku_info.get('interfaces') or {}).items():
+        if intf_info.get('port_type') != CPO_PORT_TYPE:
+            non_cpo_ports.add(intf)
+    return non_cpo_ports
