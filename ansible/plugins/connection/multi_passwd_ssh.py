@@ -151,6 +151,30 @@ def _password_retry(func):
 
 class Connection(_ssh.Connection):
 
+    def set_options(self, task_keys=None, var_options=None, direct=None):
+        """Override to force password_mechanism=sshpass for ansible-core 2.19+.
+
+        ansible-core 2.19 changed the default password_mechanism from 'sshpass'
+        to 'ssh_askpass'. The ssh_askpass mechanism is incompatible with this
+        plugin's multi-password retry logic because:
+        1. With ssh_askpass, auth failures raise AnsibleConnectionFailure (not
+           AnsibleAuthenticationFailure), so password rotation never triggers.
+        2. The SharedMemory-based password passing doesn't support retry with
+           different passwords between attempts.
+
+        Forcing 'sshpass' maintains the existing behavior that this plugin was
+        designed for.
+        """
+        super(Connection, self).set_options(
+            task_keys=task_keys, var_options=var_options, direct=direct)
+        # Force sshpass mechanism if the option exists (ansible-core >= 2.19)
+        try:
+            self.get_option('password_mechanism')
+        except KeyError:
+            pass  # pre-2.19, option doesn't exist, sshpass is already the default
+        else:
+            self.set_option('password_mechanism', 'sshpass')
+
     @_password_retry
     def _run(self, *args, **kwargs):
         return super(Connection, self)._run(*args, **kwargs)
