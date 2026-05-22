@@ -268,17 +268,21 @@ Verify State DB values are valid and within expected ranges.
 #### Test Case #8: test_bmcctld_initialization
 
 **Test Objective**:
-Verify bmcctld initializes CHASSIS_MODULE_INFO and HOST_STATE tables on startup.
+Verify bmcctld initializes CHASSIS_MODULE_INFO and HOST_STATE tables on startup and
+applies the boot delay only on a power-loss reboot.
 
 **Test Steps**:
 1. Verify bmcctld process is running
 2. Query CHASSIS_MODULE_INFO — verify SWITCH-HOST entry with required fields
 3. Query HOST_STATE — verify `device_status` field and `timestamp` present
 4. Log tables as empty if not present (non-BMC platforms)
+5. Check pmon journal for boot-delay log: `"SWITCH_HOST_POWER_ON_DELAY"` on power-loss
+   reboots or `"Skipping SWITCH_HOST_POWER_ON_DELAY"` on warm/fast/soft reboots
 
 **Expected Result**:
 - bmcctld is running
 - State DB tables initialized with required fields on BMC platforms
+- Boot delay is applied only after `REBOOT_CAUSE_POWER_LOSS`; skipped on all other reboot types
 
 ---
 
@@ -337,7 +341,7 @@ Verify bmcctld State DB queries respond with acceptable latency.
 #### Test Case #12: test_bmcctld_event_log
 
 **Test Objective**:
-Verify bmcctld logs critical events to /host/bmc/event.log.
+Verify bmcctld logs critical events to /host/bmc/event.log using structured messages.
 
 **Test Steps**:
 1. Check if /host/bmc/event.log exists — skip gracefully if absent
@@ -345,10 +349,13 @@ Verify bmcctld logs critical events to /host/bmc/event.log.
 3. Verify log entries have timestamps
 4. Verify log entries contain severity levels (CRITICAL, ERROR, WARN, INFO)
 5. Verify log entries contain BMC-relevant event types (leak, power, status, module)
+6. Check for structured event message formats: `RACK_MGR_CMD FAILED`, `CHASSIS_MODULE admin_down NOOP`,
+   `GRACEFUL_SHUTDOWN done`
 
 **Expected Result**:
 - Event log is present on BMC systems
 - Log entries are timestamped and severity-marked
+- Structured log messages follow `EVENT_TYPE: key=... result=...` format
 - Empty or absent log is acceptable on new/non-BMC systems
 
 ---
@@ -379,8 +386,28 @@ original value (or deletes the injected key).
 **Expected Result**:
 - On a live BMC system at least one of the four triggers produces a log entry
 - No power action is dispatched for any trigger (safe payloads)
+- Duplicate HSET with the same value is ignored (dedup added in bmc_enhance)
 - All injected keys are cleaned up regardless of test outcome
 - Platforms without BMC support log info messages and the assertion is skipped
+
+---
+
+#### Test Case #14: test_bmcctld_reboot_cause_boot_delay
+
+**Test Objective**:
+Verify bmcctld applies the startup boot delay only after a full power-loss reboot.
+
+**Test Steps**:
+1. Read `/host/reboot-cause/reboot-cause` to determine the last reboot cause
+2. Scan pmon journal (last 60 min) for `"SWITCH_HOST_POWER_ON_DELAY"` (power-loss path)
+   or `"Skipping SWITCH_HOST_POWER_ON_DELAY"` (warm/fast/soft path)
+3. If reboot cause indicates power loss, assert delay log is present
+4. If reboot cause is a non-power-loss event, assert skip log is present (or delay absent)
+
+**Expected Result**:
+- Boot delay log matches the actual reboot cause
+- No delay on warm/fast/soft reboots
+- Graceful info-only if no startup log found within 60-min window
 
 ---
 
@@ -388,27 +415,31 @@ original value (or deletes the injected key).
 
 **File**: `tests/platform_tests/daemon/test_thermalctld.py`
 
-#### Test Case #14: test_thermalctld_initialization
+#### Test Case #15: test_thermalctld_initialization
 
 **Test Objective**:
-Verify thermalctld initializes leak monitoring tables on startup.
+Verify thermalctld initializes leak monitoring tables on startup, including the startup
+seed row for `SYSTEM_LEAK_STATUS|system`.
 
 **Test Steps**:
 1. Verify thermalctld process is running in pmon container
-2. Query SYSTEM_LEAK_STATUS:system — log if absent (non-liquid-cooled)
+2. Query `SYSTEM_LEAK_STATUS:system` — verify row exists with `device_leak_status` and `timestamp`
+   fields (seeded at startup with `'None'` even before any leak event)
 3. Query LEAK_PROFILE keys — log count if present
 
 **Expected Result**:
 - thermalctld is running
-- Leak tables initialized on liquid-cooled platforms
-- Graceful skip on non-liquid-cooled platforms
+- `SYSTEM_LEAK_STATUS:system` row is present with `device_leak_status` in `{None, MINOR, CRITICAL}`
+  and a non-empty `timestamp` (startup seed ensures the row always exists)
+- Graceful info-only on non-liquid-cooled platforms (row may be absent)
 
 ---
 
-#### Test Case #15: test_thermalctld_leak_status
+#### Test Case #16: test_thermalctld_leak_status
 
 **Test Objective**:
-Verify thermalctld tracks leak status per sensor and integrates with bmcctld.
+Verify thermalctld tracks leak status per sensor, MINOR→CRITICAL escalation config, and
+bmcctld integration.
 
 **Test Steps**:
 1. Query `SYSTEM_LEAK_STATUS:system device_leak_status` — verify in {MINOR, CRITICAL, None}
@@ -416,17 +447,19 @@ Verify thermalctld tracks leak status per sensor and integrates with bmcctld.
    - `leaking` must be `Yes | No | N/A`
    - `leak_sensor_status` must be `Good | Fault`
    - `severity` must be `MINOR | CRITICAL`
-3. Query LEAK_PROFILE `max_minor_duration_sec` — verify positive number
-4. Verify CRITICAL leak propagates to `HOST_STATE:switch-host device_status`
+3. Query each `LEAK_PROFILE` entry — verify `max_minor_duration_sec > 0` (escalation threshold)
+4. When `device_leak_status = CRITICAL`, assert at least one sensor shows `severity = CRITICAL`
+5. Verify CRITICAL leak propagates to `HOST_STATE:switch-host device_status`
 
 **Expected Result**:
-- All field values match the schema from LiquidCoolingUpdater._refresh_leak_status
-- Severity escalation threshold is configured
+- All field values match the schema from `LiquidCoolingUpdater._refresh_leak_status`
+- Each profile has a positive escalation threshold (`MINOR` → `CRITICAL` after timeout)
+- System `CRITICAL` correlates with at least one `CRITICAL` sensor
 - bmcctld coordination is in place
 
 ---
 
-#### Test Case #16: test_thermalctld_performance
+#### Test Case #17: test_thermalctld_performance
 
 **Test Objective**:
 Verify thermalctld State DB queries respond within acceptable latency.
@@ -441,7 +474,7 @@ Verify thermalctld State DB queries respond within acceptable latency.
 
 ---
 
-#### Test Case #17: test_thermalctld_event_trigger
+#### Test Case #18: test_thermalctld_event_trigger
 
 **Test Objective**:
 Inject sensor states into LIQUID_COOLING_INFO and verify STATE_DB presence and syslog entries.
@@ -470,7 +503,7 @@ Inject sensor states into LIQUID_COOLING_INFO and verify STATE_DB presence and s
 
 ---
 
-#### Test Case #18: test_thermalctld_faulty_sensor
+#### Test Case #19: test_thermalctld_faulty_sensor
 
 **Test Objective**:
 Verify thermalctld correctly represents a faulty/unreadable sensor in STATE_DB and
@@ -494,11 +527,68 @@ confirm the associated syslog format.
 
 ---
 
+#### Test Case #20: test_thermalctld_startup_leak_seed
+
+**Test Objective**:
+Verify `SYSTEM_LEAK_STATUS|system` is present immediately after thermalctld starts.
+
+**Test Steps**:
+1. Verify `SYSTEM_LEAK_STATUS:system` key exists (`redis-cli EXISTS`)
+2. Read `device_leak_status` — must be `'None'`, `'MINOR'`, or `'CRITICAL'`
+3. Read `timestamp` — must be a non-empty string
+
+**Expected Result**:
+- Row present on startup even with no active leaks (`device_leak_status='None'`)
+- `timestamp` is non-empty (written at init time)
+- Info-only skip on platforms without liquid cooling
+
+---
+
+#### Test Case #21: test_thermalctld_bmc_temperature_mirror
+
+**Test Objective**:
+Verify thermalctld on the Switch-Host mirrors `TEMPERATURE_INFO` to the BMC's STATE_DB.
+
+**Test Steps**:
+1. Skip if not a Switch-Host (`switch_host=1` absent in `/etc/sonic/platform_env.conf`)
+2. Scan pmon journal for `"Mirroring TEMPERATURE_INFO to BMC STATE_DB"` or
+   `"Failed to open remote BMC TEMPERATURE_INFO table"`
+3. Verify local `TEMPERATURE_INFO:*` keys are populated
+4. Log BMC connectivity status from journal entries
+
+**Expected Result**:
+- Switch-Host logs confirm BMC mirror init or graceful degradation on unreachable BMC
+- Local `TEMPERATURE_INFO` is populated (source data for the mirror)
+- Graceful skip on non-Switch-Host platforms
+
+---
+
+#### Test Case #22: test_thermalctld_switch_host_thermal_monitoring
+
+**Test Objective**:
+Verify thermalctld on the BMC logs CRITICAL threshold breaches in `TEMPERATURE_INFO`
+to `/host/bmc/event.log`.
+
+**Test Steps**:
+1. Skip if not a BMC (`switch_bmc=1` absent in `/etc/sonic/platform_env.conf`)
+2. Check pmon journal for `"Monitoring chassis thermals"` initialization message
+3. Inject `TEMPERATURE_INFO:test_critical_thermal_monitor` with `temperature=120.0`,
+   `critical_high_threshold=80.0`
+4. Wait up to 90 s for event.log entry matching the test sensor (fallback: syslog)
+5. Delete injected entry in `finally`
+
+**Expected Result**:
+- Init log confirms Switch-Host thermal monitoring is active
+- CRITICAL breach logs `"CRITICAL chassis thermal: <name> temperature <T>C >= critical_high_threshold <T>C"` within 90 s
+- Injected key is cleaned up regardless of outcome
+
+---
+
 ### CLI Command Tests
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
-#### Test Case #19: test_show_bmc_commands
+#### Test Case #23: test_show_bmc_commands
 
 **Test Objective**:
 Verify `show bmc` commands exist and return valid output.
@@ -514,7 +604,7 @@ Verify `show bmc` commands exist and return valid output.
 
 ---
 
-#### Test Case #20: test_show_leak_commands
+#### Test Case #24: test_show_leak_commands
 
 **Test Objective**:
 Verify leak detection CLI commands exist and return valid output.
@@ -530,7 +620,7 @@ Verify leak detection CLI commands exist and return valid output.
 
 ---
 
-#### Test Case #21: test_show_command_output_format
+#### Test Case #25: test_show_command_output_format
 
 **Test Objective**:
 Verify `show chassis module` output format includes SWITCH-HOST with status fields.
@@ -548,7 +638,7 @@ Verify `show chassis module` output format includes SWITCH-HOST with status fiel
 
 ---
 
-#### Test Case #22: test_config_chassis_commands
+#### Test Case #26: test_config_chassis_commands
 
 **Test Objective**:
 Verify `config chassis module` command exists with correct syntax.
@@ -564,7 +654,7 @@ Verify `config chassis module` command exists with correct syntax.
 
 ---
 
-#### Test Case #23: test_backward_compatibility
+#### Test Case #27: test_backward_compatibility
 
 **Test Objective**:
 Verify existing CLI commands still work after BMC enhancements.
@@ -586,7 +676,7 @@ Verify existing CLI commands still work after BMC enhancements.
 
 These tests verify watchdog functionality for BMC systems.
 
-#### Test Case #24: test_watchdog_status_and_configuration
+#### Test Case #28: test_watchdog_status_and_configuration
 
 **Test Objective**:
 Verify watchdog service status, timeout configuration, performance, and error handling.
@@ -606,7 +696,7 @@ Verify watchdog service status, timeout configuration, performance, and error ha
 
 ---
 
-#### Test Case #25: test_watchdog_bmc_integration
+#### Test Case #29: test_watchdog_bmc_integration
 
 **Test Objective**:
 Verify watchdog integrates with BMC infrastructure: systemd service, persistent logs, reboot differentiation, State DB.

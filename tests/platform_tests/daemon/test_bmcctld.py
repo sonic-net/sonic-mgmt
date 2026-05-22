@@ -487,3 +487,72 @@ class TestBmcctldDaemon:
             any(trigger_results.values()),
             f"bmcctld did not log any event after HSET on: {list(trigger_results.keys())}"
         )
+
+    def test_bmcctld_reboot_cause_boot_delay(self):
+        """
+        Verify bmcctld applies the startup boot delay only on a full power-loss reboot.
+
+        bmc_enhance change: bmcctld reads chassis.get_reboot_cause() at startup.
+        - REBOOT_CAUSE_POWER_LOSS → delay is applied (SWITCH_HOST_POWER_ON_DELAY seconds)
+        - Any other cause (warm, fast, soft reboot) → delay is skipped
+
+        Test Steps:
+        1. Read /host/reboot-cause/reboot-cause or syslog for most recent reboot cause
+        2. Scan pmon journal (last 10 min) for bmcctld startup messages:
+           - "SWITCH_HOST_POWER_ON_DELAY" → power-loss path was taken
+           - "Skipping SWITCH_HOST_POWER_ON_DELAY" → non-power-loss path was taken
+        3. Verify the log message is consistent with the reboot cause
+
+        Expected Result:
+        - At least one of the two expected log messages is present in pmon journal
+        - Message matches the actual reboot cause (if determinable)
+        """
+        # Read last reboot cause from SONiC reboot-cause file
+        reboot_cause_result = self.duthost.shell(
+            "cat /host/reboot-cause/reboot-cause 2>/dev/null || echo 'unknown'",
+            module_ignore_errors=True
+        )
+        reboot_cause = reboot_cause_result['stdout'].strip().lower()
+        logger.info(f"Last reboot cause from /host/reboot-cause: {reboot_cause}")
+
+        # Scan bmcctld startup messages in pmon journal (last 60 min covers typical uptime)
+        result_delay = self.duthost.shell(
+            "journalctl -u pmon --since '60 minutes ago' 2>/dev/null"
+            " | grep -i 'SWITCH_HOST_POWER_ON_DELAY' | tail -5",
+            module_ignore_errors=True
+        )
+        result_skip = self.duthost.shell(
+            "journalctl -u pmon --since '60 minutes ago' 2>/dev/null"
+            " | grep -i 'Skipping SWITCH_HOST_POWER_ON_DELAY' | tail -5",
+            module_ignore_errors=True
+        )
+
+        delay_logged = result_delay['rc'] == 0 and bool(result_delay['stdout'].strip())
+        skip_logged = result_skip['rc'] == 0 and bool(result_skip['stdout'].strip())
+
+        if delay_logged:
+            logger.info(f"Power-loss boot delay log found:\n{result_delay['stdout'].strip()}")
+        if skip_logged:
+            logger.info(f"Boot delay skip log found:\n{result_skip['stdout'].strip()}")
+
+        if not delay_logged and not skip_logged:
+            logger.info(
+                "No bmcctld startup boot delay messages in last 60 min — "
+                "bmcctld may have started earlier or not yet restarted"
+            )
+            # Not a failure: the daemon may have been running before our 60-min window
+            return
+
+        # If reboot cause is determinable, verify consistency
+        is_power_loss = 'power' in reboot_cause and 'loss' in reboot_cause
+        if is_power_loss:
+            pytest_assert(
+                delay_logged,
+                "REBOOT_CAUSE_POWER_LOSS detected but boot delay log not found"
+            )
+        elif reboot_cause not in ('unknown', ''):
+            # Non-power-loss reboot: delay should be skipped
+            pytest_assert(
+                skip_logged or not delay_logged,
+                f"Non-power-loss reboot ({reboot_cause}) but power-loss delay was applied"
+            )

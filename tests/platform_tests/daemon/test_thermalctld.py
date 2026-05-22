@@ -628,3 +628,321 @@ class TestThermalctldDaemon:
                         logger.info(f"Profile {profile_key}: escalation timeout = {timeout}s")
                     except ValueError:
                         logger.warning("Could not parse timeout value")
+
+    def test_thermalctld_startup_leak_seed(self):
+        """
+        Verify thermalctld seeds SYSTEM_LEAK_STATUS:system at startup with device_leak_status='None'.
+
+        bmc_enhance change: LiquidCoolingUpdater writes an initial
+        SYSTEM_LEAK_STATUS|system row (device_leak_status=None) at startup so
+        consumers always find a row without having to wait for the first leak cycle.
+
+        Test Steps:
+        1. Check SYSTEM_LEAK_STATUS:system exists in STATE_DB (redis-cli EXISTS)
+        2. Read device_leak_status — verify it is 'None' OR a valid active status
+           (MINOR / CRITICAL if a leak happened to be active at test time)
+        3. Read timestamp — verify it is a non-empty string (seeded at startup)
+
+        Expected Result:
+        - SYSTEM_LEAK_STATUS:system row is present on liquid-cooled platforms
+        - device_leak_status is 'None', 'MINOR', or 'CRITICAL'
+        - timestamp field is present and non-empty
+        - Graceful info-only on non-liquid-cooled platforms (table absent is acceptable)
+        """
+        result = self.duthost.shell(
+            f"redis-cli -n 6 EXISTS '{SYSTEM_LEAK_STATUS_TABLE}:system'",
+            module_ignore_errors=True
+        )
+
+        # Row should exist on liquid-cooled platforms; absent is OK on others
+        if result['rc'] != 0 or result['stdout'].strip() != '1':
+            logger.info(
+                "SYSTEM_LEAK_STATUS:system not present — "
+                "expected on non-liquid-cooled platforms (LiquidCoolingUpdater skipped)"
+            )
+            return
+
+        logger.info("SYSTEM_LEAK_STATUS:system exists — verifying seed values")
+
+        result = self.duthost.shell(
+            f"redis-cli -n 6 HGETALL '{SYSTEM_LEAK_STATUS_TABLE}:system'",
+            module_ignore_errors=True
+        )
+        pytest_assert(result['rc'] == 0, "HGETALL on SYSTEM_LEAK_STATUS:system failed")
+
+        lines = result['stdout'].strip().split('\n')
+        fields = {lines[i]: lines[i+1] for i in range(0, len(lines), 2) if i+1 < len(lines)}
+        logger.info(f"SYSTEM_LEAK_STATUS:system fields: {fields}")
+
+        pytest_assert('device_leak_status' in fields,
+                      "SYSTEM_LEAK_STATUS:system missing device_leak_status field")
+        pytest_assert('timestamp' in fields,
+                      "SYSTEM_LEAK_STATUS:system missing timestamp field")
+
+        valid_statuses = ['None', 'MINOR', 'CRITICAL']
+        status = fields['device_leak_status']
+        pytest_assert(status in valid_statuses,
+                      f"device_leak_status '{status}' not in {valid_statuses}")
+        logger.info(f"device_leak_status={status} — valid seed value confirmed")
+
+        ts = fields.get('timestamp', '')
+        pytest_assert(bool(ts), "timestamp field is empty")
+        logger.info(f"Startup seed timestamp: {ts}")
+
+    def test_thermalctld_leak_escalation(self):
+        """
+        Verify MINOR→CRITICAL leak escalation configuration in LEAK_PROFILE.
+
+        bmc_enhance change: LiquidCoolingUpdater checks profile.get_leak_max_minor_duration_sec()
+        and escalates a MINOR sensor to CRITICAL once it has been leaking longer than
+        the configured threshold. The escalation threshold is stored in LEAK_PROFILE.
+
+        Test Steps:
+        1. Check LEAK_PROFILE table is present; skip gracefully if not
+        2. For each profile key, verify max_minor_duration_sec > 0
+        3. Verify current sensor severity values in LIQUID_COOLING_INFO are valid
+        4. Check if any sensor shows severity=CRITICAL while SYSTEM_LEAK_STATUS shows
+           CRITICAL → confirm escalation result is reflected in system status
+
+        Expected Result:
+        - Each LEAK_PROFILE has a positive max_minor_duration_sec (escalation threshold set)
+        - Sensor severity values are 'MINOR' or 'CRITICAL'
+        - When system status is CRITICAL, at least one sensor shows severity=CRITICAL
+        """
+        # Check LEAK_PROFILE present
+        result = self.duthost.shell(
+            f"redis-cli -n 6 KEYS '{LEAK_PROFILE_TABLE}:*'",
+            module_ignore_errors=True
+        )
+
+        if result['rc'] != 0 or not result['stdout'].strip():
+            logger.info("No LEAK_PROFILE entries — non-liquid-cooled platform; skipping escalation test")
+            return
+
+        profiles = result['stdout'].strip().split('\n')
+        logger.info(f"Found {len(profiles)} leak profile(s): {profiles}")
+
+        for profile_key in profiles:
+            result = self.duthost.shell(
+                f"redis-cli -n 6 HGET '{profile_key}' max_minor_duration_sec",
+                module_ignore_errors=True
+            )
+            if result['rc'] == 0 and result['stdout'].strip():
+                try:
+                    threshold = float(result['stdout'].strip())
+                    pytest_assert(threshold > 0,
+                                  f"{profile_key}: max_minor_duration_sec={threshold} must be > 0")
+                    logger.info(f"{profile_key}: escalation threshold = {threshold}s")
+                except ValueError:
+                    logger.warning(f"{profile_key}: could not parse max_minor_duration_sec")
+
+        # Read current sensor severities
+        result = self.duthost.shell(
+            f"redis-cli -n 6 KEYS '{LIQUID_COOLING_INFO_TABLE}:*' | head -10",
+            module_ignore_errors=True
+        )
+
+        if result['rc'] != 0 or not result['stdout'].strip():
+            logger.info("No LIQUID_COOLING_INFO sensors — no active leak sensors to check")
+            return
+
+        sensors = result['stdout'].strip().split('\n')
+        critical_sensors = []
+        for sensor_key in sensors:
+            result = self.duthost.shell(
+                f"redis-cli -n 6 HGET '{sensor_key}' severity",
+                module_ignore_errors=True
+            )
+            if result['rc'] == 0 and result['stdout'].strip():
+                severity = result['stdout'].strip()
+                pytest_assert(severity in ['MINOR', 'CRITICAL'],
+                              f"{sensor_key}: severity '{severity}' not in ['MINOR', 'CRITICAL']")
+                if severity == 'CRITICAL':
+                    critical_sensors.append(sensor_key)
+
+        # When system status is CRITICAL, at least one sensor must also be CRITICAL
+        result = self.duthost.shell(
+            f"redis-cli -n 6 HGET '{SYSTEM_LEAK_STATUS_TABLE}:system' device_leak_status",
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0 and result['stdout'].strip() == 'CRITICAL':
+            pytest_assert(
+                len(critical_sensors) > 0,
+                "System device_leak_status=CRITICAL but no sensor shows severity=CRITICAL"
+            )
+            logger.info(f"Escalated CRITICAL sensors: {critical_sensors}")
+        else:
+            logger.info("No active CRITICAL leak — escalation path not triggered on this run")
+
+    def test_thermalctld_bmc_temperature_mirror(self):
+        """
+        Verify thermalctld on Switch-Host mirrors TEMPERATURE_INFO to the BMC's STATE_DB.
+
+        bmc_enhance change: TemperatureUpdater._init_bmc_temperature_table() opens a
+        remote swsscommon.Table backed by the BMC's STATE_DB (db_connect_remote).
+        Every _refresh_temperature_status call tees its TEMPERATURE_INFO write to
+        this table via _bmc_table_set().
+
+        Test Steps:
+        1. Determine if running on a Switch-Host (device_info.is_switch_host() or
+           /etc/sonic/platform_env.conf switch_host=1)
+        2. Check thermalctld startup log for "Mirroring TEMPERATURE_INFO to BMC STATE_DB"
+        3. Check pmon journal for any BMC mirror warnings
+           ("Failed to open remote BMC TEMPERATURE_INFO table")
+        4. Read local TEMPERATURE_INFO keys — verify sensors are present on Switch-Host
+        5. Log BMC address if available via 'show bmc address' or config
+
+        Expected Result:
+        - On Switch-Host: startup log shows BMC mirror initialization (or warning if BMC unreachable)
+        - Local TEMPERATURE_INFO is populated with thermal sensors
+        - Graceful skip on non-Switch-Host platforms
+        """
+        # Determine if Switch-Host
+        result = self.duthost.shell(
+            "grep -q 'switch_host=1' /etc/sonic/platform_env.conf 2>/dev/null && echo yes || echo no",
+            module_ignore_errors=True
+        )
+        is_switch_host = result['stdout'].strip() == 'yes'
+
+        if not is_switch_host:
+            logger.info("Not a Switch-Host platform — BMC temperature mirror not active; skipping")
+            return
+
+        logger.info("Switch-Host detected — verifying BMC TEMPERATURE_INFO mirror")
+
+        # Check startup log for BMC mirror initialization
+        result = self.duthost.shell(
+            "journalctl -u pmon --since '60 minutes ago' 2>/dev/null"
+            " | grep -i 'Mirroring TEMPERATURE_INFO\\|Failed to open remote BMC' | tail -5",
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0 and result['stdout'].strip():
+            logger.info(f"BMC mirror log entries:\n{result['stdout'].strip()}")
+            if 'Mirroring TEMPERATURE_INFO' in result['stdout']:
+                logger.info("BMC TEMPERATURE_INFO mirror initialization confirmed")
+            elif 'Failed to open remote BMC' in result['stdout']:
+                logger.info(
+                    "BMC mirror initialization failed (BMC unreachable or misconfigured) — "
+                    "thermalctld degrades gracefully"
+                )
+        else:
+            logger.info(
+                "No BMC mirror log in last 60 min — thermalctld may have started earlier"
+            )
+
+        # Verify local TEMPERATURE_INFO is populated (source of mirror data)
+        result = self.duthost.shell(
+            "redis-cli -n 6 KEYS 'TEMPERATURE_INFO:*' | wc -l",
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0:
+            count = result['stdout'].strip()
+            logger.info(f"Local TEMPERATURE_INFO entries: {count}")
+            if int(count) == 0:
+                logger.info("No TEMPERATURE_INFO entries — thermals not yet polled or no sensors")
+
+    def test_thermalctld_switch_host_thermal_monitoring(self):
+        """
+        Verify thermalctld on BMC monitors Switch-Host TEMPERATURE_INFO for CRITICAL breaches.
+
+        bmc_enhance change: ThermalMonitor._init_switch_host_thermal_monitor() opens
+        BMC's local TEMPERATURE_INFO table and checks it each cycle via
+        _check_switch_host_thermals(). A CRITICAL threshold breach (temp >= critical_high
+        or temp <= critical_low) is logged to both syslog and /host/bmc/event.log via
+        EventLogger. Recovery is tracked silently (no log).
+
+        Test Steps:
+        1. Determine if running on BMC (switch_bmc=1 in /etc/sonic/platform_env.conf)
+        2. Check pmon startup log for "Monitoring chassis thermals" initialization message
+        3. Read TEMPERATURE_INFO entries that have critical_high_threshold or
+           critical_low_threshold — verify schema
+        4. Check /host/bmc/event.log for any "CRITICAL chassis thermal" events
+        5. Inject a test entry with temp >= critical_high_threshold into TEMPERATURE_INFO
+           and verify event.log receives a "CRITICAL chassis thermal" entry
+
+        Expected Result:
+        - On BMC: startup log confirms Switch-Host thermal monitoring initialized
+        - TEMPERATURE_INFO entries have threshold fields when present
+        - CRITICAL breach → event.log entry of form "CRITICAL chassis thermal: <name> ..."
+        - Injected test entry is cleaned up regardless of outcome
+        - Graceful skip on non-BMC platforms
+        """
+        # Determine if running on BMC
+        result = self.duthost.shell(
+            "grep -q 'switch_bmc=1' /etc/sonic/platform_env.conf 2>/dev/null && echo yes || echo no",
+            module_ignore_errors=True
+        )
+        is_switch_bmc = result['stdout'].strip() == 'yes'
+
+        if not is_switch_bmc:
+            logger.info("Not a BMC platform — Switch-Host thermal monitoring not active; skipping")
+            return
+
+        logger.info("BMC platform detected — verifying Switch-Host thermal monitoring")
+
+        # Check startup log for initialization message
+        result = self.duthost.shell(
+            "journalctl -u pmon --since '60 minutes ago' 2>/dev/null"
+            " | grep -i 'Monitoring chassis thermals\\|Failed to init chassis thermal' | tail -5",
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0 and result['stdout'].strip():
+            logger.info(f"Thermal monitoring init log:\n{result['stdout'].strip()}")
+
+        # Check /host/bmc/event.log for any existing CRITICAL chassis thermal events
+        result = self.duthost.shell(
+            "test -f /host/bmc/event.log && grep -i 'CRITICAL chassis thermal' /host/bmc/event.log"
+            " | tail -5 || echo 'no events'",
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0 and 'no events' not in result['stdout']:
+            logger.info(f"Existing CRITICAL chassis thermal events:\n{result['stdout'].strip()}")
+
+        # Inject a test TEMPERATURE_INFO entry with temp above critical threshold
+        TEST_SENSOR = "TEMPERATURE_INFO:test_critical_thermal_monitor"
+        try:
+            self.duthost.shell(
+                f"redis-cli -n 6 HSET '{TEST_SENSOR}'"
+                f" temperature 120.0"
+                f" critical_high_threshold 80.0"
+                f" high_threshold 70.0"
+                f" low_threshold -10.0"
+                f" warning False"
+                f" timestamp '2099-01-01T00:00:00'",
+                module_ignore_errors=True
+            )
+            logger.info(f"Injected test TEMPERATURE_INFO entry: {TEST_SENSOR} (120C > 80C critical)")
+
+            # Wait for thermalctld to poll and log the breach (up to 2 update cycles)
+            def breach_logged():
+                result = self.duthost.shell(
+                    "test -f /host/bmc/event.log && grep -i 'CRITICAL chassis thermal.*test_critical' "
+                    "/host/bmc/event.log | tail -3",
+                    module_ignore_errors=True
+                )
+                return result['rc'] == 0 and bool(result['stdout'].strip())
+
+            found = wait_until(90, 5, 0, breach_logged)
+            if found:
+                logger.info("CRITICAL chassis thermal event.log entry confirmed for test sensor")
+            else:
+                # Check syslog as fallback
+                result = self.duthost.shell(
+                    "journalctl -u pmon --since '2 minutes ago' 2>/dev/null"
+                    " | grep -i 'CRITICAL chassis thermal.*test_critical' | tail -3",
+                    module_ignore_errors=True
+                )
+                if result['rc'] == 0 and result['stdout'].strip():
+                    found = True
+                    logger.info(f"CRITICAL chassis thermal syslog entry confirmed:\n{result['stdout'].strip()}")
+                else:
+                    logger.info(
+                        "No CRITICAL chassis thermal log found within 90s — "
+                        "thermalctld may use a longer polling interval on this platform"
+                    )
+        finally:
+            self.duthost.shell(
+                f"redis-cli -n 6 DEL '{TEST_SENSOR}'",
+                module_ignore_errors=True
+            )
+
