@@ -69,9 +69,11 @@ class TestQosProbe(QosSaiBase):
         Subclasses override __init__ to resolve platform-specific values
         from qosConfig_profile and dutQosConfig.
         """
+        packet_length = 64          # class-level default
+        cells_per_packet = 1        # class-level default
+
         def __init__(self, qosConfig_profile=None, dutQosConfig=None):
-            self.packet_length = 64
-            self.cells_per_packet = 1
+            pass  # defaults provided by class attributes above
 
         def resolve_threshold(self, value):
             """Convert a qos.yml threshold to probe-comparable units.
