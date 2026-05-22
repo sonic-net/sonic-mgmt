@@ -22,10 +22,15 @@ LOCAL_LOG_GENERATOR_FILE = os.path.join(BASE_DIR, 'log_generator.py')
 REMOTE_LOG_GENERATOR_FILE = os.path.join('/tmp', 'log_generator.py')
 DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
 STP_LOG_FILE = '/var/log/stpd.log'
+# Container: expect the imuxsock per-socket line only. Do not also match
+# rsyslogd[internal_messages] here — on busy DUTs both lines can appear in the same marker
+# window and LogAnalyzer counts every matching line toward expected_matches_target (101),
+# which would fail if the internal_messages summary matched too.
+LOG_EXPECT_SYSLOG_RATE_LIMIT_CONTAINER = (
+    r'.*rate-limit-test>: begin to drop messages due to rate-limiting.*'
+)
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
-# rsyslogd emits this when container rate-limit starts dropping messages.
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*begin to drop messages due to rate-limiting.*'
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -176,7 +181,7 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
             expect_log_regex = [LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')]
             expect_log_matches = 0
         else:
-            expect_log_regex = [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED,
+            expect_log_regex = [LOG_EXPECT_SYSLOG_RATE_LIMIT_CONTAINER,
                                 LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')]
             expect_log_matches = RATE_LIMIT_BURST + 1
 
@@ -211,6 +216,23 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
         break  # we only randomly test 1 container to reduce test time
 
 
+# Host: count only application test lines in LogAnalyzer (burst+1). rsyslogd may also
+# emit one or more internal_messages summaries in the same window; those must not be
+# included in expect_regex or expected_matches_target will exceed burst+1.
+def assert_host_syslog_shows_rate_limit(duthost):
+    """Confirm host rsyslog reported rate limiting (imuxsock and/or internal_messages)."""
+    cmd = (
+        "sudo grep -E 'begin to drop messages due to rate-limiting|messages lost due to rate-limiting' "
+        "/var/log/syslog 2>/dev/null | tail -n 20"
+    )
+    out = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+    pytest_assert(
+        out.strip(),
+        'Expected host syslog rate-limit notice (imuxsock begin-to-drop or internal_messages summary); '
+        'grep returned empty',
+    )
+
+
 def verify_host_rate_limit(rand_selected_dut):
     """Config syslog rate limit for host and verify it works. Basic flow:
         1. Config syslog rate limit
@@ -234,6 +256,8 @@ def verify_host_rate_limit(rand_selected_dut):
     pytest_assert(rate_limit_data[0]['burst'] == str(RATE_LIMIT_BURST),
                   'Expect rate limit burst {}, actual {}'.format(RATE_LIMIT_BURST, rate_limit_data[0]['burst']))
 
+    # Host syslog: burst B allows B application lines through; the (B+1)th is dropped, so only
+    # B lines match LOG_EXPECT_LAST_MESSAGE here.
     verify_rate_limit_with_log_generator(rand_selected_dut,
                                          'host',
                                          'syslog_rate_limit_host_interval_{}_burst_{}'.format(RATE_LIMIT_INTERVAL,
@@ -241,6 +265,7 @@ def verify_host_rate_limit(rand_selected_dut):
                                          [LOG_EXPECT_LAST_MESSAGE.format('')],
                                          RATE_LIMIT_BURST,
                                          is_host=True)
+    assert_host_syslog_shows_rate_limit(rand_selected_dut)
 
     with expect_host_rsyslog_restart(rand_selected_dut):
         rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(0, 0))
