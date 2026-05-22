@@ -9,7 +9,7 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2')
 ]
 
 logger = logging.getLogger(__name__)
