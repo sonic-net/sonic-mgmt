@@ -1025,15 +1025,15 @@
   auto_recover: 'True'
   comment: deepsinghal
 
-- conf-name: vmsvc10-t2-7250-1
-  group-name: svc10-1
+- conf-name: vmsvc3-t2-7250-1
+  group-name: svc3-1
   topo: t2
   ptf_image_name: docker-ptf
-  ptf: svc10-1
-  ptf_ip: 10.206.144.104/24
-  ptf_ipv6: 2a01:111:e205:100::ace:9068/64
-  server: server_svc_10
-  vm_base: VM100000
+  ptf: svc3-1
+  ptf_ip: 10.206.144.128/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9080/64
+  server: server_svc_3
+  vm_base: VM30000
   dut:
   - svcstr-7250-lc1-1
   - svcstr-7250-lc2-1
@@ -3617,7 +3617,6 @@
   inv_name: str3
   auto_recover: 'True'
   is_smartswitch: 'True'
-  is_lit_mode: 'False'
   comment: paravind
 
 - conf-name: tbtk5-t2-7808-1
@@ -4176,6 +4175,22 @@
   inv_name: str4
   auto_recover: 'True'
   comment: MattSoulsby
+
+- conf-name: vms13-lt2-nokia-th6-1
+  group-name: vms13-6
+  topo: lt2-o256-u32d224
+  ptf_image_name: docker-ptf
+  ptf: vms13-6
+  ptf_ip: 10.64.247.183/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f79b/122
+  server: server_13
+  vm_base: VM13364
+  dut:
+  - str4-Nokia-7220-Th6p-1
+  inv_name: str4
+  auto_recover: 'True'
+  comment: bingwang
+  use_converged_peers: true
 
 - conf-name: vms76-lt2-7060x6-9
   group-name: vms75-4

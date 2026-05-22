@@ -269,6 +269,12 @@ fanout:
       os: sonic
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
+    str4-Nokia-7220-Th6p-leaf-1:
+      ansible_host: 10.3.154.233
+      ansible_hostv6: 2a01:111:e210:95::a03:9ae9
+      os: sonic
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 64
     str4-7050cx3-fan-1:
       ansible_host: 10.64.247.114
       ansible_hostv6: 2a01:111:e210:b000::a40:f772
@@ -340,6 +346,7 @@ sonic:
     sonic_cisco_8101_O8V48:
     sonic_cisco_8122_O128:
     sonic_arista_7050cx3:
+    sonic_nokia_ixr7220_th6p:
 
 sonic_arista_7060x6:
   hosts:
@@ -867,6 +874,43 @@ sonic_arista_7050cx3:
         "0x28": "x86_64-arista_7050cx3_32s"
         "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
+
+sonic_nokia_ixr7220_th6p:
+  hosts:
+    str4-Nokia-7220-Th6p-1:
+      ansible_host: 10.3.154.234
+      ansible_hostv6: 2a01:111:e210:95::a03:9aea
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 64
+      hwsku: Nokia-IXR7220-H6-O256
+      model: 7220 IXR-H6-128
+      serial: NK261230205
+      base_mac: 88:18:f1:e4:0f:5f
+      syseeprom_info:
+        "0x21": "7220 IXR-H6-128"
+        "0x22": "3HE21649AA0101"
+        "0x23": "NK261230205"
+        "0x24": "88:18:F1:E4:0F:5F"
+        "0x25": "03/19/2026 18:30:00"
+        "0x27": "DEMO UNIT"
+        "0x28": "x86_64-nokia_ixr7220_h6_128-r0"
+    str4-Nokia-7220-Th6p-leaf-1:
+      ansible_host: 10.3.154.233
+      ansible_hostv6: 2a01:111:e210:95::a03:9ae9
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 64
+      hwsku: Nokia-IXR7220-H6-O256
+      model: 7220 IXR-H6-128
+      serial: NK261230208
+      base_mac: 88:18:f1:e4:27:5f
+      syseeprom_info:
+        "0x21": "7220 IXR-H6-128"
+        "0x22": "3HE21649AA0101"
+        "0x23": "NK261230208"
+        "0x24": "88:18:F1:E4:27:5F"
+        "0x25": "03/19/2026 18:30:00"
+        "0x27": "DEMO UNIT"
+        "0x28": "x86_64-nokia_ixr7220_h6_128-r0"
 
 server:
   hosts:

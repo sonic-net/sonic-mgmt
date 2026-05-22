@@ -111,3 +111,5 @@ str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
 str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
+str4-Nokia-7220-Th6p-1,10.3.154.234/27,Nokia-IXR7220-H6-O256,DevSonic,,sonic
+str4-Nokia-7220-Th6p-leaf-1,10.3.154.233/27,Nokia-IXR7220-H6-O256,FanoutLeafSonic,,sonic
