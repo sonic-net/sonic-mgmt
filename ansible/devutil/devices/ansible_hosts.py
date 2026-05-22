@@ -125,7 +125,7 @@ def _build_tqm(inventory_manager, variable_manager, loader, passwords, callback,
     # collectors do not read plugin options, so a failure here is non-fatal.
     try:
         callback.set_options()
-    except Exception:
+    except Exception:  # noqa: E722 - non-fatal; plugin loader normally configures this
         pass
 
     tqm._callback_plugins = [callback]
