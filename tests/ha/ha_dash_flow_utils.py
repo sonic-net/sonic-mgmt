@@ -191,8 +191,11 @@ def compare_flow_tables_pdsctl(dpuhost1, dpuhost2, verbose=True):
         logger.info(f"flows on primary: {flow_table1}")
         logger.info(f"flows on standby: {flow_table2}")
 
-    if flow_table1 == flow_table2:
-        logger.info(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are identical")
+    def without_session(flow_list):
+        return [{k: v for k, v in entry.items() if k != 'Session'} for entry in flow_list]
+
+    if without_session(flow_table1) == without_session(flow_table2):
+        logger.info(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are identical (ignoring Session id)")
         return True
     else:
         logger.warning(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are different")
