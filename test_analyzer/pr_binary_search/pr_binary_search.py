@@ -29,6 +29,7 @@ from config import (
 from schemas import TestPipelineParameters, BuildPipelineParameters
 from binary_plan import DynamicParallelBisect
 from kusto_uploader import ingest_records_from_env
+from flakiness_gate import FlakinessGate
 
 
 logging.basicConfig(level=logging.INFO, format='[%(threadName)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -1291,6 +1292,12 @@ def main():
     parser.add_argument("--mgmt_commit_hash", type=str, default="",
                         help="If set, pin this sonic-mgmt commit when triggering test pipelines "
                              "(useful to re-run with a mgmt version before a known flake/skip).")
+    parser.add_argument("--enable_flakiness_gate", type=parse_bool_arg, default=False,
+                        help="Run 3 parallel tests with latest code before binary search. "
+                             "If any pass, skip bisect (test is flaky).")
+    parser.add_argument("--flakiness_gate_num_runs", type=int, default=3,
+                        choices=range(1, 101),
+                        help="Number of parallel test runs for flakiness gate (default: 3, must be >= 1)")
     args = parser.parse_args()
     search_run_id = str(uuid.uuid4())
 
@@ -1330,6 +1337,45 @@ def main():
         return
 
     client = AzureDevOpsClient(BASE_URL, ORGANIZATION, PROJECT, token=AZURE_DEVOPS_ACCESS_TOKEN)
+
+    # ── Flakiness Gate: run 3 parallel tests with latest code ──────────────
+    # If any run passes, the test is flaky — skip binary search for that entry.
+    if args.enable_flakiness_gate:
+        logger.info("Flakiness gate enabled: running %d parallel tests with "
+                    "latest code for each failure entry", args.flakiness_gate_num_runs)
+        gate = FlakinessGate(
+            client=client,
+            test_pipeline_id=PRE_DEFINED_PR_TEST_PIPELINE_ID,
+            build_pipeline_id=BUILD_VS_IMAGE_PIPELINE_ID,
+            num_runs=args.flakiness_gate_num_runs,
+        )
+        filtered_failure_info = []
+        for entry in failure_info:
+            testcase = entry.get("testcase", "unknown")
+            repo = entry.get("repo", "unknown")
+            logger.info("Flakiness gate: checking %s (%s)", testcase, repo)
+            try:
+                gate_result = gate.run(entry)
+                if gate_result.is_flaky:
+                    logger.info("FLAKY — skipping bisect for %s: %s",
+                                testcase, gate_result.reason)
+                else:
+                    logger.info("NOT FLAKY — proceeding with bisect for %s: %s",
+                                testcase, gate_result.reason)
+                    filtered_failure_info.append(entry)
+            except Exception as gate_err:
+                logger.error("Flakiness gate error for %s: %s — "
+                             "proceeding with bisect", testcase, gate_err)
+                filtered_failure_info.append(entry)
+
+        skipped = len(failure_info) - len(filtered_failure_info)
+        logger.info("Flakiness gate: %d/%d entries passed (skipped %d flaky)",
+                    len(filtered_failure_info), len(failure_info), skipped)
+        failure_info = filtered_failure_info
+
+        if not failure_info:
+            logger.info("All entries filtered as flaky — nothing to bisect.")
+            return
 
     # Process failure entries sequentially — one pipeline run per failure episode.
     # Each entry triggers its own build and test pipelines independently so that

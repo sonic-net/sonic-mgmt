@@ -199,9 +199,11 @@ def build_gcu_acl_rule_patch(seq_id, action, ethertype=None, interfaces=None, ip
     if dst_ipv6:
         rule_value["DST_IPV6"] = str(dst_ipv6)
     if l4_src_port:
-        rule_value["L4_SRC_PORT_RANGE" if l4_src_port.get_mode() == L4Ports.MODE_RANGE_RANDOM else "L4_SRC_PORT"] = str(l4_src_port)
+        rule_value["L4_SRC_PORT_RANGE" if l4_src_port.get_mode() == L4Ports.MODE_RANGE_RANDOM
+                   else "L4_SRC_PORT"] = str(l4_src_port)
     if l4_dst_port:
-        rule_value["L4_DST_PORT_RANGE" if l4_dst_port.get_mode() == L4Ports.MODE_RANGE_RANDOM else "L4_DST_PORT"] = str(l4_dst_port)
+        rule_value["L4_DST_PORT_RANGE" if l4_dst_port.get_mode() == L4Ports.MODE_RANGE_RANDOM
+                   else "L4_DST_PORT"] = str(l4_dst_port)
     return {rule_name: rule_value}
 
 
@@ -325,33 +327,39 @@ def verify_traffic(ptfadapter, dst_ptf_port_ids, exp_pkt, expect_behavior):
 def send_and_verify_traffic_v4(duthost, ptfadapter, src, dsts, expect_behavior, pkt=None):
     router_mac = duthost.facts['router_mac']
     if pkt is None:
-        pkt = testutils.simple_tcp_packet(eth_dst=router_mac, ip_src=src.ipv4_addr, ip_dst=dsts[0].ipv4_addr, tcp_flags="")
+        pkt = testutils.simple_tcp_packet(
+            eth_dst=router_mac, ip_src=src.ipv4_addr, ip_dst=dsts[0].ipv4_addr, tcp_flags="")
     exp_pkt = build_exp_pkt(pkt)
     for host in [src] + dsts:
         duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(host.ipv4_addr), module_ignore_errors=True)
     ptfadapter.dataplane.flush()
     dsts_str = json.dumps(dsts, default=lambda x: str(x))
-    logging.info("Start to Verify traffic between {} and {}, expect behavior is {}".format(src, dsts_str, expect_behavior))
+    logging.info("Start to Verify traffic between {} and {}, expect behavior is {}".format(
+        src, dsts_str, expect_behavior))
     testutils.send(ptfadapter, pkt=pkt, port_id=src.ptf_port_id)
     dst_ptf_port_ids = [dst.ptf_port_id for dst in dsts]
     verify_traffic(ptfadapter, dst_ptf_port_ids, exp_pkt, expect_behavior)
-    logging.info("Verify traffic between {} and {} passed, expect behavior is {}".format(src, dsts_str, expect_behavior))
+    logging.info("Verify traffic between {} and {} passed, expect behavior is {}".format(
+        src, dsts_str, expect_behavior))
 
 
 def send_and_verify_traffic_v6(duthost, ptfadapter, src, dsts, expect_behavior, pkt=None):
     router_mac = duthost.facts['router_mac']
     if pkt is None:
-        pkt = testutils.simple_tcpv6_packet(eth_dst=router_mac, ipv6_src=src.ipv6_addr, ipv6_dst=dsts[0].ipv6_addr, tcp_flags="")
+        pkt = testutils.simple_tcpv6_packet(
+            eth_dst=router_mac, ipv6_src=src.ipv6_addr, ipv6_dst=dsts[0].ipv6_addr, tcp_flags="")
     exp_pkt = build_exp_pkt(pkt)
     for host in [src] + dsts:
         duthost.shell("timeout 1 ping6 -c 1 -w 1 {}".format(host.ipv6_addr), module_ignore_errors=True)
     ptfadapter.dataplane.flush()
     dsts_str = json.dumps(dsts, default=lambda x: str(x))
-    logging.info("Start to Verify traffic between {} and {}, expect behavior is {}".format(src, dsts_str, expect_behavior))
+    logging.info("Start to Verify traffic between {} and {}, expect behavior is {}".format(
+        src, dsts_str, expect_behavior))
     testutils.send(ptfadapter, pkt=pkt, port_id=src.ptf_port_id)
     dst_ptf_port_ids = [dst.ptf_port_id for dst in dsts]
     verify_traffic(ptfadapter, dst_ptf_port_ids, exp_pkt, expect_behavior)
-    logging.info("Verify traffic between {} and {} passed, expect behavior is {}".format(src, dsts_str, expect_behavior))
+    logging.info("Verify traffic between {} and {} passed, expect behavior is {}".format(
+        src, dsts_str, expect_behavior))
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -364,7 +372,7 @@ def setup_custom_acl_table(duthost):
 def setup_python_library_on_dut(duthost, creds):
     http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
     https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
-    cmd = "http_proxy={} https_proxy={} pip3 install ptf".format(http_proxy, https_proxy)
+    cmd = "http_proxy={} https_proxy={} pip3 install --no-deps ptf".format(http_proxy, https_proxy)
     duthost.shell(cmd)
     yield
     cmd = "pip3 uninstall -y ptf"
@@ -386,15 +394,18 @@ def prod_bmc_otw_basic_acl_set_nth(vlan_interfaces_ipv6: list):
         ),
         f"{NTH_AD_HOC_ALLOW_ICMPV6_RS_SEQ}_AD_HOC_ICMPV6_ROUTER_SOLICITATION": json.dumps(
             acl_entry(NTH_AD_HOC_ALLOW_ICMPV6_RS_SEQ, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
-                      ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=ICMPV6_TYPE_ROUTER_SOLICITATION, icmp_code=ICMPV6_CODE_ROUTER_SOLICITATION)
+                      ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=ICMPV6_TYPE_ROUTER_SOLICITATION,
+                      icmp_code=ICMPV6_CODE_ROUTER_SOLICITATION)
         ),
         f"{NTH_AD_HOC_ALLOW_ICMPV6_NS_SEQ}_AD_HOC_ICMPV6_NEIGHBOR_SOLICITATION": json.dumps(
             acl_entry(NTH_AD_HOC_ALLOW_ICMPV6_NS_SEQ, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
-                      ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=ICMPV6_TYPE_NEIGHBOR_SOLICITATION, icmp_code=ICMPV6_CODE_NEIGHBOR_SOLICITATION)
+                      ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=ICMPV6_TYPE_NEIGHBOR_SOLICITATION,
+                      icmp_code=ICMPV6_CODE_NEIGHBOR_SOLICITATION)
         ),
         f"{NTH_AD_HOC_ALLOW_ICMPV6_NA_SEQ}_AD_HOC_ICMPV6_NEIGHBOR_ADVERTISEMENT": json.dumps(
             acl_entry(NTH_AD_HOC_ALLOW_ICMPV6_NA_SEQ, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
-                      ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=ICMPV6_TYPE_NEIGHBOR_ADVERTISEMENT, icmp_code=ICMPV6_CODE_NEIGHBOR_ADVERTISEMENT)
+                      ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=ICMPV6_TYPE_NEIGHBOR_ADVERTISEMENT,
+                      icmp_code=ICMPV6_CODE_NEIGHBOR_ADVERTISEMENT)
         ),
     }
     seq_id = NTH_AD_HOC_ALLOW_ICMPV6_ECHO_SEQ_START
@@ -570,7 +581,8 @@ class BmcOtwAclRulesBase:
         return None
 
     @pytest.fixture(scope="class")
-    def setup_teardown(self, duthost, ptfhost, rack_topo_file, mx_common_setup_teardown, port_alias_to_name, port_alias_to_ptf_index):
+    def setup_teardown(self, duthost, ptfhost, rack_topo_file, mx_common_setup_teardown,
+                       port_alias_to_name, port_alias_to_ptf_index):
         # load rack topo
         with open(rack_topo_file) as f:
             rack_topo = yaml.safe_load(f)
@@ -680,7 +692,8 @@ class BmcOtwAclRulesBase:
         if ACL_TABLE_BMC_SOUTHBOUND_V6 in acl_tables:
             remove_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6])
 
-    def setup_dynamic_v6_acl_rules_by_acl_loader(self, duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6):
+    def setup_dynamic_v6_acl_rules_by_acl_loader(self, duthost, rack_topo,
+                                                 dynamic_northbound_v6, dynamic_southbound_v6):
         if 'dynamic_acl_rule_template_file' not in rack_topo['config']:
             pytest.skip("No dynamic acl rule template file")
         dynamic_acl_rule_template_file = rack_topo['config']['dynamic_acl_rule_template_file']
@@ -693,7 +706,8 @@ class BmcOtwAclRulesBase:
         j2_tpl = j2_env.get_template(dynamic_acl_rule_template_file)
         dynamic_acl_rule_file = os.path.join(ACL_RULE_SRC_FILE_PREFIX, 'dynamic_acl_rules.json')
         with open(dynamic_acl_rule_file, 'w') as fout:
-            fout.write(j2_tpl.render(dynamic_northbound_v6=dynamic_northbound_v6, dynamic_southbound_v6=dynamic_southbound_v6))
+            fout.write(j2_tpl.render(dynamic_northbound_v6=dynamic_northbound_v6,
+                                     dynamic_southbound_v6=dynamic_southbound_v6))
 
         add_acl_rule(duthost, dynamic_acl_rule_file, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6])
         add_acl_rule(duthost, dynamic_acl_rule_file, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6])
@@ -788,7 +802,9 @@ class BmcOtwAclRulesBase:
         for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=10):
             send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="drop")
 
-    @pytest.mark.parametrize("l4_port_mode", [L4Ports.MODE_SINGLE_RANDOM, L4Ports.MODE_RANGE_RANDOM, L4Ports.MODE_SINGLE_SSH, L4Ports.MODE_SINGLE_HTTPS])
+    @pytest.mark.parametrize("l4_port_mode",
+                             [L4Ports.MODE_SINGLE_RANDOM, L4Ports.MODE_RANGE_RANDOM,
+                              L4Ports.MODE_SINGLE_SSH, L4Ports.MODE_SINGLE_HTTPS])
     def test_bmc_otw_req_4_v6_tcp(self, duthost, ptfadapter, setup_teardown, l4_port_mode):
         """
         Request 4: Direct access is conditional allowed after loading AD-HOC ACL rules
@@ -806,14 +822,18 @@ class BmcOtwAclRulesBase:
             bmc_l4_ports = L4Ports.rand(l4_port_mode)
             upstream_l4_ports = L4Ports.rand(l4_port_mode)
             dynamic_northbound_v6 = {
-                **prod_allow_tcpv6_synack_nth(NTH_AD_HOC_ALLOW_TCP_SYNACK_SEQ_START, rand_upstream, l4_src_port=bmc_l4_ports),
-                **prod_allow_tcpv6_nth(NTH_AD_HOC_ALLOW_PROTOCOL_SEQ_START, rand_upstream, l4_src_port=bmc_l4_ports),
+                **prod_allow_tcpv6_synack_nth(NTH_AD_HOC_ALLOW_TCP_SYNACK_SEQ_START, rand_upstream,
+                                              l4_src_port=bmc_l4_ports),
+                **prod_allow_tcpv6_nth(NTH_AD_HOC_ALLOW_PROTOCOL_SEQ_START, rand_upstream,
+                                       l4_src_port=bmc_l4_ports),
                 **prod_bmc_otw_basic_acl_set_nth(vlan_interfaces_ipv6),
             }
             dynamic_southbound_v6 = {
-                **prod_allow_tcpv6_sth(STH_AD_HOC_ALLOW_PROTOCOL_SEQ_START, rand_upstream, l4_dst_port=bmc_l4_ports),
+                **prod_allow_tcpv6_sth(STH_AD_HOC_ALLOW_PROTOCOL_SEQ_START, rand_upstream,
+                                       l4_dst_port=bmc_l4_ports),
             }
-            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6)
+            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6,
+                                                          dynamic_southbound_v6)
             for tcp_flags in ["S", "SA", "A"]:
                 northbound_pkt = testutils.simple_tcpv6_packet(
                     eth_dst=duthost.facts['router_mac'],
@@ -824,9 +844,11 @@ class BmcOtwAclRulesBase:
                     tcp_flags=tcp_flags,
                 )
                 if tcp_flags == "S":
-                    send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="drop", pkt=northbound_pkt)
+                    send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports,
+                                               expect_behavior="drop", pkt=northbound_pkt)
                 else:
-                    send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="accept", pkt=northbound_pkt)
+                    send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports,
+                                               expect_behavior="accept", pkt=northbound_pkt)
             for tcp_flags in ["S", "SA", "A"]:
                 southbound_pkt = testutils.simple_tcpv6_packet(
                     eth_dst=duthost.facts['router_mac'],
@@ -836,7 +858,8 @@ class BmcOtwAclRulesBase:
                     tcp_dport=bmc_l4_ports.sample_port(),
                     tcp_flags=tcp_flags,
                 )
-                send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc], expect_behavior="accept", pkt=southbound_pkt)
+                send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc],
+                                           expect_behavior="accept", pkt=southbound_pkt)
 
     def test_bmc_otw_req_4_v6_icmpv6_echo(self, duthost, ptfadapter, setup_teardown):
         """
@@ -856,7 +879,8 @@ class BmcOtwAclRulesBase:
             dynamic_southbound_v6 = {
                 **prod_allow_icmpv6_echo_sth(STH_AD_HOC_ALLOW_PROTOCOL_SEQ_START, rand_upstream),
             }
-            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6)
+            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6,
+                                                          dynamic_southbound_v6)
             northbound_pkt = testutils.simple_icmpv6_packet(
                 eth_dst=duthost.facts['router_mac'],
                 ipv6_src=rand_bmc.ipv6_addr,
@@ -869,8 +893,10 @@ class BmcOtwAclRulesBase:
                 ipv6_dst=rand_bmc.ipv6_addr,
                 icmp_type=ICMPV6_TYPE_ECHO_REQUEST
             )
-            send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="accept", pkt=northbound_pkt)
-            send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc], expect_behavior="accept", pkt=southbound_pkt)
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports,
+                                       expect_behavior="accept", pkt=northbound_pkt)
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc],
+                                       expect_behavior="accept", pkt=southbound_pkt)
 
     def test_bmc_otw_req_4_v6_icmpv6_echo_bmc2mx(self, duthost, ptfadapter, mx_common_setup_teardown, setup_teardown):
         """
@@ -882,7 +908,8 @@ class BmcOtwAclRulesBase:
         rack_topo, _, bmc_hosts, _ = setup_teardown
         vlan_interfaces_ipv6 = get_vlan_interfaces_ipv6(duthost)
         router_mac = duthost.facts['router_mac']
-        self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, prod_bmc_otw_basic_acl_set_nth(vlan_interfaces_ipv6), {})
+        self.setup_dynamic_v6_acl_rules_by_acl_loader(
+            duthost, rack_topo, prod_bmc_otw_basic_acl_set_nth(vlan_interfaces_ipv6), {})
         for vlan_name, vlan_info in duthost.get_vlan_brief().items():
             vlan_members = vlan_info["members"]
             vlan_interfaces_ipv6 = vlan_info.get('interface_ipv6', [])
@@ -896,18 +923,29 @@ class BmcOtwAclRulesBase:
                 continue
 
             def func(pkts):
-                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.IPv6].tc == test_ipv6_tc]) > 0, "Didn't get packet with expected ipv6 tc")
+                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.IPv6].tc == test_ipv6_tc]) > 0,
+                              "Didn't get packet with expected ipv6 tc")
             test_ipv6_tc = 136
-            with capture_and_check_packet_on_dut(duthost=duthost, pkts_filter='"icmp6[icmp6type]==icmp6-echo"', pkts_validator=func, wait_time=1):
-                logging.info("Send icmp6 echo request packet from ptf ipv6:%s to DUT vlan ipv6:%s" % (rand_bmc.ipv6_addr, vlan_ip6))
-                req_pkt = testutils.simple_icmpv6_packet(eth_dst=router_mac, ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=vlan_ip6,
-                                                         ipv6_tc=test_ipv6_tc, icmp_type=ICMPV6_TYPE_ECHO_REQUEST, icmp_code=ICMPV6_CODE_ECHO_REQUEST)
+            with capture_and_check_packet_on_dut(duthost=duthost,
+                                                 pkts_filter='"icmp6[icmp6type]==icmp6-echo"',
+                                                 pkts_validator=func, wait_time=1):
+                logging.info("Send icmp6 echo request packet from ptf ipv6:%s to DUT vlan ipv6:%s"
+                             % (rand_bmc.ipv6_addr, vlan_ip6))
+                req_pkt = testutils.simple_icmpv6_packet(
+                    eth_dst=router_mac, ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=vlan_ip6,
+                    ipv6_tc=test_ipv6_tc, icmp_type=ICMPV6_TYPE_ECHO_REQUEST,
+                    icmp_code=ICMPV6_CODE_ECHO_REQUEST)
                 ptfadapter.dataplane.flush()
                 testutils.send(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
-            with capture_and_check_packet_on_dut(duthost=duthost, pkts_filter='"icmp6[icmp6type]==icmp6-echoreply"', pkts_validator=func, wait_time=1):
-                logging.info("Send icmp6 echo reply packet from ptf ipv6:%s to DUT vlan ipv6:%s" % (rand_bmc.ipv6_addr, vlan_ip6))
-                req_pkt = testutils.simple_icmpv6_packet(eth_dst=router_mac, ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=vlan_ip6,
-                                                         ipv6_tc=test_ipv6_tc, icmp_type=ICMPV6_TYPE_ECHO_REPLY, icmp_code=ICMPV6_CODE_ECHO_REPLY)
+            with capture_and_check_packet_on_dut(duthost=duthost,
+                                                 pkts_filter='"icmp6[icmp6type]==icmp6-echoreply"',
+                                                 pkts_validator=func, wait_time=1):
+                logging.info("Send icmp6 echo reply packet from ptf ipv6:%s to DUT vlan ipv6:%s"
+                             % (rand_bmc.ipv6_addr, vlan_ip6))
+                req_pkt = testutils.simple_icmpv6_packet(
+                    eth_dst=router_mac, ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=vlan_ip6,
+                    ipv6_tc=test_ipv6_tc, icmp_type=ICMPV6_TYPE_ECHO_REPLY,
+                    icmp_code=ICMPV6_CODE_ECHO_REPLY)
                 ptfadapter.dataplane.flush()
                 testutils.send(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
 
@@ -926,25 +964,44 @@ class BmcOtwAclRulesBase:
             bmc_l4_ports = L4Ports.rand(l4_port_mode)
             upstream_l4_ports = L4Ports.rand(l4_port_mode)
             bmc_northbound_v6_dynamic_rules, bmc_southbound_v6_dynamic_rules = \
-                self.build_gcu_dynamic_acl_rule_patch(rand_bmc, rand_upstream, bmc_l4_ports, upstream_l4_ports, IP_PROTOCOL_MAP[ip_protocol])
+                self.build_gcu_dynamic_acl_rule_patch(rand_bmc, rand_upstream, bmc_l4_ports,
+                                                      upstream_l4_ports, IP_PROTOCOL_MAP[ip_protocol])
             try:
-                gcu_add_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6], bmc_northbound_v6_dynamic_rules)
-                gcu_add_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6], bmc_southbound_v6_dynamic_rules)
+                gcu_add_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6],
+                                 bmc_northbound_v6_dynamic_rules)
+                gcu_add_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6],
+                                 bmc_southbound_v6_dynamic_rules)
                 if ip_protocol == IP_PROTOCOL_TCP:
-                    northbound_pkt = testutils.simple_tcpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=rand_upstream.ipv6_addr,
-                                                                   tcp_sport=bmc_l4_ports.sample_port(), tcp_dport=upstream_l4_ports.sample_port())
-                    southbound_pkt = testutils.simple_tcpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr, ipv6_dst=rand_bmc.ipv6_addr,
-                                                                   tcp_sport=upstream_l4_ports.sample_port(), tcp_dport=bmc_l4_ports.sample_port())
+                    northbound_pkt = testutils.simple_tcpv6_packet(
+                        eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr,
+                        ipv6_dst=rand_upstream.ipv6_addr,
+                        tcp_sport=bmc_l4_ports.sample_port(),
+                        tcp_dport=upstream_l4_ports.sample_port())
+                    southbound_pkt = testutils.simple_tcpv6_packet(
+                        eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr,
+                        ipv6_dst=rand_bmc.ipv6_addr,
+                        tcp_sport=upstream_l4_ports.sample_port(),
+                        tcp_dport=bmc_l4_ports.sample_port())
                 elif ip_protocol == IP_PROTOCOL_UDP:
-                    northbound_pkt = testutils.simple_udpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=rand_upstream.ipv6_addr,
-                                                                   udp_sport=bmc_l4_ports.sample_port(), udp_dport=upstream_l4_ports.sample_port())
-                    southbound_pkt = testutils.simple_udpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr, ipv6_dst=rand_bmc.ipv6_addr,
-                                                                   udp_sport=upstream_l4_ports.sample_port(), udp_dport=bmc_l4_ports.sample_port())
-                send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="accept", pkt=northbound_pkt)
-                send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc], expect_behavior="accept", pkt=southbound_pkt)
+                    northbound_pkt = testutils.simple_udpv6_packet(
+                        eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr,
+                        ipv6_dst=rand_upstream.ipv6_addr,
+                        udp_sport=bmc_l4_ports.sample_port(),
+                        udp_dport=upstream_l4_ports.sample_port())
+                    southbound_pkt = testutils.simple_udpv6_packet(
+                        eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr,
+                        ipv6_dst=rand_bmc.ipv6_addr,
+                        udp_sport=upstream_l4_ports.sample_port(),
+                        udp_dport=bmc_l4_ports.sample_port())
+                send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports,
+                                           expect_behavior="accept", pkt=northbound_pkt)
+                send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc],
+                                           expect_behavior="accept", pkt=southbound_pkt)
             finally:
-                gcu_remove_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6], bmc_northbound_v6_dynamic_rules.keys())
-                gcu_remove_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6], bmc_southbound_v6_dynamic_rules.keys())
+                gcu_remove_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6],
+                                    bmc_northbound_v6_dynamic_rules.keys())
+                gcu_remove_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6],
+                                    bmc_southbound_v6_dynamic_rules.keys())
 
     def test_bmc_otw_req_6_v4_mx2bmc(self, duthost, ptfadapter, mx_common_setup_teardown, setup_teardown):
         # Considering remove this testcase because Mx2BMC traffic doesn't affected by ACL.
@@ -983,18 +1040,29 @@ class BmcOtwAclRulesBase:
                 continue
 
             def func(pkts):
-                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.IP].tos == test_ipv4_tos]) > 0, "Didn't get packet with expected ipv4 tos")
+                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.IP].tos == test_ipv4_tos]) > 0,
+                              "Didn't get packet with expected ipv4 tos")
             test_ipv4_tos = 134
-            with capture_and_check_packet_on_dut(duthost=duthost, pkts_filter='"icmp[icmptype]==icmp-echo"', pkts_validator=func):
-                logging.info("Send icmp echo request packet from ptf ip:%s to DUT vlan ip:%s" % (rand_bmc.ipv4_addr, vlan_ip))
-                req_pkt = testutils.simple_icmp_packet(eth_dst=router_mac, ip_src=rand_bmc.ipv4_addr, ip_dst=vlan_ip,
-                                                       ip_tos=test_ipv4_tos, icmp_type=ICMP_TYPE_ECHO_REQUEST, icmp_code=ICMP_CODE_ECHO_REQUEST)
+            with capture_and_check_packet_on_dut(duthost=duthost,
+                                                 pkts_filter='"icmp[icmptype]==icmp-echo"',
+                                                 pkts_validator=func):
+                logging.info("Send icmp echo request packet from ptf ip:%s to DUT vlan ip:%s"
+                             % (rand_bmc.ipv4_addr, vlan_ip))
+                req_pkt = testutils.simple_icmp_packet(
+                    eth_dst=router_mac, ip_src=rand_bmc.ipv4_addr, ip_dst=vlan_ip,
+                    ip_tos=test_ipv4_tos, icmp_type=ICMP_TYPE_ECHO_REQUEST,
+                    icmp_code=ICMP_CODE_ECHO_REQUEST)
                 ptfadapter.dataplane.flush()
                 testutils.send(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
-            with capture_and_check_packet_on_dut(duthost=duthost, pkts_filter='"icmp[icmptype] == icmp-echoreply"', pkts_validator=func):
-                logging.info("Send icmp echo reply packet from ptf ip:%s to DUT vlan ip:%s" % (rand_bmc.ipv4_addr, vlan_ip))
-                req_pkt = testutils.simple_icmp_packet(eth_dst=router_mac, ip_src=rand_bmc.ipv4_addr, ip_dst=vlan_ip,
-                                                       ip_tos=test_ipv4_tos, icmp_type=ICMP_TYPE_ECHO_REPLY, icmp_code=ICMP_CODE_ECHO_REPLY)
+            with capture_and_check_packet_on_dut(duthost=duthost,
+                                                 pkts_filter='"icmp[icmptype] == icmp-echoreply"',
+                                                 pkts_validator=func):
+                logging.info("Send icmp echo reply packet from ptf ip:%s to DUT vlan ip:%s"
+                             % (rand_bmc.ipv4_addr, vlan_ip))
+                req_pkt = testutils.simple_icmp_packet(
+                    eth_dst=router_mac, ip_src=rand_bmc.ipv4_addr, ip_dst=vlan_ip,
+                    ip_tos=test_ipv4_tos, icmp_type=ICMP_TYPE_ECHO_REPLY,
+                    icmp_code=ICMP_CODE_ECHO_REPLY)
                 ptfadapter.dataplane.flush()
                 testutils.send(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
 
@@ -1110,7 +1178,8 @@ class BmcOtwAclRulesBase:
         time.sleep(10)  # wait for BGPv6 session to be established
         bgp_neigh = duthost.bgp_facts()['ansible_facts']['bgp_neighbors']
         for neigh_ip, neigh_fact in bgp_neigh.items():
-            pytest_assert(neigh_fact['state'].lower() == 'established', "BGPv6 session with {} is not established".format(neigh_ip))
+            pytest_assert(neigh_fact['state'].lower() == 'established',
+                          "BGPv6 session with {} is not established".format(neigh_ip))
 
     def test_bmc_otw_allow_dhcp_v4_broadcast_bmc2mx(self, duthost, ptfadapter, setup_teardown):
         """
@@ -1126,7 +1195,8 @@ class BmcOtwAclRulesBase:
                 continue
 
             def func(pkts):
-                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == test_xid]) > 0, "Didn't get packet with expected BOOTP xid")
+                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == test_xid]) > 0,
+                              "Didn't get packet with expected BOOTP xid")
             bmc_mac = ptfadapter.dataplane.get_mac(0, rand_bmc.ptf_port_id).decode('utf-8')
 
             test_xid = 123
@@ -1158,7 +1228,8 @@ class BmcOtwAclRulesBase:
                 continue
 
             def func(pkts):
-                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == test_xid]) > 0, "Didn't get packet with expected BOOTP xid")
+                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == test_xid]) > 0,
+                              "Didn't get packet with expected BOOTP xid")
             bmc_mac = ptfadapter.dataplane.get_mac(0, rand_bmc.ptf_port_id).decode('utf-8')
 
             vlan_prefix = vlan_info["interface_ipv4"][0]
@@ -1185,7 +1256,8 @@ class BmcOtwAclRulesBase:
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         vlan_interfaces_ipv6 = get_vlan_interfaces_ipv6(duthost)
-        self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, prod_bmc_otw_basic_acl_set_nth(vlan_interfaces_ipv6), {})
+        self.setup_dynamic_v6_acl_rules_by_acl_loader(
+            duthost, rack_topo, prod_bmc_otw_basic_acl_set_nth(vlan_interfaces_ipv6), {})
         for vlan_name, vlan_info in duthost.get_vlan_brief().items():
             vlan_members = vlan_info["members"]
             rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
@@ -1194,7 +1266,8 @@ class BmcOtwAclRulesBase:
                 continue
 
             def func(pkts):
-                pytest_assert(len([pkt for pkt in pkts if pkt[DHCP6_Solicit].trid == test_trid]) > 0, "Didn't get packet with expected transaction id")
+                pytest_assert(len([pkt for pkt in pkts if pkt[DHCP6_Solicit].trid == test_trid]) > 0,
+                              "Didn't get packet with expected transaction id")
             bmc_mac = ptfadapter.dataplane.get_mac(0, rand_bmc.ptf_port_id).decode('utf-8')
 
             test_trid = 119
@@ -1204,10 +1277,14 @@ class BmcOtwAclRulesBase:
                 pkts_filter="ether src %s and udp dst port %s" % (bmc_mac, DHCPV6_UDP_SERVER_PORT),
                 pkts_validator=func
             ):
-                cmd_get_link_local_ipv6_addr = "ip addr show %s | grep inet6 | grep 'scope link' | awk '{print $2}' | cut -d '/' -f1" % rand_bmc.port_name
+                cmd_get_link_local_ipv6_addr = (
+                    "ip addr show %s | grep inet6 | grep 'scope link' | awk '{print $2}' | cut -d '/' -f1"
+                    % rand_bmc.port_name)
                 link_local_ipv6_addr = duthost.shell(cmd_get_link_local_ipv6_addr)["stdout"]
                 pytest_assert(
-                    link_local_ipv6_addr is not None and ipaddress.IPv6Address(link_local_ipv6_addr) in ipaddress.IPv6Network(DHCPV6_IP_LINK_LOCAL_PREFIX),
+                    link_local_ipv6_addr is not None
+                    and ipaddress.IPv6Address(link_local_ipv6_addr)
+                    in ipaddress.IPv6Network(DHCPV6_IP_LINK_LOCAL_PREFIX),
                     "Didn't get packet with expected transaction id"
                 )
                 req_pkt = scapy.Ether(dst=DHCPV6_MAC_MULTICAST, src=bmc_mac) \
@@ -1234,14 +1311,19 @@ class BmcOtwAclRulesBase:
                 **prod_bmc_isolation_sth(STH_AD_HOC_ISOLATION_SEQ_START, rand_bmc),
                 **prod_allow_icmpv6_echo_sth(STH_AD_HOC_ALLOW_PROTOCOL_SEQ_START, rand_upstream),
             }
-            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6)
-            northbound_pkt = testutils.simple_icmpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr,
-                                                            ipv6_dst=rand_upstream.ipv6_addr, icmp_type=ICMPV6_TYPE_ECHO_REPLY)
-            southbound_pkt = testutils.simple_icmpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr,
-                                                            ipv6_dst=rand_bmc.ipv6_addr, icmp_type=ICMPV6_TYPE_ECHO_REQUEST)
+            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6,
+                                                          dynamic_southbound_v6)
+            northbound_pkt = testutils.simple_icmpv6_packet(
+                eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr,
+                ipv6_dst=rand_upstream.ipv6_addr, icmp_type=ICMPV6_TYPE_ECHO_REPLY)
+            southbound_pkt = testutils.simple_icmpv6_packet(
+                eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr,
+                ipv6_dst=rand_bmc.ipv6_addr, icmp_type=ICMPV6_TYPE_ECHO_REQUEST)
             # Since we have isolation rule for BMC, the ICMPv6 ECHO packets should be dropped
-            send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="drop", pkt=northbound_pkt)
-            send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc], expect_behavior="drop", pkt=southbound_pkt)
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports,
+                                       expect_behavior="drop", pkt=northbound_pkt)
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc],
+                                       expect_behavior="drop", pkt=southbound_pkt)
 
 
 class TestBmcOtwAclRules(BmcOtwAclRulesBase):

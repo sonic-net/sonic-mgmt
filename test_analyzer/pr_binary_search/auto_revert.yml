@@ -1,0 +1,63 @@
+# Pipeline: Auto-Revert Bad Commits
+# Reads PRBinarySearchResult from Kusto, finds entries with RootCauseType == "bad_commit",
+# and creates revert PRs in sonic-net/sonic-buildimage via the GitHub API.
+# Skips if a revert PR already exists.  Each bad commit is processed independently.
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+trigger: none
+pr: none
+
+parameters:
+  - name: LOOKBACK_HOURS
+    type: number
+    default: 48
+    displayName: "How far back to look in PRBinarySearchResult (hours)"
+  - name: SOURCE_REPO
+    type: string
+    default: "sonic-net/sonic-buildimage"
+    displayName: "Only process results from this repo"
+  - name: ALLOWED_REPOS
+    type: string
+    default: "sonic-net/sonic-buildimage"
+    displayName: "Comma-separated list of repos eligible for auto-revert"
+  - name: DRY_RUN
+    type: boolean
+    default: true
+    displayName: "Dry run — log what would be done without creating PRs"
+
+stages:
+  - stage: AutoRevert
+    jobs:
+      - job: AutoRevert
+        pool: sonic-ubuntu-1c
+        timeoutInMinutes: 60
+        variables:
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+        steps:
+          - template: ../../.azure-pipelines/templates/install-azure-cli.yml
+
+          - task: AzureCLI@2
+            retryCountOnTaskFailure: 2
+            displayName: Create revert PRs for bad commits
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+                set -x
+                cd test_analyzer
+                pip install -r requirements.txt
+                cd pr_binary_search
+                python revert_handler.py \
+                  --lookback_hours ${{ parameters.LOOKBACK_HOURS }} \
+                  --source_repo "${{ parameters.SOURCE_REPO }}" \
+                  --allowed_repos "${{ parameters.ALLOWED_REPOS }}" \
+                  --dry_run ${{ parameters.DRY_RUN }}
+            env:
+              KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              KUSTO_CLUSTER_URL: $(TEST_REPORT_KUSTO_CLUSTER_BACKUP)
+              GIT_API_TOKEN: $(GIT_API_TOKEN)
