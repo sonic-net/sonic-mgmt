@@ -676,7 +676,7 @@ bgp/test_traffic_shift_sup.py:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
-      - "'t2_single_node' in topo_name
+      - "'t2_single_node' in topo_name"
 
 bmp/:
   skip:
