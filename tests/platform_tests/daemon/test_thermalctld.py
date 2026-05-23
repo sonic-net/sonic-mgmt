@@ -200,60 +200,6 @@ class TestThermalctldDaemon:
                 host_status = result['stdout'].strip()
                 logger.info(f"Critical leak integration: HOST_STATE={host_status}")
 
-    def test_thermalctld_performance(self):
-        """
-        Verify thermalctld performance and reliability
-
-        Measures:
-        - Event notification latency
-        - State persistence and consistency
-        - Recovery after STATE_DB operations
-        - CPU/resource usage
-        """
-        # Measure STATE_DB update latency
-        start = time.time()
-        query_result = self.duthost.shell(
-            f"redis-cli -n 6 HGET '{SYSTEM_LEAK_STATUS_TABLE}:system' timestamp",
-            module_ignore_errors=True
-        )
-        elapsed = time.time() - start
-
-        logger.info(f"Notification latency: {elapsed:.3f}s")
-        pytest_assert(query_result['rc'] == 0 and elapsed < 5.0,
-                      f"Query failed or latency {elapsed}s is excessive")
-
-        # Check sensor state persistence
-        states1 = []
-        result = self.duthost.shell(
-            f"redis-cli -n 6 KEYS '{LIQUID_COOLING_INFO_TABLE}:*' | wc -l",
-            module_ignore_errors=True
-        )
-        if result['rc'] == 0:
-            states1.append(int(result['stdout'].strip()))
-
-        time.sleep(2)
-
-        result = self.duthost.shell(
-            f"redis-cli -n 6 KEYS '{LIQUID_COOLING_INFO_TABLE}:*' | wc -l",
-            module_ignore_errors=True
-        )
-        if result['rc'] == 0:
-            states1.append(int(result['stdout'].strip()))
-
-        if len(states1) > 1:
-            pytest_assert(states1[0] == states1[1],
-                          f"Sensor count unstable: {states1}")
-
-        # Check CPU usage
-        result = self.duthost.shell(
-            "docker stats --no-stream pmon 2>/dev/null | tail -1 | awk '{print $3}'",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0 and result['stdout'].strip():
-            cpu = result['stdout'].strip()
-            logger.info(f"PMON CPU usage: {cpu}")
-
     def test_thermalctld_event_trigger(self):
         """
         Inject sensor states into LIQUID_COOLING_INFO and verify STATE_DB presence

@@ -218,6 +218,16 @@ def is_liquid_cooled(conn):
     return chassis_api(conn, 'is_liquid_cooled')
 
 
+def is_bmc(conn):
+    """Check if this chassis is a BMC-managed system"""
+    return chassis_api(conn, 'is_bmc')
+
+
+def get_bmc(conn):
+    """Get the BMC object for this chassis (non-None on BMC systems)"""
+    return chassis_api(conn, 'get_bmc')
+
+
 def get_leak_sensor_name(conn, index):
     """Get leak sensor name"""
     return chassis_api(conn, 'get_leak_sensor_name', [index])

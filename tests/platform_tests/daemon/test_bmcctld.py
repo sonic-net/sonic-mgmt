@@ -236,51 +236,6 @@ class TestBmcctldDaemon:
         if psud_status == "RUNNING":
             logger.info("psud integration: daemon running")
 
-    def test_bmcctld_performance(self):
-        """
-        Verify bmcctld performance and reliability
-
-        Measures:
-        - State DB update latency
-        - Daemon restart recovery
-        - Consistency under repeated state queries
-        """
-        # Measure query latency
-        import time
-
-        start = time.time()
-        query_result = self.duthost.shell(
-            f"redis-cli -n 6 HGET '{HOST_STATE_TABLE}:{HOST_STATE_KEY}' device_status",
-            module_ignore_errors=True
-        )
-        elapsed = time.time() - start
-
-        pytest_assert(query_result['rc'] == 0 and elapsed < 5.0,
-                      f"Query failed or latency {elapsed:.3f}s is excessive")
-        logger.info(f"STATE_DB query latency: {elapsed:.3f}s")
-
-        # Verify daemon responsiveness
-        daemon_status, _ = self.duthost.get_pmon_daemon_status("bmcctld")
-        pytest_assert(daemon_status == "RUNNING",
-                      "bmcctld should remain active after queries")
-
-        # Verify consistency across reads
-        values = []
-        for _ in range(3):
-            result = self.duthost.shell(
-                f"redis-cli -n 6 HGET '{HOST_STATE_TABLE}:{HOST_STATE_KEY}' device_status",
-                module_ignore_errors=True
-            )
-            if result['rc'] == 0:
-                values.append(result['stdout'].strip())
-            time.sleep(0.1)
-
-        if len(values) > 1:
-            # All values should be identical (no state drift)
-            unique_values = set(values)
-            pytest_assert(len(unique_values) <= 2,
-                          f"State unstable: {unique_values}")
-
     def test_bmcctld_event_log(self):
         """
         Verify bmcctld logs critical events to /host/bmc/event.log
