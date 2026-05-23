@@ -1,6 +1,6 @@
 - set_fact:
     sonic_vm_storage_location: "{{ home_path }}/sonic-vm"
-    when: sonic_vm_storage_location is not defined
+  when: sonic_vm_storage_location is not defined
 
 - set_fact:
     disable_updategraph: False
@@ -18,14 +18,12 @@
   file: path={{ item }} state=directory mode=0755
   with_items:
     - "{{ sonic_vm_storage_location }}/images"
-  become: yes
   when: not images_folder_stat.stat.exists
 
 - name: Create directory for vm disks
   file: path={{ item }} state=directory mode=0755
   with_items:
     - "{{ sonic_vm_storage_location }}/disks"
-  become: yes
   when: not discs_folder_stat.stat.exists
 
 - set_fact:
