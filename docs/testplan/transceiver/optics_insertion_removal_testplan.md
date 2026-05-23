@@ -22,7 +22,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
 | ports_under_test | List | [] | No | None|  A list under `dut.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
-| oir_method | String | manual | No | dut | The method used for OIR ("manual" or "automated"). |
+| oir_method | String | simulated | No | dut | The method used for OIR ("manual", "simulated" or "automated"). |
 | physical_oir_timeout_min | Int | 30 | No | dut |  The timeout value in minutes to wait for the optics to be inserted/removed. |
 | simultaneous_oir | Bool | False | No | dut |  A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
 | physical_oir_stress_iteration | Int | 5 | No | dut |  The number of iterations to stress test the physical OIR process. |
@@ -138,23 +138,18 @@ The `PhysicalOir` class should look like below:
 class PhysicalOir:
     def __init__(self, duthost, ansible_adhoc, port_attributes_dict):
         # Initiate the class with required attributes
-        pass
 
     def is_available(self) -> bool:
         # Check if physical OIR is supported in the testbed
-        pass
 
     def insert_sfps(self) -> None:
         # Insert SFPs on the ports specified by ports_under_test attribute
-        pass
 
     def remove_sfps(self) -> None:
         # Remove SFPs from the ports specified by ports_under_test attribute
-        pass
 
     def cleanup(self) -> None:
         # Cleanup resources used by the PhysicalOir class
-        pass  
 ```
 
 #### CLI commands
